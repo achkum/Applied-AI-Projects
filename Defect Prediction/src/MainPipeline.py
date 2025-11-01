@@ -1,6 +1,8 @@
 from pathlib import Path
 from DataHandler import DataHandler
 from ModelManager import ModelManager
+from Evaluator import Evaluator
+from Visualizer import Visualizer
 
 class DefectPredictionPipeline:
     """Main pipeline orchestrating the workflow."""
@@ -16,10 +18,20 @@ class DefectPredictionPipeline:
 
         # Call Model manager to initialize Models and train models
         self.model_manager.train_all(X_train,y_train)
-        #Call Visualize the data before feeding to model
+
         #Call Evaluator to evaluate performance
+        evaluator = Evaluator(self.model_manager.models,X_test,y_test)
+        results = evaluator.evaluate()
+        evaluator.plot_roc_curves()
         #Call Visualizer to Visualize again.
-        return None
+        # Visualize feature importances (Random Forest as example)
+        Visualizer.plot_feature_importance(
+            self.model_manager.models["Random Forest"],
+            feature_names=self.data_handler.df.drop(['Defective'], axis=1).columns
+        )
+
+        print("\nPipeline complete.")
+        return results
     
 
 if __name__ == "__main__":
