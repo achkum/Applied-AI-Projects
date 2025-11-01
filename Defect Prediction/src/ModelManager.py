@@ -24,7 +24,7 @@ class ModelManager:
     def predict_all(self,X_test):
         """Checking Predictions for all each"""
         predictions = {}
-        for name,model in self.models.item():
+        for name, model in self.models.items():
             predictions[name] = model.predict(X_test)
         return predictions
     

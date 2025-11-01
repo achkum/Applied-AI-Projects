@@ -37,9 +37,8 @@ class DataHandler:
     def preprocess(self):
         """Clean the data and then split into train and test sets"""
         df =  self.df.dropna()
-        df['Defect'] = df['Defective'].map({'Y': 1,'N': 0}) # Creating new label with values 0 and 1
-        X = df.drop(['Defective','Defect'],axis = 1) # All the columns/Features except Classifier
-        y = df['Defect']  #The Classification we need to predict
+        X = df.drop(['Defective'],axis = 1) # All the columns/Features except Classifier
+        y = df['Defective'].map({'Y': 1,'N': 0})  # Converting Y/N to 1/0 for classification
 
         X_scaled = self.scaler.fit_transform(X)  #Scaling so that the data is normalized
 
