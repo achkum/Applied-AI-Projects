@@ -1,0 +1,11 @@
+__pycache__/
+venv/
+.git/
+*.log
+debug.log
+emails.db
+gmail_token.json
+credentials.json
+config.yaml
+.vscode/
+.idea/

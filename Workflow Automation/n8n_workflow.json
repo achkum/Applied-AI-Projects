@@ -1,0 +1,41 @@
+{
+    "nodes": [
+        {
+            "parameters": {},
+            "name": "Start",
+            "type": "n8n-nodes-base.start",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "http://127.0.0.1:8000/trigger-workflow",
+                "method": "POST",
+                "options": {}
+            },
+            "name": "Trigger Python API",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Start": {
+            "main": [
+                [
+                    {
+                        "node": "Trigger Python API",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

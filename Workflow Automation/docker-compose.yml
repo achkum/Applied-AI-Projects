@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: email-workflow-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./emails.db:/app/emails.db
+      - ./gmail_token.json:/app/gmail_token.json
+      - ./credentials.json:/app/credentials.json
+      - ./config.yaml:/app/config.yaml
+      - ./workflow.log:/app/workflow.log
+    restart: always
