@@ -19,8 +19,4 @@ chroma_db/
 server_log.txt
 
 # Media and temporary artifacts
-architecture.png
 temp_*
-tests/test_doc.txt
-sanctions_v1.txt
- architecture.png.bak
