@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+pyyaml
+python-dotenv
+openai
+anthropic
+qdrant-client
+sentence-transformers
+pypdf
+pytesseract
+opencv-python
+google-generativeai
+chromadb
+python-multipart
