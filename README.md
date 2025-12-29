@@ -19,12 +19,13 @@ My prior experience includes roles at **SEB**, **Deloitte Consulting**, and **In
 ## Technical Skills
 
 **Programming:** Python, Java, SQL  
-**Machine Learning:** Scikit-Learn, TensorFlow, Keras  
-**Data Handling:** Pandas, NumPy, Matplotlib, Seaborn  
-**Automation & CI/CD:** Selenium, Jenkins, API Testing, REST/SOAP  
-**MLOps & Deployment (in progress):** FastAPI, Docker, MLflow  
+**AI & Machine Learning:** Scikit-Learn, XGBoost, TensorFlow, Keras, **Google Gemini (LLM)**  
+**Data & Vector Handling:** Pandas, NumPy, Matplotlib, Seaborn, **ChromaDB (Vector DB)**  
+**Automation & Orchestration:** **n8n**, Selenium, Jenkins, API Testing  
+**API & MLOps:** **FastAPI**, **Docker**, **SQLAlchemy**, MLflow  
+**OCR & Document Processing:** **Tesseract**, **PyPDF**  
 **Version Control:** Git, GitHub  
-**Methodologies:** Agile, Scrum, V-Model, Waterfall  
+**Methodologies:** Agile, Scrum, V-Model, Waterfall
 
 ---
 
@@ -37,8 +38,34 @@ My prior experience includes roles at **SEB**, **Deloitte Consulting**, and **In
 
 ---
 
-## Upcoming Additions
-<TBC>
+## Featured AI Projects
+
+### 1. [ComplianceIntelligence](./ComplianceIntelligence)
+**AI-Powered AML & Sanctions Intelligence System**
+- **Tech Stack**: FastAPI, Google Gemini 2.0, ChromaDB, SQLAlchemy, Tesseract OCR.
+- **Key Features**: 
+    - Automated ingestion and hashing for regulatory documents.
+    - Semantic retrieval (RAG) for goal-oriented compliance queries.
+    - Delta Analysis: Automatically compares document versions to surface risk shifts.
+    - "Mock Mode" for LLM-free development and testing.
+
+### 2. [WorkflowAutomation](./WorkflowAutomation)
+**Intelligent Email Analysis & Routing System**
+- **Tech Stack**: FastAPI, Google Gemini, n8n, Docker, SQLite.
+- **Key Features**: 
+    - Real-time Gmail integration via OAuth 2.0.
+    - LLM-based sentiment analysis, priority scoring, and team routing.
+    - Automated workflow orchestration using self-hosted n8n.
+    - Dockerized for production-ready deployment.
+
+### 3. [Defect Prediction](./Defect%20Prediction)
+**Predictive Quality Engineering for Software Modules**
+- **Tech Stack**: Python, Scikit-Learn, XGBoost, Pandas.
+- **Key Features**:
+    - Machine learning pipeline for identifying defective code modules.
+    - Comparative analysis of Logistic Regression, Random Forest, and XGBoost.
+    - Focus on structural (LOC) and cognitive (Halstead) complexity metrics.
+    - NASA Metrics Data Program (MDP) dataset evaluation.
 
 ---
 
