@@ -1,0 +1,26 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# Project-specific secrets
+.env
+
+# Databases and Local storage
+*.db
+vector_db/
+chroma_db/
+
+# Logs
+*.log
+server_log.txt
+
+# Media and temporary artifacts
+architecture.png
+temp_*
+tests/test_doc.txt
+sanctions_v1.txt
+ architecture.png.bak

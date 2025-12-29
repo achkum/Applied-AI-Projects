@@ -1,0 +1,11 @@
+llm:
+  mock_mode: false
+  provider: 'google'
+  model: 'gemini-2.0-flash'
+  temperature: 0.1
+
+ocr:
+  engine: 'tesseract'
+
+embeddings:
+  model: 'all-MiniLM-L6-v2'
