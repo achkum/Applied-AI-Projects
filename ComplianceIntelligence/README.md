@@ -90,3 +90,10 @@ When enabled, the LLM will return predefined mock responses for compliance analy
 ## Audit & Persistence
 - **Database**: `compliance.db` (SQLite)
 - **Logs**: `workflow.log` (Centralized audit trail)
+
+## Future Scope
+- **Workflow Automation**: Deep integration with enterprise workflow engines (e.g., Airflow, Temporal) for automated document discovery and batch processing.
+- **Real-time Data Streaming**: Implementing **Kafka** to handle high-velocity regulatory updates and streaming analysis pipelines.
+- **Containerization**: **Dockerizing** the entire stack for seamless deployment across hybrid cloud environments.
+- **Advanced OCR**: Integrating specialized models for complex table extraction and hand-written annotations.
+- **Multi-Agent Orchestration**: Moving towards a multi-agent architecture where specialized agents handle different jurisdictions or document types.
