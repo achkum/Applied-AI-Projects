@@ -190,6 +190,14 @@ def print_full_report(results, patient_rows, threshold, class_names, roc_auc, ap
     print(classification_report(y_true, y_pred,
                                 target_names=class_names, digits=4))
 
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
+    sensitivity = tp / (tp + fn) if (tp + fn) else 0.0
+    specificity = tn / (tn + fp) if (tn + fp) else 0.0
+    print(f'Sensitivity (recall, {class_names[1]}): {sensitivity:.4f}  '
+          f'[TP={tp}, FN={fn}]')
+    print(f'Specificity (recall, {class_names[0]}):    {specificity:.4f}  '
+          f'[TN={tn}, FP={fp}]')
+
     print('=' * 86)
     print('PATIENT-LEVEL REPORT')
     print('=' * 86)
