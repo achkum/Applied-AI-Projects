@@ -27,11 +27,6 @@ class Trainer:
         self.optimizer = optimizer
         self.train_loader = train_loader
         self.val_loader = val_loader
-        # Reduce LR when val loss stops improving, so late-stage training
-        # doesn't bounce around the minimum at the original (large) step size.
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='min', factor=0.3, patience=2,
-        )
 
     def _run_epoch(self, loader, train):
         self.model.train() if train else self.model.eval()
@@ -60,6 +55,12 @@ class Trainer:
         patience_counter = 0
         history = {'train_loss': [], 'val_loss': [],
                    'train_acc': [], 'val_acc': []}
+        # Cosine decay from the start avoids the epoch-1-plateau-then-degrade
+        # pattern: the LR is already shrinking while the model is still
+        # learning, instead of waiting for val loss to stagnate before reacting.
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(
+            self.optimizer, T_max=num_epochs,
+        )
 
         for epoch in range(num_epochs):
             train_loss, train_acc = self._run_epoch(self.train_loader, train=True)
@@ -74,7 +75,7 @@ class Trainer:
                   f'train loss {train_loss:.4f} acc {train_acc:.4f} | '
                   f'val loss {val_loss:.4f} acc {val_acc:.4f}')
 
-            self.scheduler.step(val_loss)
+            scheduler.step()
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
@@ -138,7 +139,7 @@ def hyperparameter_search(model_factory, train_loader, val_loader,
         print(f'\n--- Tuning LR = {lr} ---')
         model = model_factory()
         criterion = nn.BCEWithLogitsLoss(pos_weight=pw_tensor)
-        optimizer = optim.Adam(model.parameters(), lr=lr)
+        optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
         trainer = Trainer(model, criterion, optimizer,
                           train_loader, val_loader)
         val_loss, _ = trainer.fit(

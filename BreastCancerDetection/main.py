@@ -33,7 +33,7 @@ def main():
     print(f'seed: {SEED}\n')
 
     # 1. Data
-    dm = HistopathologyDataModule(batch_size=32)
+    dm = HistopathologyDataModule(batch_size=32, seed=SEED)
     dm.describe()
     pos_weight = dm.pos_weight()
     print(f'pos_weight (n_neg / n_pos for train) = {pos_weight:.4f}')
@@ -44,25 +44,27 @@ def main():
         model_factory=ResNet18CancerModel,
         train_loader=dm.train_loader(),
         val_loader=dm.val_loader(),
-        lrs=[0.001, 0.0001, 0.01],
-        epochs=5,
-        patience=3,
+        lrs=[1e-5, 3e-5, 1e-4],
+        epochs=10,
+        patience=5,
         pos_weight=pos_weight,
     )
     plot_tuning_results(tuning_results)
     print(f'\nBest LR = {best_lr}, best val loss = {best_val_loss:.4f}')
 
     # 3. Final training with the best learning rate
-    print(f'\n=== Final training (LR={best_lr}, up to 25 epochs) ===')
+    print(f'\n=== Final training (LR={best_lr}, up to 40 epochs) ===')
     final_model = ResNet18CancerModel()
     criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight]))
-    optimizer = optim.Adam(final_model.parameters(), lr=best_lr)
+    optimizer = optim.AdamW(
+        final_model.parameters(), lr=best_lr, weight_decay=1e-4,
+    )
     trainer = Trainer(
         final_model, criterion, optimizer,
         dm.train_loader(), dm.val_loader(),
     )
     _, history = trainer.fit(
-        num_epochs=25, patience=3,
+        num_epochs=40, patience=6,
         checkpoint_path=f'final_model_{best_lr}.pth',
     )
     plot_training_history(history)
