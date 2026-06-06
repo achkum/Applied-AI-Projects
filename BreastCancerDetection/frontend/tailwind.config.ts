@@ -12,7 +12,7 @@ const config: Config = {
         benign: "#3ad29a",
         malignant: "#f6685e",
         uncertain: "#f3b13e",
-        fg: { DEFAULT: "#e7eef5", muted: "#94a3b2", faint: "#5b6776" },
+        fg: { DEFAULT: "#eef2f7", muted: "#bcc7d4", faint: "#8a98a6" },
       },
       fontFamily: {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],

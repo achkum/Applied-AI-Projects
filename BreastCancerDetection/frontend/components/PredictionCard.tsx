@@ -3,9 +3,9 @@ import { AlertTriangle, CircleHelp, ShieldCheck } from "lucide-react";
 import type { ClassificationResult, TriageTier } from "@/lib/types";
 
 const TIER: Record<TriageTier, { label: string; dot: string; text: string }> = {
-  confident_benign: { label: "Confident · Benign", dot: "bg-benign", text: "text-benign" },
-  uncertain_review: { label: "Uncertain · Review", dot: "bg-uncertain", text: "text-uncertain" },
-  confident_malignant: { label: "Confident · Malignant", dot: "bg-malignant", text: "text-malignant" },
+  confident_benign: { label: "Confident benign", dot: "bg-benign", text: "text-benign" },
+  uncertain_review: { label: "Needs review", dot: "bg-uncertain", text: "text-uncertain" },
+  confident_malignant: { label: "Confident malignant", dot: "bg-malignant", text: "text-malignant" },
 };
 
 export function PredictionCard({ result }: { result: ClassificationResult }) {
@@ -85,8 +85,8 @@ function UncertainBody({ result }: { result: ClassificationResult }) {
       </div>
 
       <p className="mt-4 rounded-lg border border-uncertain/20 bg-uncertain/[0.06] px-4 py-3 text-[0.84rem] leading-relaxed text-fg-muted">
-        The model is not confident either way — P(malignant) ≈ {result.probability_malignant.toFixed(2)},
-        inside its uncertainty band. This case is flagged for{" "}
+        The model is not confident either way. P(malignant) is around{" "}
+        {result.probability_malignant.toFixed(2)}, inside its uncertainty band. This case is flagged for{" "}
         <span className="font-medium text-fg">pathologist review</span>. You can also re-run on another
         field of view or magnification to re-assess.
       </p>
