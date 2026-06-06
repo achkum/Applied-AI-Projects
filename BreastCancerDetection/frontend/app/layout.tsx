@@ -1,34 +1,46 @@
 import type { Metadata } from "next";
+import { IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Serif } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { Disclaimer } from "@/components/Disclaimer";
+import { Header } from "@/components/Header";
 
 import "./globals.css";
 
+const sans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
+});
+const mono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-mono",
+});
+const serif = IBM_Plex_Serif({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-serif",
+});
+
 export const metadata: Metadata = {
-  title: "Breast Cancer Histopathology CDSS",
+  title: "AI Breast Cancer Detector — Histopathology Decision Support",
   description:
-    "AI-assisted decision support for breast histopathology. A research prototype, not a diagnostic device.",
+    "AI-assisted breast cancer detection from histopathology slides, with Grad-CAM explainability and an MCP-exposed toolset. A research prototype, not a diagnostic device.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-slate-50 text-slate-800 antialiased">
-        <header className="border-b border-slate-200 bg-white">
-          <div className="mx-auto max-w-5xl px-6 py-4">
-            <a href="/" className="text-lg font-semibold text-blue-900">
-              Histopathology CDSS
-            </a>
-          </div>
-        </header>
-        <main className="mx-auto max-w-5xl px-6 py-8">
-          {/* Disclaimer is visible on every screen (hard constraint). */}
-          <div className="mb-6">
-            <Disclaimer />
-          </div>
-          {children}
-        </main>
+    <html lang="en" className={`${sans.variable} ${mono.variable} ${serif.variable}`}>
+      <body className="min-h-screen">
+        <Header />
+        <main className="mx-auto w-full max-w-[1400px] px-5 pb-16 pt-6 sm:px-8">{children}</main>
+        <footer className="mx-auto w-full max-w-[1400px] px-5 pb-10 sm:px-8">
+          <Disclaimer />
+          <p className="mt-4 text-center font-mono text-[0.68rem] tracking-wide text-fg-faint">
+            ResNet50 · BreaKHis 400X · Grad-CAM · MCP · Gemini 2.5 Flash — built on GCP Cloud Run + Vercel
+          </p>
+        </footer>
       </body>
     </html>
   );
