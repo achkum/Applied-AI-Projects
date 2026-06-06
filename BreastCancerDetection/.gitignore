@@ -1,0 +1,6 @@
+# Model artifacts staged from Colab (weights are large; fixtures are licensed BreaKHis data).
+# Upload these to GCS for deployment; only the 4 demo slides live in frontend/public/examples/.
+deploy/
+
+# Notebook checkpoints
+.ipynb_checkpoints/
