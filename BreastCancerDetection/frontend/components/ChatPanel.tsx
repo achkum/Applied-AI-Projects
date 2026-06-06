@@ -34,7 +34,7 @@ export function ChatPanel({ imageBase64 }: { imageBase64: string | null }) {
       let assistant = "";
       for await (const event of streamChat(message, history, imageBase64, sessionId.current)) {
         if (event.type === "tool") {
-          setStatus(`Consulting ${event.name}…`);
+          setStatus(`Consulting ${event.name}`);
         } else if (event.type === "token") {
           setStatus(null);
           assistant += event.text;
@@ -68,8 +68,8 @@ export function ChatPanel({ imageBase64 }: { imageBase64: string | null }) {
       <div className="mt-4 space-y-3" aria-live="polite">
         {messages.length === 0 && (
           <p className="text-[0.86rem] text-fg-faint">
-            Ask a follow-up about this slide — e.g. “Why did the model predict this?” or “Which regions
-            are suspicious?”
+            Ask a follow-up about this slide, for example: why did the model predict this, or which
+            regions look suspicious.
           </p>
         )}
         {messages.map((m, i) => (
@@ -103,7 +103,7 @@ export function ChatPanel({ imageBase64 }: { imageBase64: string | null }) {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask a question…"
+          placeholder="Ask a question"
           disabled={streaming}
           className="flex-1 rounded-md border border-white/[0.1] bg-base/60 px-3.5 py-2 text-sm text-fg placeholder:text-fg-faint focus:border-accent/60 focus:outline-none focus:ring-1 focus:ring-accent/30 disabled:opacity-50"
         />

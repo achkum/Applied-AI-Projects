@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Loader2 } from "lucide-react";
+import { Activity, AlertCircle, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 import { ChatPanel } from "@/components/ChatPanel";
@@ -90,21 +90,28 @@ export default function Home() {
         </div>
       </aside>
 
-      <section className="min-w-0">
+      <section className="min-w-0 space-y-5">
+        {error && (
+          <div
+            role="alert"
+            className="animate-fade-in flex items-start gap-3 rounded-xl border border-malignant/30 bg-malignant/[0.1] px-4 py-4"
+          >
+            <AlertCircle size={18} strokeWidth={1.9} className="mt-0.5 shrink-0 text-malignant" />
+            <div>
+              <p className="text-sm font-semibold text-malignant">Could not analyze this image</p>
+              <p className="mt-1 text-[0.86rem] leading-relaxed text-fg-muted">{error}</p>
+            </div>
+          </div>
+        )}
+
         {!prediction && !loading && <IntroPanel />}
 
         {loading && (
           <div className="animate-fade-in flex flex-col items-center rounded-xl border border-white/[0.07] bg-surface p-12 text-center">
             <Loader2 size={28} className="animate-spin text-accent" />
-            <p className="mt-4 font-mono text-sm uppercase tracking-[0.18em] text-accent">Running the model…</p>
+            <p className="mt-4 font-mono text-sm uppercase tracking-[0.18em] text-accent">Running the model</p>
             <p className="mt-2 text-sm text-fg-muted">Classifying the specimen and preparing results.</p>
           </div>
-        )}
-
-        {error && (
-          <p role="alert" className="mb-4 rounded-lg border border-malignant/25 bg-malignant/[0.08] px-4 py-3 text-sm text-malignant">
-            {error}
-          </p>
         )}
 
         {prediction && previewUrl && (

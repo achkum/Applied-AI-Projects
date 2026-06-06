@@ -16,7 +16,7 @@ test("renders class, numeric confidence and tier", () => {
   render(<PredictionCard result={benign} />);
   expect(screen.getByText("Benign")).toBeInTheDocument();
   expect(screen.getByText("82%")).toBeInTheDocument();
-  expect(screen.getByText(/Confident · Benign/)).toBeInTheDocument();
+  expect(screen.getByText(/Confident benign/)).toBeInTheDocument();
 });
 
 test("confidence is exposed to assistive tech as a numeric value", () => {

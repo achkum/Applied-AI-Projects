@@ -9,7 +9,7 @@ export function Header() {
               AI Breast Cancer <span className="text-accent">Detector</span>
             </span>
             <p className="mt-1 hidden font-mono text-[0.64rem] uppercase tracking-[0.16em] text-fg-faint sm:block">
-              Histopathology · decision support
+              Histopathology decision support
             </p>
           </div>
         </div>
@@ -17,7 +17,7 @@ export function Header() {
         <div className="flex items-center gap-2 rounded-full border border-uncertain/25 bg-uncertain/[0.08] px-3 py-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-uncertain" />
           <span className="font-mono text-[0.66rem] uppercase tracking-[0.16em] text-uncertain">
-            Research · not for diagnosis
+            Research use, not for diagnosis
           </span>
         </div>
       </div>
