@@ -12,10 +12,11 @@ on:
     workflows: ["cdss-eval-gate"]
     types: [completed]
     branches: [main]
+  workflow_dispatch: {}
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && vars.GCP_ENABLED == 'true' }}
+    if: ${{ vars.GCP_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
