@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     max_upload_mb: int = 10
 
     gemini_api_key: str | None = None
+    # flash-lite has a more generous free tier than flash; override via GEMINI_MODEL if needed.
+    gemini_model: str = "gemini-2.5-flash-lite"
 
 
 settings = Settings()

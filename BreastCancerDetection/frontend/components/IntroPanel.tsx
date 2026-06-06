@@ -21,7 +21,7 @@ const TIERS: { icon: LucideIcon; text: string; label: string }[] = [
   { icon: AlertTriangle, text: "text-malignant", label: "Malignant" },
 ];
 
-const STACK = ["ResNet50", "PyTorch", "Grad-CAM", "FastAPI", "MCP", "Gemini 2.5 Flash", "Cloud Run", "Vercel"];
+const STACK = ["ResNet50", "PyTorch", "Grad-CAM", "FastAPI", "MCP", "Gemini 2.5 Flash-Lite", "Cloud Run", "Vercel"];
 
 export function IntroPanel() {
   return (
