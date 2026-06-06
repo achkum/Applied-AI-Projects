@@ -2,7 +2,8 @@ export function Header() {
   return (
     <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-base/80 backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between px-5 py-3.5 sm:px-8">
-        <div className="flex items-center gap-3">
+        {/* Plain anchor (not next/link) so it does a full load and resets the single-page state. */}
+        <a href="/" aria-label="Go to home" className="flex items-center gap-3 transition-opacity hover:opacity-80">
           <SpecimenMark />
           <div className="leading-none">
             <span className="text-[0.98rem] font-semibold tracking-tight text-fg">
@@ -12,7 +13,7 @@ export function Header() {
               Histopathology decision support
             </p>
           </div>
-        </div>
+        </a>
 
         <div className="flex items-center gap-2 rounded-full border border-uncertain/25 bg-uncertain/[0.08] px-3 py-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-uncertain" />
