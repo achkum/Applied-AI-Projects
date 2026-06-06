@@ -1,4 +1,4 @@
-# Breast Cancer Histopathology — Clinical Decision Support
+# Breast Cancer Histopathology: Clinical Decision Support
 
 A demo clinical decision support web app for breast cancer histopathology. A pathologist uploads a slide image; the app classifies it as benign or malignant using a ResNet50 model, visualizes which regions drove the prediction (Grad-CAM), and offers a conversational agent for follow-up questions via the Model Context Protocol (MCP).
 
@@ -9,13 +9,14 @@ A demo clinical decision support web app for breast cancer histopathology. A pat
 **https://ai-breastcancer-detector.vercel.app/**
 
 Frontend on Vercel; FastAPI backend on GCP Cloud Run (model weights served from GCS). The backend
-may cold-start on the first request after idle — give it a few seconds.
+may cold-start on the first request after idle, so give it a few seconds. A 2-minute walkthrough
+script is in [docs/demo-script.md](./docs/demo-script.md).
 
 ## Highlights
 
-- **MCP server**: Two tools (`classify_histopath_image`, `generate_gradcam_heatmap`) exposed as an MCP server. Usable by the in-app agent, by Claude Desktop, or by any other MCP-aware agent — one protocol, multiple consumers.
+- **MCP server**: Two tools (`classify_histopath_image`, `generate_gradcam_heatmap`) exposed as an MCP server. Usable by the in-app agent, by Claude Desktop, or by any other MCP-aware agent. One protocol, multiple consumers.
 - **Agent layer**: In-app conversational assistant (Gemini 2.5 Flash) that calls the MCP tools to answer pathologist questions about predictions.
-- **Explainability (XAI)**: Grad-CAM heatmaps show which regions of the slide drove the model's prediction — explainability as a first-class feature in a medical AI prototype.
+- **Explainability (XAI)**: Grad-CAM heatmaps show which regions of the slide drove the model's prediction, making explainability a first-class feature in a medical AI prototype.
 - **Cloud-deployed**: FastAPI backend on GCP Cloud Run, model weights in GCS, container images in Artifact Registry. GitHub Actions CI includes an ML eval gate that catches model regressions before deployment.
 
 ## Architecture
@@ -99,14 +100,14 @@ is still demoable.
 
 The MCP server is exposed at `/mcp/sse` on the backend. Two ways to use it:
 
-**1. Custom Python client** (no Gemini key needed — it calls the tools directly):
+**1. Custom Python client** (no Gemini key needed, it calls the tools directly):
 
 ```bash
 pip install "mcp>=1.2" pillow
 python examples/external_agent_demo.py [path/to/slide.png]   # backend must be running
 ```
 
-**2. Claude Desktop** — add to `claude_desktop_config.json`:
+**2. Claude Desktop**, add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -155,4 +156,4 @@ The classifier was originally trained for course M7016H (Artificial Intelligence
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+MIT. See [LICENSE](./LICENSE).
