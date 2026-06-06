@@ -43,5 +43,5 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --memory 2Gi --cpu 2 \
-            --set-env-vars "MODEL_GCS_URI=${{ vars.MODEL_GCS_URI }},ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}" \
+            --set-env-vars "^@@^MODEL_GCS_URI=${{ vars.MODEL_GCS_URI }}@@ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}" \
             --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest"
