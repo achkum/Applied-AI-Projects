@@ -48,6 +48,6 @@ def assert_histopathology(image: Image.Image) -> None:
     if colored_fraction < COLORED_FRACTION_MIN or he_fraction < HE_FRACTION_MIN:
         raise NotHistopathologyError(
             "The image does not appear to be an H&E breast histopathology slide (its stain-colour "
-            "profile doesn't match). Prediction withheld — please upload a histopathology slide.",
+            "profile does not match). Prediction withheld. Please upload a histopathology slide.",
             round(he_fraction, 3),
         )
