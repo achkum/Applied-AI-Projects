@@ -23,3 +23,19 @@ test("confidence is exposed to assistive tech as a numeric value", () => {
   render(<PredictionCard result={benign} />);
   expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "82");
 });
+
+const uncertain: ClassificationResult = {
+  class: "benign",
+  confidence: 0.53,
+  probability_malignant: 0.47,
+  tier: "uncertain_review",
+  prediction_id: "xyz",
+};
+
+test("uncertain tier renders as a distinct review state, not a benign/malignant call", () => {
+  render(<PredictionCard result={uncertain} />);
+  expect(screen.getByText("Uncertain")).toBeInTheDocument();
+  expect(screen.getByText(/pathologist review/i)).toBeInTheDocument();
+  // No confidence bar — we don't present a class confidence for the uncertain band.
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+});

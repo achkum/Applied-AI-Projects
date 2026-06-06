@@ -1,20 +1,20 @@
-# Lint + unit tests for backend (uv) and frontend (pnpm).
-# Assumes this project is the repository root. In the Applied-AI-Projects monorepo, either move
-# this file to the repo-root .github/workflows/ and prefix working-directory with
-# BreastCancerDetection/, or split the project into its own repo.
-name: lint-test
+# CI for the BreastCancerDetection CDSS (monorepo-root workflow, scoped to that subtree).
+# Runs with no secrets — lint + unit tests for backend (uv) and frontend (pnpm).
+name: cdss-lint-test
 
 on:
   push:
     branches: [main]
+    paths: ["BreastCancerDetection/**"]
   pull_request:
+    paths: ["BreastCancerDetection/**"]
 
 jobs:
   backend:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend
+        working-directory: BreastCancerDetection/backend
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend
+        working-directory: BreastCancerDetection/frontend
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -38,7 +38,7 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: BreastCancerDetection/frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm test

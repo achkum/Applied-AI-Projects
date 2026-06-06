@@ -1,23 +1,26 @@
-# Model eval gate: download the real weights + a labelled fixture set from GCS, run the model,
-# and assert AUC > 0.85. Blocks deploy (deploy.yml runs only after this succeeds on main).
+# Model eval gate: run the real model over a labelled fixture set from GCS and assert AUC > 0.85.
+# Dormant until you opt in by setting repo variable GCP_ENABLED=true (plus the secrets/vars below),
+# so it never shows a red X before GCP is configured.
 #
-# Required configuration:
-#   secrets.GCP_SA_KEY          - JSON key for a service account with read access to the bucket
-#   vars.MODEL_GCS_URI          - gs://<project>-models/resnet50_breakhis_400x.pth
-#   vars.EVAL_FIXTURES_GCS_URI  - gs://<project>-models/fixtures  (contains images + labels.csv)
-name: eval-gate
+#   secrets.GCP_SA_KEY          - service-account JSON with read access to the bucket
+#   vars.MODEL_GCS_URI          - gs://breast-cancer-cdss-models/resnet50_breakhis_400x.pth
+#   vars.EVAL_FIXTURES_GCS_URI  - gs://breast-cancer-cdss-models/fixtures
+name: cdss-eval-gate
 
 on:
   push:
     branches: [main]
+    paths: ["BreastCancerDetection/**"]
   pull_request:
+    paths: ["BreastCancerDetection/**"]
 
 jobs:
   eval:
+    if: ${{ vars.GCP_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend
+        working-directory: BreastCancerDetection/backend
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2

@@ -4,6 +4,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from app.config import settings
 from app.model import inference
+from app.model.input_gate import NotHistopathologyError
 from app.schemas import ClassificationResult
 
 router = APIRouter()
@@ -26,6 +27,8 @@ async def predict_slide(file: UploadFile = File(...)) -> ClassificationResult:
 
     try:
         return await asyncio.to_thread(inference.predict, image_bytes)
+    except NotHistopathologyError as exc:
+        raise HTTPException(status_code=422, detail=exc.reason) from exc
     except HTTPException:
         raise
     except Exception as exc:
