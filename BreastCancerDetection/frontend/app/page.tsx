@@ -1,46 +1,128 @@
-import Link from "next/link";
+"use client";
 
-export default function LandingPage() {
+import { Activity, Loader2 } from "lucide-react";
+import { useState } from "react";
+
+import { ChatPanel } from "@/components/ChatPanel";
+import { HeatmapToggle } from "@/components/HeatmapToggle";
+import { IntroPanel } from "@/components/IntroPanel";
+import { PredictionCard } from "@/components/PredictionCard";
+import { UploadSlide } from "@/components/UploadSlide";
+import { classifySlide, fileToBase64, generateHeatmap } from "@/lib/api";
+import type { ClassificationResult, HeatmapResult } from "@/lib/types";
+
+export default function Home() {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [prediction, setPrediction] = useState<ClassificationResult | null>(null);
+  const [heatmap, setHeatmap] = useState<HeatmapResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [heatmapLoading, setHeatmapLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSelect(file: File) {
+    setError(null);
+    setPrediction(null);
+    setHeatmap(null);
+    setLoading(true);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(URL.createObjectURL(file));
+    setFileName(file.name);
+    try {
+      const [result, b64] = await Promise.all([classifySlide(file), fileToBase64(file)]);
+      setPrediction(result);
+      setImageBase64(b64);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not classify the slide.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRequestHeatmap() {
+    if (!imageBase64) return;
+    setHeatmapLoading(true);
+    try {
+      setHeatmap(await generateHeatmap(imageBase64));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not generate the heatmap.");
+    } finally {
+      setHeatmapLoading(false);
+    }
+  }
+
+  function handleClear() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setFileName(null);
+    setImageBase64(null);
+    setPrediction(null);
+    setHeatmap(null);
+    setError(null);
+  }
+
+  const status = loading ? "Analyzing" : prediction ? "Complete" : previewUrl ? "Ready" : "Idle";
+
   return (
-    <div className="space-y-8">
-      <section className="space-y-4">
-        <h1 className="text-3xl font-bold text-blue-900">
-          AI-assisted breast histopathology decision support
-        </h1>
-        <p className="max-w-2xl text-slate-600">
-          Upload a breast histopathology slide to receive a benign-versus-malignant prediction from a
-          ResNet50 model, a Grad-CAM heatmap of the regions driving that prediction, and a
-          conversational assistant for follow-up questions. Built for qualified pathologists as a
-          second read — never a replacement for clinical judgement.
-        </p>
-        <Link
-          href="/analyze"
-          className="inline-block rounded-md bg-blue-900 px-5 py-2.5 font-medium text-white hover:bg-blue-800"
-        >
-          Analyze a slide
-        </Link>
-      </section>
+    <div className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
+      <aside className="space-y-4 lg:sticky lg:top-[84px] lg:self-start">
+        <UploadSlide
+          onSelect={handleSelect}
+          disabled={loading}
+          previewUrl={previewUrl}
+          fileName={fileName}
+          onClear={handleClear}
+        />
+        <div className="flex items-center justify-between rounded-xl border border-white/[0.07] bg-surface px-5 py-3">
+          <span className="flex items-center gap-2">
+            <Activity size={14} strokeWidth={1.75} className="text-accent" />
+            <span className="label-mono">Pipeline</span>
+          </span>
+          <span className="flex items-center gap-2 font-mono text-[0.72rem] text-fg">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                loading ? "animate-pulse bg-uncertain" : prediction ? "bg-benign" : "bg-fg-faint"
+              }`}
+            />
+            {status}
+          </span>
+        </div>
+      </aside>
 
-      <section className="grid gap-4 sm:grid-cols-3">
-        {[
-          {
-            title: "Prediction",
-            body: "ResNet50 trained on BreaKHis 400X returns class, confidence and a triage tier.",
-          },
-          {
-            title: "Explainability",
-            body: "Grad-CAM highlights the tissue regions that drove the malignancy score.",
-          },
-          {
-            title: "Agent (MCP)",
-            body: "A Gemini assistant answers follow-ups using the same two MCP tools any client can call.",
-          },
-        ].map((card) => (
-          <div key={card.title} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-emerald-700">{card.title}</h2>
-            <p className="mt-2 text-sm text-slate-600">{card.body}</p>
+      <section className="min-w-0">
+        {!prediction && !loading && <IntroPanel />}
+
+        {loading && (
+          <div className="animate-fade-in flex flex-col items-center rounded-xl border border-white/[0.07] bg-surface p-12 text-center">
+            <Loader2 size={28} className="animate-spin text-accent" />
+            <p className="mt-4 font-mono text-sm uppercase tracking-[0.18em] text-accent">Running the model…</p>
+            <p className="mt-2 text-sm text-fg-muted">Classifying the specimen and preparing results.</p>
           </div>
-        ))}
+        )}
+
+        {error && (
+          <p role="alert" className="mb-4 rounded-lg border border-malignant/25 bg-malignant/[0.08] px-4 py-3 text-sm text-malignant">
+            {error}
+          </p>
+        )}
+
+        {prediction && previewUrl && (
+          <div className="space-y-5">
+            <div className="animate-fade-up grid gap-5 md:grid-cols-2">
+              <PredictionCard result={prediction} />
+              <HeatmapToggle
+                originalSrc={previewUrl}
+                heatmap={heatmap}
+                loading={heatmapLoading}
+                onRequestHeatmap={handleRequestHeatmap}
+              />
+            </div>
+            <div className="animate-fade-up">
+              <ChatPanel imageBase64={imageBase64} />
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

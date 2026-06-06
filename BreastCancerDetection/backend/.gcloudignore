@@ -1,0 +1,9 @@
+# Keep the Cloud Build context lean (the Dockerfile only needs pyproject, uv.lock, app/).
+.venv/
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+.ruff_cache/
+tests/
+README.md
