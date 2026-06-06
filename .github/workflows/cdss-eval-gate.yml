@@ -37,7 +37,9 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen
       - name: Download eval fixtures from GCS
-        run: gcloud storage cp -r "${{ vars.EVAL_FIXTURES_GCS_URI }}" "${{ github.workspace }}/eval-fixtures"
+        run: |
+          mkdir -p "${{ github.workspace }}/eval-fixtures"
+          gcloud storage cp -r "${{ vars.EVAL_FIXTURES_GCS_URI }}/*" "${{ github.workspace }}/eval-fixtures/"
       - name: Run eval gate (real model, weights auto-downloaded from GCS)
         env:
           MODEL_GCS_URI: ${{ vars.MODEL_GCS_URI }}
