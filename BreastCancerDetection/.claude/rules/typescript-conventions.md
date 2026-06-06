@@ -58,7 +58,7 @@ frontend/
 
 - All backend calls go through `lib/api.ts`. Do not call `fetch` inline in components.
 - Base URL from `NEXT_PUBLIC_API_URL` env var.
-- For SSE (chat endpoint): use the Vercel AI SDK's streaming hooks. Do not roll your own SSE parser.
+- For SSE (chat endpoint): the backend emits a custom tool-aware event protocol that the Vercel AI SDK hooks don't model, so chat streaming uses a small dedicated reader in `lib/api.ts` (`streamChat`). Keep all SSE parsing centralized there; never scatter parsing across components.
 
 ## Forms and file uploads
 

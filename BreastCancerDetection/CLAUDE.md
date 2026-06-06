@@ -12,10 +12,14 @@ A pathologist (or trained medical professional with biopsy histopath imagery) wh
 
 - End-to-end app: Next.js frontend → FastAPI backend → existing ResNet50 model.
 - MCP server with two tools (`classify_histopath_image`, `generate_gradcam_heatmap`) — reusable by the in-app agent and external clients.
-- In-app conversational agent (Gemini 2.5 Flash via Google AI Studio) that uses the MCP tools to answer pathologist follow-ups.
+- In-app conversational agent (Gemini 2.5 Flash-Lite via Google AI Studio) that uses the MCP tools to answer pathologist follow-ups.
 - Deployed on GCP Cloud Run + GCS + Artifact Registry; frontend on Vercel.
-- GitHub Actions CI with lint, tests, and a model eval gate.
-- Public live demo URL recruiters can click.
+- GitHub Actions CI with lint, tests, a model eval gate, and keyless (Workload Identity Federation) auto-deploy.
+- Public live demo URL recruiters can click: https://ai-breastcancer-detector.vercel.app/
+
+As-built additions beyond the original v1 list:
+- Out-of-distribution input guard: non-H&E images are rejected (HTTP 422) before inference, so the closed-set model never predicts on non-slides.
+- Three-tier triage: predictions render as benign / uncertain (needs review) / malignant around the operating threshold.
 
 ## Non-goals (do NOT add these without explicit user approval)
 
@@ -44,53 +48,61 @@ A pathologist (or trained medical professional with biopsy histopath imagery) wh
 | ML model | ResNet50 (existing BreaKHis 400X weights) |
 | Explainability | `pytorch-grad-cam` |
 | MCP | Anthropic official `mcp` Python SDK, SSE transport |
-| LLM (agent) | Gemini 2.5 Flash via Google AI Studio (free tier) |
+| LLM (agent) | Gemini 2.5 Flash-Lite via Google AI Studio (free tier) |
 | Model storage | Google Cloud Storage |
 | Container registry | Artifact Registry |
 | CI/CD | GitHub Actions |
 
 ## Repo structure
 
+This project lives in the `Applied-AI-Projects` monorepo as `BreastCancerDetection/`.
+
 ```
-breast-cancer-cdss/
-├── frontend/                      # Next.js app
+BreastCancerDetection/
+├── frontend/                      # Next.js 14 app — single page
 │   ├── app/
-│   │   ├── page.tsx               # Landing
-│   │   ├── analyze/page.tsx       # Main analysis view
+│   │   ├── page.tsx               # The whole app (upload + results + chat)
 │   │   └── layout.tsx
 │   ├── components/
+│   │   ├── Header.tsx
 │   │   ├── UploadSlide.tsx
 │   │   ├── PredictionCard.tsx
 │   │   ├── HeatmapToggle.tsx
 │   │   ├── ChatPanel.tsx
+│   │   ├── IntroPanel.tsx
 │   │   └── Disclaimer.tsx
 │   ├── lib/{api.ts, types.ts}
-│   └── public/examples/           # 4 preset demo slides
+│   └── public/examples/           # 4 preset demo slides + labels.json
 ├── backend/                       # FastAPI app
 │   ├── app/
 │   │   ├── main.py                # FastAPI + route registration
+│   │   ├── config.py
 │   │   ├── routes/{predict,gradcam,chat}.py
-│   │   ├── model/{inference,gradcam}.py
+│   │   ├── model/{architecture,inference,gradcam,input_gate}.py
 │   │   ├── mcp_server/{server,tools}.py
 │   │   ├── agent/{loop,prompt}.py
 │   │   └── schemas.py
-│   ├── tests/{fixtures/, test_*.py}
+│   ├── tests/{conftest.py, test_*.py}
 │   ├── Dockerfile
 │   └── pyproject.toml
 ├── examples/external_agent_demo.py
-├── .github/workflows/{lint-test,eval-gate,deploy}.yml
+├── docs/demo-script.md
 ├── CLAUDE.md
 ├── README.md
 └── .claude/{agents/, rules/}
 ```
 
+CI workflows live at the **monorepo repo root** `.github/workflows/` (GitHub only runs them from there),
+scoped to `BreastCancerDetection/**`: `cdss-lint-test.yml`, `cdss-eval-gate.yml`, `cdss-deploy.yml`.
+
 ## API surface
 
 ### REST endpoints
-- `POST /predict` — multipart image upload → `{class, confidence, prediction_id}`.
+- `POST /predict` — multipart image upload → `{class, confidence, probability_malignant, tier, prediction_id}`. Non-histopathology images are rejected with HTTP 422 (input guard).
 - `POST /gradcam` — `{image_base64, overlay_opacity}` → base64 PNG heatmap + attention summary.
-- `POST /chat` — `{session_id, message, history}` → SSE stream of agent response.
+- `POST /chat` — `{session_id, message, history, image_base64}` → SSE stream of agent events.
 - `GET /mcp/sse` — MCP server SSE endpoint for external agents.
+- `GET /health` — liveness.
 
 ### MCP tools
 - `classify_histopath_image(image_base64: str) -> ClassificationResult`
@@ -124,8 +136,8 @@ pnpm lint                            # eslint
 ### Deployment
 
 - Frontend: Vercel auto-deploys on push to `main`.
-- Backend: `.github/workflows/deploy.yml` builds, pushes to Artifact Registry, deploys to Cloud Run.
-- Model weights: live in `gs://<project>-models/resnet50_breakhis_400x.pth`.
+- Backend: repo-root `.github/workflows/cdss-deploy.yml` builds, pushes to Artifact Registry, and deploys to Cloud Run — authenticated via keyless Workload Identity Federation (no stored key). Runs after `cdss-eval-gate` passes on `main`; also runnable via `workflow_dispatch`.
+- Model weights: live in `gs://breast-cancer-cdss-models/resnet50_breakhis_400x.pth` (alongside `model_metadata.json`).
 
 ## Build plan (1 week, vibecoded)
 
@@ -133,7 +145,7 @@ pnpm lint                            # eslint
 - **Day 2 — Explainability + MCP.** Integrate `pytorch-grad-cam`; implement `/gradcam`; stand up the MCP server with both tools; write `examples/external_agent_demo.py`.
 - **Day 3 — Agent layer.** Gemini API client; agent loop in `backend/app/agent/loop.py`; `/chat` SSE endpoint; system prompt.
 - **Day 4 — Frontend foundation.** Bootstrap Next.js + Tailwind; build `UploadSlide` (with 4 preset examples), `PredictionCard`, `HeatmapToggle`; wire to local backend.
-- **Day 5 — Chat UI + polish.** `ChatPanel` with Vercel AI SDK SSE; `Disclaimer` everywhere; visual polish using the medical palette.
+- **Day 5 — Chat UI + polish.** `ChatPanel` streaming via a small SSE client in `lib/api.ts` (the backend emits a tool-aware event protocol, so the Vercel AI SDK hooks don't fit); `Disclaimer` everywhere; visual polish using the medical palette.
 - **Day 6 — Deployment + CI.** GCP project setup, Artifact Registry, Cloud Run, GCS bucket; upload weights; three GitHub Actions workflows; deploy backend; verify Vercel frontend talks to deployed backend.
 - **Day 7 — Docs + recruiter polish.** Polish README; record 2-min Loom walkthrough; final QA pass.
 
@@ -152,7 +164,7 @@ For non-trivial work: developer implements → verifier checks it runs → revie
 - `backend/app/main.py` — FastAPI app + route registration.
 - `backend/app/mcp_server/server.py` — MCP server setup.
 - `backend/app/agent/loop.py` — Gemini agent + MCP tool dispatch.
-- `frontend/app/analyze/page.tsx` — main analysis view.
+- `frontend/app/page.tsx` — the single-page app (upload, results, chat).
 - `examples/external_agent_demo.py` — external MCP client demo.
 
 ## Imports (auto-loaded by Claude Code)
