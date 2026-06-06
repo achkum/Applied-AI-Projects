@@ -59,7 +59,11 @@ async def dispatch_tool(name: str, args: dict, image_base64: str | None) -> dict
     if image_base64 is None:
         return {"error": "No slide has been uploaded yet. Ask the user to upload one."}
     call_args = {**args, "image_base64": image_base64}
-    _content_blocks, structured = await mcp.call_tool(name, call_args)
+    try:
+        _content_blocks, structured = await mcp.call_tool(name, call_args)
+    except Exception as exc:
+        # e.g. the input gate rejected a non-histopathology image — let the model relay it.
+        return {"error": str(exc)}
     # Don't feed the giant base64 PNG back into the LLM context — a summary is enough.
     if "heatmap_base64" in structured:
         structured = {k: v for k, v in structured.items() if k != "heatmap_base64"}

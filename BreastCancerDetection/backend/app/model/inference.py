@@ -11,6 +11,7 @@ from torchvision import transforms
 
 from app.config import settings
 from app.model.architecture import ResNet50CancerModel
+from app.model.input_gate import assert_histopathology
 from app.schemas import ClassificationResult, TriageTier
 
 logger = logging.getLogger(__name__)
@@ -137,6 +138,7 @@ def triage_tier(prob: float, threshold: float, margin: float) -> TriageTier:
 def predict(image_bytes: bytes) -> ClassificationResult:
     """Classify a histopathology slide. Synchronous/CPU-bound — call via asyncio.to_thread."""
     image = load_image(image_bytes)
+    assert_histopathology(image)
     prob = probability_malignant(image)
     is_malignant = prob > ACTIVE_THRESHOLD
     confidence = prob if is_malignant else 1.0 - prob

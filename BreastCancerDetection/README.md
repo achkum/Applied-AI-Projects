@@ -124,7 +124,11 @@ Restart Claude Desktop; the two tools then become available in any conversation.
 ## Deployment configuration
 
 Backend → Cloud Run, frontend → Vercel, weights → GCS, images → Artifact Registry, CI → GitHub
-Actions (`.github/workflows/`: `lint-test`, `eval-gate`, `deploy`).
+Actions. Because this lives in the `Applied-AI-Projects` monorepo, the workflows are at the
+**repo root** `.github/workflows/` (`cdss-lint-test`, `cdss-eval-gate`, `cdss-deploy`), scoped to
+`BreastCancerDetection/**`. `cdss-lint-test` runs with no secrets; `cdss-eval-gate` and
+`cdss-deploy` stay dormant until you set the repo variable `GCP_ENABLED=true` plus the GCP
+secrets/vars below.
 
 **GCS layout** (`gs://<project>-models/`): `resnet50_breakhis_400x.pth`, `model_metadata.json`,
 and a `fixtures/` folder (images + `labels.csv`) for the eval gate.
@@ -134,10 +138,6 @@ and a `fixtures/` folder (images + `labels.csv`) for the eval gate.
 `MODEL_GCS_URI`, `EVAL_FIXTURES_GCS_URI`, `ALLOWED_ORIGINS`.
 **Vercel:** set `NEXT_PUBLIC_API_URL` to the Cloud Run URL; it auto-deploys on push to `main`.
 
-> **Monorepo note.** The workflows assume this project is the repository root. In the
-> `Applied-AI-Projects` monorepo they won't run from `BreastCancerDetection/.github/`; move them to
-> the repo-root `.github/workflows/` (prefixing `working-directory` with `BreastCancerDetection/`)
-> or split this project into its own repo.
 
 ## Roadmap (intentionally out of v1)
 

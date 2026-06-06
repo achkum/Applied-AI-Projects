@@ -5,6 +5,7 @@ import binascii
 from fastapi import APIRouter, HTTPException
 
 from app.model import gradcam
+from app.model.input_gate import NotHistopathologyError
 from app.schemas import GradcamRequest, HeatmapResult
 
 router = APIRouter()
@@ -22,6 +23,8 @@ async def gradcam_heatmap(req: GradcamRequest) -> HeatmapResult:
     opacity = min(max(req.overlay_opacity, 0.0), 1.0)
     try:
         return await asyncio.to_thread(gradcam.generate, image_bytes, opacity)
+    except NotHistopathologyError as exc:
+        raise HTTPException(status_code=422, detail=exc.reason) from exc
     except HTTPException:
         raise
     except Exception as exc:
