@@ -1,4 +1,4 @@
-# Backend — Histopathology CDSS
+# Backend: Histopathology CDSS
 
 FastAPI service: ResNet50 inference, Grad-CAM, an MCP server (two tools), and a Gemini agent.
 
@@ -11,7 +11,7 @@ uv sync
 uv run uvicorn app.main:app --reload   # http://localhost:8000  (docs at /docs)
 ```
 
-Without a `MODEL_PATH`, the service loads an **untrained** ResNet50 and logs a loud warning —
+Without a `MODEL_PATH`, the service loads an **untrained** ResNet50 and logs a loud warning;
 endpoints work but predictions are not meaningful. Point `MODEL_PATH` at the
 `resnet50_breakhis_400x.pth` exported by the notebook (keep `model_metadata.json` next to it so the
 operating threshold and preprocessing constants are picked up).
@@ -35,5 +35,5 @@ docker build -t cdss-backend .
 ```
 
 The eval gate (`tests/test_eval_gate.py`) runs the **real** model over labelled fixtures and asserts
-`AUC > 0.85`. It skips unless trained weights are loaded and `EVAL_FIXTURES_DIR` is set — CI supplies
-both (see `.github/workflows/eval-gate.yml`).
+`AUC > 0.85`. It skips unless trained weights are loaded and `EVAL_FIXTURES_DIR` is set; CI supplies
+both (see the repo-root `.github/workflows/cdss-eval-gate.yml`).
