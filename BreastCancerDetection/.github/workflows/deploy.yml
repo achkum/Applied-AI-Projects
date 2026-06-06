@@ -1,0 +1,50 @@
+# Build the backend image, push to Artifact Registry, and deploy to Cloud Run.
+# Runs only after the eval gate succeeds on main (the eval gate blocks deploy).
+# The frontend deploys separately via Vercel's GitHub integration on push to main.
+#
+# Required configuration:
+#   secrets.GCP_SA_KEY     - service account JSON with Artifact Registry + Cloud Run + GCS access
+#   secrets.GEMINI_API_KEY - Google AI Studio key for the agent
+#   vars.GCP_PROJECT_ID    - GCP project id
+#   vars.GCP_REGION        - e.g. europe-north1
+#   vars.AR_REPOSITORY     - Artifact Registry repo name, e.g. cdss
+#   vars.CLOUD_RUN_SERVICE - Cloud Run service name, e.g. cdss-backend
+#   vars.MODEL_GCS_URI     - gs://<project>-models/resnet50_breakhis_400x.pth
+#   vars.ALLOWED_ORIGINS   - the deployed frontend origin, e.g. https://your-app.vercel.app
+name: deploy
+
+on:
+  workflow_run:
+    workflows: ["eval-gate"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    # Only deploy when the eval gate passed.
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.AR_REPOSITORY }}/backend:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
+      - name: Build and push image
+        run: docker build -t "$IMAGE" backend && docker push "$IMAGE"
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "${{ vars.CLOUD_RUN_SERVICE }}" \
+            --image "$IMAGE" \
+            --region "${{ vars.GCP_REGION }}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --memory 2Gi \
+            --set-env-vars "MODEL_GCS_URI=${{ vars.MODEL_GCS_URI }},ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}" \
+            --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest"
