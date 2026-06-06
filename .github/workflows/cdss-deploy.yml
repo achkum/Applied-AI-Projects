@@ -12,10 +12,11 @@ on:
     workflows: ["cdss-eval-gate"]
     types: [completed]
     branches: [main]
+  workflow_dispatch: {}
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && vars.GCP_ENABLED == 'true' }}
+    if: ${{ vars.GCP_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -43,5 +44,5 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --memory 2Gi --cpu 2 \
-            --set-env-vars "MODEL_GCS_URI=${{ vars.MODEL_GCS_URI }},ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}" \
+            --set-env-vars "^@@^MODEL_GCS_URI=${{ vars.MODEL_GCS_URI }}@@ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}" \
             --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest"
