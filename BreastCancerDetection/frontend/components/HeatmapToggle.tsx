@@ -1,6 +1,6 @@
 "use client";
 
-import { Image as ImageIcon, Layers, ScanSearch } from "lucide-react";
+import { Image as ImageIcon, Layers } from "lucide-react";
 import { useState } from "react";
 
 import type { HeatmapResult } from "@/lib/types";
@@ -25,11 +25,7 @@ export function HeatmapToggle({ originalSrc, heatmap, loading, onRequestHeatmap 
 
   return (
     <div className="rounded-xl border border-white/[0.07] bg-surface p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ScanSearch size={16} strokeWidth={1.75} className="text-accent" />
-          <span className="label-mono">Explainability · Grad-CAM</span>
-        </div>
+      <div className="flex justify-end">
         <div className="flex rounded-md border border-white/[0.08] p-0.5">
           <Segment active={!showHeatmap} onClick={() => select(false)}>
             <ImageIcon size={13} strokeWidth={2} /> Original
@@ -54,7 +50,7 @@ export function HeatmapToggle({ originalSrc, heatmap, loading, onRequestHeatmap 
         {showHeatmap && loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/55 backdrop-blur-sm">
             <span className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
-              Computing attention…
+              Computing attention
             </span>
           </div>
         )}

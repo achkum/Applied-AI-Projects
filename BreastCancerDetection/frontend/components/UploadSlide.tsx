@@ -92,7 +92,7 @@ export function UploadSlide({ onSelect, disabled, previewUrl, fileName, onClear 
           </span>
           <span className="mt-3 text-sm font-medium text-fg">Drop a slide, or browse</span>
           <span className="mt-1 font-mono text-[0.68rem] uppercase tracking-wider text-fg-faint">
-            PNG / JPEG · max 10 MB
+            PNG or JPEG, max 10 MB
           </span>
         </label>
       )}
@@ -117,7 +117,7 @@ export function UploadSlide({ onSelect, disabled, previewUrl, fileName, onClear 
                 type="button"
                 disabled={disabled}
                 onClick={() => pickExample(name)}
-                title={`Example · ${examples[name]}`}
+                title={`Example: ${examples[name]}`}
                 className="group relative overflow-hidden rounded-md border border-white/[0.08] transition-colors hover:border-accent/60 disabled:opacity-50"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -128,14 +128,20 @@ export function UploadSlide({ onSelect, disabled, previewUrl, fileName, onClear 
                 />
                 <span
                   className={`absolute bottom-1 left-1 h-1.5 w-1.5 rounded-full ${
-                    examples[name] === "malignant" ? "bg-malignant" : "bg-benign"
+                    examples[name] === "malignant"
+                      ? "bg-malignant"
+                      : examples[name] === "uncertain"
+                        ? "bg-uncertain"
+                        : "bg-benign"
                   }`}
                 />
               </button>
             ))}
           </div>
           <p className="mt-2 font-mono text-[0.64rem] text-fg-faint">
-            <span className="text-benign">●</span> benign &nbsp; <span className="text-malignant">●</span> malignant
+            <span className="text-benign">●</span> benign &nbsp;
+            <span className="text-uncertain">●</span> uncertain &nbsp;
+            <span className="text-malignant">●</span> malignant
           </p>
         </div>
       )}
