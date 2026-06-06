@@ -15,7 +15,7 @@ script is in [docs/demo-script.md](./docs/demo-script.md).
 ## Highlights
 
 - **MCP server**: Two tools (`classify_histopath_image`, `generate_gradcam_heatmap`) exposed as an MCP server. Usable by the in-app agent, by Claude Desktop, or by any other MCP-aware agent. One protocol, multiple consumers.
-- **Agent layer**: In-app conversational assistant (Gemini 2.5 Flash) that calls the MCP tools to answer pathologist questions about predictions.
+- **Agent layer**: In-app conversational assistant (Gemini 2.5 Flash-Lite) that calls the MCP tools to answer pathologist questions about predictions.
 - **Explainability (XAI)**: Grad-CAM heatmaps show which regions of the slide drove the model's prediction, making explainability a first-class feature in a medical AI prototype.
 - **Cloud-deployed**: FastAPI backend on GCP Cloud Run, model weights in GCS, container images in Artifact Registry. GitHub Actions CI includes an ML eval gate that catches model regressions before deployment.
 
@@ -58,7 +58,7 @@ Key architectural points:
 - **Frontend**: Next.js 14, Tailwind CSS (hosted on Vercel). Chat streaming uses a small SSE client
   in `lib/api.ts` (the backend emits a custom tool-aware event protocol the Vercel AI SDK hooks don't model).
 - **Backend**: FastAPI, PyTorch (ResNet50), `pytorch-grad-cam`, Anthropic `mcp` Python SDK (hosted on GCP Cloud Run).
-- **LLM**: Gemini 2.5 Flash via Google AI Studio (free tier).
+- **LLM**: Gemini 2.5 Flash-Lite via Google AI Studio (free tier).
 - **Infra**: Google Cloud Storage (model weights), Artifact Registry (containers), GitHub Actions (CI/CD).
 
 ## Run locally
@@ -120,9 +120,11 @@ Restart Claude Desktop; the two tools then become available in any conversation.
 Backend → Cloud Run, frontend → Vercel, weights → GCS, images → Artifact Registry, CI → GitHub
 Actions. Because this lives in the `Applied-AI-Projects` monorepo, the workflows are at the
 **repo root** `.github/workflows/` (`cdss-lint-test`, `cdss-eval-gate`, `cdss-deploy`), scoped to
-`BreastCancerDetection/**`. `cdss-lint-test` runs with no secrets; `cdss-eval-gate` and
-`cdss-deploy` stay dormant until you set the repo variable `GCP_ENABLED=true` plus the GCP
-variables below. Auth is keyless via Workload Identity Federation, so no service-account key is stored.
+`BreastCancerDetection/**`. `cdss-lint-test` runs on every push/PR (no secrets). `cdss-eval-gate` and `cdss-deploy` are
+**enabled** (`GCP_ENABLED=true`): on push to `main`, the eval gate runs the real model and, on
+success, `cdss-deploy` builds the image and ships it to Cloud Run. `cdss-deploy` can also be run on
+demand via `workflow_dispatch`. Auth is keyless via Workload Identity Federation, so no
+service-account key is stored.
 
 **GCS layout** (`gs://<project>-models/`): `resnet50_breakhis_400x.pth`, `model_metadata.json`,
 and a `fixtures/` folder (images + `labels.csv`) for the eval gate.
