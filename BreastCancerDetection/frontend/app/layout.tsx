@@ -38,7 +38,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <footer className="mx-auto w-full max-w-[1400px] px-5 pb-10 sm:px-8">
           <Disclaimer />
           <p className="mt-4 text-center font-mono text-[0.68rem] tracking-wide text-fg-faint">
-            ResNet50, BreaKHis 400X, Grad-CAM, MCP, Gemini 2.5 Flash. Built on GCP Cloud Run and Vercel.
+            ResNet50, BreaKHis 400X, Grad-CAM, MCP, Gemini 2.5 Flash-Lite. Built on GCP Cloud Run and Vercel.
           </p>
         </footer>
       </body>

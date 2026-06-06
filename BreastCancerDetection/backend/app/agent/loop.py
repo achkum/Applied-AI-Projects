@@ -13,7 +13,6 @@ from app.schemas import ChatRequest
 
 logger = logging.getLogger(__name__)
 
-MODEL = "gemini-2.5-flash"
 MAX_TOOL_ROUNDS = 5
 # The backend injects the slide; the LLM only chooses the tool (and overlay_opacity).
 INJECTED_ARGS = {"image_base64"}
@@ -82,7 +81,19 @@ def build_contents(req: ChatRequest) -> list[types.Content]:
 
 def generate(contents: list[types.Content], config: types.GenerateContentConfig):
     """Single Gemini call. Isolated so tests can monkeypatch it without hitting the network."""
-    return get_client().models.generate_content(model=MODEL, contents=contents, config=config)
+    return get_client().models.generate_content(
+        model=settings.gemini_model, contents=contents, config=config
+    )
+
+
+def error_message(exc: Exception) -> str:
+    text = str(exc)
+    if "RESOURCE_EXHAUSTED" in text or "429" in text:
+        return (
+            "The assistant is rate-limited on the free Gemini tier. "
+            "Please wait a few seconds and try again."
+        )
+    return "The assistant could not complete the request."
 
 
 def sse(event_type: str, **data) -> str:
@@ -104,9 +115,9 @@ async def run_agent(req: ChatRequest) -> AsyncIterator[str]:
     for _ in range(MAX_TOOL_ROUNDS):
         try:
             response = await asyncio.to_thread(generate, contents, config)
-        except Exception:
+        except Exception as exc:
             logger.exception("Gemini call failed")
-            yield sse("error", message="The assistant could not complete the request.")
+            yield sse("error", message=error_message(exc))
             return
 
         calls = response.function_calls
