@@ -61,13 +61,6 @@ Key architectural points:
 - **LLM**: Gemini 2.5 Flash via Google AI Studio (free tier).
 - **Infra**: Google Cloud Storage (model weights), Artifact Registry (containers), GitHub Actions (CI/CD).
 
-## Design decisions worth knowing
-
-- **No RAG.** Pathology literature retrieval felt forced for the upload-and-classify flow. Replaced with Grad-CAM as the second MCP tool, which is more clinically relevant (explainability is near-standard in medical AI).
-- **No Vertex AI.** Vertex AI Endpoints cost roughly $30-100/mo once trial credits expire. Cloud Run gives the GCP-experience signal while staying on the always-free tier.
-- **No persistence.** Patient data handling requires HIPAA/GDPR-grade compliance. Intentionally out of v1 scope rather than half-built.
-- **Gemini, not Claude or GPT.** Gemini 2.5 Flash has a real free tier via Google AI Studio with no credit card required; the others don't.
-
 ## Run locally
 
 Requires Python 3.11+, Node 20+, Docker, and a Gemini API key (free tier at [aistudio.google.com](https://aistudio.google.com)).
@@ -129,14 +122,15 @@ Actions. Because this lives in the `Applied-AI-Projects` monorepo, the workflows
 **repo root** `.github/workflows/` (`cdss-lint-test`, `cdss-eval-gate`, `cdss-deploy`), scoped to
 `BreastCancerDetection/**`. `cdss-lint-test` runs with no secrets; `cdss-eval-gate` and
 `cdss-deploy` stay dormant until you set the repo variable `GCP_ENABLED=true` plus the GCP
-secrets/vars below.
+variables below. Auth is keyless via Workload Identity Federation, so no service-account key is stored.
 
 **GCS layout** (`gs://<project>-models/`): `resnet50_breakhis_400x.pth`, `model_metadata.json`,
 and a `fixtures/` folder (images + `labels.csv`) for the eval gate.
 
-**GitHub secrets:** `GCP_SA_KEY` (service-account JSON), `GEMINI_API_KEY`.
-**GitHub variables:** `GCP_PROJECT_ID`, `GCP_REGION`, `AR_REPOSITORY`, `CLOUD_RUN_SERVICE`,
-`MODEL_GCS_URI`, `EVAL_FIXTURES_GCS_URI`, `ALLOWED_ORIGINS`.
+**GitHub variables** (Settings > Secrets and variables > Actions > Variables): `GCP_ENABLED=true`,
+`WIF_PROVIDER`, `WIF_SERVICE_ACCOUNT`, `GCP_PROJECT_ID`, `GCP_REGION`, `AR_REPOSITORY`,
+`CLOUD_RUN_SERVICE`, `MODEL_GCS_URI`, `EVAL_FIXTURES_GCS_URI`, `ALLOWED_ORIGINS`. No secrets needed
+(the deployed service reads `GEMINI_API_KEY` from Secret Manager).
 **Vercel:** set `NEXT_PUBLIC_API_URL` to the Cloud Run URL; it auto-deploys on push to `main`.
 
 

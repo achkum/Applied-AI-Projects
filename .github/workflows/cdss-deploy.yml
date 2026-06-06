@@ -2,9 +2,9 @@
 # Dormant until repo variable GCP_ENABLED=true (plus the secrets/vars below) are set.
 # The frontend deploys separately via Vercel's GitHub integration.
 #
-#   secrets.GCP_SA_KEY     - SA JSON with Artifact Registry + Cloud Run + GCS access
-#   secrets.GEMINI_API_KEY - (only if you rotate it; the deployed service reads Secret Manager)
+#   vars.WIF_PROVIDER / WIF_SERVICE_ACCOUNT  - keyless Workload Identity auth (no stored key)
 #   vars.GCP_PROJECT_ID / GCP_REGION / AR_REPOSITORY / CLOUD_RUN_SERVICE / MODEL_GCS_URI / ALLOWED_ORIGINS
+# The deployed service reads GEMINI_API_KEY from Secret Manager, so no GitHub secret is needed.
 name: cdss-deploy
 
 on:
@@ -17,13 +17,17 @@ jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' && vars.GCP_ENABLED == 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     env:
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.AR_REPOSITORY }}/backend:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
