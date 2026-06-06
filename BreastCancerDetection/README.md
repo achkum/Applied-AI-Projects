@@ -6,7 +6,7 @@ A demo clinical decision support web app for breast cancer histopathology. A pat
 
 ## Live demo
 
-**https://applied-ai-projects.vercel.app/**
+**https://ai-breastcancer-detector.vercel.app/**
 
 Frontend on Vercel; FastAPI backend on GCP Cloud Run (model weights served from GCS). The backend
 may cold-start on the first request after idle — give it a few seconds.
