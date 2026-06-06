@@ -1,0 +1,9 @@
+# Model artifacts staged from Colab. The weights (.pth, via Git LFS) and metadata are committed;
+# the licensed BreaKHis fixtures and example copies are not (only the 4 demo slides live in
+# frontend/public/examples/).
+deploy/*
+!deploy/resnet50_breakhis_400x.pth
+!deploy/model_metadata.json
+
+# Notebook checkpoints
+.ipynb_checkpoints/
