@@ -39,6 +39,7 @@ def generate(image_bytes: bytes, overlay_opacity: float = 0.5) -> HeatmapResult:
     """Produce a Grad-CAM overlay PNG (base64) + a textual attention summary.
     Synchronous/CPU-bound — call via asyncio.to_thread."""
     image = inference.load_image(image_bytes)
+    inference.assert_histopathology(image)
     tensor = inference.EVAL_TRANSFORM(image).unsqueeze(0).to(inference.DEVICE)
 
     with GradCAM(model=inference.MODEL, target_layers=TARGET_LAYERS) as cam:

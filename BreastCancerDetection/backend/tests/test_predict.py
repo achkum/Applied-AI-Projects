@@ -35,3 +35,9 @@ def test_predict_rejects_empty_file():
 def test_predict_rejects_corrupt_image():
     resp = client.post("/predict", files={"file": ("slide.png", b"not-a-png", "image/png")})
     assert resp.status_code == 400
+
+
+def test_predict_rejects_non_histopathology(non_histopath_png):
+    resp = client.post("/predict", files={"file": ("photo.png", non_histopath_png, "image/png")})
+    assert resp.status_code == 422
+    assert "histopathology" in resp.json()["detail"].lower()
