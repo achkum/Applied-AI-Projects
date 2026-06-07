@@ -11,9 +11,9 @@ name: cdss-eval-gate
 on:
   push:
     branches: [main]
-    paths: ["BreastCancerDetection/**"]
+    paths: ["BreastCancerDetection/backend/**"]
   pull_request:
-    paths: ["BreastCancerDetection/**"]
+    paths: ["BreastCancerDetection/backend/**"]
 
 jobs:
   eval:

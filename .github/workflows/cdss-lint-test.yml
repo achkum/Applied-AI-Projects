@@ -5,9 +5,9 @@ name: cdss-lint-test
 on:
   push:
     branches: [main]
-    paths: ["BreastCancerDetection/**"]
+    paths: ["BreastCancerDetection/backend/**", "BreastCancerDetection/frontend/**"]
   pull_request:
-    paths: ["BreastCancerDetection/**"]
+    paths: ["BreastCancerDetection/backend/**", "BreastCancerDetection/frontend/**"]
 
 jobs:
   backend:
