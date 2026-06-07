@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@vercel/analytics";
 import { Activity, AlertCircle, Loader2 } from "lucide-react";
 import { useState } from "react";
 
@@ -33,6 +34,7 @@ export default function Home() {
       const [result, b64] = await Promise.all([classifySlide(file), fileToBase64(file)]);
       setPrediction(result);
       setImageBase64(b64);
+      track("prediction_run", { result: result.class, tier: result.tier });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not classify the slide.");
     } finally {

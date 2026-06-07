@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@vercel/analytics";
 import { SendHorizontal, Sparkles } from "lucide-react";
 import { useRef, useState } from "react";
 
@@ -24,6 +25,7 @@ export function ChatPanel({ imageBase64 }: { imageBase64: string | null }) {
     const message = input.trim();
     if (!message || streaming) return;
 
+    track("chat_used");
     setError(null);
     const history = messages;
     setMessages([...history, { role: "user", content: message }, { role: "assistant", content: "" }]);

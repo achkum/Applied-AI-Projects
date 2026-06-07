@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Serif } from "next/font/google";
 import type { ReactNode } from "react";
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             ResNet50, BreaKHis 400X, Grad-CAM, MCP, Gemini 2.5 Flash-Lite. Built on GCP Cloud Run and Vercel.
           </p>
         </footer>
+        <Analytics />
       </body>
     </html>
   );

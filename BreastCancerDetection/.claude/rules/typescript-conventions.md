@@ -82,5 +82,6 @@ frontend/
 
 - No `localStorage` or `sessionStorage` for anything PHI-adjacent.
 - No `dangerouslySetInnerHTML`.
-- No third-party tracking or analytics in v1.
+- Analytics: Vercel Web Analytics only (cookieless, no PII) via `@vercel/analytics`, with a couple of
+  custom events (`prediction_run`, `chat_used`). No other third-party trackers; never send PHI/PII as event data.
 - No custom font loading; system fonts via Tailwind.
