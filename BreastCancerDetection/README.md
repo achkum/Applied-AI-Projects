@@ -135,21 +135,6 @@ and a `fixtures/` folder (images + `labels.csv`) for the eval gate.
 (the deployed service reads `GEMINI_API_KEY` from Secret Manager).
 **Vercel:** set `NEXT_PUBLIC_API_URL` to the Cloud Run URL; it auto-deploys on push to `main`.
 
-
-## Roadmap (intentionally out of v1)
-
-- Patient data persistence layer with proper PHI handling.
-- Multi-user authentication.
-- Vertex AI Endpoint for model serving (revisit when GCP credits are available).
-- MLOps: drift detection, multi-model A/B testing, scheduled retraining.
-- Mobile-responsive design.
-
-## Why this project exists
-
-A portfolio piece demonstrating end-to-end AI engineering on top of a real medical ML model: MCP server authoring, agent orchestration with tool use, explainability, cloud deployment, and CI/CD with model eval gates.
-
-The classifier was originally trained for course M7016H (Artificial Intelligence within the Healthcare System) at Luleå University of Technology, on the BreaKHis breast histopathology dataset (400X magnification).
-
 ## License
 
 MIT. See [LICENSE](./LICENSE).
