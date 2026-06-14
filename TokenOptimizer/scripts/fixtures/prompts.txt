@@ -1,0 +1,10 @@
+Hi there! I was wondering if you could basically help me out with something.
+
+I think that maybe we should, sort of, refactor the authentication module in order to
+improve performance. As I mentioned earlier, the current implementation is quite slow due
+to the fact that it re-reads the config file on every single request.
+
+It is worth noting that, honestly, the caching layer could possibly be added at this point
+in time. Could you please take a look and let me know what you think?
+
+Thanks in advance!

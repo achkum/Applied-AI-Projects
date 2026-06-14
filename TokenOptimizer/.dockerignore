@@ -1,0 +1,15 @@
+.git
+.github
+tests
+extension
+scripts
+docs
+**/__pycache__
+*.pyc
+.venv
+.pytest_cache
+.ruff_cache
+uv.lock
+.token-saver
+*.md
+!README.md
