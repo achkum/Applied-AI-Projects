@@ -1,9 +1,10 @@
 # Token Saver — Local LLM Token-Reduction Engine
 
-A single local application that reduces LLM token usage for any tool, agent, or chat user —
-fully local, lossless-first. One optimization engine, three ways in: a transparent HTTP proxy
-(set one env var, every call is optimized), an MCP server (agents call it explicitly), and a
-browser extension (humans click an Optimize button on any text field).
+A single local application that reduces LLM token usage — fully local, lossless-first. One
+optimization engine, delivered as **three pillars**: an importable **Python library** (developers
+wrap their LLM/agent calls), a **browser extension** (end users optimize prompts and attachments in
+any chat UI), and an **MCP server** (agents call the engine as tools). A transparent proxy and a
+hosted demo are also included as optional extras built on the same engine.
 
 This is a portfolio piece. Every individual technique here is a commodity; the product — and the
 story — is integrating them into one installable thing people actually use. See `README.md` for the
@@ -15,8 +16,9 @@ full architecture, module map, and usage.
    (value-identical / text-lossless / render-equivalent / ast-identical) and honors it. A
    transform that can't prove its guarantee reverts to a no-op. Code fences are never touched.
 2. **Never spend an LLM call to save LLM tokens (fully local).** All compression is on-device
-   (rule regex + a local ONNX classifier). The only outbound traffic is the proxy forwarding to
-   the user's chosen upstream.
+   (a deterministic rule pass + a local importance scorer; an LLMLingua-2 ONNX model is an optional
+   upgrade). No telemetry; the only outbound traffic is the optional proxy forwarding to the
+   provider you chose.
 3. **Integration over instrumentation (one app, one counter).** The product carries exactly one
    metric: a live tokens-saved counter. No dashboards, no telemetry.
 
@@ -29,15 +31,18 @@ full architecture, module map, and usage.
 | **Prompt compression** | opt-in | lossy (controlled) | Local rule pass (filler/hedging/politeness) + LLMLingua-2 ONNX classifier. Never an LLM call. |
 | **Response budgeting** | always on | output-side | Injects `max_tokens` caps, optional brevity directives, compact-schema advice; measures realized output savings from usage data. |
 
-## The three plugs
+## The three pillars (one shared engine)
 
 ```
-   any app/agent  →  PLUG 1: transparent proxy (localhost:8484)   set ANTHROPIC_BASE_URL once
-   (zero code)                                                     → every call optimized
-   Claude Desktop →  PLUG 2: MCP endpoint (same process, stdio)    agents call the tools
-   chat users     →  PLUG 3: browser extension (MV3)               compress button, fully local
-                     one engine — improvements land everywhere
+   developers   →  PILLAR 1: Python library      import token_saver; ts.optimize(...) / ts.wrap(client)
+   chat users   →  PILLAR 2: browser extension    Optimize button + attachment compression, any site
+   agents       →  PILLAR 3: MCP server (stdio)   engine exposed as tools
+
+   optional extras (same engine): transparent proxy (token-saver start) · hosted demo (token-saver web)
 ```
+
+The shared entry point is `optimizer.optimize_payload()` — the library, proxy, MCP, and demo all
+call it, so improvements land everywhere at once.
 
 ## Stack
 

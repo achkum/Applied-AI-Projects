@@ -1,6 +1,7 @@
 // Content script: on ANY site, when the user focuses a substantial text field that has content,
 // float an "Optimize" button next to it. Clicking previews a diff and applies the optimized text.
 
+import { isOptimizableAttachment, normalizeAttachment } from "./attachments";
 import { showOptimizationPanel } from "./panel";
 import { compress } from "./ruleCompressor";
 import {
@@ -109,3 +110,40 @@ window.addEventListener("resize", () => target && positionButton(target));
 chrome.runtime?.onMessage?.addListener((msg) => {
   if (msg?.type === "optimize-selection" && target) runOptimize(target);
 });
+
+// Attachment compression: when a file is selected via a standard file input on any site,
+// losslessly optimize text formats (minify JSON, compact CSV, clean text) and swap in the
+// optimized file before the page reads it. Best-effort — custom/drag-drop uploaders may not be
+// supported; binary formats (PDF/Word) are left untouched (handled by the Python library/MCP).
+async function onFileChange(e: Event): Promise<void> {
+  const input = e.target;
+  if (!(input instanceof HTMLInputElement) || input.type !== "file" || !input.files?.length) return;
+  const marker = input as unknown as { __tsDone?: boolean };
+  if (marker.__tsDone) {
+    marker.__tsDone = false; // our own re-dispatched event — let it pass through
+    return;
+  }
+  const files = Array.from(input.files);
+  if (!files.some((f) => isOptimizableAttachment(f.name)) || typeof DataTransfer === "undefined") {
+    return;
+  }
+  e.stopImmediatePropagation();
+  e.preventDefault();
+
+  const out: File[] = [];
+  for (const f of files) {
+    if (isOptimizableAttachment(f.name)) {
+      const { text, changed } = normalizeAttachment(f.name, await f.text());
+      out.push(changed ? new File([text], f.name, { type: f.type }) : f);
+    } else {
+      out.push(f);
+    }
+  }
+  const dt = new DataTransfer();
+  out.forEach((f) => dt.items.add(f));
+  input.files = dt.files;
+  marker.__tsDone = true;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+document.addEventListener("change", (e) => void onFileChange(e), true);
