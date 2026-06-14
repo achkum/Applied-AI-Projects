@@ -1,0 +1,10 @@
+{
+  "note": "Cross-language parity fixtures for the Anthropic token estimate (o200k_base BPE x 1.15 Claude correction). Counts are the Python values; both languages must match within +/-1 (JS Math.round vs Python round may differ by one).",
+  "vectors": [
+    { "text": "hello world", "anthropic": 2 },
+    { "text": "The quick brown fox jumps over the lazy dog.", "anthropic": 12 },
+    { "text": "a", "anthropic": 1 },
+    { "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do.", "anthropic": 15 },
+    { "text": "one two three four five six seven eight nine ten eleven twelve", "anthropic": 14 }
+  ]
+}

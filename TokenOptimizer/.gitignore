@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+uv.lock
+
+# token-saver runtime
+.token-saver/
+models/
+
+# Node / extension
+node_modules/
+extension/dist/
+extension/token-saver-extension.zip
+
+# OS / editor
+.DS_Store
+Thumbs.db

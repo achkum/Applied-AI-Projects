@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "token-saver"
+version = "0.1.0"
+description = "Local LLM token-reduction engine: attachment normalization, cache optimization, prompt compression, response budgeting — via a transparent proxy, an MCP server, and a browser extension."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Achyuth Kumar Baddela" }]
+dependencies = [
+    "markitdown",
+    "tiktoken",
+    "httpx",
+    "fastapi",
+    "uvicorn",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+compress = ["onnxruntime", "transformers", "huggingface_hub"]
+mcp = ["mcp"]
+# Exact local tokenizers for more providers (graceful BPE-proxy fallback when absent).
+tokenizers = ["mistral-common", "sentencepiece", "tokenizers"]
+
+[project.scripts]
+token-saver = "token_saver.cli:main"
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "ruff", "hypothesis"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/token_saver"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore:builtin type [Ss]wig.*has no __module__:DeprecationWarning",
+]
+
+[tool.ruff]
+src = ["src", "tests"]
+line-length = 100
+extend-exclude = ["scripts/fixtures"]
+
+[tool.ruff.lint]
+extend-select = ["I"]

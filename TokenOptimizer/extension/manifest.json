@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Token Saver — Prompt Optimizer",
+  "version": "0.1.0",
+  "description": "Optimize any prompt before you send it: de-fluff and shrink your text locally, on any site. Nothing leaves your browser.",
+  "permissions": ["storage", "contextMenus"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Token Saver — focus a text box to optimize it",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
