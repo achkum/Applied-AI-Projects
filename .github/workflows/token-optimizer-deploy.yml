@@ -1,0 +1,48 @@
+# Build + deploy the secret-free compression service + engine demo to Cloud Run (keyless WIF).
+# Dormant until repo variable TS_GCP_ENABLED=true (plus the vars below) are set.
+#
+#   vars.WIF_PROVIDER / WIF_SERVICE_ACCOUNT          - keyless auth (no stored key)
+#   vars.GCP_PROJECT_ID / GCP_REGION / TS_AR_REPOSITORY / TS_CLOUD_RUN_SERVICE / TS_ALLOWED_ORIGINS
+#   vars.TS_MODEL_GCS                                - gs://bucket/prefix of the int8 model + tokenizer
+# No application secrets are needed — the service holds no API keys.
+name: token-optimizer-deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "TokenOptimizer/**"
+      - ".github/workflows/token-optimizer-deploy.yml"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    if: ${{ vars.TS_GCP_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.TS_AR_REPOSITORY }}/engine-demo:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
+      - name: Build and push image
+        run: |
+          docker build -t "$IMAGE" TokenOptimizer
+          docker push "$IMAGE"
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "${{ vars.TS_CLOUD_RUN_SERVICE }}" \
+            --image "$IMAGE" \
+            --region "${{ vars.GCP_REGION }}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --memory 2Gi --cpu 2 --timeout 120 \
+            --set-env-vars "^@@^ALLOWED_ORIGINS=${{ vars.TS_ALLOWED_ORIGINS }}@@TS_MODEL_GCS=${{ vars.TS_MODEL_GCS }}"

@@ -1,8 +1,9 @@
 # TypeScript / Browser Extension Conventions
 
-Project: the `token-saver` browser extension (Plug 3) — a Manifest V3 extension that adds a
-"compress" button to claude.ai and chatgpt.com prompt boxes, running the same compression
-rules as the Python engine, fully in-browser.
+Project: the `token-optimizer` browser extension (Pillar 2) — a Manifest V3 extension that adds an
+**Optimize** button to editable text fields on **any site**, plus attachment compression on file
+uploads. Prompt compression has a **Low / High** toggle: Low runs the same rule pass as the Python
+engine, in-browser; High calls the shared Cloud Run compression service (via the background worker).
 
 ## Versions and tooling
 
@@ -30,26 +31,32 @@ extension/
 ├── tsconfig.json
 ├── esbuild.mjs              # build to dist/
 ├── src/
-│   ├── content.ts          # content script: finds prompt box, injects button
-│   ├── sites.ts            # per-site adapters (claude.ai, chatgpt.com, fallback)
-│   ├── ruleCompressor.ts   # port of the Python rule pass; reads shared/compression_rules.json
+│   ├── content.ts          # content script: finds the text field, injects the Optimize button + toggle
+│   ├── sites.ts            # per-site adapters (claude.ai, chatgpt.com, generic fallback)
+│   ├── ruleCompressor.ts   # Low mode: port of the Python rule pass; reads shared/compression_rules.json
+│   ├── service.ts          # High mode: client for the Cloud Run /v1/compress endpoint
+│   ├── settings.ts         # Low/High mode + service endpoint, persisted in chrome.storage.local
+│   ├── background.ts       # service worker: cross-origin fetch to the compression service, context menu
+│   ├── attachments.ts      # lossless compression of attached files before upload
 │   ├── tokens.ts           # gpt-tokenizer + the Anthropic heuristic (ported EXACTLY from Python)
 │   ├── panel.ts            # shadow-DOM diff panel (Apply / Cancel)
 │   ├── diff.ts             # LCS word-level diff (~80 lines, no dependency)
-│   ├── classifier.ts       # lazy transformers.js classifier, runs in a worker
+│   ├── storage.ts          # tokens-saved counter in chrome.storage.local
 │   └── __tests__/          # vitest specs
 └── dist/                   # build output (gitignored)
 ```
 
 ## Manifest V3 rules
 
-- Permissions: `storage`, `contextMenus`, `activeTab` **only**. No `<all_urls>`, no host
-  permissions beyond `https://claude.ai/*` and `https://chatgpt.com/*`.
+- Permissions: `storage`, `contextMenus`, `activeTab`. The Optimize button works on any site, so
+  the content script runs broadly; `host_permissions` includes `https://*.run.app/*` so the
+  background worker can reach the compression service. Keep the permission set as narrow as the
+  feature allows and justify each one in `STORE_LISTING.md`.
 - **No remote code.** Everything ships in the bundle; the manifest must validate as
-  remote-code-free. The transformers.js model is fetched by the library into its own browser
-  cache at runtime on explicit opt-in — that is data, not executable extension code.
-- Content scripts only on the two supported hosts; the floating button survives SPA navigation
-  via a `MutationObserver`.
+  remote-code-free. High mode sends *text* to the compression service and gets text back — that is
+  data over `fetch`, not executable extension code.
+- The floating button survives SPA navigation via a `MutationObserver`. High-mode requests go
+  through the background service worker (not the page) to avoid the host page's CSP.
 
 ## Shared rule spec (the cross-language contract)
 
@@ -80,9 +87,8 @@ by **both** the Python engine (T19) and this extension (T22). When you touch it:
   leak). Inline styles within the shadow root are fine here — this is the one place Tailwind-style
   external CSS doesn't apply.
 - Word-level diff: deletions struck through, token count before → after, **Apply** / **Cancel**.
-- Never block the UI thread. The rule-compressor result shows instantly; the transformers.js
-  classifier (opt-in "Deep compress") runs in a **web worker** and refines the result when ready.
-  WebGPU unavailable → WASM backend automatically.
+- Never block the UI thread. Low mode (the rule pass) shows a result instantly; High mode awaits
+  the compression service through the background worker and falls back to Low if it's unreachable.
 
 ## Code-fence safety (mirrors the Python contract)
 
@@ -100,8 +106,8 @@ the Python implementation's behavior.
 
 ## Don't
 
-- No analytics, no telemetry, no network calls except the opt-in model download. The extension
-  is local-first, same as the engine.
+- No analytics, no telemetry. The only network call is the opt-in High-mode request to the
+  compression service (text in, compressed text out) — nothing else leaves the browser.
 - No `dangerouslySetInnerHTML`-style raw HTML injection from page content into the panel.
 - No storing prompt text anywhere except transiently in memory and the running tokens-saved
   total in `chrome.storage.local` (a number, not the text).

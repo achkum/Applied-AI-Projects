@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-from token_saver.tokens import count_tokens, provider_for
-from token_saver.types import Provider
+from token_optimizer.tokens import count_tokens, provider_for
+from token_optimizer.types import Provider
 
 _VECTORS = json.loads(
     (Path(__file__).resolve().parents[1] / "shared" / "token_test_vectors.json").read_text(
@@ -25,7 +25,7 @@ def test_provider_for():
 
 
 def test_resolves_every_provider():
-    from token_saver.providers import resolve
+    from token_optimizer.providers import resolve
 
     cases = {
         "gpt-4o": "openai",

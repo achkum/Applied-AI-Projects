@@ -4,21 +4,22 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
-dist/
 build/
+dist/
+
+# Tooling caches
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
-uv.lock
+.hypothesis/
 
-# token-saver runtime
-.token-saver/
-models/
+# Models (downloaded/quantized locally; served from GCS in prod)
+.models/
 
-# Node / extension
+# Node / extension build output
 node_modules/
 extension/dist/
-extension/token-saver-extension.zip
+extension/*.zip
 
 # OS / editor
 .DS_Store

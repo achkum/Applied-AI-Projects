@@ -5,8 +5,8 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 
-import token_saver.proxy.server as server
-from token_saver.proxy.server import app_factory
+import token_optimizer.proxy.server as server
+from token_optimizer.proxy.server import app_factory
 
 SSE_CHUNKS = [
     b"event: a\ndata: 1\n\n",

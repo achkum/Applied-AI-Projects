@@ -10,9 +10,9 @@ import json
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from token_saver.compress.rule_compressor import apply_compression_rules
-from token_saver.normalize.code import CodeNormalizer
-from token_saver.normalize.structured import CsvNormalizer, JsonYamlNormalizer
+from token_optimizer.compress.rule_compressor import apply_compression_rules
+from token_optimizer.normalize.code import CodeNormalizer
+from token_optimizer.normalize.structured import CsvNormalizer, JsonYamlNormalizer
 
 # These tests lazy-load real tokenizers (tiktoken) on the first call, which can blow a short
 # per-example deadline; correctness, not latency, is what we're asserting here.

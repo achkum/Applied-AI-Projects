@@ -1,4 +1,4 @@
-# Token Saver — Local LLM Token-Reduction Engine
+# Token Optimizer — Local LLM Token-Reduction Engine
 
 A single local application that reduces LLM token usage — fully local, lossless-first. One
 optimization engine, delivered as **three pillars**: an importable **Python library** (developers
@@ -15,10 +15,11 @@ full architecture, module map, and usage.
 1. **Compress without loss (lossless-first).** Every transformation declares a guarantee
    (value-identical / text-lossless / render-equivalent / ast-identical) and honors it. A
    transform that can't prove its guarantee reverts to a no-op. Code fences are never touched.
-2. **Never spend an LLM call to save LLM tokens (fully local).** All compression is on-device
-   (a deterministic rule pass + a local importance scorer; an LLMLingua-2 ONNX model is an optional
-   upgrade). No telemetry; the only outbound traffic is the optional proxy forwarding to the
-   provider you chose.
+2. **Never spend an LLM call to save LLM tokens.** Compression never invokes a generative model.
+   **Low** mode is a deterministic rule pass that runs on-device (offline, instant). **High** mode
+   calls one shared LLMLingua-2 model (a small ONNX token-classifier, not an LLM) hosted on Cloud
+   Run — the same service for the library, extension, and MCP. No telemetry; the only outbound
+   traffic is the proxy forwarding to your provider and, in High mode, the compression service.
 3. **Integration over instrumentation (one app, one counter).** The product carries exactly one
    metric: a live tokens-saved counter. No dashboards, no telemetry.
 
@@ -28,17 +29,17 @@ full architecture, module map, and usage.
 |---|---|---|---|
 | **Attachment normalization** | always on | lossless | Per-file-type cleanup (minify JSON/YAML, compact CSV→TSV, de-hyphenate PDF text, AST-safe code trim), cross-file dedup, delta-encoding of resent files. |
 | **Cache optimization** | always on | lossless | Reorders payloads for prefix stability, hoists volatile content out of the stable prefix, injects `cache_control` markers. |
-| **Prompt compression** | opt-in | lossy (controlled) | Local rule pass (filler/hedging/politeness) + LLMLingua-2 ONNX classifier. Never an LLM call. |
+| **Prompt compression** | opt-in | lossy (controlled) | Low: local rule pass (filler/hedging/politeness). High: shared LLMLingua-2 ONNX model on Cloud Run. Never a generative LLM call. |
 | **Response budgeting** | always on | output-side | Injects `max_tokens` caps, optional brevity directives, compact-schema advice; measures realized output savings from usage data. |
 
 ## The three pillars (one shared engine)
 
 ```
-   developers   →  PILLAR 1: Python library      import token_saver; ts.optimize(...) / ts.wrap(client)
+   developers   →  PILLAR 1: Python library      import token_optimizer; ts.optimize(...) / ts.wrap(client)
    chat users   →  PILLAR 2: browser extension    Optimize button + attachment compression, any site
    agents       →  PILLAR 3: MCP server (stdio)   engine exposed as tools
 
-   optional extras (same engine): transparent proxy (token-saver start) · hosted demo (token-saver web)
+   optional extras (same engine): transparent proxy (token-optimizer start) · hosted demo (token-optimizer web)
 ```
 
 The shared entry point is `optimizer.optimize_payload()` — the library, proxy, MCP, and demo all
@@ -53,15 +54,15 @@ call it, so improvements land everywhere at once.
 | Providers | `providers/` adapter registry: OpenAI, Anthropic, Google, Mistral, Cohere, DeepSeek, xAI, + generic OpenAI-compatible (Groq/Together/OpenRouter/Ollama/vLLM/local) |
 | Token counting | per-provider tokenizers: tiktoken (OpenAI) & mistral-common (Mistral) exact; HF `tokenizers` for local; honest `o200k×factor` proxy estimates elsewhere (`exact=False`) |
 | Extraction | Microsoft `markitdown` (wrapped, never reimplemented) |
-| Classifier compression | LLMLingua-2 exported to ONNX, `onnxruntime` (optional dep group) |
+| Prompt compression (High) | LLMLingua-2 int8 ONNX served on Cloud Run, `onnxruntime` (`serve` extra), model loaded from GCS at startup |
 | MCP | official `mcp` Python SDK, stdio transport |
-| Extension | TypeScript, Manifest V3, esbuild → dist, vitest; `gpt-tokenizer` + transformers.js |
+| Extension | TypeScript, Manifest V3, esbuild → dist, vitest; `gpt-tokenizer`; High mode calls the Cloud Run service |
 | Lint / test | `ruff`, `pytest` (+ `pytest-asyncio`); `npm test` (vitest) for the extension |
 
 ## Repo structure
 
 This project lives in the `Applied-AI-Projects` monorepo as `TokenOptimizer/`. The Python
-package is named `token-saver` (`src/token_saver/`).
+package is named `token-optimizer` (`src/token_optimizer/`).
 
 ```
 TokenOptimizer/
@@ -69,7 +70,7 @@ TokenOptimizer/
 ├── shared/
 │   ├── compression_rules.json      # rule spec — consumed by Python AND the extension
 │   └── token_test_vectors.json     # cross-language token-count parity fixtures
-├── src/token_saver/
+├── src/token_optimizer/
 │   ├── types.py                    # shared dataclasses/protocols
 │   ├── providers/                  # per-provider adapters: tokenizer, routing, cache policy,
 │   │                               #   usage fields, max-output field (the engine delegates here)
@@ -77,7 +78,8 @@ TokenOptimizer/
 │   ├── ledger.py                   # savings counter
 │   ├── normalize/                  # extract, structured, textclean, code, dedup, delta
 │   ├── cache_optimizer.py          # prefix-cache restructuring (request-time markers)
-│   ├── compress/                   # rule_compressor (safe/lossy tiers), classifier (heuristic + ONNX)
+│   ├── compress/                   # rule_compressor (Low: local rules), llmlingua (model inference,
+│   │                               #   used by the service host), service (High: client to Cloud Run)
 │   ├── response_budget.py          # output-side controls
 │   ├── optimizer.py                # engine orchestrator + optimize_payload (shared by proxy & demo)
 │   ├── proxy/                      # local key-forwarding proxy (Plug 1)
@@ -105,10 +107,14 @@ there), scoped to `TokenOptimizer/**`.
   automatic caching and are credited via measurement. (Gemini's context cache is a separate
   create-cache API, not an inline marker, so it is measured, not injected.)
 
-### Hosted engine demo (Cloud Run) — secret-free
-- `token-saver web` (`webapp.py`): `POST /api/compress|count|optimize`, `GET /` paste-and-see demo,
-  `GET /stats`, `GET /healthz`. Holds **no API key** and never forwards — safe to host publicly.
-  `Dockerfile` + `.github/workflows/token-saver-deploy.yml` (keyless WIF) deploy it.
+### Hosted compression service + demo (Cloud Run) — secret-free
+- `token-optimizer web` (`webapp.py`): **`POST /v1/compress`** is the shared High-mode compression
+  endpoint that the library, extension, and MCP all call; it runs the LLMLingua-2 model when one is
+  loaded and falls back to the rule pass otherwise. Also serves `POST /api/compress|count|optimize`,
+  `GET /` paste-and-see demo, `GET /stats`, `GET /healthz` (reports `model_loaded`). Holds **no API
+  key** and never forwards — safe to host publicly. The model is loaded at startup from `TS_MODEL_DIR`
+  (local) or `TS_MODEL_GCS` (GCS bucket, like the BreastCancer `.pth`). `Dockerfile` +
+  `.github/workflows/token-optimizer-deploy.yml` (keyless WIF) deploy it.
 - Streaming passthrough yields raw upstream bytes as received — no buffering, no re-chunking, no parsing.
 
 ### MCP tools (Plug 2)
@@ -116,7 +122,7 @@ there), scoped to `TokenOptimizer/**`.
 — each delegates to the same engine functions the proxy uses, and records to the shared `Ledger`.
 
 ### CLI
-`token-saver start` (run proxy + savings page), `download-model`, `stats`, `mcp` (stdio MCP server).
+`token-optimizer start` (run proxy + savings page), `download-model`, `stats`, `mcp` (stdio MCP server).
 
 ## Commands
 
@@ -125,7 +131,7 @@ there), scoped to `TokenOptimizer/**`.
 uv sync                                   # install deps
 uv run pytest                             # tests
 uv run ruff check src tests               # lint
-uv run token-saver start --port 8484      # run the proxy + savings page
+uv run token-optimizer start --port 8484      # run the proxy + savings page
 
 # Extension (run from TokenOptimizer/extension/)
 npm install

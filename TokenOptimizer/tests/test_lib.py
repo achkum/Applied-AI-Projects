@@ -3,14 +3,21 @@ import json
 
 import pytest
 
-import token_saver as ts
+import token_optimizer as ts
 
 
 @pytest.fixture(autouse=True)
 def _reset():
     ts.reset_savings()
-    ts.configure(model="gpt-4o", enable_compression=False, inject_brevity=False, max_output_tokens=None)
+    ts.configure(
+        model="gpt-4o",
+        enable_compression=False,
+        inject_brevity=False,
+        max_output_tokens=None,
+        compress_url=None,
+    )
     yield
+    ts.configure(compress_url=None, enable_compression=False)
 
 
 def doc_payload(model="gpt-4o"):
@@ -162,3 +169,43 @@ def test_savings_accumulate_and_reset():
     assert ts.savings()["calls"] == 1
     ts.reset_savings()
     assert ts.savings()["tokens_saved"] == 0
+
+
+def test_optimize_routes_compression_through_the_service():
+    # Start the real compression service (rules mode, no model) and confirm the library calls it
+    # over HTTP — proven by the SERVER's ledger recording the compression round-trip.
+    import socket
+    import threading
+    import time
+
+    import uvicorn
+
+    from token_optimizer import webapp
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    app = webapp.app_factory()
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and not server.started:
+            time.sleep(0.05)
+        assert server.started
+        ts.configure(compress_url=f"http://127.0.0.1:{port}", enable_compression=True)
+        ts.optimize(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Hi there! I was wondering if you could basically help me out. Thanks in advance!",
+                }
+            ],
+        )
+        # The compression service handled it (and compressed) — its own ledger recorded the call.
+        assert app.state.ledger.totals()["by_feature"].get("compression", 0) > 0
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)

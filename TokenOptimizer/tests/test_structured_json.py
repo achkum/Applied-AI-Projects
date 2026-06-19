@@ -1,6 +1,6 @@
 import json
 
-from token_saver.normalize.structured import JsonYamlNormalizer
+from token_optimizer.normalize.structured import JsonYamlNormalizer
 
 NORM = JsonYamlNormalizer()
 MODEL = "gpt-4o"

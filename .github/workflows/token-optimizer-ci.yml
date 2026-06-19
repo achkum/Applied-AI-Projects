@@ -1,0 +1,31 @@
+name: token-optimizer CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "TokenOptimizer/**"
+      - ".github/workflows/token-optimizer-ci.yml"
+  pull_request:
+    paths:
+      - "TokenOptimizer/**"
+      - ".github/workflows/token-optimizer-ci.yml"
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: TokenOptimizer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Set up Python
+        run: uv python install 3.11
+      - name: Sync dependencies
+        run: uv sync --all-extras
+      - name: Lint
+        run: uv run ruff check src tests
+      - name: Test
+        run: uv run pytest

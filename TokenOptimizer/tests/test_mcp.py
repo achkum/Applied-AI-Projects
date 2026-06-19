@@ -5,7 +5,7 @@ import pytest
 
 pytest.importorskip("mcp", reason="MCP server requires the optional `mcp` dependency")
 
-from token_saver.mcp_server import mcp  # noqa: E402
+from token_optimizer.mcp_server import mcp  # noqa: E402
 
 EXPECTED_TOOLS = {
     "count_tokens",

@@ -1,6 +1,6 @@
 # Python / Engine Conventions
 
-Project: `token-saver` — a local optimization engine (attachment normalization, cache
+Project: `token-optimizer` — a local optimization engine (attachment normalization, cache
 optimization, prompt compression, response budgeting) exposed through a transparent
 HTTP proxy, an MCP server, and consumed by a browser extension.
 
@@ -24,13 +24,14 @@ HTTP proxy, an MCP server, and consumed by a browser extension.
 ## File organization
 
 ```
-src/token_saver/
+src/token_optimizer/
 ├── types.py             # shared dataclasses/protocols — the single source of vocabulary
 ├── tokens.py            # token counting (tiktoken for OpenAI, heuristic for Anthropic)
 ├── ledger.py            # thread-safe savings counter
 ├── normalize/           # attachment normalization (extract, structured, textclean, code, dedup, delta)
 ├── cache_optimizer.py   # prefix-cache restructuring
-├── compress/            # local prompt compression (rule_compressor, classifier)
+├── compress/            # prompt compression: rule_compressor (Low: local rules), llmlingua
+│                         #   (model inference for the service host), service (High: Cloud Run client)
 ├── response_budget.py   # output-side controls
 ├── optimizer.py         # engine orchestrator — glues the features behind one call
 ├── proxy/               # transparent FastAPI proxy + stats page
@@ -53,7 +54,7 @@ Every transformation declares a `guarantee` and must honor it:
 
 Hard rules, no exceptions:
 - **Never touch content inside code fences or inline backticks.** Split on fences first, process prose segments only, rejoin. This rule is duplicated across textclean, dedup, and both compressors — keep the splitting logic consistent.
-- **Never spend an LLM call to save LLM tokens.** All compression is local (rule regex + ONNX classifier). No network calls from the engine except the proxy's upstream forward.
+- **Never spend a generative LLM call to save LLM tokens.** Low-mode compression is a local rule pass; High-mode calls the shared LLMLingua-2 ONNX model (a small token-classifier, not an LLM) on Cloud Run. The engine's only outbound traffic is the proxy's upstream forward and the High-mode compression-service call.
 - A transformation that cannot prove its guarantee (parse failure, AST mismatch) **reverts that unit and passes the original through unchanged.** Never corrupt; degrade to a no-op.
 
 ## Async/sync boundaries

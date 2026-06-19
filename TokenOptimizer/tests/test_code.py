@@ -1,6 +1,6 @@
 import ast
 
-from token_saver.normalize.code import CodeNormalizer
+from token_optimizer.normalize.code import CodeNormalizer
 
 NORM = CodeNormalizer()
 MODEL = "gpt-4o"

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dist = resolve(here, "dist");
-const out = resolve(here, "token-saver-extension.zip");
+const out = resolve(here, "token-optimizer-extension.zip");
 
 // Ensure a fresh build first.
 execFileSync(process.execPath, [resolve(here, "esbuild.mjs")], { stdio: "inherit" });

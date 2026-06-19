@@ -1,5 +1,5 @@
 // Token counting in the browser. Exact for OpenAI via gpt-tokenizer (o200k_base); the Anthropic
-// heuristic is ported EXACTLY from the Python engine (src/token_saver/tokens.py, T03).
+// heuristic is ported EXACTLY from the Python engine (src/token_optimizer/tokens.py, T03).
 
 import { encode } from "gpt-tokenizer/encoding/o200k_base";
 
@@ -13,7 +13,7 @@ export function providerFor(model: string): Provider {
 }
 
 // Claude publishes no local tokenizer; estimate with the real o200k_base BPE scaled by an
-// empirical correction (matches src/token_saver/providers/tokenizers.py exactly).
+// empirical correction (matches src/token_optimizer/providers/tokenizers.py exactly).
 const CLAUDE_FACTOR = 1.15;
 
 export function anthropicHeuristic(text: string): number {

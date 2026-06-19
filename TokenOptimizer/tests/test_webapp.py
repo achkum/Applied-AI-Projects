@@ -4,7 +4,7 @@ import json
 import httpx
 import pytest
 
-from token_saver.webapp import DEMO_MODELS, app_factory
+from token_optimizer.webapp import DEMO_MODELS, app_factory
 
 
 @pytest.fixture
@@ -15,7 +15,31 @@ def client():
 
 async def test_healthz(client):
     c, _ = client
-    assert (await c.get("/healthz")).json() == {"status": "ok"}
+    body = (await c.get("/healthz")).json()
+    assert body["status"] == "ok"
+    assert body["model_loaded"] is False  # no TS_MODEL_DIR in tests
+
+
+async def test_v1_compress_falls_back_to_rules_without_model(client):
+    c, app = client
+    assert app.state.compressor is None
+    text = "Hi there! I was wondering if you could basically help me out. Thanks in advance!"
+    r = (await c.post("/v1/compress", json={"text": text})).json()
+    assert r["mode"] == "rules"
+    assert r["tokens_after"] <= r["tokens_before"]
+
+
+async def test_v1_compress_uses_model_when_loaded(client):
+    c, app = client
+
+    class FakeCompressor:
+        def compress(self, text, rate=0.6):
+            return {"text": "compressed result", "words_before": 9, "words_after": 2}
+
+    app.state.compressor = FakeCompressor()
+    r = (await c.post("/v1/compress", json={"text": "a b c d e f g h i", "rate": 0.5})).json()
+    assert r["mode"] == "model"
+    assert r["text"] == "compressed result"
 
 
 async def test_index_lists_models(client):
@@ -82,7 +106,7 @@ async def test_no_secrets_no_forwarding(client):
 
 
 def test_web_entrypoint_boots_and_serves():
-    # The exact entrypoint the Cloud Run container runs (`token-saver web`) must bind and serve.
+    # The exact entrypoint the Cloud Run container runs (`token-optimizer web`) must bind and serve.
     import socket
     import threading
     import time
