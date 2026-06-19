@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 
-from token_saver.ledger import Ledger
-from token_saver.types import Change, OptimizationResult
+from token_optimizer.ledger import Ledger
+from token_optimizer.types import Change, OptimizationResult
 
 
 def make_result(feature="normalization", before=100, after=70):

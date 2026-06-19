@@ -8,7 +8,7 @@ Web Store ($5 one-time developer fee). Edge is the cheapest path.
 ```bash
 cd extension
 npm install
-npm run package        # → extension/token-saver-extension.zip
+npm run package        # → extension/token-optimizer-extension.zip
 ```
 
 `npm run package` runs a clean build and zips `dist/` (manifest, bundled JS, icons, and the shared
@@ -17,7 +17,7 @@ rule spec) into an uploadable archive.
 ## 2. Microsoft Edge Add-ons (free)
 
 1. Register at https://partner.microsoft.com/dashboard/microsoftedge (free, no fee).
-2. **Create new extension** → upload `token-saver-extension.zip`.
+2. **Create new extension** → upload `token-optimizer-extension.zip`.
 3. Fill the listing from `STORE_LISTING.md`; add at least one screenshot.
 4. Set the privacy policy URL to a hosted copy of `PRIVACY.md`, and declare **no data collected**.
 5. Justify the host permission with the text in `STORE_LISTING.md`.
@@ -26,7 +26,7 @@ rule spec) into an uploadable archive.
 ## 3. Chrome Web Store ($5 one-time)
 
 1. Register at https://chrome.google.com/webstore/devconsole ($5 one-time fee).
-2. **Add new item** → upload the same `token-saver-extension.zip`.
+2. **Add new item** → upload the same `token-optimizer-extension.zip`.
 3. Same listing copy, screenshot, and privacy-policy URL as above.
 4. Choose visibility: **Unlisted** (shareable link, not searchable — ideal for a portfolio) or
    **Public**.

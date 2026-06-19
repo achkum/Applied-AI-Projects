@@ -1,13 +1,13 @@
-# Token Saver — Privacy Policy
+# Token Optimizer — Privacy Policy
 
 _Last updated: 2026-06-14_
 
-Token Saver is a browser extension that optimizes (de-fluffs and shrinks) text you choose to
+Token Optimizer is a browser extension that optimizes (de-fluffs and shrinks) text you choose to
 optimize, **entirely on your own device**.
 
 ## What we collect
 
-**Nothing.** Token Saver does not collect, transmit, store on any server, or sell:
+**Nothing.** Token Optimizer does not collect, transmit, store on any server, or sell:
 
 - the content of your text or prompts,
 - your browsing history or the pages you visit,
@@ -19,7 +19,7 @@ optimize, **entirely on your own device**.
 When you click **Optimize** (or use the right-click menu), the extension reads the text from the
 field you are editing, optimizes it locally using bundled rules, shows you a preview, and — only if
 you click **Apply** — writes the result back into that same field. This all happens inside your
-browser. The text is never sent to Token Saver, to its author, or to any third party.
+browser. The text is never sent to Token Optimizer, to its author, or to any third party.
 
 The extension contains **no remote code** and makes **no network requests**.
 

@@ -13,7 +13,6 @@ await build({
   entryPoints: {
     content: resolve(here, "src/content.ts"),
     background: resolve(here, "src/background.ts"),
-    worker: resolve(here, "src/worker.ts"),
   },
   bundle: true,
   format: "iife",

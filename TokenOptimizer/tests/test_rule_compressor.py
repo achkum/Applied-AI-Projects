@@ -1,4 +1,4 @@
-from token_saver.compress.rule_compressor import (
+from token_optimizer.compress.rule_compressor import (
     DEFAULT_RULES_PATH,
     apply_compression_rules,
     load_rules,

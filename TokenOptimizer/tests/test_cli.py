@@ -6,8 +6,8 @@ import httpx
 import pytest
 import uvicorn
 
-from token_saver.cli import build_parser, config_from_args, main
-from token_saver.proxy.server import app_factory
+from token_optimizer.cli import build_parser, config_from_args, main
+from token_optimizer.proxy.server import app_factory
 
 
 def free_port() -> int:
@@ -27,7 +27,7 @@ def test_help_lists_subcommands(capsys):
 
 def test_no_command_prints_version(capsys):
     assert main([]) == 0
-    assert "token-saver" in capsys.readouterr().out
+    assert "token-optimizer" in capsys.readouterr().out
 
 
 def test_config_from_args():
@@ -43,7 +43,7 @@ def test_config_from_args():
 def test_stats_no_server_fails_friendly(capsys):
     code = main(["stats", "--port", str(free_port())])
     assert code == 1
-    assert "Could not reach token-saver" in capsys.readouterr().err
+    assert "Could not reach token-optimizer" in capsys.readouterr().err
 
 
 def test_start_boots_and_healthz_responds():

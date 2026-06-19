@@ -7,8 +7,8 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from token_saver.proxy.server import app_factory
-from token_saver.types import OptimizerConfig
+from token_optimizer.proxy.server import app_factory
+from token_optimizer.types import OptimizerConfig
 
 
 class RecordingTransport(httpx.AsyncBaseTransport):

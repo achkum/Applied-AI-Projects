@@ -3,33 +3,28 @@
 Paste these into the developer dashboard when submitting.
 
 ## Name
-Token Saver — Prompt Optimizer
+Token Optimizer — Prompt Optimizer
 
 ## Summary (≤132 chars)
-Optimize any prompt before you send it. De-fluff and shrink your text locally — on any site.
-Nothing leaves your browser.
+Shortens the prompts you type into AI chat tools so they use fewer tokens. Runs in your browser.
 
 ## Category
 Productivity
 
 ## Detailed description
-Token Saver helps you write tighter prompts and cut the token cost of every LLM you use.
+Token Optimizer removes filler words from the prompts you type into AI chat tools, so the same
+question costs fewer tokens.
 
-Focus any substantial text box — on ChatGPT, Claude, Gemini, your own app, anywhere — and a small
-**⇣ Optimize** button appears. Click it to:
+When you click into a text box, a small Optimize button shows up next to it. Click it and you'll
+see what would be removed; if it looks right, apply it. When you attach a JSON, CSV, or text file,
+it gets compacted before it's sent.
 
-• remove conversational filler and politeness scaffolding (safe by default),
-• collapse redundant wording,
-• preview a clear before/after diff, and apply with one click.
-
-Everything runs locally in your browser. Your text is never uploaded, logged, or sent anywhere —
-the extension contains no remote code and makes no network requests. Code blocks and quoted text
-are never altered.
-
-A running "tokens saved" counter shows your cumulative savings.
+It runs in your browser. Your text isn't uploaded or logged, and the extension makes no network
+requests. It won't touch code blocks or quoted text, and it keeps a count of the tokens you've
+saved.
 
 ## Single purpose (required)
-Token Saver has one purpose: to optimize text the user is writing into an editable field, locally,
+Token Optimizer has one purpose: to optimize text the user is writing into an editable field, locally,
 to reduce the number of tokens sent to a language model.
 
 ## Permission justifications

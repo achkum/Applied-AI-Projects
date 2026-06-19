@@ -5,7 +5,7 @@ import httpx
 import pytest
 from fastapi import FastAPI, Request, Response
 
-from token_saver.proxy.server import app_factory
+from token_optimizer.proxy.server import app_factory
 
 DOC = {"users": [{"id": i, "name": f"user {i}", "active": True} for i in range(15)]}
 PRETTY = json.dumps(DOC, indent=4)

@@ -1,6 +1,6 @@
 <div align="center">
 
-# Token Saver
+# Token Optimizer
 
 **Cut your LLM token bill without changing how you work.**
 
@@ -23,8 +23,11 @@ endpoint. Runs on your machine.
 | 📦 **Python library** | Developers | `import` it and wrap your existing LLM/agent calls so every request is optimized — any provider, any SDK. |
 | 🔌 **MCP server** | Agents / MCP clients | Exposes the engine as tools (count, normalize, compress, cache-optimize, dedupe). |
 
-All three share one engine. Everything runs locally; nothing is sent anywhere except the LLM call
-you were already making.
+All three share one engine. The lossless work — attachment normalization, cache optimization,
+response budgeting — runs entirely on your machine. Prompt compression has two levels: **Low**
+runs a local rule pass (offline, instant); **High** calls one shared LLMLingua-2 model hosted on
+Cloud Run, so the library, extension, and MCP server all get the same compression from the same
+service. Low is the default; High is opt-in.
 
 ---
 
@@ -34,11 +37,11 @@ Add a single optimization layer on top of the calls you already make. Provider-a
 transforms the request payload, so it doesn't care which SDK you use.
 
 ```bash
-uv add token-saver        # or: pip install token-saver
+uv add token-optimizer        # or: pip install token-optimizer
 ```
 
 ```python
-import token_saver as ts
+import token_optimizer as ts
 
 # (a) functional — optimize a request, send it however you like
 req = ts.optimize(model="gpt-4o", messages=[...])
@@ -59,18 +62,27 @@ print(ts.savings())   # {'tokens_saved': ..., 'by_feature': {...}, 'calls': ...}
 ```
 
 Lossless by default. Opt into lossy prompt compression with `ts.configure(enable_compression=True)`.
+That uses the local rule pass unless you point it at the hosted model with
+`ts.configure(enable_compression=True, compress_url="https://<your-service>.run.app")`, in which
+case it calls the shared Cloud Run model and falls back to the rule pass if the service is
+unreachable.
 
 ## 2. Browser extension
 
 Focus any substantial text box on **any site** and an **⇣ Optimize** button appears — click to
 preview a before/after diff and apply. When you **attach a file**, text formats (JSON/CSV/Markdown)
-are losslessly compressed before they're sent. Everything runs in the browser.
+are losslessly compressed before they're sent — that always runs in the browser.
+
+A **Low / High** toggle controls prompt compression. **Low** runs the local rule pass in the
+browser (offline, instant). **High** sends the text to the shared Cloud Run model for stronger
+compression and falls back to Low if the service is unavailable; set the service URL in the
+extension options.
 
 ```bash
 cd extension
 npm install
 npm run build        # load extension/dist/ unpacked for local dev
-npm run package      # → token-saver-extension.zip for store submission
+npm run package      # → token-optimizer-extension.zip for store submission
 ```
 
 Local dev: `chrome://extensions` (or `edge://extensions`) → **Developer mode** → **Load unpacked**
@@ -86,11 +98,11 @@ Store is a one-time $5). Listing copy and privacy policy:
 ## 3. MCP server
 
 ```bash
-uv run token-saver mcp        # stdio
+uv run token-optimizer mcp        # stdio
 ```
 
 ```json
-{ "mcpServers": { "token-saver": { "command": "uv", "args": ["run", "token-saver", "mcp"] } } }
+{ "mcpServers": { "token-optimizer": { "command": "uv", "args": ["run", "token-optimizer", "mcp"] } } }
 ```
 
 Tools: `count_tokens`, `normalize_attachment`, `optimize_for_cache`, `compress_prompt`,
@@ -104,7 +116,7 @@ Tools: `count_tokens`, `normalize_attachment`, `optimize_for_cache`, `compress_p
 |---|---|---|---|
 | **Attachment normalization** | always on | lossless | Minify JSON/YAML, compact CSV→TSV, clean PDF/Word extraction, AST-safe code trim, cross-file dedup, delta-encode re-sent files. |
 | **Cache optimization** | always on | lossless | Reorder for prefix stability + inject cache markers so you stop busting your prompt cache. |
-| **Prompt compression** | opt-in | safe by default | Remove conversational filler (safe) and, optionally, redundant wording. Code & quotes never touched. |
+| **Prompt compression** | opt-in | safe by default | **Low:** local rule pass removes conversational filler. **High:** shared LLMLingua-2 model on Cloud Run for stronger compression. Code & quotes never touched. |
 | **Response budgeting** | always on | output-side | Provider-correct output cap, optional brevity directive, reasoning-budget clamp. |
 
 Every transformation declares a guarantee and **reverts to a no-op if it can't be met** — a
@@ -139,13 +151,17 @@ Lossless guarantees per transform: `value-identical` (JSON/YAML/CSV), `text-loss
 
 ## Also included (optional)
 
-- **Transparent proxy** (`token-saver start`) — point `ANTHROPIC_BASE_URL`/`OPENAI_BASE_URL` at it
+- **Transparent proxy** (`token-optimizer start`) — point `ANTHROPIC_BASE_URL`/`OPENAI_BASE_URL` at it
   to optimize traffic from tools you can't modify. Routes by model to each provider's upstream and
   shows a live savings dashboard.
-- **Hosted engine demo** (`token-saver web`, `Dockerfile`) — a secret-free, paste-and-see web demo
-  of the engine, deployable to Cloud Run via a keyless GitHub Actions workflow.
+- **Hosted compression service** (`token-optimizer web`, `Dockerfile`) — the Cloud Run app that
+  serves the shared LLMLingua-2 model behind High-mode compression (`POST /v1/compress`) and also
+  hosts a secret-free, paste-and-see demo of the engine. It loads the quantized model from GCS at
+  startup (same pattern as the BreastCancer project's `.pth`) and deploys via a keyless GitHub
+  Actions workflow; if no model is configured it serves the rule pass instead. This is the one
+  service all three pillars call for High-mode compression.
 
-These reuse the same engine; they're extras, not the main interface.
+The proxy reuses the same engine; the hosted service additionally backs High-mode compression.
 
 ## Benchmark
 
@@ -172,11 +188,11 @@ Savings depend on your payloads — file-heavy and agentic (re-sent context) wor
 ## Project layout
 
 ```
-src/token_saver/
+src/token_optimizer/
 ├── lib.py              Importable library: optimize / optimized / wrap / optimize_file / savings
 ├── providers/          Provider adapters: tokenizer, routing, cache policy, usage, schema
 ├── normalize/          Attachment normalization (extract, structured, textclean, code, dedup, delta)
-├── compress/           Prompt compression (rule pass + local classifier)
+├── compress/           Prompt compression (local rule pass + client for the hosted model)
 ├── cache_optimizer.py  Prefix-cache restructuring
 ├── response_budget.py  Output-side controls
 ├── optimizer.py        Engine orchestrator (shared by library, proxy, MCP, demo)

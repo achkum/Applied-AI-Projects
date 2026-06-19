@@ -15,7 +15,7 @@ Both record to the same shared `Ledger`, so the savings counter is consistent ac
 - `count_tokens(text, model) -> {count, exact}` — token count, honest about exactness.
 - `normalize_attachment(filename, content_base64, model) -> {text, tokens_before, tokens_after, changes}` — full single-file normalization path.
 - `optimize_for_cache(payload_json) -> {payload_json, changes}` — prefix-cache restructuring.
-- `compress_prompt(text, target_ratio, model) -> {text, tokens_before, tokens_after}` — rule pass always; classifier pass only if the model is downloaded.
+- `compress_prompt(text, target_ratio, model) -> {text, tokens_before, tokens_after}` — Low: local rule pass; High: shared Cloud Run model when a service URL is configured, falling back to the rule pass.
 - `dedupe_context(named_texts, model) -> {texts, changes}` — cross-document dedup.
 
 ## Implementation
@@ -23,7 +23,7 @@ Both record to the same shared `Ledger`, so the savings counter is consistent ac
 - Use the official `mcp` Python SDK.
 - Transport: **stdio is primary** (works with Claude Desktop config). Mount an SSE endpoint on the
   proxy app only if the SDK makes it trivial; otherwise stdio only and note it in the module docstring.
-- Tools live in `src/token_saver/mcp_server.py`.
+- Tools live in `src/token_optimizer/mcp_server.py`.
 - Tools **delegate to the same engine functions** the proxy uses (`tokens.count_tokens`,
   `optimizer.normalize_attachments`, `cache_optimizer.optimize_for_cache`,
   `compress.*`, `normalize.dedup.dedup_chunks`). Never reimplement engine logic inside a tool.
@@ -35,10 +35,9 @@ unambiguous. Bad: "makes things smaller." Good: "Normalize an attached file (min
 compact CSV, de-hyphenate PDF text) losslessly and report tokens saved; use before sending
 a file to a model."
 
-The classifier-backed `compress_prompt` must degrade gracefully: run the deterministic rule
-pass always, and only run the ONNX classifier if the model is already downloaded. If it is not,
-return the rule-compressed text plus a one-line note on how to fetch the model — never block,
-never auto-download inside a tool call.
+`compress_prompt` must degrade gracefully: when no compression-service URL is configured, return
+the rule-compressed (Low) text. When one is, call the shared service and fall back to the rule pass
+if it's unreachable. Never block and never run a generative model inside a tool call.
 
 ## What NOT to do
 
@@ -50,7 +49,7 @@ never auto-download inside a tool call.
 
 ## External use & Claude Desktop integration
 
-The server must run standalone via `token-saver mcp` (stdio). The README carries a short
+The server must run standalone via `token-optimizer mcp` (stdio). The README carries a short
 `claude_desktop_config.json` snippet showing how to register it. That integration is tested
 manually by the user, not in CI; the stdio round-trip (list tools → call `count_tokens` →
 call `normalize_attachment` with a base64 JSON doc → assert shrinkage) is the automated test.

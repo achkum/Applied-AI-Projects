@@ -6,12 +6,12 @@ No API calls. Usage: ``python scripts/benchmark.py scripts/fixtures``
 import sys
 from pathlib import Path
 
-from token_saver.compress.rule_compressor import apply_compression_rules
-from token_saver.ledger import Ledger
-from token_saver.normalize.delta import DeltaStore
-from token_saver.optimizer import Attachment, normalize_attachments
-from token_saver.tokens import count_tokens
-from token_saver.types import OptimizerConfig
+from token_optimizer.compress.rule_compressor import apply_compression_rules
+from token_optimizer.ledger import Ledger
+from token_optimizer.normalize.delta import DeltaStore
+from token_optimizer.optimizer import Attachment, normalize_attachments
+from token_optimizer.tokens import count_tokens
+from token_optimizer.types import OptimizerConfig
 
 MODEL = "gpt-4o"
 PROMPTS_FILE = "prompts.txt"
