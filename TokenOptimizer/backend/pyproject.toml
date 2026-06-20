@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "token-optimizer"
 version = "0.1.0"
 description = "Local LLM token-reduction engine: attachment normalization, cache optimization, prompt compression, response budgeting — via a transparent proxy, an MCP server, and a browser extension."
-readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Achyuth Kumar Baddela" }]
 dependencies = [
