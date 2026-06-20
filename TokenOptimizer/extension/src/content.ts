@@ -21,7 +21,7 @@ const MIN_CHARS = 40;
 const KEEP_RATE = 0.8; // keep 80% — gentle; drops clear filler without gutting short prompts
 // Extractive compression only helps when there's redundancy to remove. Below this it just damages
 // the prompt for little gain, so we skip it. Tune to taste.
-const MIN_COMPRESS_TOKENS = 250;
+const MIN_COMPRESS_TOKENS = 50;
 
 let button: HTMLButtonElement | null = null;
 let target: HTMLElement | null = null;
