@@ -100,8 +100,12 @@ ts.configure(compress_url="https://<service>.run.app", enable_compression=True)
 
 Focus a substantial text box on any site and an **⇣ Optimize** button appears; click it to preview
 a before/after diff and apply. Attached JSON/CSV/Markdown files are compacted losslessly in the
-browser before they're sent. Prompt compression is sent to the compression service whose URL you set
-in the extension options; if no URL is set, the button says so instead of optimizing.
+browser before they're sent.
+
+Prompt compression calls the shared model service — a default endpoint ships with the extension, so
+it works on install; override it in the options page (opened from the toolbar icon). To avoid
+mangling prompts that have nothing to spare, compression is **skipped for short prompts (under ~50
+tokens)** and otherwise keeps ~80% of words, removing clear filler rather than content.
 
 ```bash
 cd extension
