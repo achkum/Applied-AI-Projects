@@ -10,7 +10,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /srv/backend
 
-COPY backend/pyproject.toml backend/README.md ./
+COPY backend/pyproject.toml ./
 COPY backend/tokenoptim ./tokenoptim
 
 # `serve` extra pulls onnxruntime + transformers + google-cloud-storage for the model service.

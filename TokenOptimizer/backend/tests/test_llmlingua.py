@@ -42,7 +42,7 @@ def test_select_always_keeps_at_least_one():
 @pytest.mark.slow
 def test_real_model_compresses_and_keeps_key_info():
     if not (MODEL_DIR / "model.int8.onnx").exists() and not (MODEL_DIR / "model.onnx").exists():
-        pytest.skip("LLMLingua-2 model not downloaded (run scripts/quantize_model.py)")
+        pytest.skip("LLMLingua-2 model not downloaded (run: token-optimizer download-model)")
     out = LLMLingua2(MODEL_DIR).compress(USER_TEXT, rate=0.6)
     assert out["words_after"] < out["words_before"]  # actually compressed
     for keyword in ("Jonkoping", "Sweden", "September", "2026", "Engineer"):
