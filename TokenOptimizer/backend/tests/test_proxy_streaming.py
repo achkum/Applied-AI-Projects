@@ -1,11 +1,11 @@
 import asyncio
 
-import app.pillars.proxy.server as server
 import httpx
 import pytest
-from app.pillars.proxy.server import app_factory
+import tokenoptim.pillars.proxy.server as server
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
+from tokenoptim.pillars.proxy.server import app_factory
 
 SSE_CHUNKS = [
     b"event: a\ndata: 1\n\n",

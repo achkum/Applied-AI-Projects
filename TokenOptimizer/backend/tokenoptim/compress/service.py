@@ -2,7 +2,7 @@
 
 Every Python caller (library, MCP, proxy) routes prompt compression through this one client, so
 they all get identical results from the same model. The endpoint is configured via
-``TS_COMPRESS_URL`` or ``app.configure(compress_url=...)``. When no endpoint is set or the call
+``TS_COMPRESS_URL`` or ``tokenoptim.configure(compress_url=...)``. When no endpoint is set or the call
 fails, ``compress()`` returns ``None`` and the caller leaves the text unchanged — there is no
 local fallback.
 """

@@ -11,14 +11,14 @@ import logging
 
 from mcp.server.fastmcp import FastMCP
 
-from app.cache.cache_optimizer import optimize_for_cache as _optimize_for_cache
-from app.core.ledger import Ledger
-from app.core.tokens import count_tokens as _count_tokens
-from app.core.tokens import provider_for
-from app.core.types import OptimizationResult, OptimizerConfig
-from app.normalize.dedup import dedup_chunks
-from app.normalize.delta import DeltaStore
-from app.optimizer import Attachment, normalize_attachments
+from tokenoptim.cache.cache_optimizer import optimize_for_cache as _optimize_for_cache
+from tokenoptim.core.ledger import Ledger
+from tokenoptim.core.tokens import count_tokens as _count_tokens
+from tokenoptim.core.tokens import provider_for
+from tokenoptim.core.types import OptimizationResult, OptimizerConfig
+from tokenoptim.normalize.dedup import dedup_chunks
+from tokenoptim.normalize.delta import DeltaStore
+from tokenoptim.optimizer import Attachment, normalize_attachments
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ def compress_prompt(text: str, target_ratio: float, model: str) -> dict:
     via ``TS_COMPRESS_URL`` — the same path the library and extension use, so results are
     consistent. If the service isn't configured or is unreachable, the text is returned unchanged.
     """
-    from app.optimizer import compress_text
+    from tokenoptim.optimizer import compress_text
 
     cfg = OptimizerConfig(
         model=model,

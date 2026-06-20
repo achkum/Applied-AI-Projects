@@ -5,7 +5,7 @@ No persistence here; the proxy adds JSON-lines logging in T17.
 
 import threading
 
-from app.core.types import OptimizationResult
+from tokenoptim.core.types import OptimizationResult
 
 
 class Ledger:

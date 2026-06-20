@@ -4,7 +4,7 @@ Provider-agnostic: it transforms the *request payload* (messages/system/attachme
 budget) before the call, so it works with any SDK whose request looks like OpenAI- or
 Anthropic-shaped chat. Three ways to use it:
 
-    import app as ts
+    import tokenoptim as ts
 
     # 1) functional — optimize a request, then send it however you like
     req = ts.optimize(model="gpt-4o", messages=[...])
@@ -31,15 +31,15 @@ import base64
 import functools
 from dataclasses import replace
 
-from app.core.ledger import Ledger
-from app.core.providers import provider_for
-from app.core.types import OptimizerConfig
-from app.normalize.delta import DeltaStore
-from app.optimizer import (
+from tokenoptim.core.ledger import Ledger
+from tokenoptim.core.providers import provider_for
+from tokenoptim.core.types import OptimizerConfig
+from tokenoptim.normalize.delta import DeltaStore
+from tokenoptim.optimizer import (
     Attachment,
     normalize_attachments,
 )
-from app.optimizer import (
+from tokenoptim.optimizer import (
     optimize_payload as _optimize_payload,
 )
 
@@ -81,7 +81,7 @@ def configure(
         changes["compression_keep_ratio"] = compression_keep_ratio
     _config = replace(_config, **changes)
     if compress_url is not _UNSET:
-        from app.compress import service
+        from tokenoptim.compress import service
 
         service.set_endpoint(compress_url)
 

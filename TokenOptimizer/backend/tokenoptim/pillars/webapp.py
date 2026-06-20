@@ -2,7 +2,7 @@
 
 This is the secret-free half of the system: it normalizes, compresses, counts, and cache-rewrites
 payloads, but it never forwards to a provider, so it holds no credentials and is safe to host
-publicly. (The key-forwarding proxy in ``app.pillars.proxy`` stays local-only.) It also serves the
+publicly. (The key-forwarding proxy in ``tokenoptim.pillars.proxy`` stays local-only.) It also serves the
 shared ``/v1/compress`` endpoint that the library, MCP server, and browser extension call.
 """
 
@@ -15,11 +15,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
-from app.core.ledger import Ledger
-from app.core.tokens import count_tokens, provider_for
-from app.core.types import Change, OptimizationResult, OptimizerConfig
-from app.normalize.delta import DeltaStore
-from app.optimizer import optimize_payload
+from tokenoptim.core.ledger import Ledger
+from tokenoptim.core.tokens import count_tokens, provider_for
+from tokenoptim.core.types import Change, OptimizationResult, OptimizerConfig
+from tokenoptim.normalize.delta import DeltaStore
+from tokenoptim.optimizer import optimize_payload
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def _load_compressor():
     gcs = os.getenv("TS_MODEL_GCS")
     if not model_dir and gcs:
         try:
-            from app.compress.llmlingua import fetch_from_gcs
+            from tokenoptim.compress.llmlingua import fetch_from_gcs
 
             model_dir = str(fetch_from_gcs(gcs, "/tmp/token-optimizer-model"))
         except Exception:
@@ -45,7 +45,7 @@ def _load_compressor():
     if not (d / "model.int8.onnx").exists() and not (d / "model.onnx").exists():
         return None
     try:
-        from app.compress.llmlingua import LLMLingua2
+        from tokenoptim.compress.llmlingua import LLMLingua2
 
         return LLMLingua2(d)
     except Exception:

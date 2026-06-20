@@ -1,4 +1,4 @@
-from app.core.types import (
+from tokenoptim.core.types import (
     Change,
     Normalizer,
     NormalizeResult,

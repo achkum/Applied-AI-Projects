@@ -13,7 +13,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from app.core.providers.tokenizers import Tokenizer
+from tokenoptim.core.providers.tokenizers import Tokenizer
 
 
 @dataclass(frozen=True)

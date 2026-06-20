@@ -27,13 +27,13 @@ mcp = ["mcp"]
 tokenizers = ["mistral-common", "sentencepiece", "tokenizers"]
 
 [project.scripts]
-token-optimizer = "app.pillars.cli:main"
+token-optimizer = "tokenoptim.pillars.cli:main"
 
 [dependency-groups]
 dev = ["pytest", "pytest-asyncio", "ruff", "hypothesis"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["app"]
+packages = ["tokenoptim"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -46,7 +46,7 @@ markers = [
 ]
 
 [tool.ruff]
-src = ["app", "tests"]
+src = ["tokenoptim", "tests"]
 line-length = 100
 extend-exclude = ["../scripts/fixtures"]
 

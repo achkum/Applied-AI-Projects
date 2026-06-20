@@ -29,13 +29,13 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
-from app.core.ledger import Ledger
-from app.core.providers import resolve, resolve_by_path
-from app.core.providers.base import ProviderAdapter
-from app.core.types import Change, OptimizationResult, OptimizerConfig, Provider
-from app.normalize.delta import DeltaStore
-from app.optimizer import optimize_payload
-from app.pillars.proxy.stats_page import render_stats_html
+from tokenoptim.core.ledger import Ledger
+from tokenoptim.core.providers import resolve, resolve_by_path
+from tokenoptim.core.providers.base import ProviderAdapter
+from tokenoptim.core.types import Change, OptimizationResult, OptimizerConfig, Provider
+from tokenoptim.normalize.delta import DeltaStore
+from tokenoptim.optimizer import optimize_payload
+from tokenoptim.pillars.proxy.stats_page import render_stats_html
 
 logger = logging.getLogger(__name__)
 

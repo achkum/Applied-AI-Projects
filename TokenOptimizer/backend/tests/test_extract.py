@@ -1,5 +1,5 @@
 import pytest
-from app.normalize.extract import (
+from tokenoptim.normalize.extract import (
     ExtractionError,
     extract_to_markdown,
     is_binary_format,

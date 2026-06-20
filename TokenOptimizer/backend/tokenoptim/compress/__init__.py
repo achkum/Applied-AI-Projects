@@ -2,15 +2,15 @@
 
 import copy
 
-from app.core.ledger import Ledger
-from app.core.types import Change, OptimizationResult, OptimizerConfig
+from tokenoptim.core.ledger import Ledger
+from tokenoptim.core.types import Change, OptimizationResult, OptimizerConfig
 
 
 def compress_payload(
     payload: dict, config: OptimizerConfig, ledger: Ledger
 ) -> tuple[dict, OptimizationResult]:
     """Compress prose in every user message through the shared model (no-op if it's unavailable)."""
-    from app.optimizer import compress_text
+    from tokenoptim.optimizer import compress_text
 
     payload = copy.deepcopy(payload)
     changes: list[Change] = []

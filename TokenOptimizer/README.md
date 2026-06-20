@@ -69,7 +69,7 @@ pip install token-optimizer       # or: uv add token-optimizer
 ```
 
 ```python
-import app as ts
+import tokenoptim as ts
 
 # (a) functional — optimize a request, send it however you like
 req = ts.optimize(model="gpt-4o", messages=[...])
@@ -146,7 +146,7 @@ field, not estimated.
 ## Project layout
 
 ```
-backend/        Python engine + library + MCP + proxy + compression service (package: app)
+backend/        Python engine + library + MCP + proxy + compression service (package: tokenoptim)
 extension/      Browser extension (TypeScript, Manifest V3)
 scripts/        Offline benchmark + model quantization
 ```
@@ -155,7 +155,7 @@ scripts/        Offline benchmark + model quantization
 
 ```bash
 # Python (from backend/)
-cd backend && uv sync --all-extras && uv run pytest && uv run ruff check app tests
+cd backend && uv sync --all-extras && uv run pytest && uv run ruff check tokenoptim tests
 
 # Extension (from extension/)
 cd extension && npm install && npm test && npm run typecheck && npm run build

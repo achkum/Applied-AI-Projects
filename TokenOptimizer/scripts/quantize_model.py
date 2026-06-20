@@ -14,7 +14,7 @@ def main() -> int:
     parser.add_argument("--out", default=".models/llmlingua2-bert", help="output model directory")
     args = parser.parse_args()
 
-    from app.compress.llmlingua import download_and_quantize
+    from tokenoptim.compress.llmlingua import download_and_quantize
 
     dst = download_and_quantize(args.out)
     print(f"Wrote {dst}. Upload it (+ the tokenizer files) to your model bucket for the service.")

@@ -7,8 +7,8 @@ third send diffs against the second version, not the first. LRU-bounded by file 
 import difflib
 from collections import OrderedDict
 
-from app.core.tokens import count_tokens
-from app.core.types import Change
+from tokenoptim.core.tokens import count_tokens
+from tokenoptim.core.types import Change
 
 _DIFF_RATIO = 0.6  # use the diff only if it is < 60% of the full text's tokens
 

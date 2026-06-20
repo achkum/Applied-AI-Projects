@@ -1,8 +1,8 @@
 import base64
 import json
 
-import app as ts
 import pytest
+import tokenoptim as ts
 
 
 @pytest.fixture(autouse=True)
@@ -178,7 +178,7 @@ def test_optimize_routes_compression_through_the_service():
     import time
 
     import uvicorn
-    from app.pillars import webapp
+    from tokenoptim.pillars import webapp
 
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))

@@ -7,10 +7,10 @@ import csv
 import io
 import json
 
-from app.normalize.code import CodeNormalizer
-from app.normalize.structured import CsvNormalizer, JsonYamlNormalizer
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
+from tokenoptim.normalize.code import CodeNormalizer
+from tokenoptim.normalize.structured import CsvNormalizer, JsonYamlNormalizer
 
 # These tests lazy-load real tokenizers (tiktoken) on the first call, which can blow a short
 # per-example deadline; correctness, not latency, is what we're asserting here.

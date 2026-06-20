@@ -5,8 +5,8 @@ import json
 import os
 import sys
 
-from app import __version__
-from app.core.types import OptimizerConfig
+from tokenoptim import __version__
+from tokenoptim.core.types import OptimizerConfig
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -49,7 +49,7 @@ def config_from_args(args: argparse.Namespace) -> OptimizerConfig:
 def _cmd_start(args: argparse.Namespace) -> int:
     import uvicorn
 
-    from app.pillars.proxy.server import app_factory
+    from tokenoptim.pillars.proxy.server import app_factory
 
     app = app_factory(config_from_args(args))
     base = f"http://{args.host}:{args.port}"
@@ -63,7 +63,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
 
 
 def _cmd_download(args: argparse.Namespace) -> int:
-    from app.compress.llmlingua import download_and_quantize
+    from tokenoptim.compress.llmlingua import download_and_quantize
 
     out = os.getenv("TS_MODEL_DIR", ".models/llmlingua2-bert")
     print(f"Downloading + quantizing the LLMLingua-2 model into {out} …")
@@ -90,7 +90,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
 
 
 def _cmd_mcp(args: argparse.Namespace) -> int:
-    from app.pillars.mcp_server import main as mcp_main
+    from tokenoptim.pillars.mcp_server import main as mcp_main
 
     mcp_main()
     return 0
@@ -99,7 +99,7 @@ def _cmd_mcp(args: argparse.Namespace) -> int:
 def _cmd_web(args: argparse.Namespace) -> int:
     import uvicorn
 
-    from app.pillars.webapp import app_factory
+    from tokenoptim.pillars.webapp import app_factory
 
     print(f"token-optimizer engine demo on http://{args.host}:{args.port}")
     uvicorn.run(app_factory(), host=args.host, port=args.port, log_level="info")

@@ -1,9 +1,9 @@
-import app
-from app.pillars.cli import main
+import tokenoptim
+from tokenoptim.pillars.cli import main
 
 
 def test_import_package():
-    assert app.__version__
+    assert tokenoptim.__version__
 
 
 def test_cli_main_returns_zero(capsys):

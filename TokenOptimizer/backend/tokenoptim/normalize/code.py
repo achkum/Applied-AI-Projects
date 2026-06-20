@@ -12,8 +12,8 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-from app.core.tokens import count_tokens
-from app.core.types import Change, NormalizeResult
+from tokenoptim.core.tokens import count_tokens
+from tokenoptim.core.types import Change, NormalizeResult
 
 _LINE_COMMENT = {
     ".py": "#",

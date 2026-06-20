@@ -5,8 +5,8 @@ import time
 import httpx
 import pytest
 import uvicorn
-from app.pillars.cli import build_parser, config_from_args, main
-from app.pillars.proxy.server import app_factory
+from tokenoptim.pillars.cli import build_parser, config_from_args, main
+from tokenoptim.pillars.proxy.server import app_factory
 
 
 def free_port() -> int:

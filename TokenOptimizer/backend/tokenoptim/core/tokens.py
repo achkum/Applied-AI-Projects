@@ -1,14 +1,14 @@
 """Token counting across every supported provider.
 
-Counting is delegated to the per-provider tokenizer in ``app.core.providers``: exact where a
+Counting is delegated to the per-provider tokenizer in ``tokenoptim.core.providers``: exact where a
 real local tokenizer exists (OpenAI via tiktoken, Mistral via mistral-common, local/Llama via HF
 ``tokenizers``), and an honest BPE-proxy estimate where the provider ships none (Anthropic,
 Gemini, Cohere, DeepSeek, xAI). ``TokenCount.exact`` reflects which path was taken — the engine
 never presents an estimate as exact.
 """
 
-from app.core.providers import provider_for, resolve, tokenizer_for
-from app.core.types import Provider, TokenCount
+from tokenoptim.core.providers import provider_for, resolve, tokenizer_for
+from tokenoptim.core.types import Provider, TokenCount
 
 __all__ = ["count_tokens", "provider_for", "estimate_bounds", "Provider"]
 
