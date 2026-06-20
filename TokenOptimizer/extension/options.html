@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Token Optimizer — Options</title>
+  <style>
+    body { font: 14px/1.5 ui-sans-serif, system-ui, sans-serif; max-width: 560px; margin: 2.5rem auto; padding: 0 1.25rem; color: #111; }
+    h1 { font-size: 1.25rem; margin-bottom: .25rem; }
+    p { opacity: .8; margin-top: 0; }
+    label { display: block; font-weight: 600; margin: 1.25rem 0 .35rem; }
+    input { width: 100%; padding: .55rem .65rem; font: inherit; border: 1px solid #bbb; border-radius: 8px; box-sizing: border-box; }
+    button { margin-top: 1rem; padding: .55rem 1.1rem; font: inherit; border: 0; border-radius: 8px; background: #111; color: #fff; cursor: pointer; }
+    .status { margin-left: .75rem; font-weight: 600; }
+    .ok { color: #138000; }
+    code { background: #f0f0f0; padding: .1rem .3rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Token Optimizer</h1>
+  <p>Set the compression service to use. This is the Cloud Run endpoint that runs the model.</p>
+  <label for="url">Compression service URL</label>
+  <input id="url" type="url" placeholder="https://your-service-xxxxx.run.app" autocomplete="off" spellcheck="false">
+  <p style="font-size:.85rem">Example: <code>https://token-optimizer-xxxxx.run.app</code> — leave blank to disable compression.</p>
+  <div>
+    <button id="save">Save</button>
+    <span id="status" class="status"></span>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

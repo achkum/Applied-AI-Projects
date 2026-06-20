@@ -19,8 +19,18 @@ export function isEditableElement(el: EventTarget | null): el is HTMLElement {
   if (el instanceof HTMLInputElement) {
     return el.type === "text" && !el.disabled && !el.readOnly;
   }
+  // isContentEditable is true for the element OR any node inside a contenteditable region — e.g.
+  // ProseMirror on claude.ai fires focus/input on inner nodes. The attribute check is a jsdom fallback.
+  if (el.isContentEditable) return true;
   const ce = el.getAttribute("contenteditable");
   return ce === "" || ce === "true";
+}
+
+// Resolve the actual editable container from a (possibly nested) event target: the textarea/input
+// itself, or the contenteditable host the user is typing into.
+export function editableRoot(el: HTMLElement): HTMLElement {
+  if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) return el;
+  return el.closest<HTMLElement>('[contenteditable=""], [contenteditable="true"]') ?? el;
 }
 
 // Only offer on fields big enough to hold a real prompt — skip search boxes / one-line inputs.

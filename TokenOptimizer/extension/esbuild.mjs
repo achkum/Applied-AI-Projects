@@ -12,6 +12,7 @@ await build({
   entryPoints: {
     content: resolve(here, "src/content.ts"),
     background: resolve(here, "src/background.ts"),
+    options: resolve(here, "src/options.ts"),
   },
   bundle: true,
   format: "iife",
@@ -21,8 +22,9 @@ await build({
   logLevel: "info",
 });
 
-// Ship the manifest and icons alongside the bundle.
+// Ship the manifest, icons, and the options page alongside the bundle.
 cpSync(resolve(here, "manifest.json"), resolve(dist, "manifest.json"));
 cpSync(resolve(here, "icons"), resolve(dist, "icons"), { recursive: true });
+cpSync(resolve(here, "options.html"), resolve(dist, "options.html"));
 
 console.log("Built extension to", dist);

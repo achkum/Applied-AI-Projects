@@ -6,7 +6,9 @@
 import { isOptimizableAttachment, normalizeAttachment } from "./attachments";
 import { showOptimizationPanel } from "./panel";
 import {
+  editableRoot,
   getEditableText,
+  isEditableElement,
   isOptimizable,
   modelForHost,
   setEditableText,
@@ -66,11 +68,14 @@ function hide(): void {
   target = null;
 }
 
-function evaluate(el: EventTarget | null): void {
-  if (isOptimizable(el) && getEditableText(el).trim().length >= MIN_CHARS) {
-    showFor(el);
-  } else if (el === target) {
-    hide();
+function evaluate(raw: EventTarget | null): void {
+  if (isEditableElement(raw)) {
+    const el = editableRoot(raw);
+    if (isOptimizable(el) && getEditableText(el).trim().length >= MIN_CHARS) {
+      showFor(el);
+      return;
+    }
+    if (el === target) hide();
   }
 }
 
