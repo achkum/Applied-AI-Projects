@@ -2,8 +2,8 @@ import json
 
 import httpx
 import pytest
-from app.pillars.proxy.server import app_factory
 from fastapi import FastAPI, Request, Response
+from tokenoptim.pillars.proxy.server import app_factory
 
 
 def make_mock_upstream() -> FastAPI:

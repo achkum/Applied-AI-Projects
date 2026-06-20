@@ -1,4 +1,4 @@
-from app.normalize.textclean import (
+from tokenoptim.normalize.textclean import (
     TextCleanNormalizer,
     collapse_blank_lines,
     dehyphenate,

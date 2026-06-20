@@ -3,8 +3,8 @@ import json
 
 import httpx
 import pytest
-from app.pillars.proxy.server import app_factory
 from fastapi import FastAPI, Request, Response
+from tokenoptim.pillars.proxy.server import app_factory
 
 DOC = {"users": [{"id": i, "name": f"user {i}", "active": True} for i in range(15)]}
 PRETTY = json.dumps(DOC, indent=4)

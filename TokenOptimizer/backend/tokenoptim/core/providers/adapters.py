@@ -2,8 +2,8 @@
 otherwise; proxy factors are documented estimates of each provider's divergence from o200k_base.
 """
 
-from app.core.providers.base import CachePolicy, ProviderAdapter
-from app.core.providers.tokenizers import (
+from tokenoptim.core.providers.base import CachePolicy, ProviderAdapter
+from tokenoptim.core.providers.tokenizers import (
     HFTokenizer,
     MistralTokenizer,
     ProxyBPETokenizer,

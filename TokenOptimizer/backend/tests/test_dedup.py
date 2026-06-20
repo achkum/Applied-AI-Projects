@@ -1,4 +1,4 @@
-from app.normalize.dedup import dedup_chunks
+from tokenoptim.normalize.dedup import dedup_chunks
 
 MODEL = "gpt-4o"
 

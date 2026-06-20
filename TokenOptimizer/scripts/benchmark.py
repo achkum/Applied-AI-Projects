@@ -7,10 +7,10 @@ benchmark. Usage: ``python scripts/benchmark.py scripts/fixtures``
 import sys
 from pathlib import Path
 
-from app.core.ledger import Ledger
-from app.core.types import OptimizerConfig
-from app.normalize.delta import DeltaStore
-from app.optimizer import Attachment, normalize_attachments
+from tokenoptim.core.ledger import Ledger
+from tokenoptim.core.types import OptimizerConfig
+from tokenoptim.normalize.delta import DeltaStore
+from tokenoptim.optimizer import Attachment, normalize_attachments
 
 MODEL = "gpt-4o"
 PROMPTS_FILE = "prompts.txt"

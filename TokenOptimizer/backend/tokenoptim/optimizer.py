@@ -9,17 +9,17 @@ import base64
 import logging
 from dataclasses import dataclass
 
-from app.budget.response_budget import apply_response_budget
-from app.cache.cache_optimizer import optimize_for_cache
-from app.core.ledger import Ledger
-from app.core.tokens import count_tokens
-from app.core.types import Change, OptimizationResult, OptimizerConfig
-from app.normalize.code import CodeNormalizer
-from app.normalize.dedup import dedup_chunks
-from app.normalize.delta import DeltaStore
-from app.normalize.extract import ExtractionError, extract_to_markdown, is_binary_format
-from app.normalize.structured import CsvNormalizer, JsonYamlNormalizer
-from app.normalize.textclean import TextCleanNormalizer
+from tokenoptim.budget.response_budget import apply_response_budget
+from tokenoptim.cache.cache_optimizer import optimize_for_cache
+from tokenoptim.core.ledger import Ledger
+from tokenoptim.core.tokens import count_tokens
+from tokenoptim.core.types import Change, OptimizationResult, OptimizerConfig
+from tokenoptim.normalize.code import CodeNormalizer
+from tokenoptim.normalize.dedup import dedup_chunks
+from tokenoptim.normalize.delta import DeltaStore
+from tokenoptim.normalize.extract import ExtractionError, extract_to_markdown, is_binary_format
+from tokenoptim.normalize.structured import CsvNormalizer, JsonYamlNormalizer
+from tokenoptim.normalize.textclean import TextCleanNormalizer
 
 _MEDIA_EXT = {
     "application/json": ".json",
@@ -172,7 +172,7 @@ def optimize_payload(
     results.append(cache_res)
 
     if config.enable_compression:
-        from app.compress import compress_payload
+        from tokenoptim.compress import compress_payload
 
         payload, comp_res = compress_payload(payload, config, ledger)
         results.append(comp_res)
@@ -195,7 +195,7 @@ def compress_text(text: str, config: OptimizerConfig) -> tuple[str, Optimization
     out = text
     kind = "none"
     if config.enable_compression:
-        from app.compress import service
+        from tokenoptim.compress import service
 
         remote = service.compress(text, rate=config.compression_keep_ratio, model=config.model)
         if remote is not None:

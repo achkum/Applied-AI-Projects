@@ -3,7 +3,7 @@ import json
 
 import httpx
 import pytest
-from app.pillars.webapp import DEMO_MODELS, app_factory
+from tokenoptim.pillars.webapp import DEMO_MODELS, app_factory
 
 
 @pytest.fixture

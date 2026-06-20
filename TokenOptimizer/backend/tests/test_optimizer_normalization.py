@@ -1,9 +1,9 @@
 import json
 
-from app.core.ledger import Ledger
-from app.core.types import OptimizerConfig
-from app.normalize.delta import DeltaStore
-from app.optimizer import Attachment, normalize_attachments
+from tokenoptim.core.ledger import Ledger
+from tokenoptim.core.types import OptimizerConfig
+from tokenoptim.normalize.delta import DeltaStore
+from tokenoptim.optimizer import Attachment, normalize_attachments
 
 CONFIG = OptimizerConfig(model="gpt-4o")
 
@@ -56,7 +56,7 @@ def test_resent_file_delta_encoded():
 
 
 def test_raising_normalizer_does_not_crash(monkeypatch):
-    import app.optimizer as opt
+    import tokenoptim.optimizer as opt
 
     def boom(*args, **kwargs):
         raise RuntimeError("normalizer exploded")

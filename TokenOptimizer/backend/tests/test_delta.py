@@ -1,4 +1,4 @@
-from app.normalize.delta import DeltaStore
+from tokenoptim.normalize.delta import DeltaStore
 
 MODEL = "gpt-4o"
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from app.compress.llmlingua import LLMLingua2, select_compressed
+from tokenoptim.compress.llmlingua import LLMLingua2, select_compressed
 
 MODEL_DIR = Path(__file__).resolve().parents[2] / ".models" / "llmlingua2-bert"
 
