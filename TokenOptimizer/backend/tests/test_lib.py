@@ -184,6 +184,12 @@ def test_optimize_routes_compression_through_the_service():
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
     app = webapp.app_factory()
+
+    class _FakeModel:  # stand in for the LLMLingua-2 model so the round-trip actually compresses
+        def compress(self, text, rate=0.6):
+            return {"text": text.split(".")[0]}
+
+    app.state.compressor = _FakeModel()
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()

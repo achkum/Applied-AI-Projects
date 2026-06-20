@@ -7,7 +7,6 @@ import csv
 import io
 import json
 
-from app.compress.rule_compressor import apply_compression_rules
 from app.normalize.code import CodeNormalizer
 from app.normalize.structured import CsvNormalizer, JsonYamlNormalizer
 from hypothesis import HealthCheck, given, settings
@@ -94,15 +93,3 @@ def test_code_normalizer_preserves_ast(pad, trailing_blanks):
     noisy += "\n" * trailing_blanks
     res = CodeNormalizer().normalize(noisy, "m.py", MODEL)
     assert ast.dump(ast.parse(res.text)) == ast.dump(ast.parse(_BASE_PY))
-
-
-# --- Rule compression: fenced code is always byte-identical -----------------------------------
-
-@given(
-    prose=st.text(max_size=80),
-    code=st.text(alphabet=st.characters(blacklist_characters="`", min_codepoint=32, max_codepoint=126), max_size=60),
-)
-def test_rule_compression_never_touches_code_fences(prose, code):
-    fence = f"```\n{code}\n```"
-    out, _ = apply_compression_rules(f"{prose}\n\n{fence}\n\n{prose}", include_lossy=True)
-    assert fence in out

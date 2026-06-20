@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { getEndpoint, getMode, setEndpoint, setMode } from "../settings";
+import { getEndpoint, setEndpoint } from "../settings";
 
 describe("settings", () => {
   beforeEach(() => {
@@ -17,15 +17,12 @@ describe("settings", () => {
     };
   });
 
-  it("defaults to low mode and empty endpoint", async () => {
-    expect(await getMode()).toBe("low");
+  it("defaults to an empty endpoint", async () => {
     expect(await getEndpoint()).toBe("");
   });
 
-  it("persists mode and endpoint", async () => {
-    await setMode("high");
+  it("persists the service endpoint", async () => {
     await setEndpoint("https://svc.run.app");
-    expect(await getMode()).toBe("high");
     expect(await getEndpoint()).toBe("https://svc.run.app");
   });
 });

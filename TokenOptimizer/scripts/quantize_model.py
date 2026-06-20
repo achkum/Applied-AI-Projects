@@ -2,8 +2,8 @@
 
     python scripts/quantize_model.py --out .models/llmlingua2-bert
 
-The artifact belongs in GCS (like the BreastCancer .pth), not git. Verified: 709.7 MB fp32 ->
-178.2 MB int8, compression quality preserved.
+The artifact belongs in a GCS bucket, not git. Verified: 709.7 MB fp32 -> 178.2 MB int8, with
+compression quality preserved.
 """
 
 import argparse

@@ -1,9 +1,6 @@
 # Compression service + engine demo (Cloud Run). Secret-free: holds no API keys and never
 # forwards to an LLM. Runs the LLMLingua-2 compression model and the optimization engine.
-#
-# Build context is the project root (TokenOptimizer/) so shared/ sits beside backend/, matching
-# the layout the engine expects at runtime: app/compress reads ../../../shared at parents[3].
-#   docker build -f backend/Dockerfile -t <image> .
+#   docker build -f backend/Dockerfile -t <image> TokenOptimizer
 FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -11,18 +8,15 @@ ENV PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy \
     PORT=8080
 
-WORKDIR /srv
-
-# Dependency manifest + package + shared/ (compression_rules.json is read at runtime via __file__).
-COPY backend/pyproject.toml backend/README.md ./backend/
-COPY backend/app ./backend/app
-COPY shared ./shared
-
 WORKDIR /srv/backend
+
+COPY backend/pyproject.toml backend/README.md ./
+COPY backend/app ./app
+
 # `serve` extra pulls onnxruntime + transformers + google-cloud-storage for the model service.
 RUN uv sync --no-dev --extra serve
 
 EXPOSE 8080
 # Cloud Run injects $PORT. The model is loaded at startup from $TS_MODEL_GCS (set in the deploy
-# workflow); without it the service still runs and falls back to the local rule compressor.
+# workflow); without it the service still runs and returns text unchanged for /v1/compress.
 CMD ["uv", "run", "--no-dev", "token-optimizer", "web"]

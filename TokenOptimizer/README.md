@@ -2,42 +2,70 @@
 
 # Token Optimizer
 
-**Cut your LLM token bill without changing how you work.**
+**Cut the token cost of LLM requests — losslessly where possible, and with a hosted compression model where not.**
 
-A local, lossless-first optimizer for LLM requests — minify attachments, stabilize caches,
-compress prompts, and budget output — delivered three ways: a **browser extension**, an
-**importable Python library**, and an **MCP server**.
-
-Works with OpenAI, Anthropic, Google, Mistral, Cohere, DeepSeek, xAI & any OpenAI-compatible
-endpoint. Runs on your machine.
+Works with OpenAI, Anthropic, Google, Mistral, Cohere, DeepSeek, xAI, and any OpenAI-compatible endpoint.
 
 </div>
 
 ---
 
-## The three ways to use it
+## Overview
 
-| | For whom | What it does |
+Token Optimizer is a single optimization engine that rewrites an LLM request to use fewer tokens
+before it is sent, without changing its meaning. The engine is exposed three ways:
+
+| Interface | For | What it does |
 |---|---|---|
-| 🧩 **Browser extension** | End users in any chat UI | An **Optimize** button on any text field, and automatic **attachment compression** when you attach a file. |
-| 📦 **Python library** | Developers | `import` it and wrap your existing LLM/agent calls so every request is optimized — any provider, any SDK. |
-| 🔌 **MCP server** | Agents / MCP clients | Exposes the engine as tools (count, normalize, compress, cache-optimize, dedupe). |
+| **Python library** | Developers | Wrap any LLM/agent call so every request is optimized before it's sent — provider- and SDK-agnostic. |
+| **Browser extension** | Anyone using a web chat UI | An **Optimize** button on any text field, plus automatic compaction of attached files. |
+| **MCP server** | Agents / MCP clients | Exposes the engine as callable tools. |
 
-All three share one engine. The lossless work — attachment normalization, cache optimization,
-response budgeting — runs entirely on your machine. Prompt compression has two levels: **Low**
-runs a local rule pass (offline, instant); **High** calls one shared LLMLingua-2 model hosted on
-Cloud Run, so the library, extension, and MCP server all get the same compression from the same
-service. Low is the default; High is opt-in.
+A transparent proxy and a hosted demo are built on the same engine.
 
----
+## What the engine does
 
-## 1. Python library
+| Feature | Mode | Guarantee | Summary |
+|---|---|---|---|
+| **Attachment normalization** | always on | lossless | Minify JSON/YAML, compact CSV→TSV, clean PDF/Word text extraction, AST-safe code trimming, cross-file dedup, delta-encode re-sent files. |
+| **Cache optimization** | always on | lossless | Reorder payloads for prefix stability and inject `cache_control` markers so provider prompt caches keep hitting. |
+| **Prompt compression** | opt-in | lossy (controlled) | Compress prose with a hosted LLMLingua-2 model. Code blocks and quoted text are never touched. |
+| **Response budgeting** | always on | output-side | Inject a provider-correct output-token cap and optional brevity directives. |
 
-Add a single optimization layer on top of the calls you already make. Provider-agnostic — it
-transforms the request payload, so it doesn't care which SDK you use.
+Every lossless transform declares a guarantee — `value-identical`, `text-lossless`,
+`render-equivalent`, or `ast-identical` — and **reverts to a no-op if it can't prove it**, so a
+request is never corrupted.
+
+## Architecture
+
+```
+   Python library ─┐
+   Browser ext.   ─┤                                            POST /v1/compress
+   MCP server     ─┼──►  optimization engine  ──────────────►  Compression service (Cloud Run)
+   Proxy / demo   ─┘     normalize · cache ·                    LLMLingua-2, int8 ONNX
+                         compress · budget                      loaded from object storage
+```
+
+Every interface calls one engine entry point. The lossless work runs in-process. **Prompt
+compression is delegated to a single hosted service** — the same model for every interface — so
+results are consistent and the model is operated and updated in one place. If the service is not
+configured, compression is skipped and the rest of the optimization still runs; there is no local
+fallback.
+
+### Compression model
+
+Prompt compression uses **LLMLingua-2** (Microsoft Research) — a BERT token-classifier that scores
+each token's importance and drops the least useful ones. It is exported to ONNX and dynamically
+quantized to int8 (≈709 MB → ≈178 MB) so it serves cheaply. The service runs on **Cloud Run**,
+loads the model from an object-storage bucket at startup, and exposes `POST /v1/compress`. It holds
+no API keys and never forwards to an LLM provider.
+
+## Usage
+
+### Python library
 
 ```bash
-uv add token-optimizer        # or: pip install token-optimizer
+pip install token-optimizer       # or: uv add token-optimizer
 ```
 
 ```python
@@ -55,47 +83,32 @@ resp = create(model="claude-sonnet-4-5", system="...", messages=[...])
 client = ts.wrap(openai.OpenAI())
 client.chat.completions.create(model="gpt-4o", messages=[...])
 
-# compress a single attachment
+# compact a single attachment
 out = ts.optimize_file(open("data.json", "rb").read(), "data.json")
 
 print(ts.savings())   # {'tokens_saved': ..., 'by_feature': {...}, 'calls': ...}
 ```
 
-Lossless by default. Opt into lossy prompt compression with `ts.configure(enable_compression=True)`.
-That uses the local rule pass unless you point it at the hosted model with
-`ts.configure(enable_compression=True, compress_url="https://<your-service>.run.app")`, in which
-case it calls the shared Cloud Run model and falls back to the rule pass if the service is
-unreachable.
+Optimization is lossless by default. To also compress prompts, point it at the compression service
+and enable it:
 
-## 2. Browser extension
+```python
+ts.configure(compress_url="https://<service>.run.app", enable_compression=True)
+```
 
-Focus any substantial text box on **any site** and an **⇣ Optimize** button appears — click to
-preview a before/after diff and apply. When you **attach a file**, text formats (JSON/CSV/Markdown)
-are losslessly compressed before they're sent — that always runs in the browser.
+### Browser extension
 
-A **Low / High** toggle controls prompt compression. **Low** runs the local rule pass in the
-browser (offline, instant). **High** sends the text to the shared Cloud Run model for stronger
-compression and falls back to Low if the service is unavailable; set the service URL in the
-extension options.
+Focus a substantial text box on any site and an **⇣ Optimize** button appears; click it to preview
+a before/after diff and apply. Attached JSON/CSV/Markdown files are compacted losslessly in the
+browser before they're sent. Prompt compression is sent to the compression service whose URL you set
+in the extension options; if no URL is set, the button says so instead of optimizing.
 
 ```bash
 cd extension
-npm install
-npm run build        # load extension/dist/ unpacked for local dev
-npm run package      # → token-optimizer-extension.zip for store submission
+npm install && npm run build      # load extension/dist/ unpacked, or `npm run package` to zip
 ```
 
-Local dev: `chrome://extensions` (or `edge://extensions`) → **Developer mode** → **Load unpacked**
-→ `extension/dist/`. To publish for anyone to install, see
-[`extension/PUBLISHING.md`](extension/PUBLISHING.md) (Microsoft Edge Add-ons is free; Chrome Web
-Store is a one-time $5). Listing copy and privacy policy:
-[`STORE_LISTING.md`](extension/STORE_LISTING.md), [`PRIVACY.md`](extension/PRIVACY.md).
-
-> Attachment swapping works on standard file-input uploads; some sites with custom drag-and-drop
-> uploaders may not be supported. Binary formats (PDF/Word) are handled by the library/MCP, not the
-> browser.
-
-## 3. MCP server
+### MCP server
 
 ```bash
 uv run token-optimizer mcp        # stdio
@@ -105,22 +118,7 @@ uv run token-optimizer mcp        # stdio
 { "mcpServers": { "token-optimizer": { "command": "uv", "args": ["run", "token-optimizer", "mcp"] } } }
 ```
 
-Tools: `count_tokens`, `normalize_attachment`, `optimize_for_cache`, `compress_prompt`,
-`dedupe_context`.
-
----
-
-## What the engine does
-
-| Feature | Mode | Guarantee | Summary |
-|---|---|---|---|
-| **Attachment normalization** | always on | lossless | Minify JSON/YAML, compact CSV→TSV, clean PDF/Word extraction, AST-safe code trim, cross-file dedup, delta-encode re-sent files. |
-| **Cache optimization** | always on | lossless | Reorder for prefix stability + inject cache markers so you stop busting your prompt cache. |
-| **Prompt compression** | opt-in | safe by default | **Low:** local rule pass removes conversational filler. **High:** shared LLMLingua-2 model on Cloud Run for stronger compression. Code & quotes never touched. |
-| **Response budgeting** | always on | output-side | Provider-correct output cap, optional brevity directive, reasoning-budget clamp. |
-
-Every transformation declares a guarantee and **reverts to a no-op if it can't be met** — a
-request is never corrupted.
+Tools: `count_tokens`, `normalize_attachment`, `optimize_for_cache`, `compress_prompt`, `dedupe_context`.
 
 ## Supported providers
 
@@ -128,99 +126,37 @@ request is never corrupted.
 |---|---|---|
 | OpenAI | `gpt-*`, `o*` | Exact (`tiktoken`) |
 | Mistral | `mistral-*`, `mixtral`, `codestral`, … | Exact (`mistral-common`) |
-| Anthropic | `claude-*` | Estimate |
-| Google | `gemini-*` | Estimate |
-| Cohere · DeepSeek · xAI | `command-*`, `deepseek-*`, `grok-*` | Estimate |
-| OpenAI-compatible | Groq, Together, OpenRouter, **Ollama, vLLM, LM Studio**, … | Exact with a local tokenizer, else estimate |
+| Anthropic · Google · Cohere · DeepSeek · xAI | `claude-*`, `gemini-*`, `command-*`, `deepseek-*`, `grok-*` | Estimate |
+| OpenAI-compatible | Groq, Together, OpenRouter, Ollama, vLLM, LM Studio, … | Exact with a local tokenizer, else estimate |
 
 Estimates use a real byte-pair tokenizer with a per-provider correction and are always flagged
-non-exact — never presented as exact.
+non-exact — never presented as exact. Cache savings are measured from each response's real `usage`
+field, not estimated.
 
-## Accuracy & guarantees
+## Tech stack
 
-| What | How it's reported |
+| Layer | Choice |
 |---|---|
-| Attachment & prompt savings | Measured with the provider's tokenizer. |
-| Cache savings | Measured from the response's real `usage` field, not estimated. |
-| Output savings | Not claimed — the avoided amount isn't measurable without a control. |
-
-Lossless guarantees per transform: `value-identical` (JSON/YAML/CSV), `text-lossless` (PDF/Word),
-`render-equivalent` (Markdown), `ast-identical` (Python).
-
----
-
-## Also included (optional)
-
-- **Transparent proxy** (`token-optimizer start`) — point `ANTHROPIC_BASE_URL`/`OPENAI_BASE_URL` at it
-  to optimize traffic from tools you can't modify. Routes by model to each provider's upstream and
-  shows a live savings dashboard.
-- **Hosted compression service** (`token-optimizer web`, `Dockerfile`) — the Cloud Run app that
-  serves the shared LLMLingua-2 model behind High-mode compression (`POST /v1/compress`) and also
-  hosts a secret-free, paste-and-see demo of the engine. It loads the quantized model from GCS at
-  startup (same pattern as the BreastCancer project's `.pth`) and deploys via a keyless GitHub
-  Actions workflow; if no model is configured it serves the rule pass instead. This is the one
-  service all three pillars call for High-mode compression.
-
-The proxy reuses the same engine; the hosted service additionally backs High-mode compression.
-
-## Benchmark
-
-Offline, on the bundled samples (no API calls):
-
-```bash
-uv run python scripts/benchmark.py scripts/fixtures
-```
-
-```
-File                              Before     After    Saved
-------------------------------  --------  --------  -------
-data.json                            136        80    41.2%
-report.md                            120        82    31.7%
-prompts.txt (rule compression)       108        82    24.1%
-table.csv                             43        39     9.3%
-module.py                             51        51     0.0%
-------------------------------  --------  --------  -------
-TOTAL                                458       334    27.1%
-```
-
-Savings depend on your payloads — file-heavy and agentic (re-sent context) workloads see the most.
+| Engine · proxy · compression service · CLI | Python 3.11+, FastAPI, managed with `uv` |
+| Compression model | LLMLingua-2 → ONNX → int8, served with ONNX Runtime on Cloud Run |
+| Extension | TypeScript, Manifest V3, esbuild |
+| Token counting | `tiktoken` (OpenAI) & `mistral-common` (Mistral) exact; byte-pair proxy estimates elsewhere |
+| Extraction | Microsoft `markitdown` |
 
 ## Project layout
 
 ```
-backend/app/              The installable package (import app), in three layers:
-├── optimizer.py          Engine orchestrator — the shared entry point
-├── core/                 Primitives: types, tokens, ledger, providers/
-├── normalize/            Feature: attachment normalization (extract, structured, textclean, code, dedup, delta)
-├── cache/                Feature: prefix-cache restructuring
-├── compress/             Feature: prompt compression (Low rule pass + High client for the hosted model)
-├── budget/               Feature: response budgeting (output-side controls)
-└── pillars/              Product surfaces:
-    ├── lib.py            library: optimize / optimized / wrap / optimize_file / savings
-    ├── mcp_server.py     MCP endpoint
-    ├── cli.py            start / web / mcp / stats / download-model
-    ├── proxy/            extra: transparent proxy
-    └── webapp.py         extra: Cloud Run compression service + demo
-backend/tests/            Test suite
-extension/                Browser extension (TypeScript, Manifest V3)
-shared/                   Compression rules + tokenizer parity fixtures (Python ↔ extension)
-scripts/                  Offline benchmark + model quantization
+backend/        Python engine + library + MCP + proxy + compression service (package: app)
+extension/      Browser extension (TypeScript, Manifest V3)
+scripts/        Offline benchmark + model quantization
 ```
 
 ## Development
 
 ```bash
-# Python engine (run from backend/)
-cd backend
-uv sync --all-extras
-uv run pytest
-uv run ruff check app tests
+# Python (from backend/)
+cd backend && uv sync --all-extras && uv run pytest && uv run ruff check app tests
 
-# Browser extension (run from extension/)
-cd ../extension && npm install && npm test && npm run typecheck && npm run build
+# Extension (from extension/)
+cd extension && npm install && npm test && npm run typecheck && npm run build
 ```
-
-## Status
-
-A personal portfolio project by Achyuth Kumar Baddela. Not released under an open-source license —
-all rights reserved. You're welcome to read the code; please get in touch before reusing it.

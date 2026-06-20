@@ -38,8 +38,8 @@ def download_and_quantize(out_dir: str | Path, repo: str = _DEFAULT_REPO) -> Pat
 
 
 def fetch_from_gcs(gcs_prefix: str, dest: str | Path) -> Path:
-    """Download the int8 model + tokenizer from a ``gs://bucket/prefix`` into ``dest`` (Cloud Run
-    startup). Mirrors the BreastCancer model-from-GCS pattern."""
+    """Download the int8 model + tokenizer from a ``gs://bucket/prefix`` into ``dest`` at
+    Cloud Run startup."""
     from google.cloud import storage
 
     dest = Path(dest)

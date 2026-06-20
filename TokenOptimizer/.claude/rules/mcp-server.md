@@ -15,7 +15,7 @@ Both record to the same shared `Ledger`, so the savings counter is consistent ac
 - `count_tokens(text, model) -> {count, exact}` — token count, honest about exactness.
 - `normalize_attachment(filename, content_base64, model) -> {text, tokens_before, tokens_after, changes}` — full single-file normalization path.
 - `optimize_for_cache(payload_json) -> {payload_json, changes}` — prefix-cache restructuring.
-- `compress_prompt(text, target_ratio, model) -> {text, tokens_before, tokens_after}` — Low: local rule pass; High: shared Cloud Run model when a service URL is configured, falling back to the rule pass.
+- `compress_prompt(text, target_ratio, model) -> {text, tokens_before, tokens_after}` — compresses via the shared Cloud Run model when a service URL is configured (`TS_COMPRESS_URL`); returns the text unchanged otherwise.
 - `dedupe_context(named_texts, model) -> {texts, changes}` — cross-document dedup.
 
 ## Implementation
@@ -35,9 +35,9 @@ unambiguous. Bad: "makes things smaller." Good: "Normalize an attached file (min
 compact CSV, de-hyphenate PDF text) losslessly and report tokens saved; use before sending
 a file to a model."
 
-`compress_prompt` must degrade gracefully: when no compression-service URL is configured, return
-the rule-compressed (Low) text. When one is, call the shared service and fall back to the rule pass
-if it's unreachable. Never block and never run a generative model inside a tool call.
+`compress_prompt` must degrade gracefully: call the shared service when a URL is configured; when
+it isn't configured or is unreachable, return the text unchanged (there is no local fallback).
+Never block and never run a generative model inside a tool call.
 
 ## What NOT to do
 

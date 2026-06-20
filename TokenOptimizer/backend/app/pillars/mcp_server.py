@@ -78,9 +78,9 @@ def optimize_for_cache(payload_json: str) -> dict:
 
 @mcp.tool()
 def compress_prompt(text: str, target_ratio: float, model: str) -> dict:
-    """Compress a prompt. Routes through the shared compression service (the LLMLingua-2 model)
-    when configured (``TS_COMPRESS_URL``), otherwise the local rule pass — the same path the
-    library and extension use, so results are consistent. Code and quoted text are never touched.
+    """Compress a prompt through the shared compression service (the LLMLingua-2 model), configured
+    via ``TS_COMPRESS_URL`` — the same path the library and extension use, so results are
+    consistent. If the service isn't configured or is unreachable, the text is returned unchanged.
     """
     from app.optimizer import compress_text
 

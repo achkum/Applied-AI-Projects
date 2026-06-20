@@ -20,7 +20,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
-// "High" compression: the content script asks the worker to call the shared model service.
+// Compression: the content script asks the worker to call the shared model service.
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "ts-compress") {
     (async () => {

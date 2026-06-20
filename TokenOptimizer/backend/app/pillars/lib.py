@@ -21,8 +21,9 @@ Anthropic-shaped chat. Three ways to use it:
     client = ts.wrap(openai.OpenAI())
     client.chat.completions.create(model="gpt-4o", messages=[...])
 
-Optimization is lossless by default; call ``ts.configure(enable_compression=True)`` to also run
-lossy prompt compression. ``ts.savings()`` returns the cumulative tokens saved.
+Optimization is lossless by default. To also run prompt compression, point it at the shared model
+service and enable it: ``ts.configure(compress_url="https://<service>.run.app", enable_compression=True)``.
+``ts.savings()`` returns the cumulative tokens saved.
 """
 
 import asyncio
@@ -61,8 +62,10 @@ def configure(
 ) -> None:
     """Set library-wide defaults. Lossless-only unless ``enable_compression=True``.
 
-    ``compress_url`` points prompt compression at the shared service (the LLMLingua-2 model); when
-    unset, compression falls back to local rules. Equivalent to the ``TS_COMPRESS_URL`` env var.
+    ``compress_url`` points prompt compression at the shared service (the LLMLingua-2 model),
+    equivalent to the ``TS_COMPRESS_URL`` env var. When it is unset or the service is unreachable,
+    prompt compression is a no-op (the rest of the optimization still runs); there is no local
+    fallback.
     """
     global _config
     changes: dict = {}

@@ -2,9 +2,9 @@
 
 Every Python caller (library, MCP, proxy) routes prompt compression through this one client, so
 they all get identical results from the same model. The endpoint is configured via
-``TS_COMPRESS_URL`` or ``app.configure(compress_url=...)``. When no endpoint is set or the
-call fails, ``compress()`` returns ``None`` and the caller falls back to the local rule pass — so
-the library still works offline, just less powerfully.
+``TS_COMPRESS_URL`` or ``app.configure(compress_url=...)``. When no endpoint is set or the call
+fails, ``compress()`` returns ``None`` and the caller leaves the text unchanged — there is no
+local fallback.
 """
 
 import logging
@@ -48,5 +48,5 @@ def compress(text: str, *, rate: float, model: str, timeout: float = 30.0) -> di
         resp.raise_for_status()
         return resp.json()
     except Exception:
-        logger.debug("compression service unavailable at %s; falling back to local rules", url)
+        logger.debug("compression service unavailable at %s; leaving text unchanged", url)
         return None

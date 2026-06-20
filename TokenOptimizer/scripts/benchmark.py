@@ -1,17 +1,16 @@
-"""Offline benchmark: normalize sample files and rule-compress a sample prompt, print a table.
+"""Offline benchmark: normalize sample files and print a token-savings table.
 
-No API calls. Usage: ``python scripts/benchmark.py scripts/fixtures``
+No API calls. Prompt compression needs the model service, so it's not part of this offline
+benchmark. Usage: ``python scripts/benchmark.py scripts/fixtures``
 """
 
 import sys
 from pathlib import Path
 
-from app.compress.rule_compressor import apply_compression_rules
 from app.core.ledger import Ledger
+from app.core.types import OptimizerConfig
 from app.normalize.delta import DeltaStore
 from app.optimizer import Attachment, normalize_attachments
-from app.core.tokens import count_tokens
-from app.core.types import OptimizerConfig
 
 MODEL = "gpt-4o"
 PROMPTS_FILE = "prompts.txt"
@@ -33,14 +32,6 @@ def run(fixtures_dir: Path) -> list[tuple[str, int, int]]:
             [Attachment(path.name, path.read_bytes())], "bench", config, DeltaStore(), Ledger()
         )
         rows.append((path.name, result.tokens_before, result.tokens_after))
-
-    prompts = fixtures_dir / PROMPTS_FILE
-    if prompts.exists():
-        text = prompts.read_text(encoding="utf-8")
-        before = count_tokens(text, MODEL).count
-        compressed, _ = apply_compression_rules(text)
-        after = count_tokens(compressed, MODEL).count
-        rows.append((f"{PROMPTS_FILE} (rule compression)", before, after))
 
     return rows
 

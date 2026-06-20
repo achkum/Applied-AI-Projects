@@ -1,4 +1,4 @@
-"""Local prompt compression: a deterministic rule pass and an optional ONNX classifier pass."""
+"""Prompt compression via the shared LLMLingua-2 model (the Cloud Run service)."""
 
 import copy
 
@@ -9,7 +9,7 @@ from app.core.types import Change, OptimizationResult, OptimizerConfig
 def compress_payload(
     payload: dict, config: OptimizerConfig, ledger: Ledger
 ) -> tuple[dict, OptimizationResult]:
-    """Compress prose in every user message (rule pass always, classifier when enabled+ready)."""
+    """Compress prose in every user message through the shared model (no-op if it's unavailable)."""
     from app.optimizer import compress_text
 
     payload = copy.deepcopy(payload)

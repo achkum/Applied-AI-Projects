@@ -21,6 +21,6 @@ uv run token-optimizer start         # proxy + savings page
 uv run token-optimizer web           # compression service + demo (Cloud Run entrypoint)
 ```
 
-The cross-language rule spec lives in [`../shared/`](../shared) (consumed by both this engine and
-the browser extension). See the [project README](../README.md) and [CLAUDE.md](../CLAUDE.md) for
-the full architecture.
+The cross-language token-count parity fixtures live in [`../shared/`](../shared) (asserted by both
+this engine and the browser extension). See the [project README](../README.md) and
+[CLAUDE.md](../CLAUDE.md) for the full architecture.

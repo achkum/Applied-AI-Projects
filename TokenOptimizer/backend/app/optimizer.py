@@ -183,29 +183,24 @@ def optimize_payload(
 
 
 def compress_text(text: str, config: OptimizerConfig) -> tuple[str, OptimizationResult]:
-    """Compress one prose string. Pure (no ledger).
+    """Compress one prose string via the shared compression model. Pure (no ledger).
 
-    Default (``enable_compression=False``): safe, lossless scaffolding rules only.
-    Opted in: route through the shared compression service (the LLMLingua-2 model) for real
-    compression; if no service is configured/reachable, fall back to the local lossy rule pass.
-    All callers (library, MCP, proxy) go through here, so compression is consistent everywhere.
+    Compression is opt-in (``enable_compression=True``) and runs through the shared service — the
+    LLMLingua-2 model, configured via ``compress_url`` / ``TS_COMPRESS_URL``. If compression is
+    disabled, or the service is unconfigured or unreachable, the text is returned unchanged; there
+    is no local fallback. All callers (library, MCP, proxy) go through here, so compression is
+    consistent everywhere.
     """
-    from app.compress.rule_compressor import apply_compression_rules
-
     before = count_tokens(text, config.model).count
+    out = text
+    kind = "none"
     if config.enable_compression:
         from app.compress import service
 
         remote = service.compress(text, rate=config.compression_keep_ratio, model=config.model)
         if remote is not None:
             out = remote["text"]
-            kind = f"service:{remote.get('mode', 'model')}"
-        else:
-            out, _ = apply_compression_rules(text, include_lossy=True)
-            kind = "rules-lossy"
-    else:
-        out, _ = apply_compression_rules(text, include_lossy=False)
-        kind = "rules-safe"
+            kind = "model"
 
     after = count_tokens(out, config.model).count
     changes = [Change(kind, f"prompt compression ({kind})", before - after)] if out != text else []
