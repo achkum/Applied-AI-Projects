@@ -35,7 +35,7 @@ full architecture, module map, and usage.
 ## The three pillars (one shared engine)
 
 ```
-   developers   →  PILLAR 1: Python library      import token_optimizer; ts.optimize(...) / ts.wrap(client)
+   developers   →  PILLAR 1: Python library      import app as ts; ts.optimize(...) / ts.wrap(client)
    chat users   →  PILLAR 2: browser extension    Optimize button + attachment compression, any site
    agents       →  PILLAR 3: MCP server (stdio)   engine exposed as tools
 
@@ -61,34 +61,39 @@ call it, so improvements land everywhere at once.
 
 ## Repo structure
 
-This project lives in the `Applied-AI-Projects` monorepo as `TokenOptimizer/`. The Python
-package is named `token-optimizer` (`src/token_optimizer/`).
+This project lives in the `Applied-AI-Projects` monorepo as `TokenOptimizer/`. The Python half
+lives in `backend/` (mirroring the sibling `BreastCancerDetection/backend/`); the installable
+package is `app` (`backend/app/`, imported as `import app`). The package is grouped into three
+layers — **engine core → feature modules → pillars** — with the orchestrator at the root.
 
 ```
 TokenOptimizer/
-├── pyproject.toml
-├── shared/
-│   ├── compression_rules.json      # rule spec — consumed by Python AND the extension
-│   └── token_test_vectors.json     # cross-language token-count parity fixtures
-├── src/token_optimizer/
-│   ├── types.py                    # shared dataclasses/protocols
-│   ├── providers/                  # per-provider adapters: tokenizer, routing, cache policy,
-│   │                               #   usage fields, max-output field (the engine delegates here)
-│   ├── tokens.py                   # token counting (delegates to providers)
-│   ├── ledger.py                   # savings counter
-│   ├── normalize/                  # extract, structured, textclean, code, dedup, delta
-│   ├── cache_optimizer.py          # prefix-cache restructuring (request-time markers)
-│   ├── compress/                   # rule_compressor (Low: local rules), llmlingua (model inference,
-│   │                               #   used by the service host), service (High: client to Cloud Run)
-│   ├── response_budget.py          # output-side controls
-│   ├── optimizer.py                # engine orchestrator + optimize_payload (shared by proxy & demo)
-│   ├── proxy/                      # local key-forwarding proxy (Plug 1)
-│   ├── webapp.py                   # secret-free hosted engine demo (Cloud Run)
-│   ├── mcp_server.py               # MCP endpoint (Plug 2)
-│   └── cli.py                      # entry points: start / web / mcp / stats / download-model
-├── extension/                      # TypeScript MV3 extension (T21–T24)
-├── scripts/benchmark.py            # offline benchmark for the README (T26)
-└── tests/
+├── backend/                        # the Python half (mirrors BreastCancerDetection/backend/)
+│   ├── pyproject.toml
+│   ├── Dockerfile                  # Cloud Run image for the compression service
+│   ├── app/                        # the installable package (import app)
+│   │   ├── optimizer.py            # ENGINE ORCHESTRATOR — optimize_payload(), the shared entry point
+│   │   ├── core/                   # LAYER 1 — primitives every feature uses
+│   │   │   ├── types.py            #   shared dataclasses/protocols
+│   │   │   ├── tokens.py           #   token counting (delegates to providers)
+│   │   │   ├── ledger.py           #   savings counter
+│   │   │   └── providers/          #   per-provider adapters (tokenizer, routing, cache, usage, max-output)
+│   │   ├── normalize/              # LAYER 2 — feature: extract, structured, textclean, code, dedup, delta
+│   │   ├── cache/                  # LAYER 2 — feature: cache_optimizer (prefix-cache restructuring)
+│   │   ├── compress/               # LAYER 2 — feature: rule_compressor (Low), llmlingua (model), service (High)
+│   │   ├── budget/                 # LAYER 2 — feature: response_budget (output-side controls)
+│   │   └── pillars/                # LAYER 3 — product surfaces that consume the engine
+│   │       ├── lib.py              #   PILLAR 1: importable Python library
+│   │       ├── mcp_server.py       #   PILLAR 3: MCP server (stdio)
+│   │       ├── cli.py              #   entry points: start / web / mcp / stats / download-model
+│   │       ├── proxy/              #   extra: transparent key-forwarding proxy
+│   │       └── webapp.py           #   extra: Cloud Run compression service + demo
+│   └── tests/
+├── shared/                         # cross-language contract — consumed by Python AND the extension
+│   ├── compression_rules.json
+│   └── token_test_vectors.json
+├── extension/                      # TypeScript MV3 extension (PILLAR 2)
+└── scripts/                        # benchmark.py, quantize_model.py, fixtures/
 ```
 
 CI workflows live at the **monorepo repo root** `.github/workflows/` (GitHub only runs them from
@@ -127,10 +132,10 @@ there), scoped to `TokenOptimizer/**`.
 ## Commands
 
 ```bash
-# Engine / proxy / MCP / CLI (run from TokenOptimizer/)
+# Engine / proxy / MCP / CLI (run from TokenOptimizer/backend/)
 uv sync                                   # install deps
 uv run pytest                             # tests
-uv run ruff check src tests               # lint
+uv run ruff check app tests               # lint
 uv run token-optimizer start --port 8484      # run the proxy + savings page
 
 # Extension (run from TokenOptimizer/extension/)

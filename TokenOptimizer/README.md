@@ -41,7 +41,7 @@ uv add token-optimizer        # or: pip install token-optimizer
 ```
 
 ```python
-import token_optimizer as ts
+import app as ts
 
 # (a) functional — optimize a request, send it however you like
 req = ts.optimize(model="gpt-4o", messages=[...])
@@ -188,30 +188,36 @@ Savings depend on your payloads — file-heavy and agentic (re-sent context) wor
 ## Project layout
 
 ```
-src/token_optimizer/
-├── lib.py              Importable library: optimize / optimized / wrap / optimize_file / savings
-├── providers/          Provider adapters: tokenizer, routing, cache policy, usage, schema
-├── normalize/          Attachment normalization (extract, structured, textclean, code, dedup, delta)
-├── compress/           Prompt compression (local rule pass + client for the hosted model)
-├── cache_optimizer.py  Prefix-cache restructuring
-├── response_budget.py  Output-side controls
-├── optimizer.py        Engine orchestrator (shared by library, proxy, MCP, demo)
-├── mcp_server.py       MCP endpoint
-├── proxy/              Optional transparent proxy
-├── webapp.py           Optional hosted demo
-└── cli.py              start / web / mcp / stats / download-model
-extension/              Browser extension (TypeScript, Manifest V3)
-shared/                 Compression rules + tokenizer parity fixtures (Python ↔ extension)
+backend/app/              The installable package (import app), in three layers:
+├── optimizer.py          Engine orchestrator — the shared entry point
+├── core/                 Primitives: types, tokens, ledger, providers/
+├── normalize/            Feature: attachment normalization (extract, structured, textclean, code, dedup, delta)
+├── cache/                Feature: prefix-cache restructuring
+├── compress/             Feature: prompt compression (Low rule pass + High client for the hosted model)
+├── budget/               Feature: response budgeting (output-side controls)
+└── pillars/              Product surfaces:
+    ├── lib.py            library: optimize / optimized / wrap / optimize_file / savings
+    ├── mcp_server.py     MCP endpoint
+    ├── cli.py            start / web / mcp / stats / download-model
+    ├── proxy/            extra: transparent proxy
+    └── webapp.py         extra: Cloud Run compression service + demo
+backend/tests/            Test suite
+extension/                Browser extension (TypeScript, Manifest V3)
+shared/                   Compression rules + tokenizer parity fixtures (Python ↔ extension)
+scripts/                  Offline benchmark + model quantization
 ```
 
 ## Development
 
 ```bash
+# Python engine (run from backend/)
+cd backend
 uv sync --all-extras
 uv run pytest
-uv run ruff check src tests scripts
+uv run ruff check app tests
 
-cd extension && npm install && npm test && npm run typecheck && npm run build
+# Browser extension (run from extension/)
+cd ../extension && npm install && npm test && npm run typecheck && npm run build
 ```
 
 ## Status
