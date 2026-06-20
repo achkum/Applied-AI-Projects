@@ -18,7 +18,7 @@ import { countTokens } from "./tokens";
 
 const BUTTON_ID = "token-optimizer-button";
 const MIN_CHARS = 40;
-const KEEP_RATE = 0.6;
+const KEEP_RATE = 0.8; // keep 80% — gentle; drops clear filler without gutting short prompts
 
 let button: HTMLButtonElement | null = null;
 let target: HTMLElement | null = null;
