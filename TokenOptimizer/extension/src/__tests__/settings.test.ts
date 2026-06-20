@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { getEndpoint, setEndpoint } from "../settings";
+import { DEFAULT_ENDPOINT, getEndpoint, setEndpoint } from "../settings";
 
 describe("settings", () => {
   beforeEach(() => {
@@ -17,12 +17,17 @@ describe("settings", () => {
     };
   });
 
-  it("defaults to an empty endpoint", async () => {
-    expect(await getEndpoint()).toBe("");
+  it("defaults to the bundled service endpoint", async () => {
+    expect(await getEndpoint()).toBe(DEFAULT_ENDPOINT);
   });
 
-  it("persists the service endpoint", async () => {
+  it("persists a service endpoint override", async () => {
     await setEndpoint("https://svc.run.app");
     expect(await getEndpoint()).toBe("https://svc.run.app");
+  });
+
+  it("treats an explicitly empty override as disabled", async () => {
+    await setEndpoint("");
+    expect(await getEndpoint()).toBe("");
   });
 });

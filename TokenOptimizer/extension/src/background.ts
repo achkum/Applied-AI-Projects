@@ -14,6 +14,11 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
+// Clicking the toolbar icon opens the options page (where the service URL is set).
+chrome.action.onClicked.addListener(() => {
+  chrome.runtime.openOptionsPage();
+});
+
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === MENU_ID && tab?.id !== undefined) {
     chrome.tabs.sendMessage(tab.id, { type: "optimize-selection", text: info.selectionText ?? "" });
