@@ -96,8 +96,8 @@ def app_factory() -> FastAPI:
     app.state.delta_store = DeltaStore()
     app.state.compressor = _load_compressor()  # learned model when TS_MODEL_DIR/TS_MODEL_GCS is set
 
-    @app.get("/healthz")
-    async def healthz() -> dict:
+    @app.get("/health")
+    async def health() -> dict:
         return {"status": "ok", "model_loaded": app.state.compressor is not None}
 
     def run_model_compression(text: str, rate: float, model: str):

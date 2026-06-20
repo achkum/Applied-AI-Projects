@@ -279,8 +279,8 @@ def app_factory(config: OptimizerConfig | None = None) -> FastAPI:
     app.state.ledger = Ledger()
     app.state.delta_store = DeltaStore()
 
-    @app.get("/healthz")
-    async def healthz() -> dict:
+    @app.get("/health")
+    async def health() -> dict:
         return {"status": "ok"}
 
     @app.get("/stats")

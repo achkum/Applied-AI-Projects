@@ -12,9 +12,9 @@ def client():
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://demo"), app
 
 
-async def test_healthz(client):
+async def test_health(client):
     c, _ = client
-    body = (await c.get("/healthz")).json()
+    body = (await c.get("/health")).json()
     assert body["status"] == "ok"
     assert body["model_loaded"] is False  # no TS_MODEL_DIR in tests
 
@@ -136,7 +136,7 @@ def test_web_entrypoint_boots_and_serves():
         while time.monotonic() < deadline and not server.started:
             time.sleep(0.05)
         assert server.started
-        resp = httpx.get(f"http://127.0.0.1:{port}/healthz", timeout=5.0)
+        resp = httpx.get(f"http://127.0.0.1:{port}/health", timeout=5.0)
         assert resp.status_code == 200
     finally:
         server.should_exit = True
