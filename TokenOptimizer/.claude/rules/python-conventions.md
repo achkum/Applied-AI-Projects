@@ -36,8 +36,8 @@ backend/app/
 │   └── providers/       #   per-provider adapter registry
 ├── normalize/           # feature: attachment normalization (extract, structured, textclean, code, dedup, delta)
 ├── cache/               # feature: prefix-cache restructuring (cache_optimizer.py)
-├── compress/            # feature: rule_compressor (Low: local rules), llmlingua (model inference
-│                         #   for the service host), service (High: Cloud Run client)
+├── compress/            # feature: llmlingua (model inference for the service host),
+│                         #   service (client to the Cloud Run model)
 ├── budget/              # feature: response budgeting (response_budget.py — output-side controls)
 └── pillars/             # product surfaces that consume the engine
     ├── lib.py           #   importable Python library
@@ -62,7 +62,7 @@ Every transformation declares a `guarantee` and must honor it:
 
 Hard rules, no exceptions:
 - **Never touch content inside code fences or inline backticks.** Split on fences first, process prose segments only, rejoin. This rule is duplicated across textclean, dedup, and both compressors — keep the splitting logic consistent.
-- **Never spend a generative LLM call to save LLM tokens.** Low-mode compression is a local rule pass; High-mode calls the shared LLMLingua-2 ONNX model (a small token-classifier, not an LLM) on Cloud Run. The engine's only outbound traffic is the proxy's upstream forward and the High-mode compression-service call.
+- **Never spend a generative LLM call to save LLM tokens.** Prompt compression calls the shared LLMLingua-2 ONNX model (a small token-classifier, not an LLM) on Cloud Run; there is no local rule fallback (when it's unconfigured/unreachable, compression is a no-op). The engine's only outbound traffic is the proxy's upstream forward and the compression-service call.
 - A transformation that cannot prove its guarantee (parse failure, AST mismatch) **reverts that unit and passes the original through unchanged.** Never corrupt; degrade to a no-op.
 
 ## Async/sync boundaries

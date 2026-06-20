@@ -2,8 +2,8 @@
 
 This is the secret-free half of the system: it normalizes, compresses, counts, and cache-rewrites
 payloads, but it never forwards to a provider, so it holds no credentials and is safe to host
-publicly. (The key-forwarding proxy in ``app.pillars.proxy`` stays local-only.) Recruiters can
-paste a prompt at ``/`` and watch the token count drop.
+publicly. (The key-forwarding proxy in ``app.pillars.proxy`` stays local-only.) It also serves the
+shared ``/v1/compress`` endpoint that the library, MCP server, and browser extension call.
 """
 
 import logging
@@ -15,12 +15,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
-from app.compress.rule_compressor import apply_compression_rules
 from app.core.ledger import Ledger
 from app.core.tokens import count_tokens, provider_for
 from app.core.types import Change, OptimizationResult, OptimizerConfig
 from app.normalize.delta import DeltaStore
-from app.optimizer import compress_text, optimize_payload
+from app.optimizer import optimize_payload
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ DEMO_MODELS = ["gpt-4o", "claude-sonnet-4-5", "gemini-1.5-pro", "mistral-large-l
 
 def _load_compressor():
     """Load the LLMLingua-2 model. A local TS_MODEL_DIR wins; otherwise download from TS_MODEL_GCS
-    (Cloud Run). Returns None when neither is available — callers fall back to local rules."""
+    (Cloud Run). Returns None when neither is available — the service then leaves text unchanged."""
     model_dir = os.getenv("TS_MODEL_DIR")
     gcs = os.getenv("TS_MODEL_GCS")
     if not model_dir and gcs:
@@ -62,18 +61,16 @@ class CountRequest(BaseModel):
 class CompressRequest(BaseModel):
     text: str
     model: str = "gpt-4o"
-    aggressive: bool = False
 
 
 class OptimizeRequest(BaseModel):
     payload: dict
     model: str = "gpt-4o"
-    aggressive: bool = False
 
 
 class CompressV1Request(BaseModel):
     text: str
-    rate: float = 0.6  # fraction of words to keep (learned model); ignored by the rules fallback
+    rate: float = 0.6  # fraction of words the model keeps
     model: str = "gpt-4o"
 
 
@@ -103,19 +100,18 @@ def app_factory() -> FastAPI:
     async def healthz() -> dict:
         return {"status": "ok", "model_loaded": app.state.compressor is not None}
 
-    @app.post("/v1/compress")
-    async def v1_compress(req: CompressV1Request) -> JSONResponse:
-        """The canonical compression endpoint every client calls. Uses the learned model when
-        loaded, otherwise the deterministic rule pass; ``mode`` says which ran."""
-        before = count_tokens(req.text, req.model).count
+    def run_model_compression(text: str, rate: float, model: str):
+        """Compress with the loaded model, or leave the text unchanged when none is loaded (there
+        is no local fallback). Records the result to the ledger; returns (text, before, after, mode)."""
+        before = count_tokens(text, model).count
         compressor = app.state.compressor
         if compressor is not None:
-            text = compressor.compress(req.text, rate=req.rate)["text"]
+            out = compressor.compress(text, rate=rate)["text"]
             mode = "model"
         else:
-            text, _ = apply_compression_rules(req.text, include_lossy=True)
-            mode = "rules"
-        after = count_tokens(text, req.model).count
+            out = text
+            mode = "none"
+        after = count_tokens(out, model).count
         app.state.ledger.record(
             OptimizationResult(
                 feature="compression",
@@ -124,6 +120,13 @@ def app_factory() -> FastAPI:
                 changes=[Change("compress", f"compressed via {mode}", before - after)],
             )
         )
+        return out, before, after, mode
+
+    @app.post("/v1/compress")
+    async def v1_compress(req: CompressV1Request) -> JSONResponse:
+        """The canonical compression endpoint every client (library, MCP, extension) calls. Uses
+        the loaded model; if none is loaded, returns the text unchanged with ``mode="none"``."""
+        text, before, after, mode = run_model_compression(req.text, req.rate, req.model)
         return JSONResponse(
             {"text": text, "tokens_before": before, "tokens_after": after, "mode": mode}
         )
@@ -137,18 +140,20 @@ def app_factory() -> FastAPI:
 
     @app.post("/api/compress")
     async def api_compress(req: CompressRequest) -> JSONResponse:
-        cfg = OptimizerConfig(
-            model=req.model, provider=provider_for(req.model), enable_compression=req.aggressive
+        text, before, after, mode = run_model_compression(req.text, 0.6, req.model)
+        return JSONResponse(
+            {
+                "text": text,
+                "tokens_before": before,
+                "tokens_after": after,
+                "tokens_saved": before - after,
+                "changes": [f"compressed via {mode}"],
+            }
         )
-        text, result = compress_text(req.text, cfg)
-        app.state.ledger.record(result)
-        return JSONResponse({"text": text, **_result_dict(result)})
 
     @app.post("/api/optimize")
     async def api_optimize(req: OptimizeRequest) -> JSONResponse:
-        cfg = OptimizerConfig(
-            model=req.model, provider=provider_for(req.model), enable_compression=req.aggressive
-        )
+        cfg = OptimizerConfig(model=req.model, provider=provider_for(req.model))
         optimized, results = optimize_payload(
             dict(req.payload), cfg, app.state.ledger, app.state.delta_store, "demo"
         )
@@ -187,11 +192,10 @@ _DEMO_HTML = """<!doctype html>
  .changes { font-size: .85rem; opacity: .8; }
 </style></head><body>
  <h1>Token Optimizer — engine demo</h1>
- <p class="sub">Local, lossless-first token reduction. Nothing is sent to any LLM — this runs the engine only.</p>
+ <p class="sub">Prompt compression with the LLMLingua-2 model. Nothing is sent to any LLM provider — this runs the engine only.</p>
  <textarea id="in" placeholder="Paste a verbose prompt…">Hi there! I was wondering if you could please help me out. In order to improve performance, due to the fact that the current code re-reads the config on every single request, we should add caching. Thanks in advance!</textarea>
  <div class="row">
    <label>Model <select id="model"></select></label>
-   <label><input type="checkbox" id="aggressive"> Aggressive (lossy)</label>
    <button id="go">Compress</button>
  </div>
  <div class="hero" id="hero">— <small>tokens saved</small></div>
@@ -202,7 +206,7 @@ _DEMO_HTML = """<!doctype html>
  const sel = document.getElementById('model');
  MODELS.forEach(m => { const o = document.createElement('option'); o.value = o.textContent = m; sel.appendChild(o); });
  document.getElementById('go').onclick = async () => {
-   const body = { text: document.getElementById('in').value, model: sel.value, aggressive: document.getElementById('aggressive').checked };
+   const body = { text: document.getElementById('in').value, model: sel.value };
    const r = await fetch('/api/compress', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
    const d = await r.json();
    const saved = d.tokens_before - d.tokens_after;

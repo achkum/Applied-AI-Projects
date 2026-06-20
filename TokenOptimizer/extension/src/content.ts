@@ -1,11 +1,10 @@
 // Content script: on ANY site, when the user focuses a substantial text field that has content,
-// float an "Optimize" button next to it (with a Low/High toggle). Clicking previews a diff and
-// applies the optimized text. Low = local rules; High = the shared model service.
+// float an "Optimize" button next to it. Clicking compresses the text with the shared model
+// service (its URL is set in the extension options) and previews a diff before applying.
+// Attachment compression (lossless, local) runs automatically on file inputs.
 
 import { isOptimizableAttachment, normalizeAttachment } from "./attachments";
 import { showOptimizationPanel } from "./panel";
-import { compress } from "./ruleCompressor";
-import { getMode, setMode } from "./settings";
 import {
   getEditableText,
   isOptimizable,
@@ -16,12 +15,10 @@ import { addSaved } from "./storage";
 import { countTokens } from "./tokens";
 
 const BUTTON_ID = "token-optimizer-button";
-const MODE_ID = "token-optimizer-mode";
 const MIN_CHARS = 40;
 const KEEP_RATE = 0.6;
 
 let button: HTMLButtonElement | null = null;
-let modeButton: HTMLButtonElement | null = null;
 let target: HTMLElement | null = null;
 
 const PILL = {
@@ -41,7 +38,7 @@ function ensureButton(): HTMLButtonElement {
   button.id = BUTTON_ID;
   button.type = "button";
   button.textContent = "⇣ Optimize";
-  button.title = "Optimize this text with Token Optimizer";
+  button.title = "Compress this text with Token Optimizer";
   Object.assign(button.style, PILL, { padding: "0.3rem 0.6rem", background: "#111", color: "#fff" });
   button.addEventListener("mousedown", (e) => e.preventDefault());
   button.addEventListener("click", () => {
@@ -51,46 +48,21 @@ function ensureButton(): HTMLButtonElement {
   return button;
 }
 
-function ensureModeButton(): HTMLButtonElement {
-  if (modeButton) return modeButton;
-  modeButton = document.createElement("button");
-  modeButton.id = MODE_ID;
-  modeButton.type = "button";
-  Object.assign(modeButton.style, PILL, { padding: "0.3rem 0.5rem", background: "#fff", color: "#111" });
-  void getMode().then((m) => (modeButton!.textContent = m === "high" ? "High" : "Low"));
-  modeButton.title = "Low = local rules · High = the shared model (set the service URL first)";
-  modeButton.addEventListener("mousedown", (e) => e.preventDefault());
-  modeButton.addEventListener("click", async () => {
-    const next = (await getMode()) === "high" ? "low" : "high";
-    await setMode(next);
-    modeButton!.textContent = next === "high" ? "High" : "Low";
-  });
-  document.body.appendChild(modeButton);
-  return modeButton;
-}
-
 function position(el: HTMLElement): void {
   const b = ensureButton();
-  const m = ensureModeButton();
   const rect = el.getBoundingClientRect();
-  const top = `${Math.max(8, rect.top + 6)}px`;
-  const right = Math.max(8, window.innerWidth - rect.right + 6);
-  b.style.top = top;
-  b.style.right = `${right}px`;
-  m.style.top = top;
-  m.style.right = `${right + 96}px`;
+  b.style.top = `${Math.max(8, rect.top + 6)}px`;
+  b.style.right = `${Math.max(8, window.innerWidth - rect.right + 6)}px`;
 }
 
 function showFor(el: HTMLElement): void {
   target = el;
   position(el);
   ensureButton().style.display = "block";
-  ensureModeButton().style.display = "block";
 }
 
 function hide(): void {
   if (button) button.style.display = "none";
-  if (modeButton) modeButton.style.display = "none";
   target = null;
 }
 
@@ -102,7 +74,8 @@ function evaluate(el: EventTarget | null): void {
   }
 }
 
-// Ask the background worker to compress via the shared service. Returns null on any failure.
+// Ask the background worker to compress via the shared model service. Returns null on any failure
+// (no endpoint configured in options, or the service is unreachable).
 function serviceCompress(text: string, model: string): Promise<{ text: string } | null> {
   return new Promise((resolve) => {
     try {
@@ -116,20 +89,25 @@ function serviceCompress(text: string, model: string): Promise<{ text: string } 
   });
 }
 
-async function computeOptimized(text: string, model: string): Promise<string> {
-  if ((await getMode()) === "high") {
-    const result = await serviceCompress(text, model);
-    if (result) return result.text; // real model
-    // else fall through to local rules
-  }
-  return compress(text).text;
+function flashButton(message: string): void {
+  const b = ensureButton();
+  const original = b.textContent;
+  b.textContent = message;
+  setTimeout(() => {
+    b.textContent = original;
+  }, 2500);
 }
 
 async function runOptimize(el: HTMLElement): Promise<void> {
   const before = getEditableText(el);
   if (!before.trim()) return;
   const model = modelForHost();
-  const after = await computeOptimized(before, model);
+  const result = await serviceCompress(before, model);
+  if (!result) {
+    flashButton("⚠ Set the service URL in options");
+    return;
+  }
+  const after = result.text;
   const tokensBefore = countTokens(before, model).count;
   const tokensAfter = countTokens(after, model).count;
   showOptimizationPanel({
@@ -149,7 +127,7 @@ document.addEventListener("input", (e) => evaluate(e.target));
 document.addEventListener(
   "focusout",
   () => setTimeout(() => {
-    if (document.activeElement !== button && document.activeElement !== modeButton) hide();
+    if (document.activeElement !== button) hide();
   }, 150),
 );
 window.addEventListener("scroll", () => target && position(target), true);

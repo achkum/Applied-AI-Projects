@@ -2,8 +2,8 @@
 
 Project: the `token-optimizer` browser extension (Pillar 2) — a Manifest V3 extension that adds an
 **Optimize** button to editable text fields on **any site**, plus attachment compression on file
-uploads. Prompt compression has a **Low / High** toggle: Low runs the same rule pass as the Python
-engine, in-browser; High calls the shared Cloud Run compression service (via the background worker).
+uploads. Prompt compression calls the shared Cloud Run compression service (the LLMLingua-2 model)
+through the background worker; there is no in-browser compression model.
 
 ## Versions and tooling
 
@@ -30,12 +30,12 @@ extension/
 ├── package.json
 ├── tsconfig.json
 ├── esbuild.mjs              # build to dist/
+├── scripts/make_icons.py   # one-off icon generator (dev tool, not part of the bundle)
 ├── src/
-│   ├── content.ts          # content script: finds the text field, injects the Optimize button + toggle
+│   ├── content.ts          # content script: finds the text field, injects the Optimize button
 │   ├── sites.ts            # per-site adapters (claude.ai, chatgpt.com, generic fallback)
-│   ├── ruleCompressor.ts   # Low mode: port of the Python rule pass; reads shared/compression_rules.json
-│   ├── service.ts          # High mode: client for the Cloud Run /v1/compress endpoint
-│   ├── settings.ts         # Low/High mode + service endpoint, persisted in chrome.storage.local
+│   ├── service.ts          # client for the Cloud Run /v1/compress endpoint
+│   ├── settings.ts         # the service endpoint, persisted in chrome.storage.local
 │   ├── background.ts       # service worker: cross-origin fetch to the compression service, context menu
 │   ├── attachments.ts      # lossless compression of attached files before upload
 │   ├── tokens.ts           # gpt-tokenizer + the Anthropic heuristic (ported EXACTLY from Python)
@@ -53,24 +53,21 @@ extension/
   background worker can reach the compression service. Keep the permission set as narrow as the
   feature allows and justify each one in `STORE_LISTING.md`.
 - **No remote code.** Everything ships in the bundle; the manifest must validate as
-  remote-code-free. High mode sends *text* to the compression service and gets text back — that is
-  data over `fetch`, not executable extension code.
-- The floating button survives SPA navigation via a `MutationObserver`. High-mode requests go
+  remote-code-free. Compression sends *text* to the service and gets text back — that is data over
+  `fetch`, not executable extension code.
+- The floating button survives SPA navigation via a `MutationObserver`. Compression requests go
   through the background service worker (not the page) to avoid the host page's CSP.
 
-## Shared rule spec (the cross-language contract)
+## Token-count parity (the cross-language contract)
 
-`shared/compression_rules.json` is the single source of truth for compression rules, consumed
-by **both** the Python engine (T19) and this extension (T22). When you touch it:
+`shared/token_test_vectors.json` pins token counts that **both** the Python engine and this
+extension assert, so the JS token counter (`tokens.ts`) and the Python one stay in lockstep. When
+you change tokenization on either side, update the fixtures and run both test suites. The Anthropic
+heuristic in `tokens.ts` must match the Python implementation exactly.
 
-- Regex must stay in the **JS-compatible subset**: no variable-length lookbehind, no named
-  groups `(?P<...>)`. The file documents this at the top — honor it, because the same patterns
-  run under Python `re` and JS `RegExp`.
-- The build step copies `shared/compression_rules.json` into `dist/`. Do not fork or duplicate
-  the rules into the TS source.
-- `ruleCompressor.ts` must produce semantics identical to the Python `apply_compression_rules`:
-  same prose/code splitting, same file-order application, same flags. `shared/token_test_vectors.json`
-  is asserted in both languages to keep them in lockstep.
+Prompt compression itself is **not** done in the browser — it is a `fetch` to the shared model
+service (`service.ts` → `/v1/compress`), so there is no rule spec or compression logic to keep in
+sync across languages anymore.
 
 ## DOM & site adapters
 
@@ -87,27 +84,28 @@ by **both** the Python engine (T19) and this extension (T22). When you touch it:
   leak). Inline styles within the shadow root are fine here — this is the one place Tailwind-style
   external CSS doesn't apply.
 - Word-level diff: deletions struck through, token count before → after, **Apply** / **Cancel**.
-- Never block the UI thread. Low mode (the rule pass) shows a result instantly; High mode awaits
-  the compression service through the background worker and falls back to Low if it's unreachable.
+- Never block the UI thread. Clicking Optimize awaits the compression service through the background
+  worker; if it isn't configured or is unreachable, the button says so instead of opening the panel.
 
-## Code-fence safety (mirrors the Python contract)
+## Attachment normalization (mirrors the Python contract)
 
-Compression in the browser obeys the same hard rule as the engine: **never alter text inside
-code fences or inline backticks.** The fence-splitting logic in `ruleCompressor.ts` must match
-the Python implementation's behavior.
+Attachment compression in the browser obeys the same lossless rules as the engine: minify JSON/CSV
+losslessly, **never alter text inside code fences or inline backticks**, and revert to the original
+file when a transform can't prove its guarantee. Keep `attachments.ts` behavior aligned with the
+Python normalizers.
 
 ## Testing
 
 - `vitest` + jsdom. Tests live under `src/__tests__/`.
-- Adapter tests use jsdom fixtures of each site's DOM shape. Classifier tests inject a fake
-  pipeline with deterministic scores — never download the real model in CI.
+- Adapter tests use jsdom fixtures of each site's DOM shape. The compression service is mocked
+  (the content script asks the background worker) — never hit a real network in CI.
 - Test user-visible behavior (button appears, Apply replaces text, counter accumulates), not
   internal call order.
 
 ## Don't
 
-- No analytics, no telemetry. The only network call is the opt-in High-mode request to the
-  compression service (text in, compressed text out) — nothing else leaves the browser.
+- No analytics, no telemetry. The only network call is the opt-in compression request to the
+  service (text in, compressed text out) — nothing else leaves the browser.
 - No `dangerouslySetInnerHTML`-style raw HTML injection from page content into the panel.
 - No storing prompt text anywhere except transiently in memory and the running tokens-saved
   total in `chrome.storage.local` (a number, not the text).

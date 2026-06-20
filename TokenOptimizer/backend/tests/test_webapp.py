@@ -19,13 +19,15 @@ async def test_healthz(client):
     assert body["model_loaded"] is False  # no TS_MODEL_DIR in tests
 
 
-async def test_v1_compress_falls_back_to_rules_without_model(client):
+async def test_v1_compress_passthrough_without_model(client):
     c, app = client
     assert app.state.compressor is None
     text = "Hi there! I was wondering if you could basically help me out. Thanks in advance!"
     r = (await c.post("/v1/compress", json={"text": text})).json()
-    assert r["mode"] == "rules"
-    assert r["tokens_after"] <= r["tokens_before"]
+    # No model loaded → text returned unchanged. There is no local rule fallback.
+    assert r["mode"] == "none"
+    assert r["text"] == text
+    assert r["tokens_after"] == r["tokens_before"]
 
 
 async def test_v1_compress_uses_model_when_loaded(client):
@@ -56,17 +58,25 @@ async def test_count_endpoint_reports_provider_and_exactness(client):
     assert claude["exact"] is False
 
 
-async def test_compress_endpoint_shrinks_and_aggressive_shrinks_more(client):
-    c, _ = client
-    text = "Hi there! I was wondering if you could basically help me. Thanks in advance!"
-    safe = (await c.post("/api/compress", json={"text": text, "model": "gpt-4o"})).json()
-    assert safe["tokens_after"] < safe["tokens_before"]
-    assert "basically" in safe["text"]  # safe pass keeps intensifiers
-    aggressive = (
-        await c.post("/api/compress", json={"text": text, "model": "gpt-4o", "aggressive": True})
-    ).json()
-    assert aggressive["tokens_after"] <= safe["tokens_after"]
-    assert "basically" not in aggressive["text"]
+async def test_api_compress_uses_model_when_loaded(client):
+    c, app = client
+
+    class FakeCompressor:
+        def compress(self, text, rate=0.6):
+            return {"text": "compressed result"}
+
+    app.state.compressor = FakeCompressor()
+    r = (await c.post("/api/compress", json={"text": "a b c d e f g h", "model": "gpt-4o"})).json()
+    assert r["text"] == "compressed result"
+    assert r["tokens_saved"] == r["tokens_before"] - r["tokens_after"]
+
+
+async def test_api_compress_passthrough_without_model(client):
+    c, app = client
+    assert app.state.compressor is None  # no model in tests → no compression, no local fallback
+    r = (await c.post("/api/compress", json={"text": "hello world there", "model": "gpt-4o"})).json()
+    assert r["text"] == "hello world there"
+    assert r["tokens_saved"] == 0
 
 
 async def test_optimize_endpoint_minifies_document(client):

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import vectorsData from "../../../shared/token_test_vectors.json";
+// Golden token-count vectors live with the Python tests (the source of truth); this asserts the
+// browser tokenizer matches the backend's.
+import vectorsData from "../../../backend/tests/token_test_vectors.json";
 import { anthropicHeuristic, countTokens, providerFor } from "../tokens";
 
 const vectors = (vectorsData as { vectors: { text: string; anthropic: number }[] }).vectors;

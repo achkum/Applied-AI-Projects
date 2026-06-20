@@ -1,5 +1,5 @@
 // Client for the shared compression service (the Cloud Run LLMLingua-2 endpoint) — the same
-// service the Python library and MCP call, so "High" mode in the browser uses the identical model.
+// service the Python library and MCP call, so the browser uses the identical model.
 // The actual fetch runs in the background service worker (not the content script) to avoid page CSP.
 
 export type CompressResult = {

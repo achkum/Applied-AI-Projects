@@ -1,7 +1,7 @@
 # Token Optimizer — Local LLM Token-Reduction Engine
 
-A single local application that reduces LLM token usage — fully local, lossless-first. One
-optimization engine, delivered as **three pillars**: an importable **Python library** (developers
+A single application that reduces LLM token usage — lossless-first, with opt-in prompt compression.
+One optimization engine, delivered as **three pillars**: an importable **Python library** (developers
 wrap their LLM/agent calls), a **browser extension** (end users optimize prompts and attachments in
 any chat UI), and an **MCP server** (agents call the engine as tools). A transparent proxy and a
 hosted demo are also included as optional extras built on the same engine.
@@ -15,11 +15,12 @@ full architecture, module map, and usage.
 1. **Compress without loss (lossless-first).** Every transformation declares a guarantee
    (value-identical / text-lossless / render-equivalent / ast-identical) and honors it. A
    transform that can't prove its guarantee reverts to a no-op. Code fences are never touched.
-2. **Never spend an LLM call to save LLM tokens.** Compression never invokes a generative model.
-   **Low** mode is a deterministic rule pass that runs on-device (offline, instant). **High** mode
-   calls one shared LLMLingua-2 model (a small ONNX token-classifier, not an LLM) hosted on Cloud
-   Run — the same service for the library, extension, and MCP. No telemetry; the only outbound
-   traffic is the proxy forwarding to your provider and, in High mode, the compression service.
+2. **Never spend a generative LLM call to save LLM tokens.** Prompt compression uses one shared
+   LLMLingua-2 model (a small ONNX token-classifier, not an LLM) hosted on Cloud Run — the same
+   service for the library, extension, and MCP. It is opt-in; when the service isn't configured or
+   is unreachable, compression is a no-op and the rest of the optimization still runs (there is no
+   local fallback). No telemetry; the only outbound traffic is the proxy forwarding to your provider
+   and the compression service.
 3. **Integration over instrumentation (one app, one counter).** The product carries exactly one
    metric: a live tokens-saved counter. No dashboards, no telemetry.
 
@@ -29,7 +30,7 @@ full architecture, module map, and usage.
 |---|---|---|---|
 | **Attachment normalization** | always on | lossless | Per-file-type cleanup (minify JSON/YAML, compact CSV→TSV, de-hyphenate PDF text, AST-safe code trim), cross-file dedup, delta-encoding of resent files. |
 | **Cache optimization** | always on | lossless | Reorders payloads for prefix stability, hoists volatile content out of the stable prefix, injects `cache_control` markers. |
-| **Prompt compression** | opt-in | lossy (controlled) | Low: local rule pass (filler/hedging/politeness). High: shared LLMLingua-2 ONNX model on Cloud Run. Never a generative LLM call. |
+| **Prompt compression** | opt-in | lossy (controlled) | Shared LLMLingua-2 ONNX model on Cloud Run, called by every pillar. Never a generative LLM call; a no-op when the service is unavailable. |
 | **Response budgeting** | always on | output-side | Injects `max_tokens` caps, optional brevity directives, compact-schema advice; measures realized output savings from usage data. |
 
 ## The three pillars (one shared engine)
@@ -54,9 +55,9 @@ call it, so improvements land everywhere at once.
 | Providers | `providers/` adapter registry: OpenAI, Anthropic, Google, Mistral, Cohere, DeepSeek, xAI, + generic OpenAI-compatible (Groq/Together/OpenRouter/Ollama/vLLM/local) |
 | Token counting | per-provider tokenizers: tiktoken (OpenAI) & mistral-common (Mistral) exact; HF `tokenizers` for local; honest `o200k×factor` proxy estimates elsewhere (`exact=False`) |
 | Extraction | Microsoft `markitdown` (wrapped, never reimplemented) |
-| Prompt compression (High) | LLMLingua-2 int8 ONNX served on Cloud Run, `onnxruntime` (`serve` extra), model loaded from GCS at startup |
+| Prompt compression | LLMLingua-2 int8 ONNX served on Cloud Run, `onnxruntime` (`serve` extra), model loaded from GCS at startup |
 | MCP | official `mcp` Python SDK, stdio transport |
-| Extension | TypeScript, Manifest V3, esbuild → dist, vitest; `gpt-tokenizer`; High mode calls the Cloud Run service |
+| Extension | TypeScript, Manifest V3, esbuild → dist, vitest; `gpt-tokenizer`; calls the Cloud Run compression service |
 | Lint / test | `ruff`, `pytest` (+ `pytest-asyncio`); `npm test` (vitest) for the extension |
 
 ## Repo structure
@@ -80,7 +81,7 @@ TokenOptimizer/
 │   │   │   └── providers/          #   per-provider adapters (tokenizer, routing, cache, usage, max-output)
 │   │   ├── normalize/              # LAYER 2 — feature: extract, structured, textclean, code, dedup, delta
 │   │   ├── cache/                  # LAYER 2 — feature: cache_optimizer (prefix-cache restructuring)
-│   │   ├── compress/               # LAYER 2 — feature: rule_compressor (Low), llmlingua (model), service (High)
+│   │   ├── compress/               # LAYER 2 — feature: llmlingua (model inference), service (client to Cloud Run)
 │   │   ├── budget/                 # LAYER 2 — feature: response_budget (output-side controls)
 │   │   └── pillars/                # LAYER 3 — product surfaces that consume the engine
 │   │       ├── lib.py              #   PILLAR 1: importable Python library
@@ -89,8 +90,7 @@ TokenOptimizer/
 │   │       ├── proxy/              #   extra: transparent key-forwarding proxy
 │   │       └── webapp.py           #   extra: Cloud Run compression service + demo
 │   └── tests/
-├── shared/                         # cross-language contract — consumed by Python AND the extension
-│   ├── compression_rules.json
+├── shared/                         # cross-language token-count parity fixtures (Python ↔ extension)
 │   └── token_test_vectors.json
 ├── extension/                      # TypeScript MV3 extension (PILLAR 2)
 └── scripts/                        # benchmark.py, quantize_model.py, fixtures/
@@ -113,9 +113,9 @@ there), scoped to `TokenOptimizer/**`.
   create-cache API, not an inline marker, so it is measured, not injected.)
 
 ### Hosted compression service + demo (Cloud Run) — secret-free
-- `token-optimizer web` (`webapp.py`): **`POST /v1/compress`** is the shared High-mode compression
-  endpoint that the library, extension, and MCP all call; it runs the LLMLingua-2 model when one is
-  loaded and falls back to the rule pass otherwise. Also serves `POST /api/compress|count|optimize`,
+- `token-optimizer web` (`webapp.py`): **`POST /v1/compress`** is the shared compression endpoint
+  that the library, extension, and MCP all call; it runs the LLMLingua-2 model when one is loaded,
+  otherwise it returns the text unchanged (no local fallback). Also serves `POST /api/compress|count|optimize`,
   `GET /` paste-and-see demo, `GET /stats`, `GET /healthz` (reports `model_loaded`). Holds **no API
   key** and never forwards — safe to host publicly. The model is loaded at startup from `TS_MODEL_DIR`
   (local) or `TS_MODEL_GCS` (GCS bucket, like the BreastCancer `.pth`). `Dockerfile` +
