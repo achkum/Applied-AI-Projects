@@ -1,9 +1,12 @@
 # Build + deploy the secret-free compression service + engine demo to Cloud Run (keyless WIF).
-# Dormant until repo variable TS_GCP_ENABLED=true (plus the vars below) are set.
+# Dormant until repo variable TS_GCP_ENABLED=true (plus the vars below) are set. Uses its OWN
+# GCP project + Workload Identity — fully independent of any other project in this monorepo.
 #
-#   vars.WIF_PROVIDER / WIF_SERVICE_ACCOUNT          - keyless auth (no stored key)
-#   vars.GCP_PROJECT_ID / GCP_REGION / TS_AR_REPOSITORY / TS_CLOUD_RUN_SERVICE / TS_ALLOWED_ORIGINS
-#   vars.TS_MODEL_GCS                                - gs://bucket/prefix of the int8 model + tokenizer
+#   vars.TS_WIF_PROVIDER / TS_WIF_SERVICE_ACCOUNT    - keyless auth (no stored key)
+#   vars.TS_GCP_PROJECT_ID / TS_GCP_REGION
+#   vars.TS_AR_REPOSITORY / TS_CLOUD_RUN_SERVICE / TS_ALLOWED_ORIGINS
+#   vars.TS_RUN_SERVICE_ACCOUNT                       - runtime identity (reads the model bucket)
+#   vars.TS_MODEL_GCS                                 - gs://bucket/prefix of the int8 model + tokenizer
 # No application secrets are needed — the service holds no API keys.
 name: token-optimizer-deploy
 
@@ -23,16 +26,16 @@ jobs:
       contents: read
       id-token: write
     env:
-      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.TS_AR_REPOSITORY }}/engine-demo:${{ github.sha }}
+      IMAGE: ${{ vars.TS_GCP_REGION }}-docker.pkg.dev/${{ vars.TS_GCP_PROJECT_ID }}/${{ vars.TS_AR_REPOSITORY }}/engine-demo:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ vars.TS_WIF_PROVIDER }}
+          service_account: ${{ vars.TS_WIF_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
       - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
+        run: gcloud auth configure-docker "${{ vars.TS_GCP_REGION }}-docker.pkg.dev" --quiet
       - name: Build and push image
         run: |
           docker build -t "$IMAGE" -f TokenOptimizer/backend/Dockerfile TokenOptimizer
@@ -41,8 +44,10 @@ jobs:
         run: |
           gcloud run deploy "${{ vars.TS_CLOUD_RUN_SERVICE }}" \
             --image "$IMAGE" \
-            --region "${{ vars.GCP_REGION }}" \
+            --project "${{ vars.TS_GCP_PROJECT_ID }}" \
+            --region "${{ vars.TS_GCP_REGION }}" \
             --platform managed \
             --allow-unauthenticated \
+            --service-account "${{ vars.TS_RUN_SERVICE_ACCOUNT }}" \
             --memory 2Gi --cpu 2 --timeout 120 \
             --set-env-vars "^@@^ALLOWED_ORIGINS=${{ vars.TS_ALLOWED_ORIGINS }}@@TS_MODEL_GCS=${{ vars.TS_MODEL_GCS }}"
