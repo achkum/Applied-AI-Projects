@@ -17,10 +17,11 @@
 </head>
 <body>
   <h1>Token Optimizer</h1>
-  <p>Set the compression service to use. This is the Cloud Run endpoint that runs the model.</p>
+  <p>The compression service the Optimize button calls. It comes pre-filled with the default hosted
+     service, so you don't need to change anything — override it only to use your own.</p>
   <label for="url">Compression service URL</label>
   <input id="url" type="url" placeholder="https://your-service-xxxxx.run.app" autocomplete="off" spellcheck="false">
-  <p style="font-size:.85rem">Example: <code>https://token-optimizer-xxxxx.run.app</code> — leave blank to disable compression.</p>
+  <p style="font-size:.85rem">Leave blank and save to disable compression.</p>
   <div>
     <button id="save">Save</button>
     <span id="status" class="status"></span>
