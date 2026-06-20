@@ -23,7 +23,7 @@ Both record to the same shared `Ledger`, so the savings counter is consistent ac
 - Use the official `mcp` Python SDK.
 - Transport: **stdio is primary** (works with Claude Desktop config). Mount an SSE endpoint on the
   proxy app only if the SDK makes it trivial; otherwise stdio only and note it in the module docstring.
-- Tools live in `src/token_optimizer/mcp_server.py`.
+- Tools live in `backend/app/pillars/mcp_server.py`.
 - Tools **delegate to the same engine functions** the proxy uses (`tokens.count_tokens`,
   `optimizer.normalize_attachments`, `cache_optimizer.optimize_for_cache`,
   `compress.*`, `normalize.dedup.dedup_chunks`). Never reimplement engine logic inside a tool.

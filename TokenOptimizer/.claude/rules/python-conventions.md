@@ -8,7 +8,7 @@ HTTP proxy, an MCP server, and consumed by a browser extension.
 
 - Python 3.11+. Use 3.11+ features freely: `match` statements, `Self`, PEP 604 unions (`int | None`).
 - Use `uv` for dependency management. Declare dependencies in `pyproject.toml`. Do not use raw `pip` or `requirements.txt`.
-- Linter: `ruff` (config in `pyproject.toml`, default rules). Run `uv run ruff check src tests` before considering work done.
+- Linter: `ruff` (config in `pyproject.toml`, default rules). Run `uv run ruff check app tests` from `backend/` before considering work done.
 - Tests: `pytest` (+ `pytest-asyncio` for the proxy). Run `uv run pytest`.
 - Type hints are required on all public function signatures (return types optional only for `__init__`).
 
@@ -23,20 +23,28 @@ HTTP proxy, an MCP server, and consumed by a browser extension.
 
 ## File organization
 
+The package is `backend/app/` (imported as `app`), grouped into three layers: engine core,
+feature modules, and the pillars that consume the engine.
+
 ```
-src/token_optimizer/
-├── types.py             # shared dataclasses/protocols — the single source of vocabulary
-├── tokens.py            # token counting (tiktoken for OpenAI, heuristic for Anthropic)
-├── ledger.py            # thread-safe savings counter
-├── normalize/           # attachment normalization (extract, structured, textclean, code, dedup, delta)
-├── cache_optimizer.py   # prefix-cache restructuring
-├── compress/            # prompt compression: rule_compressor (Low: local rules), llmlingua
-│                         #   (model inference for the service host), service (High: Cloud Run client)
-├── response_budget.py   # output-side controls
-├── optimizer.py         # engine orchestrator — glues the features behind one call
-├── proxy/               # transparent FastAPI proxy + stats page
-├── mcp_server.py        # MCP endpoint
-└── cli.py               # entry points
+backend/app/
+├── optimizer.py         # engine orchestrator — glues the features behind one call (root)
+├── core/                # primitives every feature uses
+│   ├── types.py         #   shared dataclasses/protocols — the single source of vocabulary
+│   ├── tokens.py        #   token counting (tiktoken for OpenAI, heuristic for Anthropic)
+│   ├── ledger.py        #   thread-safe savings counter
+│   └── providers/       #   per-provider adapter registry
+├── normalize/           # feature: attachment normalization (extract, structured, textclean, code, dedup, delta)
+├── cache/               # feature: prefix-cache restructuring (cache_optimizer.py)
+├── compress/            # feature: rule_compressor (Low: local rules), llmlingua (model inference
+│                         #   for the service host), service (High: Cloud Run client)
+├── budget/              # feature: response budgeting (response_budget.py — output-side controls)
+└── pillars/             # product surfaces that consume the engine
+    ├── lib.py           #   importable Python library
+    ├── mcp_server.py    #   MCP endpoint
+    ├── cli.py           #   entry points
+    ├── proxy/           #   transparent FastAPI proxy + stats page
+    └── webapp.py        #   Cloud Run compression service + demo
 ```
 
 The orchestrator (`optimizer.py`) is the only module that knows the feature order. Individual
@@ -59,7 +67,7 @@ Hard rules, no exceptions:
 
 ## Async/sync boundaries
 
-- The proxy (`proxy/server.py`) is async FastAPI; use a module-level `httpx.AsyncClient`.
+- The proxy (`pillars/proxy/server.py`) is async FastAPI; use a module-level `httpx.AsyncClient`.
 - Engine functions (normalization, compression, counting) are CPU-bound and synchronous. When called from the async proxy, wrap with `asyncio.to_thread`.
 - Streaming passthrough must yield raw upstream bytes as received — never buffer the whole stream, never re-chunk, never parse SSE in the proxy.
 
