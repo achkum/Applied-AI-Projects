@@ -27,7 +27,7 @@ A transparent proxy and a hosted demo are built on the same engine.
 
 | Feature | Mode | Guarantee | Summary |
 |---|---|---|---|
-| **Attachment normalization** | always on | lossless | Minify JSON/YAML, compact CSV→TSV, clean PDF/Word text extraction, AST-safe code trimming, cross-file dedup, delta-encode re-sent files. |
+| **Attachment normalization** | always on | lossless | Minify JSON/YAML, compact CSV→TSV, extract text from documents (PDF, DOCX, …), AST-safe code trimming, cross-file dedup, delta-encode re-sent files. See the format table below. |
 | **Cache optimization** | always on | lossless | Reorder payloads for prefix stability and inject `cache_control` markers so provider prompt caches keep hitting. |
 | **Prompt compression** | opt-in | lossy (controlled) | Compress prose with a hosted LLMLingua-2 model. Code blocks and quoted text are never touched. |
 | **Response budgeting** | always on | output-side | Inject a provider-correct output-token cap and optional brevity directives. |
@@ -35,6 +35,19 @@ A transparent proxy and a hosted demo are built on the same engine.
 Every lossless transform declares a guarantee — `value-identical`, `text-lossless`,
 `render-equivalent`, or `ast-identical` — and **reverts to a no-op if it can't prove it**, so a
 request is never corrupted.
+
+### Supported attachment formats
+
+| Type | Formats | Available in |
+|---|---|---|
+| Structured | JSON, YAML, CSV, TSV | library · MCP · extension (JSON/CSV) |
+| Text | TXT, Markdown | library · MCP · extension |
+| Code | `.py` (AST-safe) + `.js .ts .jsx .tsx .java .c .cpp .cc .h .hpp .go .rs .cs .php .rb .sh .pl .swift .kt .scala` | library · MCP |
+| Documents (text extracted) | PDF, DOCX, PPTX, XLSX, XLS, HTML | library · MCP |
+
+The **browser extension** optimizes only the in-browser, lossless text formats (JSON, CSV, TXT,
+Markdown); binary/document formats are handled by the library/MCP via `optimize_file()` /
+`normalize_attachment`.
 
 ## Architecture
 
@@ -99,8 +112,8 @@ ts.configure(compress_url="https://<service>.run.app", enable_compression=True)
 ### Browser extension
 
 Focus a substantial text box on any site and an **⇣ Optimize** button appears; click it to preview
-a before/after diff and apply. Attached JSON/CSV/Markdown files are compacted losslessly in the
-browser before they're sent.
+a before/after diff and apply. Attached JSON, CSV, TXT, and Markdown files are compacted losslessly
+in the browser before they're sent (other formats are handled by the library/MCP).
 
 Prompt compression calls the shared model service — a default endpoint ships with the extension, so
 it works on install; override it in the options page (opened from the toolbar icon). To avoid
