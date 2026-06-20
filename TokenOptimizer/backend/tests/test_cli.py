@@ -45,7 +45,7 @@ def test_stats_no_server_fails_friendly(capsys):
     assert "Could not reach token-optimizer" in capsys.readouterr().err
 
 
-def test_start_boots_and_healthz_responds():
+def test_start_boots_and_health_responds():
     port = free_port()
     server = uvicorn.Server(
         uvicorn.Config(app_factory(), host="127.0.0.1", port=port, log_level="warning")
@@ -57,7 +57,7 @@ def test_start_boots_and_healthz_responds():
         while time.monotonic() < deadline and not server.started:
             time.sleep(0.05)
         assert server.started
-        resp = httpx.get(f"http://127.0.0.1:{port}/healthz", timeout=5.0)
+        resp = httpx.get(f"http://127.0.0.1:{port}/health", timeout=5.0)
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
     finally:

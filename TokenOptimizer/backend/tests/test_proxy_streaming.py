@@ -107,8 +107,8 @@ async def test_midstream_failure_does_not_hang():
     assert b"event: a" in content  # partial content delivered before the break
 
 
-async def test_healthz():
+async def test_health():
     client = proxy_to(make_streaming_upstream())
-    resp = await client.get("/healthz")
+    resp = await client.get("/health")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
