@@ -13,7 +13,6 @@ from tokenoptim.normalize.delta import DeltaStore
 from tokenoptim.optimizer import Attachment, normalize_attachments
 
 MODEL = "gpt-4o"
-PROMPTS_FILE = "prompts.txt"
 
 
 def _pct(before: int, after: int) -> float:
@@ -24,9 +23,7 @@ def run(fixtures_dir: Path) -> list[tuple[str, int, int]]:
     config = OptimizerConfig(model=MODEL)
     rows: list[tuple[str, int, int]] = []
 
-    files = sorted(
-        f for f in fixtures_dir.iterdir() if f.is_file() and f.name != PROMPTS_FILE
-    )
+    files = sorted(f for f in fixtures_dir.iterdir() if f.is_file())
     for path in files:
         _, result = normalize_attachments(
             [Attachment(path.name, path.read_bytes())], "bench", config, DeltaStore(), Ledger()

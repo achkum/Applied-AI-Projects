@@ -24,7 +24,12 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("--brevity", action="store_true", help="inject a concise-output directive")
     start.add_argument("--max-output-tokens", type=int, default=None)
 
-    sub.add_parser("download-model", help="download the LLMLingua-2 ONNX classifier")
+    dl = sub.add_parser("download-model", help="download + int8-quantize the LLMLingua-2 model")
+    dl.add_argument(
+        "--out",
+        default=os.getenv("TS_MODEL_DIR", ".models/llmlingua2-bert"),
+        help="output model directory (default: $TS_MODEL_DIR or .models/llmlingua2-bert)",
+    )
 
     stats = sub.add_parser("stats", help="print savings from a running instance")
     stats.add_argument("--port", type=int, default=8484)
@@ -65,10 +70,9 @@ def _cmd_start(args: argparse.Namespace) -> int:
 def _cmd_download(args: argparse.Namespace) -> int:
     from tokenoptim.compress.llmlingua import download_and_quantize
 
-    out = os.getenv("TS_MODEL_DIR", ".models/llmlingua2-bert")
-    print(f"Downloading + quantizing the LLMLingua-2 model into {out} …")
-    dst = download_and_quantize(out)
-    print(f"Done: {dst}")
+    print(f"Downloading + quantizing the LLMLingua-2 model into {args.out} …")
+    dst = download_and_quantize(args.out)
+    print(f"Done: {dst}. Upload it (+ the tokenizer files) to your model bucket for the service.")
     return 0
 
 

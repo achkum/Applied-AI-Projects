@@ -148,7 +148,7 @@ field, not estimated.
 ```
 backend/        Python engine + library + MCP + proxy + compression service (package: tokenoptim)
 extension/      Browser extension (TypeScript, Manifest V3)
-scripts/        Offline benchmark + model quantization
+scripts/        Offline benchmark over sample fixtures
 ```
 
 ## Development
