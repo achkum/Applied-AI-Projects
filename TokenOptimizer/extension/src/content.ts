@@ -19,6 +19,9 @@ import { countTokens } from "./tokens";
 const BUTTON_ID = "token-optimizer-button";
 const MIN_CHARS = 40;
 const KEEP_RATE = 0.8; // keep 80% — gentle; drops clear filler without gutting short prompts
+// Extractive compression only helps when there's redundancy to remove. Below this it just damages
+// the prompt for little gain, so we skip it. Tune to taste.
+const MIN_COMPRESS_TOKENS = 250;
 
 let button: HTMLButtonElement | null = null;
 let target: HTMLElement | null = null;
@@ -117,6 +120,11 @@ async function runOptimize(el: HTMLElement): Promise<void> {
   const before = getEditableText(el);
   if (!before.trim()) return;
   const model = modelForHost();
+  const tokensBefore = countTokens(before, model).count;
+  if (tokensBefore < MIN_COMPRESS_TOKENS) {
+    flashButton("Already concise — nothing to compress");
+    return;
+  }
   const outcome = await serviceCompress(before, model);
   if (!outcome.ok) {
     if (outcome.reason === "no-endpoint") {
@@ -128,7 +136,6 @@ async function runOptimize(el: HTMLElement): Promise<void> {
     return;
   }
   const after = outcome.text;
-  const tokensBefore = countTokens(before, model).count;
   const tokensAfter = countTokens(after, model).count;
   showOptimizationPanel({
     before,
