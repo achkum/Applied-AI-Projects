@@ -39,6 +39,12 @@ Every lossless transform declares a guarantee — `value-identical`, `text-lossl
 `render-equivalent`, or `ast-identical` — and **reverts to a no-op if it can't prove it**, so a
 request is never corrupted.
 
+> **Output tokens count too.** **Response budgeting** caps the *reply* — it injects a
+> provider-correct `max_tokens` (e.g. `max_completion_tokens` for OpenAI) and an optional brevity
+> directive, so the model doesn't ramble. It's always on in the **library, MCP, and proxy** (the
+> pillars that actually send the request); the web app and extension only optimize the text you
+> paste, so they don't apply it.
+
 ### Supported attachment formats
 
 | Type | Formats | Available in |
