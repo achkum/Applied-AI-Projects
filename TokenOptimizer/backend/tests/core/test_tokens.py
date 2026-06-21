@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-from tokenoptim.core.tokens import count_tokens, provider_for
-from tokenoptim.core.types import Provider
+from cutok.core.tokens import count_tokens, provider_for
+from cutok.core.types import Provider
 
 _VECTORS = json.loads(
     (Path(__file__).resolve().parents[1] / "token_test_vectors.json").read_text(encoding="utf-8")
@@ -23,7 +23,7 @@ def test_provider_for():
 
 
 def test_resolves_every_provider():
-    from tokenoptim.core.providers import resolve
+    from cutok.core.providers import resolve
 
     cases = {
         "gpt-4o": "openai",

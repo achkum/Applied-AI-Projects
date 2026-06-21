@@ -11,7 +11,7 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /srv/backend
 
 COPY backend/pyproject.toml ./
-COPY backend/tokenoptim ./tokenoptim
+COPY backend/cutok ./cutok
 
 # `serve` extra pulls onnxruntime + transformers + google-cloud-storage for the model service.
 RUN uv sync --no-dev --extra serve
@@ -19,4 +19,4 @@ RUN uv sync --no-dev --extra serve
 EXPOSE 8080
 # Cloud Run injects $PORT. The model is loaded at startup from $TS_MODEL_GCS (set in the deploy
 # workflow); without it the service still runs and returns text unchanged for /v1/compress.
-CMD ["uv", "run", "--no-dev", "token-optimizer", "web"]
+CMD ["uv", "run", "--no-dev", "cutok", "web"]

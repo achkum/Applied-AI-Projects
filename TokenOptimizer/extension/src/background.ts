@@ -4,12 +4,12 @@
 import { compressViaService } from "./service";
 import { getEndpoint } from "./settings";
 
-const MENU_ID = "token-optimizer-optimize-selection";
+const MENU_ID = "cutok-optimize-selection";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: MENU_ID,
-    title: "Optimize text with Token Optimizer",
+    title: "Optimize text with Cutok",
     contexts: ["selection", "editable"],
   });
 });

@@ -9,9 +9,9 @@ running it twice changes nothing.
 import copy
 import re
 
-from tokenoptim.core.ledger import Ledger
-from tokenoptim.core.tokens import count_tokens
-from tokenoptim.core.types import Change, OptimizationResult, OptimizerConfig, Provider
+from cutok.core.ledger import Ledger
+from cutok.core.tokens import count_tokens
+from cutok.core.types import Change, OptimizationResult, OptimizerConfig, Provider
 
 _STABLE_CACHE_MIN_TOKENS = 1024
 _DOC_CACHE_MIN_TOKENS = 2000

@@ -1,6 +1,6 @@
 <div align="center">
 
-# Token Optimizer
+# Cutok
 
 **Cut the token cost of every LLM request — before it's sent.**
 
@@ -15,7 +15,7 @@ across OpenAI, Anthropic, Google, Mistral, Cohere, DeepSeek, xAI, and any OpenAI
 
 ## Overview
 
-Token Optimizer is one optimization engine that rewrites an LLM request to use fewer tokens without
+Cutok is one optimization engine that rewrites an LLM request to use fewer tokens without
 changing its meaning. It ships in four forms, all backed by the same engine:
 
 | Interface | For | What it does |
@@ -96,11 +96,11 @@ and never forwards to an LLM provider.
 ### Python library
 
 ```bash
-pip install token-optimizer        # or: uv add token-optimizer
+pip install cutok        # or: uv add cutok
 ```
 
 ```python
-import tokenoptim as ts
+import cutok as ts
 
 ts.configure(compress_url="https://<service>.run.app")   # enables prompt/prose compression
 
@@ -140,11 +140,11 @@ cd extension && npm install && npm run build   # load extension/dist/ unpacked
 ### MCP server
 
 ```bash
-uv run token-optimizer mcp        # stdio
+uv run cutok mcp        # stdio
 ```
 
 ```json
-{ "mcpServers": { "token-optimizer": { "command": "uv", "args": ["run", "token-optimizer", "mcp"] } } }
+{ "mcpServers": { "cutok": { "command": "uv", "args": ["run", "cutok", "mcp"] } } }
 ```
 
 Tools: `count_tokens`, `normalize_attachment`, `optimize_for_cache`, `compress_prompt`, `dedupe_context`.
@@ -183,7 +183,7 @@ Estimates use a real byte-pair tokenizer with a per-provider correction and are 
 ## Project layout
 
 ```
-backend/     Python engine + library + MCP + proxy + compression service (package: tokenoptim)
+backend/     Python engine + library + MCP + proxy + compression service (package: cutok)
 frontend/    Web app (Next.js, Vercel)
 extension/   Browser extension (TypeScript, Manifest V3)
 scripts/     Offline benchmark over sample fixtures
@@ -193,7 +193,7 @@ scripts/     Offline benchmark over sample fixtures
 
 ```bash
 # Python engine
-cd backend && uv sync --all-extras && uv run pytest && uv run ruff check tokenoptim tests
+cd backend && uv sync --all-extras && uv run pytest && uv run ruff check cutok tests
 
 # Web app / extension
 cd frontend  && npm install && npm run build

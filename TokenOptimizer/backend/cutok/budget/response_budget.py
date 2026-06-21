@@ -8,10 +8,10 @@ thinking budget.
 
 import copy
 
-from tokenoptim.core.ledger import Ledger
-from tokenoptim.core.providers import resolve
-from tokenoptim.core.types import Change, OptimizationResult, OptimizerConfig, Provider
-from tokenoptim.normalize.textclean import split_fences
+from cutok.core.ledger import Ledger
+from cutok.core.providers import resolve
+from cutok.core.types import Change, OptimizationResult, OptimizerConfig, Provider
+from cutok.normalize.textclean import split_fences
 
 _BREVITY = "\n\nBe concise. No preamble, no recap."
 

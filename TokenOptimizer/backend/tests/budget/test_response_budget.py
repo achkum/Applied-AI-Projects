@@ -1,6 +1,6 @@
-from tokenoptim.budget.response_budget import apply_response_budget
-from tokenoptim.core.ledger import Ledger
-from tokenoptim.core.types import OptimizerConfig, Provider
+from cutok.budget.response_budget import apply_response_budget
+from cutok.core.ledger import Ledger
+from cutok.core.types import OptimizerConfig, Provider
 
 
 def cfg(**kw):

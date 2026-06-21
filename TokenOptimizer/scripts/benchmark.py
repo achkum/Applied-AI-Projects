@@ -7,10 +7,10 @@ benchmark. Usage: ``python scripts/benchmark.py scripts/fixtures``
 import sys
 from pathlib import Path
 
-from tokenoptim.core.ledger import Ledger
-from tokenoptim.core.types import OptimizerConfig
-from tokenoptim.normalize.delta import DeltaStore
-from tokenoptim.optimizer import Attachment, normalize_attachments
+from cutok.core.ledger import Ledger
+from cutok.core.types import OptimizerConfig
+from cutok.normalize.delta import DeltaStore
+from cutok.optimizer import Attachment, normalize_attachments
 
 MODEL = "gpt-4o"
 

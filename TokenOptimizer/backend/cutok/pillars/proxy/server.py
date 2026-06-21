@@ -29,13 +29,13 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
-from tokenoptim.core.ledger import Ledger
-from tokenoptim.core.providers import resolve, resolve_by_path
-from tokenoptim.core.providers.base import ProviderAdapter
-from tokenoptim.core.types import Change, OptimizationResult, OptimizerConfig, Provider
-from tokenoptim.normalize.delta import DeltaStore
-from tokenoptim.optimizer import optimize_payload
-from tokenoptim.pillars.proxy.stats_page import render_stats_html
+from cutok.core.ledger import Ledger
+from cutok.core.providers import resolve, resolve_by_path
+from cutok.core.providers.base import ProviderAdapter
+from cutok.core.types import Change, OptimizationResult, OptimizerConfig, Provider
+from cutok.normalize.delta import DeltaStore
+from cutok.optimizer import optimize_payload
+from cutok.pillars.proxy.stats_page import render_stats_html
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ def optimize_request(
 def _log_results(app: FastAPI, results: list[OptimizationResult]) -> None:
     if not results:
         return
-    log_dir = Path(os.getenv("TS_LOG_DIR", str(Path.home() / ".token-optimizer")))
+    log_dir = Path(os.getenv("TS_LOG_DIR", str(Path.home() / ".cutok")))
     try:
         log_dir.mkdir(parents=True, exist_ok=True)
         line = json.dumps(
@@ -273,7 +273,7 @@ async def _forward(request: Request) -> Response:
 
 def app_factory(config: OptimizerConfig | None = None) -> FastAPI:
     """Build the proxy app. Upstreams are resolved per-provider from the environment at call time."""
-    app = FastAPI(title="token-optimizer proxy")
+    app = FastAPI(title="cutok proxy")
     app.state.client = httpx.AsyncClient(timeout=600.0)
     app.state.config = config or OptimizerConfig()
     app.state.ledger = Ledger()

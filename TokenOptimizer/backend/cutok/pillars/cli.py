@@ -1,20 +1,20 @@
-"""Command-line entry point: `token-optimizer start | download-model | stats | mcp`."""
+"""Command-line entry point: `cutok start | download-model | stats | mcp`."""
 
 import argparse
 import json
 import os
 import sys
 
-from tokenoptim import __version__
-from tokenoptim.core.types import OptimizerConfig
+from cutok import __version__
+from cutok.core.types import OptimizerConfig
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="token-optimizer",
+        prog="cutok",
         description="Local LLM token-reduction engine: proxy, MCP server, and savings page.",
     )
-    parser.add_argument("--version", action="version", version=f"token-optimizer {__version__}")
+    parser.add_argument("--version", action="version", version=f"cutok {__version__}")
     sub = parser.add_subparsers(dest="command")
 
     start = sub.add_parser("start", help="run the optimizing proxy and savings page")
@@ -54,11 +54,11 @@ def config_from_args(args: argparse.Namespace) -> OptimizerConfig:
 def _cmd_start(args: argparse.Namespace) -> int:
     import uvicorn
 
-    from tokenoptim.pillars.proxy.server import app_factory
+    from cutok.pillars.proxy.server import app_factory
 
     app = app_factory(config_from_args(args))
     base = f"http://{args.host}:{args.port}"
-    print(f"token-optimizer proxy listening on {base}")
+    print(f"cutok proxy listening on {base}")
     print("Point your client at it with one of:")
     print(f"  export ANTHROPIC_BASE_URL={base}")
     print(f"  export OPENAI_BASE_URL={base}")
@@ -68,7 +68,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
 
 
 def _cmd_download(args: argparse.Namespace) -> int:
-    from tokenoptim.compress.llmlingua import download_and_quantize
+    from cutok.compress.llmlingua import download_and_quantize
 
     print(f"Downloading + quantizing the LLMLingua-2 model into {args.out} …")
     dst = download_and_quantize(args.out)
@@ -85,7 +85,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         resp.raise_for_status()
     except httpx.HTTPError:
         print(
-            f"Could not reach token-optimizer at {url}. Is it running? Start it with `token-optimizer start`.",
+            f"Could not reach cutok at {url}. Is it running? Start it with `cutok start`.",
             file=sys.stderr,
         )
         return 1
@@ -94,7 +94,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
 
 
 def _cmd_mcp(args: argparse.Namespace) -> int:
-    from tokenoptim.pillars.mcp_server import main as mcp_main
+    from cutok.pillars.mcp_server import main as mcp_main
 
     mcp_main()
     return 0
@@ -103,9 +103,9 @@ def _cmd_mcp(args: argparse.Namespace) -> int:
 def _cmd_web(args: argparse.Namespace) -> int:
     import uvicorn
 
-    from tokenoptim.pillars.webapp import app_factory
+    from cutok.pillars.webapp import app_factory
 
-    print(f"token-optimizer engine demo on http://{args.host}:{args.port}")
+    print(f"cutok engine demo on http://{args.host}:{args.port}")
     uvicorn.run(app_factory(), host=args.host, port=args.port, log_level="info")
     return 0
 
@@ -114,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command is None:
-        print(f"token-optimizer {__version__}")
+        print(f"cutok {__version__}")
         return 0
     return {
         "start": _cmd_start,

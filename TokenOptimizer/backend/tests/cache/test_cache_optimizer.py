@@ -1,6 +1,6 @@
-from tokenoptim.cache.cache_optimizer import optimize_for_cache
-from tokenoptim.core.ledger import Ledger
-from tokenoptim.core.types import OptimizerConfig, Provider
+from cutok.cache.cache_optimizer import optimize_for_cache
+from cutok.core.ledger import Ledger
+from cutok.core.types import OptimizerConfig, Provider
 
 ANTHROPIC = OptimizerConfig(model="claude-sonnet-4-5", provider=Provider.ANTHROPIC)
 OPENAI = OptimizerConfig(model="gpt-4o", provider=Provider.OPENAI)

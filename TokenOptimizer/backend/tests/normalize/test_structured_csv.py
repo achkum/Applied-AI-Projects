@@ -1,7 +1,7 @@
 import csv
 import io
 
-from tokenoptim.normalize.structured import CsvNormalizer
+from cutok.normalize.structured import CsvNormalizer
 
 NORM = CsvNormalizer()
 MODEL = "gpt-4o"

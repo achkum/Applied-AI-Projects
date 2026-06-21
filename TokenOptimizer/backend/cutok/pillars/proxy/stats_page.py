@@ -28,7 +28,7 @@ def render_stats_html(totals: dict) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="5">
-<title>Token Optimizer</title>
+<title>Cutok</title>
 <style>
   :root {{ color-scheme: light dark; }}
   body {{ font-family: ui-sans-serif, system-ui, sans-serif; max-width: 640px;
@@ -44,7 +44,7 @@ def render_stats_html(totals: dict) -> str:
 </style>
 </head>
 <body>
-  <h1>Token Optimizer</h1>
+  <h1>Cutok</h1>
   <div class="hero">{saved:,} <small>tokens saved this session</small></div>
   <table>
     <tr><td>Tokens processed</td><td class="num">{processed:,}</td></tr>

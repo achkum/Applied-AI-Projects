@@ -1,4 +1,4 @@
-from tokenoptim.core.types import (
+from cutok.core.types import (
     Change,
     Normalizer,
     NormalizeResult,

@@ -13,7 +13,7 @@ export default function Home() {
   return (
     <main className="mx-auto max-w-3xl px-5 py-12">
       <header className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">Token Optimizer</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Cutok</h1>
         <p className="mt-1 text-fg-muted">
           Cut the token cost of LLM requests. Compress a prompt with the hosted model, or compact a
           file locally before you attach it.

@@ -1,4 +1,4 @@
-from tokenoptim.normalize.delta import DeltaStore
+from cutok.normalize.delta import DeltaStore
 
 MODEL = "gpt-4o"
 
