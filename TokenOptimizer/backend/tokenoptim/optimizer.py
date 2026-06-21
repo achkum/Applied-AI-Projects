@@ -5,16 +5,18 @@ features in sequence. Normalizer failures are logged and degrade to a no-op — 
 crashes the request.
 """
 
+import ast
 import base64
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 
 from tokenoptim.budget.response_budget import apply_response_budget
 from tokenoptim.cache.cache_optimizer import optimize_for_cache
 from tokenoptim.core.ledger import Ledger
 from tokenoptim.core.tokens import count_tokens
 from tokenoptim.core.types import Change, OptimizationResult, OptimizerConfig
-from tokenoptim.normalize.code import CodeNormalizer
+from tokenoptim.normalize.code import _LINE_COMMENT, CodeNormalizer
 from tokenoptim.normalize.dedup import dedup_chunks
 from tokenoptim.normalize.delta import DeltaStore
 from tokenoptim.normalize.extract import ExtractionError, extract_to_markdown, is_binary_format
@@ -40,6 +42,32 @@ _CSV = CsvNormalizer()
 _CODE = CodeNormalizer()
 _TEXTCLEAN = TextCleanNormalizer()
 _FORMAT_NORMALIZERS = (_JSON_YAML, _CSV, _CODE)
+_PROSE_EXTS = {".txt", ".md", ".markdown"}
+
+
+def _strip_code_comments(text: str, filename: str) -> str:
+    """Remove full-line comments from code. Python is AST-verified (comments aren't in the AST), so
+    it stays ast-identical; other languages are best-effort behavior-preserving (comments dropped)."""
+    ext = Path(filename).suffix.lower()
+    prefix = _LINE_COMMENT.get(ext)
+    if not prefix:
+        return text
+    stripped = "\n".join(ln for ln in text.split("\n") if not ln.lstrip().startswith(prefix))
+    if ext == ".py":
+        try:
+            if ast.dump(ast.parse(text)) != ast.dump(ast.parse(stripped)):
+                return text
+        except SyntaxError:
+            return text
+    return stripped
+
+
+def _compress_prose_via_service(text: str, config: OptimizerConfig) -> str:
+    """Run prose through the shared compression model (no-op if the service isn't configured)."""
+    from tokenoptim.compress import service
+
+    remote = service.compress(text, rate=config.compression_keep_ratio, model=config.model)
+    return remote["text"] if remote else text
 
 
 @dataclass
@@ -79,6 +107,20 @@ def normalize_attachments(
             text = _safe_normalize(fmt, text, att.filename, model, changes)
         elif not is_binary_format(att.filename):
             text = _safe_normalize(_TEXTCLEAN, text, att.filename, model, changes)
+
+        # Opt-in lossy tier: strip code comments, and model-compress prose / extracted documents.
+        if config.enable_compression:
+            kind = desc = None
+            new = text
+            if _CODE.supports(att.filename):
+                new, kind, desc = _strip_code_comments(text, att.filename), "strip_comments", "removed code comments"
+            elif is_binary_format(att.filename) or Path(att.filename).suffix.lower() in _PROSE_EXTS:
+                new, kind, desc = _compress_prose_via_service(text, config), "compress", "model-compressed prose"
+            if kind and new != text:
+                b = count_tokens(text, model).count
+                a = count_tokens(new, model).count
+                changes.append(Change(kind=kind, description=f"{desc} ({att.filename})", tokens_saved=b - a))
+                text = new
 
         texts[att.filename] = text
 

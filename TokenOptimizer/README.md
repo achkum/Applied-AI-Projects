@@ -181,26 +181,30 @@ field, not estimated.
 
 ## Benchmarks
 
-Real, reproducible numbers (token counts via the OpenAI tokenizer):
-`cd backend && uv run python ../scripts/benchmark.py ../scripts/fixtures`.
+Real numbers measured on the bundled `scripts/fixtures` (token counts via the OpenAI tokenizer).
+The **lossless** column is reproducible offline with
+`cd backend && uv run python ../scripts/benchmark.py ../scripts/fixtures`; the **+ compression**
+column is measured with the LLMLingua-2 model (`download-model` first).
 
 ### Attachment normalization (library / MCP)
 
-| File | Type | Before | After | Saved |
-|---|---|---:|---:|---:|
-| `config.json` | JSON | 328 | 219 | **33%** |
-| `notes.md` | Markdown | 146 | 130 | 11% |
-| `sales.csv` | CSV | 396 | 390 | 1.5% |
-| `pipeline.py` | Python | 319 | 319 | 0% |
-| `email.txt` | prose | 120 | 120 | 0% |
-| `report.pdf` | PDF | 132 | 132 | 0% |
+Two tiers: **lossless** (always on) and an **opt-in** pass (`enable_compression=True`) that strips
+code comments (Python stays `ast-identical` — comments aren't in the AST) and runs prose/extracted
+documents through the compression model.
 
-Honest read: the real attachment win is **JSON** (minification), with structured Markdown a
-moderate second. **Code** is whitespace-only by design — comments are preserved to keep the result
-`ast-identical`. **Prose** (`.txt`) has nothing safe to cut. **PDF** is about *extraction* (turning
-a binary into clean text you can actually send), not token reduction, so before/after are equal.
-The larger multi-file wins — cross-file dedup and delta-encoding of re-sent files — don't show up in
-a single-file table.
+| File | Type | Lossless | + compression |
+|---|---|---:|---:|
+| `config.json` | JSON | **33%** | 33% |
+| `pipeline.py` | Python | 0% | **24%** (comments stripped) |
+| `notes.md` | Markdown | 11% | **19%** |
+| `email.txt` | prose | 0% | **22%** |
+| `report.pdf` | PDF | 0%¹ | **16%** |
+| `sales.csv` | CSV | 1.5% | 1.5% (tabular data is already dense) |
+
+¹ PDF lossless is about *extraction* (binary → clean text + de-hyphenation/header-footer removal);
+on a clean PDF there's little to strip, so the win comes from the compression pass.
+Bigger multi-file wins — cross-file dedup and delta-encoding of re-sent files — don't show in a
+single-file table. JSON/CSV keep their structure (never model-compressed).
 
 ### Prompt compression (LLMLingua-2 model)
 
