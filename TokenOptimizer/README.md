@@ -6,6 +6,8 @@
 
 Works with OpenAI, Anthropic, Google, Mistral, Cohere, DeepSeek, xAI, and any OpenAI-compatible endpoint.
 
+**Try it live → [cutok.vercel.app](https://cutok.vercel.app)**
+
 </div>
 
 ---
@@ -41,23 +43,24 @@ request is never corrupted.
 
 | Type | Formats | Available in |
 |---|---|---|
-| Structured | JSON, YAML, CSV, TSV | library · MCP · extension (JSON/CSV) |
-| Text | TXT, Markdown | library · MCP · extension |
+| Structured | JSON, YAML, CSV, TSV | library · MCP · web app (JSON/CSV) |
+| Text | TXT, Markdown | library · MCP · web app |
 | Code | `.py` (AST-safe) + `.js .ts .jsx .tsx .java .c .cpp .cc .h .hpp .go .rs .cs .php .rb .sh .pl .swift .kt .scala` | library · MCP |
 | Documents (text extracted) | PDF, DOCX, PPTX, XLSX, XLS, HTML | library · MCP |
 
-The **browser extension** optimizes only the in-browser, lossless text formats (JSON, CSV, TXT,
-Markdown); binary/document formats are handled by the library/MCP via `optimize_file()` /
-`normalize_attachment`.
+The **web app** optimizes the in-browser, lossless text formats (JSON, CSV, TXT, Markdown) entirely
+client-side — the file is never uploaded. Code and binary/document formats are handled by the
+library/MCP via `optimize_file()` / `normalize_attachment`. (The browser extension does prompt
+compression only.)
 
 ## Architecture
 
 ```
    Python library ─┐
-   Browser ext.   ─┤                                            POST /v1/compress
-   MCP server     ─┼──►  optimization engine  ──────────────►  Compression service (Cloud Run)
-   Proxy / demo   ─┘     normalize · cache ·                    LLMLingua-2, int8 ONNX
-                         compress · budget                      loaded from object storage
+   MCP server     ─┤                                            POST /v1/compress
+   Proxy          ─┼──►  optimization engine  ──────────────►  Compression service (Cloud Run)
+   Browser ext.   ─┤     normalize · cache ·                    LLMLingua-2, int8 ONNX
+   Web app        ─┘     compress · budget                      loaded from object storage
 ```
 
 Every interface calls one engine entry point. The lossless work runs in-process. **Prompt
@@ -113,8 +116,8 @@ ts.configure(compress_url="https://<service>.run.app", enable_compression=True)
 ### Browser extension
 
 Focus a substantial text box on any site and an **⇣ Optimize** button appears; click it to preview
-a before/after diff and apply. Attached JSON, CSV, TXT, and Markdown files are compacted losslessly
-in the browser before they're sent (other formats are handled by the library/MCP).
+a before/after diff and apply. The extension does **prompt compression only** — file optimization
+lives in the web app.
 
 Prompt compression calls the shared model service — a default endpoint ships with the extension, so
 it works on install; override it in the options page (opened from the toolbar icon). To avoid
@@ -140,9 +143,15 @@ Tools: `count_tokens`, `normalize_attachment`, `optimize_for_cache`, `compress_p
 
 ### Web app
 
-A Next.js app (`frontend/`, deployed on Vercel) with two tools: paste a prompt to compress it via
-the hosted model (with a before/after diff), or drop a file to compact it. **Files are optimized
-entirely in the browser — nothing is uploaded.**
+Live at **[cutok.vercel.app](https://cutok.vercel.app)**. A Next.js app (`frontend/`, deployed on
+Vercel) with two tools: paste a prompt to compress it via the hosted model (with a before/after
+diff), or drop a file to compact it. **Files are optimized entirely in the browser — nothing is
+uploaded.**
+
+Because file processing is 100% client-side (for privacy), the web app handles only the formats
+JavaScript can transform losslessly on its own: **JSON, CSV, TXT, Markdown**. PDF/Word/Excel
+(binary text extraction) and code (AST-safe trimming) rely on Python-only tooling and are handled
+by the library/MCP via `optimize_file()` — not the browser.
 
 ```bash
 cd frontend
@@ -171,6 +180,7 @@ field, not estimated.
 | Engine · proxy · compression service · CLI | Python 3.11+, FastAPI, managed with `uv` |
 | Compression model | LLMLingua-2 → ONNX → int8, served with ONNX Runtime on Cloud Run |
 | Extension | TypeScript, Manifest V3, esbuild |
+| Web app | Next.js 14, Tailwind, deployed on Vercel |
 | Token counting | `tiktoken` (OpenAI) & `mistral-common` (Mistral) exact; byte-pair proxy estimates elsewhere |
 | Extraction | Microsoft `markitdown` |
 

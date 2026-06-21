@@ -21,9 +21,12 @@ const KEEP_RATE = 0.8; // keep 80% — gentle; drops clear filler without guttin
 // Extractive compression only helps when there's redundancy to remove. Below this it just damages
 // the prompt for little gain, so we skip it. Tune to taste.
 const MIN_COMPRESS_TOKENS = 50;
+const LABEL = "⇣ Optimize";
+const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]; // braille spinner frames
 
 let button: HTMLButtonElement | null = null;
 let target: HTMLElement | null = null;
+let spinTimer: number | null = null;
 
 const PILL = {
   position: "fixed",
@@ -41,7 +44,7 @@ function ensureButton(): HTMLButtonElement {
   button = document.createElement("button");
   button.id = BUTTON_ID;
   button.type = "button";
-  button.textContent = "⇣ Optimize";
+  button.textContent = LABEL;
   button.title = "Compress this text with Token Optimizer";
   Object.assign(button.style, PILL, { padding: "0.3rem 0.6rem", background: "#111", color: "#fff" });
   button.addEventListener("mousedown", (e) => e.preventDefault());
@@ -108,14 +111,35 @@ function serviceCompress(text: string, model: string): Promise<CompressOutcome> 
 
 function flashButton(message: string): void {
   const b = ensureButton();
-  const original = b.textContent;
   b.textContent = message;
   setTimeout(() => {
-    b.textContent = original;
+    if (spinTimer === null) b.textContent = LABEL;
   }, 2500);
 }
 
+function startSpinner(b: HTMLButtonElement): void {
+  let i = 0;
+  b.disabled = true;
+  b.style.cursor = "default";
+  b.textContent = `${SPINNER[0]} Optimizing…`;
+  spinTimer = window.setInterval(() => {
+    i = (i + 1) % SPINNER.length;
+    b.textContent = `${SPINNER[i]} Optimizing…`;
+  }, 80);
+}
+
+function stopSpinner(b: HTMLButtonElement): void {
+  if (spinTimer !== null) {
+    clearInterval(spinTimer);
+    spinTimer = null;
+  }
+  b.disabled = false;
+  b.style.cursor = "pointer";
+  b.textContent = LABEL;
+}
+
 async function runOptimize(el: HTMLElement): Promise<void> {
+  if (spinTimer !== null) return; // already processing
   const before = getEditableText(el);
   if (!before.trim()) return;
   const model = modelForHost();
@@ -124,7 +148,10 @@ async function runOptimize(el: HTMLElement): Promise<void> {
     flashButton("Already concise — nothing to compress");
     return;
   }
+  const b = ensureButton();
+  startSpinner(b);
   const outcome = await serviceCompress(before, model);
+  stopSpinner(b);
   if (!outcome.ok) {
     if (outcome.reason === "no-endpoint") {
       flashButton("⚠ Set the service URL in options");
