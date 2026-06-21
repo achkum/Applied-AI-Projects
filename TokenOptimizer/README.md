@@ -1,12 +1,13 @@
 # Cutok
 
-**Cut the token cost of every LLM request — before it's sent.**
+**Cut the token cost of every LLM request - before it's sent.**
 
-Minify attachments, strip code comments, compress prompts, collapse re-sent context, and cap output —
+Minify attachments, strip code comments, compress prompts, collapse re-sent context, and cap output -
 across OpenAI, Anthropic, Google, Mistral, Cohere, DeepSeek, xAI, and any OpenAI-compatible endpoint.
 
-**Live demo → [cutok.vercel.app](https://cutok.vercel.app)**
+**Live demo for prompt compression → [cutok.vercel.app](https://cutok.vercel.app)**
 
+![alt text](image.png)
 ---
 
 ## The core idea
@@ -22,6 +23,8 @@ Cutok is one optimization engine that rewrites a request to use fewer tokens wit
 | **Browser extension** | Web chat users | An **Optimize** button on any editable text field. |
 | **MCP server** | Agents / MCP clients | Exposes the engine as callable tools. |
 | **Transparent proxy** | Teams / infra | Set one env var; all traffic is optimized with zero code change. |
+
+![alt text](image-1.png)
 
 ---
 
@@ -313,5 +316,4 @@ cd extension && npm install && npm test && npm run build
 
 ## Status
 
-A personal portfolio project by Achyuth Kumar Baddela. Not released under an open-source license —
-all rights reserved. You're welcome to read the code; please get in touch before reusing it.
+A personal portfolio project by Achyuth Kumar Baddela. Not released under an open-source license. All rights reserved. You're welcome to read the code; please get in touch before reusing it.
