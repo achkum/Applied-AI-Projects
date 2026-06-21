@@ -1,0 +1,13 @@
+order_id,date,customer,region,product,quantity,unit_price,total
+10001,2026-01-03,Ada Lovelace,EU-North,Standing Desk,1,489.00,489.00
+10002,2026-01-03,Alan Turing,EU-West,Mechanical Keyboard,2,119.50,239.00
+10003,2026-01-04,Grace Hopper,US-East,Monitor Arm,3,75.00,225.00
+10004,2026-01-05,Katherine Johnson,US-West,Laptop Stand,1,59.99,59.99
+10005,2026-01-06,Dennis Ritchie,EU-North,Webcam 1080p,1,89.00,89.00
+10006,2026-01-07,Edsger Dijkstra,EU-West,Standing Desk,1,489.00,489.00
+10007,2026-01-08,Barbara Liskov,US-East,Noise-Cancelling Headset,2,199.00,398.00
+10008,2026-01-09,Donald Knuth,US-West,Mechanical Keyboard,1,119.50,119.50
+10009,2026-01-10,Margaret Hamilton,EU-North,Monitor Arm,2,75.00,150.00
+10010,2026-01-11,John McCarthy,EU-West,Webcam 1080p,4,89.00,356.00
+10011,2026-01-12,Tim Berners-Lee,US-East,Laptop Stand,2,59.99,119.98
+10012,2026-01-13,Linus Torvalds,US-West,Standing Desk,1,489.00,489.00

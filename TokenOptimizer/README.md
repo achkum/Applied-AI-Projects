@@ -179,6 +179,44 @@ Estimates use a real byte-pair tokenizer with a per-provider correction and are 
 non-exact — never presented as exact. Cache savings are measured from each response's real `usage`
 field, not estimated.
 
+## Benchmarks
+
+Real, reproducible numbers (token counts via the OpenAI tokenizer):
+`cd backend && uv run python ../scripts/benchmark.py ../scripts/fixtures`.
+
+### Attachment normalization (library / MCP)
+
+| File | Type | Before | After | Saved |
+|---|---|---:|---:|---:|
+| `config.json` | JSON | 328 | 219 | **33%** |
+| `notes.md` | Markdown | 146 | 130 | 11% |
+| `sales.csv` | CSV | 396 | 390 | 1.5% |
+| `pipeline.py` | Python | 319 | 319 | 0% |
+| `email.txt` | prose | 120 | 120 | 0% |
+| `report.pdf` | PDF | 132 | 132 | 0% |
+
+Honest read: the real attachment win is **JSON** (minification), with structured Markdown a
+moderate second. **Code** is whitespace-only by design — comments are preserved to keep the result
+`ast-identical`. **Prose** (`.txt`) has nothing safe to cut. **PDF** is about *extraction* (turning
+a binary into clean text you can actually send), not token reduction, so before/after are equal.
+The larger multi-file wins — cross-file dedup and delta-encoding of re-sent files — don't show up in
+a single-file table.
+
+### Prompt compression (LLMLingua-2 model)
+
+| Prompt | keep 80% (default) | keep 60% (aggressive) |
+|---|---:|---:|
+| verbose request (75 tok) | −17% | −36% |
+| task instruction (58 tok) | −19% | −34% |
+
+Extractive and lossy — more compression drops more (and risks meaning), so the default is gentle.
+
+### Response budgeting (output)
+
+Not a fixed percentage: it injects a `max_tokens` cap, so the saving is whatever the model would
+have generated *beyond* your cap (e.g. capping at 256 when it would have written 800 ≈ 68% fewer
+output tokens). Cache savings are likewise **measured** from each response's real `usage`, not estimated.
+
 ## Tech stack
 
 | Layer | Choice |

@@ -9,7 +9,7 @@ description = "Local LLM token-reduction engine: attachment normalization, cache
 requires-python = ">=3.11"
 authors = [{ name = "Achyuth Kumar Baddela" }]
 dependencies = [
-    "markitdown",
+    "markitdown[pdf]",
     "tiktoken",
     "httpx",
     "fastapi",

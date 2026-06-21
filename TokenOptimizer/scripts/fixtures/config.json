@@ -1,0 +1,31 @@
+{
+    "service": {
+        "name": "checkout-api",
+        "version": "2.4.1",
+        "environment": "production",
+        "region": "europe-north1",
+        "replicas": 4,
+        "feature_flags": {
+            "new_pricing_engine": true,
+            "async_receipts": false,
+            "fraud_scoring_v2": true,
+            "guest_checkout": true
+        }
+    },
+    "database": {
+        "host": "db.internal.example.com",
+        "port": 5432,
+        "pool": { "min": 5, "max": 40, "idle_timeout_seconds": 300 },
+        "read_replicas": [
+            "db-ro-1.internal.example.com",
+            "db-ro-2.internal.example.com"
+        ]
+    },
+    "users": [
+        { "id": 1001, "name": "Ada Lovelace", "role": "admin", "active": true },
+        { "id": 1002, "name": "Alan Turing", "role": "engineer", "active": true },
+        { "id": 1003, "name": "Grace Hopper", "role": "engineer", "active": false },
+        { "id": 1004, "name": "Katherine Johnson", "role": "analyst", "active": true },
+        { "id": 1005, "name": "Dennis Ritchie", "role": "engineer", "active": true }
+    ]
+}
