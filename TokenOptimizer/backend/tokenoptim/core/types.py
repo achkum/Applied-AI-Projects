@@ -55,7 +55,7 @@ class Normalizer(Protocol):
 class OptimizerConfig:
     model: str = "claude-sonnet-4-5"
     provider: Provider = Provider.ANTHROPIC
-    enable_compression: bool = False  # prompt compression is opt-in
-    compression_keep_ratio: float = 0.7  # classifier keep-ratio
+    enable_compression: bool = True  # compress by default (no-op for prompts/prose without a service)
+    compression_keep_ratio: float = 0.8  # model keep-ratio (gentle default)
     inject_brevity: bool = False  # response-budget directive is opt-in
     max_output_tokens: int | None = None

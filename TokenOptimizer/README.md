@@ -32,7 +32,7 @@ A transparent proxy is also built on the same engine.
 |---|---|---|---|
 | **Attachment normalization** | always on | lossless | Minify JSON/YAML, compact CSV→TSV, extract text from documents (PDF, DOCX, …), AST-safe code trimming, cross-file dedup, delta-encode re-sent files. See the format table below. |
 | **Cache optimization** | always on | lossless | Reorder payloads for prefix stability and inject `cache_control` markers so provider prompt caches keep hitting. |
-| **Prompt compression** | opt-in | lossy (controlled) | Compress prose with a hosted LLMLingua-2 model. Code blocks and quoted text are never touched. |
+| **Prompt compression** | on by default | lossy (controlled) | Compress prose with a hosted LLMLingua-2 model; also strips code comments and compresses prose attachments. Code blocks and quoted text are never touched. |
 | **Response budgeting** | always on | output-side | Inject a provider-correct output-token cap and optional brevity directives. |
 
 Every lossless transform declares a guarantee — `value-identical`, `text-lossless`,
@@ -112,11 +112,11 @@ out = ts.optimize_file(open("data.json", "rb").read(), "data.json")
 print(ts.savings())   # {'tokens_saved': ..., 'by_feature': {...}, 'calls': ...}
 ```
 
-Optimization is lossless by default. To also compress prompts, point it at the compression service
-and enable it:
+Compression is on by default. Point it at the compression service to enable prompt/prose
+compression (without a service URL, those steps no-op and only the lossless passes run):
 
 ```python
-ts.configure(compress_url="https://<service>.run.app", enable_compression=True)
+ts.configure(compress_url="https://<service>.run.app")
 ```
 
 ### Browser extension
@@ -182,29 +182,21 @@ field, not estimated.
 ## Benchmarks
 
 Real numbers measured on the bundled `scripts/fixtures` (token counts via the OpenAI tokenizer).
-The **lossless** column is reproducible offline with
-`cd backend && uv run python ../scripts/benchmark.py ../scripts/fixtures`; the **+ compression**
-column is measured with the LLMLingua-2 model (`download-model` first).
+Compression is **on by default**.
 
-### Attachment normalization (library / MCP)
+### Attachment optimization (library / MCP)
 
-Two tiers: **lossless** (always on) and an **opt-in** pass (`enable_compression=True`) that strips
-code comments (Python stays `ast-identical` — comments aren't in the AST) and runs prose/extracted
-documents through the compression model.
+| File | Type | Tokens saved | How |
+|---|---|---:|---|
+| `config.json` | JSON | **33%** | minified (lossless) |
+| `pipeline.py` | Python | **24%** | comments stripped (stays `ast-identical`) |
+| `email.txt` | prose | **22%** | compression model |
+| `notes.md` | Markdown | **19%** | cleanup + model |
+| `report.pdf` | PDF | **16%** | extraction + model |
+| `sales.csv` | CSV | ~2% | CSV→TSV (tabular data is genuinely dense) |
 
-| File | Type | Lossless | + compression |
-|---|---|---:|---:|
-| `config.json` | JSON | **33%** | 33% |
-| `pipeline.py` | Python | 0% | **24%** (comments stripped) |
-| `notes.md` | Markdown | 11% | **19%** |
-| `email.txt` | prose | 0% | **22%** |
-| `report.pdf` | PDF | 0%¹ | **16%** |
-| `sales.csv` | CSV | 1.5% | 1.5% (tabular data is already dense) |
-
-¹ PDF lossless is about *extraction* (binary → clean text + de-hyphenation/header-footer removal);
-on a clean PDF there's little to strip, so the win comes from the compression pass.
-Bigger multi-file wins — cross-file dedup and delta-encoding of re-sent files — don't show in a
-single-file table. JSON/CSV keep their structure (never model-compressed).
+JSON/CSV keep their exact structure (never model-compressed). Bigger multi-file wins — cross-file
+dedup and delta-encoding of re-sent files — don't show in a single-file table.
 
 ### Prompt compression (LLMLingua-2 model)
 
