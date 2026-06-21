@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from tokenoptim.compress.llmlingua import LLMLingua2, select_compressed
 
-MODEL_DIR = Path(__file__).resolve().parents[2] / ".models" / "llmlingua2-bert"
+MODEL_DIR = Path(__file__).resolve().parents[3] / ".models" / "llmlingua2-bert"
 
 USER_TEXT = (
     "Hope you are doing well! We have an urgent requirement for the following position. "
