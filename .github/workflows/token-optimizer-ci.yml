@@ -26,6 +26,6 @@ jobs:
       - name: Sync dependencies
         run: uv sync --all-extras
       - name: Lint
-        run: uv run ruff check tokenoptim tests
+        run: uv run ruff check cutok tests
       - name: Test
         run: uv run pytest
