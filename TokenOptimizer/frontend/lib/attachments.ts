@@ -1,6 +1,7 @@
-// In-browser attachment optimization. Lossless, text-format only (the engine's binary handling —
-// PDF/Word extraction, YAML, AST-safe code — lives in the Python library/MCP). JSON minify is the
-// highest-value, definitely-lossless win; CSV→TSV and text cleanup follow.
+// In-browser attachment optimization — lossless, text-format only. Runs entirely client-side; the
+// file never leaves the browser. (Binary/document handling — PDF/Word, code — lives in the Python
+// library/MCP.) JSON minify is the highest-value, definitely-lossless win; CSV→TSV and text cleanup
+// follow. Mirrors the Python engine's normalize/ behavior.
 
 export type AttachmentResult = { text: string; changed: boolean; kind: string };
 

@@ -13,15 +13,16 @@ Works with OpenAI, Anthropic, Google, Mistral, Cohere, DeepSeek, xAI, and any Op
 ## Overview
 
 Token Optimizer is a single optimization engine that rewrites an LLM request to use fewer tokens
-before it is sent, without changing its meaning. The engine is exposed three ways:
+before it is sent, without changing its meaning. The engine is exposed four ways:
 
 | Interface | For | What it does |
 |---|---|---|
 | **Python library** | Developers | Wrap any LLM/agent call so every request is optimized before it's sent — provider- and SDK-agnostic. |
-| **Browser extension** | Anyone using a web chat UI | An **Optimize** button on any text field, plus automatic compaction of attached files. |
+| **Browser extension** | Anyone using a web chat UI | An **Optimize** button on any editable text field. |
 | **MCP server** | Agents / MCP clients | Exposes the engine as callable tools. |
+| **Web app** | Anyone | Paste a prompt to compress it, or drop a file to compact it — files are processed entirely in the browser. |
 
-A transparent proxy and a hosted demo are built on the same engine.
+A transparent proxy is also built on the same engine.
 
 ## What the engine does
 
@@ -137,6 +138,19 @@ uv run token-optimizer mcp        # stdio
 
 Tools: `count_tokens`, `normalize_attachment`, `optimize_for_cache`, `compress_prompt`, `dedupe_context`.
 
+### Web app
+
+A Next.js app (`frontend/`, deployed on Vercel) with two tools: paste a prompt to compress it via
+the hosted model (with a before/after diff), or drop a file to compact it. **Files are optimized
+entirely in the browser — nothing is uploaded.**
+
+```bash
+cd frontend
+npm install && npm run dev        # http://localhost:3000
+```
+
+It calls the hosted compression service by default; override with `NEXT_PUBLIC_COMPRESS_URL`.
+
 ## Supported providers
 
 | Provider | Models | Token counting |
@@ -165,6 +179,7 @@ field, not estimated.
 ```
 backend/        Python engine + library + MCP + proxy + compression service (package: tokenoptim)
 extension/      Browser extension (TypeScript, Manifest V3)
+frontend/       Web app (Next.js, deployed on Vercel)
 scripts/        Offline benchmark over sample fixtures
 ```
 

@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  background: theme(colors.base);
+  color: theme(colors.fg.DEFAULT);
+}
+
+::selection {
+  background: theme(colors.accent.dim);
+}
