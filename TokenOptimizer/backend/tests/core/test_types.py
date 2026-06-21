@@ -43,8 +43,8 @@ def test_normalize_result_holds_changes():
 def test_optimizer_config_defaults():
     cfg = OptimizerConfig()
     assert cfg.provider is Provider.ANTHROPIC
-    assert cfg.enable_compression is False
-    assert cfg.compression_keep_ratio == 0.7
+    assert cfg.enable_compression is True  # compression is on by default
+    assert cfg.compression_keep_ratio == 0.8
     assert cfg.max_output_tokens is None
 
 

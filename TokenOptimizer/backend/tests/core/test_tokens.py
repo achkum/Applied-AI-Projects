@@ -5,7 +5,7 @@ from tokenoptim.core.tokens import count_tokens, provider_for
 from tokenoptim.core.types import Provider
 
 _VECTORS = json.loads(
-    (Path(__file__).resolve().parent / "token_test_vectors.json").read_text(encoding="utf-8")
+    (Path(__file__).resolve().parents[1] / "token_test_vectors.json").read_text(encoding="utf-8")
 )["vectors"]
 
 PANGRAM = "the quick brown fox jumps over the lazy dog"

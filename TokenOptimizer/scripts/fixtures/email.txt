@@ -1,0 +1,17 @@
+Subject: Follow-up on the checkout latency work
+
+Hi team,
+
+Thanks for the quick turnaround on the connection pool changes. Latency on the
+checkout path is down noticeably since we started caching the pricing config
+instead of re-reading it on every request.
+
+Next, I'd like us to look at the receipt generation path. It still runs
+synchronously and shows up in the slow traces during peak hours. If we can move
+it onto the async queue we already use for fraud scoring, that should take it off
+the request path entirely.
+
+Let's discuss in standup tomorrow.
+
+Best,
+Sam

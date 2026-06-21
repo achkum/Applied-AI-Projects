@@ -21,9 +21,9 @@ Anthropic-shaped chat. Three ways to use it:
     client = ts.wrap(openai.OpenAI())
     client.chat.completions.create(model="gpt-4o", messages=[...])
 
-Optimization is lossless by default. To also run prompt compression, point it at the shared model
-service and enable it: ``ts.configure(compress_url="https://<service>.run.app", enable_compression=True)``.
-``ts.savings()`` returns the cumulative tokens saved.
+Compression is on by default (it strips code comments and minifies losslessly out of the box). Point
+it at the shared model service to enable prompt/prose compression too:
+``ts.configure(compress_url="https://<service>.run.app")``. ``ts.savings()`` returns cumulative tokens saved.
 """
 
 import asyncio
