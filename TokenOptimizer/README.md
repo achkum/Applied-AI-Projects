@@ -21,7 +21,7 @@ changing its meaning. It ships in four forms, all backed by the same engine:
 | Interface | For | What it does |
 |---|---|---|
 | **Python library** | Developers | Wrap any LLM/agent call so every request is optimized — provider- and SDK-agnostic. |
-| **Web app** | Anyone | Paste a prompt to compress it, or drop a file to compact it (files never leave the browser). |
+| **Web app** | Anyone | Paste a prompt and compress it — no install, works on mobile. |
 | **Browser extension** | Web chat users | An **Optimize** button on any editable text field. |
 | **MCP server** | Agents / MCP clients | Exposes the engine as callable tools. |
 
@@ -119,10 +119,9 @@ enables prompt and prose compression.
 
 ### Web app
 
-Live at **[cutok.vercel.app](https://cutok.vercel.app)**. Paste a prompt to compress it (with a
-before/after diff), or drop a file to compact it. **Files are processed entirely in the browser** —
-in-browser support covers JSON, CSV, TXT, and Markdown; PDF/Word/Excel and code go through the
-library/MCP.
+Live at **[cutok.vercel.app](https://cutok.vercel.app)**. Paste a prompt to compress it with a
+before/after diff — no install, and it works on mobile (where extensions don't). File optimization
+lives in the library/MCP.
 
 ```bash
 cd frontend && npm install && npm run dev
@@ -153,8 +152,8 @@ Tools: `count_tokens`, `normalize_attachment`, `optimize_for_cache`, `compress_p
 
 | Type | Formats | Where |
 |---|---|---|
-| Structured | JSON, YAML, CSV, TSV | library · MCP · web app (JSON/CSV) |
-| Text | TXT, Markdown | library · MCP · web app |
+| Structured | JSON, YAML, CSV, TSV | library · MCP |
+| Text | TXT, Markdown | library · MCP |
 | Code | `.py` (AST-safe) + JS/TS, Java, C/C++, Go, Rust, C#, PHP, Ruby, shell, Swift, Kotlin, Scala | library · MCP |
 | Documents (text extracted) | PDF, DOCX, PPTX, XLSX, XLS, HTML | library · MCP |
 
