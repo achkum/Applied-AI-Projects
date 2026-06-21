@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 
-from tokenoptim.core.ledger import Ledger
-from tokenoptim.core.types import Change, OptimizationResult
+from cutok.core.ledger import Ledger
+from cutok.core.types import Change, OptimizationResult
 
 
 def make_result(feature="normalization", before=100, after=70):

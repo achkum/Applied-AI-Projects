@@ -5,8 +5,8 @@ import time
 import httpx
 import pytest
 import uvicorn
-from tokenoptim.pillars.cli import build_parser, config_from_args, main
-from tokenoptim.pillars.proxy.server import app_factory
+from cutok.pillars.cli import build_parser, config_from_args, main
+from cutok.pillars.proxy.server import app_factory
 
 
 def free_port() -> int:
@@ -26,7 +26,7 @@ def test_help_lists_subcommands(capsys):
 
 def test_no_command_prints_version(capsys):
     assert main([]) == 0
-    assert "token-optimizer" in capsys.readouterr().out
+    assert "cutok" in capsys.readouterr().out
 
 
 def test_config_from_args():
@@ -42,7 +42,7 @@ def test_config_from_args():
 def test_stats_no_server_fails_friendly(capsys):
     code = main(["stats", "--port", str(free_port())])
     assert code == 1
-    assert "Could not reach token-optimizer" in capsys.readouterr().err
+    assert "Could not reach cutok" in capsys.readouterr().err
 
 
 def test_start_boots_and_health_responds():

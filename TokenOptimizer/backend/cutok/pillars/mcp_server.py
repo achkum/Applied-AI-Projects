@@ -1,6 +1,6 @@
 """MCP endpoint (Plug 2): expose the engine as tools an agent can call explicitly.
 
-Transport is stdio (primary) — run with ``token-optimizer mcp`` and register in
+Transport is stdio (primary) — run with ``cutok mcp`` and register in
 ``claude_desktop_config.json``. Every tool delegates to the same engine functions the proxy
 uses and records to one shared Ledger, so the savings counter is consistent across plugs.
 """
@@ -11,18 +11,18 @@ import logging
 
 from mcp.server.fastmcp import FastMCP
 
-from tokenoptim.cache.cache_optimizer import optimize_for_cache as _optimize_for_cache
-from tokenoptim.core.ledger import Ledger
-from tokenoptim.core.tokens import count_tokens as _count_tokens
-from tokenoptim.core.tokens import provider_for
-from tokenoptim.core.types import OptimizationResult, OptimizerConfig
-from tokenoptim.normalize.dedup import dedup_chunks
-from tokenoptim.normalize.delta import DeltaStore
-from tokenoptim.optimizer import Attachment, normalize_attachments
+from cutok.cache.cache_optimizer import optimize_for_cache as _optimize_for_cache
+from cutok.core.ledger import Ledger
+from cutok.core.tokens import count_tokens as _count_tokens
+from cutok.core.tokens import provider_for
+from cutok.core.types import OptimizationResult, OptimizerConfig
+from cutok.normalize.dedup import dedup_chunks
+from cutok.normalize.delta import DeltaStore
+from cutok.optimizer import Attachment, normalize_attachments
 
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP("token-optimizer")
+mcp = FastMCP("cutok")
 ledger = Ledger()
 
 
@@ -82,7 +82,7 @@ def compress_prompt(text: str, target_ratio: float, model: str) -> dict:
     via ``TS_COMPRESS_URL`` — the same path the library and extension use, so results are
     consistent. If the service isn't configured or is unreachable, the text is returned unchanged.
     """
-    from tokenoptim.optimizer import compress_text
+    from cutok.optimizer import compress_text
 
     cfg = OptimizerConfig(
         model=model,

@@ -12,8 +12,8 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-from tokenoptim.core.tokens import count_tokens
-from tokenoptim.core.types import Change, NormalizeResult
+from cutok.core.tokens import count_tokens
+from cutok.core.types import Change, NormalizeResult
 
 _LINE_COMMENT = {
     ".py": "#",

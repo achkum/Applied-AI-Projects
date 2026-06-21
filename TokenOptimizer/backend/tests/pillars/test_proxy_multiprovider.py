@@ -4,10 +4,10 @@ import json
 
 import httpx
 import pytest
+from cutok.core.types import OptimizerConfig
+from cutok.pillars.proxy.server import app_factory
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
-from tokenoptim.core.types import OptimizerConfig
-from tokenoptim.pillars.proxy.server import app_factory
 
 
 class RecordingTransport(httpx.AsyncBaseTransport):

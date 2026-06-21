@@ -5,7 +5,7 @@ Order matters — more specific adapters are checked before the OpenAI-compatibl
 
 from functools import lru_cache
 
-from tokenoptim.core.providers.adapters import (
+from cutok.core.providers.adapters import (
     AnthropicAdapter,
     CohereAdapter,
     DeepSeekAdapter,
@@ -15,9 +15,9 @@ from tokenoptim.core.providers.adapters import (
     OpenAICompatibleAdapter,
     XAIAdapter,
 )
-from tokenoptim.core.providers.base import ProviderAdapter
-from tokenoptim.core.providers.tokenizers import Tokenizer
-from tokenoptim.core.types import Provider
+from cutok.core.providers.base import ProviderAdapter
+from cutok.core.providers.tokenizers import Tokenizer
+from cutok.core.types import Provider
 
 # Specific adapters first; OpenAI-compatible is the catch-all and must be last.
 ADAPTERS: list[ProviderAdapter] = [

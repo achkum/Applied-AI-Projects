@@ -9,9 +9,9 @@ import hashlib
 import re
 from collections import defaultdict
 
-from tokenoptim.core.tokens import count_tokens
-from tokenoptim.core.types import Change
-from tokenoptim.normalize.textclean import split_fences
+from cutok.core.tokens import count_tokens
+from cutok.core.types import Change
+from cutok.normalize.textclean import split_fences
 
 _PARA_SPLIT = re.compile(r"(\n[ \t]*\n)")  # capture blank-line separators so we can rebuild
 

@@ -1,5 +1,5 @@
 import pytest
-from tokenoptim.normalize.extract import (
+from cutok.normalize.extract import (
     ExtractionError,
     extract_to_markdown,
     is_binary_format,

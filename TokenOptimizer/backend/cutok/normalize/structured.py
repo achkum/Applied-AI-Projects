@@ -13,8 +13,8 @@ from typing import Any
 
 import yaml
 
-from tokenoptim.core.tokens import count_tokens
-from tokenoptim.core.types import Change, NormalizeResult
+from cutok.core.tokens import count_tokens
+from cutok.core.types import Change, NormalizeResult
 
 # Key-dictionary thresholds (see T06): only long, frequently repeated keys are worth aliasing.
 _KEY_MIN_LEN = 12

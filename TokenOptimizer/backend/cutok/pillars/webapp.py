@@ -2,7 +2,7 @@
 
 This is the secret-free half of the system: it normalizes, compresses, counts, and cache-rewrites
 payloads, but it never forwards to a provider, so it holds no credentials and is safe to host
-publicly. (The key-forwarding proxy in ``tokenoptim.pillars.proxy`` stays local-only.) It also serves the
+publicly. (The key-forwarding proxy in ``cutok.pillars.proxy`` stays local-only.) It also serves the
 shared ``/v1/compress`` endpoint that the library, MCP server, and browser extension call.
 """
 
@@ -15,11 +15,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
-from tokenoptim.core.ledger import Ledger
-from tokenoptim.core.tokens import count_tokens, provider_for
-from tokenoptim.core.types import Change, OptimizationResult, OptimizerConfig
-from tokenoptim.normalize.delta import DeltaStore
-from tokenoptim.optimizer import optimize_payload
+from cutok.core.ledger import Ledger
+from cutok.core.tokens import count_tokens, provider_for
+from cutok.core.types import Change, OptimizationResult, OptimizerConfig
+from cutok.normalize.delta import DeltaStore
+from cutok.optimizer import optimize_payload
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +33,9 @@ def _load_compressor():
     gcs = os.getenv("TS_MODEL_GCS")
     if not model_dir and gcs:
         try:
-            from tokenoptim.compress.llmlingua import fetch_from_gcs
+            from cutok.compress.llmlingua import fetch_from_gcs
 
-            model_dir = str(fetch_from_gcs(gcs, "/tmp/token-optimizer-model"))
+            model_dir = str(fetch_from_gcs(gcs, "/tmp/cutok-model"))
         except Exception:
             logger.exception("failed to download compression model from %s", gcs)
             return None
@@ -45,7 +45,7 @@ def _load_compressor():
     if not (d / "model.int8.onnx").exists() and not (d / "model.onnx").exists():
         return None
     try:
-        from tokenoptim.compress.llmlingua import LLMLingua2
+        from cutok.compress.llmlingua import LLMLingua2
 
         return LLMLingua2(d)
     except Exception:
@@ -85,7 +85,7 @@ def _result_dict(r) -> dict:
 
 
 def app_factory() -> FastAPI:
-    app = FastAPI(title="token-optimizer engine demo")
+    app = FastAPI(title="cutok engine demo")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=os.getenv("ALLOWED_ORIGINS", "*").split(","),
@@ -177,7 +177,7 @@ def app_factory() -> FastAPI:
 _DEMO_HTML = """<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Token Optimizer — engine demo</title>
+<title>Cutok — engine demo</title>
 <style>
  :root { color-scheme: light dark; }
  body { font-family: ui-sans-serif, system-ui, sans-serif; max-width: 760px; margin: 2.5rem auto; padding: 0 1rem; line-height: 1.5; }
@@ -191,7 +191,7 @@ _DEMO_HTML = """<!doctype html>
  pre { white-space: pre-wrap; word-break: break-word; background: rgba(128,128,128,.12); padding: .75rem; border-radius: 8px; }
  .changes { font-size: .85rem; opacity: .8; }
 </style></head><body>
- <h1>Token Optimizer — engine demo</h1>
+ <h1>Cutok — engine demo</h1>
  <p class="sub">Prompt compression with the LLMLingua-2 model. Nothing is sent to any LLM provider — this runs the engine only.</p>
  <textarea id="in" placeholder="Paste a verbose prompt…">Hi there! I was wondering if you could please help me out. In order to improve performance, due to the fact that the current code re-reads the config on every single request, we should add caching. Thanks in advance!</textarea>
  <div class="row">

@@ -2,15 +2,15 @@
 
 import copy
 
-from tokenoptim.core.ledger import Ledger
-from tokenoptim.core.types import Change, OptimizationResult, OptimizerConfig
+from cutok.core.ledger import Ledger
+from cutok.core.types import Change, OptimizationResult, OptimizerConfig
 
 
 def compress_payload(
     payload: dict, config: OptimizerConfig, ledger: Ledger
 ) -> tuple[dict, OptimizationResult]:
     """Compress prose in every user message through the shared model (no-op if it's unavailable)."""
-    from tokenoptim.optimizer import compress_text
+    from cutok.optimizer import compress_text
 
     payload = copy.deepcopy(payload)
     changes: list[Change] = []

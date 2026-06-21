@@ -11,17 +11,17 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from tokenoptim.budget.response_budget import apply_response_budget
-from tokenoptim.cache.cache_optimizer import optimize_for_cache
-from tokenoptim.core.ledger import Ledger
-from tokenoptim.core.tokens import count_tokens
-from tokenoptim.core.types import Change, OptimizationResult, OptimizerConfig
-from tokenoptim.normalize.code import _LINE_COMMENT, CodeNormalizer
-from tokenoptim.normalize.dedup import dedup_chunks
-from tokenoptim.normalize.delta import DeltaStore
-from tokenoptim.normalize.extract import ExtractionError, extract_to_markdown, is_binary_format
-from tokenoptim.normalize.structured import CsvNormalizer, JsonYamlNormalizer
-from tokenoptim.normalize.textclean import TextCleanNormalizer
+from cutok.budget.response_budget import apply_response_budget
+from cutok.cache.cache_optimizer import optimize_for_cache
+from cutok.core.ledger import Ledger
+from cutok.core.tokens import count_tokens
+from cutok.core.types import Change, OptimizationResult, OptimizerConfig
+from cutok.normalize.code import _LINE_COMMENT, CodeNormalizer
+from cutok.normalize.dedup import dedup_chunks
+from cutok.normalize.delta import DeltaStore
+from cutok.normalize.extract import ExtractionError, extract_to_markdown, is_binary_format
+from cutok.normalize.structured import CsvNormalizer, JsonYamlNormalizer
+from cutok.normalize.textclean import TextCleanNormalizer
 
 _MEDIA_EXT = {
     "application/json": ".json",
@@ -64,7 +64,7 @@ def _strip_code_comments(text: str, filename: str) -> str:
 
 def _compress_prose_via_service(text: str, config: OptimizerConfig) -> str:
     """Run prose through the shared compression model (no-op if the service isn't configured)."""
-    from tokenoptim.compress import service
+    from cutok.compress import service
 
     remote = service.compress(text, rate=config.compression_keep_ratio, model=config.model)
     return remote["text"] if remote else text
@@ -214,7 +214,7 @@ def optimize_payload(
     results.append(cache_res)
 
     if config.enable_compression:
-        from tokenoptim.compress import compress_payload
+        from cutok.compress import compress_payload
 
         payload, comp_res = compress_payload(payload, config, ledger)
         results.append(comp_res)
@@ -237,7 +237,7 @@ def compress_text(text: str, config: OptimizerConfig) -> tuple[str, Optimization
     out = text
     kind = "none"
     if config.enable_compression:
-        from tokenoptim.compress import service
+        from cutok.compress import service
 
         remote = service.compress(text, rate=config.compression_keep_ratio, model=config.model)
         if remote is not None:

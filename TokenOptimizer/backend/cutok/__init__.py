@@ -1,8 +1,8 @@
-"""token-optimizer: a local LLM token-reduction engine.
+"""cutok: a local LLM token-reduction engine.
 
 Public library API (add an optimization layer on top of any LLM/agent call):
 
-    import tokenoptim as ts
+    import cutok as ts
     req = ts.optimize(model="gpt-4o", messages=[...])      # functional
     create = ts.optimized(client.chat.completions.create)  # wrap any create-callable
     client = ts.wrap(client)                                # drop-in for known SDKs
@@ -10,7 +10,7 @@ Public library API (add an optimization layer on top of any LLM/agent call):
 
 __version__ = "0.1.0"
 
-from tokenoptim.pillars.lib import (
+from cutok.pillars.lib import (
     configure,
     optimize,
     optimize_file,

@@ -1,5 +1,5 @@
 {
-  "name": "token-optimizer-extension",
+  "name": "cutok-extension",
   "version": "0.1.0",
   "description": "Token Optimizer browser extension — compress prompts locally on claude.ai and chatgpt.com.",
   "private": true,

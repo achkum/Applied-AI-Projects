@@ -9,8 +9,8 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from tokenoptim.core.tokens import count_tokens
-from tokenoptim.core.types import Change, NormalizeResult
+from cutok.core.tokens import count_tokens
+from cutok.core.types import Change, NormalizeResult
 
 _FENCE_RE = re.compile(r"```[\s\S]*?```")
 _DEHYPHEN_RE = re.compile(r"(\w+)-\n(\w+)")

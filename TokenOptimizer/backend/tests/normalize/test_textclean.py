@@ -1,4 +1,4 @@
-from tokenoptim.normalize.textclean import (
+from cutok.normalize.textclean import (
     TextCleanNormalizer,
     collapse_blank_lines,
     dehyphenate,

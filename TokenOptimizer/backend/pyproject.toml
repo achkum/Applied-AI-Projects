@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "token-optimizer"
+name = "cutok"
 version = "0.1.0"
 description = "Local LLM token-reduction engine: attachment normalization, cache optimization, prompt compression, response budgeting — via a transparent proxy, an MCP server, and a browser extension."
 requires-python = ">=3.11"
@@ -26,13 +26,13 @@ mcp = ["mcp"]
 tokenizers = ["mistral-common", "sentencepiece", "tokenizers"]
 
 [project.scripts]
-token-optimizer = "tokenoptim.pillars.cli:main"
+cutok = "cutok.pillars.cli:main"
 
 [dependency-groups]
 dev = ["pytest", "pytest-asyncio", "ruff", "hypothesis"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["tokenoptim"]
+packages = ["cutok"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -45,7 +45,7 @@ markers = [
 ]
 
 [tool.ruff]
-src = ["tokenoptim", "tests"]
+src = ["cutok", "tests"]
 line-length = 100
 extend-exclude = ["../scripts/fixtures"]
 

@@ -15,7 +15,7 @@ import {
 import { addSaved } from "./storage";
 import { countTokens } from "./tokens";
 
-const BUTTON_ID = "token-optimizer-button";
+const BUTTON_ID = "cutok-button";
 const MIN_CHARS = 40;
 const KEEP_RATE = 0.8; // keep 80% — gentle; drops clear filler without gutting short prompts
 // Extractive compression only helps when there's redundancy to remove. Below this it just damages
@@ -45,7 +45,7 @@ function ensureButton(): HTMLButtonElement {
   button.id = BUTTON_ID;
   button.type = "button";
   button.textContent = LABEL;
-  button.title = "Compress this text with Token Optimizer";
+  button.title = "Compress this text with Cutok";
   Object.assign(button.style, PILL, { padding: "0.3rem 0.6rem", background: "#111", color: "#fff" });
   button.addEventListener("mousedown", (e) => e.preventDefault());
   button.addEventListener("click", () => {
@@ -156,7 +156,7 @@ async function runOptimize(el: HTMLElement): Promise<void> {
     if (outcome.reason === "no-endpoint") {
       flashButton("⚠ Set the service URL in options");
     } else {
-      console.warn("[Token Optimizer] compression request failed:", outcome.reason);
+      console.warn("[Cutok] compression request failed:", outcome.reason);
       flashButton("⚠ Service error — see console");
     }
     return;

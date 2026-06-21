@@ -1,6 +1,6 @@
 import ast
 
-from tokenoptim.normalize.code import CodeNormalizer
+from cutok.normalize.code import CodeNormalizer
 
 NORM = CodeNormalizer()
 MODEL = "gpt-4o"

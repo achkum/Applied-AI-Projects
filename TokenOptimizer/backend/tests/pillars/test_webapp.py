@@ -3,7 +3,7 @@ import json
 
 import httpx
 import pytest
-from tokenoptim.pillars.webapp import DEMO_MODELS, app_factory
+from cutok.pillars.webapp import DEMO_MODELS, app_factory
 
 
 @pytest.fixture
@@ -115,7 +115,7 @@ async def test_no_secrets_no_forwarding(client):
 
 
 def test_web_entrypoint_boots_and_serves():
-    # The exact entrypoint the Cloud Run container runs (`token-optimizer web`) must bind and serve.
+    # The exact entrypoint the Cloud Run container runs (`cutok web`) must bind and serve.
     import socket
     import threading
     import time
