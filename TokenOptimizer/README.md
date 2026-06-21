@@ -198,6 +198,11 @@ Compression is **on by default**.
 JSON/CSV keep their exact structure (never model-compressed). Bigger multi-file wins — cross-file
 dedup and delta-encoding of re-sent files — don't show in a single-file table.
 
+**Savings grow with size and redundancy.** On larger, realistic inputs the structural wins climb —
+a 400-record key-heavy JSON hits **38%** (the `KEYMAP` key-aliasing pass activates) and a
+comment-dense module hits **48%**. Prose stays ~17% (the model keeps a fixed fraction), but the
+absolute token count saved scales with the file — 38% of a 31k-token JSON is ~12k tokens.
+
 ### Prompt compression (LLMLingua-2 model)
 
 | Prompt | keep 80% (default) | keep 60% (aggressive) |
