@@ -3,7 +3,7 @@
 milestone_current: M0
 items:
   - {id: ST-001, title: "Pre-flight report", owner: conductor, size: S, status: DONE, deps: []}
-  - {id: ST-002, title: "Legacy cleanup into _legacy/", owner: devops-release, size: S, status: READY, deps: [ST-001]}
+  - {id: ST-002, title: "Legacy cleanup into _legacy/", owner: devops-release, size: S, status: DONE, deps: [ST-001]}
   - {id: ST-003, title: "Monorepo scaffold", owner: architect-platform, size: M, status: BACKLOG, deps: [ST-002]}
   - {id: ST-004, title: "Docker Compose dev stack", owner: devops-release, size: M, status: BACKLOG, deps: [ST-003]}
   - {id: ST-005, title: "CI workflow (path-filtered)", owner: devops-release, size: M, status: BACKLOG, deps: [ST-003]}
