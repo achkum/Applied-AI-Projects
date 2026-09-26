@@ -1,0 +1,43 @@
+{
+  "kind": "request_checkbox_confirmation",
+  "idempotencyKey": "confirmation:68fb911e-64c3-48b7-868a-3e3042388d9c:plan:66ce3790-a9ce-44c0-b4b6-19918bafe41a",
+  "title": "Approve the SubTrack MVP1 proposal",
+  "summary": "Review the Plan in the right sidebar, then select the hires and follow-up tasks to authorize.",
+  "continuationPolicy": "wake_assignee",
+  "resolverPolicy": "human_only",
+  "payload": {
+    "version": 1,
+    "prompt": "Approve the SubTrack plan and select what I should create next.",
+    "detailsMarkdown": "The Plan in the right sidebar names the product **SubTrack** and captures the MVP scope, guardrails, team, and work sequence.",
+    "options": [
+      {"id": "hire-cto", "label": "Hire CTO", "description": "Technical Lead — architecture, Tink/provider abstraction, security, deployment, and observability."},
+      {"id": "hire-product-ux", "label": "Hire Product Designer", "description": "Product & UX — user stories, acceptance criteria, mobile-first flows, and household privacy behavior."},
+      {"id": "hire-fullstack", "label": "Hire Founding Engineer", "description": "Full-stack — implement the approved architecture and end-to-end MVP."},
+      {"id": "hire-qa-security", "label": "Hire QA & Security Engineer", "description": "Quality and privacy — financial, integration, E2E, security, and privacy testing."},
+      {"id": "task-architecture-tink", "label": "Task: Architecture & Tink discovery", "description": "Validate stack, current Sandbox capabilities, provider contracts, data model, controls, and milestones."},
+      {"id": "task-product-ux", "label": "Task: Product & UX specification", "description": "Define prioritized stories, acceptance criteria, flows, screens, and privacy behavior."},
+      {"id": "task-engineering-foundation", "label": "Task: Engineering foundation", "description": "Set up application, database, auth, CI, provider abstraction, fixtures, audit, and consent."},
+      {"id": "task-individual-core", "label": "Task: Core individual experience", "description": "Build ingestion, normalization, detection, review/correction, subscriptions, and dashboard."},
+      {"id": "task-household-loop", "label": "Task: Household value loop", "description": "Build household membership, sharing, splits, settlement, and completion tracking."},
+      {"id": "task-ai-hardening", "label": "Task: AI insights & hardening", "description": "Add explainable insights, privacy controls, observability, security, and E2E verification."}
+    ],
+    "defaultSelectedOptionIds": ["hire-cto", "hire-product-ux", "hire-fullstack", "hire-qa-security", "task-architecture-tink", "task-product-ux", "task-engineering-foundation", "task-individual-core", "task-household-loop", "task-ai-hardening"],
+    "minSelected": 0,
+    "maxSelected": 10,
+    "acceptLabel": "Approve selected",
+    "rejectLabel": "Request changes",
+    "rejectRequiresReason": true,
+    "rejectReasonLabel": "What should change?",
+    "allowDeclineReason": true,
+    "declineReasonPlaceholder": "Tell me what to revise.",
+    "supersedeOnUserComment": true,
+    "target": {
+      "type": "issue_document",
+      "issueId": "68fb911e-64c3-48b7-868a-3e3042388d9c",
+      "documentId": "a7542831-4f8d-4964-9a8e-ad2e9413d9ff",
+      "key": "plan",
+      "revisionId": "66ce3790-a9ce-44c0-b4b6-19918bafe41a",
+      "revisionNumber": 1
+    }
+  }
+}

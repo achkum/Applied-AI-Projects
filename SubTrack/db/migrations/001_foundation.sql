@@ -1,0 +1,12 @@
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE TABLE app_user (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text NOT NULL UNIQUE, password_hash text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), deleted_at timestamptz);
+CREATE TABLE user_session (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE, token_digest text NOT NULL UNIQUE, expires_at timestamptz NOT NULL, revoked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE bank_connection (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE, provider text NOT NULL, provider_user_id text NOT NULL, access_token_ciphertext text, refresh_token_ciphertext text, status text NOT NULL CHECK (status IN ('active','disconnected')), created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(user_id, provider, provider_user_id));
+CREATE TABLE bank_account (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), connection_id uuid NOT NULL REFERENCES bank_connection(id) ON DELETE CASCADE, provider_account_id text NOT NULL, display_name text NOT NULL, account_type text NOT NULL, currency char(3) NOT NULL, balance_minor bigint NOT NULL, UNIQUE(connection_id, provider_account_id));
+CREATE TABLE bank_transaction (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), connection_id uuid NOT NULL REFERENCES bank_connection(id) ON DELETE CASCADE, account_id uuid NOT NULL REFERENCES bank_account(id) ON DELETE CASCADE, provider_transaction_id text NOT NULL, booked_at timestamptz NOT NULL, amount_minor bigint NOT NULL, currency char(3) NOT NULL, description text NOT NULL, merchant_name text, status text NOT NULL CHECK (status IN ('booked','pending')), UNIQUE(connection_id, provider_transaction_id));
+CREATE TABLE consent_event (id uuid PRIMARY KEY, user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE, purpose text NOT NULL, policy_version text NOT NULL, granted_at timestamptz NOT NULL, revoked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX consent_event_lookup ON consent_event(user_id, purpose, created_at DESC);
+CREATE TABLE audit_event (id uuid PRIMARY KEY, actor_id text NOT NULL, action text NOT NULL, subject_type text NOT NULL, subject_id text NOT NULL, metadata jsonb NOT NULL DEFAULT '{}', occurred_at timestamptz NOT NULL, previous_hash text, hash text NOT NULL UNIQUE);
+REVOKE UPDATE, DELETE ON consent_event, audit_event FROM PUBLIC;
+COMMIT;
