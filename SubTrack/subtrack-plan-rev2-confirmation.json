@@ -1,0 +1,45 @@
+{
+  "kind": "request_checkbox_confirmation",
+  "idempotencyKey": "confirmation:68fb911e-64c3-48b7-868a-3e3042388d9c:plan:68ac1204-2e80-4c41-ab08-d088e6765fad",
+  "title": "Approve the revised SubTrack MVP1 proposal",
+  "summary": "The Plan now includes secure OpenClaw + Telegram development tracking. Confirm the complete team and task set.",
+  "resolverPolicy": "human_only",
+  "continuationPolicy": "wake_assignee",
+  "originCommentIds": ["f48e793a-9a15-40bc-ad3e-be6f3a056464"],
+  "payload": {
+    "version": 1,
+    "prompt": "Approve the revised SubTrack plan and select what I should create next.",
+    "detailsMarkdown": "The revised Plan in the right sidebar adds secure phone tracking through OpenClaw + Telegram, with allowlisting, redaction, read-only status queries, and explicit confirmation for state-changing actions.",
+    "options": [
+      {"id":"hire-cto","label":"Hire CTO","description":"Technical Lead — architecture, Tink/provider abstraction, security, deployment, observability, and integration design."},
+      {"id":"hire-product-ux","label":"Hire Product Designer","description":"Product & UX — user stories, acceptance criteria, mobile-first flows, and household privacy behavior."},
+      {"id":"hire-fullstack","label":"Hire Founding Engineer","description":"Full-stack — implement the approved architecture and end-to-end MVP."},
+      {"id":"hire-qa-security","label":"Hire QA & Security Engineer","description":"Quality and privacy — financial, integration, E2E, security, privacy, and Telegram access-control testing."},
+      {"id":"task-architecture-tink","label":"Task: Architecture & Tink discovery","description":"Validate stack, current Sandbox capabilities, provider contracts, data model, controls, and milestones."},
+      {"id":"task-product-ux","label":"Task: Product & UX specification","description":"Define prioritized stories, acceptance criteria, flows, screens, and privacy behavior."},
+      {"id":"task-engineering-foundation","label":"Task: Engineering foundation","description":"Set up application, database, auth, CI, provider abstraction, fixtures, audit, and consent."},
+      {"id":"task-individual-core","label":"Task: Core individual experience","description":"Build ingestion, normalization, detection, review/correction, subscriptions, and dashboard."},
+      {"id":"task-household-loop","label":"Task: Household value loop","description":"Build household membership, sharing, splits, settlement, and completion tracking."},
+      {"id":"task-ai-hardening","label":"Task: AI insights & hardening","description":"Add explainable insights, privacy controls, observability, security, and E2E verification."},
+      {"id":"task-openclaw-telegram","label":"Task: OpenClaw + Telegram tracking","description":"Add secure phone-based milestone, blocker, approval, and status tracking with redaction and least privilege."}
+    ],
+    "defaultSelectedOptionIds": ["hire-cto","hire-product-ux","hire-fullstack","hire-qa-security","task-architecture-tink","task-product-ux","task-engineering-foundation","task-individual-core","task-household-loop","task-ai-hardening","task-openclaw-telegram"],
+    "minSelected": 0,
+    "maxSelected": 11,
+    "acceptLabel": "Approve selected",
+    "rejectLabel": "Request changes",
+    "rejectRequiresReason": true,
+    "rejectReasonLabel": "What should change?",
+    "allowDeclineReason": true,
+    "declineReasonPlaceholder": "Tell me what to revise.",
+    "supersedeOnUserComment": true,
+    "target": {
+      "type": "issue_document",
+      "issueId": "68fb911e-64c3-48b7-868a-3e3042388d9c",
+      "documentId": "a7542831-4f8d-4964-9a8e-ad2e9413d9ff",
+      "key": "plan",
+      "revisionId": "68ac1204-2e80-4c41-ab08-d088e6765fad",
+      "revisionNumber": 2
+    }
+  }
+}
