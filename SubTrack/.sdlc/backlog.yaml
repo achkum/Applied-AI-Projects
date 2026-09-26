@@ -91,6 +91,6 @@ items:
   - {id: ST-166, title: "EAS Build/Submit pipelines: TestFlight + Play internal", owner: "devops-release", size: "M", status: BACKLOG, deps: ["HUMAN_TODO #3", "#4"]}
   - {id: ST-167, title: "v1.0 gate report + release PR develop → main (D-01)", owner: "conductor", size: "M", status: BACKLOG, deps: ["all"]}
   - {id: ST-013, title: "Expand M1 task contracts", owner: "product-owner", size: M, status: BACKLOG, deps: [ST-012]}
-  - {id: ST-014, title: "Refine M0/D1 task contracts to Definition of Ready", owner: "product-owner", size: M, status: IN_REVIEW, deps: [ST-012]}
+  - {id: ST-014, title: "Refine M0/D1 task contracts to Definition of Ready", owner: "product-owner", size: M, status: DONE, deps: [ST-012]}
   - {id: ST-015, title: "Split ST-028 hero-screen work into one-agent tasks", owner: "product-owner", size: S, status: BACKLOG, deps: [ST-012, ST-023]}
   - {id: ST-016, title: "Refine remaining D1 component and asset task contracts", owner: "product-owner", size: M, status: BACKLOG, deps: [ST-014, ST-023]}
