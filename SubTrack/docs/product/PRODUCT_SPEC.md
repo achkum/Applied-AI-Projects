@@ -1,7 +1,7 @@
 # SubTrack — Product Specification (v2, source of truth)
 
 > Status: APPROVED FOR BUILD · Owner: Founder (Achyuth) · Maintainer: product-owner agent
-> Supersedes: `Family_Subscription_Manager_MVP1_Specification.pdf`, `subtrack-plan-rev2.md`, `subtrack-product-ux-spec.md`
+> Supersedes: `Family_Subscription_Manager_MVP1_Specification.pdf`, [archived plan](../../_legacy/subtrack-plan-rev2.md), [archived UX spec](../../_legacy/subtrack-product-ux-spec.md)
 
 ## 1. One-liner
 SubTrack shows a household every subscription it pays for, across every bank.
