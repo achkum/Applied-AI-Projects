@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node -e \"console.log('web: build is a scaffold no-op until implementation task adds code')\"",
     "lint": "node -e \"console.log('web: lint is a scaffold no-op until implementation task adds code')\"",
-    "typecheck": "node -e \"console.log('web: typecheck is a scaffold no-op until implementation task adds code')\"",
+    "typecheck": "tsc --noEmit",
     "test": "node -e \"console.log('web: test is a scaffold no-op until implementation task adds code')\""
   },
   "devDependencies": {

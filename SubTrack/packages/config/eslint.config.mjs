@@ -19,10 +19,13 @@ export default [
     plugins: { boundaries },
     settings: {
       'boundaries/elements': [
-        { type: 'app', pattern: 'apps/*' },
+        { type: 'web', pattern: 'apps/web' },
+        { type: 'mobile', pattern: 'apps/mobile' },
+        { type: 'api', pattern: 'apps/api' },
         { type: 'service', pattern: 'services/*' },
         { type: 'domain', pattern: 'packages/domain' },
         { type: 'money', pattern: 'packages/money' },
+        { type: 'llm-gateway', pattern: 'packages/llm-gateway' },
         { type: 'package', pattern: 'packages/*' },
       ],
     },
@@ -32,9 +35,12 @@ export default [
         {
           default: 'allow',
           rules: [
-            { from: 'domain', disallow: ['app', 'service'] },
-            { from: 'money', disallow: ['app', 'service'] },
-            { from: 'app', disallow: ['service'] },
+            { from: 'domain', disallow: ['web', 'mobile', 'api', 'service'] },
+            { from: 'money', disallow: ['web', 'mobile', 'api', 'service'] },
+            {
+              from: ['web', 'mobile'],
+              disallow: ['api', 'service', 'domain', 'money', 'llm-gateway'],
+            },
           ],
         },
       ],

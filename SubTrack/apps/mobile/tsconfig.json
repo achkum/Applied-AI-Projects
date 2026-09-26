@@ -1,4 +1,9 @@
 {
   "extends": "../../packages/config/tsconfig.preset.json",
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-native"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.tsx"]
 }
