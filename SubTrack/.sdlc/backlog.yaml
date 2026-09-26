@@ -1,0 +1,11 @@
+# Managed by conductor. Statuses: BACKLOG | READY | IN_PROGRESS | BLOCKED | IN_REVIEW | IN_QA | DONE | REJECTED
+# Full seed: docs/product/BACKLOG_SEED.md. The PO expands the rest at kickoff.
+milestone_current: M0
+items:
+  - {id: ST-001, title: "Pre-flight report", owner: conductor, size: S, status: READY, deps: []}
+  - {id: ST-002, title: "Legacy cleanup into _legacy/", owner: devops-release, size: S, status: READY, deps: [ST-001]}
+  - {id: ST-003, title: "Monorepo scaffold", owner: architect-platform, size: M, status: BACKLOG, deps: [ST-002]}
+  - {id: ST-004, title: "Docker Compose dev stack", owner: devops-release, size: M, status: BACKLOG, deps: [ST-003]}
+  - {id: ST-005, title: "CI workflow (path-filtered)", owner: devops-release, size: M, status: BACKLOG, deps: [ST-003]}
+  - {id: ST-006, title: "Contracts package + generator", owner: architect-platform, size: M, status: BACKLOG, deps: [ST-003]}
+  - {id: ST-012, title: "Board initialisation", owner: product-owner, size: M, status: READY, deps: [ST-001]}
