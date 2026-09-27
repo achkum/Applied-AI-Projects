@@ -1,0 +1,21 @@
+{
+  "name": "@subtrack/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./eslint": "./eslint.config.mjs",
+    "./tsconfig": "./tsconfig.json",
+    "./prettier": "./prettier.config.mjs"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs"
+  }
+}

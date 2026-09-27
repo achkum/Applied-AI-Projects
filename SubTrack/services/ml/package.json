@@ -1,0 +1,11 @@
+{
+  "name": "@subtrack/ml",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"console.log('ml: build is a scaffold no-op until implementation task adds code')\"",
+    "lint": "node -e \"console.log('ml: lint is a scaffold no-op until implementation task adds code')\"",
+    "typecheck": "node -e \"console.log('ml: typecheck is a scaffold no-op until implementation task adds code')\"",
+    "test": "node -e \"console.log('ml: test is a scaffold no-op until implementation task adds code')\""
+  }
+}

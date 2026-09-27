@@ -1,0 +1,14 @@
+{
+  "name": "@subtrack/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"console.log('i18n: build is a scaffold no-op until implementation task adds code')\"",
+    "lint": "node -e \"console.log('i18n: lint is a scaffold no-op until implementation task adds code')\"",
+    "typecheck": "node -e \"console.log('i18n: typecheck is a scaffold no-op until implementation task adds code')\"",
+    "test": "node -e \"console.log('i18n: test is a scaffold no-op until implementation task adds code')\""
+  },
+  "devDependencies": {
+    "@subtrack/config": "workspace:*"
+  }
+}

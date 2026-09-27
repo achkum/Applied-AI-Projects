@@ -1,0 +1,8 @@
+node_modules
+.turbo
+dist
+pnpm-lock.yaml
+_legacy
+docs
+.sdlc
+AGENTS.md
