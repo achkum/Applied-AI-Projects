@@ -63,6 +63,18 @@
   --font-size-hero: 64px;
 }
 :root {
+  --font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--font-variant-numeric);
+}
+:root {
+  --gradient-aurora: linear-gradient(
+    120deg,
+    var(--aurora-violet),
+    var(--aurora-teal),
+    var(--aurora-green)
+  );
+}
+:root {
   --radius-card: 20px;
 }
 :root {
@@ -80,4 +92,53 @@
 :root {
   --motion-aurora-loop-seconds: 60s;
   --motion-orbit-revolution-seconds: 240s;
+}
+:root,
+[data-theme='light'] {
+  --category-video-streaming: oklch(0.58 0.14 0);
+  --category-music-audio: oklch(0.58 0.14 16.3636);
+  --category-audiobooks-ebooks: oklch(0.58 0.14 32.7273);
+  --category-news-magazines: oklch(0.58 0.14 49.0909);
+  --category-gaming: oklch(0.58 0.14 65.4545);
+  --category-software-productivity: oklch(0.58 0.14 81.8182);
+  --category-cloud-storage: oklch(0.58 0.14 98.1818);
+  --category-ai-tools: oklch(0.58 0.14 114.5455);
+  --category-mobile-plan: oklch(0.58 0.14 130.9091);
+  --category-broadband-tv: oklch(0.58 0.14 147.2727);
+  --category-fitness-wellness: oklch(0.58 0.14 163.6364);
+  --category-food-mealkits: oklch(0.58 0.14 180);
+  --category-transport-mobility: oklch(0.58 0.14 196.3636);
+  --category-home-security: oklch(0.58 0.14 212.7273);
+  --category-education-kids: oklch(0.58 0.14 229.0909);
+  --category-pets: oklch(0.58 0.14 245.4545);
+  --category-shopping-memberships: oklch(0.58 0.14 261.8182);
+  --category-vpn-security: oklch(0.58 0.14 278.1818);
+  --category-donations: oklch(0.58 0.14 294.5455);
+  --category-dating-social: oklch(0.58 0.14 310.9091);
+  --category-app-store-billing: oklch(0.58 0.14 327.2727);
+  --category-other-subscription: oklch(0.58 0.14 343.6364);
+}
+[data-theme='dark'] {
+  --category-video-streaming: oklch(0.72 0.14 0);
+  --category-music-audio: oklch(0.72 0.14 16.3636);
+  --category-audiobooks-ebooks: oklch(0.72 0.14 32.7273);
+  --category-news-magazines: oklch(0.72 0.14 49.0909);
+  --category-gaming: oklch(0.72 0.14 65.4545);
+  --category-software-productivity: oklch(0.72 0.14 81.8182);
+  --category-cloud-storage: oklch(0.72 0.14 98.1818);
+  --category-ai-tools: oklch(0.72 0.14 114.5455);
+  --category-mobile-plan: oklch(0.72 0.14 130.9091);
+  --category-broadband-tv: oklch(0.72 0.14 147.2727);
+  --category-fitness-wellness: oklch(0.72 0.14 163.6364);
+  --category-food-mealkits: oklch(0.72 0.14 180);
+  --category-transport-mobility: oklch(0.72 0.14 196.3636);
+  --category-home-security: oklch(0.72 0.14 212.7273);
+  --category-education-kids: oklch(0.72 0.14 229.0909);
+  --category-pets: oklch(0.72 0.14 245.4545);
+  --category-shopping-memberships: oklch(0.72 0.14 261.8182);
+  --category-vpn-security: oklch(0.72 0.14 278.1818);
+  --category-donations: oklch(0.72 0.14 294.5455);
+  --category-dating-social: oklch(0.72 0.14 310.9091);
+  --category-app-store-billing: oklch(0.72 0.14 327.2727);
+  --category-other-subscription: oklch(0.72 0.14 343.6364);
 }

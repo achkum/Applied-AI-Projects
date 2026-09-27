@@ -25,6 +25,15 @@ test('generation is deterministic and produces exactly 22 evenly spaced category
   );
   assert.deepEqual(after, before);
   const theme = JSON.parse(after[1]);
+  const css = after[0];
+  const source = JSON.parse(
+    await readFile(path.join(root, 'src/tokens.json'), 'utf8'),
+  );
+  assert.equal(
+    theme.typography.fontVariantNumeric,
+    source.typography.fontVariantNumeric,
+  );
+  assert.deepEqual(theme.gradient, source.gradient);
   const assignments = Object.values(theme.categoryHue);
   assert.equal(assignments.length, 22);
   assert.deepEqual(
@@ -41,6 +50,40 @@ test('generation is deterministic and produces exactly 22 evenly spaced category
       (_, i) => `oklch(0.72 0.14 ${Number(((i * 360) / 22).toFixed(4))})`,
     ),
   );
+  const codes = Object.keys(theme.categoryHue);
+  const categoryVars = [
+    ...css.matchAll(/--category-([a-z0-9-]+): (oklch\([^;]+\));/g),
+  ];
+  assert.equal(categoryVars.length, 44);
+  codes.forEach((code) => {
+    const cssCode = code.toLowerCase().replaceAll('_', '-');
+    const cssValues = [
+      ...css.matchAll(
+        new RegExp(`--category-${cssCode}: (oklch\\([^;]+\\));`, 'g'),
+      ),
+    ].map(([, value]) => value);
+    assert.deepEqual(cssValues, [
+      theme.categoryHue[code].light,
+      theme.categoryHue[code].dark,
+    ]);
+  });
+  assert.match(
+    css,
+    new RegExp(
+      `--font-variant-numeric: ${source.typography.fontVariantNumeric};`,
+    ),
+  );
+  assert.match(css, /font-variant-numeric: var\(--font-variant-numeric\);/);
+  assert.match(
+    css,
+    /--gradient-aurora: linear-gradient\(\s*120deg,\s*var\(--aurora-violet\),\s*var\(--aurora-teal\),\s*var\(--aurora-green\)\s*\);/,
+  );
+  assert.equal(source.gradient.aurora.angleDegrees, 120);
+  assert.deepEqual(source.gradient.aurora.stops, [
+    'aurora.violet',
+    'aurora.teal',
+    'aurora.green',
+  ]);
 });
 test('contrast command accepts the declared AA text pairs', () => {
   const result = run('scripts/check-contrast.mjs');

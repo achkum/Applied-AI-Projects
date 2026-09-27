@@ -2,6 +2,7 @@ export type ThemeName = 'light' | 'dark';
 
 export interface TokenSource {
   color: Record<ThemeName, Record<string, string>>;
+  gradient: { aurora: { angleDegrees: number; stops: string[] } };
   typography: {
     fontFamily: Record<string, string>;
     fontSize: Record<string, number>;

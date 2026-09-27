@@ -27,6 +27,15 @@ for (const [name, value] of Object.entries(tokens.typography.fontFamily))
   css.push(`:root { --font-${name}: "${value}"; }`);
 for (const [name, value] of Object.entries(tokens.typography.fontSize))
   css.push(`:root { --font-size-${name}: ${value}px; }`);
+css.push(
+  `:root { --font-variant-numeric: ${tokens.typography.fontVariantNumeric}; font-variant-numeric: var(--font-variant-numeric); }`,
+);
+const auroraStops = tokens.gradient.aurora.stops
+  .map((stop) => `var(--${stop.replaceAll('.', '-')})`)
+  .join(', ');
+css.push(
+  `:root { --gradient-aurora: linear-gradient(${tokens.gradient.aurora.angleDegrees}deg, ${auroraStops}); }`,
+);
 for (const [name, value] of Object.entries(tokens.radius))
   css.push(`:root { --radius-${name}: ${value}px; }`);
 for (const [name, value] of Object.entries(tokens.motion.spring))
@@ -34,6 +43,17 @@ for (const [name, value] of Object.entries(tokens.motion.spring))
 css.push(
   `:root { --motion-aurora-loop-seconds: ${tokens.motion.auroraLoopSeconds}s; --motion-orbit-revolution-seconds: ${tokens.motion.orbitRevolutionSeconds}s; }`,
 );
+for (const mode of ['light', 'dark']) {
+  const selector =
+    mode === 'light' ? ':root, [data-theme="light"]' : '[data-theme="dark"]';
+  css.push(`${selector} {`);
+  categories.forEach((code, index) => {
+    css.push(
+      `  --category-${code.toLowerCase().replaceAll('_', '-')}: ${categoryColor(index, categories.length, mode)};`,
+    );
+  });
+  css.push('}');
+}
 const theme = {
   ...tokens,
   categoryHue: Object.fromEntries(
