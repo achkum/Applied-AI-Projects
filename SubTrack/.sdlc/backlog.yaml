@@ -8,7 +8,7 @@ items:
   - {id: ST-001, title: "Pre-flight report: toolchain, VPS resources, repo access, HUMAN_TODO status", owner: "conductor", size: "S", status: DONE, deps: []}
   - {id: ST-002, title: "Move legacy prototype to `SubTrack/_legacy/`; delete nested `SubTrack/SubTrack`, tarballs, `*_payload.json`, `plan_payload.json`; salvage audit hash-chain + consent logic notes into ADR appendix", owner: "devops-release", size: "S", status: DONE, deps: ["ST-001"]}
   - {id: ST-003, title: "Monorepo scaffold (pnpm, Turborepo, TS strict, eslint boundaries, prettier, `packages/config`)", owner: "architect-platform", size: "M", status: DONE, deps: ["ST-002"]}
-  - {id: ST-004, title: "Docker Compose dev stack: postgres16, redis, mailpit, caddy; healthchecks; `make up/down/logs`", owner: "devops-release", size: "M", status: IN_REVIEW, deps: ["ST-003"]}
+  - {id: ST-004, title: "Docker Compose dev stack: postgres16, redis, mailpit, caddy; healthchecks; `make up/down/logs`", owner: "devops-release", size: "M", status: DONE, deps: ["ST-003"]}
   - {id: ST-017, title: "Local API seed command and `make seed` integration", owner: "dev-backend", size: "M", status: BACKLOG, deps: ["ST-004", "ST-040"]}
   - {id: ST-005, title: "CI workflow path-filtered to `SubTrack/**`: lint, typecheck, test, i18n parity, secret scan (gitleaks), licence check", owner: "devops-release", size: "M", status: DONE, deps: ["ST-003"]}
   - {id: ST-006, title: "`packages/contracts`: openapi.yaml skeleton + generator (TS client + zod) + contract test harness", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-003"]}
