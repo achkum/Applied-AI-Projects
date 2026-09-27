@@ -1,8 +1,8 @@
 {
   "as_of": "2026-09-27",
-  "completed_task_ids": ["ST-001", "ST-002", "ST-003", "ST-005", "ST-006", "ST-012", "ST-014"],
-  "completed_task_count": 7,
-  "throughput_today": 3,
+  "completed_task_ids": ["ST-001", "ST-002", "ST-003", "ST-005", "ST-006", "ST-011", "ST-012", "ST-014"],
+  "completed_task_count": 8,
+  "throughput_today": 4,
   "cycle_time_hours": null,
   "reopen_rate": null,
   "escalation_count": null
