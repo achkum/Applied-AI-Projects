@@ -3,10 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "prisma generate --schema=prisma/schema.prisma && tsc -p tsconfig.build.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "typecheck": "prisma generate --schema=prisma/schema.prisma && tsc --noEmit -p tsconfig.json",
+    "test": "prisma generate --schema=prisma/schema.prisma && vitest run"
   },
   "devDependencies": {
     "@subtrack/config": "workspace:*",
