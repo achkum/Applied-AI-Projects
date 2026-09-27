@@ -1,0 +1,67 @@
+name: SubTrack CI
+
+on:
+  pull_request:
+    paths:
+      - "SubTrack/**"
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gates:
+    name: SubTrack quality gates
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: SubTrack
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: SubTrack/pnpm-lock.yaml
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Tests
+        run: pnpm test
+
+      - name: i18n catalog parity
+        shell: bash
+        run: |
+          if [[ -f packages/i18n/scripts/check-parity.mjs ]]; then
+            node packages/i18n/scripts/check-parity.mjs
+          else
+            echo 'i18n parity checker is not present yet; it will run automatically when the catalog implementation is included.'
+          fi
+
+      - name: Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          args: detect --redact --exit-code 1
+
+      - name: License check
+        run: >-
+          pnpm dlx license-checker@25.0.1 --summary --excludePrivatePackages
+          --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;CC0-1.0;Unlicense;BlueOak-1.0.0;MPL-2.0'
