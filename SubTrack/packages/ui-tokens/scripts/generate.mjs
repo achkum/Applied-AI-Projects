@@ -62,6 +62,12 @@ for (const mode of ['light', 'dark']) {
     css.push(`  --${name.replaceAll('.', '-')}: ${value[mode]};`);
   css.push('}');
 }
+for (const [state, values] of Object.entries(
+  tokens.memberAccent.scopeSwitcherStates,
+))
+  css.push(
+    `:root { --scope-switcher-${state}-indicator-stroke-width: ${values.selectionIndicatorStrokeWidthPx}px; }`,
+  );
 const theme = {
   ...tokens,
   categoryHue: Object.fromEntries(

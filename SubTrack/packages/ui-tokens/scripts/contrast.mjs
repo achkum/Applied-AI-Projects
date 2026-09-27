@@ -17,12 +17,18 @@ export function validateContrast(tokens) {
   for (const [name, values] of Object.entries(tokens.memberAccent.slots)) {
     for (const theme of Object.keys(tokens.color)) {
       const accent = values[theme];
-      const surface = tokens.color[theme]['bg.raised'];
-      const ratio = contrast(accent, surface);
-      if (ratio < 3)
-        failures.push(
-          `${theme}: ${name} on bg.raised = ${ratio.toFixed(2)}:1 (requires 3:1 for non-text identity accent)`,
-        );
+      for (const surfaceName of ['bg.raised', 'bg.sunken']) {
+        const surface = tokens.color[theme][surfaceName];
+        if (!surface)
+          throw new Error(
+            `Unknown member accent surface: ${surfaceName} (${theme})`,
+          );
+        const ratio = contrast(accent, surface);
+        if (ratio < 3)
+          failures.push(
+            `${theme}: ${name} on ${surfaceName} = ${ratio.toFixed(2)}:1 (requires 3:1 for non-text identity accent)`,
+          );
+      }
     }
   }
   return failures;

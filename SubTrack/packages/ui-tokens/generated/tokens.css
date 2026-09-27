@@ -163,3 +163,9 @@
   --member-accent-07: #c4a0ff;
   --member-accent-08: #f18bd1;
 }
+:root {
+  --scope-switcher-selected-indicator-stroke-width: 2px;
+}
+:root {
+  --scope-switcher-unselected-indicator-stroke-width: 0px;
+}

@@ -96,6 +96,24 @@
     }
   ],
   "memberAccent": {
+    "scopeSwitcherStates": {
+      "selected": {
+        "surface": "bg.raised",
+        "foreground": "ink.primary",
+        "identityMark": "member.accent",
+        "selectionIndicator": "checkmark",
+        "selectionIndicatorStrokeWidthPx": 2,
+        "accessibilitySelected": true
+      },
+      "unselected": {
+        "surface": "bg.sunken",
+        "foreground": "ink.primary",
+        "identityMark": "member.accent",
+        "selectionIndicator": "none",
+        "selectionIndicatorStrokeWidthPx": 0,
+        "accessibilitySelected": false
+      }
+    },
     "slots": {
       "member.accent.01": {
         "light": "#A33F55",
