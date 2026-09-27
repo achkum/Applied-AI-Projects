@@ -20,7 +20,7 @@ items:
   - {id: ST-020, title: "`packages/ui-tokens`: colour/type/space/radius/motion tokens JSON → CSS vars + RN theme; OKLCH category-hue generator; contrast checker in CI", owner: "design-lead", size: "L", status: DONE, deps: ["ST-003"]}
   - {id: ST-021, title: "Fonts (Fraunces, Manrope, JetBrains Mono) self-hosted/bundled with OFL notices", owner: "dev-web", size: "S", status: BACKLOG, deps: ["ST-020"]}
   - {id: ST-022, title: "Storybook for `packages/ui` + visual regression job", owner: "dev-web", size: "M", status: BACKLOG, deps: ["ST-020"]}
-  - {id: ST-023, title: "Component specs (markdown) for the 7 signature components", owner: "design-lead", size: "M", status: BACKLOG, deps: ["ST-020"]}
+  - {id: ST-023, title: "Component specs (markdown) for the 7 signature components", owner: "design-lead", size: "M", status: IN_PROGRESS, deps: ["ST-020"]}
   - {id: ST-024, title: "Web: RollingNumber, ScopeSwitcher, ReceiptCard", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-023"]}
   - {id: ST-025, title: "Web: Orbit (SVG/Canvas) + accessible list fallback", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-023"]}
   - {id: ST-026, title: "Mobile: RollingNumber, ScopeSwitcher, ReceiptCard (ui-native)", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-023"]}
