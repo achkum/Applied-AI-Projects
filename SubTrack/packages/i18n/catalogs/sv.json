@@ -1,0 +1,17 @@
+{
+  "navigation": {
+    "home": "Hem",
+    "subscriptions": "Prenumerationer",
+    "household": "Hushåll",
+    "insights": "Insikter",
+    "profile": "Profil"
+  },
+  "actions": {
+    "add": "Lägg till",
+    "close": "Stäng"
+  },
+  "scope": {
+    "personal": "Jag",
+    "shared": "Delat"
+  }
+}
