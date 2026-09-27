@@ -19,7 +19,7 @@ One card at a time on narrow screens; wider layouts may add surrounding whitespa
 bg.raised, bg.canvas, ink.primary, ink.secondary, line.hairline, ember.amber for a price hike only; `--category-<category-code>` (CSS) / `categoryHue[<CATEGORY_CODE>]` (native); generated category hues are subscription categories, not member identity colors; radius.card.
 
 ## Interaction
-Tinder-style card metaphor from source; no swipe direction or decision semantics specified here. Buttons must remain an equivalent interaction.
+Tinder-style card metaphor from source; this visual contract defines no swipe direction or decision semantics. The consuming flow supplies named actions and action labels. Keep supplied controls operable without gestures; do not infer gestures from action order. See resolved QUESTION/v1.
 
 ## Accessibility and reduced motion
 Each reason dot has text label; card and controls have logical focus order; do not encode verdict solely by gesture/color; reduced motion removes card travel/rotation.
