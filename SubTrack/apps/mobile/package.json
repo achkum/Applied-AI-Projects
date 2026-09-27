@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "node -e \"console.log('mobile: build is a scaffold no-op until implementation task adds code')\"",
-    "lint": "node -e \"console.log('mobile: lint is a scaffold no-op until implementation task adds code')\"",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node -e \"console.log('mobile: test is a scaffold no-op until implementation task adds code')\""
   },

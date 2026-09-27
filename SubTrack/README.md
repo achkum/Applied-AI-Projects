@@ -12,6 +12,6 @@ pnpm check
 pnpm format:check
 ```
 
-The workspace covers `apps/*`, `packages/*`, and `services/*`. TypeScript packages inherit the strict shared preset in `packages/config/tsconfig.preset.json`. The root ESLint configuration loads `@subtrack/config/eslint`; its boundaries rule rejects domain/money imports from apps or services and app imports from services. Turbo runs each package's `lint`, `typecheck`, and `test` after its workspace dependencies' `build` tasks.
+The workspace covers `apps/*`, `packages/*`, and `services/*`. TypeScript packages inherit the strict shared preset in `packages/config/tsconfig.preset.json`. The root ESLint configuration loads `@subtrack/config/eslint`; its default-deny boundaries allow clients only their own layer plus config, contracts, i18n, UI and tokens, and keep domain/money free of I/O layers and external modules. Turbo runs each package's `lint`, `typecheck`, and `test` after its workspace dependencies' `build` tasks.
 
-Only `packages/config` contains implemented code at this scaffold stage. Every other package's `build`, `lint`, `typecheck`, and `test` script is an explicit no-op that announces itself; the implementation task for each package must replace those scripts when it adds code. `services/ml` is a Python service whose future checks will use uv/pytest; its pnpm manifest exists to make the workspace layout complete.
+`packages/config` contains tooling code and web/mobile contain TSX compile fixtures, so their lint scripts run ESLint. Packages without code retain explicit no-op scripts; implementation tasks must replace them when adding code. `services/ml` is a Python service whose future checks will use uv/pytest; its pnpm manifest exists to make the workspace layout complete.
