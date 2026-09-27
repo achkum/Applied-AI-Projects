@@ -86,7 +86,7 @@ test('validator accepts production source and rejects malformed OpenAPI with a d
   }
 });
 
-test('production contract contains exactly the three approved Ops GET routes', () => {
+test('production contract contains exactly the approved Ops routes and response schemas', () => {
   const directory = mkdtempSync(join(tmpdir(), 'st-006-bundle-'));
   try {
     const bundled = join(directory, 'openapi.json');
@@ -107,15 +107,39 @@ test('production contract contains exactly the three approved Ops GET routes', (
       'GET /readyz',
       'GET /v1/version',
     ]);
-    assert.equal(
-      document.components?.schemas,
-      undefined,
-      'production schemas are not approved',
-    );
-    for (const item of Object.values(document.paths)) {
-      assert.deepEqual(Object.keys(item.get.responses), ['default']);
-      assert.equal(item.get.responses.default.content, undefined);
+    assert.deepEqual(Object.keys(document.components?.schemas ?? {}).sort(), [
+      'HealthResponse',
+      'Problem',
+      'ReadinessResponse',
+      'VersionResponse',
+    ]);
+    assert.deepEqual(Object.keys(document.components?.responses ?? {}), ['Problem']);
+    for (const [path, schema, status] of [
+      ['/healthz', 'HealthResponse', 'ok'],
+      ['/readyz', 'ReadinessResponse', 'ready'],
+      ['/v1/version', 'VersionResponse', undefined],
+    ]) {
+      const responses = document.paths[path].get.responses;
+      assert.deepEqual(Object.keys(responses), ['200', 'default']);
+      assert.deepEqual(responses['200'].content?.['application/json']?.schema, {
+        $ref: `#/components/schemas/${schema}`,
+      });
+      assert.deepEqual(responses.default, {
+        $ref: '#/components/responses/Problem',
+      });
+      const responseSchema = document.components.schemas[schema];
+      assert.deepEqual(responseSchema.required, [status ? 'status' : 'version']);
+      assert.equal(responseSchema.additionalProperties, false);
+      if (status) {
+        assert.equal(responseSchema.properties.status.const, status);
+      } else {
+        assert.equal(responseSchema.properties.version.type, 'string');
+      }
     }
+    assert.deepEqual(document.components.responses.Problem.content?.['application/problem+json']?.schema, {
+      $ref: '#/components/schemas/Problem',
+    });
+    assert.deepEqual(document.components.schemas.Problem.required, ['type', 'title', 'status']);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
