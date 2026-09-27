@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info:
+  title: Contracts Zod generation fixture
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    ProbeOnly:
+      type: object
+      required: [probeId]
+      properties:
+        probeId:
+          type: string
