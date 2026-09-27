@@ -18,6 +18,7 @@ export default [
     files: ['**/*.{js,mjs,ts,tsx}'],
     plugins: { boundaries },
     settings: {
+      'boundaries/dependency-nodes': ['import', 'export'],
       'boundaries/elements': [
         { type: 'web', pattern: 'apps/web' },
         { type: 'mobile', pattern: 'apps/mobile' },
