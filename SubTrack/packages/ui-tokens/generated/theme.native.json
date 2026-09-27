@@ -1,0 +1,182 @@
+{
+  "color": {
+    "light": {
+      "bg.canvas": "#F7F4EE",
+      "bg.raised": "#FFFFFF",
+      "bg.sunken": "#EFEAE1",
+      "ink.primary": "#15161C",
+      "ink.secondary": "#5B5E6B",
+      "aurora.green": "#0E9F6E",
+      "aurora.violet": "#6A58F0",
+      "aurora.teal": "#0B8FB0",
+      "ember.amber": "#C77700",
+      "ember.coral": "#D83A3A",
+      "line.hairline": "rgba(21,22,28,0.08)"
+    },
+    "dark": {
+      "bg.canvas": "#0A0C14",
+      "bg.raised": "#12162A",
+      "bg.sunken": "#070810",
+      "ink.primary": "#F2EFE8",
+      "ink.secondary": "#A5A9BE",
+      "aurora.green": "#3DE0A3",
+      "aurora.violet": "#9B8CFF",
+      "aurora.teal": "#35C7E6",
+      "ember.amber": "#FFB547",
+      "ember.coral": "#FF6B6B",
+      "line.hairline": "rgba(255,255,255,0.08)"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "display": "Fraunces",
+      "ui": "Manrope",
+      "mono": "JetBrains Mono"
+    },
+    "fontSize": {
+      "xs": 12,
+      "sm": 14,
+      "md": 16,
+      "lg": 18,
+      "xl": 22,
+      "2xl": 28,
+      "3xl": 36,
+      "4xl": 48,
+      "hero": 64
+    },
+    "fontVariantNumeric": "tabular-nums"
+  },
+  "radius": {
+    "card": 20,
+    "sheet": 28,
+    "pill": 9999
+  },
+  "motion": {
+    "spring": {
+      "damping": 18,
+      "stiffness": 180
+    },
+    "auroraLoopSeconds": 60,
+    "orbitRevolutionSeconds": 240,
+    "reducedMotion": {
+      "freezeAurora": true,
+      "disableOrbitRotation": true
+    }
+  },
+  "contrastPairs": [
+    {
+      "foreground": "ink.primary",
+      "background": "bg.canvas"
+    },
+    {
+      "foreground": "ink.primary",
+      "background": "bg.raised"
+    },
+    {
+      "foreground": "ink.primary",
+      "background": "bg.sunken"
+    },
+    {
+      "foreground": "ink.secondary",
+      "background": "bg.canvas"
+    },
+    {
+      "foreground": "ink.secondary",
+      "background": "bg.raised"
+    },
+    {
+      "foreground": "ink.secondary",
+      "background": "bg.sunken"
+    }
+  ],
+  "categoryHue": {
+    "VIDEO_STREAMING": {
+      "light": "oklch(0.58 0.14 0)",
+      "dark": "oklch(0.72 0.14 0)"
+    },
+    "MUSIC_AUDIO": {
+      "light": "oklch(0.58 0.14 16.3636)",
+      "dark": "oklch(0.72 0.14 16.3636)"
+    },
+    "AUDIOBOOKS_EBOOKS": {
+      "light": "oklch(0.58 0.14 32.7273)",
+      "dark": "oklch(0.72 0.14 32.7273)"
+    },
+    "NEWS_MAGAZINES": {
+      "light": "oklch(0.58 0.14 49.0909)",
+      "dark": "oklch(0.72 0.14 49.0909)"
+    },
+    "GAMING": {
+      "light": "oklch(0.58 0.14 65.4545)",
+      "dark": "oklch(0.72 0.14 65.4545)"
+    },
+    "SOFTWARE_PRODUCTIVITY": {
+      "light": "oklch(0.58 0.14 81.8182)",
+      "dark": "oklch(0.72 0.14 81.8182)"
+    },
+    "CLOUD_STORAGE": {
+      "light": "oklch(0.58 0.14 98.1818)",
+      "dark": "oklch(0.72 0.14 98.1818)"
+    },
+    "AI_TOOLS": {
+      "light": "oklch(0.58 0.14 114.5455)",
+      "dark": "oklch(0.72 0.14 114.5455)"
+    },
+    "MOBILE_PLAN": {
+      "light": "oklch(0.58 0.14 130.9091)",
+      "dark": "oklch(0.72 0.14 130.9091)"
+    },
+    "BROADBAND_TV": {
+      "light": "oklch(0.58 0.14 147.2727)",
+      "dark": "oklch(0.72 0.14 147.2727)"
+    },
+    "FITNESS_WELLNESS": {
+      "light": "oklch(0.58 0.14 163.6364)",
+      "dark": "oklch(0.72 0.14 163.6364)"
+    },
+    "FOOD_MEALKITS": {
+      "light": "oklch(0.58 0.14 180)",
+      "dark": "oklch(0.72 0.14 180)"
+    },
+    "TRANSPORT_MOBILITY": {
+      "light": "oklch(0.58 0.14 196.3636)",
+      "dark": "oklch(0.72 0.14 196.3636)"
+    },
+    "HOME_SECURITY": {
+      "light": "oklch(0.58 0.14 212.7273)",
+      "dark": "oklch(0.72 0.14 212.7273)"
+    },
+    "EDUCATION_KIDS": {
+      "light": "oklch(0.58 0.14 229.0909)",
+      "dark": "oklch(0.72 0.14 229.0909)"
+    },
+    "PETS": {
+      "light": "oklch(0.58 0.14 245.4545)",
+      "dark": "oklch(0.72 0.14 245.4545)"
+    },
+    "SHOPPING_MEMBERSHIPS": {
+      "light": "oklch(0.58 0.14 261.8182)",
+      "dark": "oklch(0.72 0.14 261.8182)"
+    },
+    "VPN_SECURITY": {
+      "light": "oklch(0.58 0.14 278.1818)",
+      "dark": "oklch(0.72 0.14 278.1818)"
+    },
+    "DONATIONS": {
+      "light": "oklch(0.58 0.14 294.5455)",
+      "dark": "oklch(0.72 0.14 294.5455)"
+    },
+    "DATING_SOCIAL": {
+      "light": "oklch(0.58 0.14 310.9091)",
+      "dark": "oklch(0.72 0.14 310.9091)"
+    },
+    "APP_STORE_BILLING": {
+      "light": "oklch(0.58 0.14 327.2727)",
+      "dark": "oklch(0.72 0.14 327.2727)"
+    },
+    "OTHER_SUBSCRIPTION": {
+      "light": "oklch(0.58 0.14 343.6364)",
+      "dark": "oklch(0.72 0.14 343.6364)"
+    }
+  }
+}

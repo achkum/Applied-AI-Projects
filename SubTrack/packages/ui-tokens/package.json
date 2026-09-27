@@ -3,12 +3,19 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "node -e \"console.log('ui-tokens: build is a scaffold no-op until implementation task adds code')\"",
-    "lint": "node -e \"console.log('ui-tokens: lint is a scaffold no-op until implementation task adds code')\"",
-    "typecheck": "node -e \"console.log('ui-tokens: typecheck is a scaffold no-op until implementation task adds code')\"",
-    "test": "node -e \"console.log('ui-tokens: test is a scaffold no-op until implementation task adds code')\""
+    "build": "node scripts/generate.mjs && node scripts/check-contrast.mjs",
+    "generate": "node scripts/generate.mjs",
+    "contrast:check": "node scripts/check-contrast.mjs",
+    "lint": "eslint scripts test",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs"
   },
   "devDependencies": {
     "@subtrack/config": "workspace:*"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./generated/theme.native.json",
+    "./tokens.css": "./generated/tokens.css"
   }
 }
