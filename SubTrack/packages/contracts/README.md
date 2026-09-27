@@ -1,9 +1,10 @@
 # @subtrack/contracts
 
 The OpenAPI document in `openapi.yaml` is the source of truth for the API
-contract. This foundation currently declares only the approved operational
-routes (`GET /healthz`, `GET /readyz`, and `GET /v1/version`). Their response
-payloads and runtime semantics are intentionally unspecified.
+contract. Production currently declares only the approved operational routes
+(`GET /healthz`, `GET /readyz`, and `GET /v1/version`). Their response payloads
+and runtime semantics are intentionally unspecified; no product schemas are
+inferred.
 
 ## Runtime and commands
 
@@ -13,11 +14,19 @@ toolchain. Install workspace dependencies from the `SubTrack/` root with
 
 ```sh
 pnpm --filter @subtrack/contracts generate
+pnpm --filter @subtrack/contracts generate:fixture
+pnpm --filter @subtrack/contracts typecheck
+pnpm --filter @subtrack/contracts test
 pnpm --filter @subtrack/contracts contract:validate
 ```
 
-Generation is local and deterministic: Orval consumes only `openapi.yaml` and
-writes `generated/client.ts` and `generated/schemas.ts`. Commit generated
-artifacts with changes to the source contract; rerun generation and ensure it
-leaves no further diff before review. Validation runs Redocly's OpenAPI spec
-rules and exits nonzero with diagnostics for invalid input.
+The pinned `@hey-api/openapi-ts` config generates a local fetch client and SDK
+from production `openapi.yaml`; the schema-free Ops foundation correctly emits
+no production Zod schemas. The package-local synthetic fixture under `fixtures/`
+exercises Zod 4 generation without adding schemas to the production contract. Its
+generated module is imported by `fixtures/zod-import.ts` and checked by
+`typecheck`. Generated artifacts are committed; rerun each generation command
+twice and ensure the second run leaves no diff.
+
+Validation runs Redocly's OpenAPI spec rules and exits nonzero with diagnostics
+for invalid input.

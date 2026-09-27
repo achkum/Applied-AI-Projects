@@ -8,15 +8,17 @@
   "scripts": {
     "build": "pnpm generate",
     "contract:validate": "redocly lint openapi.yaml --extends=spec",
-    "generate": "orval --config ./orval.config.ts",
+    "generate": "openapi-ts -f ./openapi-ts.config.mjs --no-log-file",
     "lint": "pnpm contract:validate",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node -e \"console.log('contracts: no behavioral tests; OpenAPI validation is contract:validate')\""
+    "test": "pnpm test:zod-fixture",
+    "generate:fixture": "openapi-ts -f ./openapi-ts.fixture.config.mjs --no-log-file",
+    "test:zod-fixture": "pnpm generate:fixture && pnpm typecheck && node --experimental-strip-types --input-type=module -e \"import { zProbeOnly } from './fixtures/generated/zod.gen.ts'; if (!zProbeOnly.safeParse({ probeId: 'fixture' }).success) process.exit(1);\""
   },
   "devDependencies": {
     "@redocly/cli": "2.54.3",
     "@subtrack/config": "workspace:*",
-    "orval": "8.38.0",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "@hey-api/openapi-ts": "0.99.0"
   }
 }

@@ -1,4 +1,4 @@
 {
   "extends": "../../packages/config/tsconfig.preset.json",
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["fixtures/generated/**/*.ts", "fixtures/zod-import.ts"]
 }
