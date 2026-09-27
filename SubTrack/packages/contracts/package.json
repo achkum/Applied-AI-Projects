@@ -2,13 +2,21 @@
   "name": "@subtrack/contracts",
   "version": "0.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22.18.0"
+  },
   "scripts": {
-    "build": "node -e \"console.log('contracts: build is a scaffold no-op until implementation task adds code')\"",
-    "lint": "node -e \"console.log('contracts: lint is a scaffold no-op until implementation task adds code')\"",
-    "typecheck": "node -e \"console.log('contracts: typecheck is a scaffold no-op until implementation task adds code')\"",
-    "test": "node -e \"console.log('contracts: test is a scaffold no-op until implementation task adds code')\""
+    "build": "pnpm generate",
+    "contract:validate": "redocly lint openapi.yaml --extends=spec",
+    "generate": "orval --config ./orval.config.ts",
+    "lint": "pnpm contract:validate",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node -e \"console.log('contracts: no behavioral tests; OpenAPI validation is contract:validate')\""
   },
   "devDependencies": {
-    "@subtrack/config": "workspace:*"
+    "@redocly/cli": "2.54.3",
+    "@subtrack/config": "workspace:*",
+    "orval": "8.38.0",
+    "zod": "4.6.5"
   }
 }
