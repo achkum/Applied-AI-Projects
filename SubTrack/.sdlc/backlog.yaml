@@ -15,7 +15,7 @@ items:
   - {id: ST-008, title: "`apps/web` Next.js skeleton: app router, next-intl sv/en, theme provider (system/light/dark), generated API client wiring", owner: "dev-web", size: "M", status: BACKLOG, deps: ["ST-006"]}
   - {id: ST-009, title: "`apps/mobile` Expo skeleton: Expo Router, i18n, theme, secure storage, EAS project config (dev/preview/production profiles)", owner: "dev-mobile", size: "M", status: BACKLOG, deps: ["ST-006"]}
   - {id: ST-010, title: "`services/ml` FastAPI skeleton + uv + pytest + Dockerfile; `/healthz`, `/ml/v1/models`", owner: "dev-data", size: "S", status: BACKLOG, deps: ["ST-004"]}
-  - {id: ST-011, title: "`packages/i18n` catalog structure + parity checker script", owner: "dev-web", size: "S", status: BACKLOG, deps: ["ST-003"]}
+  - {id: ST-011, title: "`packages/i18n` catalog structure + parity checker script", owner: "dev-web", size: "S", status: IN_PROGRESS, deps: ["ST-003"]}
   - {id: ST-012, title: "`.sdlc/` board initialised from this file; task files for M0/D1/M1", owner: "product-owner", size: "M", status: DONE, deps: ["ST-001"]}
   - {id: ST-020, title: "`packages/ui-tokens`: colour/type/space/radius/motion tokens JSON → CSS vars + RN theme; OKLCH category-hue generator; contrast checker in CI", owner: "design-lead", size: "L", status: BACKLOG, deps: ["ST-003"]}
   - {id: ST-021, title: "Fonts (Fraunces, Manrope, JetBrains Mono) self-hosted/bundled with OFL notices", owner: "dev-web", size: "S", status: BACKLOG, deps: ["ST-020"]}
