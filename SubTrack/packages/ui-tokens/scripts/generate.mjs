@@ -54,6 +54,14 @@ for (const mode of ['light', 'dark']) {
   });
   css.push('}');
 }
+for (const mode of ['light', 'dark']) {
+  const selector =
+    mode === 'light' ? ':root, [data-theme="light"]' : '[data-theme="dark"]';
+  css.push(`${selector} {`);
+  for (const [name, value] of Object.entries(tokens.memberAccent.slots))
+    css.push(`  --${name.replaceAll('.', '-')}: ${value[mode]};`);
+  css.push('}');
+}
 const theme = {
   ...tokens,
   categoryHue: Object.fromEntries(

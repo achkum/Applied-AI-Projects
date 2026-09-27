@@ -95,6 +95,43 @@
       "background": "bg.sunken"
     }
   ],
+  "memberAccent": {
+    "slots": {
+      "member.accent.01": {
+        "light": "#A33F55",
+        "dark": "#FF8297"
+      },
+      "member.accent.02": {
+        "light": "#A65D12",
+        "dark": "#FFC06B"
+      },
+      "member.accent.03": {
+        "light": "#777300",
+        "dark": "#E4D85B"
+      },
+      "member.accent.04": {
+        "light": "#147A4B",
+        "dark": "#52D995"
+      },
+      "member.accent.05": {
+        "light": "#087A83",
+        "dark": "#58DCE5"
+      },
+      "member.accent.06": {
+        "light": "#386EB2",
+        "dark": "#83B9FF"
+      },
+      "member.accent.07": {
+        "light": "#7953B3",
+        "dark": "#C4A0FF"
+      },
+      "member.accent.08": {
+        "light": "#A63D8C",
+        "dark": "#F18BD1"
+      }
+    },
+    "selection": "stable-fnv1a-32"
+  },
   "categoryHue": {
     "VIDEO_STREAMING": {
       "light": "oklch(0.58 0.14 0)",
