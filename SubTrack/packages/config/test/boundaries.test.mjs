@@ -100,6 +100,37 @@ test('clients cannot import server-side layers directly', async () => {
   }
 });
 
+test('clients cannot bypass boundaries through workspace package names', async () => {
+  const eslint = new ESLint({
+    cwd: fileURLToPath(new URL('../../../', import.meta.url)),
+  });
+  for (const client of ['web', 'mobile']) {
+    const filePath = fileURLToPath(
+      new URL(`../../../apps/${client}/src/fixture.ts`, import.meta.url),
+    );
+    for (const target of [
+      'api',
+      'domain',
+      'money',
+      'llm-gateway',
+      'catalog',
+      'synthetic',
+      'worker',
+    ]) {
+      const [result] = await eslint.lintText(
+        `import '@subtrack/${target}';\n`,
+        { filePath },
+      );
+      assert.ok(
+        result?.messages.some(
+          (message) => message.ruleId === 'boundaries/external',
+        ),
+        `${client} -> @subtrack/${target}`,
+      );
+    }
+  }
+});
+
 test('public config entry is importable', async () => {
   const { configVersion } = await import('@subtrack/config');
   assert.equal(configVersion, '0.0.0');

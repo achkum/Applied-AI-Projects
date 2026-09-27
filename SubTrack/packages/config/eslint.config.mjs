@@ -88,7 +88,21 @@ export default [
         'error',
         {
           default: 'allow',
-          rules: [{ from: ['domain', 'money'], disallow: ['*'] }],
+          rules: [
+            { from: ['domain', 'money'], disallow: ['*'] },
+            {
+              from: ['web', 'mobile'],
+              disallow: [
+                '@subtrack/api',
+                '@subtrack/domain',
+                '@subtrack/money',
+                '@subtrack/llm-gateway',
+                '@subtrack/catalog',
+                '@subtrack/synthetic',
+                '@subtrack/worker',
+              ],
+            },
+          ],
         },
       ],
     },
