@@ -35,5 +35,5 @@ Need from you: <nothing | X>
 
 ## DONE (task or milestone completed and merged)
 ```
-🎉 Merged ST-123 → subtrack/develop (commit abc1234). CI green, QA pass.
+🎉 Merged ST-123 → main (commit abc1234). CI green, QA pass.
 ```

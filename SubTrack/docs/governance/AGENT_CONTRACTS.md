@@ -12,7 +12,7 @@ role: dev-backend
 model_tier: luna            # luna | sol
 attempt: 1                  # increments on re-dispatch
 repo: $REPO_DIR
-branch: st/ST-123-household-invitations   # create from subtrack/develop
+branch: st/ST-123-household-invitations   # after ST-031 takes effect, create from main; until then follow the current approved cadence
 task_file: SubTrack/.sdlc/tasks/ST-123.md  # READ FIRST — goal, AC, allowed_paths
 must_read:
   - SubTrack/docs/governance/CONSTITUTION.md

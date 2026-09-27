@@ -17,7 +17,7 @@
   - licence check
   - bundle-size budget (web)
 - [ ] Coverage: overall ≥ 80% on changed files; `packages/money` and `packages/domain/policy` at 100% branches.
-- [ ] Required reviews are APPROVE (OPERATING_MODEL §5) and there are no open `blocker` or `major` findings.
+- [ ] Required reviews are APPROVE (OPERATING_MODEL §5) and there are no open `blocker` or `major` findings. The Conductor merges an eligible task PR directly to `main`; no red CI/check, unresolved blocker/major finding, or QA failure may be overridden by target branch or cadence.
 - [ ] Security-sensitive PRs: the security-privacy checklist is attached.
 - [ ] Docs are updated (spec, ADR, runbook, or README) where behaviour or setup changed.
 - [ ] Accessibility: labels, focus order, contrast (axe on web; RN accessibility props on mobile).
@@ -32,6 +32,8 @@
 | G-M1…G-M5 | QA gate report (tests, pass rate, coverage), exit-criteria checklist, a 60–90-second screen recording of the flows, security sign-off |
 | G-M6 | TestFlight build number + Play internal link, Maestro run report, device matrix |
 | G-M7 / v1.0 | Full PRODUCT_SPEC §8 checklist, security & privacy report, performance report, store listing drafts |
+
+Passing task gates authorize code integration into `main`, not production deployment or public release. Production/public release remains subject to the distinct founder approval gate in `DECISION_RULES.md`, with the applicable milestone evidence package and security sign-off.
 
 ## Test pyramid & tools
 - Unit: Vitest (TS), pytest (ML).

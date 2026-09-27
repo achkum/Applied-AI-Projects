@@ -9,3 +9,4 @@ items:
   - {id: ST-005, title: "CI workflow (path-filtered)", owner: devops-release, size: M, status: BACKLOG, deps: [ST-003]}
   - {id: ST-006, title: "Contracts package + generator", owner: architect-platform, size: M, status: BACKLOG, deps: [ST-003]}
   - {id: ST-012, title: "Board initialisation", owner: product-owner, size: M, status: READY, deps: [ST-001]}
+  - {id: ST-031, title: "Amend governance for QA-gated merges to main", owner: "product-owner", size: S, status: IN_REVIEW, deps: []}
