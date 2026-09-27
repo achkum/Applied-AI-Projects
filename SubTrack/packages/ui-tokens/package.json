@@ -1,0 +1,25 @@
+{
+  "name": "@subtrack/ui-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/generate.mjs && node scripts/check-contrast.mjs",
+    "generate": "node scripts/generate.mjs",
+    "contrast:check": "node scripts/check-contrast.mjs",
+    "lint": "eslint scripts test",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "@subtrack/config": "workspace:*"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./generated/theme.native.json",
+    "./tokens.css": "./generated/tokens.css",
+    "./member-accent": {
+      "types": "./src/member-accent.d.mts",
+      "default": "./src/member-accent.mjs"
+    }
+  }
+}

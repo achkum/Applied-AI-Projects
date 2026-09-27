@@ -1,0 +1,12 @@
+{
+  "extends": "../../packages/config/tsconfig.preset.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "exactOptionalPropertyTypes": false
+  },
+  "include": [
+    "generated/**/*.ts",
+    "fixtures/generated/**/*.ts",
+    "fixtures/zod-import.ts"
+  ]
+}

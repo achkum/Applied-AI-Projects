@@ -1,0 +1,14 @@
+{
+  "name": "@subtrack/ui",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"console.log('ui: build is a scaffold no-op until implementation task adds code')\"",
+    "lint": "node -e \"console.log('ui: lint is a scaffold no-op until implementation task adds code')\"",
+    "typecheck": "node -e \"console.log('ui: typecheck is a scaffold no-op until implementation task adds code')\"",
+    "test": "node -e \"console.log('ui: test is a scaffold no-op until implementation task adds code')\""
+  },
+  "devDependencies": {
+    "@subtrack/config": "workspace:*"
+  }
+}

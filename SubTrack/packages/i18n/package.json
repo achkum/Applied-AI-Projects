@@ -1,0 +1,21 @@
+{
+  "name": "@subtrack/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./catalogs/en": "./catalogs/en.json",
+    "./catalogs/sv": "./catalogs/sv.json"
+  },
+  "scripts": {
+    "build": "pnpm typecheck",
+    "lint": "pnpm check:parity",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test test/*.test.mjs",
+    "check:parity": "node scripts/check-parity.mjs"
+  },
+  "devDependencies": {
+    "@subtrack/config": "workspace:*"
+  }
+}

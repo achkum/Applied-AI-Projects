@@ -1,0 +1,10 @@
+{
+  "extends": "../../packages/config/tsconfig.preset.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "preserve",
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.tsx"]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@subtrack/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"console.log('web: build is a scaffold no-op until implementation task adds code')\"",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node -e \"console.log('web: test is a scaffold no-op until implementation task adds code')\""
+  },
+  "devDependencies": {
+    "@subtrack/config": "workspace:*"
+  }
+}

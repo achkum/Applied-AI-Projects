@@ -1,0 +1,27 @@
+openapi: 3.1.0
+info:
+  title: SubTrack API
+  version: 1.0.0
+  description: Contract metadata and approved operational endpoints.
+paths:
+  /healthz:
+    get:
+      operationId: getHealthz
+      summary: Health check
+      responses:
+        default:
+          description: Health check response.
+  /readyz:
+    get:
+      operationId: getReadyz
+      summary: Readiness check
+      responses:
+        default:
+          description: Readiness check response.
+  /v1/version:
+    get:
+      operationId: getVersion
+      summary: API version
+      responses:
+        default:
+          description: API version response.
