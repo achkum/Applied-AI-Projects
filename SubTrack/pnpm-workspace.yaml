@@ -3,6 +3,7 @@ packages:
   - packages/*
   - services/*
 allowBuilds:
+  esbuild: true
   '@prisma/client': true
   '@prisma/engines': true
   prisma: true
