@@ -17,6 +17,9 @@
   "exports": {
     ".": "./generated/theme.native.json",
     "./tokens.css": "./generated/tokens.css",
-    "./member-accent": "./src/member-accent.mjs"
+    "./member-accent": {
+      "types": "./src/member-accent.d.mts",
+      "default": "./src/member-accent.mjs"
+    }
   }
 }
