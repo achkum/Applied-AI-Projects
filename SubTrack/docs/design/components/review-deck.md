@@ -1,0 +1,31 @@
+# Review deck
+
+## Purpose
+Presents subscription detections for review with visible reasons.
+
+## Anatomy
+One detection card; merchant/subscription candidate; amount/cadence; reason constellation check dots; decision controls supplied by consuming flow.
+
+## States
+Loading; candidate; reason detail; accepted/rejected/undo only when the host flow supplies these states; empty deck.
+
+## Themes
+Resolve named semantic roles against both `light` and `dark` themes; never hard-code color values. Verify text/foreground combinations against the declared contrast pairs.
+
+## Responsive behavior
+One card at a time on narrow screens; wider layouts may add surrounding whitespace, not additional concurrent decisions.
+
+## Token references
+bg.raised, bg.canvas, ink.primary, ink.secondary, line.hairline, ember.amber for a price hike only; `--category-<category-code>` (CSS) / `categoryHue[<CATEGORY_CODE>]` (native); generated category hues are subscription categories, not member identity colors; radius.card.
+
+## Interaction
+Tinder-style card metaphor from source; no swipe direction or decision semantics specified here. Buttons must remain an equivalent interaction.
+
+## Accessibility and reduced motion
+Each reason dot has text label; card and controls have logical focus order; do not encode verdict solely by gesture/color; reduced motion removes card travel/rotation.
+
+## Content and localization (sv/en)
+Candidate name, formatted amount/cadence, each reason, action labels and empty state in sv/en.
+
+## Implementation boundary
+This is a visual component contract, not a product/API contract. Consume supplied domain data and host actions; do not derive unsupported product behavior, invent sample values, or add ad-hoc colors. Use `packages/i18n/catalogs/sv.json` and `en.json` keys in parity for visible copy. Amount presentation follows locale (`sv-SE` / `en-SE`) and the shared money formatter; category appearance maps only to generated `packages/ui-tokens` category tokens.
