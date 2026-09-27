@@ -36,15 +36,13 @@ describe('API foundation', () => {
   afterAll(async () => app?.close());
 
   it('serves the three contracted operational responses', async () => {
-    await request(app.getHttpServer())
-      .get('/healthz')
-      .expect(200, { status: 'ok' });
-    await request(app.getHttpServer())
-      .get('/readyz')
-      .expect(200, { status: 'ready' });
-    await request(app.getHttpServer())
-      .get('/v1/version')
-      .expect(200, { version: '0.0.0' });
+    for (const [path, body] of [
+      ['/healthz', { status: 'ok' }],
+      ['/readyz', { status: 'ready' }],
+      ['/v1/version', { version: '0.0.0' }],
+    ] as const) {
+      await request(app.getHttpServer()).get(path).expect(200, body);
+    }
   });
 
   it('maps unknown errors to safe problem details', async () => {

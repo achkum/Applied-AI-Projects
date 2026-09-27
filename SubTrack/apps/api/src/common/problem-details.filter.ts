@@ -37,18 +37,6 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       status,
       instance: request.path,
     };
-    if (exception instanceof HttpException && status < 500) {
-      const exceptionResponse = exception.getResponse();
-      if (
-        typeof exceptionResponse === 'object' &&
-        exceptionResponse !== null &&
-        'message' in exceptionResponse
-      ) {
-        const message = (exceptionResponse as { message: unknown }).message;
-        if (typeof message === 'string') body.detail = message;
-        if (Array.isArray(message)) body.detail = 'Request validation failed';
-      }
-    }
     response.status(status).type('application/problem+json').send(body);
   }
 }
