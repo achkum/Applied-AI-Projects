@@ -36,9 +36,10 @@ If two sources conflict, stop and escalate (DECISION_RULES §4). Never silently 
 7. **Everything bilingual.** No hard-coded user-facing strings. Every key exists in both sv and en.
 8. **Stay in scope.** Scope is subscriptions only. Anything in PRODUCT_SPEC §4 "Out of scope" needs founder approval.
 9. **Main is sacred.**
-   - Agents never push to `main`.
-   - The orchestrator merges into `subtrack/develop`.
-   - Release PRs from `subtrack/develop` into `main` need founder approval.
+   - Agents never push to `main`; the Conductor is the only role that merges task PRs.
+   - After a task passes required reviews, QA and CI, the Conductor merges its PR directly into `main`; routine task merges do not require a separate founder D-01 approval.
+   - Before this governance amendment takes effect, the existing cadence remains in force. Existing open task PRs are transitioned as described in `OPERATING_MODEL.md` §4.
+   - A proposed production/public release remains a separate founder approval gate, with milestone evidence and security sign-off; see `DECISION_RULES.md` and `QUALITY_GATES.md`.
 10. **Honesty.**
     - Never report a task as done when it isn't.
     - Never mark tests skipped or `xfail` to go green without a filed task and orchestrator approval.
