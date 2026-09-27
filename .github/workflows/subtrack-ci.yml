@@ -9,6 +9,78 @@ permissions:
   contents: read
 
 jobs:
+  compose-runtime-proof:
+    name: ST-004 Compose runtime proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: SubTrack
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start stack through Make target
+        run: make up
+
+      - name: Assert all services are healthy
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose ps --format json | tee "$RUNNER_TEMP/compose-ps.jsonl"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const output = fs.readFileSync(process.env.RUNNER_TEMP + '/compose-ps.jsonl', 'utf8').trim();
+          let parsed;
+          try { parsed = JSON.parse(output); }
+          catch { parsed = output.split('\n').map(line => JSON.parse(line)); }
+          const containers = Array.isArray(parsed) ? parsed : [parsed];
+          const expected = new Set(['postgres', 'redis', 'mailpit', 'caddy']);
+          for (const container of containers) {
+            const service = container.Service || container.Name;
+            if (expected.has(service)) {
+              const health = String(container.Health || container.Status || '').toLowerCase();
+              if (!health.includes('healthy')) throw new Error(`${service} is not healthy: ${health}`);
+              expected.delete(service);
+            }
+          }
+          if (expected.size) throw new Error(`Missing services: ${[...expected].join(', ')}`);
+          console.log('All four required Compose services report healthy.');
+          NODE
+
+      - name: Verify followed logs emit stack output
+        shell: bash
+        run: |
+          set +e
+          timeout --signal=INT 8s make logs > "$RUNNER_TEMP/compose-logs.txt" 2>&1
+          status=$?
+          set -e
+          if [[ $status -ne 124 && $status -ne 130 ]]; then
+            cat "$RUNNER_TEMP/compose-logs.txt"
+            echo "Expected timeout to stop followed logs, got exit $status" >&2
+            exit 1
+          fi
+          if [[ ! -s "$RUNNER_TEMP/compose-logs.txt" ]]; then
+            echo 'make logs produced no output' >&2
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/compose-logs.txt"
+
+      - name: Verify down retains named volumes
+        shell: bash
+        run: |
+          set -euo pipefail
+          project=$(docker compose config --format json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).name))")
+          make down
+          for volume in postgres-data redis-data; do
+            docker volume inspect "${project}_${volume}" >/dev/null
+            echo "Retained named volume: ${project}_${volume}"
+          done
+
+      - name: Clean up containers without deleting volumes
+        if: always()
+        run: make down
+
   quality-gates:
     name: SubTrack quality gates
     runs-on: ubuntu-latest
