@@ -24,6 +24,17 @@ test('generation is deterministic and produces exactly 22 evenly spaced category
     ),
   );
   assert.deepEqual(after, before);
+  const prettier = spawnSync(
+    path.join(root, '../../node_modules/.bin/prettier'),
+    ['--stdin-filepath', path.join(root, 'generated/theme.native.json')],
+    { input: after[1], encoding: 'utf8' },
+  );
+  assert.equal(prettier.status, 0, prettier.stderr);
+  assert.equal(
+    after[1],
+    prettier.stdout,
+    'generated native JSON must be Prettier-formatted',
+  );
   const theme = JSON.parse(after[1]);
   const css = after[0];
   const source = JSON.parse(

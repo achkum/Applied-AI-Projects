@@ -68,14 +68,16 @@ const theme = {
 };
 const cssText = execFileSync(
   path.join(root, '../../node_modules/.bin/prettier'),
-  ['--stdin-filepath', 'tokens.css'],
+  ['--stdin-filepath', path.join(out, 'tokens.css')],
   { input: `${css.join('\n')}\n`, encoding: 'utf8' },
 );
 await writeFile(path.join(out, 'tokens.css'), cssText);
-await writeFile(
-  path.join(out, 'theme.native.json'),
-  `${JSON.stringify(theme, null, 2)}\n`,
+const nativeJson = execFileSync(
+  path.join(root, '../../node_modules/.bin/prettier'),
+  ['--stdin-filepath', path.join(out, 'theme.native.json')],
+  { input: `${JSON.stringify(theme, null, 2)}\n`, encoding: 'utf8' },
 );
+await writeFile(path.join(out, 'theme.native.json'), nativeJson);
 
 function categoryColor(index, count, mode) {
   const hue = Number(((index * 360) / count).toFixed(4));
