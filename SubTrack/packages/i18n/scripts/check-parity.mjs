@@ -3,9 +3,12 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const [svPath, enPath] = process.argv.slice(2).length === 2
-  ? process.argv.slice(2).map((path) => resolve(path))
-  : ['catalogs/sv.json', 'catalogs/en.json'].map((path) => resolve(packageRoot, path));
+const [svPath, enPath] =
+  process.argv.slice(2).length === 2
+    ? process.argv.slice(2).map((path) => resolve(path))
+    : ['catalogs/sv.json', 'catalogs/en.json'].map((path) =>
+        resolve(packageRoot, path),
+      );
 
 async function loadCatalog(path, locale) {
   try {
@@ -23,8 +26,26 @@ function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function icuArguments(value) {
+  const argumentsByName = new Map();
+  const expression =
+    /\{\s*([\w.-]+)\s*(?:,\s*(plural|selectordinal|select|number|date|time)\b)?/g;
+  for (const match of value.matchAll(expression)) {
+    const name = match[1];
+    const usage = match[2] ?? 'string';
+    const usages = argumentsByName.get(name) ?? new Set();
+    usages.add(usage);
+    argumentsByName.set(name, usages);
+  }
+  return [...argumentsByName]
+    .map(([name, usages]) => [name, [...usages].sort().join('|')])
+    .sort(([left], [right]) => left.localeCompare(right));
+}
+
 function compare(sv, en, path = '') {
-  for (const key of [...new Set([...Object.keys(sv), ...Object.keys(en)])].sort()) {
+  for (const key of [
+    ...new Set([...Object.keys(sv), ...Object.keys(en)]),
+  ].sort()) {
     const keyPath = path ? `${path}.${key}` : key;
     if (!(key in sv)) {
       console.error(`Missing Swedish key: ${keyPath}`);
@@ -40,14 +61,28 @@ function compare(sv, en, path = '') {
     const enValue = en[key];
     const svObject = isRecord(svValue);
     const enObject = isRecord(enValue);
-    if (svObject !== enObject || Array.isArray(svValue) !== Array.isArray(enValue)) {
+    if (
+      svObject !== enObject ||
+      Array.isArray(svValue) !== Array.isArray(enValue)
+    ) {
       console.error(`Mismatched value shape at ${keyPath}`);
       process.exitCode = 1;
     } else if (svObject) {
       compare(svValue, enValue, keyPath);
     } else if (typeof svValue !== typeof enValue) {
-      console.error(`Mismatched value type at ${keyPath} (sv: ${typeof svValue}, en: ${typeof enValue})`);
+      console.error(
+        `Mismatched value type at ${keyPath} (sv: ${typeof svValue}, en: ${typeof enValue})`,
+      );
       process.exitCode = 1;
+    } else if (typeof svValue === 'string') {
+      const svArguments = icuArguments(svValue);
+      const enArguments = icuArguments(enValue);
+      if (JSON.stringify(svArguments) !== JSON.stringify(enArguments)) {
+        console.error(
+          `Mismatched ICU placeholders at ${keyPath} (sv: ${JSON.stringify(svArguments)}, en: ${JSON.stringify(enArguments)})`,
+        );
+        process.exitCode = 1;
+      }
     }
   }
 }
@@ -55,4 +90,7 @@ function compare(sv, en, path = '') {
 const sv = await loadCatalog(svPath, 'sv');
 const en = await loadCatalog(enPath, 'en');
 if (sv && en) compare(sv, en);
-if (!process.exitCode) console.log('Swedish and English catalogs have matching nested keys and value shapes.');
+if (!process.exitCode)
+  console.log(
+    'Swedish and English catalogs have matching nested keys, value shapes, and ICU placeholders.',
+  );

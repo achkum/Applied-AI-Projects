@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -11,7 +11,8 @@ const dir = await mkdtemp(join(tmpdir(), 'subtrack-i18n-'));
 try {
   const sv = join(dir, 'sv.json');
   const en = join(dir, 'en.json');
-  const run = () => spawnSync(process.execPath, [checker, sv, en], { encoding: 'utf8' });
+  const run = () =>
+    spawnSync(process.execPath, [checker, sv, en], { encoding: 'utf8' });
   const write = async (path, value) => writeFile(path, JSON.stringify(value));
 
   await write(sv, { nested: { greeting: 'Hej' } });
@@ -35,10 +36,27 @@ try {
   assert.notEqual(result.status, 0, 'incompatible leaf type should fail');
   assert.match(result.stderr, /nested\.greeting/);
 
-  const source = await readFile(join(packageRoot, 'src/index.ts'), 'utf8');
-  assert.match(source, /import en from '\.\.\/catalogs\/en\.json'/);
-  assert.match(source, /import sv from '\.\.\/catalogs\/sv\.json'/);
-  console.log('i18n parity tests passed (matching, missing key, nested shape, leaf type, exports).');
+  await write(sv, { greeting: 'Hej {name}' });
+  await write(en, { greeting: 'Hello {firstName}' });
+  result = run();
+  assert.notEqual(result.status, 0, 'different ICU argument names should fail');
+  assert.match(result.stderr, /greeting/);
+  assert.match(result.stderr, /Mismatched ICU placeholders/);
+
+  await write(sv, { count: '{count, plural, one {# sak} other {# saker}}' });
+  await write(en, { count: '{count, select, one {one} other {other}}' });
+  result = run();
+  assert.notEqual(result.status, 0, 'different ICU argument usage should fail');
+  assert.match(result.stderr, /count/);
+
+  const { en: english, sv: swedish, catalogs } = await import('@subtrack/i18n');
+  assert.equal(english.navigation.home, 'Home');
+  assert.equal(swedish.navigation.home, 'Hem');
+  assert.equal(catalogs.en.navigation.home, 'Home');
+  assert.equal(catalogs.sv.navigation.home, 'Hem');
+  console.log(
+    'i18n parity tests passed (matching, missing key, nested shape, leaf type, ICU placeholders, package exports).',
+  );
 } finally {
   await rm(dir, { recursive: true, force: true });
 }

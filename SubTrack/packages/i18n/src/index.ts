@@ -1,5 +1,5 @@
-import en from '../catalogs/en.json';
-import sv from '../catalogs/sv.json';
+import en from '../catalogs/en.json' with { type: 'json' };
+import sv from '../catalogs/sv.json' with { type: 'json' };
 
 export { en, sv };
 export type Locale = 'en' | 'sv';
