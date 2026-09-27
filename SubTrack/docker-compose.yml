@@ -58,6 +58,19 @@ services:
       retries: 10
       start_period: 5s
 
+  ml:
+    build:
+      context: ./services/ml
+      dockerfile: Dockerfile
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
 volumes:
   postgres-data:
   redis-data:
