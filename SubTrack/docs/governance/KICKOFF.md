@@ -4,7 +4,7 @@
    - `git -C $REPO_DIR status` is clean; the remote is `achkum/Applied-AI-Projects`; push access is verified with a dry run on a scratch branch.
    - Node ≥ 22, pnpm, Docker + Compose, Python 3.12 + uv, and gh CLI (optional) are available on the VPS. Report free RAM, disk and CPU.
    - Read HUMAN_TODO.md and list which items are done. Missing items are non-blocking at M0.
-2. **Create the `subtrack/develop` branch** from `main`, if it doesn't exist.
+2. **Branch setup:** until the ST-031 governance amendment is approved and merged, preserve the existing branch setup. After it takes effect, `main` is the task integration branch; do not create or use `subtrack/develop` for new task PRs.
 3. **Seed the board:**
    - Create `.sdlc/backlog.yaml` from `docs/product/BACKLOG_SEED.md`.
    - Create task files for all M0 tasks and the D1 tasks.

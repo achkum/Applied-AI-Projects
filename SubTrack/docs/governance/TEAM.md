@@ -3,7 +3,7 @@
 ## Roster (OpenClaw agent ids)
 | Agent id | Name | Model | Mission | Owns (write access by convention) |
 |---|---|---|---|---|
-| `conductor` | Conductor | **Sol** | Orchestrator. Plans, sequences, delegates, integrates, reports and escalates. The only agent that talks to the founder on Telegram and merges to `subtrack/develop`. | `.sdlc/**`, status reports, release PRs |
+| `conductor` | Conductor | **Sol** | Orchestrator. Plans, sequences, delegates, integrates, reports and escalates. The only agent that talks to the founder on Telegram and merges approved task PRs to `main` after ST-031 takes effect. | `.sdlc/**`, status reports, release PRs |
 | `product-owner` | Saga | Luna | Turns the spec into stories with acceptance criteria. Owns the backlog order within a milestone. Keeps the docs truthful. | `docs/product/**` (except DESIGN_DIRECTION), `.sdlc/backlog.yaml` |
 | `design-lead` | Aurora | Luna → escalate Sol | Norrsken design system, component specs, screen specs, motion, a11y, copy tone (sv/en). | `packages/ui-tokens`, `docs/product/DESIGN_DIRECTION.md`, Storybook stories |
 | `architect-platform` | Atlas | **Sol** | Backend and system architecture, data model, API contract, security architecture, provider abstractions, ADRs. | `docs/architecture/**`, `packages/contracts`, Prisma schema |

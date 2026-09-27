@@ -12,13 +12,13 @@
 ## 2. Founder approval required (the Conductor asks on Telegram and waits)
 | ID | Trigger |
 |---|---|
-| D-01 | Merging `subtrack/develop` → `main` (release PR) |
+| D-01 | Approving a production/public release (including store/public distribution). Routine task PR merges to `main` after required reviews, QA and CI are not D-01 decisions. A production/public release still requires a distinct founder approval, milestone evidence and security sign-off. |
 | D-02 | Any spend: paid API, SMS credits, domain, Apple/Google fees, paid LLM tokens beyond the Codex plan |
 | D-03 | Creating an account or a credential on a third-party service in the founder's name |
 | D-04 | Submitting to App Store Connect or Google Play (any track beyond internal) |
 | D-05 | Exposing a new public port or endpoint on the VPS, or removing basic-auth from staging |
 | D-06 | Deleting data outside local or test databases, or force-pushing any shared branch |
-| D-07 | Changing PRODUCT_SPEC scope, DESIGN_DIRECTION concept, CONSTITUTION or DECISION_RULES |
+| D-07 | Changing PRODUCT_SPEC scope, DESIGN_DIRECTION concept, CONSTITUTION or DECISION_RULES. A governance amendment takes effect only after its governance-labelled PR is approved by the founder and merged. |
 | D-08 | Replacing a seed ADR decision (ADR-0001..0008) |
 | D-09 | Enabling real SMS, real email to non-founder recipients, or push notifications to non-test devices |
 | D-10 | Accepting a security High risk instead of fixing it |
