@@ -15,7 +15,7 @@ export type GetHealthzResponses = {
     /**
      * Health check response.
      */
-    200: unknown;
+    default: unknown;
 };
 
 export type GetReadyzData = {
@@ -29,7 +29,7 @@ export type GetReadyzResponses = {
     /**
      * Readiness check response.
      */
-    200: unknown;
+    default: unknown;
 };
 
 export type GetVersionData = {
@@ -43,5 +43,5 @@ export type GetVersionResponses = {
     /**
      * API version response.
      */
-    200: unknown;
+    default: unknown;
 };

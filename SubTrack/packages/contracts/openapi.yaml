@@ -9,19 +9,19 @@ paths:
       operationId: getHealthz
       summary: Health check
       responses:
-        '200':
+        default:
           description: Health check response.
   /readyz:
     get:
       operationId: getReadyz
       summary: Readiness check
       responses:
-        '200':
+        default:
           description: Readiness check response.
   /v1/version:
     get:
       operationId: getVersion
       summary: API version
       responses:
-        '200':
+        default:
           description: API version response.

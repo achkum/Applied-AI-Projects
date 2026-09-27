@@ -28,5 +28,13 @@ generated module is imported by `fixtures/zod-import.ts` and checked by
 `typecheck`. Generated artifacts are committed; rerun each generation command
 twice and ensure the second run leaves no diff.
 
+Package typechecking includes all committed production generated TypeScript and the
+fixture import proof. Its package-local DOM libraries cover the fetch API;
+`exactOptionalPropertyTypes` is disabled only here because the pinned generator
+emits optional properties with explicit `undefined` in its support code. The
+remaining workspace strict checks stay enabled. `pnpm test` asserts repeat
+generation stability, malformed-source rejection, exact Ops routes and
+description-only default responses, and fixture Zod runtime import.
+
 Validation runs Redocly's OpenAPI spec rules and exits nonzero with diagnostics
 for invalid input.
