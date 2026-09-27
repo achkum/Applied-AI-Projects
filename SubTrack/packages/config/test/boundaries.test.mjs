@@ -100,7 +100,7 @@ test('clients cannot import server-side layers directly', async () => {
   }
 });
 
-test('clients cannot bypass boundaries through workspace package names', async () => {
+test('clients reject every unapproved static workspace alias', async () => {
   const eslint = new ESLint({
     cwd: fileURLToPath(new URL('../../../', import.meta.url)),
   });
@@ -108,7 +108,9 @@ test('clients cannot bypass boundaries through workspace package names', async (
     const filePath = fileURLToPath(
       new URL(`../../../apps/${client}/src/fixture.ts`, import.meta.url),
     );
+    const otherClient = client === 'web' ? 'mobile' : 'web';
     for (const target of [
+      otherClient,
       'api',
       'domain',
       'money',
@@ -116,17 +118,52 @@ test('clients cannot bypass boundaries through workspace package names', async (
       'catalog',
       'synthetic',
       'worker',
+      'ml',
+      'future-private',
+      'ui-private',
     ]) {
-      const [result] = await eslint.lintText(
-        `import '@subtrack/${target}';\n`,
-        { filePath },
-      );
-      assert.ok(
-        result?.messages.some(
-          (message) => message.ruleId === 'boundaries/external',
-        ),
-        `${client} -> @subtrack/${target}`,
-      );
+      for (const suffix of ['', '/private']) {
+        for (const statement of [
+          `import '@subtrack/${target}${suffix}';`,
+          `export * from '@subtrack/${target}${suffix}';`,
+        ]) {
+          const [result] = await eslint.lintText(`${statement}\n`, {
+            filePath,
+          });
+          assert.ok(
+            result?.messages.some(
+              (message) => message.ruleId === 'no-restricted-imports',
+            ),
+            `${client}: ${statement}`,
+          );
+        }
+      }
+    }
+    for (const target of [
+      client,
+      'config',
+      'contracts',
+      'i18n',
+      'ui',
+      'ui-tokens',
+    ]) {
+      for (const suffix of ['', '/public']) {
+        for (const statement of [
+          `import '@subtrack/${target}${suffix}';`,
+          `export * from '@subtrack/${target}${suffix}';`,
+        ]) {
+          const [result] = await eslint.lintText(`${statement}\n`, {
+            filePath,
+          });
+          assert.ok(
+            result &&
+              !result.messages.some(
+                (message) => message.ruleId === 'no-restricted-imports',
+              ),
+            `${client}: ${statement}`,
+          );
+        }
+      }
     }
   }
 });

@@ -107,4 +107,43 @@ export default [
       ],
     },
   },
+  // Static workspace aliases are unresolved by boundaries/external until a
+  // package exists on disk. Match the namespace instead of enumerating today's
+  // packages so future server-side aliases remain denied in clients.
+  {
+    files: ['apps/web/**/*.{js,mjs,ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex:
+                '^@subtrack/(?!(?:web|config|contracts|i18n|ui|ui-tokens)(?:/|$))',
+              message:
+                'Web may import only client-approved @subtrack packages.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['apps/mobile/**/*.{js,mjs,ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex:
+                '^@subtrack/(?!(?:mobile|config|contracts|i18n|ui|ui-tokens)(?:/|$))',
+              message:
+                'Mobile may import only client-approved @subtrack packages.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
