@@ -16,7 +16,7 @@ Resolve named semantic roles against both `light` and `dark` themes; never hard-
 Horizontal scroll when segments do not fit; preserve selected segment visibility and accessible names; do not collapse member choices silently.
 
 ## Token references
-bg.raised, bg.sunken, ink.primary, ink.secondary, line.hairline, aurora.violet, aurora.green, aurora.violet and aurora.green for the named Me/Household scopes; member accent is unresolved (see QUESTION/v1); radius.pill.
+bg.raised, bg.sunken, ink.primary, ink.secondary, line.hairline, aurora.violet (Me), aurora.green (Household); member accent is unresolved (see QUESTION/v1); radius.pill.
 
 ## Interaction
 Selecting a segment changes the screen scope/accent; state is conveyed by selected semantics in addition to color.

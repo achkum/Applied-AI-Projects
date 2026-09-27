@@ -16,10 +16,10 @@ Resolve named semantic roles against both `light` and `dark` themes; never hard-
 Canvas/SVG scales within hero container; preserve body hit targets and ring labels; narrow layouts use list alternative rather than shrinking labels below readable size.
 
 ## Token references
-bg.canvas, bg.raised, ink.primary, ink.secondary, line.hairline; `--category-<category-code>` (CSS) / `categoryHue[<CATEGORY_CODE>]` (native); generated category hues are subscription categories, not member identity colors; motion.orbitRevolutionSeconds; typography sizes.
+bg.canvas, bg.raised, ink.primary, ink.secondary, line.hairline; `--category-<category-code>` (CSS) / `categoryHue[<CATEGORY_CODE>]` (native); generated category hues are subscription categories, not member identity colors; motion.orbitRevolutionSeconds; typography.fontSize.
 
 ## Interaction
-Tap body opens subscription detail; long-press presents quick split affordance only when the subscription is shared; list alternative exposes equivalent subscription selection.
+Tap body opens subscription detail; long-press presents a quick split affordance; list alternative exposes equivalent subscription selection.
 
 ## Accessibility and reduced motion
 Expose each body as named list item with category, subscription name, locale-formatted recurring cost/cadence, and scope; never rely on hue or position alone. Reduced motion disables rotation and defaults to list.

@@ -16,7 +16,7 @@ Resolve named semantic roles against both `light` and `dark` themes; never hard-
 Full-width card in mobile; desktop detail column; ticker retains a textual summary/list equivalent at every width.
 
 ## Token references
-bg.raised, bg.canvas, ink.primary, ink.secondary, line.hairline, ember.amber; `--category-<category-code>` (CSS) / `categoryHue[<CATEGORY_CODE>]` (native); generated category hues are subscription categories, not member identity colors; typography.display/ui; radius.card.
+bg.raised, bg.canvas, ink.primary, ink.secondary, line.hairline, ember.amber; `--category-<category-code>` (CSS) / `categoryHue[<CATEGORY_CODE>]` (native); generated category hues are subscription categories, not member identity colors; typography.fontFamily.display/ui; radius.card.
 
 ## Interaction
 Static header; ticker data points may be inspected via accessible adjacent history summary. No behavior inferred beyond source.

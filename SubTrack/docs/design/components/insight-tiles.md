@@ -16,7 +16,7 @@ Resolve named semantic roles against both `light` and `dark` themes; never hard-
 Grid/list uses content order; long copy wraps without clipping; desktop columns may vary but do not reorder reading sequence.
 
 ## Token references
-bg.raised, bg.canvas, ink.primary, ink.secondary, line.hairline, typography.display/ui, radius.card; `--category-<category-code>` (CSS) / `categoryHue[<CATEGORY_CODE>]` (native); generated category hues are subscription categories, not member identity colors only for an explicitly present category.
+bg.raised, bg.canvas, ink.primary, ink.secondary, line.hairline, typography.fontFamily.display/ui, radius.card; `--category-<category-code>` (CSS) / `categoryHue[<CATEGORY_CODE>]` (native); generated category hues are subscription categories, not member identity colors only for an explicitly present category.
 
 ## Interaction
 Reading surface; no click affordance unless host adds an explicit action. No invented chart/score.

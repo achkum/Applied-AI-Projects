@@ -16,7 +16,7 @@ Resolve named semantic roles against both `light` and `dark` themes; never hard-
 Hero number follows responsive type scale and wraps only as a complete locale-formatted amount; toggle remains adjacent and operable.
 
 ## Token references
-ink.primary, ink.secondary, bg.canvas, aurora.violet (active Me accent per source context), typography.display, typography.fontVariantNumeric=tabular-nums, typography.fontSize.hero, motion.spring.
+ink.primary, ink.secondary, bg.canvas, aurora.violet (active Me accent per source context), typography.fontFamily.display, typography.fontVariantNumeric (tabular-nums), typography.fontSize.hero, motion.spring.
 
 ## Interaction
 Scope changes roll digits; period toggle flips between monthly and annual total; reduced motion swaps value without digit animation.

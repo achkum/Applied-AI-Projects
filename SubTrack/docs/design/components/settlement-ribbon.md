@@ -16,10 +16,10 @@ Resolve named semantic roles against both `light` and `dark` themes; never hard-
 Line and avatars adapt to available width; textual payer→recipient summary remains available if ribbon is condensed.
 
 ## Token references
-bg.canvas, bg.raised, ink.primary, ink.secondary, aurora.green (settled/shared semantic), line.hairline, typography.display/ui, motion.spring.
+bg.canvas, bg.raised, ink.primary, ink.secondary, aurora.green (settled/shared semantic), line.hairline, typography.fontFamily.display/ui, motion.spring.
 
 ## Interaction
-Animate amount along line; haptic on settled payment only where platform supports it and host reports settled.
+Animate amount along line; medium haptic on settled payment only where platform supports it and host reports settled.
 
 ## Accessibility and reduced motion
 Accessible sentence names payer, recipient, amount and status; do not rely on direction/color; reduced motion renders static line and amount.
