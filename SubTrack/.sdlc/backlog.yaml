@@ -10,4 +10,5 @@ items:
   - {id: ST-006, title: "Contracts package + generator", owner: architect-platform, size: M, status: BACKLOG, deps: [ST-003]}
   - {id: ST-012, title: "Board initialisation", owner: product-owner, size: M, status: READY, deps: [ST-001]}
   - {id: ST-031, title: "Amend governance for QA-gated merges to main", owner: "product-owner", size: S, status: DONE, deps: []}
-  - {id: ST-032, title: "Audited migration of accepted ST-001 and ST-002 to main", owner: "architect-platform", size: M, status: IN_PROGRESS, deps: [ST-031]}
+  - {id: ST-032, title: "Audited migration of accepted ST-001 and ST-002 to main", owner: "architect-platform", size: M, status: DONE, deps: [ST-031]}
+  - {id: ST-033, title: "Audited migration of accepted M0/D1 board contracts to main", owner: "product-owner", size: M, status: IN_PROGRESS, deps: [ST-032]}
