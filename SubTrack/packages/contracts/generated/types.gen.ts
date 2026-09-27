@@ -4,6 +4,32 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type HealthResponse = {
+    status: 'ok';
+};
+
+export type ReadinessResponse = {
+    status: 'ready';
+};
+
+export type VersionResponse = {
+    /**
+     * Current API semantic version.
+     */
+    version: string;
+};
+
+/**
+ * RFC 9457 problem details.
+ */
+export type Problem = {
+    type: string;
+    title: string;
+    status: number;
+    detail?: string;
+    instance?: string;
+};
+
 export type GetHealthzData = {
     body?: never;
     path?: never;
@@ -11,12 +37,23 @@ export type GetHealthzData = {
     url: '/healthz';
 };
 
+export type GetHealthzErrors = {
+    /**
+     * An error response following RFC 9457.
+     */
+    default: Problem;
+};
+
+export type GetHealthzError = GetHealthzErrors[keyof GetHealthzErrors];
+
 export type GetHealthzResponses = {
     /**
-     * Health check response.
+     * API process is healthy.
      */
-    default: unknown;
+    200: HealthResponse;
 };
+
+export type GetHealthzResponse = GetHealthzResponses[keyof GetHealthzResponses];
 
 export type GetReadyzData = {
     body?: never;
@@ -25,12 +62,23 @@ export type GetReadyzData = {
     url: '/readyz';
 };
 
+export type GetReadyzErrors = {
+    /**
+     * An error response following RFC 9457.
+     */
+    default: Problem;
+};
+
+export type GetReadyzError = GetReadyzErrors[keyof GetReadyzErrors];
+
 export type GetReadyzResponses = {
     /**
-     * Readiness check response.
+     * API is ready to receive requests.
      */
-    default: unknown;
+    200: ReadinessResponse;
 };
+
+export type GetReadyzResponse = GetReadyzResponses[keyof GetReadyzResponses];
 
 export type GetVersionData = {
     body?: never;
@@ -39,9 +87,20 @@ export type GetVersionData = {
     url: '/v1/version';
 };
 
+export type GetVersionErrors = {
+    /**
+     * An error response following RFC 9457.
+     */
+    default: Problem;
+};
+
+export type GetVersionError = GetVersionErrors[keyof GetVersionErrors];
+
 export type GetVersionResponses = {
     /**
-     * API version response.
+     * API semantic version.
      */
-    default: unknown;
+    200: VersionResponse;
 };
+
+export type GetVersionResponse = GetVersionResponses[keyof GetVersionResponses];
