@@ -123,10 +123,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Read uv version
+        id: uv-version
+        run: echo "version=$(cat SubTrack/services/ml/.uv-version)" >> "$GITHUB_OUTPUT"
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
         with:
-          version: "0.12.19"
+          version: ${{ steps.uv-version.outputs.version }}
           enable-cache: true
           cache-dependency-glob: SubTrack/services/ml/uv.lock
 
