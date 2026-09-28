@@ -14,6 +14,23 @@ export function validateContrast(tokens) {
           `${theme}: ${pair.foreground} on ${pair.background} = ${ratio.toFixed(2)}:1 (requires 4.5:1)`,
         );
     }
+  for (const [name, values] of Object.entries(tokens.memberAccent.slots)) {
+    for (const theme of Object.keys(tokens.color)) {
+      const accent = values[theme];
+      for (const surfaceName of ['bg.raised', 'bg.sunken']) {
+        const surface = tokens.color[theme][surfaceName];
+        if (!surface)
+          throw new Error(
+            `Unknown member accent surface: ${surfaceName} (${theme})`,
+          );
+        const ratio = contrast(accent, surface);
+        if (ratio < 3)
+          failures.push(
+            `${theme}: ${name} on ${surfaceName} = ${ratio.toFixed(2)}:1 (requires 3:1 for non-text identity accent)`,
+          );
+      }
+    }
+  }
   return failures;
 }
 function contrast(fg, bg) {

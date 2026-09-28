@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { validateContrast } from '../scripts/contrast.mjs';
+import { memberAccentForId } from '../src/member-accent.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const run = (file) =>
   spawnSync(process.execPath, [path.join(root, file)], { encoding: 'utf8' });
@@ -45,6 +46,71 @@ test('generation is deterministic and produces exactly 22 evenly spaced category
     source.typography.fontVariantNumeric,
   );
   assert.deepEqual(theme.gradient, source.gradient);
+  const memberSlots = Object.entries(source.memberAccent.slots);
+  assert.equal(memberSlots.length, 8);
+  const switcherStates = source.memberAccent.scopeSwitcherStates;
+  assert.deepEqual(theme.memberAccent.scopeSwitcherStates, switcherStates);
+  assert.deepEqual(Object.keys(switcherStates), ['selected', 'unselected']);
+  assert.deepEqual(
+    [switcherStates.selected.surface, switcherStates.unselected.surface],
+    ['bg.raised', 'bg.sunken'],
+  );
+  for (const state of Object.values(switcherStates)) {
+    assert.equal(state.foreground, 'ink.primary');
+    assert.equal(state.identityMark, 'member.accent');
+    for (const mode of ['light', 'dark']) {
+      assert.ok(Object.hasOwn(source.color[mode], state.surface));
+      assert.ok(
+        source.contrastPairs.some(
+          (pair) =>
+            pair.foreground === state.foreground &&
+            pair.background === state.surface,
+        ),
+      );
+    }
+  }
+  assert.equal(switcherStates.selected.selectionIndicator, 'checkmark');
+  assert.equal(switcherStates.selected.selectionIndicatorStrokeWidthPx, 2);
+  assert.equal(switcherStates.selected.accessibilitySelected, true);
+  assert.equal(switcherStates.unselected.selectionIndicator, 'none');
+  assert.equal(switcherStates.unselected.selectionIndicatorStrokeWidthPx, 0);
+  assert.equal(switcherStates.unselected.accessibilitySelected, false);
+  for (const [state, values] of Object.entries(switcherStates))
+    assert.match(
+      css,
+      new RegExp(
+        `--scope-switcher-${state}-indicator-stroke-width: ${values.selectionIndicatorStrokeWidthPx}px;`,
+      ),
+    );
+  assert.deepEqual(
+    Object.keys(theme.memberAccent.slots),
+    memberSlots.map(([name]) => name),
+  );
+  for (const [name, values] of memberSlots) {
+    assert.deepEqual(theme.memberAccent.slots[name], values);
+    for (const mode of ['light', 'dark'])
+      assert.match(
+        css,
+        new RegExp(
+          `--${name.replaceAll('.', '-')}: ${values[mode].toLowerCase()};`,
+        ),
+      );
+  }
+  assert.equal(
+    memberAccentForId('opaque-member-id-1'),
+    memberAccentForId('opaque-member-id-1'),
+  );
+  assert.ok(
+    Object.hasOwn(
+      source.memberAccent.slots,
+      memberAccentForId('opaque-member-id-1'),
+    ),
+  );
+  assert.notEqual(
+    memberAccentForId('opaque-member-id-1'),
+    memberAccentForId('opaque-member-id-2'),
+  );
+  assert.throws(() => memberAccentForId(''), /non-empty string/);
   const assignments = Object.values(theme.categoryHue);
   assert.equal(assignments.length, 22);
   assert.deepEqual(
@@ -96,9 +162,54 @@ test('generation is deterministic and produces exactly 22 evenly spaced category
     'aurora.green',
   ]);
 });
-test('contrast command accepts the declared AA text pairs', () => {
+test('contrast command validates text AA pairs and member accents on both switcher surfaces in both themes', () => {
   const result = run('scripts/check-contrast.mjs');
   assert.equal(result.status, 0, result.stderr);
+});
+test('contrast command rejects a member accent indistinguishable from bg.sunken', async () => {
+  const tokens = JSON.parse(
+    await readFile(path.join(root, 'src/tokens.json'), 'utf8'),
+  );
+  tokens.memberAccent.slots['member.accent.01'].dark =
+    tokens.color.dark['bg.sunken'];
+  const directory = await mkdtemp(
+    path.join(os.tmpdir(), 'ui-member-sunken-contrast-'),
+  );
+  const input = path.join(directory, 'tokens.json');
+  try {
+    await writeFile(input, JSON.stringify(tokens));
+    const result = spawnSync(
+      process.execPath,
+      [path.join(root, 'scripts/check-contrast.mjs'), input],
+      { encoding: 'utf8' },
+    );
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /dark: member\.accent\.01 on bg\.sunken/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+test('contrast command rejects an inaccessible member accent in either theme', async () => {
+  const tokens = JSON.parse(
+    await readFile(path.join(root, 'src/tokens.json'), 'utf8'),
+  );
+  tokens.memberAccent.slots['member.accent.01'].dark = '#12162A';
+  const directory = await mkdtemp(
+    path.join(os.tmpdir(), 'ui-member-contrast-'),
+  );
+  const input = path.join(directory, 'tokens.json');
+  try {
+    await writeFile(input, JSON.stringify(tokens));
+    const result = spawnSync(
+      process.execPath,
+      [path.join(root, 'scripts/check-contrast.mjs'), input],
+      { encoding: 'utf8' },
+    );
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /dark: member\.accent\.01 on bg\.raised/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 test('contrast command exits nonzero and names a failing theme/token pair', async () => {
   const tokens = JSON.parse(

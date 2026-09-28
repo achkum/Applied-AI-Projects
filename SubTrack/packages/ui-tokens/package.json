@@ -16,6 +16,10 @@
   "type": "module",
   "exports": {
     ".": "./generated/theme.native.json",
-    "./tokens.css": "./generated/tokens.css"
+    "./tokens.css": "./generated/tokens.css",
+    "./member-accent": {
+      "types": "./src/member-accent.d.mts",
+      "default": "./src/member-accent.mjs"
+    }
   }
 }

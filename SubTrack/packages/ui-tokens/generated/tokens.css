@@ -142,3 +142,30 @@
   --category-app-store-billing: oklch(0.72 0.14 327.2727);
   --category-other-subscription: oklch(0.72 0.14 343.6364);
 }
+:root,
+[data-theme='light'] {
+  --member-accent-01: #a33f55;
+  --member-accent-02: #a65d12;
+  --member-accent-03: #777300;
+  --member-accent-04: #147a4b;
+  --member-accent-05: #087a83;
+  --member-accent-06: #386eb2;
+  --member-accent-07: #7953b3;
+  --member-accent-08: #a63d8c;
+}
+[data-theme='dark'] {
+  --member-accent-01: #ff8297;
+  --member-accent-02: #ffc06b;
+  --member-accent-03: #e4d85b;
+  --member-accent-04: #52d995;
+  --member-accent-05: #58dce5;
+  --member-accent-06: #83b9ff;
+  --member-accent-07: #c4a0ff;
+  --member-accent-08: #f18bd1;
+}
+:root {
+  --scope-switcher-selected-indicator-stroke-width: 2px;
+}
+:root {
+  --scope-switcher-unselected-indicator-stroke-width: 0px;
+}
