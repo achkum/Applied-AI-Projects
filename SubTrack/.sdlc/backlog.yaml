@@ -29,7 +29,7 @@ items:
   - {id: ST-027, title: "Mobile: Orbit with react-native-skia + reduced-motion fallback", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-023"]}
   - {id: ST-028, title: "Hero screens (Welcome, Home, Subscription detail) with mocked data, light/dark, sv/en → G-DESIGN", owner: "design-lead + dev-web", size: "L", status: BACKLOG, deps: ["ST-024", "ST-025"]}
   - {id: ST-029, title: "App icon, splash, store feature graphic concepts", owner: "design-lead", size: "M", status: BACKLOG, deps: ["ST-020"]}
-  - {id: ST-040, title: "Prisma schema: identity, household, invitation, consent, audit_log + RLS policies migration", owner: "architect-platform", size: "L", status: READY, deps: ["ST-007"]}
+  - {id: ST-040, title: "Prisma schema: identity, household, invitation, consent, audit_log + RLS policies migration", owner: "architect-platform", size: "L", status: IN_PROGRESS, deps: ["ST-007"]}
   - {id: ST-041, title: "OTP service (email via SMTP/Mailpit, SMS via DevInbox adapter), rate limits, lockout", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-040"]}
   - {id: ST-042, title: "IdentityProvider interface + BankID **simulator** (fixed demo identities)", owner: "dev-backend", size: "M", status: BACKLOG, deps: ["ST-040"]}
   - {id: ST-043, title: "BankID **test** adapter: RP API v6.0 auth/collect/cancel, mTLS test cert, animated QR (qrStartToken/Secret HMAC), autostart", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-042"]}
