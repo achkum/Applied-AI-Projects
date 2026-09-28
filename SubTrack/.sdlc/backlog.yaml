@@ -97,4 +97,4 @@ items:
   - {id: ST-013, title: "Expand M1 task contracts", owner: "product-owner", size: M, status: DONE, deps: [ST-012]}
   - {id: ST-014, title: "Refine M0/D1 task contracts to Definition of Ready", owner: "product-owner", size: M, status: DONE, deps: [ST-012]}
   - {id: ST-015, title: "Split ST-028 hero-screen work into one-agent tasks", owner: "product-owner", size: S, status: BACKLOG, deps: [ST-012, ST-023]}
-  - {id: ST-016, title: "Refine remaining D1 component and asset task contracts", owner: "product-owner", size: M, status: BACKLOG, deps: [ST-014, ST-023]}
+  - {id: ST-016, title: "Refine remaining D1 component and asset task contracts", owner: "product-owner", size: M, status: DONE, deps: [ST-014, ST-023]}
