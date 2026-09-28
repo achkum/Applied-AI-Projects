@@ -2,6 +2,10 @@
   "name": "@subtrack/contracts",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./generated/index.ts"
+  },
   "engines": {
     "node": ">=22.18.0"
   },
