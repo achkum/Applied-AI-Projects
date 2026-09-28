@@ -22,7 +22,7 @@ items:
   - {id: ST-021, title: "Fonts (Fraunces, Manrope, JetBrains Mono) self-hosted/bundled with OFL notices", owner: "dev-web", size: "S", status: BACKLOG, deps: ["ST-020"]}
   - {id: ST-022, title: "Storybook for `packages/ui` + visual regression job", owner: "dev-web", size: "M", status: BACKLOG, deps: ["ST-020"]}
   - {id: ST-023, title: "Component specs (markdown) for the 7 signature components", owner: "design-lead", size: "M", status: BLOCKED, deps: ["ST-020", "ST-030"]}
-  - {id: ST-030, title: "Theme-aware stable member identity accents for Scope switcher", owner: "design-lead", size: "M", status: IN_PROGRESS, deps: ["ST-020"]}
+  - {id: ST-030, title: "Theme-aware stable member identity accents for Scope switcher", owner: "design-lead", size: "M", status: IN_REVIEW, deps: ["ST-020"]}
   - {id: ST-024, title: "Web: RollingNumber, ScopeSwitcher, ReceiptCard", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-023"]}
   - {id: ST-025, title: "Web: Orbit (SVG/Canvas) + accessible list fallback", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-023"]}
   - {id: ST-026, title: "Mobile: RollingNumber, ScopeSwitcher, ReceiptCard (ui-native)", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-023"]}
