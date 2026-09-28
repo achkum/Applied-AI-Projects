@@ -2,11 +2,10 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useI18n } from '@/context/I18nContext';
-import { getColorByTheme } from '@/utils/colors';
 
 export function WelcomeScreen() {
   const { mode, setMode, theme, isDark } = useTheme();
-  const { locale, setLocale, t } = useI18n();
+  const { locale, setLocale } = useI18n();
 
   const palette = isDark ? theme.color.dark : theme.color.light;
 
@@ -34,7 +33,7 @@ export function WelcomeScreen() {
       >
         <Text
           style={{
-            fontSize: theme.typography.fontSize['3xl'],
+            fontSize: 36,
             fontFamily: theme.typography.fontFamily.display,
             color: palette['ink.primary'],
             marginBottom: 12,
@@ -61,7 +60,7 @@ export function WelcomeScreen() {
             marginBottom: 32,
             padding: 16,
             backgroundColor: palette['bg.raised'],
-            borderRadius: theme.borderRadius?.md || 8,
+            borderRadius: theme.radius.card,
           }}
         >
           <Text
@@ -89,7 +88,7 @@ export function WelcomeScreen() {
                 paddingHorizontal: 16,
                 backgroundColor:
                   locale === 'en' ? palette['aurora.violet'] : palette['bg.sunken'],
-                borderRadius: theme.borderRadius?.md || 8,
+                borderRadius: theme.radius.pill,
                 alignItems: 'center',
               }}
             >
@@ -112,7 +111,7 @@ export function WelcomeScreen() {
                 paddingHorizontal: 16,
                 backgroundColor:
                   locale === 'sv' ? palette['aurora.violet'] : palette['bg.sunken'],
-                borderRadius: theme.borderRadius?.md || 8,
+                borderRadius: theme.radius.pill,
                 alignItems: 'center',
               }}
             >
@@ -135,7 +134,7 @@ export function WelcomeScreen() {
             marginBottom: 32,
             padding: 16,
             backgroundColor: palette['bg.raised'],
-            borderRadius: theme.borderRadius?.md || 8,
+            borderRadius: theme.radius.card,
           }}
         >
           <Text
@@ -163,7 +162,7 @@ export function WelcomeScreen() {
                 paddingHorizontal: 16,
                 backgroundColor:
                   mode === 'light' ? palette['aurora.green'] : palette['bg.sunken'],
-                borderRadius: theme.borderRadius?.md || 8,
+                borderRadius: theme.radius.pill,
                 alignItems: 'center',
               }}
             >
@@ -186,7 +185,7 @@ export function WelcomeScreen() {
                 paddingHorizontal: 16,
                 backgroundColor:
                   mode === 'dark' ? palette['aurora.green'] : palette['bg.sunken'],
-                borderRadius: theme.borderRadius?.md || 8,
+                borderRadius: theme.radius.pill,
                 alignItems: 'center',
               }}
             >
@@ -209,7 +208,7 @@ export function WelcomeScreen() {
                 paddingHorizontal: 16,
                 backgroundColor:
                   mode === 'system' ? palette['aurora.green'] : palette['bg.sunken'],
-                borderRadius: theme.borderRadius?.md || 8,
+                borderRadius: theme.radius.pill,
                 alignItems: 'center',
               }}
             >
@@ -231,7 +230,7 @@ export function WelcomeScreen() {
           style={{
             padding: 16,
             backgroundColor: palette['bg.raised'],
-            borderRadius: theme.borderRadius?.md || 8,
+            borderRadius: theme.radius.card,
           }}
         >
           <Text
@@ -239,7 +238,7 @@ export function WelcomeScreen() {
               fontSize: theme.typography.fontSize.sm,
               color: palette['ink.secondary'],
               fontFamily: theme.typography.fontFamily.mono,
-              lineHeight: theme.typography.lineHeight?.relaxed || 24,
+              lineHeight: 24,
             }}
           >
             {locale === 'en'

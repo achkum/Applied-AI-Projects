@@ -9,7 +9,6 @@ export default function TabsLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animationEnabled: false,
       }}
     >
       <Stack.Screen

@@ -14,16 +14,16 @@ const I18nContext = createContext<I18nContextType | undefined>(undefined);
 
 const LOCALE_KEY = 'locale-preference';
 
+// Initialize i18n configuration
+I18n.defaultLocale = 'en';
+I18n.fallbacks = { sv: 'en' };
+I18n.translations = catalogs as Record<string, Record<string, unknown>>;
+
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('en');
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    I18n.translations = catalogs;
-    I18n.locale = 'en';
-    I18n.fallbacks = { sv: 'en' };
-    I18n.enableFallback = true;
-
     const loadLocale = async () => {
       try {
         const stored = await AsyncStorage.getItem(LOCALE_KEY);
@@ -31,6 +31,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         if (userLocale === 'en' || userLocale === 'sv') {
           setLocaleState(userLocale);
           I18n.locale = userLocale;
+        } else {
+          I18n.locale = 'en';
         }
       } catch (error) {
         console.error('Failed to load locale:', error);

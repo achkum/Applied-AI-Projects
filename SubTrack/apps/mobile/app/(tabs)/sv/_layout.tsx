@@ -6,7 +6,6 @@ export default function SvLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animationEnabled: true,
       }}
     >
       <Stack.Screen

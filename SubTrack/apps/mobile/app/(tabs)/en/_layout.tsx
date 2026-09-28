@@ -6,7 +6,6 @@ export default function EnLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animationEnabled: true,
       }}
     >
       <Stack.Screen

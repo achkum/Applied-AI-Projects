@@ -13,10 +13,15 @@ const mockTheme: Theme = {
     },
   },
   gradient: {},
-  typography: {},
-  spacing: {},
-  borderRadius: {},
-  shadow: {},
+  typography: {
+    fontFamily: { display: 'Fraunces', ui: 'Manrope', mono: 'JetBrains Mono' },
+    fontSize: { xs: 12, sm: 14, md: 16, lg: 18, xl: 22 },
+  },
+  radius: { card: 20, sheet: 28, pill: 9999 },
+  motion: {},
+  contrastPairs: [],
+  memberAccent: {},
+  categoryHue: {},
 };
 
 describe('getPaletteByTheme', () => {
