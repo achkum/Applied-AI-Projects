@@ -16,7 +16,7 @@ Resolve named semantic roles against both `light` and `dark` themes; never hard-
 Grid/list uses content order; long copy wraps without clipping; desktop columns may vary but do not reorder reading sequence.
 
 ## Token references
-bg.raised, bg.canvas, ink.primary, ink.secondary, line.hairline, typography.fontFamily.display/ui, radius.card; `--category-<category-code>` (CSS) / `categoryHue[<CATEGORY_CODE>]` (native); generated category hues are subscription categories, not member identity colors only for an explicitly present category.
+bg.raised, bg.canvas, ink.primary, ink.secondary, line.hairline, typography.fontFamily.display/ui, radius.card; category color — CSS `--category-<kebab-code>` (CODE lowercased, `_`→`-`, e.g. `--category-video-streaming`) or native `categoryHue[CODE][theme]` (`categoryHue[CODE]` alone is a `{ light, dark }` object, not a color); generated category hues are subscription categories, not member identity colors only for an explicitly present category.
 
 ## Interaction
 Reading surface; no click affordance unless host adds an explicit action. No invented chart/score.
@@ -28,4 +28,4 @@ Semantic quote/paragraph; drop cap is decorative; full text remains available to
 Insight copy, optional category/source, dates and numeric amounts, empty/loading status in sv/en; generated narrative must be localized upstream.
 
 ## Implementation boundary
-This is a visual component contract, not a product/API contract. Consume supplied domain data and host actions; do not derive unsupported product behavior, invent sample values, or add ad-hoc colors. Use `packages/i18n/catalogs/sv.json` and `en.json` keys in parity for visible copy. Amount presentation follows locale (`sv-SE` / `en-SE`) and the shared money formatter; category appearance maps only to generated `packages/ui-tokens` category tokens.
+This is a visual component contract, not a product/API contract. Consume supplied domain data and host actions; do not derive unsupported product behavior, invent sample values, or add ad-hoc colors. Use `packages/i18n/catalogs/sv.json` and `en.json` keys in parity for visible copy. Amount presentation follows locale (`sv-SE` / `en-SE`) and the shared money formatter; category appearance maps only to the generated category tokens (exact CSS kebab-case / native `categoryHue[CODE][theme]` notation in `docs/design/components/README.md`).

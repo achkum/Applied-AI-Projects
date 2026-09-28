@@ -1,6 +1,6 @@
 # Resolved design questions — ST-023
 
-Both choices below preserve the accepted concept in `docs/product/DESIGN_DIRECTION.md` §§3–7. ST-023 remains incomplete until the separate token work listed in the handoff supplies the member accent tokens.
+Both choices below preserve the accepted concept in `docs/product/DESIGN_DIRECTION.md` §§3–7.
 
 ```yaml
 contract: QUESTION/v1
@@ -11,8 +11,8 @@ options:
   - "B: Define a member palette in a separate design-system task; requires token/design scope beyond ST-023."
   - "C: Do not tint the screen by member; revise the stated visual behavior in a design-direction decision."
 decision_class: DESIGN
-resolution: "B — Add a separate UI-token task defining distinct, theme-aware member accent tokens, with contrast validation and web/native mappings. Category tokens remain reserved for subscription categories. Until those tokens exist, the Scope switcher must not invent or substitute a member tint."
-status: "Resolved as a design dependency; token implementation pending."
+resolution: "B — Add a separate UI-token task defining distinct, theme-aware member accent tokens, with contrast validation and web/native mappings. Category tokens remain reserved for subscription categories."
+status: "Resolved. ST-030 (DONE, merged to subtrack/develop) delivered `memberAccent.slots['member.accent.01'…'08']` with contrast-validated light/dark values, `memberAccentForId()` selection, and generated CSS/native mappings. Scope switcher spec now references the real token names."
 ```
 
 ```yaml

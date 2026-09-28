@@ -16,7 +16,7 @@ Resolve named semantic roles against both `light` and `dark` themes; never hard-
 Full-width card in mobile; desktop detail column; ticker retains a textual summary/list equivalent at every width.
 
 ## Token references
-bg.raised, bg.canvas, ink.primary, ink.secondary, line.hairline, ember.amber; `--category-<category-code>` (CSS) / `categoryHue[<CATEGORY_CODE>]` (native); generated category hues are subscription categories, not member identity colors; typography.fontFamily.display/ui; radius.card.
+bg.raised, bg.canvas, ink.primary, ink.secondary, line.hairline, ember.amber; category color — CSS `--category-<kebab-code>` (CODE lowercased, `_`→`-`, e.g. `--category-video-streaming`) or native `categoryHue[CODE][theme]` (`categoryHue[CODE]` alone is a `{ light, dark }` object, not a color); generated category hues are subscription categories, not member identity colors; typography.fontFamily.display/ui; radius.card.
 
 ## Interaction
 Static header; ticker data points may be inspected via accessible adjacent history summary. No behavior inferred beyond source.
@@ -28,4 +28,4 @@ Semantic heading and labelled amount; ticker has text alternative; contrast-safe
 Subscription/merchant name, category, formatted price, cadence, date/price history labels, increase summary.
 
 ## Implementation boundary
-This is a visual component contract, not a product/API contract. Consume supplied domain data and host actions; do not derive unsupported product behavior, invent sample values, or add ad-hoc colors. Use `packages/i18n/catalogs/sv.json` and `en.json` keys in parity for visible copy. Amount presentation follows locale (`sv-SE` / `en-SE`) and the shared money formatter; category appearance maps only to generated `packages/ui-tokens` category tokens.
+This is a visual component contract, not a product/API contract. Consume supplied domain data and host actions; do not derive unsupported product behavior, invent sample values, or add ad-hoc colors. Use `packages/i18n/catalogs/sv.json` and `en.json` keys in parity for visible copy. Amount presentation follows locale (`sv-SE` / `en-SE`) and the shared money formatter; category appearance maps only to the generated category tokens (exact CSS kebab-case / native `categoryHue[CODE][theme]` notation in `docs/design/components/README.md`).
