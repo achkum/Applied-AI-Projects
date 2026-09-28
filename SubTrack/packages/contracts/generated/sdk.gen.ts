@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { GetHealthzData, GetHealthzResponses, GetReadyzData, GetReadyzResponses, GetVersionData, GetVersionResponses } from './types.gen.js';
+import type { GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetVersionData, GetVersionErrors, GetVersionResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -21,14 +21,14 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 /**
  * Health check
  */
-export const getHealthz = <ThrowOnError extends boolean = false>(options?: Options<GetHealthzData, ThrowOnError>): RequestResult<GetHealthzResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetHealthzResponses, unknown, ThrowOnError>({ url: '/healthz', ...options });
+export const getHealthz = <ThrowOnError extends boolean = false>(options?: Options<GetHealthzData, ThrowOnError>): RequestResult<GetHealthzResponses, GetHealthzErrors, ThrowOnError> => (options?.client ?? client).get<GetHealthzResponses, GetHealthzErrors, ThrowOnError>({ url: '/healthz', ...options });
 
 /**
  * Readiness check
  */
-export const getReadyz = <ThrowOnError extends boolean = false>(options?: Options<GetReadyzData, ThrowOnError>): RequestResult<GetReadyzResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetReadyzResponses, unknown, ThrowOnError>({ url: '/readyz', ...options });
+export const getReadyz = <ThrowOnError extends boolean = false>(options?: Options<GetReadyzData, ThrowOnError>): RequestResult<GetReadyzResponses, GetReadyzErrors, ThrowOnError> => (options?.client ?? client).get<GetReadyzResponses, GetReadyzErrors, ThrowOnError>({ url: '/readyz', ...options });
 
 /**
  * API version
  */
-export const getVersion = <ThrowOnError extends boolean = false>(options?: Options<GetVersionData, ThrowOnError>): RequestResult<GetVersionResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetVersionResponses, unknown, ThrowOnError>({ url: '/v1/version', ...options });
+export const getVersion = <ThrowOnError extends boolean = false>(options?: Options<GetVersionData, ThrowOnError>): RequestResult<GetVersionResponses, GetVersionErrors, ThrowOnError> => (options?.client ?? client).get<GetVersionResponses, GetVersionErrors, ThrowOnError>({ url: '/v1/version', ...options });

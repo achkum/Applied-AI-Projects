@@ -12,24 +12,24 @@ items:
   - {id: ST-017, title: "CI wiring: contrast checker (ST-020) and visual regression (ST-022)", owner: "devops-release", size: "M", status: BACKLOG, deps: ["ST-020", "ST-022"]}
   - {id: ST-005, title: "CI workflow path-filtered to `SubTrack/**`: lint, typecheck, test, i18n parity, secret scan (gitleaks), licence check", owner: "devops-release", size: "M", status: DONE, deps: ["ST-003"]}
   - {id: ST-006, title: "`packages/contracts`: openapi.yaml skeleton + generator (TS client + zod) + contract test harness", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-003"]}
-  - {id: ST-007, title: "`apps/api` NestJS skeleton: config, pino, problem+json errors, health/version, Prisma init, request-scoped RLS transaction helper", owner: "dev-backend", size: "L", status: IN_PROGRESS, deps: ["ST-006"]}
-  - {id: ST-008, title: "`apps/web` Next.js skeleton: app router, next-intl sv/en, theme provider (system/light/dark), generated API client wiring", owner: "dev-web", size: "M", status: BACKLOG, deps: ["ST-006"]}
-  - {id: ST-009, title: "`apps/mobile` Expo skeleton: Expo Router, i18n, theme, secure storage, EAS project config (dev/preview/production profiles)", owner: "dev-mobile", size: "M", status: BACKLOG, deps: ["ST-006"]}
-  - {id: ST-010, title: "`services/ml` FastAPI skeleton + uv + pytest + Dockerfile; `/healthz`, `/ml/v1/models`", owner: "dev-data", size: "M", status: IN_PROGRESS, deps: ["ST-004"]}
+  - {id: ST-007, title: "`apps/api` NestJS skeleton: config, pino, problem+json errors, health/version, Prisma init, request-scoped RLS transaction helper", owner: "dev-backend", size: "L", status: DONE, deps: ["ST-006"]}
+  - {id: ST-008, title: "`apps/web` Next.js skeleton: app router, next-intl sv/en, theme provider (system/light/dark), generated API client wiring", owner: "dev-web", size: "M", status: DONE, deps: ["ST-006"]}
+  - {id: ST-009, title: "`apps/mobile` Expo skeleton: Expo Router, i18n, theme, secure storage, EAS project config (dev/preview/production profiles)", owner: "dev-mobile", size: "M", status: READY, deps: ["ST-006"]}
+  - {id: ST-010, title: "`services/ml` FastAPI skeleton + uv + pytest + Dockerfile; `/healthz`, `/ml/v1/models`", owner: "dev-data", size: "M", status: DONE, deps: ["ST-004"]}
   - {id: ST-011, title: "`packages/i18n` catalog structure + parity checker script", owner: "dev-web", size: "S", status: DONE, deps: ["ST-003"]}
   - {id: ST-012, title: "`.sdlc/` board initialised from this file; task files for M0/D1/M1", owner: "product-owner", size: "M", status: DONE, deps: ["ST-001"]}
   - {id: ST-020, title: "`packages/ui-tokens`: colour/type/space/radius/motion tokens JSON → CSS vars + RN theme; OKLCH category-hue generator; contrast checker in CI", owner: "design-lead", size: "L", status: DONE, deps: ["ST-003"]}
   - {id: ST-021, title: "Fonts (Fraunces, Manrope, JetBrains Mono) self-hosted/bundled with OFL notices", owner: "dev-web", size: "S", status: BACKLOG, deps: ["ST-020"]}
   - {id: ST-022, title: "Storybook for `packages/ui` + visual regression job", owner: "dev-web", size: "M", status: BACKLOG, deps: ["ST-020"]}
-  - {id: ST-023, title: "Component specs (markdown) for the 7 signature components", owner: "design-lead", size: "M", status: BLOCKED, deps: ["ST-020", "ST-030"]}
-  - {id: ST-030, title: "Theme-aware stable member identity accents for Scope switcher", owner: "design-lead", size: "M", status: IN_PROGRESS, deps: ["ST-020"]}
-  - {id: ST-024, title: "Web: RollingNumber, ScopeSwitcher, ReceiptCard", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-023"]}
-  - {id: ST-025, title: "Web: Orbit (SVG/Canvas) + accessible list fallback", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-023"]}
-  - {id: ST-026, title: "Mobile: RollingNumber, ScopeSwitcher, ReceiptCard (ui-native)", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-023"]}
-  - {id: ST-027, title: "Mobile: Orbit with react-native-skia + reduced-motion fallback", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-023"]}
+  - {id: ST-023, title: "Component specs (markdown) for the 7 signature components", owner: "design-lead", size: "M", status: DONE, deps: ["ST-020", "ST-030"]}
+  - {id: ST-030, title: "Theme-aware stable member identity accents for Scope switcher", owner: "design-lead", size: "M", status: DONE, deps: ["ST-020"]}
+  - {id: ST-024, title: "Web: RollingNumber, ScopeSwitcher, ReceiptCard", owner: "dev-web", size: "L", status: READY, deps: ["ST-023"]}
+  - {id: ST-025, title: "Web: Orbit (SVG/Canvas) + accessible list fallback", owner: "dev-web", size: "L", status: READY, deps: ["ST-023"]}
+  - {id: ST-026, title: "Mobile: RollingNumber, ScopeSwitcher, ReceiptCard (ui-native)", owner: "dev-mobile", size: "L", status: READY, deps: ["ST-023"]}
+  - {id: ST-027, title: "Mobile: Orbit with react-native-skia + reduced-motion fallback", owner: "dev-mobile", size: "L", status: READY, deps: ["ST-023"]}
   - {id: ST-028, title: "Hero screens (Welcome, Home, Subscription detail) with mocked data, light/dark, sv/en → G-DESIGN", owner: "design-lead + dev-web", size: "L", status: BACKLOG, deps: ["ST-024", "ST-025"]}
   - {id: ST-029, title: "App icon, splash, store feature graphic concepts", owner: "design-lead", size: "M", status: BACKLOG, deps: ["ST-020"]}
-  - {id: ST-040, title: "Prisma schema: identity, household, invitation, consent, audit_log + RLS policies migration", owner: "architect-platform", size: "L", status: BACKLOG, deps: ["ST-007"]}
+  - {id: ST-040, title: "Prisma schema: identity, household, invitation, consent, audit_log + RLS policies migration", owner: "architect-platform", size: "L", status: BLOCKED, deps: ["ST-007"]}
   - {id: ST-041, title: "OTP service (email via SMTP/Mailpit, SMS via DevInbox adapter), rate limits, lockout", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-040"]}
   - {id: ST-042, title: "IdentityProvider interface + BankID **simulator** (fixed demo identities)", owner: "dev-backend", size: "M", status: BACKLOG, deps: ["ST-040"]}
   - {id: ST-043, title: "BankID **test** adapter: RP API v6.0 auth/collect/cancel, mTLS test cert, animated QR (qrStartToken/Secret HMAC), autostart", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-042"]}
