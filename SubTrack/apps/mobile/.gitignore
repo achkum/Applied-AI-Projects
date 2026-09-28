@@ -1,0 +1,25 @@
+# Expo
+.expo/
+.expo-shared/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.env
+.env.local
+
+# Node
+node_modules/
+.pnpm-debug.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
