@@ -6,7 +6,12 @@
       "PowerShell(python -c \"import ast; [ast.parse\\(open\\(f, encoding='utf-8'\\).read\\(\\)\\) for f in ['BreastCancerDetection/model.py','BreastCancerDetection/data.py','BreastCancerDetection/trainer.py','BreastCancerDetection/main.py','BreastCancerDetection/visualizer.py']]; print\\('All parse OK'\\)\")",
       "Bash(python -c ' *)",
       "PowerShell(Write-Host \"cwd: $\\(Get-Location\\)\"; if \\(Test-Path .\\\\_build_notebook.py\\) { python _build_notebook.py } elseif \\(Test-Path BreastCancerDetection\\\\_build_notebook.py\\) { Set-Location BreastCancerDetection; python _build_notebook.py })",
-      "Bash(python)"
+      "Bash(python)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git merge *)",
+      "Bash(git checkout *)",
+      "Bash(git stash *)"
     ]
   }
 }
