@@ -101,4 +101,5 @@ items:
   - {id: ST-031, title: "Amend governance for QA-gated merges to main", owner: "product-owner", size: S, status: DONE, deps: []}
   - {id: ST-034, title: "Hotfix: regenerate pnpm-lock.yaml (CI install failing on main)", owner: "devops-release", size: S, status: IN_REVIEW, deps: []}
   - {id: ST-035, title: "Hotfix: restore missing root package.json (turbo script wrapper)", owner: "architect-platform", size: S, status: IN_REVIEW, deps: []}
-  - {id: ST-036, title: "apps/mobile: fix ESLint 8/flat-config incompatibility and Jest/react-native polyfill parse error", owner: "dev-mobile", size: S, status: IN_PROGRESS, deps: []}
+  - {id: ST-036, title: "apps/mobile: fix ESLint 8/flat-config incompatibility and Jest/react-native polyfill parse error", owner: "dev-mobile", size: S, status: IN_REVIEW, deps: []}
+  - {id: ST-037, title: "Fix license-check SPDX compound-expression parsing (false positives in CI gate)", owner: "devops-release", size: S, status: IN_PROGRESS, deps: []}
