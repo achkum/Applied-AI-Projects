@@ -162,8 +162,31 @@ jobs:
           const fs = require('node:fs');
           const allowed = new Set([
             'MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'ISC', '0BSD',
-            'CC0-1.0', 'Unlicense', 'BlueOak-1.0.0', 'Python-2.0',
+            'CC0-1.0', 'Unlicense', 'BlueOak-1.0.0', 'Python-2.0', 'MIT-0',
           ]);
+
+          // Non-SPDX-normalized license strings seen in `pnpm licenses list`
+          // output that map unambiguously onto an already-allowed SPDX id.
+          const aliases = new Map([
+            ['Apache 2.0', 'Apache-2.0'],
+          ]);
+
+          function isAllowedId(id) {
+            const trimmed = id.trim();
+            return allowed.has(aliases.get(trimmed) || trimmed);
+          }
+
+          // Evaluates a single SPDX id, or a simple compound `A AND B` / `A OR B`
+          // expression (with optional enclosing parentheses), against the
+          // allowlist. `AND` requires every component to be allowed; `OR`
+          // (dual-licensing) requires at least one component to be allowed.
+          function isAllowedExpression(license) {
+            let expr = license.trim();
+            if (expr.startsWith('(') && expr.endsWith(')')) expr = expr.slice(1, -1).trim();
+            if (expr.includes(' AND ')) return expr.split(' AND ').every(isAllowedId);
+            if (expr.includes(' OR ')) return expr.split(' OR ').some(isAllowedId);
+            return isAllowedId(expr);
+          }
 
           function check(graph) {
             if (!graph || typeof graph !== 'object' || Array.isArray(graph) || !Object.keys(graph).length) {
@@ -182,7 +205,16 @@ jobs:
                   errors.push(`${license}: malformed package entry`);
                   continue;
                 }
-                if (!allowed.has(license)) errors.push(`${entry.name}@${entry.versions.join(',')}: disallowed license ${license}`);
+                if (license === 'BSD') {
+                  // Bare "BSD" doesn't identify BSD-2-Clause vs BSD-3-Clause. For
+                  // readline@1.3.0 this is doubly ambiguous: package.json says
+                  // "BSD" but the upstream repository's LICENSE file is actually
+                  // Apache-2.0 — the declared and actual licenses disagree, so
+                  // this cannot be normalized confidently and stays blocked.
+                  errors.push(`${entry.name}@${entry.versions.join(',')}: ambiguous license BSD (package.json declares "BSD" with no clause qualifier; upstream repository LICENSE file is inconsistent with that declaration) — needs manual confirmation, not auto-normalized`);
+                } else if (!isAllowedExpression(license)) {
+                  errors.push(`${entry.name}@${entry.versions.join(',')}: disallowed license ${license}`);
+                }
               }
             }
             if (!count) errors.push('license graph contains no packages');
