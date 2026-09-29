@@ -58,6 +58,25 @@ services:
       retries: 10
       start_period: 5s
 
+  ml:
+    build:
+      context: ./services/ml
+      dockerfile: Dockerfile
+    expose:
+      - "8000"
+    deploy:
+      resources:
+        limits:
+          # ARCHITECTURE.md §7 VPS resource budget (assume 4 GB RAM): ml 512 MB.
+          cpus: "1.0"
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
 volumes:
   postgres-data:
   redis-data:

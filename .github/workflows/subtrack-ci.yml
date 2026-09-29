@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "SubTrack/**"
+      - ".github/workflows/subtrack-ci.yml"
 
 permissions:
   contents: read
@@ -35,7 +36,7 @@ jobs:
           try { parsed = JSON.parse(output); }
           catch { parsed = output.split('\n').map(line => JSON.parse(line)); }
           const containers = Array.isArray(parsed) ? parsed : [parsed];
-          const expected = new Set(['postgres', 'redis', 'mailpit', 'caddy']);
+          const expected = new Set(['postgres', 'redis', 'mailpit', 'caddy', 'ml']);
           for (const container of containers) {
             const service = container.Service || container.Name;
             if (expected.has(service)) {
@@ -45,7 +46,7 @@ jobs:
             }
           }
           if (expected.size) throw new Error(`Missing services: ${[...expected].join(', ')}`);
-          console.log('All four required Compose services report healthy.');
+          console.log('All five required Compose services report healthy.');
           NODE
 
       - name: Verify followed logs emit stack output
@@ -116,6 +117,30 @@ jobs:
 
       - name: Tests
         run: pnpm test
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read uv version
+        id: uv-version
+        run: echo "version=$(cat SubTrack/services/ml/.uv-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ steps.uv-version.outputs.version }}
+          enable-cache: true
+          cache-dependency-glob: SubTrack/services/ml/uv.lock
+
+      - name: Install locked ML dependencies
+        working-directory: SubTrack/services/ml
+        run: uv sync --locked
+
+      - name: Test ML endpoints
+        working-directory: SubTrack/services/ml
+        run: uv run --locked pytest
 
       - name: i18n catalog parity
         shell: bash
