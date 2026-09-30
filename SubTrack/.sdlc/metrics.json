@@ -1,7 +1,7 @@
 {
   "as_of": "2026-09-30",
-  "completed_task_ids": ["ST-001", "ST-002", "ST-003", "ST-004", "ST-005", "ST-006", "ST-011", "ST-012", "ST-013", "ST-014", "ST-020", "ST-030", "ST-023", "ST-031", "ST-034", "ST-035", "ST-036", "ST-037"],
-  "completed_task_count": 18,
+  "completed_task_ids": ["ST-001", "ST-002", "ST-003", "ST-004", "ST-005", "ST-006", "ST-009", "ST-011", "ST-012", "ST-013", "ST-014", "ST-020", "ST-030", "ST-023", "ST-031", "ST-034", "ST-035", "ST-036", "ST-037"],
+  "completed_task_count": 19,
   "throughput_today": 4,
   "cycle_time_hours": null,
   "reopen_rate": null,
