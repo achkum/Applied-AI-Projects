@@ -24,6 +24,7 @@ const options: ScopeOption[] = [
 
 describe('ScopeSwitcher', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
   });
 
