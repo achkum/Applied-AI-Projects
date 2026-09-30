@@ -20,12 +20,12 @@ items:
   - {id: ST-012, title: "`.sdlc/` board initialised from this file; task files for M0/D1/M1", owner: "product-owner", size: "M", status: DONE, deps: ["ST-001"]}
   - {id: ST-020, title: "`packages/ui-tokens`: colour/type/space/radius/motion tokens JSON → CSS vars + RN theme; OKLCH category-hue generator; contrast checker in CI", owner: "design-lead", size: "L", status: DONE, deps: ["ST-003"]}
   - {id: ST-021, title: "Fonts (Fraunces, Manrope, JetBrains Mono) self-hosted/bundled with OFL notices", owner: "dev-web", size: "S", status: BACKLOG, deps: ["ST-020"]}
-  - {id: ST-022, title: "Storybook for `packages/ui` + visual regression job", owner: "dev-web", size: "M", status: READY, deps: ["ST-020"]}
+  - {id: ST-022, title: "Storybook for `packages/ui` + visual regression job", owner: "dev-web", size: "M", status: IN_PROGRESS, deps: ["ST-020"]}
   - {id: ST-023, title: "Component specs (markdown) for the 7 signature components", owner: "design-lead", size: "M", status: DONE, deps: ["ST-020", "ST-030"]}
   - {id: ST-030, title: "Theme-aware stable member identity accents for Scope switcher", owner: "design-lead", size: "M", status: DONE, deps: ["ST-020"]}
   - {id: ST-024, title: "Web: RollingNumber, ScopeSwitcher, ReceiptCard", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-023", "ST-022"]}
   - {id: ST-025, title: "Web: Orbit (SVG/Canvas) + accessible list fallback", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-023", "ST-022"]}
-  - {id: ST-038, title: "Fix mobile component-render test harness (RN/@testing-library/react-native incompatibility)", owner: "dev-mobile", size: "S", status: READY, deps: []}
+  - {id: ST-038, title: "Fix mobile component-render test harness (RN/@testing-library/react-native incompatibility)", owner: "dev-mobile", size: "S", status: IN_PROGRESS, deps: []}
   - {id: ST-026, title: "Mobile: RollingNumber, ScopeSwitcher, ReceiptCard (colocated)", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-023", "ST-038"]}
   - {id: ST-027, title: "Mobile: Orbit with react-native-skia + reduced-motion fallback", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-023", "ST-038"]}
   - {id: ST-039, title: "Maestro/device E2E + screen-reader backfill for D1 signature components", owner: "qa-engineer", size: "M", status: BACKLOG, deps: ["ST-024", "ST-025", "ST-026", "ST-027"]}
