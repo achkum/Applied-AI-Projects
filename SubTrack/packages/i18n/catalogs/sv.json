@@ -13,5 +13,21 @@
   "scope": {
     "personal": "Jag",
     "shared": "Delat"
+  },
+  "rollingTotal": {
+    "monthly": "Månadsvis",
+    "annual": "Årsvis",
+    "loading": "Laddar…",
+    "unavailable": "Otillgänglig"
+  },
+  "scopeSwitcher": {
+    "me": "Jag",
+    "household": "Hushåll",
+    "selected": "{name} vald"
+  },
+  "receiptCard": {
+    "priceHistory": "Prishistorik",
+    "perMonth": "per månad",
+    "perYear": "per år"
   }
 }
