@@ -30,6 +30,201 @@ paths:
                 $ref: '#/components/schemas/ReadinessResponse'
         default:
           $ref: '#/components/responses/Problem'
+  /v1/households/{id}/invitations:
+    post:
+      operationId: createInvitation
+      summary: Create a household invitation (admin only, AC1)
+      description: >
+        Issues a new invitation token (7-day TTL; only the SHA-256 hash is stored).
+        LINK/CODE channels return the raw token in the response for the admin to share.
+        EMAIL/SMS channels queue delivery via the dev adapter (real delivery requires
+        D-09 founder approval). Caller must be an ADMIN member.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvitationBody'
+      responses:
+        '201':
+          description: Invitation created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+    get:
+      operationId: listInvitations
+      summary: List household invitations (admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: All invitations for this household.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InvitationResponse'
+        '403':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/households/{id}/invitations/{invitationId}:
+    delete:
+      operationId: revokeInvitation
+      summary: Revoke a pending invitation (admin only, AC1)
+      description: >
+        Idempotent — returns 204 whether or not the invitation was already revoked.
+        Caller must be an ADMIN of the household.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: invitationId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Invitation revoked.
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/invitations/preview:
+    get:
+      operationId: previewInvitation
+      summary: Preview invitation metadata (unauthenticated, AC2)
+      description: >
+        Returns household name, admin handle, and member count for a valid token.
+        Returns a status-only response for EXPIRED, REVOKED, USED, or NOT_FOUND tokens
+        — no household data is disclosed in those states.
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{64}$' }
+      responses:
+        '200':
+          description: Preview result (always 200; status field indicates validity).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationPreview'
+        '400':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/invitations/accept:
+    post:
+      operationId: acceptInvitation
+      summary: Accept a household invitation (AC3)
+      description: >
+        Presents the raw 64-hex token to accept.
+        Idempotent — calling again when already accepted returns the same result.
+        Creates a HouseholdMember row and queues an admin notification.
+      parameters:
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RespondInvitationBody'
+      responses:
+        '200':
+          description: Invitation accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [accepted]
+                properties:
+                  accepted: { type: boolean, const: true }
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/invitations/decline:
+    post:
+      operationId: declineInvitation
+      summary: Decline a household invitation (AC3)
+      description: >
+        Idempotent — calling again when already declined returns the same result.
+        Queues an admin notification.
+      parameters:
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RespondInvitationBody'
+      responses:
+        '200':
+          description: Invitation declined.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [declined]
+                properties:
+                  declined: { type: boolean, const: true }
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /v1/version:
     get:
       operationId: getVersion
@@ -69,6 +264,79 @@ components:
         version:
           type: string
           description: Current API semantic version.
+    CreateInvitationBody:
+      type: object
+      additionalProperties: false
+      required: [channel]
+      properties:
+        channel:
+          type: string
+          enum: [LINK, CODE, EMAIL, SMS]
+          description: >
+            LINK/CODE — token returned in response for admin to share; recipient not allowed.
+            EMAIL/SMS — token delivered via dev adapter; recipient required.
+        recipient:
+          type: string
+          minLength: 1
+          maxLength: 320
+          description: Email address or E.164 phone; required for EMAIL/SMS, absent for LINK/CODE.
+
+    RespondInvitationBody:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: 64-character hex opaque invite token (raw, as received from create or delivery).
+
+    InvitationResponse:
+      type: object
+      additionalProperties: false
+      required: [id, channel, status, expiresAt, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        channel:
+          type: string
+          enum: [LINK, CODE, EMAIL, SMS]
+        recipient:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [PENDING, ACCEPTED, DECLINED, REVOKED, EXPIRED]
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        token:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: Raw token — only present for LINK/CODE channels on create response.
+
+    InvitationPreview:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [VALID, EXPIRED, REVOKED, USED, NOT_FOUND]
+        householdName:
+          type: string
+          description: Only present when status = VALID.
+        adminHandle:
+          type: string
+          description: Non-PII handle derived from inviter email prefix or phone suffix.
+        memberCount:
+          type: integer
+          description: Current active member count; only present when status = VALID.
+
     Problem:
       type: object
       description: RFC 9457 problem details.
