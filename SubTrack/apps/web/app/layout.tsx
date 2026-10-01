@@ -1,5 +1,6 @@
 import '@subtrack/ui-tokens/tokens.css';
 import { ThemeProvider } from '@/lib/theme-provider';
+import { fontClassNames } from '@/lib/fonts';
 
 const themeScript = `
   (function() {
@@ -25,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="sv" suppressHydrationWarning>
+    <html lang="sv" className={fontClassNames} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{ __html: themeScript }}
