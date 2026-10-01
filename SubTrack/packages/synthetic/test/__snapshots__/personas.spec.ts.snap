@@ -1,0 +1,613 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`persona snapshots > PERSONA_AHMADI matches snapshot 1`] = `
+{
+  "displayName": "Ahmadi Family",
+  "id": "household-ahmadi",
+  "members": [
+    {
+      "id": "karim",
+      "name": "Karim Ahmadi",
+    },
+    {
+      "id": "sara",
+      "name": "Sara Ahmadi",
+    },
+  ],
+  "seed": "persona:household-ahmadi",
+  "subscriptions": [
+    {
+      "amountMinor": 18900,
+      "billingCadence": "MONTHLY",
+      "category": "video-streaming",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "NETFLIX",
+        "NETFLIX*",
+        "NETFLIX.COM",
+        "NETFLIX DIGITAL",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 18900,
+      },
+      "id": "ahmadi-netflix",
+      "merchantId": "netflix-standard",
+      "merchantName": "Netflix",
+      "ownerType": "HOUSEHOLD",
+    },
+    {
+      "amountMinor": 19900,
+      "billingCadence": "MONTHLY",
+      "category": "music-audio",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "SPOTIFY",
+        "SPOTIFY AB",
+        "SPOTIFY FAMILY",
+        "SPOTIFY.COM",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 19900,
+      },
+      "id": "ahmadi-spotify-family",
+      "merchantId": "spotify-family",
+      "merchantName": "Spotify Family",
+      "ownerType": "HOUSEHOLD",
+    },
+    {
+      "amountMinor": 12900,
+      "billingCadence": "MONTHLY",
+      "category": "video-streaming",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "MAX.COM",
+        "HBO MAX",
+        "MAX STREAMING",
+        "WARNERMEDIA*MAX",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 12900,
+      },
+      "id": "ahmadi-hbo",
+      "merchantId": "max-hbo",
+      "merchantName": "Max",
+      "ownerType": "HOUSEHOLD",
+    },
+    {
+      "amountMinor": 67900,
+      "billingCadence": "MONTHLY",
+      "category": "software-productivity",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "ADOBE SYSTEMS",
+        "ADOBE*CREATIVE",
+        "ADOBE.COM",
+        "ADOBE CREATIVE",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 67900,
+      },
+      "id": "ahmadi-adobe-cc",
+      "memberId": "karim",
+      "merchantId": "adobe-creative-cloud",
+      "merchantName": "Adobe Creative Cloud",
+      "ownerType": "MEMBER",
+    },
+    {
+      "amountMinor": 11900,
+      "billingCadence": "MONTHLY",
+      "category": "video-streaming",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "GOOGLE YOUTUBE",
+        "YOUTUBE PREMIUM",
+        "YOUTUBE.COM",
+        "GOOGLE*YOUTUBE",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 11900,
+      },
+      "id": "ahmadi-youtube-sara",
+      "memberId": "sara",
+      "merchantId": "youtube-premium",
+      "merchantName": "YouTube Premium",
+      "ownerType": "MEMBER",
+    },
+    {
+      "amountMinor": 8900,
+      "billingCadence": "ANNUAL",
+      "category": "education",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "DUOLINGO",
+        "DUOLINGO*PLUS",
+        "DUOLINGO.COM",
+        "DUOLINGO DIGITAL",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 8900,
+      },
+      "id": "ahmadi-duolingo",
+      "memberId": "sara",
+      "merchantId": "duolingo-plus",
+      "merchantName": "Duolingo Plus",
+      "ownerType": "MEMBER",
+    },
+    {
+      "amountMinor": 9900,
+      "billingCadence": "ANNUAL",
+      "category": "health-wellness",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "HEADSPACE",
+        "HEADSPACE.COM",
+        "HEADSPACE ONLINE",
+        "HEADSPACE DIGITAL",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 9900,
+      },
+      "id": "ahmadi-headspace",
+      "memberId": "karim",
+      "merchantId": "headspace",
+      "merchantName": "Headspace",
+      "ownerType": "MEMBER",
+    },
+    {
+      "amountMinor": 34900,
+      "billingCadence": "MONTHLY",
+      "category": "bundle",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "APPLE.COM/BILL",
+        "APPLE ONE",
+        "APPLE ONE FAMILY",
+        "APPLE*ONE",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 34900,
+      },
+      "id": "ahmadi-apple-one",
+      "merchantId": "apple-one",
+      "merchantName": "Apple One",
+      "ownerType": "HOUSEHOLD",
+    },
+  ],
+}
+`;
+
+exports[`persona snapshots > PERSONA_ERIKSSON matches snapshot 1`] = `
+{
+  "displayName": "Jakob Eriksson",
+  "id": "household-eriksson",
+  "members": [
+    {
+      "id": "jakob",
+      "name": "Jakob Eriksson",
+    },
+  ],
+  "seed": "persona:household-eriksson",
+  "subscriptions": [
+    {
+      "amountMinor": 5900,
+      "billingCadence": "MONTHLY",
+      "category": "music-audio",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "SPOTIFY",
+        "SPOTIFY AB",
+        "SPOTIFY STUDENT",
+        "SPOTIFY NORDIC",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 5900,
+      },
+      "id": "eriksson-spotify-student",
+      "merchantId": "spotify-student",
+      "merchantName": "Spotify Student",
+      "ownerType": "ME",
+    },
+    {
+      "amountMinor": 14900,
+      "billingCadence": "MONTHLY",
+      "category": "video-streaming",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "NETFLIX",
+        "NETFLIX*",
+        "NETFLIX.COM",
+        "NETFLIX SE",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 14900,
+      },
+      "id": "eriksson-netflix",
+      "merchantId": "netflix",
+      "merchantName": "Netflix",
+      "ownerType": "ME",
+    },
+    {
+      "amountMinor": 11900,
+      "billingCadence": "MONTHLY",
+      "category": "software-productivity",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "GITHUB",
+        "GITHUB.COM",
+        "GITHUB COPILOT",
+        "GITHUB*COPILOT",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 11900,
+      },
+      "id": "eriksson-github-copilot",
+      "merchantId": "github-copilot",
+      "merchantName": "GitHub Copilot",
+      "ownerType": "ME",
+    },
+  ],
+}
+`;
+
+exports[`persona snapshots > PERSONA_LINDQVIST matches snapshot 1`] = `
+{
+  "displayName": "Lars & Maria Lindqvist",
+  "id": "household-lindqvist",
+  "members": [
+    {
+      "id": "lars",
+      "name": "Lars Lindqvist",
+    },
+    {
+      "id": "maria",
+      "name": "Maria Lindqvist",
+    },
+  ],
+  "seed": "persona:household-lindqvist",
+  "subscriptions": [
+    {
+      "amountMinor": 13900,
+      "billingCadence": "MONTHLY",
+      "category": "video-streaming",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "DISNEY+",
+        "DISNEY PLUS",
+        "DISNEYPLUS.COM",
+        "DISNEY DIGITAL",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 13900,
+      },
+      "id": "lindqvist-disney",
+      "merchantId": "disney-plus",
+      "merchantName": "Disney+",
+      "ownerType": "HOUSEHOLD",
+    },
+    {
+      "amountMinor": 21900,
+      "billingCadence": "MONTHLY",
+      "category": "video-streaming",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "GOOGLE YOUTUBE",
+        "YOUTUBE PREMIUM",
+        "YOUTUBE.COM",
+        "GOOGLE*YOUTUBE",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 21900,
+      },
+      "id": "lindqvist-youtube",
+      "merchantId": "youtube-premium",
+      "merchantName": "YouTube Premium",
+      "ownerType": "HOUSEHOLD",
+    },
+    {
+      "amountMinor": 15900,
+      "billingCadence": "MONTHLY",
+      "category": "music-audio",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "SPOTIFY",
+        "SPOTIFY AB",
+        "SPOTIFY NORDIC",
+        "SPOTIFY DUO",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 15900,
+      },
+      "id": "lindqvist-spotify",
+      "merchantId": "spotify-duo",
+      "merchantName": "Spotify Duo",
+      "ownerType": "HOUSEHOLD",
+    },
+    {
+      "amountMinor": 17900,
+      "billingCadence": "MONTHLY",
+      "category": "books-media",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "STORYTEL",
+        "STORYTEL AB",
+        "STORYTEL.COM",
+        "STORYTEL SWEDEN",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 17900,
+      },
+      "id": "lindqvist-storytel",
+      "merchantId": "storytel",
+      "merchantName": "Storytel",
+      "ownerType": "HOUSEHOLD",
+    },
+    {
+      "amountMinor": 119900,
+      "billingCadence": "ANNUAL",
+      "category": "software-productivity",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "MICROSOFT*365",
+        "MICROSOFT 365",
+        "MICROSOFT.COM",
+        "MSFT*OFFICE365",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 119900,
+      },
+      "id": "lindqvist-microsoft365",
+      "merchantId": "microsoft-365",
+      "merchantName": "Microsoft 365 Family",
+      "ownerType": "HOUSEHOLD",
+    },
+    {
+      "amountMinor": 9900,
+      "billingCadence": "MONTHLY",
+      "category": "cloud-storage",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "APPLE.COM/BILL",
+        "ICLOUD 2TB",
+        "APPLE ICLOUD",
+        "APPLE.COM",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 9900,
+      },
+      "id": "lindqvist-icloud",
+      "merchantId": "apple-icloud-2tb",
+      "merchantName": "iCloud 2TB",
+      "ownerType": "HOUSEHOLD",
+    },
+  ],
+}
+`;
+
+exports[`persona snapshots > PERSONA_OKONKWO matches snapshot 1`] = `
+{
+  "displayName": "Adaeze Okonkwo",
+  "id": "household-okonkwo",
+  "members": [
+    {
+      "id": "adaeze",
+      "name": "Adaeze Okonkwo",
+    },
+  ],
+  "seed": "persona:household-okonkwo",
+  "subscriptions": [
+    {
+      "amountMinor": 67900,
+      "billingCadence": "MONTHLY",
+      "category": "software-productivity",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "ADOBE SYSTEMS",
+        "ADOBE*CREATIVE",
+        "ADOBE.COM",
+        "ADOBE CREATIVE",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 67900,
+      },
+      "id": "okonkwo-adobe-cc",
+      "merchantId": "adobe-creative-cloud",
+      "merchantName": "Adobe Creative Cloud",
+      "ownerType": "ME",
+    },
+    {
+      "amountMinor": 19000,
+      "billingCadence": "MONTHLY",
+      "category": "software-productivity",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "FIGMA",
+        "FIGMA.COM",
+        "FIGMA ONLINE",
+        "FIGMA*PRO",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 19000,
+      },
+      "id": "okonkwo-figma",
+      "merchantId": "figma-professional",
+      "merchantName": "Figma",
+      "ownerType": "ME",
+    },
+    {
+      "amountMinor": 11900,
+      "billingCadence": "MONTHLY",
+      "category": "software-productivity",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "NOTION",
+        "NOTION.SO",
+        "NOTION ONLINE",
+        "NOTION*PLUS",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 11900,
+      },
+      "id": "okonkwo-notion",
+      "merchantId": "notion-plus",
+      "merchantName": "Notion",
+      "ownerType": "ME",
+    },
+    {
+      "amountMinor": 31900,
+      "billingCadence": "MONTHLY",
+      "category": "software-productivity",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "SLACK",
+        "SLACK.COM",
+        "SLACK TECHNOLOGIES",
+        "SLACK*PRO",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 31900,
+      },
+      "id": "okonkwo-slack",
+      "merchantId": "slack-pro",
+      "merchantName": "Slack",
+      "ownerType": "ME",
+    },
+    {
+      "amountMinor": 23900,
+      "billingCadence": "MONTHLY",
+      "category": "cloud-infrastructure",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "VERCEL",
+        "VERCEL.COM",
+        "VERCEL INC",
+        "VERCEL*PRO",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 23900,
+      },
+      "id": "okonkwo-vercel",
+      "merchantId": "vercel-pro",
+      "merchantName": "Vercel",
+      "ownerType": "ME",
+    },
+  ],
+}
+`;
+
+exports[`persona snapshots > PERSONA_SOLBERG matches snapshot 1`] = `
+{
+  "displayName": "Emma Solberg",
+  "id": "household-solberg",
+  "members": [
+    {
+      "id": "emma",
+      "name": "Emma Solberg",
+    },
+  ],
+  "seed": "persona:household-solberg",
+  "subscriptions": [
+    {
+      "amountMinor": 14900,
+      "billingCadence": "MONTHLY",
+      "category": "video-streaming",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "NETFLIX",
+        "Netflix",
+        "NETFLIX*",
+        "NETFLIX.COM",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 14900,
+      },
+      "id": "solberg-netflix",
+      "merchantId": "netflix",
+      "merchantName": "Netflix",
+      "ownerType": "ME",
+    },
+    {
+      "amountMinor": 10900,
+      "billingCadence": "MONTHLY",
+      "category": "music-audio",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "SPOTIFY",
+        "Spotify",
+        "SPOTIFY AB",
+        "SPOTIFY NORDIC",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 10900,
+      },
+      "id": "solberg-spotify",
+      "merchantId": "spotify",
+      "merchantName": "Spotify",
+      "ownerType": "ME",
+    },
+    {
+      "amountMinor": 3900,
+      "billingCadence": "MONTHLY",
+      "category": "cloud-storage",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "APPLE.COM/BILL",
+        "ICLOUD",
+        "APPLE ICLOUD",
+        "APPLE.COM",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 3900,
+      },
+      "id": "solberg-icloud",
+      "merchantId": "apple-icloud",
+      "merchantName": "iCloud",
+      "ownerType": "ME",
+    },
+    {
+      "amountMinor": 89900,
+      "billingCadence": "ANNUAL",
+      "category": "software-productivity",
+      "currency": "SEK",
+      "descriptorVariants": [
+        "LINKEDIN",
+        "LINKEDIN PREMIUM",
+        "LINKEDIN.COM",
+        "LINKEDIN DIGITAL",
+      ],
+      "groundTruth": {
+        "isRecurring": true,
+        "normalizedAmountMinor": 89900,
+      },
+      "id": "solberg-linkedin",
+      "merchantId": "linkedin-premium",
+      "merchantName": "LinkedIn Premium",
+      "ownerType": "ME",
+    },
+  ],
+}
+`;

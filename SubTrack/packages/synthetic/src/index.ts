@@ -15,3 +15,15 @@ export {
   normaliseDescriptor,
   type TransactionDescriptor,
 } from './descriptor.js';
+
+export {
+  PERSONA_SOLBERG,
+  PERSONA_LINDQVIST,
+  PERSONA_AHMADI,
+  PERSONA_ERIKSSON,
+  PERSONA_OKONKWO,
+  ALL_PERSONAS,
+  type PersonaMember,
+  type PersonaSubscription,
+  type PersonaHousehold,
+} from './personas.js';
