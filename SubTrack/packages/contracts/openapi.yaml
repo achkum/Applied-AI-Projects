@@ -124,6 +124,94 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /v1/data-rights/export:
+    post:
+      operationId: requestDataExport
+      summary: Request a full personal data export (AC1)
+      description: >
+        Assembles a ZIP archive containing export.json (all personal data) and
+        subscriptions.csv. Returns a single-use download token valid for 24 hours.
+        Scoped only to the caller's own data.
+      parameters:
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '202':
+          description: Export job accepted; archive is ready at the returned URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJobResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/data-rights/export/{token}:
+    get:
+      operationId: downloadDataExport
+      summary: Download a previously requested data export (AC1, AC3)
+      description: >
+        Returns the ZIP file for a valid, non-expired export token.
+        Returns 404 for unknown or expired tokens — the response does not
+        distinguish between the two cases (AC3).
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ZIP archive download.
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/data-rights/account:
+    delete:
+      operationId: deleteAccount
+      summary: Permanently delete account and personal data (AC2)
+      description: >
+        Requires BankID or OTP re-authentication via `reAuthToken`.
+        If the caller is the sole admin of a household with remaining members,
+        returns 400 requiring role transfer first.
+        Nullifies PII fields (email, phone, externalId) and sets deletedAt.
+        Audit log entries are kept with pseudonymous identifiers only (AC2).
+      parameters:
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteAccountBody'
+      responses:
+        '204':
+          description: Account and personal data deleted.
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /v1/version:
     get:
       operationId: getVersion
@@ -211,6 +299,34 @@ components:
         alwaysPrivate:
           type: boolean
           description: Only present for the subscription owner — never exposed to other members.
+
+    ExportJobResponse:
+      type: object
+      additionalProperties: false
+      required: [token, downloadUrl, expiresAt]
+      properties:
+        token:
+          type: string
+          description: Single-use download token (64 hex chars).
+        downloadUrl:
+          type: string
+          description: Relative URL to download the ZIP archive.
+        expiresAt:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp after which the download token expires.
+
+    DeleteAccountBody:
+      type: object
+      additionalProperties: false
+      required: [reAuthToken]
+      properties:
+        reAuthToken:
+          type: string
+          description: >
+            BankID or OTP re-authentication credential. Required before personal
+            data erasure. With A5 Assumed (dev/simulator), any non-empty string
+            is accepted.
 
     Problem:
       type: object
