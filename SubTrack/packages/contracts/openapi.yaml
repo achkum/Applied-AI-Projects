@@ -30,6 +30,100 @@ paths:
                 $ref: '#/components/schemas/ReadinessResponse'
         default:
           $ref: '#/components/responses/Problem'
+  /v1/privacy/settings:
+    get:
+      operationId: getPrivacySettings
+      summary: List open_book consent settings for all households (AC1)
+      parameters:
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: List of consent settings, one entry per household.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConsentSetting'
+        '400':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/privacy/open-book:
+    patch:
+      operationId: setOpenBook
+      summary: Toggle open_book for a household scope (AC1, AC4)
+      description: >
+        Sets the caller's open_book consent for the specified household.
+        Default is OFF. Only the caller themselves can change their own setting —
+        admins cannot alter other members' privacy (AC4).
+        Updates take effect within 5 seconds (cache TTL, AC1).
+        Writes a hash-chained audit event.
+      parameters:
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetOpenBookBody'
+      responses:
+        '200':
+          description: Updated consent setting.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentSetting'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/privacy/preview-as/{householdId}:
+    get:
+      operationId: previewAsHousehold
+      summary: Preview subscriptions as a household member (AC3)
+      description: >
+        Evaluates subscription visibility using the exact policy from ST-048.
+        Returns safe subscription summaries — no raw transactions, balances,
+        account numbers, or PII. Always-private subscriptions are hidden from
+        non-owners even when the owner has open_book=ON (AC2).
+      parameters:
+        - in: path
+          name: householdId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Visible subscription summaries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionSummary'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /v1/version:
     get:
       operationId: getVersion
@@ -69,6 +163,55 @@ components:
         version:
           type: string
           description: Current API semantic version.
+    SetOpenBookBody:
+      type: object
+      additionalProperties: false
+      required: [householdId, openBook]
+      properties:
+        householdId:
+          type: string
+          format: uuid
+        openBook:
+          type: boolean
+          description: true = share subscriptions with household peers; false (default) = private.
+
+    ConsentSetting:
+      type: object
+      additionalProperties: false
+      required: [householdId, openBook, updatedAt]
+      properties:
+        householdId:
+          type: string
+          format: uuid
+        openBook:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+
+    SubscriptionSummary:
+      type: object
+      additionalProperties: false
+      required: [id, categoryCode, cadence, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        customName:
+          type: string
+          nullable: true
+        categoryCode:
+          type: string
+        cadence:
+          type: string
+          enum: [WEEKLY, MONTHLY, QUARTERLY, SEMIANNUAL, ANNUAL, CUSTOM]
+        status:
+          type: string
+          enum: [DETECTED, TRIAL, ACTIVE, PAUSED, CANCELLED, ARCHIVED, REJECTED]
+        alwaysPrivate:
+          type: boolean
+          description: Only present for the subscription owner — never exposed to other members.
+
     Problem:
       type: object
       description: RFC 9457 problem details.
