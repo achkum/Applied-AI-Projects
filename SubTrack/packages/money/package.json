@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "@subtrack/config": "workspace:*",
+    "fast-check": "^3.23.0",
     "vitest": "^3.0.0"
   }
 }
