@@ -25,7 +25,7 @@ declare module 'i18n-js' {
     locale?: string;
     fallbacks?: Record<string, string>;
     translations?: Record<string, Record<string, unknown>>;
-    t(key: string): string;
+    t(key: string, options?: Record<string, string | number>): string;
   }
 
   const I18n: I18n;

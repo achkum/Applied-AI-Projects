@@ -13,5 +13,19 @@
   "scope": {
     "personal": "Jag",
     "shared": "Delat"
+  },
+  "orbit": {
+    "ariaLabel": "Prenumerationsorbit",
+    "centreMeLabel": "Jag",
+    "ownerType": {
+      "ME": "Mina",
+      "HOUSEHOLD": "Hushåll",
+      "MEMBER": "Medlem"
+    },
+    "billingCadence": {
+      "MONTHLY": "Månadsvis",
+      "ANNUAL": "Årsvis"
+    },
+    "bodyAriaLabel": "{{name}}, {{ownerType}}, {{cadence}}"
   }
 }

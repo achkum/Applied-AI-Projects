@@ -30,83 +30,195 @@ paths:
                 $ref: '#/components/schemas/ReadinessResponse'
         default:
           $ref: '#/components/responses/Problem'
-  /v1/auth/bankid/verify:
+  /v1/households/{id}/invitations:
     post:
-      operationId: verifyBankId
-      summary: Verify a BankID completion token
+      operationId: createInvitation
+      summary: Create a household invitation (admin only, AC1)
       description: >
-        Verifies a BankID (or simulator) token and registers or logs in the
-        resulting identity. In development the token is one of the fixed demo
-        identities: alice, bob, carol.
+        Issues a new invitation token (7-day TTL; only the SHA-256 hash is stored).
+        LINK/CODE channels return the raw token in the response for the admin to share.
+        EMAIL/SMS channels queue delivery via the dev adapter (real delivery requires
+        D-09 founder approval). Caller must be an ADMIN member.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VerifyBankIdBody'
+              $ref: '#/components/schemas/CreateInvitationBody'
       responses:
-        '200':
-          description: Identity verified — registered or logged in.
+        '201':
+          description: Invitation created.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerifyBankIdResponse'
+                $ref: '#/components/schemas/InvitationResponse'
         '400':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+    get:
+      operationId: listInvitations
+      summary: List household invitations (admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: All invitations for this household.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InvitationResponse'
+        '403':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/households/{id}/invitations/{invitationId}:
+    delete:
+      operationId: revokeInvitation
+      summary: Revoke a pending invitation (admin only, AC1)
+      description: >
+        Idempotent — returns 204 whether or not the invitation was already revoked.
+        Caller must be an ADMIN of the household.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: invitationId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Invitation revoked.
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/invitations/preview:
+    get:
+      operationId: previewInvitation
+      summary: Preview invitation metadata (unauthenticated, AC2)
+      description: >
+        Returns household name, admin handle, and member count for a valid token.
+        Returns a status-only response for EXPIRED, REVOKED, USED, or NOT_FOUND tokens
+        — no household data is disclosed in those states.
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{64}$' }
+      responses:
+        '200':
+          description: Preview result (always 200; status field indicates validity).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationPreview'
+        '400':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/invitations/accept:
+    post:
+      operationId: acceptInvitation
+      summary: Accept a household invitation (AC3)
+      description: >
+        Presents the raw 64-hex token to accept.
+        Idempotent — calling again when already accepted returns the same result.
+        Creates a HouseholdMember row and queues an admin notification.
+      parameters:
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RespondInvitationBody'
+      responses:
+        '200':
+          description: Invitation accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [accepted]
+                properties:
+                  accepted: { type: boolean, const: true }
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
           $ref: '#/components/responses/Problem'
         '422':
           $ref: '#/components/responses/Problem'
         default:
           $ref: '#/components/responses/Problem'
 
-  /v1/auth/otp/request:
+  /v1/invitations/decline:
     post:
-      operationId: requestOtp
-      summary: Request a one-time password
+      operationId: declineInvitation
+      summary: Decline a household invitation (AC3)
       description: >
-        Sends a six-digit OTP to the supplied email or E.164 phone number via
-        the configured delivery adapter (DevInbox in development).
-        Rate-limited: 30-second cooldown between sends, maximum 6 total sends
-        per identifier per hour.
+        Idempotent — calling again when already declined returns the same result.
+        Queues an admin notification.
+      parameters:
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RequestOtpBody'
-      responses:
-        '202':
-          description: OTP accepted for delivery.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AcceptedResponse'
-        '400':
-          $ref: '#/components/responses/Problem'
-        default:
-          $ref: '#/components/responses/Problem'
-
-  /v1/auth/otp/verify:
-    post:
-      operationId: verifyOtp
-      summary: Verify a one-time password
-      description: >
-        Verifies a previously issued OTP. The code is consumed on success and
-        cannot be reused. Locks the identifier for 15 minutes after 5 wrong
-        attempts.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VerifyOtpBody'
+              $ref: '#/components/schemas/RespondInvitationBody'
       responses:
         '200':
-          description: OTP verified successfully.
+          description: Invitation declined.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerifiedResponse'
+                type: object
+                additionalProperties: false
+                required: [declined]
+                properties:
+                  declined: { type: boolean, const: true }
         '400':
+          $ref: '#/components/responses/Problem'
+        '404':
           $ref: '#/components/responses/Problem'
         '422':
           $ref: '#/components/responses/Problem'
@@ -265,70 +377,78 @@ components:
         version:
           type: string
           description: Current API semantic version.
-    VerifyBankIdBody:
+    CreateInvitationBody:
+      type: object
+      additionalProperties: false
+      required: [channel]
+      properties:
+        channel:
+          type: string
+          enum: [LINK, CODE, EMAIL, SMS]
+          description: >
+            LINK/CODE — token returned in response for admin to share; recipient not allowed.
+            EMAIL/SMS — token delivered via dev adapter; recipient required.
+        recipient:
+          type: string
+          minLength: 1
+          maxLength: 320
+          description: Email address or E.164 phone; required for EMAIL/SMS, absent for LINK/CODE.
+
+    RespondInvitationBody:
       type: object
       additionalProperties: false
       required: [token]
       properties:
         token:
           type: string
-          description: >
-            BankID completion token (RP API) or simulator demo ID
-            (alice | bob | carol) in development.
+          pattern: '^[0-9a-f]{64}$'
+          description: 64-character hex opaque invite token (raw, as received from create or delivery).
 
-    VerifyBankIdResponse:
+    InvitationResponse:
       type: object
       additionalProperties: false
-      required: [action, identityId]
+      required: [id, channel, status, expiresAt, createdAt]
       properties:
-        action:
-          type: string
-          enum: [registered, logged_in]
-        identityId:
+        id:
           type: string
           format: uuid
-
-    RequestOtpBody:
-      type: object
-      additionalProperties: false
-      required: [identifier]
-      properties:
-        identifier:
+        channel:
           type: string
-          description: Email address or E.164 phone number.
-          examples:
-            - user@example.com
-            - '+46701234567'
-
-    VerifyOtpBody:
-      type: object
-      additionalProperties: false
-      required: [identifier, code]
-      properties:
-        identifier:
+          enum: [LINK, CODE, EMAIL, SMS]
+        recipient:
           type: string
-        code:
+          nullable: true
+        status:
           type: string
-          pattern: '^\d{6}$'
-          description: Six-digit OTP sent to the identifier.
+          enum: [PENDING, ACCEPTED, DECLINED, REVOKED, EXPIRED]
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        token:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: Raw token — only present for LINK/CODE channels on create response.
 
-    AcceptedResponse:
+    InvitationPreview:
       type: object
       additionalProperties: false
       required: [status]
       properties:
         status:
           type: string
-          const: accepted
-
-    VerifiedResponse:
-      type: object
-      additionalProperties: false
-      required: [verified]
-      properties:
-        verified:
-          type: boolean
-          const: true
+          enum: [VALID, EXPIRED, REVOKED, USED, NOT_FOUND]
+        householdName:
+          type: string
+          description: Only present when status = VALID.
+        adminHandle:
+          type: string
+          description: Non-PII handle derived from inviter email prefix or phone suffix.
+        memberCount:
+          type: integer
+          description: Current active member count; only present when status = VALID.
 
     CreateSessionBody:
       type: object
