@@ -1,0 +1,21 @@
+# Nightly demo reseed — rolls the asOf date to today.
+# Usage: docker compose -f docker-compose.yml -f docker/demo-seed.yml up demo-seed
+services:
+  demo-seed:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.demo-seed
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - demo-fixtures:/app/fixtures
+    command: >
+      sh -c "node dist/index.js --as-of=$$(date +%Y-%m-%d) --out-dir=/app/fixtures"
+    labels:
+      - "com.subtrack.cron=0 3 * * *"
+      - "com.subtrack.service=demo-seed"
+      - "com.subtrack.description=Nightly demo tenant reseed with rolling asOf"
+
+volumes:
+  demo-fixtures:
+    driver: local
