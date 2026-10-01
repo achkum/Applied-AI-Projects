@@ -65,7 +65,7 @@ export function anglesForCadence(
 
 /** Build SVG x,y from polar (ring + angle) relative to the canvas centre. */
 export function toCartesian(ring: number, angle: number): { x: number; y: number } {
-  const r = RING_RADII[Math.min(ring, RING_RADII.length - 1)] ?? RING_RADII[RING_RADII.length - 1];
+  const r = RING_RADII[Math.min(ring, RING_RADII.length - 1)] ?? RING_RADII[RING_RADII.length - 1] ?? 72;
   return {
     x: CX + r * Math.sin(angle),
     y: CY - r * Math.cos(angle),

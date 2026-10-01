@@ -16,7 +16,7 @@ const CATEGORY_COLOR_VAR: Record<string, string> = {
 };
 
 function categoryColorVar(category: string): string {
-  return CATEGORY_COLOR_VAR[category.toLowerCase()] ?? CATEGORY_COLOR_VAR['other'];
+  return CATEGORY_COLOR_VAR[category.toLowerCase()] ?? CATEGORY_COLOR_VAR['other'] ?? '--color-cat-other';
 }
 
 export interface OrbitProps {
