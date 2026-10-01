@@ -37,6 +37,7 @@ model Identity {
   receivedInvitations  Invitation[]      @relation("invitee")
   consents             Consent[]
   auditEntries         AuditLog[]
+  sessions             Session[]
 
   @@map("identity")
 }
@@ -288,4 +289,40 @@ model AuditLog {
   @@index([householdId])
   @@index([createdAt])
   @@map("audit_log")
+}
+
+// ---------------------------------------------------------------------------
+// SESSION
+//
+// Tracks issued refresh credentials per device. Short-lived access tokens
+// are EdDSA JWTs (not stored); only the SHA-256 hash of the opaque refresh
+// token is stored (AC1).
+//
+// Token rotation: on every refresh, the old session row is soft-revoked and a
+// new row is created with generation+1 in the same family. If a revoked token
+// is presented, the entire family is revoked (refresh-token family revocation,
+// AC2).
+//
+// RLS scope: user may read/update only their own session rows (AC4).
+//   USING (identity_id = current_setting('app.current_user_id')::uuid)
+// ---------------------------------------------------------------------------
+model Session {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identityId       String    @map("identity_id") @db.Uuid
+  /// Human-readable client label, e.g. "Chrome on macOS". Not verified.
+  deviceName       String    @map("device_name") @db.VarChar(120)
+  /// SHA-256 hex of the 32-byte random refresh token. Never the raw token.
+  refreshTokenHash String    @unique @map("refresh_token_hash") @db.VarChar(64)
+  /// All rotations of a token share a familyId; reuse of any revoked member revokes all.
+  familyId         String    @map("family_id") @db.Uuid
+  /// Incremented on every successful rotation.
+  generation       Int       @default(0)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastUsedAt       DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  identity Identity @relation(fields: [identityId], references: [id])
+
+  @@index([identityId])
+  @@map("session")
 }
