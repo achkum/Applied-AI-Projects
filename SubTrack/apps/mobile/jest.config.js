@@ -1,7 +1,7 @@
 module.exports = {
   preset: 'jest-expo',
   testEnvironment: 'node',
-  setupFilesAfterEnv: [],
+  setupFilesAfterEnv: ['./jest.setup.js'],
   // jest-expo's default transformIgnorePatterns anchors on the segment right
   // after "node_modules/", which breaks under pnpm's nested
   // node_modules/.pnpm/<pkg>@<version>/node_modules/<pkg> layout. Use `.*`
@@ -13,6 +13,9 @@ module.exports = {
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // @subtrack/ui-tokens/member-accent uses `import … with { type: 'json' }` (JSON import
+    // attributes) which babel-preset-expo 10 does not transform. Map to a CJS shim for Jest.
+    '^@subtrack/ui-tokens/member-accent$': '<rootDir>/src/__jest__/memberAccentForId.js',
   },
   testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx', '**/**.test.ts', '**/**.test.tsx'],
   collectCoverageFrom: [

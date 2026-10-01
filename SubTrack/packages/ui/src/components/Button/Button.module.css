@@ -1,0 +1,44 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.625rem 1.25rem;
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  outline-offset: 2px;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--aurora-violet);
+}
+
+.button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.primary {
+  background: var(--aurora-violet);
+  color: #ffffff;
+  border-color: var(--aurora-violet);
+}
+
+.primary:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.secondary {
+  background: transparent;
+  color: var(--ink-primary);
+  border-color: var(--line-hairline);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--bg-sunken);
+}
