@@ -11,16 +11,21 @@
     "./bank": {
       "types": "./bank/index.ts",
       "import": "./bank/index.ts"
+    },
+    "./ingestion": {
+      "types": "./ingestion/index.ts",
+      "import": "./ingestion/index.ts"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "eslint \"policy/**/*.ts\" \"bank/**/*.ts\"",
+    "lint": "eslint \"policy/**/*.ts\" \"bank/**/*.ts\" \"ingestion/**/*.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
   },
   "devDependencies": {
     "@subtrack/config": "workspace:*",
+    "@subtrack/synthetic": "workspace:*",
     "vitest": "4.1.11"
   }
 }
