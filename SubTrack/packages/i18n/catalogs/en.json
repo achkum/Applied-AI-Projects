@@ -13,5 +13,19 @@
   "scope": {
     "personal": "Me",
     "shared": "Shared"
+  },
+  "orbit": {
+    "ariaLabel": "Subscription orbit",
+    "centreMeLabel": "Me",
+    "ownerType": {
+      "ME": "Mine",
+      "HOUSEHOLD": "Household",
+      "MEMBER": "Member"
+    },
+    "billingCadence": {
+      "MONTHLY": "Monthly",
+      "ANNUAL": "Annual"
+    },
+    "bodyAriaLabel": "{{name}}, {{ownerType}}, {{cadence}}"
   }
 }

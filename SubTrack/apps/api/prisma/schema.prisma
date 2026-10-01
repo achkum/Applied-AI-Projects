@@ -115,6 +115,8 @@ model HouseholdMember {
 enum MemberRole {
   ADMIN
   MEMBER
+  /// Dependant: added by admin without a login Identity. No account credentials.
+  DEPENDANT
 
   @@map("member_role")
 }
@@ -123,11 +125,18 @@ enum MemberRole {
 // INVITATION
 //
 // An invitation sent by a household admin to a potential member.
-// Expires after 48 hours; revocable by the inviter or any admin.
+// Expires after 7 days; revocable by the inviter or any admin.
+//
+// Channels:
+//   LINK/CODE — token is the credential; no specific recipient (recipient null).
+//   EMAIL/SMS  — token delivered to recipient email/phone via dev adapter.
+//
+// Token storage: raw 32-byte random hex is given to the invitee; only the
+// SHA-256 hex hash is stored (tokenHash), preventing lookup abuse.
 //
 // RLS scope:
-//   - inviter: may read/delete their own outgoing invitations.
-//   - invitee: may read invitations addressed to them (by email/phone).
+//   - inviter: may read/revoke their own outgoing invitations.
+//   - invitee: may read invitations addressed to them.
 //   - admins: may read all invitations for their household.
 //   USING (
 //     inviter_id  = current_setting('app.current_user_id')::uuid
@@ -140,19 +149,20 @@ enum MemberRole {
 //   )
 // ---------------------------------------------------------------------------
 model Invitation {
-  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  householdId String           @map("household_id") @db.Uuid
-  inviterId   String           @map("inviter_id") @db.Uuid
-  /// May be null if invitee has not yet created an identity.
-  inviteeId   String?          @map("invitee_id") @db.Uuid
-  /// Delivery channel; exactly one of email or phone must be set.
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  householdId String            @map("household_id") @db.Uuid
+  inviterId   String            @map("inviter_id") @db.Uuid
+  /// Set when invitee has accepted and linked their identity.
+  inviteeId   String?           @map("invitee_id") @db.Uuid
   channel     InvitationChannel
-  /// Email or phone the invitation was sent to.
-  recipient   String           @db.VarChar(320)
-  status      InvitationStatus @default(PENDING)
-  expiresAt   DateTime         @map("expires_at") @db.Timestamptz(6)
-  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Email or phone the invitation was sent to; null for LINK/CODE channels.
+  recipient   String?           @db.VarChar(320)
+  /// SHA-256 hex of the 32-byte opaque invite token. Never the raw token.
+  tokenHash   String?           @unique @map("token_hash") @db.VarChar(64)
+  status      InvitationStatus  @default(PENDING)
+  expiresAt   DateTime          @map("expires_at") @db.Timestamptz(6)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   household Household @relation(fields: [householdId], references: [id])
   inviter   Identity  @relation("inviter", fields: [inviterId], references: [id])
@@ -162,6 +172,8 @@ model Invitation {
 }
 
 enum InvitationChannel {
+  LINK
+  CODE
   EMAIL
   SMS
 
@@ -210,6 +222,44 @@ enum ConsentScopeType {
   HOUSEHOLD
 
   @@map("consent_scope_type")
+}
+
+// ---------------------------------------------------------------------------
+// OTP_CHALLENGE
+//
+// Single-use challenge created for each OTP send request.
+// Stores a salted hash of the code — never plaintext.
+// Rate-limit state (send_count, last_sent_at) lives here to avoid a
+// separate counters table while keeping all challenge state co-located.
+//
+// No FK to Identity: challenges are created before an identity may exist
+// (i.e. during the registration flow). The identifier is matched to an
+// identity only after successful verification.
+//
+// Not RLS-protected: challenges are looked up by the OTP service using a
+// service role connection, never exposed directly to a user-context query.
+// ---------------------------------------------------------------------------
+model OtpChallenge {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Email or E.164 phone number the OTP was sent to. Never stored as PII in log events.
+  identifier   String    @db.VarChar(320)
+  /// hex-encoded SHA-256(code || salt). OTP plaintext is never persisted.
+  codeHash     String    @map("code_hash") @db.Char(64)
+  /// hex-encoded 16-byte random salt — separate from codeHash to allow safe comparison.
+  salt         String    @db.Char(32)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  /// Total sends so far (1 = initial, 2 = first resend, …). Capped at 6 before reject.
+  sendCount    Int       @default(1) @map("send_count")
+  lastSentAt   DateTime  @default(now()) @map("last_sent_at") @db.Timestamptz(6)
+  /// Wrong-attempt counter. Locked when >= 5.
+  attemptCount Int       @default(0) @map("attempt_count")
+  lockedUntil  DateTime? @map("locked_until") @db.Timestamptz(6)
+  verifiedAt   DateTime? @map("verified_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([identifier])
+  @@index([createdAt])
+  @@map("otp_challenge")
 }
 
 // ---------------------------------------------------------------------------

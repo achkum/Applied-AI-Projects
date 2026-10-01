@@ -1,0 +1,74 @@
+/* Orbit ring rotation — the entire SVG rotates so each body slowly sweeps its ring. */
+.orbit {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.rotatingGroup {
+  transform-origin: 240px 240px; /* SIZE/2, SIZE/2 */
+  animation: orbit-rotate 240s linear infinite;
+}
+
+/* Counter-rotate each label so text stays upright while the ring turns. */
+.bodyLabel {
+  animation: orbit-counter-rotate 240s linear infinite;
+}
+
+@keyframes orbit-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes orbit-counter-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+
+/* Honour prefers-reduced-motion — freeze all rotation. */
+@media (prefers-reduced-motion: reduce) {
+  .rotatingGroup,
+  .bodyLabel {
+    animation: none;
+  }
+}
+
+/* Ring track lines */
+.ringTrack {
+  fill: none;
+  stroke: var(--color-orbit-track, rgba(255, 255, 255, 0.08));
+  stroke-width: 1;
+}
+
+/* Centre "Me" indicator */
+.centreBody {
+  fill: var(--color-orbit-centre, #1a1a2e);
+  stroke: var(--color-orbit-centre-ring, rgba(255, 255, 255, 0.35));
+  stroke-width: 1.5;
+}
+
+/* Subscription bodies — colour set via inline CSS var */
+.subscriptionBody {
+  fill: var(--body-color, #555);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.subscriptionBody:hover,
+.subscriptionBody:focus-visible {
+  opacity: 0.75;
+  outline: none;
+}
+
+/* Accessible fallback list — visually hidden unless JS fails or a11y tree is queried */
+.a11yList {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
