@@ -30,6 +30,34 @@ paths:
                 $ref: '#/components/schemas/ReadinessResponse'
         default:
           $ref: '#/components/responses/Problem'
+  /v1/auth/bankid/verify:
+    post:
+      operationId: verifyBankId
+      summary: Verify a BankID completion token
+      description: >
+        Verifies a BankID (or simulator) token and registers or logs in the
+        resulting identity. In development the token is one of the fixed demo
+        identities: alice, bob, carol.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyBankIdBody'
+      responses:
+        '200':
+          description: Identity verified — registered or logged in.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyBankIdResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /v1/auth/otp/request:
     post:
       operationId: requestOtp
@@ -124,6 +152,29 @@ components:
         version:
           type: string
           description: Current API semantic version.
+    VerifyBankIdBody:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: >
+            BankID completion token (RP API) or simulator demo ID
+            (alice | bob | carol) in development.
+
+    VerifyBankIdResponse:
+      type: object
+      additionalProperties: false
+      required: [action, identityId]
+      properties:
+        action:
+          type: string
+          enum: [registered, logged_in]
+        identityId:
+          type: string
+          format: uuid
+
     RequestOtpBody:
       type: object
       additionalProperties: false
