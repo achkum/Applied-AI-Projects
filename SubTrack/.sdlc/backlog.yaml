@@ -30,7 +30,9 @@ items:
   - {id: ST-027, title: "Mobile: Orbit with react-native-skia + reduced-motion fallback", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-023", "ST-038"]}
   - {id: ST-039, title: "Maestro/device E2E + screen-reader backfill for D1 signature components", owner: "qa-engineer", size: "M", status: BACKLOG, deps: ["ST-024", "ST-025", "ST-026", "ST-027"]}
   - {id: ST-056, title: "packages/money: shared money formatter (extract from D1 component duplication)", owner: "architect-platform", size: "S", status: BACKLOG, deps: []}
-  - {id: ST-028, title: "Hero screens (Welcome, Home, Subscription detail) with mocked data, light/dark, sv/en → G-DESIGN", owner: "design-lead + dev-web", size: "L", status: BACKLOG, deps: ["ST-024", "ST-025"]}
+  - {id: ST-028, title: "Hero screens (Welcome, Home, Subscription detail) — parent, needs_split=true", owner: "conductor", size: "L", status: BACKLOG, deps: ["ST-024", "ST-025"], note: "Split by ST-015 into ST-057+ST-058; do not dispatch directly"}
+  - {id: ST-057, title: "Hero screens: design compositions (Storybook stories, G-DESIGN gate)", owner: "design-lead", size: "M", status: BACKLOG, deps: ["ST-023", "ST-024", "ST-025", "ST-022"]}
+  - {id: ST-058, title: "Hero screens: web page implementation (Welcome, Home, Subscription detail)", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-057", "ST-024", "ST-025"]}
   - {id: ST-029, title: "App icon, splash, store feature graphic concepts", owner: "design-lead", size: "M", status: BACKLOG, deps: ["ST-020"]}
   - {id: ST-040, title: "Prisma schema: identity, household, invitation, consent, audit_log + RLS policies migration", owner: "architect-platform", size: "L", status: BLOCKED, deps: ["ST-007"]}
   - {id: ST-041, title: "OTP service (email via SMTP/Mailpit, SMS via DevInbox adapter), rate limits, lockout", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-040"]}
@@ -42,7 +44,7 @@ items:
   - {id: ST-047, title: "Invitations: link/code/email/SMS, expiry, revoke, preview, accept/decline (idempotent), notifications to admin", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-042", "ST-046"]}
   - {id: ST-048, title: "Visibility policy (`packages/domain/policy`) + property tests + RLS parity test", owner: "architect-platform", size: "L", status: BACKLOG, deps: ["ST-040"]}
   - {id: ST-049, title: "Privacy: open_book toggle, always_private, \"preview as household\" endpoint, audit events", owner: "dev-backend", size: "M", status: BACKLOG, deps: ["ST-048"]}
-  - {id: ST-050, title: "Web flows UF-01..UF-02", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-044", "ST-028"]}
+  - {id: ST-050, title: "Web flows UF-01..UF-02", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-044", "ST-058"]}
   - {id: ST-051, title: "Mobile flows UF-01..UF-02", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-044", "ST-026"]}
   - {id: ST-052, title: "E2E: Playwright UF-01..04; Maestro UF-01..04", owner: "qa-engineer", size: "L", status: BACKLOG, deps: ["ST-050", "ST-051", "ST-054", "ST-055"]}
   - {id: ST-053, title: "Data rights: export job (JSON/CSV zip), account delete with BankID reauth", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-044", "ST-046", "ST-047", "ST-048"]}
