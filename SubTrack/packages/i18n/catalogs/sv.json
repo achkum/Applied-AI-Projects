@@ -14,20 +14,18 @@
     "personal": "Jag",
     "shared": "Delat"
   },
-  "rollingTotal": {
-    "monthly": "Månadsvis",
-    "annual": "Årsvis",
-    "loading": "Laddar…",
-    "unavailable": "Otillgänglig"
-  },
-  "scopeSwitcher": {
-    "me": "Jag",
-    "household": "Hushåll",
-    "selected": "{name} vald"
-  },
-  "receiptCard": {
-    "priceHistory": "Prishistorik",
-    "perMonth": "per månad",
-    "perYear": "per år"
+  "orbit": {
+    "ariaLabel": "Prenumerationsorbit",
+    "centreMeLabel": "Jag",
+    "ownerType": {
+      "ME": "Mina",
+      "HOUSEHOLD": "Hushåll",
+      "MEMBER": "Medlem"
+    },
+    "billingCadence": {
+      "MONTHLY": "Månadsvis",
+      "ANNUAL": "Årsvis"
+    },
+    "bodyAriaLabel": "{{name}}, {{ownerType}}, {{cadence}}"
   }
 }

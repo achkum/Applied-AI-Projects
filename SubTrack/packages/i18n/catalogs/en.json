@@ -14,20 +14,18 @@
     "personal": "Me",
     "shared": "Shared"
   },
-  "rollingTotal": {
-    "monthly": "Monthly",
-    "annual": "Annual",
-    "loading": "Loading…",
-    "unavailable": "Unavailable"
-  },
-  "scopeSwitcher": {
-    "me": "Me",
-    "household": "Household",
-    "selected": "{name} selected"
-  },
-  "receiptCard": {
-    "priceHistory": "Price history",
-    "perMonth": "per month",
-    "perYear": "per year"
+  "orbit": {
+    "ariaLabel": "Subscription orbit",
+    "centreMeLabel": "Me",
+    "ownerType": {
+      "ME": "Mine",
+      "HOUSEHOLD": "Household",
+      "MEMBER": "Member"
+    },
+    "billingCadence": {
+      "MONTHLY": "Monthly",
+      "ANNUAL": "Annual"
+    },
+    "bodyAriaLabel": "{{name}}, {{ownerType}}, {{cadence}}"
   }
 }

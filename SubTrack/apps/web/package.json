@@ -21,7 +21,11 @@
     "next": "16.3.6",
     "next-intl": "4.14.7",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "@subtrack/contracts": "workspace:*",
+    "@subtrack/i18n": "workspace:*",
+    "@subtrack/ui": "workspace:*",
+    "@subtrack/ui-tokens": "workspace:*"
   },
   "devDependencies": {
     "@subtrack/config": "workspace:*",
