@@ -31,7 +31,7 @@ export function RollingNumber({
   const prefersReducedMotion = useReducedMotion();
   const formatted = formatMoney(amountMinor, currency, locale);
 
-  const spring = prefersReducedMotion
+  const spring: import('framer-motion').Transition = prefersReducedMotion
     ? { type: 'tween', duration: 0 }
     : { type: 'spring', damping: 18, stiffness: 180 };
 
@@ -52,9 +52,9 @@ export function RollingNumber({
         <AnimatePresence mode="wait" initial={false}>
           <motion.span
             key={displayText}
-            initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+            initial={prefersReducedMotion ? undefined : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={prefersReducedMotion ? false : { opacity: 0, y: -12 }}
+            exit={prefersReducedMotion ? undefined : { opacity: 0, y: -12 }}
             transition={spring}
             className={styles.value}
           >

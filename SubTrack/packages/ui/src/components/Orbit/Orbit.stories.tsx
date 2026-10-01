@@ -44,7 +44,7 @@ export const WithActiveBody: Story = {
 
 export const SingleSubscription: Story = {
   args: {
-    subscriptions: [SAMPLE_SUBS[0]],
+    subscriptions: SAMPLE_SUBS.slice(0, 1),
     ariaLabel: 'Single subscription',
   },
 };
