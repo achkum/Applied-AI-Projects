@@ -115,8 +115,39 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # ST-017: Token contrast check (ST-020 script). Guard lets CI pass before
+      # ST-020 tokens land; once the script exists it is a hard gate (exit 1 on failure).
+      # Docs: packages/ui-tokens/scripts/check-contrast.mjs (WCAG AA, OKLCH pairs)
+      - name: Token contrast check (ST-020)
+        shell: bash
+        run: |
+          if [[ -f packages/ui-tokens/scripts/check-contrast.mjs ]]; then
+            node packages/ui-tokens/scripts/check-contrast.mjs
+          else
+            echo 'contrast checker not present; will run when ST-020 tokens are built'
+          fi
+
       - name: Tests
         run: pnpm test
+
+      # ST-017: Storybook visual regression (ST-022). Builds static Storybook, serves it,
+      # then runs @storybook/test-runner (Playwright + jest-image-snapshot, 1 % threshold).
+      # Baseline snapshots live in packages/ui/.storybook/__snapshots__; first run creates
+      # them (non-failing). Reference: https://storybook.js.org/docs/writing-tests/test-runner
+      # (accessed 2026-10-01).
+      - name: Install Playwright browsers (Storybook visual regression)
+        shell: bash
+        run: pnpm --filter @subtrack/ui exec playwright install chromium --with-deps
+
+      - name: Visual regression — Storybook (ST-022)
+        shell: bash
+        run: |
+          pnpm --filter @subtrack/ui run storybook:build --quiet
+          npx http-server packages/ui/storybook-static --port 6006 --silent &
+          SERVER_PID=$!
+          npx wait-on tcp:6006 --timeout 60000
+          pnpm --filter @subtrack/ui run storybook:test
+          kill "$SERVER_PID" || true
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
