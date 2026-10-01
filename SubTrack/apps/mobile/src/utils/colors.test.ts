@@ -20,7 +20,7 @@ const mockTheme: Theme = {
   radius: { card: 20, sheet: 28, pill: 9999 },
   motion: {},
   contrastPairs: [],
-  memberAccent: {},
+  memberAccent: { slots: {} },
   categoryHue: {},
 };
 

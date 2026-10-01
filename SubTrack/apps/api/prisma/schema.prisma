@@ -114,6 +114,8 @@ model HouseholdMember {
 enum MemberRole {
   ADMIN
   MEMBER
+  /// Dependant: added by admin without a login Identity. No account credentials.
+  DEPENDANT
 
   @@map("member_role")
 }
