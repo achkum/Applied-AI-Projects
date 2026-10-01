@@ -7,19 +7,19 @@ Selects personal, household, or member scope and communicates the active scope a
 Segmented pill; Me segment; Household segment; member avatar segments; accessible selected state.
 
 ## States
-Me active (aurora.violet); Household active (aurora.green); member active (use the member-specific accent token supplied by the UI-token task; until available, do not invent or substitute a tint); focus; disabled/loading only if host provides that state.
+Me active (aurora.violet); Household active (aurora.green); member active — resolved via `memberAccentForId(opaqueMemberId)` from `@subtrack/ui-tokens/member-accent`, returns one of `member.accent.01`–`member.accent.08`; focus; disabled/loading only if host provides that state.
 
 ## Themes
-Resolve named semantic roles against both `light` and `dark` themes; never hard-code color values. Verify text/foreground combinations against the declared contrast pairs.
+Resolve named semantic roles against both `light` and `dark` themes; never hard-code color values. Verify text/foreground combinations against the declared contrast pairs. All `member.accent.NN` tokens are validated at ≥ 3:1 against both `bg.raised` and `bg.sunken` in light and dark themes (ST-030).
 
 ## Responsive behavior
 Horizontal scroll when segments do not fit; preserve selected segment visibility and accessible names; do not collapse member choices silently.
 
 ## Token references
-bg.raised, bg.sunken, ink.primary, ink.secondary, line.hairline, aurora.violet (Me), aurora.green (Household); member-specific accent token (pending separate UI-token task; see resolved QUESTION/v1); radius.pill.
+bg.raised, bg.sunken, ink.primary, ink.secondary, line.hairline, aurora.violet (Me), aurora.green (Household); member identity accent tokens `member.accent.01`–`member.accent.08` (resolved by ST-030) via `memberAccentForId(opaqueMemberId)`; radius.pill. Pass the stable opaque member UUID — do not pass display names, email, or other PII.
 
 ## Interaction
-Selecting a segment changes the screen scope/accent; state is conveyed by selected semantics in addition to color. Each member uses its assigned member-specific accent token when available; until then, selection uses non-color selected semantics without a fabricated member tint.
+Selecting a segment changes the screen scope/accent; state is conveyed by selected semantics in addition to color. Each member's accent is resolved by calling `memberAccentForId(member.id)` where `member.id` is the stable opaque UUID — the same ID always maps to the same accent across renders and themes. Selected state uses a visible 2 px ring/checkmark and `accessibilityState: { selected: true }` in addition to the accent color, so the distinction is never color-only.
 
 ## Accessibility and reduced motion
 Keyboard-operable segmented control; name each member; selected state exposed; avatar has text label; no color-only distinction. Reduced motion uses immediate accent update.
