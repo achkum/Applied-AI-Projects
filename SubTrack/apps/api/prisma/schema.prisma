@@ -214,6 +214,44 @@ enum ConsentScopeType {
 }
 
 // ---------------------------------------------------------------------------
+// OTP_CHALLENGE
+//
+// Single-use challenge created for each OTP send request.
+// Stores a salted hash of the code — never plaintext.
+// Rate-limit state (send_count, last_sent_at) lives here to avoid a
+// separate counters table while keeping all challenge state co-located.
+//
+// No FK to Identity: challenges are created before an identity may exist
+// (i.e. during the registration flow). The identifier is matched to an
+// identity only after successful verification.
+//
+// Not RLS-protected: challenges are looked up by the OTP service using a
+// service role connection, never exposed directly to a user-context query.
+// ---------------------------------------------------------------------------
+model OtpChallenge {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Email or E.164 phone number the OTP was sent to. Never stored as PII in log events.
+  identifier   String    @db.VarChar(320)
+  /// hex-encoded SHA-256(code || salt). OTP plaintext is never persisted.
+  codeHash     String    @map("code_hash") @db.Char(64)
+  /// hex-encoded 16-byte random salt — separate from codeHash to allow safe comparison.
+  salt         String    @db.Char(32)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  /// Total sends so far (1 = initial, 2 = first resend, …). Capped at 6 before reject.
+  sendCount    Int       @default(1) @map("send_count")
+  lastSentAt   DateTime  @default(now()) @map("last_sent_at") @db.Timestamptz(6)
+  /// Wrong-attempt counter. Locked when >= 5.
+  attemptCount Int       @default(0) @map("attempt_count")
+  lockedUntil  DateTime? @map("locked_until") @db.Timestamptz(6)
+  verifiedAt   DateTime? @map("verified_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([identifier])
+  @@index([createdAt])
+  @@map("otp_challenge")
+}
+
+// ---------------------------------------------------------------------------
 // AUDIT_LOG
 //
 // Append-only audit trail for security-sensitive mutations.

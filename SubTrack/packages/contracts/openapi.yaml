@@ -30,6 +30,61 @@ paths:
                 $ref: '#/components/schemas/ReadinessResponse'
         default:
           $ref: '#/components/responses/Problem'
+  /v1/auth/otp/request:
+    post:
+      operationId: requestOtp
+      summary: Request a one-time password
+      description: >
+        Sends a six-digit OTP to the supplied email or E.164 phone number via
+        the configured delivery adapter (DevInbox in development).
+        Rate-limited: 30-second cooldown between sends, maximum 6 total sends
+        per identifier per hour.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestOtpBody'
+      responses:
+        '202':
+          description: OTP accepted for delivery.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/auth/otp/verify:
+    post:
+      operationId: verifyOtp
+      summary: Verify a one-time password
+      description: >
+        Verifies a previously issued OTP. The code is consumed on success and
+        cannot be reused. Locks the identifier for 15 minutes after 5 wrong
+        attempts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOtpBody'
+      responses:
+        '200':
+          description: OTP verified successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifiedResponse'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /v1/version:
     get:
       operationId: getVersion
@@ -69,6 +124,48 @@ components:
         version:
           type: string
           description: Current API semantic version.
+    RequestOtpBody:
+      type: object
+      additionalProperties: false
+      required: [identifier]
+      properties:
+        identifier:
+          type: string
+          description: Email address or E.164 phone number.
+          examples:
+            - user@example.com
+            - '+46701234567'
+
+    VerifyOtpBody:
+      type: object
+      additionalProperties: false
+      required: [identifier, code]
+      properties:
+        identifier:
+          type: string
+        code:
+          type: string
+          pattern: '^\d{6}$'
+          description: Six-digit OTP sent to the identifier.
+
+    AcceptedResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: accepted
+
+    VerifiedResponse:
+      type: object
+      additionalProperties: false
+      required: [verified]
+      properties:
+        verified:
+          type: boolean
+          const: true
+
     Problem:
       type: object
       description: RFC 9457 problem details.
