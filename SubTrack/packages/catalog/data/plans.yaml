@@ -1,0 +1,1164 @@
+# Catalogue plan seed data — ~124 plans for the 62 merchants in merchants.yaml.
+#
+# Fields:
+#   merchant_key  — matches CatalogMerchant.key (referenced at seed time → UUID FK).
+#   name          — plan display name (≤ 120 chars).
+#   period        — MONTHLY | ANNUAL | QUARTERLY | WEEKLY | IRREGULAR.
+#   amount_minor  — amount in SEK öre; null = price varies / enterprise pricing.
+#   currency      — ISO 4217 (default SEK).
+#   region        — SE (Sweden), EU, GLOBAL. Default GLOBAL.
+#   active        — boolean. Default true.
+#
+# All amounts are approximate Swedish market retail prices (2025/2026).
+
+# ─── Netflix ─────────────────────────────────────────────────────────────────
+- merchant_key: netflix
+  name: Standard with Ads
+  period: MONTHLY
+  amount_minor: 7900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: netflix
+  name: Standard
+  period: MONTHLY
+  amount_minor: 17900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: netflix
+  name: Premium 4K
+  period: MONTHLY
+  amount_minor: 24900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Disney+ ─────────────────────────────────────────────────────────────────
+- merchant_key: disney-plus
+  name: Standard
+  period: MONTHLY
+  amount_minor: 12900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: disney-plus
+  name: Premium
+  period: MONTHLY
+  amount_minor: 17900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Max ─────────────────────────────────────────────────────────────────────
+- merchant_key: max
+  name: Ad-Supported
+  period: MONTHLY
+  amount_minor: 7900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: max
+  name: Ad-Free
+  period: MONTHLY
+  amount_minor: 11900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── YouTube Premium ─────────────────────────────────────────────────────────
+- merchant_key: youtube-premium
+  name: Individual
+  period: MONTHLY
+  amount_minor: 12900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: youtube-premium
+  name: Family
+  period: MONTHLY
+  amount_minor: 19900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Viaplay ─────────────────────────────────────────────────────────────────
+- merchant_key: viaplay
+  name: Base
+  period: MONTHLY
+  amount_minor: 11900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: viaplay
+  name: Total
+  period: MONTHLY
+  amount_minor: 19900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: viaplay
+  name: Total + Sport
+  period: MONTHLY
+  amount_minor: 29900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── C More ──────────────────────────────────────────────────────────────────
+- merchant_key: c-more
+  name: Start
+  period: MONTHLY
+  amount_minor: 9900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: c-more
+  name: Sport
+  period: MONTHLY
+  amount_minor: 24900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Apple TV+ ───────────────────────────────────────────────────────────────
+- merchant_key: apple-tv-plus
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 9900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: apple-tv-plus
+  name: Annual
+  period: ANNUAL
+  amount_minor: 99900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Paramount+ ──────────────────────────────────────────────────────────────
+- merchant_key: paramount-plus
+  name: Essential
+  period: MONTHLY
+  amount_minor: 7900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: paramount-plus
+  name: Premium
+  period: MONTHLY
+  amount_minor: 11900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Discovery+ ──────────────────────────────────────────────────────────────
+- merchant_key: discovery-plus
+  name: Standard
+  period: MONTHLY
+  amount_minor: 8900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: discovery-plus
+  name: Premium
+  period: MONTHLY
+  amount_minor: 12900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Crunchyroll ─────────────────────────────────────────────────────────────
+- merchant_key: crunchyroll
+  name: Fan
+  period: MONTHLY
+  amount_minor: 4900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: crunchyroll
+  name: Mega Fan
+  period: MONTHLY
+  amount_minor: 7900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Spotify ─────────────────────────────────────────────────────────────────
+- merchant_key: spotify
+  name: Individual
+  period: MONTHLY
+  amount_minor: 11900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: spotify
+  name: Duo
+  period: MONTHLY
+  amount_minor: 15900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: spotify
+  name: Family
+  period: MONTHLY
+  amount_minor: 19900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: spotify
+  name: Student
+  period: MONTHLY
+  amount_minor: 5900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Apple Music ─────────────────────────────────────────────────────────────
+- merchant_key: apple-music
+  name: Individual
+  period: MONTHLY
+  amount_minor: 10900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: apple-music
+  name: Family
+  period: MONTHLY
+  amount_minor: 17900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: apple-music
+  name: Student
+  period: MONTHLY
+  amount_minor: 5900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Tidal ───────────────────────────────────────────────────────────────────
+- merchant_key: tidal
+  name: Individual
+  period: MONTHLY
+  amount_minor: 10900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: tidal
+  name: Family
+  period: MONTHLY
+  amount_minor: 17900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Amazon Music ────────────────────────────────────────────────────────────
+- merchant_key: amazon-music
+  name: Unlimited Individual
+  period: MONTHLY
+  amount_minor: 12900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: amazon-music
+  name: Unlimited Family
+  period: MONTHLY
+  amount_minor: 17900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Deezer ──────────────────────────────────────────────────────────────────
+- merchant_key: deezer
+  name: Premium
+  period: MONTHLY
+  amount_minor: 10900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: deezer
+  name: Family
+  period: MONTHLY
+  amount_minor: 17900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── YouTube Music ───────────────────────────────────────────────────────────
+- merchant_key: youtube-music
+  name: Individual
+  period: MONTHLY
+  amount_minor: 9900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: youtube-music
+  name: Family
+  period: MONTHLY
+  amount_minor: 14900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Microsoft 365 ───────────────────────────────────────────────────────────
+- merchant_key: microsoft-365
+  name: Personal
+  period: ANNUAL
+  amount_minor: 74900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: microsoft-365
+  name: Family
+  period: ANNUAL
+  amount_minor: 99900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: microsoft-365
+  name: Business Basic (per user)
+  period: MONTHLY
+  amount_minor: 7900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Google Workspace ────────────────────────────────────────────────────────
+- merchant_key: google-workspace
+  name: Business Starter (per user)
+  period: MONTHLY
+  amount_minor: 13900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: google-workspace
+  name: Business Standard (per user)
+  period: MONTHLY
+  amount_minor: 24900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Adobe Creative Cloud ────────────────────────────────────────────────────
+- merchant_key: adobe-creative-cloud
+  name: All Apps Individual
+  period: MONTHLY
+  amount_minor: 69900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: adobe-creative-cloud
+  name: Photography Plan
+  period: MONTHLY
+  amount_minor: 29900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Notion ──────────────────────────────────────────────────────────────────
+- merchant_key: notion
+  name: Plus
+  period: MONTHLY
+  amount_minor: 12000
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: notion
+  name: Business (per user)
+  period: MONTHLY
+  amount_minor: 24000
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Slack ───────────────────────────────────────────────────────────────────
+- merchant_key: slack
+  name: Pro (per user)
+  period: MONTHLY
+  amount_minor: 34900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: slack
+  name: Business+ (per user)
+  period: MONTHLY
+  amount_minor: 59900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Figma ───────────────────────────────────────────────────────────────────
+- merchant_key: figma
+  name: Professional (per editor)
+  period: MONTHLY
+  amount_minor: 18000
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: figma
+  name: Organization (per editor)
+  period: MONTHLY
+  amount_minor: null
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── 1Password ───────────────────────────────────────────────────────────────
+- merchant_key: 1password
+  name: Individual
+  period: MONTHLY
+  amount_minor: 3900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: 1password
+  name: Families
+  period: MONTHLY
+  amount_minor: 6900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── JetBrains ───────────────────────────────────────────────────────────────
+- merchant_key: jetbrains
+  name: All Products Pack
+  period: MONTHLY
+  amount_minor: 59900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: jetbrains
+  name: IDE (single product)
+  period: MONTHLY
+  amount_minor: 19900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Canva Pro ───────────────────────────────────────────────────────────────
+- merchant_key: canva-pro
+  name: Pro Monthly
+  period: MONTHLY
+  amount_minor: 15900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: canva-pro
+  name: Pro Annual
+  period: ANNUAL
+  amount_minor: 119900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Miro ────────────────────────────────────────────────────────────────────
+- merchant_key: miro
+  name: Starter (per user)
+  period: MONTHLY
+  amount_minor: 12900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: miro
+  name: Business (per user)
+  period: MONTHLY
+  amount_minor: 26900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── iCloud ──────────────────────────────────────────────────────────────────
+- merchant_key: icloud
+  name: 50 GB
+  period: MONTHLY
+  amount_minor: 1100
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: icloud
+  name: 200 GB
+  period: MONTHLY
+  amount_minor: 3500
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: icloud
+  name: 2 TB
+  period: MONTHLY
+  amount_minor: 10900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Google One ──────────────────────────────────────────────────────────────
+- merchant_key: google-one
+  name: 100 GB
+  period: MONTHLY
+  amount_minor: 2900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: google-one
+  name: 200 GB
+  period: MONTHLY
+  amount_minor: 3900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: google-one
+  name: 2 TB
+  period: MONTHLY
+  amount_minor: 10900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Dropbox ─────────────────────────────────────────────────────────────────
+- merchant_key: dropbox
+  name: Plus
+  period: MONTHLY
+  amount_minor: 12900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: dropbox
+  name: Professional
+  period: MONTHLY
+  amount_minor: 19900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── pCloud ──────────────────────────────────────────────────────────────────
+- merchant_key: pcloud
+  name: 500 GB Annual
+  period: ANNUAL
+  amount_minor: 49900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: pcloud
+  name: 2 TB Annual
+  period: ANNUAL
+  amount_minor: 99900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Box ─────────────────────────────────────────────────────────────────────
+- merchant_key: box
+  name: Personal Pro
+  period: MONTHLY
+  amount_minor: 9900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: box
+  name: Business
+  period: MONTHLY
+  amount_minor: 19900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Storytel ────────────────────────────────────────────────────────────────
+- merchant_key: storytel
+  name: Standard
+  period: MONTHLY
+  amount_minor: 17900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: storytel
+  name: Full (2 books/month)
+  period: MONTHLY
+  amount_minor: 25900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Audible ─────────────────────────────────────────────────────────────────
+- merchant_key: audible
+  name: Membership (1 credit/month)
+  period: MONTHLY
+  amount_minor: 11900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: audible
+  name: Premium Plus (2 credits/month)
+  period: MONTHLY
+  amount_minor: 18900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Nextory ─────────────────────────────────────────────────────────────────
+- merchant_key: nextory
+  name: Standard
+  period: MONTHLY
+  amount_minor: 14900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: nextory
+  name: Family
+  period: MONTHLY
+  amount_minor: 22900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Readly ──────────────────────────────────────────────────────────────────
+- merchant_key: readly
+  name: Individual
+  period: MONTHLY
+  amount_minor: 9900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: readly
+  name: Family
+  period: MONTHLY
+  amount_minor: 14900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Xbox Game Pass ──────────────────────────────────────────────────────────
+- merchant_key: xbox-game-pass
+  name: PC Game Pass
+  period: MONTHLY
+  amount_minor: 8900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: xbox-game-pass
+  name: Game Pass Ultimate
+  period: MONTHLY
+  amount_minor: 14900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── PlayStation Plus ────────────────────────────────────────────────────────
+- merchant_key: playstation-plus
+  name: Essential
+  period: MONTHLY
+  amount_minor: 5900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: playstation-plus
+  name: Extra
+  period: MONTHLY
+  amount_minor: 9900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: playstation-plus
+  name: Premium
+  period: MONTHLY
+  amount_minor: 12900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Nintendo Switch Online ──────────────────────────────────────────────────
+- merchant_key: nintendo-switch-online
+  name: Individual (12 months)
+  period: ANNUAL
+  amount_minor: 34900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: nintendo-switch-online
+  name: Family (12 months)
+  period: ANNUAL
+  amount_minor: 69900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── EA Play ─────────────────────────────────────────────────────────────────
+- merchant_key: ea-play
+  name: EA Play Monthly
+  period: MONTHLY
+  amount_minor: 4900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: ea-play
+  name: EA Play Annual
+  period: ANNUAL
+  amount_minor: 29900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Apple Arcade ────────────────────────────────────────────────────────────
+- merchant_key: apple-arcade
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 5900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: apple-arcade
+  name: Annual
+  period: ANNUAL
+  amount_minor: 59900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Humble Bundle ───────────────────────────────────────────────────────────
+- merchant_key: humble-bundle
+  name: Humble Choice
+  period: MONTHLY
+  amount_minor: 12900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Headspace ───────────────────────────────────────────────────────────────
+- merchant_key: headspace
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 8900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: headspace
+  name: Annual
+  period: ANNUAL
+  amount_minor: 39900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Calm ────────────────────────────────────────────────────────────────────
+- merchant_key: calm
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 8900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: calm
+  name: Annual
+  period: ANNUAL
+  amount_minor: 44900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Noom ────────────────────────────────────────────────────────────────────
+- merchant_key: noom
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 44900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: noom
+  name: Quarterly
+  period: QUARTERLY
+  amount_minor: 99900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── MyFitnessPal Premium ────────────────────────────────────────────────────
+- merchant_key: myfitnesspal-premium
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 9900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: myfitnesspal-premium
+  name: Annual
+  period: ANNUAL
+  amount_minor: 69900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── BetterMe ────────────────────────────────────────────────────────────────
+- merchant_key: betterme
+  name: Annual
+  period: ANNUAL
+  amount_minor: 69900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: betterme
+  name: Quarterly
+  period: QUARTERLY
+  amount_minor: 29900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Duolingo Plus ───────────────────────────────────────────────────────────
+- merchant_key: duolingo-plus
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 8900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: duolingo-plus
+  name: Annual
+  period: ANNUAL
+  amount_minor: 59900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Coursera Plus ───────────────────────────────────────────────────────────
+- merchant_key: coursera-plus
+  name: Annual
+  period: ANNUAL
+  amount_minor: 499900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: coursera-plus
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 59900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── LinkedIn Learning ───────────────────────────────────────────────────────
+- merchant_key: linkedin-learning
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 39900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: linkedin-learning
+  name: Annual
+  period: ANNUAL
+  amount_minor: 299900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── MasterClass ─────────────────────────────────────────────────────────────
+- merchant_key: masterclass
+  name: Individual Annual
+  period: ANNUAL
+  amount_minor: 149900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: masterclass
+  name: Duo Annual
+  period: ANNUAL
+  amount_minor: 199900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Skillshare ──────────────────────────────────────────────────────────────
+- merchant_key: skillshare
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 15900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: skillshare
+  name: Annual
+  period: ANNUAL
+  amount_minor: 99900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Aftonbladet Plus ────────────────────────────────────────────────────────
+- merchant_key: aftonbladet-plus
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 6900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: aftonbladet-plus
+  name: Annual
+  period: ANNUAL
+  amount_minor: 49900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Dagens Nyheter ──────────────────────────────────────────────────────────
+- merchant_key: dagens-nyheter
+  name: Digital
+  period: MONTHLY
+  amount_minor: 24900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: dagens-nyheter
+  name: Digital Annual
+  period: ANNUAL
+  amount_minor: 199900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Svenska Dagbladet ───────────────────────────────────────────────────────
+- merchant_key: svenska-dagbladet
+  name: Digital
+  period: MONTHLY
+  amount_minor: 22900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: svenska-dagbladet
+  name: Digital Annual
+  period: ANNUAL
+  amount_minor: 179900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Expressen+ ──────────────────────────────────────────────────────────────
+- merchant_key: expressen-plus
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 7900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: expressen-plus
+  name: Annual
+  period: ANNUAL
+  amount_minor: 49900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── GitHub Copilot ──────────────────────────────────────────────────────────
+- merchant_key: github-copilot
+  name: Individual
+  period: MONTHLY
+  amount_minor: 11900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: github-copilot
+  name: Business (per user)
+  period: MONTHLY
+  amount_minor: 24900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── ChatGPT Plus ────────────────────────────────────────────────────────────
+- merchant_key: chatgpt-plus
+  name: Plus
+  period: MONTHLY
+  amount_minor: 21900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: chatgpt-plus
+  name: Pro
+  period: MONTHLY
+  amount_minor: 21900
+  currency: SEK
+  region: GLOBAL
+  active: false
+
+# ─── Claude Pro ──────────────────────────────────────────────────────────────
+- merchant_key: claude-pro
+  name: Pro
+  period: MONTHLY
+  amount_minor: 21900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: claude-pro
+  name: Max (5×)
+  period: MONTHLY
+  amount_minor: 109500
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Cursor ──────────────────────────────────────────────────────────────────
+- merchant_key: cursor-pro
+  name: Pro
+  period: MONTHLY
+  amount_minor: 21900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: cursor-pro
+  name: Business (per user)
+  period: MONTHLY
+  amount_minor: 39900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── NordVPN ─────────────────────────────────────────────────────────────────
+- merchant_key: nordvpn
+  name: Complete Monthly
+  period: MONTHLY
+  amount_minor: 17900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: nordvpn
+  name: Complete Annual
+  period: ANNUAL
+  amount_minor: 49900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── ExpressVPN ──────────────────────────────────────────────────────────────
+- merchant_key: expressvpn
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 16900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+- merchant_key: expressvpn
+  name: Annual
+  period: ANNUAL
+  amount_minor: 69900
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Mullvad VPN ─────────────────────────────────────────────────────────────
+- merchant_key: mullvad-vpn
+  name: Standard (per account)
+  period: MONTHLY
+  amount_minor: 5500
+  currency: SEK
+  region: GLOBAL
+  active: true
+
+# ─── Apple One ───────────────────────────────────────────────────────────────
+- merchant_key: apple-one
+  name: Individual
+  period: MONTHLY
+  amount_minor: 21900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: apple-one
+  name: Family
+  period: MONTHLY
+  amount_minor: 32900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: apple-one
+  name: Premier
+  period: MONTHLY
+  amount_minor: 44900
+  currency: SEK
+  region: SE
+  active: true
+
+# ─── Amazon Prime ────────────────────────────────────────────────────────────
+- merchant_key: amazon-prime
+  name: Monthly
+  period: MONTHLY
+  amount_minor: 7900
+  currency: SEK
+  region: SE
+  active: true
+
+- merchant_key: amazon-prime
+  name: Annual
+  period: ANNUAL
+  amount_minor: 79900
+  currency: SEK
+  region: SE
+  active: true
