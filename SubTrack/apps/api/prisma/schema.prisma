@@ -37,8 +37,7 @@ model Identity {
   receivedInvitations  Invitation[]      @relation("invitee")
   consents             Consent[]
   auditEntries         AuditLog[]
-  bankConnections      BankConnection[]
-  subscriptions        Subscription[]
+  sessions             Session[]
 
   @@map("identity")
 }
@@ -305,286 +304,37 @@ model AuditLog {
 }
 
 // ---------------------------------------------------------------------------
-// BANK CONNECTION
+// SESSION
 //
-// A user's connection to a bank via Tink, the synthetic provider, or a
-// test mock. One user may have multiple connections (different banks).
+// Tracks issued refresh credentials per device. Short-lived access tokens
+// are EdDSA JWTs (not stored); only the SHA-256 hash of the opaque refresh
+// token is stored (AC1).
 //
-// RLS scope: ALWAYS PRIVATE — only the owning identity may read/write.
+// Token rotation: on every refresh, the old session row is soft-revoked and a
+// new row is created with generation+1 in the same family. If a revoked token
+// is presented, the entire family is revoked (refresh-token family revocation,
+// AC2).
+//
+// RLS scope: user may read/update only their own session rows (AC4).
 //   USING (identity_id = current_setting('app.current_user_id')::uuid)
 // ---------------------------------------------------------------------------
-model BankConnection {
-  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  identityId   String               @map("identity_id") @db.Uuid
-  /// Data provider backing this connection.
-  provider     BankProvider
-  /// Provider-assigned connection identifier (e.g. Tink consentId).
-  providerId   String               @map("provider_id") @db.VarChar(255)
-  status       BankConnectionStatus @default(ACTIVE)
-  lastSyncedAt DateTime?            @map("last_synced_at") @db.Timestamptz(6)
-  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
-  /// Set when connection is disconnected; kept for audit trail.
-  revokedAt    DateTime?            @map("revoked_at") @db.Timestamptz(6)
+model Session {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identityId       String    @map("identity_id") @db.Uuid
+  /// Human-readable client label, e.g. "Chrome on macOS". Not verified.
+  deviceName       String    @map("device_name") @db.VarChar(120)
+  /// SHA-256 hex of the 32-byte random refresh token. Never the raw token.
+  refreshTokenHash String    @unique @map("refresh_token_hash") @db.VarChar(64)
+  /// All rotations of a token share a familyId; reuse of any revoked member revokes all.
+  familyId         String    @map("family_id") @db.Uuid
+  /// Incremented on every successful rotation.
+  generation       Int       @default(0)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastUsedAt       DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(6)
 
-  identity Identity      @relation(fields: [identityId], references: [id])
-  accounts BankAccount[]
-
-  @@unique([identityId, providerId])
-  @@map("bank_connection")
-}
-
-enum BankProvider {
-  TINK
-  SYNTHETIC
-  MOCK
-
-  @@map("bank_provider")
-}
-
-enum BankConnectionStatus {
-  ACTIVE
-  EXPIRED
-  REVOKED
-
-  @@map("bank_connection_status")
-}
-
-// ---------------------------------------------------------------------------
-// BANK ACCOUNT
-//
-// A bank account (checking, savings, credit) associated with a connection.
-// Full account numbers are stored encrypted at the application layer before
-// being written here; raw account numbers MUST NOT appear in plaintext.
-//
-// RLS scope: ALWAYS PRIVATE.
-//   USING (identity_id = current_setting('app.current_user_id')::uuid)
-// ---------------------------------------------------------------------------
-model BankAccount {
-  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  connectionId      String      @map("connection_id") @db.Uuid
-  identityId        String      @map("identity_id") @db.Uuid
-  /// Provider-assigned account identifier.
-  providerAccountId String      @map("provider_account_id") @db.VarChar(255)
-  accountType       AccountType @map("account_type")
-  /// Display name from the bank (e.g. "Privatkonto").
-  displayName       String      @map("display_name") @db.VarChar(120)
-  currency          String      @db.VarChar(3)
-  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  connection   BankConnection   @relation(fields: [connectionId], references: [id])
-  transactions RawTransaction[]
-
-  @@unique([connectionId, providerAccountId])
-  @@map("bank_account")
-}
-
-enum AccountType {
-  CHECKING
-  SAVINGS
-  CREDIT
-  OTHER
-
-  @@map("account_type")
-}
-
-// ---------------------------------------------------------------------------
-// RAW TRANSACTION
-//
-// A verbatim transaction record fetched from the bank.
-// This table holds PSD2 / Tink transaction payloads; never shared.
-//
-// RLS scope: ALWAYS PRIVATE.
-//   USING (
-//     account_id IN (
-//       SELECT id FROM bank_account
-//       WHERE identity_id = current_setting('app.current_user_id')::uuid
-//     )
-//   )
-// ---------------------------------------------------------------------------
-model RawTransaction {
-  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  accountId             String          @map("account_id") @db.Uuid
-  /// Provider-assigned transaction identifier; used for deduplication.
-  providerTransactionId String          @unique @map("provider_transaction_id") @db.VarChar(255)
-  /// Signed minor-unit amount (negative = debit, positive = credit).
-  amountMinor           BigInt          @map("amount_minor")
-  currency              String          @db.VarChar(3)
-  /// Date the transaction was booked (settled).
-  bookedAt              DateTime        @map("booked_at") @db.Timestamptz(6)
-  /// Date the value was effective (may differ from bookedAt for pending).
-  valueDate             DateTime?       @map("value_date") @db.Date
-  /// Raw descriptor from the bank statement.
-  description           String          @db.VarChar(500)
-  status                TransactionStatus @default(BOOKED)
-  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  account BankAccount          @relation(fields: [accountId], references: [id])
-  charges SubscriptionCharge[]
-
-  @@index([accountId, bookedAt])
-  @@map("raw_transaction")
-}
-
-enum TransactionStatus {
-  PENDING
-  BOOKED
-
-  @@map("transaction_status")
-}
-
-// ---------------------------------------------------------------------------
-// MERCHANT
-//
-// Normalised merchant/publisher database.
-// Public read — contains no personal data.
-// Written only by the data-pipeline and seeding jobs.
-//
-// RLS scope: SELECT open to all authenticated users; INSERT/UPDATE/DELETE
-//   restricted to service role.
-// ---------------------------------------------------------------------------
-model Merchant {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  /// Canonical display name (e.g. "Netflix").
-  canonicalName String   @unique @map("canonical_name") @db.VarChar(120)
-  /// JSON array of known descriptor aliases (e.g. ["NETFLIX*", "NETFLIX.COM"]).
-  aliases       Json     @default("[]")
-  website       String?  @db.VarChar(255)
-  /// OKLCH hue value (0–360) used to derive the category token for this merchant.
-  categoryHue   Float?   @map("category_hue")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  plans         CataloguePlan[]
-  subscriptions Subscription[]
-
-  @@map("merchant")
-}
-
-// ---------------------------------------------------------------------------
-// CATALOGUE PLAN
-//
-// A specific subscription plan/tier offered by a merchant.
-// Public read — no personal data.
-//
-// RLS scope: SELECT open to all; write restricted to service role.
-// ---------------------------------------------------------------------------
-model CataloguePlan {
-  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  merchantId  String          @map("merchant_id") @db.Uuid
-  /// Plan label (e.g. "Standard with ads", "Premium").
-  name        String          @db.VarChar(120)
-  period      BillingPeriod
-  /// Illustrative list price in minor units (öre / cents).
-  amountMinor BigInt?         @map("amount_minor")
-  currency    String          @db.VarChar(3)
-  /// ISO 3166-1 alpha-2 region or "GLOBAL".
-  region      String          @default("GLOBAL") @db.VarChar(10)
-  active      Boolean         @default(true)
-  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  merchant      Merchant       @relation(fields: [merchantId], references: [id])
-  subscriptions Subscription[]
-
-  @@map("catalogue_plan")
-}
-
-enum BillingPeriod {
-  WEEKLY
-  MONTHLY
-  QUARTERLY
-  ANNUAL
-  IRREGULAR
-
-  @@map("billing_period")
-}
-
-// ---------------------------------------------------------------------------
-// SUBSCRIPTION
-//
-// A detected or manually-added recurring payment belonging to one identity.
-//
-// RLS scope: follows the visibility policy (ST-048).
-//   USING (
-//     identity_id = current_setting('app.current_user_id')::uuid
-//     OR (
-//       always_private = false
-//       AND identity_id IN (
-//         SELECT om.identity_id FROM household_member om
-//         INNER JOIN household_member vm ON om.household_id = vm.household_id
-//         INNER JOIN consent c
-//           ON c.identity_id = om.identity_id
-//          AND c.scope_id = om.household_id AND c.open_book = true
-//         WHERE vm.identity_id = current_setting('app.current_user_id')::uuid
-//           AND om.left_at IS NULL AND vm.left_at IS NULL
-//       )
-//     )
-//   )
-// ---------------------------------------------------------------------------
-model Subscription {
-  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  identityId      String             @map("identity_id") @db.Uuid
-  merchantId      String?            @map("merchant_id") @db.Uuid
-  /// Optional matched catalogue plan.
-  planId          String?            @map("plan_id") @db.Uuid
-  /// User-facing display name (falls back to merchant.canonicalName).
-  displayName     String             @map("display_name") @db.VarChar(120)
-  /// Detected or confirmed recurring amount in minor units.
-  amountMinor     BigInt             @map("amount_minor")
-  currency        String             @db.VarChar(3)
-  period          BillingPeriod
-  /// Next predicted charge date.
-  nextChargeAt    DateTime?          @map("next_charge_at") @db.Date
-  /// Date the first transaction matching this subscription was seen.
-  firstSeenAt     DateTime           @map("first_seen_at") @db.Timestamptz(6)
-  /// Date of the most recent confirmed charge.
-  lastConfirmedAt DateTime?          @map("last_confirmed_at") @db.Timestamptz(6)
-  /// Per ASSUMPTIONS.md A3: overrides household open-book for this subscription.
-  alwaysPrivate   Boolean            @default(false) @map("always_private")
-  status          SubscriptionStatus @default(ACTIVE)
-  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  identity Identity        @relation(fields: [identityId], references: [id])
-  merchant Merchant?       @relation(fields: [merchantId], references: [id])
-  plan     CataloguePlan?  @relation(fields: [planId], references: [id])
-  charges  SubscriptionCharge[]
+  identity Identity @relation(fields: [identityId], references: [id])
 
   @@index([identityId])
-  @@index([merchantId])
-  @@map("subscription")
-}
-
-enum SubscriptionStatus {
-  ACTIVE
-  CANCELLED
-  PAUSED
-
-  @@map("subscription_status")
-}
-
-// ---------------------------------------------------------------------------
-// SUBSCRIPTION CHARGE
-//
-// An individual charge event linked to a subscription.
-// May or may not have a corresponding raw transaction (manual entries lack one).
-//
-// RLS scope: inherits from subscription — same USING clause.
-// ---------------------------------------------------------------------------
-model SubscriptionCharge {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  subscriptionId String   @map("subscription_id") @db.Uuid
-  /// Source raw transaction, if detected automatically.
-  rawTransactionId String? @map("raw_transaction_id") @db.Uuid
-  amountMinor    BigInt   @map("amount_minor")
-  currency       String   @db.VarChar(3)
-  chargedAt      DateTime @map("charged_at") @db.Date
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  subscription    Subscription    @relation(fields: [subscriptionId], references: [id])
-  rawTransaction  RawTransaction? @relation(fields: [rawTransactionId], references: [id])
-
-  @@index([subscriptionId, chargedAt])
-  @@map("subscription_charge")
+  @@map("session")
 }

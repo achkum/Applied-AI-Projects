@@ -225,6 +225,119 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /v1/auth/session:
+    post:
+      operationId: createSession
+      summary: Create a session after successful OTP or BankID auth
+      description: >
+        Issues an EdDSA JWT access token (15 min TTL) and an opaque refresh
+        credential. Only the SHA-256 hash of the refresh token is stored.
+        M1 placeholder: caller identity provided via X-Caller-Id header until
+        JWT middleware is wired (ST-044).
+      parameters:
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionBody'
+      responses:
+        '201':
+          description: Session created — returns token pair.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionTokenPair'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/auth/refresh:
+    post:
+      operationId: refreshSession
+      summary: Rotate a refresh token
+      description: >
+        Presents the current opaque refresh token, receives a new token pair.
+        The old token is immediately revoked.
+        Reuse of a revoked token triggers family-wide revocation (all rotations
+        of that credential are invalidated, forcing reauthentication).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshBody'
+      responses:
+        '200':
+          description: New token pair.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionTokenPair'
+        '401':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/auth/devices:
+    get:
+      operationId: listDevices
+      summary: List active sessions for the caller
+      description: >
+        Returns all non-revoked sessions for the authenticated user.
+        Only own devices are returned.
+      parameters:
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: List of active sessions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceInfo'
+        '401':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /v1/auth/devices/{id}:
+    delete:
+      operationId: revokeDevice
+      summary: Revoke a specific session
+      description: >
+        Revokes one device without affecting other active sessions.
+        Returns 204 whether or not the session was already revoked (idempotent).
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Caller-Id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Session revoked.
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /v1/version:
     get:
       operationId: getVersion
@@ -336,6 +449,60 @@ components:
         memberCount:
           type: integer
           description: Current active member count; only present when status = VALID.
+
+    CreateSessionBody:
+      type: object
+      additionalProperties: false
+      required: [identityId, deviceName]
+      properties:
+        identityId:
+          type: string
+          format: uuid
+        deviceName:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Human-readable device label, e.g. "Chrome on macOS".
+
+    RefreshBody:
+      type: object
+      additionalProperties: false
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: 64-character hex opaque refresh credential.
+
+    SessionTokenPair:
+      type: object
+      additionalProperties: false
+      required: [accessToken, refreshToken]
+      properties:
+        accessToken:
+          type: string
+          description: Short-lived EdDSA JWT (15-minute TTL).
+        refreshToken:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: Opaque 64-character hex refresh credential.
+
+    DeviceInfo:
+      type: object
+      additionalProperties: false
+      required: [id, deviceName, createdAt, lastUsedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        deviceName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
 
     Problem:
       type: object
