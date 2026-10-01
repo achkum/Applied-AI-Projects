@@ -1,0 +1,481 @@
+# Merchant catalogue seed data — ~62 Swedish-market subscription merchants.
+#
+# Fields:
+#   key           — stable slug (NOT in DB; DB uses UUID). Referenced by plans.yaml.
+#   canonical_name — unique display name (≤ 120 chars), stored in `merchant.canonical_name`.
+#   aliases       — JSONB array of known bank-statement descriptor variants.
+#   website       — canonical URL.
+#   category      — SCREAMING_SNAKE_CASE code from packages/ui-tokens/src/categories.json.
+#   category_hue  — OKLCH hue (0–360) for UI colour; null = inherit category default.
+
+# ─── VIDEO_STREAMING (10) ────────────────────────────────────────────────────
+
+- key: netflix
+  canonical_name: Netflix
+  aliases: [NETFLIX, "NETFLIX*", NETFLIX.COM, "NETFLIX SE", NETFLIXAB]
+  website: https://www.netflix.com
+  category: VIDEO_STREAMING
+  category_hue: 18
+
+- key: disney-plus
+  canonical_name: Disney+
+  aliases: [DISNEY+, "DISNEY PLUS", DISNEYPLUS.COM, "DISNEY DIGITAL", "DISNEY*PLUS"]
+  website: https://www.disneyplus.com
+  category: VIDEO_STREAMING
+  category_hue: 20
+
+- key: max
+  canonical_name: Max
+  aliases: ["MAX.COM", "HBO MAX", "MAX STREAMING", "WARNERMEDIA*MAX", "MAX*HBO"]
+  website: https://www.max.com
+  category: VIDEO_STREAMING
+  category_hue: 16
+
+- key: youtube-premium
+  canonical_name: YouTube Premium
+  aliases: ["GOOGLE YOUTUBE", "YOUTUBE PREMIUM", YOUTUBE.COM, "GOOGLE*YOUTUBE", "YOUTUBE*PREMIUM"]
+  website: https://www.youtube.com/premium
+  category: VIDEO_STREAMING
+  category_hue: 22
+
+- key: viaplay
+  canonical_name: Viaplay
+  aliases: [VIAPLAY, VIAPLAY.SE, "VIAPLAY AB", "VIAPLAY NORDIC", "VIAPLAY*"]
+  website: https://www.viaplay.com
+  category: VIDEO_STREAMING
+  category_hue: 24
+
+- key: c-more
+  canonical_name: C More
+  aliases: ["C MORE", CMORE.SE, "C MORE AB", "TV4 PLAY", "C MORE PLAY"]
+  website: https://www.cmore.se
+  category: VIDEO_STREAMING
+  category_hue: 14
+
+- key: apple-tv-plus
+  canonical_name: Apple TV+
+  aliases: ["APPLE.COM/BILL", "APPLE TV+", "APPLE TV PLUS", "APPLE*TV+"]
+  website: https://tv.apple.com
+  category: VIDEO_STREAMING
+  category_hue: 26
+
+- key: paramount-plus
+  canonical_name: Paramount+
+  aliases: ["PARAMOUNT+", "PARAMOUNT PLUS", PARAMOUNT.COM, "VIACOM*PARAMOUNT"]
+  website: https://www.paramountplus.com
+  category: VIDEO_STREAMING
+  category_hue: 12
+
+- key: discovery-plus
+  canonical_name: Discovery+
+  aliases: ["DISCOVERY+", "DISCOVERY PLUS", DISCOVERYPLUS.COM, "DISCOVERY DIGITAL"]
+  website: https://www.discoveryplus.com
+  category: VIDEO_STREAMING
+  category_hue: 28
+
+- key: crunchyroll
+  canonical_name: Crunchyroll
+  aliases: [CRUNCHYROLL, CRUNCHYROLL.COM, "CRUNCHYROLL ONLINE", "CRUNCHYROLL*"]
+  website: https://www.crunchyroll.com
+  category: VIDEO_STREAMING
+  category_hue: 30
+
+# ─── MUSIC_AUDIO (6) ─────────────────────────────────────────────────────────
+
+- key: spotify
+  canonical_name: Spotify
+  aliases: [SPOTIFY, "SPOTIFY AB", "SPOTIFY NORDIC", "SPOTIFY SWEDEN", "SPOTIFY*"]
+  website: https://www.spotify.com
+  category: MUSIC_AUDIO
+  category_hue: 140
+
+- key: apple-music
+  canonical_name: Apple Music
+  aliases: ["APPLE.COM/BILL", "APPLE MUSIC", "APPLE*MUSIC", "ITUNES*MUSIC"]
+  website: https://music.apple.com
+  category: MUSIC_AUDIO
+  category_hue: 138
+
+- key: tidal
+  canonical_name: Tidal
+  aliases: [TIDAL, TIDAL.COM, "TIDAL MUSIC", "TIDAL ONLINE", "TIDAL*"]
+  website: https://tidal.com
+  category: MUSIC_AUDIO
+  category_hue: 142
+
+- key: amazon-music
+  canonical_name: Amazon Music
+  aliases: ["AMAZON MUSIC", "AMAZON*MUSIC", "AMZN*MUSIC", "AMAZON DIGITAL"]
+  website: https://music.amazon.com
+  category: MUSIC_AUDIO
+  category_hue: 144
+
+- key: deezer
+  canonical_name: Deezer
+  aliases: [DEEZER, DEEZER.COM, "DEEZER PREMIUM", "DEEZER ONLINE"]
+  website: https://www.deezer.com
+  category: MUSIC_AUDIO
+  category_hue: 136
+
+- key: youtube-music
+  canonical_name: YouTube Music
+  aliases: ["GOOGLE*YT MUSIC", "YOUTUBE MUSIC", "YTMUSIC", "GOOGLE MUSIC"]
+  website: https://music.youtube.com
+  category: MUSIC_AUDIO
+  category_hue: 146
+
+# ─── SOFTWARE_PRODUCTIVITY (10) ──────────────────────────────────────────────
+
+- key: microsoft-365
+  canonical_name: Microsoft 365
+  aliases: ["MICROSOFT*365", "MICROSOFT 365", MICROSOFT.COM, "MSFT*OFFICE365", "MICROSOFT ONLINE"]
+  website: https://www.microsoft.com/microsoft-365
+  category: SOFTWARE_PRODUCTIVITY
+  category_hue: 55
+
+- key: google-workspace
+  canonical_name: Google Workspace
+  aliases: ["GOOGLE*GSUITE", "GOOGLE WORKSPACE", "GOOGLE.COM", "GOOGLE*APPS"]
+  website: https://workspace.google.com
+  category: SOFTWARE_PRODUCTIVITY
+  category_hue: 57
+
+- key: adobe-creative-cloud
+  canonical_name: Adobe Creative Cloud
+  aliases: ["ADOBE SYSTEMS", "ADOBE*CREATIVE", ADOBE.COM, "ADOBE CREATIVE CLOUD", "ADOBE*CC"]
+  website: https://www.adobe.com/creativecloud.html
+  category: SOFTWARE_PRODUCTIVITY
+  category_hue: 53
+
+- key: notion
+  canonical_name: Notion
+  aliases: [NOTION, NOTION.SO, "NOTION ONLINE", "NOTION*PLUS"]
+  website: https://www.notion.so
+  category: SOFTWARE_PRODUCTIVITY
+  category_hue: 59
+
+- key: slack
+  canonical_name: Slack
+  aliases: [SLACK, SLACK.COM, "SLACK TECHNOLOGIES", "SLACK*PRO", "SALESFORCE*SLACK"]
+  website: https://slack.com
+  category: SOFTWARE_PRODUCTIVITY
+  category_hue: 50
+
+- key: figma
+  canonical_name: Figma
+  aliases: [FIGMA, FIGMA.COM, "FIGMA ONLINE", "FIGMA*PRO", "FIGMA INC"]
+  website: https://www.figma.com
+  category: SOFTWARE_PRODUCTIVITY
+  category_hue: 61
+
+- key: 1password
+  canonical_name: 1Password
+  aliases: [1PASSWORD, 1PASSWORD.COM, "1PASSWORD ONLINE", "AGILEBITS*1PWD"]
+  website: https://1password.com
+  category: SOFTWARE_PRODUCTIVITY
+  category_hue: 52
+
+- key: jetbrains
+  canonical_name: JetBrains
+  aliases: [JETBRAINS, JETBRAINS.COM, "JETBRAINS S.R.O", "JETBRAINS ONLINE"]
+  website: https://www.jetbrains.com
+  category: SOFTWARE_PRODUCTIVITY
+  category_hue: 48
+
+- key: canva-pro
+  canonical_name: Canva Pro
+  aliases: [CANVA, CANVA.COM, "CANVA PRO", "CANVA ONLINE", "CANVA*PRO"]
+  website: https://www.canva.com/pro
+  category: SOFTWARE_PRODUCTIVITY
+  category_hue: 63
+
+- key: miro
+  canonical_name: Miro
+  aliases: [MIRO, MIRO.COM, "MIRO ONLINE", "REALTIMEBOARD", "MIRO*STARTER"]
+  website: https://miro.com
+  category: SOFTWARE_PRODUCTIVITY
+  category_hue: 46
+
+# ─── CLOUD_STORAGE (5) ───────────────────────────────────────────────────────
+
+- key: icloud
+  canonical_name: iCloud
+  aliases: ["APPLE.COM/BILL", ICLOUD, "APPLE ICLOUD", "APPLE*ICLOUD", "APPLE STORAGE"]
+  website: https://www.icloud.com
+  category: CLOUD_STORAGE
+  category_hue: 195
+
+- key: google-one
+  canonical_name: Google One
+  aliases: ["GOOGLE*ONE", "GOOGLE ONE", "GOOGLE STORAGE", "GOOGLE.COM", "GOOGLE*DRIVE"]
+  website: https://one.google.com
+  category: CLOUD_STORAGE
+  category_hue: 197
+
+- key: dropbox
+  canonical_name: Dropbox
+  aliases: [DROPBOX, DROPBOX.COM, "DROPBOX INC", "DROPBOX ONLINE", "DROPBOX PLUS"]
+  website: https://www.dropbox.com
+  category: CLOUD_STORAGE
+  category_hue: 193
+
+- key: pcloud
+  canonical_name: pCloud
+  aliases: [PCLOUD, PCLOUD.COM, "PCLOUD AG", "PCLOUD ONLINE"]
+  website: https://www.pcloud.com
+  category: CLOUD_STORAGE
+  category_hue: 199
+
+- key: box
+  canonical_name: Box
+  aliases: [BOX, BOX.COM, "BOX INC", "BOX ONLINE", "BOX*PRO"]
+  website: https://www.box.com
+  category: CLOUD_STORAGE
+  category_hue: 191
+
+# ─── AUDIOBOOKS_EBOOKS (4) ───────────────────────────────────────────────────
+
+- key: storytel
+  canonical_name: Storytel
+  aliases: [STORYTEL, "STORYTEL AB", STORYTEL.COM, "STORYTEL SWEDEN", "STORYTEL*"]
+  website: https://www.storytel.com
+  category: AUDIOBOOKS_EBOOKS
+  category_hue: 220
+
+- key: audible
+  canonical_name: Audible
+  aliases: [AUDIBLE, AUDIBLE.COM, "AMAZON*AUDIBLE", "AUDIBLE INC", "AMZN*AUDIBLE"]
+  website: https://www.audible.com
+  category: AUDIOBOOKS_EBOOKS
+  category_hue: 222
+
+- key: nextory
+  canonical_name: Nextory
+  aliases: [NEXTORY, NEXTORY.SE, "NEXTORY AB", "NEXTORY ONLINE"]
+  website: https://nextory.com
+  category: AUDIOBOOKS_EBOOKS
+  category_hue: 218
+
+- key: readly
+  canonical_name: Readly
+  aliases: [READLY, READLY.COM, "READLY AB", "READLY ONLINE"]
+  website: https://readly.com
+  category: AUDIOBOOKS_EBOOKS
+  category_hue: 224
+
+# ─── GAMING (6) ──────────────────────────────────────────────────────────────
+
+- key: xbox-game-pass
+  canonical_name: Xbox Game Pass
+  aliases: ["MICROSOFT*XBOX", "XBOX GAME PASS", "XBOX GAMEPASS", "MICROSOFT XBOX"]
+  website: https://www.xbox.com/xbox-game-pass
+  category: GAMING
+  category_hue: 280
+
+- key: playstation-plus
+  canonical_name: PlayStation Plus
+  aliases: ["PLAYSTATION*PLUS", "SONY*PSN", "PLAYSTATION PLUS", "PSN*PLUS", "SONY PLAYSTATION"]
+  website: https://www.playstation.com/ps-plus
+  category: GAMING
+  category_hue: 278
+
+- key: nintendo-switch-online
+  canonical_name: Nintendo Switch Online
+  aliases: ["NINTENDO*NSO", "NINTENDO SWITCH", "NINTENDO ONLINE", "NINTENDO.COM"]
+  website: https://www.nintendo.com/switch/online
+  category: GAMING
+  category_hue: 282
+
+- key: ea-play
+  canonical_name: EA Play
+  aliases: ["EA*PLAY", "ELECTRONIC ARTS", "EA PLAY", "ORIGIN*EA", "EA.COM"]
+  website: https://www.ea.com/ea-play
+  category: GAMING
+  category_hue: 276
+
+- key: apple-arcade
+  canonical_name: Apple Arcade
+  aliases: ["APPLE.COM/BILL", "APPLE ARCADE", "APPLE*ARCADE"]
+  website: https://www.apple.com/apple-arcade
+  category: GAMING
+  category_hue: 284
+
+- key: humble-bundle
+  canonical_name: Humble Bundle
+  aliases: ["HUMBLE BUNDLE", HUMBLEBUNDLE.COM, "HUMBLE*CHOICE", "HUMBLE ONLINE"]
+  website: https://www.humblebundle.com
+  category: GAMING
+  category_hue: 286
+
+# ─── FITNESS_WELLNESS (5) ────────────────────────────────────────────────────
+
+- key: headspace
+  canonical_name: Headspace
+  aliases: [HEADSPACE, HEADSPACE.COM, "HEADSPACE ONLINE", "HEADSPACE DIGITAL"]
+  website: https://www.headspace.com
+  category: FITNESS_WELLNESS
+  category_hue: 130
+
+- key: calm
+  canonical_name: Calm
+  aliases: [CALM, CALM.COM, "CALM DIGITAL", "CALM*PREMIUM"]
+  website: https://www.calm.com
+  category: FITNESS_WELLNESS
+  category_hue: 132
+
+- key: noom
+  canonical_name: Noom
+  aliases: [NOOM, NOOM.COM, "NOOM INC", "NOOM ONLINE"]
+  website: https://www.noom.com
+  category: FITNESS_WELLNESS
+  category_hue: 128
+
+- key: myfitnesspal-premium
+  canonical_name: MyFitnessPal Premium
+  aliases: ["MYFITNESSPAL", MYFITNESSPAL.COM, "MYFITNESSPAL PREMIUM", "MFP*PREMIUM"]
+  website: https://www.myfitnesspal.com
+  category: FITNESS_WELLNESS
+  category_hue: 134
+
+- key: betterme
+  canonical_name: BetterMe
+  aliases: [BETTERME, BETTERME.COM, "BETTERME ONLINE", "BETTERME DIGITAL"]
+  website: https://betterme.world
+  category: FITNESS_WELLNESS
+  category_hue: 126
+
+# ─── EDUCATION_KIDS (5) ──────────────────────────────────────────────────────
+
+- key: duolingo-plus
+  canonical_name: Duolingo Plus
+  aliases: [DUOLINGO, "DUOLINGO*PLUS", DUOLINGO.COM, "DUOLINGO DIGITAL"]
+  website: https://www.duolingo.com
+  category: EDUCATION_KIDS
+  category_hue: 85
+
+- key: coursera-plus
+  canonical_name: Coursera Plus
+  aliases: [COURSERA, "COURSERA*PLUS", COURSERA.ORG, "COURSERA ONLINE"]
+  website: https://www.coursera.org/courseraplus
+  category: EDUCATION_KIDS
+  category_hue: 87
+
+- key: linkedin-learning
+  canonical_name: LinkedIn Learning
+  aliases: ["LINKEDIN LEARNING", "LINKEDIN*LEARNING", "LINKEDIN.COM", "LYNDA.COM"]
+  website: https://www.linkedin.com/learning
+  category: EDUCATION_KIDS
+  category_hue: 83
+
+- key: masterclass
+  canonical_name: MasterClass
+  aliases: [MASTERCLASS, MASTERCLASS.COM, "MASTERCLASS ONLINE", "YANKA*MASTERCLASS"]
+  website: https://www.masterclass.com
+  category: EDUCATION_KIDS
+  category_hue: 89
+
+- key: skillshare
+  canonical_name: Skillshare
+  aliases: [SKILLSHARE, SKILLSHARE.COM, "SKILLSHARE ONLINE", "SKILLSHARE*PREMIUM"]
+  website: https://www.skillshare.com
+  category: EDUCATION_KIDS
+  category_hue: 91
+
+# ─── NEWS_MAGAZINES (4) ──────────────────────────────────────────────────────
+
+- key: aftonbladet-plus
+  canonical_name: Aftonbladet Plus
+  aliases: ["AFTONBLADET", AFTONBLADET.SE, "AFTONBLADET PLUS", "AFTONBLADET AB"]
+  website: https://www.aftonbladet.se
+  category: NEWS_MAGAZINES
+  category_hue: 250
+
+- key: dagens-nyheter
+  canonical_name: Dagens Nyheter
+  aliases: ["DAGENS NYHETER", DN.SE, "DN*DIGITAL", "DN PRENUMERATION", "DAGENS NYHETER AB"]
+  website: https://www.dn.se
+  category: NEWS_MAGAZINES
+  category_hue: 252
+
+- key: svenska-dagbladet
+  canonical_name: Svenska Dagbladet
+  aliases: ["SVENSKA DAGBLADET", SVD.SE, "SVD DIGITAL", "SVD PRENUMERATION", "SVD AB"]
+  website: https://www.svd.se
+  category: NEWS_MAGAZINES
+  category_hue: 248
+
+- key: expressen-plus
+  canonical_name: Expressen+
+  aliases: ["EXPRESSEN", "EXPRESSEN+", EXPRESSEN.SE, "EXPRESSEN AB"]
+  website: https://www.expressen.se
+  category: NEWS_MAGAZINES
+  category_hue: 246
+
+# ─── AI_TOOLS (4) ────────────────────────────────────────────────────────────
+
+- key: github-copilot
+  canonical_name: GitHub Copilot
+  aliases: [GITHUB, GITHUB.COM, "GITHUB COPILOT", "GITHUB*COPILOT", "MICROSOFT*GITHUB"]
+  website: https://github.com/features/copilot
+  category: AI_TOOLS
+  category_hue: 310
+
+- key: chatgpt-plus
+  canonical_name: ChatGPT Plus
+  aliases: ["OPENAI*CHATGPT", "OPENAI.COM", "CHATGPT PLUS", "OPENAI CHATGPT"]
+  website: https://chat.openai.com
+  category: AI_TOOLS
+  category_hue: 308
+
+- key: claude-pro
+  canonical_name: Claude Pro
+  aliases: ["ANTHROPIC*CLAUDE", "CLAUDE.AI", "ANTHROPIC CLAUDE", "ANTHROPIC*PRO"]
+  website: https://claude.ai
+  category: AI_TOOLS
+  category_hue: 312
+
+- key: cursor-pro
+  canonical_name: Cursor
+  aliases: ["CURSOR.SH", "CURSOR PRO", "ANYSPHERE*CURSOR", "CURSOR*PRO"]
+  website: https://cursor.sh
+  category: AI_TOOLS
+  category_hue: 314
+
+# ─── VPN_SECURITY (3) ────────────────────────────────────────────────────────
+
+- key: nordvpn
+  canonical_name: NordVPN
+  aliases: [NORDVPN, NORDVPN.COM, "NORD SECURITY", "NORDVPN ONLINE", "TEFINCOM*NORD"]
+  website: https://nordvpn.com
+  category: VPN_SECURITY
+  category_hue: 200
+
+- key: expressvpn
+  canonical_name: ExpressVPN
+  aliases: [EXPRESSVPN, EXPRESSVPN.COM, "EXPRESSTECH*VPN", "EXPRESS VPN"]
+  website: https://www.expressvpn.com
+  category: VPN_SECURITY
+  category_hue: 202
+
+- key: mullvad-vpn
+  canonical_name: Mullvad VPN
+  aliases: ["MULLVAD VPN", MULLVAD.NET, "MULLVAD AB", "AMAGICOM*MULLVAD"]
+  website: https://mullvad.net
+  category: VPN_SECURITY
+  category_hue: 198
+
+# ─── APP_STORE_BILLING (2) ───────────────────────────────────────────────────
+
+- key: apple-one
+  canonical_name: Apple One
+  aliases: ["APPLE.COM/BILL", "APPLE ONE", "APPLE ONE FAMILY", "APPLE*ONE"]
+  website: https://www.apple.com/apple-one
+  category: APP_STORE_BILLING
+  category_hue: 270
+
+- key: amazon-prime
+  canonical_name: Amazon Prime
+  aliases: ["AMAZON PRIME", "AMAZON*PRIME", "AMZN*PRIME", "AMAZON DIGITAL", "PRIME VIDEO*AMZN"]
+  website: https://www.amazon.se/prime
+  category: APP_STORE_BILLING
+  category_hue: 272

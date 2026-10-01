@@ -2,13 +2,25 @@
   "name": "@subtrack/catalog",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
   "scripts": {
-    "build": "node -e \"console.log('catalog: build is a scaffold no-op until implementation task adds code')\"",
-    "lint": "node -e \"console.log('catalog: lint is a scaffold no-op until implementation task adds code')\"",
-    "typecheck": "node -e \"console.log('catalog: typecheck is a scaffold no-op until implementation task adds code')\"",
-    "test": "node -e \"console.log('catalog: test is a scaffold no-op until implementation task adds code')\""
+    "build": "tsc --noEmit",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
   },
   "devDependencies": {
-    "@subtrack/config": "workspace:*"
+    "@subtrack/config": "workspace:*",
+    "@types/js-yaml": "^4.0.9",
+    "vitest": "^3.0.0"
   }
 }
