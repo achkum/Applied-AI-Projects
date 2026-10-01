@@ -3,12 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "node -e \"console.log('domain: build is a scaffold no-op until implementation task adds code')\"",
-    "lint": "node -e \"console.log('domain: lint is a scaffold no-op until implementation task adds code')\"",
-    "typecheck": "node -e \"console.log('domain: typecheck is a scaffold no-op until implementation task adds code')\"",
-    "test": "node -e \"console.log('domain: test is a scaffold no-op until implementation task adds code')\""
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint \"policy/**/*.ts\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "@subtrack/config": "workspace:*"
+    "@subtrack/config": "workspace:*",
+    "vitest": "4.1.11"
   }
 }

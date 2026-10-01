@@ -32,11 +32,13 @@ model Identity {
   deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   // Relations
-  householdMemberships HouseholdMember[]
-  sentInvitations      Invitation[]      @relation("inviter")
-  receivedInvitations  Invitation[]      @relation("invitee")
-  consents             Consent[]
-  auditEntries         AuditLog[]
+  householdMemberships  HouseholdMember[]
+  sentInvitations       Invitation[]        @relation("inviter")
+  receivedInvitations   Invitation[]        @relation("invitee")
+  consents              Consent[]
+  auditEntries          AuditLog[]
+  subscriptions         Subscription[]
+  sharedSubscriptions   SubscriptionShare[] @relation("sharer")
 
   @@map("identity")
 }
@@ -70,9 +72,10 @@ model Household {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  members     HouseholdMember[]
-  invitations Invitation[]
-  auditEntries AuditLog[]
+  members            HouseholdMember[]
+  invitations        Invitation[]
+  auditEntries       AuditLog[]
+  subscriptionShares SubscriptionShare[]
 
   @@map("household")
 }
@@ -250,4 +253,92 @@ model AuditLog {
   @@index([householdId])
   @@index([createdAt])
   @@map("audit_log")
+}
+
+// ---------------------------------------------------------------------------
+// SUBSCRIPTION
+//
+// One row per tracked recurring payment. Owned by the identity that pays.
+// always_private overrides the household open_book switch for this specific
+// subscription (ASSUMPTIONS.md A3).
+//
+// RLS scope (SELECT):
+//   owner OR active explicit share in member's household OR
+//   (owner has open_book consent in shared household AND NOT always_private)
+//
+// Full USING clause is in migration 0002 and mirrored by
+// packages/domain/policy/subscription-visibility.ts.
+// ---------------------------------------------------------------------------
+model Subscription {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identityId          String              @map("identity_id") @db.Uuid
+  merchantId          String?             @map("merchant_id") @db.Uuid
+  customName          String?             @map("custom_name") @db.VarChar(120)
+  /// Category code from the SubTrack taxonomy (CATEGORIES.md).
+  categoryCode        String              @map("category_code") @db.VarChar(50)
+  cadence             SubscriptionCadence
+  /// Expected charge amount in the smallest currency unit (e.g. öre for SEK).
+  expectedAmountMinor BigInt              @map("expected_amount_minor")
+  currency            String              @db.Char(3)
+  status              SubscriptionStatus  @default(DETECTED)
+  /// Per-subscription privacy override: blocks Rule 3 (open_book) regardless of household consent.
+  alwaysPrivate       Boolean             @default(false) @map("always_private")
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  identity Identity           @relation(fields: [identityId], references: [id])
+  shares   SubscriptionShare[]
+
+  @@index([identityId])
+  @@map("subscription")
+}
+
+enum SubscriptionCadence {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+  CUSTOM
+
+  @@map("subscription_cadence")
+}
+
+enum SubscriptionStatus {
+  DETECTED
+  TRIAL
+  ACTIVE
+  PAUSED
+  CANCELLED
+  ARCHIVED
+  REJECTED
+
+  @@map("subscription_status")
+}
+
+// ---------------------------------------------------------------------------
+// SUBSCRIPTION_SHARE
+//
+// Explicit share of a subscription into a household (Rule 2 of the visibility
+// model). revokedAt IS NULL means the share is active.
+//
+// RLS scope (SELECT): sharer, OR household members, OR subscription owner.
+// INSERT: subscription owner or household admin only.
+// UPDATE: sharer may update (for revocation).
+// ---------------------------------------------------------------------------
+model SubscriptionShare {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subscriptionId String    @map("subscription_id") @db.Uuid
+  householdId    String    @map("household_id") @db.Uuid
+  sharedBy       String    @map("shared_by") @db.Uuid
+  sharedAt       DateTime  @default(now()) @map("shared_at") @db.Timestamptz(6)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  household    Household    @relation(fields: [householdId], references: [id])
+  sharer       Identity     @relation("sharer", fields: [sharedBy], references: [id])
+
+  @@index([subscriptionId])
+  @@index([householdId])
+  @@map("subscription_share")
 }
