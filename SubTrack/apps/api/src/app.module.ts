@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { OpsController } from './ops/ops.controller';
 import { PrismaService } from './database/prisma.service';
-import { HouseholdsModule } from './households/households.module';
+import { PrivacyModule } from './privacy/privacy.module';
 
 @Module({
-  imports: [HouseholdsModule],
+  imports: [PrivacyModule],
   controllers: [OpsController],
   providers: [PrismaService],
   exports: [PrismaService],

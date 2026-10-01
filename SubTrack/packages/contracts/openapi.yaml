@@ -30,92 +30,59 @@ paths:
                 $ref: '#/components/schemas/ReadinessResponse'
         default:
           $ref: '#/components/responses/Problem'
-  /v1/households/{id}/invitations:
-    post:
-      operationId: createInvitation
-      summary: Create a household invitation (admin only, AC1)
-      description: >
-        Issues a new invitation token (7-day TTL; only the SHA-256 hash is stored).
-        LINK/CODE channels return the raw token in the response for the admin to share.
-        EMAIL/SMS channels queue delivery via the dev adapter (real delivery requires
-        D-09 founder approval). Caller must be an ADMIN member.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-        - in: header
-          name: X-Caller-Id
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateInvitationBody'
-      responses:
-        '201':
-          description: Invitation created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InvitationResponse'
-        '400':
-          $ref: '#/components/responses/Problem'
-        '403':
-          $ref: '#/components/responses/Problem'
-        default:
-          $ref: '#/components/responses/Problem'
+  /v1/privacy/settings:
     get:
-      operationId: listInvitations
-      summary: List household invitations (admin only)
+      operationId: getPrivacySettings
+      summary: List open_book consent settings for all households (AC1)
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
         - in: header
           name: X-Caller-Id
           required: true
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: All invitations for this household.
+          description: List of consent settings, one entry per household.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/InvitationResponse'
-        '403':
+                  $ref: '#/components/schemas/ConsentSetting'
+        '400':
           $ref: '#/components/responses/Problem'
         default:
           $ref: '#/components/responses/Problem'
 
-  /v1/households/{id}/invitations/{invitationId}:
-    delete:
-      operationId: revokeInvitation
-      summary: Revoke a pending invitation (admin only, AC1)
+  /v1/privacy/open-book:
+    patch:
+      operationId: setOpenBook
+      summary: Toggle open_book for a household scope (AC1, AC4)
       description: >
-        Idempotent — returns 204 whether or not the invitation was already revoked.
-        Caller must be an ADMIN of the household.
+        Sets the caller's open_book consent for the specified household.
+        Default is OFF. Only the caller themselves can change their own setting —
+        admins cannot alter other members' privacy (AC4).
+        Updates take effect within 5 seconds (cache TTL, AC1).
+        Writes a hash-chained audit event.
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-        - in: path
-          name: invitationId
-          required: true
-          schema: { type: string, format: uuid }
         - in: header
           name: X-Caller-Id
           required: true
           schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetOpenBookBody'
       responses:
-        '204':
-          description: Invitation revoked.
+        '200':
+          description: Updated consent setting.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentSetting'
+        '400':
+          $ref: '#/components/responses/Problem'
         '403':
           $ref: '#/components/responses/Problem'
         '404':
@@ -123,104 +90,36 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
-  /v1/invitations/preview:
+  /v1/privacy/preview-as/{householdId}:
     get:
-      operationId: previewInvitation
-      summary: Preview invitation metadata (unauthenticated, AC2)
+      operationId: previewAsHousehold
+      summary: Preview subscriptions as a household member (AC3)
       description: >
-        Returns household name, admin handle, and member count for a valid token.
-        Returns a status-only response for EXPIRED, REVOKED, USED, or NOT_FOUND tokens
-        — no household data is disclosed in those states.
+        Evaluates subscription visibility using the exact policy from ST-048.
+        Returns safe subscription summaries — no raw transactions, balances,
+        account numbers, or PII. Always-private subscriptions are hidden from
+        non-owners even when the owner has open_book=ON (AC2).
       parameters:
-        - in: query
-          name: token
+        - in: path
+          name: householdId
           required: true
-          schema: { type: string, pattern: '^[0-9a-f]{64}$' }
-      responses:
-        '200':
-          description: Preview result (always 200; status field indicates validity).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InvitationPreview'
-        '400':
-          $ref: '#/components/responses/Problem'
-        default:
-          $ref: '#/components/responses/Problem'
-
-  /v1/invitations/accept:
-    post:
-      operationId: acceptInvitation
-      summary: Accept a household invitation (AC3)
-      description: >
-        Presents the raw 64-hex token to accept.
-        Idempotent — calling again when already accepted returns the same result.
-        Creates a HouseholdMember row and queues an admin notification.
-      parameters:
+          schema: { type: string, format: uuid }
         - in: header
           name: X-Caller-Id
           required: true
           schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RespondInvitationBody'
       responses:
         '200':
-          description: Invitation accepted.
+          description: Visible subscription summaries.
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: false
-                required: [accepted]
-                properties:
-                  accepted: { type: boolean, const: true }
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionSummary'
         '400':
           $ref: '#/components/responses/Problem'
-        '404':
-          $ref: '#/components/responses/Problem'
-        '422':
-          $ref: '#/components/responses/Problem'
-        default:
-          $ref: '#/components/responses/Problem'
-
-  /v1/invitations/decline:
-    post:
-      operationId: declineInvitation
-      summary: Decline a household invitation (AC3)
-      description: >
-        Idempotent — calling again when already declined returns the same result.
-        Queues an admin notification.
-      parameters:
-        - in: header
-          name: X-Caller-Id
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RespondInvitationBody'
-      responses:
-        '200':
-          description: Invitation declined.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [declined]
-                properties:
-                  declined: { type: boolean, const: true }
-        '400':
-          $ref: '#/components/responses/Problem'
-        '404':
-          $ref: '#/components/responses/Problem'
-        '422':
+        '403':
           $ref: '#/components/responses/Problem'
         default:
           $ref: '#/components/responses/Problem'
@@ -377,78 +276,54 @@ components:
         version:
           type: string
           description: Current API semantic version.
-    CreateInvitationBody:
+    SetOpenBookBody:
       type: object
       additionalProperties: false
-      required: [channel]
+      required: [householdId, openBook]
       properties:
-        channel:
+        householdId:
           type: string
-          enum: [LINK, CODE, EMAIL, SMS]
-          description: >
-            LINK/CODE — token returned in response for admin to share; recipient not allowed.
-            EMAIL/SMS — token delivered via dev adapter; recipient required.
-        recipient:
-          type: string
-          minLength: 1
-          maxLength: 320
-          description: Email address or E.164 phone; required for EMAIL/SMS, absent for LINK/CODE.
+          format: uuid
+        openBook:
+          type: boolean
+          description: true = share subscriptions with household peers; false (default) = private.
 
-    RespondInvitationBody:
+    ConsentSetting:
       type: object
       additionalProperties: false
-      required: [token]
+      required: [householdId, openBook, updatedAt]
       properties:
-        token:
+        householdId:
           type: string
-          pattern: '^[0-9a-f]{64}$'
-          description: 64-character hex opaque invite token (raw, as received from create or delivery).
+          format: uuid
+        openBook:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
 
-    InvitationResponse:
+    SubscriptionSummary:
       type: object
       additionalProperties: false
-      required: [id, channel, status, expiresAt, createdAt]
+      required: [id, categoryCode, cadence, status]
       properties:
         id:
           type: string
           format: uuid
-        channel:
-          type: string
-          enum: [LINK, CODE, EMAIL, SMS]
-        recipient:
+        customName:
           type: string
           nullable: true
+        categoryCode:
+          type: string
+        cadence:
+          type: string
+          enum: [WEEKLY, MONTHLY, QUARTERLY, SEMIANNUAL, ANNUAL, CUSTOM]
         status:
           type: string
-          enum: [PENDING, ACCEPTED, DECLINED, REVOKED, EXPIRED]
-        expiresAt:
-          type: string
-          format: date-time
-        createdAt:
-          type: string
-          format: date-time
-        token:
-          type: string
-          pattern: '^[0-9a-f]{64}$'
-          description: Raw token — only present for LINK/CODE channels on create response.
-
-    InvitationPreview:
-      type: object
-      additionalProperties: false
-      required: [status]
-      properties:
-        status:
-          type: string
-          enum: [VALID, EXPIRED, REVOKED, USED, NOT_FOUND]
-        householdName:
-          type: string
-          description: Only present when status = VALID.
-        adminHandle:
-          type: string
-          description: Non-PII handle derived from inviter email prefix or phone suffix.
-        memberCount:
-          type: integer
-          description: Current active member count; only present when status = VALID.
+          enum: [DETECTED, TRIAL, ACTIVE, PAUSED, CANCELLED, ARCHIVED, REJECTED]
+        alwaysPrivate:
+          type: boolean
+          description: Only present for the subscription owner — never exposed to other members.
 
     CreateSessionBody:
       type: object

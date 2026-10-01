@@ -1,48 +1,30 @@
-export type MemberRole = 'ADMIN' | 'MEMBER';
-
-export interface HouseholdMembership {
-  identityId: string;
+/** An active (not revoked) explicit share of a subscription into a household. */
+export interface ActiveShare {
+  subscriptionId: string;
   householdId: string;
-  role: MemberRole;
-  /** null means the member is still active */
-  leftAt: Date | null;
 }
 
 /**
- * An explicit subscription share — owner delegates read access to a specific recipient.
- * Implemented in ST-102; included here so the policy can be future-proof.
+ * A single active household membership row (left_at IS NULL).
+ * openBook is derived from Consent(open_book=true, scope_type='HOUSEHOLD', scope_id=householdId).
  */
-export interface SubscriptionShare {
-  ownerId: string;
-  recipientId: string;
-  /** null means the share is still active */
-  revokedAt: Date | null;
-}
-
-/**
- * The per-member, per-household open-book preference (Consent table).
- * openBook=true means the member allows household peers to see their subscriptions.
- */
-export interface OpenBookConsent {
+export interface HouseholdMembership {
   identityId: string;
   householdId: string;
   openBook: boolean;
 }
 
-/**
- * All context the policy needs to decide whether a viewer may see a subscription.
- */
+/** All data required to evaluate subscription visibility without database I/O. */
 export interface SubscriptionVisibilityContext {
-  /** UUID of the subscription's owner */
+  subscriptionId: string;
+  /** identity_id of the subscription owner (payer). */
   ownerId: string;
-  /** Whether the owner marked this subscription always-private */
+  /** S.always_private flag — overrides open_book for this specific subscription. */
   alwaysPrivate: boolean;
-  /** Explicit shares the owner has granted (from ST-102) */
-  shares: SubscriptionShare[];
-  /** Active household memberships of the subscription owner */
-  ownerMemberships: HouseholdMembership[];
-  /** Active household memberships of the viewer */
-  viewerMemberships: HouseholdMembership[];
-  /** Open-book consent rows for the owner across their households */
-  ownerConsents: OpenBookConsent[];
+  /** Active rows from subscription_share (revoked_at IS NULL). */
+  activeShares: ActiveShare[];
+  /** Active rows from household_member (left_at IS NULL) with openBook resolved. */
+  activeMemberships: HouseholdMembership[];
 }
+
+export type VisibilityDecision = 'GRANTED' | 'DENIED';

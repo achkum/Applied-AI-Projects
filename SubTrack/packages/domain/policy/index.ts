@@ -1,13 +1,10 @@
-export {
-  canViewSubscription,
-  canViewBankingData,
-  canReadAuditLog,
-} from './visibility.js';
-
 export type {
-  MemberRole,
+  ActiveShare,
   HouseholdMembership,
-  SubscriptionShare,
-  OpenBookConsent,
   SubscriptionVisibilityContext,
+  VisibilityDecision,
 } from './types.js';
+
+export { evaluateSubscriptionVisibility } from './subscription-visibility.js';
+export type { DataCategory } from './data-category.js';
+export { isSharableCategory } from './data-category.js';
