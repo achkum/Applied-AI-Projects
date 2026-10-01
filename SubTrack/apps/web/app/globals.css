@@ -1,0 +1,8 @@
+/* Map next/font CSS variables (set on <html> by the font loader classes) into
+   the design-token names expected by packages/ui-tokens/tokens.css.
+   Loaded after tokens.css in layout.tsx so these declarations take precedence. */
+:root {
+  --font-display: var(--font-fraunces, 'Fraunces');
+  --font-ui:      var(--font-manrope, 'Manrope');
+  --font-mono:    var(--font-jetbrains-mono, 'JetBrains Mono');
+}

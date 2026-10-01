@@ -1,4 +1,6 @@
 import '@subtrack/ui-tokens/tokens.css';
+import './globals.css';
+import { fraunces, manrope, jetbrainsMono } from './fonts';
 import { ThemeProvider } from '@/lib/theme-provider';
 
 const themeScript = `
@@ -25,7 +27,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="sv" suppressHydrationWarning>
+    <html
+      lang="sv"
+      className={`${fraunces.variable} ${manrope.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{ __html: themeScript }}
