@@ -20,6 +20,7 @@
     "react-dom": "19.3.0",
     "@subtrack/contracts": "workspace:*",
     "@subtrack/i18n": "workspace:*",
+    "@subtrack/ui": "workspace:*",
     "@subtrack/ui-tokens": "workspace:*"
   },
   "devDependencies": {

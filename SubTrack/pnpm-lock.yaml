@@ -360,6 +360,9 @@ importers:
       '@subtrack/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@subtrack/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@subtrack/ui-tokens':
         specifier: workspace:*
         version: link:../../packages/ui-tokens
