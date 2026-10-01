@@ -6,3 +6,248 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ---------------------------------------------------------------------------
+// IDENTITY
+//
+// One row per application user. Owns authentication credentials and the
+// unique personal identifier used to correlate BankID or OTP sessions.
+//
+// RLS scope: a user may read/write only their own identity row.
+//   USING (id = current_setting('app.current_user_id')::uuid)
+// ---------------------------------------------------------------------------
+model Identity {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Stable opaque identifier returned to clients; never the PII personal number.
+  externalId String?  @unique @map("external_id") @db.VarChar(255)
+  /// Authentication method used to create this identity.
+  authMethod AuthMethod @map("auth_method")
+  /// Optional email address for OTP or notification delivery (nullable for BankID-only users).
+  email      String?  @unique @db.VarChar(320)
+  /// Optional Swedish mobile number in E.164 format for SMS OTP.
+  phone      String?  @unique @db.VarChar(20)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Soft-delete: set when account is deactivated; row kept for audit trail.
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  householdMemberships HouseholdMember[]
+  sentInvitations      Invitation[]      @relation("inviter")
+  receivedInvitations  Invitation[]      @relation("invitee")
+  consents             Consent[]
+  auditEntries         AuditLog[]
+
+  @@map("identity")
+}
+
+enum AuthMethod {
+  BANKID
+  OTP
+  MOCK /// Only valid in development/simulator mode; rejected in production.
+
+  @@map("auth_method")
+}
+
+// ---------------------------------------------------------------------------
+// HOUSEHOLD
+//
+// A billing group of 1–6 members sharing a subscription overview.
+// The creator becomes the first admin. Deleting a household is not supported;
+// instead it is soft-deleted when the last admin leaves.
+//
+// RLS scope: visible to all members of the household.
+//   USING (id IN (
+//     SELECT household_id FROM household_member
+//     WHERE identity_id = current_setting('app.current_user_id')::uuid
+//   ))
+// ---------------------------------------------------------------------------
+model Household {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Display name chosen by the creator; shown in the scope switcher.
+  name      String   @db.VarChar(120)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  members     HouseholdMember[]
+  invitations Invitation[]
+  auditEntries AuditLog[]
+
+  @@map("household")
+}
+
+// ---------------------------------------------------------------------------
+// HOUSEHOLD MEMBER  (junction between identity and household)
+//
+// Tracks membership role, join date, and the open-book switch per member.
+// A member belongs to at most one household at a time (enforced by unique
+// constraint on identity_id where left_at IS NULL).
+//
+// RLS scope: a member may read rows for their own household;
+//   only admins may update other members' roles.
+//   USING (household_id IN (
+//     SELECT household_id FROM household_member
+//     WHERE identity_id = current_setting('app.current_user_id')::uuid
+//   ))
+// ---------------------------------------------------------------------------
+model HouseholdMember {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  householdId String      @map("household_id") @db.Uuid
+  identityId  String      @map("identity_id") @db.Uuid
+  role        MemberRole  @default(MEMBER)
+  joinedAt    DateTime    @default(now()) @map("joined_at") @db.Timestamptz(6)
+  /// Set when a member leaves; kept for audit trail.
+  leftAt      DateTime?   @map("left_at") @db.Timestamptz(6)
+
+  household Household @relation(fields: [householdId], references: [id])
+  identity  Identity  @relation(fields: [identityId], references: [id])
+
+  /// At most one active membership per user (leftAt IS NULL = active).
+  /// Enforced by partial unique index in migration SQL.
+  @@unique([householdId, identityId])
+  @@map("household_member")
+}
+
+enum MemberRole {
+  ADMIN
+  MEMBER
+
+  @@map("member_role")
+}
+
+// ---------------------------------------------------------------------------
+// INVITATION
+//
+// An invitation sent by a household admin to a potential member.
+// Expires after 48 hours; revocable by the inviter or any admin.
+//
+// RLS scope:
+//   - inviter: may read/delete their own outgoing invitations.
+//   - invitee: may read invitations addressed to them (by email/phone).
+//   - admins: may read all invitations for their household.
+//   USING (
+//     inviter_id  = current_setting('app.current_user_id')::uuid
+//     OR invitee_id = current_setting('app.current_user_id')::uuid
+//     OR household_id IN (
+//       SELECT household_id FROM household_member
+//       WHERE identity_id = current_setting('app.current_user_id')::uuid
+//         AND role = 'ADMIN'
+//     )
+//   )
+// ---------------------------------------------------------------------------
+model Invitation {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  householdId String           @map("household_id") @db.Uuid
+  inviterId   String           @map("inviter_id") @db.Uuid
+  /// May be null if invitee has not yet created an identity.
+  inviteeId   String?          @map("invitee_id") @db.Uuid
+  /// Delivery channel; exactly one of email or phone must be set.
+  channel     InvitationChannel
+  /// Email or phone the invitation was sent to.
+  recipient   String           @db.VarChar(320)
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime         @map("expires_at") @db.Timestamptz(6)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  household Household @relation(fields: [householdId], references: [id])
+  inviter   Identity  @relation("inviter", fields: [inviterId], references: [id])
+  invitee   Identity? @relation("invitee", fields: [inviteeId], references: [id])
+
+  @@map("invitation")
+}
+
+enum InvitationChannel {
+  EMAIL
+  SMS
+
+  @@map("invitation_channel")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REVOKED
+  EXPIRED
+
+  @@map("invitation_status")
+}
+
+// ---------------------------------------------------------------------------
+// CONSENT
+//
+// Per-user, per-scope privacy preference record.
+// Records the open-book switch (A1) and always-private overrides (A3).
+// Consent rows are never shared with other users — not even household members.
+//
+// RLS scope: identity may read/write only their own consent rows.
+//   USING (identity_id = current_setting('app.current_user_id')::uuid)
+// ---------------------------------------------------------------------------
+model Consent {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identityId String   @map("identity_id") @db.Uuid
+  /// The entity this consent applies to (household_id for open-book scope).
+  scopeId    String   @map("scope_id") @db.Uuid
+  scopeType  ConsentScopeType @map("scope_type")
+  /// OPEN_BOOK: whether this member's subscriptions are visible to household peers.
+  openBook   Boolean  @default(false) @map("open_book")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  identity Identity @relation(fields: [identityId], references: [id])
+
+  /// One consent record per identity × scope.
+  @@unique([identityId, scopeId, scopeType])
+  @@map("consent")
+}
+
+enum ConsentScopeType {
+  HOUSEHOLD
+
+  @@map("consent_scope_type")
+}
+
+// ---------------------------------------------------------------------------
+// AUDIT_LOG
+//
+// Append-only audit trail for security-sensitive mutations.
+// Rows are never updated or deleted. All schema changes that affect identity,
+// membership, or consent must write a corresponding audit entry.
+//
+// RLS scope:
+//   - INSERT: any authenticated user may append their own entries.
+//   - SELECT: only household admins may read entries for their household.
+//   - UPDATE/DELETE: denied to all (enforced in migration SQL).
+//   USING (
+//     actor_id = current_setting('app.current_user_id')::uuid
+//     OR (
+//       household_id IS NOT NULL
+//       AND household_id IN (
+//         SELECT household_id FROM household_member
+//         WHERE identity_id = current_setting('app.current_user_id')::uuid
+//           AND role = 'ADMIN'
+//       )
+//     )
+//   )
+// ---------------------------------------------------------------------------
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// The user who performed the action.
+  actorId     String   @map("actor_id") @db.Uuid
+  /// Household affected by this event, if applicable.
+  householdId String?  @map("household_id") @db.Uuid
+  eventType   String   @map("event_type") @db.VarChar(80)
+  /// JSON payload of before/after state; never contains PII credentials.
+  payload     Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actor     Identity   @relation(fields: [actorId], references: [id])
+  household Household? @relation(fields: [householdId], references: [id])
+
+  @@index([actorId])
+  @@index([householdId])
+  @@index([createdAt])
+  @@map("audit_log")
+}
