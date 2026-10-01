@@ -1,4 +1,4 @@
 {
   "extends": "../../packages/config/tsconfig.preset.json",
-  "include": ["src/**/*.ts", "src/**/*.tsx", "policy/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "policy/**/*.ts", "bank/**/*.ts"]
 }

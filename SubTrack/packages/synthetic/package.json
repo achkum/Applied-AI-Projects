@@ -15,6 +15,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@subtrack/domain": "workspace:*"
+  },
   "devDependencies": {
     "@subtrack/config": "workspace:*",
     "vitest": "^3.0.0"

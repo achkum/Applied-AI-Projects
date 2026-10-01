@@ -27,3 +27,5 @@ export {
   type PersonaSubscription,
   type PersonaHousehold,
 } from './personas.js';
+
+export { SyntheticBankProvider } from './bank-provider.js';
