@@ -15,7 +15,9 @@ export interface Theme {
   radius: Record<string, number>;
   motion: Record<string, unknown>;
   contrastPairs: Array<Record<string, string>>;
-  memberAccent: Record<string, unknown>;
+  memberAccent: {
+    slots: Record<string, { light: string; dark: string }>;
+  };
   categoryHue: Record<string, Record<string, string>>;
 }
 

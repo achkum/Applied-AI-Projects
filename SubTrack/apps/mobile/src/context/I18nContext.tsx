@@ -3,11 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import I18n from 'i18n-js';
 import { catalogs } from '@subtrack/i18n';
 import { Locale } from '@/types';
+import { en as signatureComponentsEn, sv as signatureComponentsSv } from '@/i18n/signatureComponents';
 
 interface I18nContextType {
   locale: Locale;
   setLocale: (locale: Locale) => Promise<void>;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, string | number>) => string;
 }
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
@@ -17,7 +18,10 @@ const LOCALE_KEY = 'locale-preference';
 // Initialize i18n configuration
 I18n.defaultLocale = 'en';
 I18n.fallbacks = { sv: 'en' };
-I18n.translations = catalogs as Record<string, Record<string, unknown>>;
+I18n.translations = {
+  en: { ...catalogs.en, ...signatureComponentsEn },
+  sv: { ...catalogs.sv, ...signatureComponentsSv },
+} as Record<string, Record<string, unknown>>;
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('en');
@@ -54,8 +58,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const t = (key: string): string => {
-    return I18n.t(key);
+  const t = (key: string, options?: Record<string, string | number>): string => {
+    return I18n.t(key, options);
   };
 
   const value: I18nContextType = {
