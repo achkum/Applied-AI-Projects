@@ -1,0 +1,25 @@
+{
+  "name": "@subtrack/demo-seed",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/generate.ts",
+      "import": "./src/generate.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "seed": "node --experimental-vm-modules src/index.ts"
+  },
+  "dependencies": {
+    "@subtrack/synthetic": "workspace:*"
+  },
+  "devDependencies": {
+    "@subtrack/config": "workspace:*",
+    "vitest": "^3.0.0"
+  }
+}
