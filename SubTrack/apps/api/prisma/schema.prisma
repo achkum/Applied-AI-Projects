@@ -124,11 +124,18 @@ enum MemberRole {
 // INVITATION
 //
 // An invitation sent by a household admin to a potential member.
-// Expires after 48 hours; revocable by the inviter or any admin.
+// Expires after 7 days; revocable by the inviter or any admin.
+//
+// Channels:
+//   LINK/CODE — token is the credential; no specific recipient (recipient null).
+//   EMAIL/SMS  — token delivered to recipient email/phone via dev adapter.
+//
+// Token storage: raw 32-byte random hex is given to the invitee; only the
+// SHA-256 hex hash is stored (tokenHash), preventing lookup abuse.
 //
 // RLS scope:
-//   - inviter: may read/delete their own outgoing invitations.
-//   - invitee: may read invitations addressed to them (by email/phone).
+//   - inviter: may read/revoke their own outgoing invitations.
+//   - invitee: may read invitations addressed to them.
 //   - admins: may read all invitations for their household.
 //   USING (
 //     inviter_id  = current_setting('app.current_user_id')::uuid
@@ -141,19 +148,20 @@ enum MemberRole {
 //   )
 // ---------------------------------------------------------------------------
 model Invitation {
-  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  householdId String           @map("household_id") @db.Uuid
-  inviterId   String           @map("inviter_id") @db.Uuid
-  /// May be null if invitee has not yet created an identity.
-  inviteeId   String?          @map("invitee_id") @db.Uuid
-  /// Delivery channel; exactly one of email or phone must be set.
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  householdId String            @map("household_id") @db.Uuid
+  inviterId   String            @map("inviter_id") @db.Uuid
+  /// Set when invitee has accepted and linked their identity.
+  inviteeId   String?           @map("invitee_id") @db.Uuid
   channel     InvitationChannel
-  /// Email or phone the invitation was sent to.
-  recipient   String           @db.VarChar(320)
-  status      InvitationStatus @default(PENDING)
-  expiresAt   DateTime         @map("expires_at") @db.Timestamptz(6)
-  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Email or phone the invitation was sent to; null for LINK/CODE channels.
+  recipient   String?           @db.VarChar(320)
+  /// SHA-256 hex of the 32-byte opaque invite token. Never the raw token.
+  tokenHash   String?           @unique @map("token_hash") @db.VarChar(64)
+  status      InvitationStatus  @default(PENDING)
+  expiresAt   DateTime          @map("expires_at") @db.Timestamptz(6)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   household Household @relation(fields: [householdId], references: [id])
   inviter   Identity  @relation("inviter", fields: [inviterId], references: [id])
@@ -163,6 +171,8 @@ model Invitation {
 }
 
 enum InvitationChannel {
+  LINK
+  CODE
   EMAIL
   SMS
 
