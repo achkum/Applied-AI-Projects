@@ -173,6 +173,28 @@
     .imini-t { font-size: 14px; font-weight: 600; color: var(--t1); }
     .imini-b { font-size: 13px; color: var(--t2); margin-top: 2px; line-height: 1.4; }
 
+    /* Stat chips */
+    .stat-row { display: flex; gap: 8px; padding: 8px 20px 0; overflow-x: auto; scrollbar-width: none; }
+    .stat-row::-webkit-scrollbar { display: none; }
+    .stat-chip { flex-shrink: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-card); padding: 10px 14px; min-width: 82px; text-align: center; }
+    .stat-num { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--t1); line-height: 1.1; letter-spacing: -0.3px; }
+    .stat-lbl { font-size: 11px; color: var(--t3); margin-top: 3px; font-weight: 500; }
+
+    /* Savings card */
+    .savings-card { margin: 0 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-card); padding: 16px 18px; }
+    .savings-amt { font-size: 32px; font-weight: 600; color: var(--green); font-variant-numeric: tabular-nums; letter-spacing: -0.6px; line-height: 1.1; }
+    .savings-sfx { font-size: 16px; font-weight: 500; color: var(--t2); }
+    .compare-bar { margin-top: 14px; }
+    .compare-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .compare-lbl { font-size: 12px; color: var(--t3); width: 68px; flex-shrink: 0; }
+    .compare-track { flex: 1; height: 8px; border-radius: 4px; background: var(--bg-raised); overflow: hidden; }
+    .compare-fill { height: 100%; border-radius: 4px; }
+    .compare-val { font-size: 12px; font-weight: 600; color: var(--t1); font-variant-numeric: tabular-nums; width: 58px; text-align: right; flex-shrink: 0; }
+
+    /* Insight stat lead */
+    .ins-stat { font-size: 28px; font-weight: 600; color: var(--t1); font-variant-numeric: tabular-nums; letter-spacing: -0.5px; margin-bottom: 4px; line-height: 1.1; }
+    .ins-stat-sub { font-size: 12px; color: var(--t3); margin-bottom: 10px; }
+
     /* ── SUBS: SEARCH + FILTER ──────────────────── */
     .search-wrap { margin: 0 20px 4px; display: flex; align-items: center; gap: 8px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-row); padding: 10px 14px; }
     .search-wrap input { flex: 1; font-size: 15px; }
@@ -281,9 +303,10 @@
       <div class="sbody">
         <div class="mpills">
           <button class="mpill active" data-member="household" data-i18n="scope.household">Hushållet</button>
-          <button class="mpill" data-member="Sara">Sara</button>
-          <button class="mpill" data-member="Johan">Johan</button>
-          <button class="mpill" data-member="Elin">Elin</button>
+          <button class="mpill" data-member="Batman">Batman</button>
+          <button class="mpill" data-member="Superman">Superman</button>
+          <button class="mpill" data-member="Spiderman">Spiderman</button>
+          <button class="mpill" data-member="Ironman">Ironman</button>
         </div>
         <div style="padding:8px 0 0">
           <div class="hero">
@@ -310,14 +333,42 @@
           </div>
         </div>
         <div class="sec-hdr" data-i18n="home.insights_hdr">Insikter</div>
-        <div class="card">
-          <div class="imini">
-            <div class="imini-ic" style="background:var(--amber-s)">⚠️</div>
-            <div><div class="imini-t" data-i18n="insight.price_title">Prisjustering</div><div class="imini-b" data-i18n="insight.price_body">Viaplay höjde priset med 20 kr sedan förra månaden.</div></div>
+
+        <!-- Savings summary -->
+        <div class="savings-card">
+          <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:6px" data-i18n="home.savings_lbl">Möjlig besparing</div>
+          <div><span class="savings-amt" data-i18n="home.savings_amt">2 988</span><span class="savings-sfx" data-i18n="home.savings_sfx"> kr/år</span></div>
+          <div class="compare-bar">
+            <div class="compare-row">
+              <div class="compare-lbl" data-i18n="home.now">Nu</div>
+              <div class="compare-track"><div class="compare-fill" style="width:100%;background:var(--border-strong)"></div></div>
+              <div class="compare-val">1 373 kr</div>
+            </div>
+            <div class="compare-row">
+              <div class="compare-lbl" data-i18n="home.optimised">Optimerat</div>
+              <div class="compare-track"><div class="compare-fill" style="width:82%;background:var(--green)"></div></div>
+              <div class="compare-val" style="color:var(--green)">1 124 kr</div>
+            </div>
           </div>
-          <div class="imini">
-            <div class="imini-ic" style="background:var(--green-s)">💡</div>
-            <div><div class="imini-t" data-i18n="insight.double_title">Dubbelbetalning</div><div class="imini-b" data-i18n="insight.double_body">Ni har Netflix + Viaplay. Spara 1 788 kr/år.</div></div>
+        </div>
+
+        <!-- Stat chips -->
+        <div class="stat-row">
+          <div class="stat-chip">
+            <div class="stat-num" style="color:var(--amber)">2</div>
+            <div class="stat-lbl" data-i18n="home.stat_priceup">Prisökningar</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-num" style="color:var(--red)">↑12%</div>
+            <div class="stat-lbl" data-i18n="home.stat_trend">Sedan maj</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-num" style="color:var(--green)">3</div>
+            <div class="stat-lbl" data-i18n="home.stat_shared">Delade planer</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-num">4</div>
+            <div class="stat-lbl" data-i18n="home.stat_actions">Åtgärder</div>
           </div>
         </div>
       </div>
@@ -390,14 +441,14 @@
             <div class="setav" style="background:#29a06b;margin-right:-6px;border:2px solid var(--bg-surface)">JL</div>
             <div class="setav" style="background:#7b6fe8;border:2px solid var(--bg-surface)">SL</div>
             <span class="setarr" style="margin-left:8px">→</span>
-            <div class="setinfo" style="margin-left:8px"><div class="setnames">Johan → Sara</div><div class="setreason" data-i18n="hh.netflix_share">Netflix, Spotify</div></div>
+            <div class="setinfo" style="margin-left:8px"><div class="setnames">Superman → Batman</div><div class="setreason" data-i18n="hh.netflix_share">Netflix, Spotify</div></div>
             <div class="setamt">199 kr</div>
           </div>
           <div class="setrow">
             <div class="setav" style="background:#df4545;margin-right:-6px;border:2px solid var(--bg-surface)">AL</div>
             <div class="setav" style="background:#29a06b;border:2px solid var(--bg-surface)">JL</div>
             <span class="setarr" style="margin-left:8px">→</span>
-            <div class="setinfo" style="margin-left:8px"><div class="setnames">Alex → Johan</div><div class="setreason" data-i18n="hh.ms_share">Microsoft 365</div></div>
+            <div class="setinfo" style="margin-left:8px"><div class="setnames">Ironman → Superman</div><div class="setreason" data-i18n="hh.ms_share">Microsoft 365</div></div>
             <div class="setamt">36 kr</div>
           </div>
         </div>
@@ -429,27 +480,57 @@
         <div class="sec-hdr" data-i18n="insights.cards_hdr">Åtgärdspunkter</div>
         <div class="ins-card">
           <div class="ins-top"><div class="ins-title" data-i18n="insights.card1_title">Prisjustering</div><span class="badge b-amber"><span class="bdot"></span><span data-i18n="badge.action">Åtgärda</span></span></div>
-          <div class="ins-body" data-i18n="insights.card1_body">Viaplay höjde priset med 20 kr (15%) sedan förra månaden. Ni betalade 129 kr, nu 149 kr.</div>
+          <div class="ins-stat" style="color:var(--amber)">+20 kr/mån</div>
+          <div class="ins-stat-sub" data-i18n="insights.card1_sub">+15% · Viaplay · sedan sep 2026</div>
+          <div class="ins-body" data-i18n="insights.card1_body">Ni betalade 129 kr, nu 149 kr. Ingen avisering skickades.</div>
         </div>
         <div class="ins-card">
-          <div class="ins-top"><div class="ins-title" data-i18n="insights.card2_title">Dubbelbetalning</div><span class="badge b-brand"><span class="bdot"></span><span data-i18n="badge.save">Spara</span></span></div>
-          <div class="ins-body" data-i18n="insights.card2_body">Ni har Netflix + Viaplay. Välj en och spara <strong>1 788 kr/år</strong>.</div>
+          <div class="ins-top"><div class="ins-title" data-i18n="insights.card2_title">Dubbel videostreaming</div><span class="badge b-brand"><span class="bdot"></span><span data-i18n="badge.save">Spara</span></span></div>
+          <div class="ins-stat" style="color:var(--green)">1 788 kr/år</div>
+          <div class="ins-stat-sub" data-i18n="insights.card2_sub">om ni väljer Netflix ELLER Viaplay</div>
+          <div style="display:flex;gap:6px;margin-bottom:8px">
+            <div style="flex:1;background:var(--bg-raised);border-radius:6px;padding:8px 10px;text-align:center">
+              <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:0.4px">Netflix</div>
+              <div style="font-size:16px;font-weight:700;color:var(--t1);font-variant-numeric:tabular-nums">179 kr</div>
+            </div>
+            <div style="flex:1;background:var(--bg-raised);border-radius:6px;padding:8px 10px;text-align:center">
+              <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:0.4px">Viaplay</div>
+              <div style="font-size:16px;font-weight:700;color:var(--t1);font-variant-numeric:tabular-nums">149 kr</div>
+            </div>
+            <div style="flex:1;background:var(--green-s);border-radius:6px;padding:8px 10px;text-align:center;border:1px solid rgba(41,160,107,0.15)">
+              <div style="font-size:10px;color:var(--green);font-weight:600;text-transform:uppercase;letter-spacing:0.4px" data-i18n="mkt.save">Spara</div>
+              <div style="font-size:16px;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums">149 kr</div>
+            </div>
+          </div>
         </div>
         <div class="ins-card">
-          <div class="ins-top"><div class="ins-title" data-i18n="insights.card3_title">Delad optimering</div><span class="badge b-green"><span class="bdot"></span><span data-i18n="badge.good">Bra</span></span></div>
-          <div class="ins-body" data-i18n="insights.card3_body">3 av 7 prenumerationer delas. Familjeplanerna sparar ~<strong>340 kr/mån</strong>.</div>
+          <div class="ins-top"><div class="ins-title" data-i18n="insights.card3_title">Delade planer sparar</div><span class="badge b-green"><span class="bdot"></span><span data-i18n="badge.good">Bra</span></span></div>
+          <div class="ins-stat" style="color:var(--green)">340 kr/mån</div>
+          <div class="ins-stat-sub" data-i18n="insights.card3_sub">vs individuella planer · 3 av 7 prenumerationer</div>
+          <div style="background:var(--bg-raised);border-radius:6px;padding:10px 12px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t3);margin-bottom:6px"><span data-i18n="ins.individual">Individuellt</span><span>1 713 kr/mån</span></div>
+            <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-bottom:8px"><div style="width:100%;height:100%;background:var(--border-strong);border-radius:3px"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--green);margin-bottom:6px"><span data-i18n="ins.family_plans">Familjeplaner</span><span>1 373 kr/mån</span></div>
+            <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden"><div style="width:80%;height:100%;background:var(--green);border-radius:3px"></div></div>
+          </div>
         </div>
         <div class="ins-card">
-          <div class="ins-top"><div class="ins-title" data-i18n="insights.card4_title">Störst utgift</div><span class="badge b-amber"><span class="bdot"></span><span data-i18n="badge.review">Se över</span></span></div>
-          <div class="ins-body" data-i18n="insights.card4_body">Elins SATS-abonnemang är hushållets enskilt största kostnad — <strong>499 kr/mån</strong>, 36% av totalen. Kolla om gymmet erbjuder ett billigare företagsabonnemang.</div>
+          <div class="ins-top"><div class="ins-title" data-i18n="insights.card4_title">Störst enskild kostnad</div><span class="badge b-amber"><span class="bdot"></span><span data-i18n="badge.review">Se över</span></span></div>
+          <div class="ins-stat">499 kr/mån</div>
+          <div class="ins-stat-sub" data-i18n="insights.card4_sub">SATS · Spiderman · 36% av hushållets total</div>
+          <div style="height:8px;border-radius:4px;background:var(--bg-raised);overflow:hidden;margin-bottom:6px"><div style="width:36%;height:100%;background:var(--amber);border-radius:4px"></div></div>
+          <div class="ins-body" data-i18n="insights.card4_body">Kolla om gymmet erbjuder ett billigare företagsabonnemang.</div>
         </div>
         <div class="ins-card">
-          <div class="ins-top"><div class="ins-title" data-i18n="insights.card5_title">Sänk årsnotan med 25%</div><span class="badge b-brand"><span class="bdot"></span><span data-i18n="badge.save">Spara</span></span></div>
-          <div class="ins-body" data-i18n="insights.card5_body">Microsoft 365 och iCloud+ erbjuder årsbetalning. Betala i förskott och spara <strong>~350 kr/år</strong> jämfört med månadsvis fakturering.</div>
+          <div class="ins-top"><div class="ins-title" data-i18n="insights.card5_title">Byt till årsbetalning</div><span class="badge b-brand"><span class="bdot"></span><span data-i18n="badge.save">Spara</span></span></div>
+          <div class="ins-stat" style="color:var(--green)">350 kr/år</div>
+          <div class="ins-stat-sub" data-i18n="insights.card5_sub">Microsoft 365 + iCloud+ · betala i förskott</div>
         </div>
         <div class="ins-card" style="margin-bottom:8px">
-          <div class="ins-top"><div class="ins-title" data-i18n="insights.card6_title">Fri provperiod upphör</div><span class="badge b-amber"><span class="bdot"></span><span data-i18n="badge.action">Åtgärda</span></span></div>
-          <div class="ins-body" data-i18n="insights.card6_body">Claudes provperiod upphörde i juni 2026 och övergick till betald plan. Ni har nu betalat i 4 månader — <strong>716 kr</strong> hittills.</div>
+          <div class="ins-top"><div class="ins-title" data-i18n="insights.card6_title">Provperiod avslutad</div><span class="badge b-amber"><span class="bdot"></span><span data-i18n="badge.action">Åtgärda</span></span></div>
+          <div class="ins-stat">716 kr</div>
+          <div class="ins-stat-sub" data-i18n="insights.card6_sub">Claude AI · 4 månader sedan provperioden slutade</div>
+          <div class="ins-body" data-i18n="insights.card6_body">Provperioden övergick automatiskt till betald plan jun 2026.</div>
         </div>
         <div class="sec-hdr" data-i18n="insights.market_hdr">Marknadsnyheter</div>
 
@@ -492,7 +573,7 @@
             <div class="ins-title" data-i18n="insights.mkt4_title">SATS vs träningsstudio i ditt område</div>
             <span class="badge b-amber"><span class="bdot"></span><span data-i18n="badge.review">Se över</span></span>
           </div>
-          <div class="ins-body" data-i18n="insights.mkt4_body">Liknande hushåll i ditt område har bytt till Fitness24Seven (299 kr/mån) och Actic (319 kr/mån). Elin betalar 499 kr — du kan spara <strong>upp till 2 400 kr/år</strong> utan att kompromissa med öppettider eller utrustning.</div>
+          <div class="ins-body" data-i18n="insights.mkt4_body">Liknande hushåll i ditt område har bytt till Fitness24Seven (299 kr/mån) och Actic (319 kr/mån). Spiderman betalar 499 kr — du kan spara <strong>upp till 2 400 kr/år</strong> utan att kompromissa med öppettider eller utrustning.</div>
         </div>
 
         <div class="chart-card">
@@ -523,7 +604,7 @@
       <div class="sbody" style="padding-top:0">
         <div class="prof-hero">
           <div class="prof-av">SL</div>
-          <div class="prof-name">Sara Lindqvist</div>
+          <div class="prof-name">The Justice League</div>
           <div class="prof-sub" data-i18n="profile.sub">Hushållets admin</div>
         </div>
         <div class="sec-hdr" data-i18n="profile.settings_hdr">Inställningar</div>
@@ -587,13 +668,13 @@
 
   <script>
     const SUBS = {
-      netflix:  {icon:'N',color:'#e50914',name:'Netflix',plan:'Standard med annonser',planEn:'Standard with ads',price:'179 kr',renewal:'om 2 dagar',renewalEn:'in 2 days',annual:'2 148 kr',cat:'Film & serier',catEn:'Video streaming',payer:'Sara',spark:'Prisjustering +30 kr (Mar 2026)',sparkEn:'Price increase +SEK 30 (Mar 2026)'},
-      spotify:  {icon:'S',color:'#1db954',name:'Spotify Family',plan:'Family — upp till 6 konton',planEn:'Family — up to 6 accounts',price:'219 kr',renewal:'om 5 dagar',renewalEn:'in 5 days',annual:'2 628 kr',cat:'Musik & podd',catEn:'Music & podcasts',payer:'Sara',spark:'Stabil sedan Jan 2025',sparkEn:'Stable since Jan 2025'},
-      ms365:    {icon:'M',color:'#0078d4',name:'Microsoft 365',plan:'Family — upp till 6 enheter',planEn:'Family — up to 6 devices',price:'109 kr',renewal:'om 18 dagar',renewalEn:'in 18 days',annual:'1 308 kr',cat:'Programvara',catEn:'Software',payer:'Johan',spark:'Årsplan 109 kr/mån',sparkEn:'Annual plan SEK 109/mo'},
-      icloud:   {icon:'☁',color:'#636366',name:'iCloud+',plan:'200 GB lagring',planEn:'200 GB storage',price:'39 kr',renewal:'om 12 dagar',renewalEn:'in 12 days',annual:'468 kr',cat:'Molnlagring',catEn:'Cloud storage',payer:'Sara',spark:'Stabil pris',sparkEn:'Stable price'},
-      viaplay:  {icon:'V',color:'#ff2244',name:'Viaplay',plan:'Viaplay Total',planEn:'Viaplay Total',price:'149 kr',renewal:'om 8 dagar',renewalEn:'in 8 days',annual:'1 788 kr',cat:'Film & serier',catEn:'Video streaming',payer:'Sara',spark:'Höjning +20 kr (Sep 2026)',sparkEn:'Increase +SEK 20 (Sep 2026)'},
-      sats:     {icon:'G',color:'#ff6b00',name:'SATS',plan:'Rörligt månadsabonnemang',planEn:'Flexible monthly',price:'499 kr',renewal:'om 3 dagar',renewalEn:'in 3 days',annual:'5 988 kr',cat:'Träning & hälsa',catEn:'Fitness & health',payer:'Elin',spark:'Stabil sedan Jun 2025',sparkEn:'Stable since Jun 2025'},
-      claude:   {icon:'A',color:'#7b6fe8',name:'Claude AI',plan:'Pro — obegränsad användning',planEn:'Pro — unlimited usage',price:'179 kr',renewal:'om 15 dagar',renewalEn:'in 15 days',annual:'2 148 kr',cat:'AI-verktyg',catEn:'AI tools',payer:'Sara',spark:'Ny prenumeration (Jun 2026)',sparkEn:'New subscription (Jun 2026)'},
+      netflix:  {icon:'N',color:'#e50914',name:'Netflix',plan:'Standard med annonser',planEn:'Standard with ads',price:'179 kr',renewal:'om 2 dagar',renewalEn:'in 2 days',annual:'2 148 kr',cat:'Film & serier',catEn:'Video streaming',payer:'Batman',spark:'Prisjustering +30 kr (Mar 2026)',sparkEn:'Price increase +SEK 30 (Mar 2026)'},
+      spotify:  {icon:'S',color:'#1db954',name:'Spotify Family',plan:'Family — upp till 6 konton',planEn:'Family — up to 6 accounts',price:'219 kr',renewal:'om 5 dagar',renewalEn:'in 5 days',annual:'2 628 kr',cat:'Musik & podd',catEn:'Music & podcasts',payer:'Batman',spark:'Stabil sedan Jan 2025',sparkEn:'Stable since Jan 2025'},
+      ms365:    {icon:'M',color:'#0078d4',name:'Microsoft 365',plan:'Family — upp till 6 enheter',planEn:'Family — up to 6 devices',price:'109 kr',renewal:'om 18 dagar',renewalEn:'in 18 days',annual:'1 308 kr',cat:'Programvara',catEn:'Software',payer:'Superman',spark:'Årsplan 109 kr/mån',sparkEn:'Annual plan SEK 109/mo'},
+      icloud:   {icon:'☁',color:'#636366',name:'iCloud+',plan:'200 GB lagring',planEn:'200 GB storage',price:'39 kr',renewal:'om 12 dagar',renewalEn:'in 12 days',annual:'468 kr',cat:'Molnlagring',catEn:'Cloud storage',payer:'Batman',spark:'Stabil pris',sparkEn:'Stable price'},
+      viaplay:  {icon:'V',color:'#ff2244',name:'Viaplay',plan:'Viaplay Total',planEn:'Viaplay Total',price:'149 kr',renewal:'om 8 dagar',renewalEn:'in 8 days',annual:'1 788 kr',cat:'Film & serier',catEn:'Video streaming',payer:'Batman',spark:'Höjning +20 kr (Sep 2026)',sparkEn:'Increase +SEK 20 (Sep 2026)'},
+      sats:     {icon:'G',color:'#ff6b00',name:'SATS',plan:'Rörligt månadsabonnemang',planEn:'Flexible monthly',price:'499 kr',renewal:'om 3 dagar',renewalEn:'in 3 days',annual:'5 988 kr',cat:'Träning & hälsa',catEn:'Fitness & health',payer:'Spiderman',spark:'Stabil sedan Jun 2025',sparkEn:'Stable since Jun 2025'},
+      claude:   {icon:'A',color:'#7b6fe8',name:'Claude AI',plan:'Pro — obegränsad användning',planEn:'Pro — unlimited usage',price:'179 kr',renewal:'om 15 dagar',renewalEn:'in 15 days',annual:'2 148 kr',cat:'AI-verktyg',catEn:'AI tools',payer:'Batman',spark:'Ny prenumeration (Jun 2026)',sparkEn:'New subscription (Jun 2026)'},
     };
 
     const T = {
@@ -608,29 +689,39 @@
         'screen.subs_title':'Prenumerationer','search.placeholder':'Sök prenumeration...',
         'filter.all':'Alla','filter.video':'Film','filter.music':'Musik','filter.software':'Mjukvara','filter.fitness':'Träning','filter.storage':'Lagring',
         'cat.video':'👥 Film & serier','cat.music':'👥 Musik & podd','cat.software':'👥 Programvara',
-        'cat.cloud_sara':'🔒 Molnlagring · Sara','cat.fitness_elin':'🔒 Träning · Elin','cat.ai_sara':'🔒 AI-verktyg · Sara',
+        'cat.cloud_sara':'🔒 Molnlagring · Batman','cat.fitness_elin':'🔒 Träning · Spiderman','cat.ai_sara':'🔒 AI-verktyg · Batman',
         'subs.total_label':'Totalt hushållet','screen.household_title':'Hushåll',
         'hh.members_label':'Medlemmar','hh.subs_label':'Prenumerationer','hh.monthly_label':'Per månad',
         'hh.settlements':'Uppgörelser denna månad','hh.netflix_share':'Netflix, Spotify','hh.ms_share':'Microsoft 365',
-        'hh.shared_subs':'Delade prenumerationer','hh.pays_sara':'Betalar: Sara','hh.pays_johan':'Betalar: Johan',
+        'hh.shared_subs':'Delade prenumerationer','hh.pays_sara':'Betalar: Batman','hh.pays_johan':'Betalar: Superman',
         'screen.insights_title':'Insikter','insights.ai_label':'✦ AI-sammanfattning',
         'insights.ai_body':'Det här hushållet lägger <strong>1 373 kr</strong> per månad på prenumerationer. Netflix och Viaplay överlappar — ni kan spara <strong>149 kr/mån</strong> om ni väljer ett av dem.',
         'insights.cards_hdr':'Åtgärdspunkter',
-        'insights.card1_title':'Prisjustering','insights.card1_body':'Viaplay höjde priset med 20 kr (15%) sedan förra månaden. Ni betalade 129 kr, nu 149 kr.',
-        'insights.card2_title':'Dubbelbetalning','insights.card2_body':'Ni har Netflix + Viaplay. Välj en och spara <strong>1 788 kr/år</strong>.',
-        'insights.card3_title':'Delad optimering','insights.card3_body':'3 av 7 prenumerationer delas. Familjeplanerna sparar ~<strong>340 kr/mån</strong>.',
+        'insights.card1_title':'Prisjustering','insights.card1_body':'Ni betalade 129 kr, nu 149 kr. Ingen avisering skickades.',
+        'insights.card1_sub':'+15% · Viaplay · sedan sep 2026',
+        'insights.card2_title':'Dubbel videostreaming','insights.card2_body':'Välj Netflix ELLER Viaplay och spara 1 788 kr/år.',
+        'insights.card2_sub':'om ni väljer Netflix ELLER Viaplay',
+        'insights.card3_title':'Delade planer sparar','insights.card3_body':'3 av 7 prenumerationer delas. Familjeplanerna sparar 340 kr/mån.',
+        'insights.card3_sub':'vs individuella planer · 3 av 7 prenumerationer',
+        'ins.individual':'Individuellt','ins.family_plans':'Familjeplaner',
         'insights.chart_label':'Utgiftstrend — 6 månader','chart.last6':'Senaste 6 månaderna',
         'month.may':'Maj','month.jun':'Jun','month.jul':'Jul','month.aug':'Aug','month.sep':'Sep','month.oct':'Okt',
         'badge.action':'Åtgärda','badge.save':'Spara','badge.good':'Bra','badge.review':'Se över',
-        'insights.card4_title':'Störst utgift','insights.card4_body':'Elins SATS-abonnemang är hushållets enskilt största kostnad — <strong>499 kr/mån</strong>, 36% av totalen. Kolla om gymmet erbjuder ett billigare företagsabonnemang.',
-        'insights.card5_title':'Sänk årsnotan med 25%','insights.card5_body':'Microsoft 365 och iCloud+ erbjuder årsbetalning. Betala i förskott och spara <strong>~350 kr/år</strong> jämfört med månadsvis fakturering.',
-        'insights.card6_title':'Fri provperiod upphör','insights.card6_body':'Claudes provperiod upphörde i juni 2026 och övergick till betald plan. Ni har nu betalat i 4 månader — <strong>716 kr</strong> hittills.',
+        'insights.card4_title':'Störst enskild kostnad','insights.card4_body':'Kolla om gymmet erbjuder ett billigare företagsabonnemang.',
+        'insights.card4_sub':'SATS · Spiderman · 36% av hushållets total',
+        'insights.card5_title':'Byt till årsbetalning','insights.card5_body':'Microsoft 365 och iCloud+ erbjuder årsbetalning. Betala i förskott.',
+        'insights.card5_sub':'Microsoft 365 + iCloud+ · betala i förskott',
+        'insights.card6_title':'Provperiod avslutad','insights.card6_body':'Provperioden övergick automatiskt till betald plan jun 2026.',
+        'insights.card6_sub':'Claude AI · 4 månader sedan provperioden slutade',
         'insights.market_hdr':'Marknadsnyheter',
         'insights.mkt1_title':'Max är billigare än Viaplay — och bättre','insights.mkt1_body':'Max (HBO) kostar <strong>99 kr/mån</strong> vs dina 149 kr för Viaplay. Användarbetyget har ökat till 4,6/5 senaste kvartalet och katalogen är nu 40% större. Ni betalar 600 kr/år mer för sämre betyg.',
         'insights.mkt2_title':'YouTube Premium — ersätter två tjänster','insights.mkt2_body':'YouTube Premium Family (189 kr/mån) inkluderar YouTube Music för hela hushållet. Kan ersätta Spotify Family (219 kr) — och ni slipper annonser på YouTube. Potentiell besparing: <strong>30 kr/mån</strong>.',
         'insights.mkt3_title':'Netflix-höjning väntas inom 90 dagar','insights.mkt3_body':'Netflix höjde priserna i 6 europeiska marknader i Q3 2026. Baserat på mönstret väntas Sverige följa inom 90 dagar — trolig höjning <strong>+20–30 kr/mån</strong>. Överväg att låsa ett årsabonnemang nu.',
-        'insights.mkt4_title':'SATS vs träningsstudio i ditt område','insights.mkt4_body':'Liknande hushåll i ditt område har bytt till Fitness24Seven (299 kr/mån) och Actic (319 kr/mån). Elin betalar 499 kr — du kan spara <strong>upp till 2 400 kr/år</strong> utan att kompromissa med öppettider eller utrustning.',
-        'mkt.you_pay':'Ni betalar','mkt.alternative':'Alternativ',
+        'insights.mkt4_title':'SATS vs träningsstudio i ditt område','insights.mkt4_body':'Liknande hushåll i ditt område har bytt till Fitness24Seven (299 kr/mån) och Actic (319 kr/mån). Spiderman betalar 499 kr — du kan spara <strong>upp till 2 400 kr/år</strong> utan att kompromissa med öppettider eller utrustning.',
+        'mkt.you_pay':'Ni betalar','mkt.alternative':'Alternativ','mkt.save':'Spara',
+        'home.savings_lbl':'Möjlig besparing','home.savings_amt':'2 988','home.savings_sfx':' kr/år',
+        'home.now':'Nu','home.optimised':'Optimerat',
+        'home.stat_priceup':'Prisökningar','home.stat_trend':'Sedan maj','home.stat_shared':'Delade planer','home.stat_actions':'Åtgärder',
         'profile.sub':'Hushållets admin','profile.settings_hdr':'Inställningar',
         'profile.theme':'Tema','profile.dark':'Mörkt','profile.light_val':'Ljust',
         'profile.language':'Språk','profile.lang_val':'Svenska','profile.privacy':'Integritet',
@@ -651,29 +742,39 @@
         'screen.subs_title':'Subscriptions','search.placeholder':'Search subscriptions...',
         'filter.all':'All','filter.video':'Video','filter.music':'Music','filter.software':'Software','filter.fitness':'Fitness','filter.storage':'Storage',
         'cat.video':'👥 Video streaming','cat.music':'👥 Music & podcasts','cat.software':'👥 Software',
-        'cat.cloud_sara':'🔒 Cloud storage · Sara','cat.fitness_elin':'🔒 Fitness · Elin','cat.ai_sara':'🔒 AI tools · Sara',
+        'cat.cloud_sara':'🔒 Cloud storage · Batman','cat.fitness_elin':'🔒 Fitness · Spiderman','cat.ai_sara':'🔒 AI tools · Batman',
         'subs.total_label':'Household total','screen.household_title':'Household',
         'hh.members_label':'Members','hh.subs_label':'Subscriptions','hh.monthly_label':'Per month',
         'hh.settlements':'Settlements this month','hh.netflix_share':'Netflix, Spotify','hh.ms_share':'Microsoft 365',
-        'hh.shared_subs':'Shared subscriptions','hh.pays_sara':'Paid by: Sara','hh.pays_johan':'Paid by: Johan',
+        'hh.shared_subs':'Shared subscriptions','hh.pays_sara':'Paid by: Batman','hh.pays_johan':'Paid by: Superman',
         'screen.insights_title':'Insights','insights.ai_label':'✦ AI summary',
         'insights.ai_body':'This household spends <strong>SEK 1,373</strong> per month on subscriptions. Netflix and Viaplay overlap — you could save <strong>SEK 149/mo</strong> by choosing one.',
         'insights.cards_hdr':'Action items',
-        'insights.card1_title':'Price increase','insights.card1_body':'Viaplay raised the price by SEK 20 (15%) last month. You were paying SEK 129, now SEK 149.',
-        'insights.card2_title':'Duplicate service','insights.card2_body':'You have Netflix + Viaplay. Choose one and save <strong>SEK 1,788/year</strong>.',
-        'insights.card3_title':'Shared savings','insights.card3_body':'3 of 7 subscriptions are shared. Family plans save ~<strong>SEK 340/mo</strong>.',
+        'insights.card1_title':'Price increase','insights.card1_body':'You were paying SEK 129, now SEK 149. No notification was sent.',
+        'insights.card1_sub':'+15% · Viaplay · since Sep 2026',
+        'insights.card2_title':'Duplicate video streaming','insights.card2_body':'Choose Netflix OR Viaplay and save SEK 1,788/year.',
+        'insights.card2_sub':'if you choose Netflix OR Viaplay',
+        'insights.card3_title':'Shared plans saving','insights.card3_body':'3 of 7 subscriptions are shared. Family plans save SEK 340/mo.',
+        'insights.card3_sub':'vs individual plans · 3 of 7 subscriptions',
+        'ins.individual':'Individual','ins.family_plans':'Family plans',
         'insights.chart_label':'Spending trend — 6 months','chart.last6':'Last 6 months',
         'month.may':'May','month.jun':'Jun','month.jul':'Jul','month.aug':'Aug','month.sep':'Sep','month.oct':'Oct',
         'badge.action':'Action','badge.save':'Save','badge.good':'Good','badge.review':'Review',
-        'insights.card4_title':'Biggest expense','insights.card4_body':'Elin\'s SATS membership is the household\'s single largest cost — <strong>SEK 499/mo</strong>, 36% of the total. Check if the gym offers a cheaper corporate plan.',
-        'insights.card5_title':'Cut annual bill by 25%','insights.card5_body':'Microsoft 365 and iCloud+ offer annual billing. Pay upfront and save <strong>~SEK 350/year</strong> compared to monthly.',
-        'insights.card6_title':'Free trial ended','insights.card6_body':'Claude\'s trial ended June 2026 and converted to a paid plan. You\'ve now paid for 4 months — <strong>SEK 716</strong> so far.',
+        'insights.card4_title':'Largest single cost','insights.card4_body':'Check if the gym offers a cheaper corporate plan.',
+        'insights.card4_sub':'SATS · Spiderman · 36% of household total',
+        'insights.card5_title':'Switch to annual billing','insights.card5_body':'Microsoft 365 and iCloud+ offer annual billing. Pay upfront.',
+        'insights.card5_sub':'Microsoft 365 + iCloud+ · pay upfront',
+        'insights.card6_title':'Trial period ended','insights.card6_body':'Trial auto-converted to paid plan Jun 2026.',
+        'insights.card6_sub':'Claude AI · 4 months since trial ended',
         'insights.market_hdr':'Market updates',
         'insights.mkt1_title':'Max is cheaper than Viaplay — and better rated','insights.mkt1_body':'Max (HBO) costs <strong>SEK 99/mo</strong> vs your SEK 149 for Viaplay. User ratings climbed to 4.6/5 last quarter and the catalogue is now 40% larger. You\'re paying SEK 600/year more for lower ratings.',
         'insights.mkt2_title':'YouTube Premium — replaces two services','insights.mkt2_body':'YouTube Premium Family (SEK 189/mo) includes YouTube Music for the whole household. Could replace Spotify Family (SEK 219) — and removes ads on YouTube. Potential saving: <strong>SEK 30/mo</strong>.',
         'insights.mkt3_title':'Netflix price increase expected within 90 days','insights.mkt3_body':'Netflix raised prices in 6 European markets in Q3 2026. Based on the pattern, Sweden is expected to follow within 90 days — likely increase <strong>+SEK 20–30/mo</strong>. Consider locking an annual plan now.',
-        'insights.mkt4_title':'SATS vs gyms in your area','insights.mkt4_body':'Similar households nearby have switched to Fitness24Seven (SEK 299/mo) and Actic (SEK 319/mo). Elin pays SEK 499 — you could save <strong>up to SEK 2,400/year</strong> without compromising on hours or equipment.',
-        'mkt.you_pay':'You pay','mkt.alternative':'Alternative',
+        'insights.mkt4_title':'SATS vs gyms in your area','insights.mkt4_body':'Similar households nearby have switched to Fitness24Seven (SEK 299/mo) and Actic (SEK 319/mo). Spiderman pays SEK 499 — you could save <strong>up to SEK 2,400/year</strong> without compromising on hours or equipment.',
+        'mkt.you_pay':'You pay','mkt.alternative':'Alternative','mkt.save':'Save',
+        'home.savings_lbl':'Potential savings','home.savings_amt':'2 988','home.savings_sfx':' kr/year',
+        'home.now':'Current','home.optimised':'Optimised',
+        'home.stat_priceup':'Price rises','home.stat_trend':'Since May','home.stat_shared':'Shared plans','home.stat_actions':'Actions',
         'profile.sub':'Household admin','profile.settings_hdr':'Settings',
         'profile.theme':'Theme','profile.dark':'Dark','profile.light_val':'Light',
         'profile.language':'Language','profile.lang_val':'English','profile.privacy':'Privacy',
@@ -686,10 +787,11 @@
     };
 
     const MEMBERS = {
-      household: { monthly: '1 373', yearly: '16 476', count: { sv: '7 aktiva prenumerationer', en: '7 active subscriptions' } },
-      Sara:      { monthly: '765',   yearly: '9 180',  count: { sv: '5 aktiva prenumerationer', en: '5 active subscriptions' } },
-      Johan:     { monthly: '109',   yearly: '1 308',  count: { sv: '1 aktiv prenumeration',    en: '1 active subscription'  } },
-      Elin:      { monthly: '499',   yearly: '5 988',  count: { sv: '1 aktiv prenumeration',    en: '1 active subscription'  } },
+      household:  { monthly: '1 373', yearly: '16 476', count: { sv: '7 aktiva prenumerationer', en: '7 active subscriptions' } },
+      Batman:     { monthly: '765',   yearly: '9 180',  count: { sv: '5 aktiva prenumerationer', en: '5 active subscriptions' } },
+      Superman:   { monthly: '109',   yearly: '1 308',  count: { sv: '1 aktiv prenumeration',    en: '1 active subscription'  } },
+      Spiderman:  { monthly: '499',   yearly: '5 988',  count: { sv: '1 aktiv prenumeration',    en: '1 active subscription'  } },
+      Ironman:    { monthly: '288',   yearly: '3 456',  count: { sv: '2 aktiva prenumerationer', en: '2 active subscriptions' } },
     };
 
     let lang = 'sv', theme = 'dark', activeDrawer = null, currentMember = 'household', currentPeriod = 'month';
