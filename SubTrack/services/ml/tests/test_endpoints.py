@@ -12,8 +12,10 @@ def test_healthz_does_not_require_database() -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_models_is_empty_before_registration() -> None:
+def test_models_lists_registered_classifiers() -> None:
     response = client.get("/ml/v1/models")
 
     assert response.status_code == 200
-    assert response.json() == {"models": []}
+    names = [m["name"] for m in response.json()["models"]]
+    assert "subscription-classifier" in names
+    assert "category-classifier" in names
