@@ -46,15 +46,6 @@
       align-items: center; justify-content: center;
       gap: 16px; min-height: 100dvh; padding: 20px 0 12px;
     }
-    .page-label { color: #555; font-size: 11px; font-weight: 500; letter-spacing: 0.6px; text-transform: uppercase; }
-    .desktop-controls { display: flex; gap: 8px; }
-    .ctrl-btn {
-      height: 30px; padding: 0 14px; border-radius: var(--r-pill);
-      background: rgba(255,255,255,0.08); color: #bbb;
-      font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
-      transition: background 0.15s;
-    }
-    .ctrl-btn:hover { background: rgba(255,255,255,0.14); }
 
     /* ── PHONE FRAME ────────────────────────────── */
     .phone {
@@ -211,7 +202,7 @@
     .setamt { font-size: 15px; font-weight: 600; color: var(--t1); font-variant-numeric: tabular-nums; }
 
     /* ── INSIGHTS ───────────────────────────────── */
-    .ai-card { margin: 0 20px; background: var(--brand-s); border: 1px solid rgba(123,111,232,0.18); border-radius: var(--r-card); padding: 16px; }
+    .ai-card { margin: 0 20px; background: var(--bg-card); border-left: 3px solid var(--brand); border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); border-radius: var(--r-card); padding: 16px; }
     .ai-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--brand); margin-bottom: 8px; }
     .ai-body { font-size: 14px; line-height: 1.55; color: var(--t1); }
     .ai-body strong { font-weight: 700; }
@@ -224,8 +215,8 @@
     .chart-title { font-size: 13px; font-weight: 600; color: var(--t2); margin-bottom: 14px; }
     .chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
     .cbar-w { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
-    .cbar { width: 100%; border-radius: 4px 4px 0 0; background: var(--brand-s); border: 1px solid rgba(123,111,232,0.2); min-height: 4px; }
-    .cbar.cur { background: var(--brand); border-color: var(--brand); }
+    .cbar { width: 100%; border-radius: 4px 4px 0 0; background: var(--bg-raised); border: 1px solid var(--border); min-height: 4px; }
+    .cbar.cur { background: var(--t1); border-color: var(--t1); }
     .cbar-l { font-size: 10px; font-weight: 500; color: var(--t3); }
     .chart-foot { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
     .chart-foot-l { font-size: 12px; color: var(--t3); }
@@ -233,7 +224,7 @@
 
     /* ── PROFILE ────────────────────────────────── */
     .prof-hero { display: flex; flex-direction: column; align-items: center; padding: 20px 20px 12px; gap: 8px; }
-    .prof-av { width: 64px; height: 64px; border-radius: 50%; background: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: #fff; }
+    .prof-av { width: 64px; height: 64px; border-radius: 50%; background: #3a3a3e; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: #fff; }
     .prof-name { font-size: 18px; font-weight: 700; color: var(--t1); letter-spacing: -0.2px; }
     .prof-sub { font-size: 13px; color: var(--t2); }
     .srow { display: flex; align-items: center; padding: 14px 16px; gap: 12px; border-bottom: 1px solid var(--border); }
@@ -270,11 +261,6 @@
   </style>
 </head>
 <body>
-  <div class="page-label">SubTrack · Interactive Prototype</div>
-  <div class="desktop-controls">
-    <button class="ctrl-btn" onclick="toggleTheme()" id="theme-btn">☀️ Light</button>
-    <button class="ctrl-btn" onclick="toggleLang()" id="lang-btn">EN</button>
-  </div>
 
   <div class="phone">
 
@@ -290,7 +276,7 @@
       </div>
       <div class="shdr" style="display:flex;align-items:center;justify-content:space-between;padding-right:20px">
         <div style="font-size:20px;font-weight:700;color:var(--t1);letter-spacing:-0.3px">SubTrack</div>
-        <div style="width:32px;height:32px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff">SL</div>
+        <div style="width:32px;height:32px;border-radius:50%;background:#3a3a3e;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff">SL</div>
       </div>
       <div class="sbody">
         <div class="mpills">
@@ -330,7 +316,7 @@
             <div><div class="imini-t" data-i18n="insight.price_title">Prisjustering</div><div class="imini-b" data-i18n="insight.price_body">Viaplay höjde priset med 20 kr sedan förra månaden.</div></div>
           </div>
           <div class="imini">
-            <div class="imini-ic" style="background:var(--brand-s)">💡</div>
+            <div class="imini-ic" style="background:var(--green-s)">💡</div>
             <div><div class="imini-t" data-i18n="insight.double_title">Dubbelbetalning</div><div class="imini-b" data-i18n="insight.double_body">Ni har Netflix + Viaplay. Spara 1 788 kr/år.</div></div>
           </div>
         </div>
@@ -486,8 +472,8 @@
         </div>
         <div class="sec-hdr" data-i18n="profile.settings_hdr">Inställningar</div>
         <div class="card">
-          <div class="srow"><div class="srow-ic">🎨</div><div><div class="srow-lbl" data-i18n="profile.theme">Tema</div><div class="srow-val" id="theme-mode-val" data-i18n="profile.dark">Mörkt</div></div><span class="srow-chev">›</span></div>
-          <div class="srow"><div class="srow-ic">🌐</div><div><div class="srow-lbl" data-i18n="profile.language">Språk</div><div class="srow-val" id="lang-val" data-i18n="profile.lang_val">Svenska</div></div><span class="srow-chev">›</span></div>
+          <div class="srow" onclick="toggleTheme()" style="cursor:pointer"><div class="srow-ic">🎨</div><div><div class="srow-lbl" data-i18n="profile.theme">Tema</div><div class="srow-val" id="theme-mode-val" data-i18n="profile.dark">Mörkt</div></div><span class="srow-chev" id="theme-chev">›</span></div>
+          <div class="srow" onclick="toggleLang()" style="cursor:pointer"><div class="srow-ic">🌐</div><div><div class="srow-lbl" data-i18n="profile.language">Språk</div><div class="srow-val" id="lang-val" data-i18n="profile.lang_val">Svenska</div></div><span class="srow-chev">›</span></div>
           <div class="srow"><div class="srow-ic">🔒</div><div><div class="srow-lbl" data-i18n="profile.privacy">Integritet</div></div><span class="srow-chev">›</span></div>
         </div>
         <div class="sec-hdr" data-i18n="profile.notif_hdr">Notifikationer</div>
@@ -633,8 +619,6 @@
       document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { const v = d[el.dataset.i18nPlaceholder]; if (v !== undefined) el.placeholder = v; });
       const tv = document.getElementById('theme-mode-val');
       if (tv) tv.textContent = theme === 'dark' ? d['profile.dark'] : d['profile.light_val'];
-      const lb = document.getElementById('lang-btn'); if (lb) lb.textContent = lang === 'sv' ? 'EN' : 'SV';
-      const tb = document.getElementById('theme-btn'); if (tb) tb.textContent = theme === 'dark' ? (lang === 'sv' ? '☀️ Ljust' : '☀️ Light') : (lang === 'sv' ? '🌙 Mörkt' : '🌙 Dark');
     }
 
     function toggleLang() { lang = lang === 'sv' ? 'en' : 'sv'; document.documentElement.lang = lang; applyT(); if (activeDrawer) populateDrawer(activeDrawer); }
