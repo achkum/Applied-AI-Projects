@@ -112,6 +112,12 @@ Groups households by subscription profile for personalised recommendations.
 | `POST` | `/ml/v1/cluster/descriptors` | Cluster descriptor variants | `{descriptions: string[], eps?, min_samples?}` | `{clusters: [{cluster_id, members, centroid_text, size}]}` |
 | `POST` | `/ml/v1/cluster/households` | Cohort clustering | `[{household_id, subscriptions: [{category, amount_minor, billing_cadence}]}]` | `{cohorts: [{cohort_id, household_ids, dominant_categories, avg_monthly_spend}]}` |
 
+## Design prototype
+
+An interactive HTML prototype of the full UI is at [`docs/subtrack-prototype.html`](docs/subtrack-prototype.html). Open it directly in any browser — no server needed.
+
+It covers all 5 screens (Hem, Prenumerationer, Hushåll, Insikter, Profil) with a live orbit animation, subscription detail drawer, and a ☀️/🌙 toggle for dark ("Polarnatt") and light ("Snö") modes. Based on the [Norrsken design direction](docs/product/DESIGN_DIRECTION.md).
+
 ## Quick start
 
 ```bash
