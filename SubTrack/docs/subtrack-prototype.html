@@ -280,10 +280,10 @@
       </div>
       <div class="sbody">
         <div class="mpills">
-          <button class="mpill active" data-i18n="scope.household">Hushållet</button>
-          <button class="mpill">Sara</button>
-          <button class="mpill">Johan</button>
-          <button class="mpill">Elin</button>
+          <button class="mpill active" data-member="household" data-i18n="scope.household">Hushållet</button>
+          <button class="mpill" data-member="Sara">Sara</button>
+          <button class="mpill" data-member="Johan">Johan</button>
+          <button class="mpill" data-member="Elin">Elin</button>
         </div>
         <div style="padding:8px 0 0">
           <div class="hero">
@@ -435,9 +435,21 @@
           <div class="ins-top"><div class="ins-title" data-i18n="insights.card2_title">Dubbelbetalning</div><span class="badge b-brand"><span class="bdot"></span><span data-i18n="badge.save">Spara</span></span></div>
           <div class="ins-body" data-i18n="insights.card2_body">Ni har Netflix + Viaplay. Välj en och spara <strong>1 788 kr/år</strong>.</div>
         </div>
-        <div class="ins-card" style="margin-bottom:8px">
+        <div class="ins-card">
           <div class="ins-top"><div class="ins-title" data-i18n="insights.card3_title">Delad optimering</div><span class="badge b-green"><span class="bdot"></span><span data-i18n="badge.good">Bra</span></span></div>
           <div class="ins-body" data-i18n="insights.card3_body">3 av 7 prenumerationer delas. Familjeplanerna sparar ~<strong>340 kr/mån</strong>.</div>
+        </div>
+        <div class="ins-card">
+          <div class="ins-top"><div class="ins-title" data-i18n="insights.card4_title">Störst utgift</div><span class="badge b-amber"><span class="bdot"></span><span data-i18n="badge.review">Se över</span></span></div>
+          <div class="ins-body" data-i18n="insights.card4_body">Elins SATS-abonnemang är hushållets enskilt största kostnad — <strong>499 kr/mån</strong>, 36% av totalen. Kolla om gymmet erbjuder ett billigare företagsabonnemang.</div>
+        </div>
+        <div class="ins-card">
+          <div class="ins-top"><div class="ins-title" data-i18n="insights.card5_title">Sänk årsnotan med 25%</div><span class="badge b-brand"><span class="bdot"></span><span data-i18n="badge.save">Spara</span></span></div>
+          <div class="ins-body" data-i18n="insights.card5_body">Microsoft 365 och iCloud+ erbjuder årsbetalning. Betala i förskott och spara <strong>~350 kr/år</strong> jämfört med månadsvis fakturering.</div>
+        </div>
+        <div class="ins-card" style="margin-bottom:8px">
+          <div class="ins-top"><div class="ins-title" data-i18n="insights.card6_title">Fri provperiod upphör</div><span class="badge b-amber"><span class="bdot"></span><span data-i18n="badge.action">Åtgärda</span></span></div>
+          <div class="ins-body" data-i18n="insights.card6_body">Claudes provperiod upphörde i juni 2026 och övergick till betald plan. Ni har nu betalat i 4 månader — <strong>716 kr</strong> hittills.</div>
         </div>
         <div class="chart-card">
           <div class="chart-title" data-i18n="insights.chart_label">Utgiftstrend — 6 månader</div>
@@ -565,7 +577,10 @@
         'insights.card3_title':'Delad optimering','insights.card3_body':'3 av 7 prenumerationer delas. Familjeplanerna sparar ~<strong>340 kr/mån</strong>.',
         'insights.chart_label':'Utgiftstrend — 6 månader','chart.last6':'Senaste 6 månaderna',
         'month.may':'Maj','month.jun':'Jun','month.jul':'Jul','month.aug':'Aug','month.sep':'Sep','month.oct':'Okt',
-        'badge.action':'Åtgärda','badge.save':'Spara','badge.good':'Bra',
+        'badge.action':'Åtgärda','badge.save':'Spara','badge.good':'Bra','badge.review':'Se över',
+        'insights.card4_title':'Störst utgift','insights.card4_body':'Elins SATS-abonnemang är hushållets enskilt största kostnad — <strong>499 kr/mån</strong>, 36% av totalen. Kolla om gymmet erbjuder ett billigare företagsabonnemang.',
+        'insights.card5_title':'Sänk årsnotan med 25%','insights.card5_body':'Microsoft 365 och iCloud+ erbjuder årsbetalning. Betala i förskott och spara <strong>~350 kr/år</strong> jämfört med månadsvis fakturering.',
+        'insights.card6_title':'Fri provperiod upphör','insights.card6_body':'Claudes provperiod upphörde i juni 2026 och övergick till betald plan. Ni har nu betalat i 4 månader — <strong>716 kr</strong> hittills.',
         'profile.sub':'Hushållets admin','profile.settings_hdr':'Inställningar',
         'profile.theme':'Tema','profile.dark':'Mörkt','profile.light_val':'Ljust',
         'profile.language':'Språk','profile.lang_val':'Svenska','profile.privacy':'Integritet',
@@ -599,7 +614,10 @@
         'insights.card3_title':'Shared savings','insights.card3_body':'3 of 7 subscriptions are shared. Family plans save ~<strong>SEK 340/mo</strong>.',
         'insights.chart_label':'Spending trend — 6 months','chart.last6':'Last 6 months',
         'month.may':'May','month.jun':'Jun','month.jul':'Jul','month.aug':'Aug','month.sep':'Sep','month.oct':'Oct',
-        'badge.action':'Action','badge.save':'Save','badge.good':'Good',
+        'badge.action':'Action','badge.save':'Save','badge.good':'Good','badge.review':'Review',
+        'insights.card4_title':'Biggest expense','insights.card4_body':'Elin\'s SATS membership is the household\'s single largest cost — <strong>SEK 499/mo</strong>, 36% of the total. Check if the gym offers a cheaper corporate plan.',
+        'insights.card5_title':'Cut annual bill by 25%','insights.card5_body':'Microsoft 365 and iCloud+ offer annual billing. Pay upfront and save <strong>~SEK 350/year</strong> compared to monthly.',
+        'insights.card6_title':'Free trial ended','insights.card6_body':'Claude\'s trial ended June 2026 and converted to a paid plan. You\'ve now paid for 4 months — <strong>SEK 716</strong> so far.',
         'profile.sub':'Household admin','profile.settings_hdr':'Settings',
         'profile.theme':'Theme','profile.dark':'Dark','profile.light_val':'Light',
         'profile.language':'Language','profile.lang_val':'English','profile.privacy':'Privacy',
@@ -611,7 +629,14 @@
       }
     };
 
-    let lang = 'sv', theme = 'dark', activeDrawer = null;
+    const MEMBERS = {
+      household: { monthly: '1 373', yearly: '16 476', count: { sv: '7 aktiva prenumerationer', en: '7 active subscriptions' } },
+      Sara:      { monthly: '765',   yearly: '9 180',  count: { sv: '5 aktiva prenumerationer', en: '5 active subscriptions' } },
+      Johan:     { monthly: '109',   yearly: '1 308',  count: { sv: '1 aktiv prenumeration',    en: '1 active subscription'  } },
+      Elin:      { monthly: '499',   yearly: '5 988',  count: { sv: '1 aktiv prenumeration',    en: '1 active subscription'  } },
+    };
+
+    let lang = 'sv', theme = 'dark', activeDrawer = null, currentMember = 'household', currentPeriod = 'month';
 
     function applyT() {
       const d = T[lang];
@@ -621,19 +646,31 @@
       if (tv) tv.textContent = theme === 'dark' ? d['profile.dark'] : d['profile.light_val'];
     }
 
-    function toggleLang() { lang = lang === 'sv' ? 'en' : 'sv'; document.documentElement.lang = lang; applyT(); if (activeDrawer) populateDrawer(activeDrawer); }
+    function toggleLang() { lang = lang === 'sv' ? 'en' : 'sv'; document.documentElement.lang = lang; applyT(); updateHero(); if (activeDrawer) populateDrawer(activeDrawer); }
     function toggleTheme() { theme = theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = theme; applyT(); }
 
     function switchTab(name) {
       ['home','subs','household','insights','profile'].forEach(s => document.getElementById('screen-'+s).classList.toggle('active', s === name));
     }
 
+    function updateHero() {
+      const m = MEMBERS[currentMember];
+      const amt = document.getElementById('hero-amount'), sfx = document.getElementById('hero-suffix'), sub = document.querySelector('[data-i18n="hero.sub"]');
+      if (currentPeriod === 'year') { amt.textContent = m.yearly; sfx.textContent = lang === 'sv' ? ' kr/år' : ' kr/year'; }
+      else { amt.textContent = m.monthly; sfx.textContent = lang === 'sv' ? ' kr/mån' : ' kr/mo'; }
+      if (sub) sub.textContent = m.count[lang];
+    }
+
     function setPeriod(p, btn) {
       document.querySelectorAll('.hpill').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      const amt = document.getElementById('hero-amount'), sfx = document.getElementById('hero-suffix');
-      if (p === 'year') { amt.textContent = '16 476'; sfx.textContent = lang === 'sv' ? ' kr/år' : ' kr/year'; }
-      else { amt.textContent = '1 373'; sfx.textContent = lang === 'sv' ? ' kr/mån' : ' kr/mo'; }
+      currentPeriod = p;
+      updateHero();
+    }
+
+    function selectMember(name) {
+      currentMember = name;
+      updateHero();
     }
 
     function populateDrawer(key) {
@@ -653,7 +690,11 @@
     function openDrawer(key) { activeDrawer = key; populateDrawer(key); document.getElementById('drw-bg').classList.add('open'); document.getElementById('drw').classList.add('open'); }
     function closeDrawer() { document.getElementById('drw-bg').classList.remove('open'); document.getElementById('drw').classList.remove('open'); }
 
-    document.querySelectorAll('.mpill').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.mpill').forEach(x => x.classList.remove('active')); b.classList.add('active'); }));
+    document.querySelectorAll('.mpill').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('.mpill').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      selectMember(b.dataset.member || 'household');
+    }));
     document.querySelectorAll('.fchip').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.fchip').forEach(x => x.classList.remove('active')); b.classList.add('active'); }));
 
     applyT();
