@@ -1,1659 +1,678 @@
 <!DOCTYPE html>
-<html lang="sv" data-theme="dark">
+<html data-theme="dark" lang="sv">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SubTrack — Norrsken Prototype</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-/* ─── RESET ───────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 16px; }
-
-/* ─── THEME TOKENS ────────────────────────────────────────── */
-:root {
-  --transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
-}
-[data-theme="dark"] {
-  --bg-canvas:    #0A0C14;
-  --bg-raised:    #12162A;
-  --bg-sunken:    #070810;
-  --ink-primary:  #F2EFE8;
-  --ink-secondary:#A5A9BE;
-  --aurora-green: #3DE0A3;
-  --aurora-violet:#9B8CFF;
-  --aurora-teal:  #35C7E6;
-  --ember-amber:  #FFB547;
-  --ember-coral:  #FF6B6B;
-  --hairline:     rgba(255,255,255,0.08);
-  --card-shadow:  none;
-  --card-border:  1px solid rgba(255,255,255,0.08);
-  --card-glow:    inset 0 1px 0 rgba(255,255,255,0.06);
-  --outer-bg:     #05060D;
-}
-[data-theme="light"] {
-  --bg-canvas:    #F7F4EE;
-  --bg-raised:    #FFFFFF;
-  --bg-sunken:    #EFEAE1;
-  --ink-primary:  #15161C;
-  --ink-secondary:#5B5E6B;
-  --aurora-green: #0E9F6E;
-  --aurora-violet:#6A58F0;
-  --aurora-teal:  #0B8FB0;
-  --ember-amber:  #C77700;
-  --ember-coral:  #D83A3A;
-  --hairline:     rgba(21,22,28,0.08);
-  --card-shadow:  0 2px 8px rgba(21,22,28,0.06), 0 1px 2px rgba(21,22,28,0.04);
-  --card-border:  1px solid rgba(21,22,28,0.06);
-  --card-glow:    none;
-  --outer-bg:     #E8E4DC;
-}
-
-/* ─── SVG GRAIN FILTER ────────────────────────────────────── */
-.grain-filter { position: fixed; width: 0; height: 0; }
-
-/* ─── OUTER WRAPPER ───────────────────────────────────────── */
-body {
-  background: var(--outer-bg);
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 40px 20px;
-  font-family: 'Manrope', sans-serif;
-  transition: var(--transition);
-}
-.page-title {
-  font-family: 'Fraunces', serif;
-  font-style: italic;
-  font-size: 28px;
-  color: var(--ink-primary);
-  margin-bottom: 6px;
-  letter-spacing: -0.5px;
-  transition: color 300ms ease;
-}
-.page-subtitle {
-  font-family: 'Manrope', sans-serif;
-  font-size: 13px;
-  color: var(--ink-secondary);
-  margin-bottom: 32px;
-  transition: color 300ms ease;
-}
-
-/* ─── PHONE FRAME ─────────────────────────────────────────── */
-.phone-frame {
-  width: 390px;
-  height: 780px;
-  background: var(--bg-canvas);
-  border-radius: 50px;
-  box-shadow:
-    0 0 0 1px rgba(255,255,255,0.12),
-    0 30px 80px rgba(0,0,0,0.5),
-    0 0 60px rgba(155,140,255,0.08);
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: var(--transition), box-shadow 300ms ease;
-}
-[data-theme="light"] .phone-frame {
-  box-shadow:
-    0 0 0 1px rgba(21,22,28,0.12),
-    0 30px 80px rgba(21,22,28,0.2);
-}
-
-/* Notch */
-.phone-frame::before {
-  content: '';
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 120px;
-  height: 30px;
-  background: var(--bg-canvas);
-  border-radius: 0 0 20px 20px;
-  z-index: 100;
-  transition: background 300ms ease;
-}
-
-/* ─── SCREEN CONTAINER ────────────────────────────────────── */
-.screen {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-bottom: 72px;
-  background: var(--bg-canvas);
-  transition: background 300ms ease;
-  scrollbar-width: none;
-}
-.screen::-webkit-scrollbar { display: none; }
-.screen.hidden { display: none; }
-
-/* ─── STATUS BAR ──────────────────────────────────────────── */
-.status-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 24px 4px;
-  font-family: 'Manrope', sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink-primary);
-  transition: color 300ms ease;
-}
-.status-icons { display: flex; gap: 6px; align-items: center; }
-
-/* ─── HEADER ──────────────────────────────────────────────── */
-.app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 20px 12px;
-}
-.app-logo {
-  font-family: 'Fraunces', serif;
-  font-style: italic;
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--ink-primary);
-  letter-spacing: -0.3px;
-  transition: color 300ms ease;
-}
-.theme-toggle {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: var(--card-border);
-  background: var(--bg-raised);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--ink-secondary);
-  transition: var(--transition), transform 200ms ease;
-  box-shadow: var(--card-shadow);
-}
-.theme-toggle:hover { transform: scale(1.08); color: var(--aurora-violet); }
-
-/* ─── SCOPE SWITCHER ──────────────────────────────────────── */
-.scope-switcher {
-  display: flex;
-  gap: 4px;
-  padding: 0 20px 16px;
-}
-.scope-btn {
-  font-family: 'Manrope', sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: var(--card-border);
-  background: transparent;
-  color: var(--ink-secondary);
-  cursor: pointer;
-  transition: var(--transition);
-}
-.scope-btn.active {
-  background: var(--aurora-violet);
-  color: #fff;
-  border-color: transparent;
-}
-.scope-btn:hover:not(.active) { color: var(--ink-primary); background: var(--bg-raised); }
-
-/* ─── ORBIT ───────────────────────────────────────────────── */
-.orbit-container {
-  width: 100%;
-  height: 300px;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-#orbit-canvas {
-  width: 100%;
-  height: 100%;
-}
-
-/* ─── TOOLTIP ─────────────────────────────────────────────── */
-.orbit-tooltip {
-  position: absolute;
-  background: var(--bg-raised);
-  border: var(--card-border);
-  border-radius: 12px;
-  padding: 8px 12px;
-  font-size: 12px;
-  color: var(--ink-primary);
-  pointer-events: none;
-  white-space: nowrap;
-  box-shadow: var(--card-shadow), 0 4px 20px rgba(0,0,0,0.3);
-  transition: var(--transition);
-  z-index: 20;
-  display: none;
-}
-.orbit-tooltip .tt-name { font-weight: 700; margin-bottom: 2px; }
-.orbit-tooltip .tt-amount { color: var(--ink-secondary); font-size: 11px; }
-
-/* ─── ROLLING TOTAL ───────────────────────────────────────── */
-.total-section {
-  text-align: center;
-  padding: 8px 20px 20px;
-}
-.total-amount {
-  font-family: 'Fraunces', serif;
-  font-size: 56px;
-  font-weight: 800;
-  color: var(--ink-primary);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -2px;
-  line-height: 1;
-  transition: color 300ms ease;
-}
-.total-period {
-  font-family: 'Manrope', sans-serif;
-  font-size: 14px;
-  color: var(--ink-secondary);
-  margin-top: 4px;
-  transition: color 300ms ease;
-}
-.period-toggle {
-  display: inline-flex;
-  margin-top: 10px;
-  border-radius: 999px;
-  background: var(--bg-raised);
-  border: var(--card-border);
-  overflow: hidden;
-  box-shadow: var(--card-shadow);
-}
-.period-btn {
-  font-family: 'Manrope', sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 5px 14px;
-  border: none;
-  background: transparent;
-  color: var(--ink-secondary);
-  cursor: pointer;
-  transition: var(--transition);
-}
-.period-btn.active { background: var(--aurora-violet); color: #fff; }
-
-/* ─── SECTION HEADER ──────────────────────────────────────── */
-.section-header {
-  font-family: 'Manrope', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--ink-secondary);
-  padding: 0 20px 10px;
-  transition: color 300ms ease;
-}
-
-/* ─── UPCOMING CHIPS ──────────────────────────────────────── */
-.upcoming-row {
-  display: flex;
-  gap: 8px;
-  padding: 0 20px 20px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.upcoming-row::-webkit-scrollbar { display: none; }
-.upcoming-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--bg-raised);
-  border: var(--card-border);
-  border-radius: 14px;
-  padding: 8px 14px;
-  white-space: nowrap;
-  box-shadow: var(--card-shadow), var(--card-glow);
-  flex-shrink: 0;
-  cursor: pointer;
-  transition: var(--transition);
-}
-.upcoming-chip:hover { transform: translateY(-1px); }
-.upcoming-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.upcoming-info { display: flex; flex-direction: column; }
-.upcoming-name { font-size: 12px; font-weight: 700; color: var(--ink-primary); transition: color 300ms ease; }
-.upcoming-days { font-size: 10px; color: var(--ember-amber); font-weight: 600; transition: color 300ms ease; }
-.upcoming-amount { font-family: 'Fraunces', serif; font-size: 14px; font-weight: 700; color: var(--ink-primary); margin-left: 4px; transition: color 300ms ease; }
-
-/* ─── INSIGHT CARDS ───────────────────────────────────────── */
-.insights-scroll {
-  display: flex;
-  gap: 12px;
-  padding: 0 20px 20px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.insights-scroll::-webkit-scrollbar { display: none; }
-.insight-mini {
-  flex-shrink: 0;
-  width: 200px;
-  background: var(--bg-raised);
-  border: var(--card-border);
-  border-radius: 20px;
-  padding: 14px 16px;
-  box-shadow: var(--card-shadow), var(--card-glow);
-  cursor: pointer;
-  transition: var(--transition);
-}
-.insight-mini:hover { transform: translateY(-2px); }
-.insight-mini-icon { font-size: 18px; margin-bottom: 6px; }
-.insight-mini-title { font-size: 12px; font-weight: 700; color: var(--ink-primary); margin-bottom: 4px; transition: color 300ms ease; }
-.insight-mini-body { font-size: 10px; color: var(--ink-secondary); line-height: 1.5; transition: color 300ms ease; }
-.insight-accent-bar { height: 3px; border-radius: 2px; margin-bottom: 10px; }
-
-/* ─── SUBSCRIPTIONS SCREEN ────────────────────────────────── */
-.screen-title {
-  font-family: 'Fraunces', serif;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--ink-primary);
-  padding: 16px 20px 12px;
-  transition: color 300ms ease;
-}
-.search-bar {
-  margin: 0 20px 14px;
-  background: var(--bg-sunken);
-  border: var(--card-border);
-  border-radius: 14px;
-  padding: 10px 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: var(--transition);
-}
-.search-bar svg { color: var(--ink-secondary); flex-shrink: 0; transition: color 300ms ease; }
-.search-bar input {
-  background: transparent;
-  border: none;
-  outline: none;
-  font-family: 'Manrope', sans-serif;
-  font-size: 13px;
-  color: var(--ink-primary);
-  width: 100%;
-  transition: color 300ms ease;
-}
-.search-bar input::placeholder { color: var(--ink-secondary); }
-
-.filter-chips {
-  display: flex;
-  gap: 6px;
-  padding: 0 20px 16px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.filter-chips::-webkit-scrollbar { display: none; }
-.filter-chip {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 5px 12px;
-  border-radius: 999px;
-  border: var(--card-border);
-  background: var(--bg-raised);
-  color: var(--ink-secondary);
-  white-space: nowrap;
-  cursor: pointer;
-  transition: var(--transition);
-  flex-shrink: 0;
-}
-.filter-chip.active { background: var(--aurora-violet); color: #fff; border-color: transparent; }
-.filter-chip:hover:not(.active) { color: var(--ink-primary); }
-
-.sub-list { padding: 0 20px; display: flex; flex-direction: column; gap: 8px; }
-.sub-card {
-  background: var(--bg-raised);
-  border: var(--card-border);
-  border-radius: 20px;
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: var(--card-shadow), var(--card-glow);
-  cursor: pointer;
-  transition: var(--transition);
-}
-.sub-card:hover { transform: translateX(2px); }
-.sub-left { display: flex; align-items: center; gap: 12px; }
-.sub-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-.sub-info .sub-name { font-size: 15px; font-weight: 700; color: var(--ink-primary); transition: color 300ms ease; }
-.sub-info .sub-cat { font-size: 11px; color: var(--ink-secondary); margin-top: 1px; display: flex; align-items: center; gap: 4px; transition: color 300ms ease; }
-.sub-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.sub-amount { font-family: 'Fraunces', serif; font-size: 17px; font-weight: 700; color: var(--ink-primary); font-variant-numeric: tabular-nums; transition: color 300ms ease; }
-.sub-per { font-size: 10px; color: var(--ink-secondary); transition: color 300ms ease; }
-.price-hike-pill {
-  background: rgba(255,181,71,0.15);
-  color: var(--ember-amber);
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,181,71,0.3);
-}
-.sub-total-row {
-  background: var(--bg-raised);
-  border: var(--card-border);
-  border-radius: 20px;
-  padding: 14px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 8px 20px 0;
-  box-shadow: var(--card-shadow), var(--card-glow);
-}
-.sub-total-label { font-size: 12px; font-weight: 700; color: var(--ink-secondary); transition: color 300ms ease; }
-.sub-total-amount { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 800; color: var(--aurora-violet); font-variant-numeric: tabular-nums; transition: color 300ms ease; }
-
-/* ─── HOUSEHOLD SCREEN ────────────────────────────────────── */
-.hh-header { padding: 16px 20px 20px; }
-.hh-name { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 700; color: var(--ink-primary); transition: color 300ms ease; }
-.hh-count { font-size: 12px; color: var(--ink-secondary); margin-top: 2px; transition: color 300ms ease; }
-.members-grid {
-  display: flex;
-  gap: 16px;
-  padding: 0 20px 24px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.members-grid::-webkit-scrollbar { display: none; }
-.member-item { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
-.member-avatar {
-  width: 56px; height: 56px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Manrope', sans-serif;
-  font-size: 16px; font-weight: 800;
-  color: #fff;
-  position: relative;
-}
-.member-avatar::after {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  border: 2.5px solid currentColor;
-  opacity: 0.6;
-}
-.member-name { font-size: 11px; font-weight: 600; color: var(--ink-secondary); transition: color 300ms ease; }
-.member-amount { font-family: 'Fraunces', serif; font-size: 13px; color: var(--ink-primary); font-variant-numeric: tabular-nums; transition: color 300ms ease; }
-
-.settlement-card {
-  margin: 0 20px 20px;
-  background: var(--bg-raised);
-  border: var(--card-border);
-  border-radius: 20px;
-  padding: 18px 20px;
-  box-shadow: var(--card-shadow), var(--card-glow);
-}
-.settlement-title { font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--ink-secondary); margin-bottom: 16px; transition: color 300ms ease; }
-.settlement-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.settle-avatar {
-  width: 36px; height: 36px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 800; color: #fff; flex-shrink: 0;
-}
-.settle-line-wrap { flex: 1; position: relative; height: 24px; display: flex; align-items: center; }
-.settle-line {
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg, var(--aurora-violet), var(--aurora-green));
-  border-radius: 2px;
-  position: relative;
-  overflow: hidden;
-}
-.settle-line::after {
-  content: '';
-  position: absolute;
-  top: 0; left: -100%;
-  width: 60%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
-  animation: settleFlow 2s linear infinite;
-}
-@keyframes settleFlow {
-  to { left: 200%; }
-}
-.settle-amount {
-  position: absolute;
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: 'Fraunces', serif;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--aurora-green);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  transition: color 300ms ease;
-}
-.settle-arrow { font-size: 10px; color: var(--ink-secondary); position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); white-space: nowrap; transition: color 300ms ease; }
-
-.shared-subs-card {
-  margin: 0 20px 20px;
-  background: var(--bg-raised);
-  border: var(--card-border);
-  border-radius: 20px;
-  padding: 18px 20px;
-  box-shadow: var(--card-shadow), var(--card-glow);
-}
-.shared-sub-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--hairline);
-  transition: border-color 300ms ease;
-}
-.shared-sub-row:last-child { border-bottom: none; }
-.shared-sub-left { display: flex; align-items: center; gap: 10px; }
-.shared-sub-name { font-size: 13px; font-weight: 600; color: var(--ink-primary); transition: color 300ms ease; }
-.shared-sub-payer { font-size: 11px; color: var(--ink-secondary); transition: color 300ms ease; }
-.shared-sub-amount { font-family: 'Fraunces', serif; font-size: 14px; color: var(--ink-primary); font-variant-numeric: tabular-nums; transition: color 300ms ease; }
-
-/* ─── INSIGHTS SCREEN ─────────────────────────────────────── */
-.ai-recap {
-  margin: 0 20px 20px;
-  background: var(--bg-raised);
-  border: var(--card-border);
-  border-radius: 20px;
-  padding: 20px;
-  box-shadow: var(--card-shadow), var(--card-glow);
-}
-.ai-recap-label { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--aurora-violet); margin-bottom: 12px; transition: color 300ms ease; }
-.ai-recap-body { font-size: 14px; line-height: 1.65; color: var(--ink-primary); transition: color 300ms ease; }
-.drop-cap {
-  float: left;
-  font-family: 'Fraunces', serif;
-  font-size: 52px;
-  font-weight: 800;
-  line-height: 0.8;
-  color: var(--aurora-violet);
-  margin-right: 6px;
-  margin-top: 6px;
-  transition: color 300ms ease;
-}
-
-.insight-card {
-  margin: 0 20px 12px;
-  background: var(--bg-raised);
-  border: var(--card-border);
-  border-radius: 20px;
-  padding: 16px 18px;
-  box-shadow: var(--card-shadow), var(--card-glow);
-}
-.insight-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.insight-card-icon { font-size: 20px; flex-shrink: 0; }
-.insight-card-accent { width: 4px; border-radius: 4px; margin-top: 2px; flex-shrink: 0; align-self: stretch; }
-.insight-card-title { font-size: 13px; font-weight: 700; color: var(--ink-primary); margin-bottom: 5px; transition: color 300ms ease; }
-.insight-card-body { font-size: 12px; color: var(--ink-secondary); line-height: 1.55; transition: color 300ms ease; }
-
-.chart-card {
-  margin: 0 20px 20px;
-  background: var(--bg-raised);
-  border: var(--card-border);
-  border-radius: 20px;
-  padding: 18px 20px;
-  box-shadow: var(--card-shadow), var(--card-glow);
-}
-.chart-label { font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--ink-secondary); margin-bottom: 16px; transition: color 300ms ease; }
-.chart-svg-wrap { width: 100%; }
-
-/* ─── PROFILE SCREEN ──────────────────────────────────────── */
-.profile-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 24px 20px 28px;
-}
-.profile-avatar {
-  width: 80px; height: 80px; border-radius: 50%;
-  background: var(--aurora-violet);
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Manrope', sans-serif;
-  font-size: 28px; font-weight: 800; color: #fff;
-  box-shadow: 0 0 0 4px rgba(155,140,255,0.2);
-  margin-bottom: 14px;
-}
-.profile-name { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700; color: var(--ink-primary); transition: color 300ms ease; }
-.profile-email { font-size: 13px; color: var(--ink-secondary); margin-top: 3px; filter: blur(3px); transition: color 300ms ease; }
-.settings-list { padding: 0 20px; display: flex; flex-direction: column; gap: 4px; }
-.settings-row {
-  background: var(--bg-raised);
-  border: var(--card-border);
-  border-radius: 16px;
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  box-shadow: var(--card-shadow), var(--card-glow);
-  transition: var(--transition);
-}
-.settings-row:hover { transform: translateX(2px); }
-.settings-row-left { display: flex; align-items: center; gap: 12px; }
-.settings-icon { font-size: 18px; width: 28px; text-align: center; }
-.settings-label { font-size: 14px; font-weight: 600; color: var(--ink-primary); transition: color 300ms ease; }
-.settings-value { font-size: 12px; color: var(--ink-secondary); transition: color 300ms ease; }
-.settings-chevron { color: var(--ink-secondary); transition: color 300ms ease; }
-
-.logout-btn {
-  margin: 20px 20px 0;
-  width: calc(100% - 40px);
-  padding: 14px;
-  border-radius: 999px;
-  border: 2px solid var(--ember-coral);
-  background: transparent;
-  color: var(--ember-coral);
-  font-family: 'Manrope', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: var(--transition);
-}
-.logout-btn:hover { background: var(--ember-coral); color: #fff; }
-
-/* ─── DETAIL DRAWER ───────────────────────────────────────── */
-.drawer-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-  z-index: 40;
-  display: none;
-  backdrop-filter: blur(2px);
-}
-.drawer-backdrop.open { display: block; }
-.drawer {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  background: var(--bg-canvas);
-  border-radius: 28px 28px 0 0;
-  z-index: 50;
-  transform: translateY(100%);
-  transition: transform 380ms cubic-bezier(0.25,0.8,0.25,1), background 300ms ease;
-  max-height: 88%;
-  overflow-y: auto;
-  scrollbar-width: none;
-  padding-bottom: 30px;
-}
-.drawer::-webkit-scrollbar { display: none; }
-.drawer.open { transform: translateY(0); }
-.drawer-handle {
-  width: 36px; height: 4px;
-  background: var(--hairline);
-  border-radius: 2px;
-  margin: 12px auto 0;
-  cursor: pointer;
-  transition: background 300ms ease;
-}
-.receipt-card {
-  margin: 16px 16px 0;
-  background: var(--bg-raised);
-  border: var(--card-border);
-  border-radius: 24px 24px 0 0;
-  padding: 20px 20px 0;
-  box-shadow: var(--card-shadow), var(--card-glow);
-}
-.receipt-logo {
-  width: 52px; height: 52px; border-radius: 16px;
-  background: var(--aurora-violet);
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Fraunces', serif; font-size: 24px; font-weight: 800; color: #fff;
-  margin-bottom: 14px;
-}
-.receipt-service { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 700; color: var(--ink-primary); transition: color 300ms ease; }
-.receipt-plan { font-size: 12px; color: var(--ink-secondary); margin-bottom: 16px; transition: color 300ms ease; }
-.receipt-price { font-family: 'Fraunces', serif; font-size: 48px; font-weight: 800; color: var(--ink-primary); font-variant-numeric: tabular-nums; transition: color 300ms ease; }
-.receipt-per { font-size: 14px; color: var(--ink-secondary); margin-bottom: 4px; transition: color 300ms ease; }
-.receipt-renewal { font-size: 12px; color: var(--ember-amber); font-weight: 600; margin-bottom: 20px; transition: color 300ms ease; }
-.receipt-perforation {
-  border-top: 2px dashed var(--hairline);
-  margin: 0 -20px;
-  padding: 16px 20px 0;
-  transition: border-color 300ms ease;
-}
-.receipt-bottom {
-  margin: 0 16px;
-  background: var(--bg-raised);
-  border: var(--card-border);
-  border-top: none;
-  border-radius: 0 0 24px 24px;
-  padding: 0 20px 20px;
-  box-shadow: var(--card-shadow), var(--card-glow);
-}
-.sparkline-wrap { margin-bottom: 16px; }
-.sparkline-label { font-size: 10px; font-weight: 700; color: var(--ember-amber); margin-top: 4px; transition: color 300ms ease; }
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--hairline);
-  transition: border-color 300ms ease;
-}
-.detail-row:last-of-type { border-bottom: none; }
-.detail-key { font-size: 12px; color: var(--ink-secondary); transition: color 300ms ease; }
-.detail-val { font-size: 13px; font-weight: 600; color: var(--ink-primary); display: flex; align-items: center; gap: 6px; transition: color 300ms ease; }
-.mini-avatar {
-  width: 22px; height: 22px; border-radius: 50%;
-  background: var(--aurora-violet);
-  font-size: 8px; font-weight: 800; color: #fff;
-  display: flex; align-items: center; justify-content: center;
-}
-.member-avatars-row { display: flex; gap: -4px; }
-.member-avatars-row .mini-avatar { margin-left: -4px; border: 2px solid var(--bg-raised); transition: border-color 300ms ease; }
-.member-avatars-row .mini-avatar:first-child { margin-left: 0; }
-
-.drawer-actions {
-  display: flex;
-  gap: 10px;
-  padding: 16px 16px 0;
-}
-.action-btn {
-  flex: 1;
-  padding: 12px;
-  border-radius: 999px;
-  font-family: 'Manrope', sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: var(--transition);
-}
-.action-btn-coral { border: 2px solid var(--ember-coral); background: transparent; color: var(--ember-coral); }
-.action-btn-coral:hover { background: var(--ember-coral); color: #fff; }
-.action-btn-ghost { border: var(--card-border); background: var(--bg-raised); color: var(--ink-secondary); }
-.action-btn-ghost:hover { color: var(--ink-primary); }
-
-/* ─── BOTTOM TAB BAR ──────────────────────────────────────── */
-.tab-bar {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 72px;
-  background: var(--bg-raised);
-  border-top: 1px solid var(--hairline);
-  display: flex;
-  align-items: flex-start;
-  padding-top: 10px;
-  z-index: 30;
-  transition: var(--transition);
-}
-.tab-btn {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  transition: color 300ms ease;
-  color: var(--ink-secondary);
-}
-.tab-btn.active { color: var(--aurora-violet); }
-.tab-btn:hover:not(.active) { color: var(--ink-primary); }
-.tab-icon { font-size: 22px; line-height: 1; }
-.tab-label { font-family: 'Manrope', sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0.2px; }
-
-/* ─── AURORA GRADIENT ANIMATION ───────────────────────────── */
-@keyframes auroraShift {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* ─── HOME SCREEN AURORA BG (subtle) ─────────────────────── */
-.aurora-bg-strip {
-  position: absolute;
-  top: 120px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(ellipse at center, rgba(155,140,255,0.15) 0%, rgba(53,199,230,0.08) 50%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-  animation: auroraShift 60s ease infinite;
-}
-[data-theme="light"] .aurora-bg-strip {
-  background: radial-gradient(ellipse at center, rgba(106,88,240,0.08) 0%, rgba(11,143,176,0.05) 50%, transparent 70%);
-}
-</style>
-</head>
-<body>
-<svg class="grain-filter">
-  <filter id="grain">
-    <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/>
-    <feColorMatrix type="saturate" values="0"/>
-    <feBlend in="SourceGraphic" mode="overlay" result="blend"/>
-    <feComposite in="blend" in2="SourceGraphic" operator="in"/>
-  </filter>
-</svg>
-
-<div class="page-title">SubTrack — Norrsken</div>
-<div class="page-subtitle">Klicka på ☀️/🌙 för att byta ljus ↔ mörkt läge &nbsp;·&nbsp; Tryck på prenumerationer och orbitkroppar</div>
-
-<div class="phone-frame" id="app">
-  <div class="aurora-bg-strip"></div>
-
-  <!-- ══════════════ SCREEN: HEM ══════════════ -->
-  <div class="screen" id="screen-home">
-    <div class="status-bar">
-      <span>09:41</span>
-      <div class="status-icons">
-        <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor">
-          <rect x="0" y="7" width="3" height="5" rx="0.5" opacity="0.4"/>
-          <rect x="4" y="5" width="3" height="7" rx="0.5" opacity="0.6"/>
-          <rect x="8" y="2" width="3" height="10" rx="0.5" opacity="0.8"/>
-          <rect x="12" y="0" width="3" height="12" rx="0.5"/>
-        </svg>
-        <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor">
-          <path d="M8 2.5C10.2 2.5 12.2 3.4 13.6 4.9L15 3.5C13.2 1.6 10.7 0.5 8 0.5C5.3 0.5 2.8 1.6 1 3.5L2.4 4.9C3.8 3.4 5.8 2.5 8 2.5Z" opacity="0.4"/>
-          <path d="M8 5.5C9.5 5.5 10.8 6.1 11.8 7L13.2 5.6C11.8 4.3 10 3.5 8 3.5C6 3.5 4.2 4.3 2.8 5.6L4.2 7C5.2 6.1 6.5 5.5 8 5.5Z" opacity="0.7"/>
-          <circle cx="8" cy="10" r="1.5"/>
-        </svg>
-        <svg width="25" height="12" viewBox="0 0 25 12" fill="currentColor">
-          <rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="currentColor" stroke-opacity="0.35" fill="none"/>
-          <rect x="2" y="2" width="15" height="8" rx="1.5" fill="currentColor"/>
-          <path d="M23 4v4a2 2 0 0 0 0-4z" fill="currentColor" opacity="0.5"/>
-        </svg>
-      </div>
-    </div>
-
-    <div class="app-header">
-      <div class="app-logo">SubTrack</div>
-      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
-        <span id="theme-icon" style="font-size:16px">🌙</span>
-      </button>
-    </div>
-
-    <div class="scope-switcher">
-      <button class="scope-btn active">Hushållet</button>
-      <button class="scope-btn">Sara</button>
-      <button class="scope-btn">Johan</button>
-      <button class="scope-btn">Elin</button>
-    </div>
-
-    <div class="orbit-container">
-      <canvas id="orbit-canvas"></canvas>
-      <div class="orbit-tooltip" id="orbit-tooltip">
-        <div class="tt-name" id="tt-name"></div>
-        <div class="tt-amount" id="tt-amount"></div>
-      </div>
-    </div>
-
-    <div class="total-section">
-      <div class="total-amount" id="total-display">1 373 kr</div>
-      <div class="total-period" id="total-period">/månad</div>
-      <div class="period-toggle">
-        <button class="period-btn active" onclick="setPeriod('month', this)">Månadsvis</button>
-        <button class="period-btn" onclick="setPeriod('year', this)">Årsvis</button>
-      </div>
-    </div>
-
-    <div class="section-header">Kommande denna vecka</div>
-    <div class="upcoming-row">
-      <div class="upcoming-chip" onclick="openDrawer('netflix')">
-        <div class="upcoming-dot" style="background:#9B8CFF"></div>
-        <div class="upcoming-info">
-          <div class="upcoming-name">Netflix</div>
-          <div class="upcoming-days">om 2 dagar</div>
-        </div>
-        <div class="upcoming-amount">179 kr</div>
-      </div>
-      <div class="upcoming-chip" onclick="openDrawer('icloud')">
-        <div class="upcoming-dot" style="background:#35C7E6"></div>
-        <div class="upcoming-info">
-          <div class="upcoming-name">iCloud+</div>
-          <div class="upcoming-days">om 5 dagar</div>
-        </div>
-        <div class="upcoming-amount">39 kr</div>
-      </div>
-    </div>
-
-    <div class="section-header">Insikter</div>
-    <div class="insights-scroll">
-      <div class="insight-mini" onclick="switchTab('insights')">
-        <div class="insight-accent-bar" style="background:var(--ember-amber)"></div>
-        <div class="insight-mini-icon">⚠️</div>
-        <div class="insight-mini-title">Prisjustering</div>
-        <div class="insight-mini-body">Viaplay höjde priset med 20 kr sedan förra månaden.</div>
-      </div>
-      <div class="insight-mini" onclick="switchTab('insights')">
-        <div class="insight-accent-bar" style="background:var(--aurora-teal)"></div>
-        <div class="insight-mini-icon">💡</div>
-        <div class="insight-mini-title">Dubbelbetalning</div>
-        <div class="insight-mini-body">Ni har Netflix + Viaplay. Spara 1 788 kr/år.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════ SCREEN: PRENUMERATIONER ══════════════ -->
-  <div class="screen hidden" id="screen-subs">
-    <div class="status-bar">
-      <span>09:41</span>
-      <div class="status-icons">
-        <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="0.5"/><rect x="4" y="5" width="3" height="7" rx="0.5"/><rect x="8" y="2" width="3" height="10" rx="0.5"/><rect x="12" y="0" width="3" height="12" rx="0.5"/></svg>
-      </div>
-    </div>
-    <div class="app-header">
-      <div class="app-logo">SubTrack</div>
-      <button class="theme-toggle" onclick="toggleTheme()"><span style="font-size:16px" id="theme-icon-2">🌙</span></button>
-    </div>
-    <div class="screen-title">Prenumerationer</div>
-    <div class="search-bar">
-      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input type="text" placeholder="Sök prenumeration...">
-    </div>
-    <div class="filter-chips">
-      <div class="filter-chip active">Alla</div>
-      <div class="filter-chip">Film</div>
-      <div class="filter-chip">Musik</div>
-      <div class="filter-chip">Mjukvara</div>
-      <div class="filter-chip">AI</div>
-      <div class="filter-chip">Träning</div>
-      <div class="filter-chip">Lagring</div>
-    </div>
-    <div class="sub-list">
-      <div class="sub-card" onclick="openDrawer('netflix')">
-        <div class="sub-left">
-          <div class="sub-dot" style="background:#9B8CFF"></div>
-          <div class="sub-info">
-            <div class="sub-name">Netflix</div>
-            <div class="sub-cat"><span>👥</span> Film &amp; serier</div>
-          </div>
-        </div>
-        <div class="sub-right">
-          <div class="sub-amount">179 kr</div>
-          <div class="sub-per">/mån</div>
-        </div>
-      </div>
-      <div class="sub-card" onclick="openDrawer('spotify')">
-        <div class="sub-left">
-          <div class="sub-dot" style="background:#3DE0A3"></div>
-          <div class="sub-info">
-            <div class="sub-name">Spotify Family</div>
-            <div class="sub-cat"><span>👥</span> Musik &amp; podd</div>
-          </div>
-        </div>
-        <div class="sub-right">
-          <div class="sub-amount">219 kr</div>
-          <div class="sub-per">/mån</div>
-        </div>
-      </div>
-      <div class="sub-card" onclick="openDrawer('ms365')">
-        <div class="sub-left">
-          <div class="sub-dot" style="background:#60A5FA"></div>
-          <div class="sub-info">
-            <div class="sub-name">Microsoft 365</div>
-            <div class="sub-cat"><span>👥</span> Programvara</div>
-          </div>
-        </div>
-        <div class="sub-right">
-          <div class="sub-amount">119 kr</div>
-          <div class="sub-per">/mån</div>
-        </div>
-      </div>
-      <div class="sub-card" onclick="openDrawer('icloud')">
-        <div class="sub-left">
-          <div class="sub-dot" style="background:#35C7E6"></div>
-          <div class="sub-info">
-            <div class="sub-name">iCloud+ 200GB</div>
-            <div class="sub-cat"><span>🔒</span> Molnlagring · Sara</div>
-          </div>
-        </div>
-        <div class="sub-right">
-          <div class="sub-amount">39 kr</div>
-          <div class="sub-per">/mån</div>
-        </div>
-      </div>
-      <div class="sub-card" onclick="openDrawer('viaplay')">
-        <div class="sub-left">
-          <div class="sub-dot" style="background:#9B8CFF"></div>
-          <div class="sub-info">
-            <div class="sub-name">Viaplay</div>
-            <div class="sub-cat"><span>👥</span> Film &amp; serier</div>
-          </div>
-        </div>
-        <div class="sub-right">
-          <div style="display:flex;align-items:center;gap:6px">
-            <div class="sub-amount">149 kr</div>
-            <div class="price-hike-pill">↑ +20 kr</div>
-          </div>
-          <div class="sub-per">/mån</div>
-        </div>
-      </div>
-      <div class="sub-card" onclick="openDrawer('sats')">
-        <div class="sub-left">
-          <div class="sub-dot" style="background:#FB923C"></div>
-          <div class="sub-info">
-            <div class="sub-name">SATS</div>
-            <div class="sub-cat"><span>🔒</span> Träning · Elin</div>
-          </div>
-        </div>
-        <div class="sub-right">
-          <div class="sub-amount">449 kr</div>
-          <div class="sub-per">/mån</div>
-        </div>
-      </div>
-      <div class="sub-card" onclick="openDrawer('claude')">
-        <div class="sub-left">
-          <div class="sub-dot" style="background:#E879F9"></div>
-          <div class="sub-info">
-            <div class="sub-name">Claude Pro</div>
-            <div class="sub-cat"><span>🔒</span> AI-verktyg · Sara</div>
-          </div>
-        </div>
-        <div class="sub-right">
-          <div class="sub-amount">219 kr</div>
-          <div class="sub-per">/mån</div>
-        </div>
-      </div>
-    </div>
-    <div class="sub-total-row">
-      <div class="sub-total-label">Totalt hushållet</div>
-      <div style="text-align:right">
-        <div class="sub-total-amount">1 373 kr</div>
-        <div class="sub-per">/mån</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════ SCREEN: HUSHÅLL ══════════════ -->
-  <div class="screen hidden" id="screen-household">
-    <div class="status-bar">
-      <span>09:41</span>
-    </div>
-    <div class="app-header">
-      <div class="app-logo">SubTrack</div>
-      <button class="theme-toggle" onclick="toggleTheme()"><span style="font-size:16px" id="theme-icon-3">🌙</span></button>
-    </div>
-    <div class="hh-header">
-      <div class="hh-name">🏠 Solberg</div>
-      <div class="hh-count">5 members · 7 prenumerationer</div>
-    </div>
-    <div class="members-grid">
-      <div class="member-item">
-        <div class="member-avatar" style="background:#9B8CFF;color:var(--aurora-violet)">SA</div>
-        <div class="member-name">Sara</div>
-        <div class="member-amount">556 kr</div>
-      </div>
-      <div class="member-item">
-        <div class="member-avatar" style="background:#3DE0A3;color:var(--aurora-green)">JO</div>
-        <div class="member-name">Johan</div>
-        <div class="member-amount">368 kr</div>
-      </div>
-      <div class="member-item">
-        <div class="member-avatar" style="background:#FB923C;color:#FB923C">EL</div>
-        <div class="member-name">Elin</div>
-        <div class="member-amount">449 kr</div>
-      </div>
-      <div class="member-item">
-        <div class="member-avatar" style="background:#60A5FA;color:#60A5FA;font-size:20px">👶</div>
-        <div class="member-name">Maja</div>
-        <div class="member-amount">—</div>
-      </div>
-      <div class="member-item">
-        <div class="member-avatar" style="background:#34D399;color:#34D399;font-size:20px">👶</div>
-        <div class="member-name">Erik</div>
-        <div class="member-amount">—</div>
-      </div>
-    </div>
-
-    <div class="section-header" style="padding-left:20px">Uppgörelser denna månad</div>
-    <div class="settlement-card">
-      <div class="settlement-row">
-        <div class="settle-avatar" style="background:#3DE0A3">JO</div>
-        <div class="settle-line-wrap">
-          <div class="settle-line"></div>
-          <div class="settle-amount">245 kr</div>
-          <div class="settle-arrow">Johan → Sara</div>
-        </div>
-        <div class="settle-avatar" style="background:#9B8CFF">SA</div>
-      </div>
-    </div>
-
-    <div class="section-header" style="padding-left:20px">Delade prenumerationer</div>
-    <div class="shared-subs-card">
-      <div class="shared-sub-row">
-        <div class="shared-sub-left">
-          <div class="sub-dot" style="background:#9B8CFF"></div>
-          <div>
-            <div class="shared-sub-name">Netflix</div>
-            <div class="shared-sub-payer">Betalar: Sara</div>
-          </div>
-        </div>
-        <div class="shared-sub-amount">179 kr</div>
-      </div>
-      <div class="shared-sub-row">
-        <div class="shared-sub-left">
-          <div class="sub-dot" style="background:#3DE0A3"></div>
-          <div>
-            <div class="shared-sub-name">Spotify Family</div>
-            <div class="shared-sub-payer">Betalar: Johan</div>
-          </div>
-        </div>
-        <div class="shared-sub-amount">219 kr</div>
-      </div>
-      <div class="shared-sub-row">
-        <div class="shared-sub-left">
-          <div class="sub-dot" style="background:#60A5FA"></div>
-          <div>
-            <div class="shared-sub-name">Microsoft 365</div>
-            <div class="shared-sub-payer">Betalar: Sara</div>
-          </div>
-        </div>
-        <div class="shared-sub-amount">119 kr</div>
-      </div>
-      <div class="shared-sub-row">
-        <div class="shared-sub-left">
-          <div class="sub-dot" style="background:#9B8CFF"></div>
-          <div>
-            <div class="shared-sub-name">Viaplay</div>
-            <div class="shared-sub-payer">Betalar: Johan</div>
-          </div>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-          <div class="shared-sub-amount">149 kr</div>
-          <div class="price-hike-pill">↑ +20 kr</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════ SCREEN: INSIKTER ══════════════ -->
-  <div class="screen hidden" id="screen-insights">
-    <div class="status-bar"><span>09:41</span></div>
-    <div class="app-header">
-      <div class="app-logo">SubTrack</div>
-      <button class="theme-toggle" onclick="toggleTheme()"><span style="font-size:16px" id="theme-icon-4">🌙</span></button>
-    </div>
-    <div class="screen-title">Insikter</div>
-
-    <div class="ai-recap">
-      <div class="ai-recap-label">✦ AI-sammanfattning</div>
-      <div class="ai-recap-body">
-        <span class="drop-cap">D</span>et här hushållet lägger <strong>1 373 kr</strong> per månad på prenumerationer — ungefär 45 kr per dag. Netflix och Viaplay överlappar: ni kan spara <strong>149 kr per månad</strong> om ni väljer ett av dem. Elin's SATS-abonnemang är hushållets enskilt största kostnad.
-      </div>
-    </div>
-
-    <div class="insight-card">
-      <div class="insight-card-top">
-        <div style="display:flex;gap:12px;flex:1">
-          <div class="insight-card-accent" style="background:var(--ember-amber)"></div>
-          <div>
-            <div class="insight-card-title">⚠️ Prisjustering</div>
-            <div class="insight-card-body">Viaplay höjde priset med 20 kr (15%) sedan förra månaden. Ni betalade 129 kr, nu 149 kr.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="insight-card">
-      <div class="insight-card-top">
-        <div style="display:flex;gap:12px;flex:1">
-          <div class="insight-card-accent" style="background:var(--aurora-teal)"></div>
-          <div>
-            <div class="insight-card-title">💡 Dubbelbetalning</div>
-            <div class="insight-card-body">Ni har två videostreamingtjänster. Hushåll med Netflix + Viaplay sparar i snitt <strong>1 788 kr/år</strong> genom att välja en.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="insight-card">
-      <div class="insight-card-top">
-        <div style="display:flex;gap:12px;flex:1">
-          <div class="insight-card-accent" style="background:var(--aurora-green)"></div>
-          <div>
-            <div class="insight-card-title">✅ Delad optimering</div>
-            <div class="insight-card-body">3 av 7 prenumerationer delas i hushållet. Bra jobbat — familjeplanerna sparar er ~<strong>340 kr/mån</strong> jämfört med individuella planer.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="chart-card">
-      <div class="chart-label">Utgiftstrend — 6 månader</div>
-      <svg class="chart-svg-wrap" height="90" viewBox="0 0 310 90">
-        <defs>
-          <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#9B8CFF" stop-opacity="0.9"/>
-            <stop offset="100%" stop-color="#35C7E6" stop-opacity="0.6"/>
-          </linearGradient>
-        </defs>
-        <!-- months: 1100,1150,1200,1250,1340,1373 — scale to 70px max -->
-        <!-- max=1373, scale = 70/1373 -->
-        <g id="chart-bars">
-          <rect x="5"   y="13.8" width="38" height="56.2" rx="6" fill="url(#barGrad)" opacity="0.5"/>
-          <rect x="55"  y="11.6" width="38" height="58.4" rx="6" fill="url(#barGrad)" opacity="0.6"/>
-          <rect x="105" y="8.9"  width="38" height="61.1" rx="6" fill="url(#barGrad)" opacity="0.7"/>
-          <rect x="155" y="6.3"  width="38" height="63.7" rx="6" fill="url(#barGrad)" opacity="0.8"/>
-          <rect x="205" y="1.8"  width="38" height="68.2" rx="6" fill="url(#barGrad)" opacity="0.9"/>
-          <rect x="255" y="0"    width="38" height="70"   rx="6" fill="url(#barGrad)"/>
-        </g>
-        <!-- labels -->
-        <text x="24"  y="86" text-anchor="middle" font-family="Manrope" font-size="9" fill="#A5A9BE">Maj</text>
-        <text x="74"  y="86" text-anchor="middle" font-family="Manrope" font-size="9" fill="#A5A9BE">Jun</text>
-        <text x="124" y="86" text-anchor="middle" font-family="Manrope" font-size="9" fill="#A5A9BE">Jul</text>
-        <text x="174" y="86" text-anchor="middle" font-family="Manrope" font-size="9" fill="#A5A9BE">Aug</text>
-        <text x="224" y="86" text-anchor="middle" font-family="Manrope" font-size="9" fill="#A5A9BE">Sep</text>
-        <text x="274" y="86" text-anchor="middle" font-family="Manrope" font-size="9" fill="#9B8CFF" font-weight="700">Okt</text>
-        <!-- top values -->
-        <text x="24"  y="10" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#A5A9BE">1 100</text>
-        <text x="274" y="10" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#9B8CFF" font-weight="700">1 373</text>
-      </svg>
-    </div>
-  </div>
-
-  <!-- ══════════════ SCREEN: PROFIL ══════════════ -->
-  <div class="screen hidden" id="screen-profile">
-    <div class="status-bar"><span>09:41</span></div>
-    <div class="app-header">
-      <div class="app-logo">SubTrack</div>
-      <button class="theme-toggle" onclick="toggleTheme()"><span style="font-size:16px" id="theme-icon-5">🌙</span></button>
-    </div>
-    <div class="profile-header">
-      <div class="profile-avatar">SA</div>
-      <div class="profile-name">Sara Solberg</div>
-      <div class="profile-email">s***@***.se</div>
-    </div>
-    <div class="settings-list">
-      <div class="settings-row">
-        <div class="settings-row-left">
-          <div class="settings-icon">🎨</div>
-          <div class="settings-label">Tema</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div class="settings-value">Mörkt</div>
-          <svg class="settings-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-        </div>
-      </div>
-      <div class="settings-row">
-        <div class="settings-row-left">
-          <div class="settings-icon">🌐</div>
-          <div class="settings-label">Språk</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div class="settings-value">Svenska</div>
-          <svg class="settings-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-        </div>
-      </div>
-      <div class="settings-row">
-        <div class="settings-row-left">
-          <div class="settings-icon">🔒</div>
-          <div class="settings-label">Integritet</div>
-        </div>
-        <svg class="settings-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-      </div>
-      <div class="settings-row">
-        <div class="settings-row-left">
-          <div class="settings-icon">🔔</div>
-          <div class="settings-label">Notifikationer</div>
-        </div>
-        <svg class="settings-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-      </div>
-      <div class="settings-row">
-        <div class="settings-row-left">
-          <div class="settings-icon">🏦</div>
-          <div class="settings-label">Bankuppdateringar</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div class="settings-value" style="color:var(--aurora-green);font-size:11px;font-weight:700">Aktiv</div>
-          <svg class="settings-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-        </div>
-      </div>
-      <div class="settings-row">
-        <div class="settings-row-left">
-          <div class="settings-icon">❓</div>
-          <div class="settings-label">Hjälp</div>
-        </div>
-        <svg class="settings-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-      </div>
-    </div>
-    <button class="logout-btn">Logga ut</button>
-  </div>
-
-  <!-- ══════════════ DETAIL DRAWER ══════════════ -->
-  <div class="drawer-backdrop" id="drawer-backdrop" onclick="closeDrawer()"></div>
-  <div class="drawer" id="detail-drawer">
-    <div class="drawer-handle" onclick="closeDrawer()"></div>
-    <div class="receipt-card" id="receipt-card">
-      <div class="receipt-logo" id="receipt-logo">N</div>
-      <div class="receipt-service" id="receipt-service">Netflix</div>
-      <div class="receipt-plan" id="receipt-plan">Standard med annonser</div>
-      <div class="receipt-price" id="receipt-price">179 kr</div>
-      <div class="receipt-per">/mån</div>
-      <div class="receipt-renewal" id="receipt-renewal">⚡ Nästa förnyelse: om 2 dagar</div>
-      <div class="receipt-perforation"></div>
-    </div>
-    <div class="receipt-bottom">
-      <div class="sparkline-wrap">
-        <svg width="100%" height="40" viewBox="0 0 310 40" id="sparkline-svg">
-          <defs>
-            <linearGradient id="sparkGrad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stop-color="#9B8CFF" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="#FFB547" stop-opacity="0.8"/>
-            </linearGradient>
-          </defs>
-          <!-- flat 149 for 11 months then spike to 179 -->
-          <polyline points="0,28 28,28 56,28 84,28 112,28 140,28 168,28 196,28 224,28 252,28 280,28 310,8"
-            fill="none" stroke="url(#sparkGrad)" stroke-width="2" stroke-linejoin="round"/>
-          <circle cx="310" cy="8" r="4" fill="#FFB547"/>
-        </svg>
-        <div class="sparkline-label" id="sparkline-label">Prisjustering +30 kr (Mar 2026)</div>
-      </div>
-      <div class="detail-row">
-        <div class="detail-key">Delas med</div>
-        <div class="detail-val">
-          <div class="member-avatars-row">
-            <div class="mini-avatar" style="background:#9B8CFF">SA</div>
-            <div class="mini-avatar" style="background:#3DE0A3">JO</div>
-            <div class="mini-avatar" style="background:#FB923C">EL</div>
-          </div>
-        </div>
-      </div>
-      <div class="detail-row">
-        <div class="detail-key">Betalar</div>
-        <div class="detail-val">
-          <div class="mini-avatar" id="payer-avatar" style="background:#9B8CFF">SA</div>
-          <span id="payer-name">Sara</span>
-        </div>
-      </div>
-      <div class="detail-row">
-        <div class="detail-key">Kategori</div>
-        <div class="detail-val">
-          <div class="sub-dot" id="detail-cat-dot" style="background:#9B8CFF;width:10px;height:10px;border-radius:50%"></div>
-          <span id="detail-cat">Film &amp; serier</span>
-        </div>
-      </div>
-      <div class="detail-row">
-        <div class="detail-key">Årsutgift</div>
-        <div class="detail-val" id="detail-annual" style="font-family:'Fraunces',serif;font-size:16px;font-weight:700">2 148 kr</div>
-      </div>
-    </div>
-    <div class="drawer-actions">
-      <button class="action-btn action-btn-coral">Avsluta</button>
-      <button class="action-btn action-btn-ghost">Markera privat</button>
-    </div>
-  </div>
-
-  <!-- ══════════════ BOTTOM TAB BAR ══════════════ -->
-  <nav class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('home')" id="tab-home">
-      <div class="tab-icon">🏠</div>
-      <div class="tab-label">Hem</div>
-    </button>
-    <button class="tab-btn" onclick="switchTab('subs')" id="tab-subs">
-      <div class="tab-icon">📋</div>
-      <div class="tab-label">Prenumerationer</div>
-    </button>
-    <button class="tab-btn" onclick="switchTab('household')" id="tab-household">
-      <div class="tab-icon">👥</div>
-      <div class="tab-label">Hushåll</div>
-    </button>
-    <button class="tab-btn" onclick="switchTab('insights')" id="tab-insights">
-      <div class="tab-icon">💡</div>
-      <div class="tab-label">Insikter</div>
-    </button>
-    <button class="tab-btn" onclick="switchTab('profile')" id="tab-profile">
-      <div class="tab-icon">👤</div>
-      <div class="tab-label">Profil</div>
-    </button>
-  </nav>
-</div>
-
-<script>
-/* ── THEME ─────────────────────────────────────────────── */
-function toggleTheme() {
-  const html = document.documentElement;
-  const isDark = html.dataset.theme === 'dark';
-  html.dataset.theme = isDark ? 'light' : 'dark';
-  const icon = isDark ? '☀️' : '🌙';
-  ['theme-icon','theme-icon-2','theme-icon-3','theme-icon-4','theme-icon-5']
-    .forEach(id => { const el = document.getElementById(id); if(el) el.textContent = icon; });
-  // Redraw orbit for new theme colors
-  drawOrbit();
-}
-
-/* ── TAB SWITCHING ─────────────────────────────────────── */
-const screens = { home:'screen-home', subs:'screen-subs', household:'screen-household', insights:'screen-insights', profile:'screen-profile' };
-const tabs = { home:'tab-home', subs:'tab-subs', household:'tab-household', insights:'tab-insights', profile:'tab-profile' };
-function switchTab(name) {
-  Object.values(screens).forEach(id => { const el=document.getElementById(id); if(el){el.classList.add('hidden');} });
-  Object.values(tabs).forEach(id => { const el=document.getElementById(id); if(el){el.classList.remove('active');} });
-  const s = document.getElementById(screens[name]);
-  const t = document.getElementById(tabs[name]);
-  if(s) s.classList.remove('hidden');
-  if(t) t.classList.add('active');
-}
-
-/* ── PERIOD TOGGLE ─────────────────────────────────────── */
-function setPeriod(period, btn) {
-  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const disp = document.getElementById('total-display');
-  const per = document.getElementById('total-period');
-  if(period === 'year') { disp.textContent = '16 476 kr'; per.textContent = '/år'; }
-  else { disp.textContent = '1 373 kr'; per.textContent = '/månad'; }
-}
-
-/* ── SCOPE SWITCHER ────────────────────────────────────── */
-document.querySelectorAll('.scope-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.scope-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  });
-});
-
-/* ── FILTER CHIPS ──────────────────────────────────────── */
-document.querySelectorAll('.filter-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-  });
-});
-
-/* ── DRAWER ────────────────────────────────────────────── */
-const drawerData = {
-  netflix: { logo:'N', color:'#9B8CFF', service:'Netflix', plan:'Standard med annonser', price:'179 kr', renewal:'⚡ Nästa förnyelse: om 2 dagar', annual:'2 148 kr', cat:'Film & serier', payer:'Sara', payerInitials:'SA', payerColor:'#9B8CFF', sparkLabel:'Prisjustering +30 kr (Mar 2026)' },
-  spotify: { logo:'S', color:'#3DE0A3', service:'Spotify Family', plan:'Family — upp till 6 konton', price:'219 kr', renewal:'Förnyelse: om 18 dagar', annual:'2 628 kr', cat:'Musik & podd', payer:'Johan', payerInitials:'JO', payerColor:'#3DE0A3', sparkLabel:'Stabilt pris sedan 2023' },
-  ms365:   { logo:'M', color:'#60A5FA', service:'Microsoft 365', plan:'Family — upp till 6 enheter', price:'119 kr', renewal:'Förnyelse: om 22 dagar', annual:'1 428 kr', cat:'Programvara', payer:'Sara', payerInitials:'SA', payerColor:'#9B8CFF', sparkLabel:'Steg +10 kr (Jan 2026)' },
-  icloud:  { logo:'☁', color:'#35C7E6', service:'iCloud+ 200GB', plan:'200 GB lagring', price:'39 kr', renewal:'⚡ Nästa förnyelse: om 5 dagar', annual:'468 kr', cat:'Molnlagring', payer:'Sara', payerInitials:'SA', payerColor:'#9B8CFF', sparkLabel:'Stabilt pris' },
-  viaplay: { logo:'V', color:'#9B8CFF', service:'Viaplay', plan:'Viaplay Total', price:'149 kr', renewal:'Förnyelse: om 12 dagar', annual:'1 788 kr', cat:'Film & serier', payer:'Johan', payerInitials:'JO', payerColor:'#3DE0A3', sparkLabel:'Prisjustering +20 kr (Sep 2026)' },
-  sats:    { logo:'💪', color:'#FB923C', service:'SATS', plan:'Rörligt månadsabonnemang', price:'449 kr', renewal:'Förnyelse: om 8 dagar', annual:'5 388 kr', cat:'Träning & hälsa', payer:'Elin', payerInitials:'EL', payerColor:'#FB923C', sparkLabel:'Stabilt pris' },
-  claude:  { logo:'✦', color:'#E879F9', service:'Claude Pro', plan:'Pro — obegränsad användning', price:'219 kr', renewal:'Förnyelse: om 15 dagar', annual:'2 628 kr', cat:'AI-verktyg', payer:'Sara', payerInitials:'SA', payerColor:'#9B8CFF', sparkLabel:'Nytt abonnemang (Jul 2026)' },
-};
-function openDrawer(key) {
-  const d = drawerData[key];
-  if(!d) return;
-  document.getElementById('receipt-logo').textContent = d.logo;
-  document.getElementById('receipt-logo').style.background = d.color;
-  document.getElementById('receipt-service').textContent = d.service;
-  document.getElementById('receipt-plan').textContent = d.plan;
-  document.getElementById('receipt-price').textContent = d.price;
-  document.getElementById('receipt-renewal').textContent = d.renewal;
-  document.getElementById('detail-annual').textContent = d.annual;
-  document.getElementById('detail-cat').textContent = d.cat;
-  document.getElementById('detail-cat-dot').style.background = d.color;
-  document.getElementById('payer-name').textContent = d.payer;
-  document.getElementById('payer-avatar').textContent = d.payerInitials;
-  document.getElementById('payer-avatar').style.background = d.payerColor;
-  document.getElementById('sparkline-label').textContent = d.sparkLabel;
-  document.getElementById('drawer-backdrop').classList.add('open');
-  document.getElementById('detail-drawer').classList.add('open');
-}
-function closeDrawer() {
-  document.getElementById('drawer-backdrop').classList.remove('open');
-  document.getElementById('detail-drawer').classList.remove('open');
-}
-
-/* ── ORBIT ANIMATION ───────────────────────────────────── */
-const subs = [
-  { name:'Netflix',        amount:'179 kr', color:'#9B8CFF', r:18, ring:90, phase:0,       speed:1.0,  key:'netflix' },
-  { name:'Spotify',        amount:'219 kr', color:'#3DE0A3', r:20, ring:90, phase:Math.PI/2, speed:0.8, key:'spotify' },
-  { name:'Microsoft 365',  amount:'119 kr', color:'#60A5FA', r:14, ring:90, phase:Math.PI,  speed:1.1,  key:'ms365' },
-  { name:'iCloud+',        amount:'39 kr',  color:'#35C7E6', r:8,  ring:90, phase:3*Math.PI/2, speed:1.3, key:'icloud' },
-  { name:'Viaplay',        amount:'149 kr', color:'#9B8CFF', r:16, ring:90, phase:Math.PI/4, speed:0.9, hike:true, key:'viaplay' },
-  { name:'SATS',           amount:'449 kr', color:'#FB923C', r:18, ring:90, phase:5*Math.PI/4, speed:0.7, key:'sats' },
-  { name:'Claude Pro',     amount:'219 kr', color:'#E879F9', r:20, ring:90, phase:7*Math.PI/4, speed:1.2, key:'claude' },
-];
-let orbitAngle = 0;
-let animFrame;
-function getColors() {
-  const dark = document.documentElement.dataset.theme === 'dark';
-  return {
-    bg:       dark ? '#070810' : '#EFEAE1',
-    text:     dark ? '#F2EFE8' : '#15161C',
-    textSec:  dark ? '#A5A9BE' : '#5B5E6B',
-    ring:     dark ? 'rgba(255,255,255,0.08)' : 'rgba(21,22,28,0.08)',
-    center:   dark ? '#0A0C14' : '#F7F4EE',
-  };
-}
-function drawOrbit() {
-  const canvas = document.getElementById('orbit-canvas');
-  if (!canvas) return;
-  const dpr = window.devicePixelRatio || 1;
-  const W = canvas.offsetWidth, H = canvas.offsetHeight;
-  if (W === 0 || H === 0) return;
-  canvas.width = W * dpr;
-  canvas.height = H * dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-  const cx = W / 2, cy = H / 2;
-  const colors = getColors();
-
-  // Background
-  ctx.clearRect(0, 0, W, H);
-
-  // Aurora glow
-  const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, 110);
-  const dark = document.documentElement.dataset.theme === 'dark';
-  grd.addColorStop(0, dark ? 'rgba(155,140,255,0.18)' : 'rgba(106,88,240,0.1)');
-  grd.addColorStop(0.5, dark ? 'rgba(53,199,230,0.08)' : 'rgba(11,143,176,0.05)');
-  grd.addColorStop(1, 'transparent');
-  ctx.fillStyle = grd;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 140, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Orbit ring
-  ctx.strokeStyle = colors.ring;
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 6]);
-  ctx.beginPath();
-  ctx.arc(cx, cy, 90, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Center monogram
-  ctx.font = "bold 16px 'Fraunces', serif";
-  ctx.fillStyle = colors.textSec;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('ST', cx, cy);
-
-  // Draw each subscription body
-  subs.forEach((sub, i) => {
-    const angle = sub.phase + orbitAngle * sub.speed;
-    const x = cx + Math.cos(angle) * sub.ring;
-    const y = cy + Math.sin(angle) * sub.ring;
-
-    // Amber glow for price hike
-    if (sub.hike) {
-      ctx.shadowColor = '#FFB547';
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.arc(x, y, sub.r + 4, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,181,71,0.4)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SubTrack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ── TOKENS ─────────────────────────────────── */
+    :root {
+      --font: 'Inter', -apple-system, system-ui, sans-serif;
+      --r-card: 12px; --r-row: 8px; --r-pill: 999px; --r-icon: 8px;
+    }
+    [data-theme="dark"] {
+      --bg-canvas: #0f0f11; --bg-surface: #18181c; --bg-card: #222227; --bg-raised: #2a2a30;
+      --border: #2e2e38; --border-strong: #44434f;
+      --t1: #f2f1f6; --t2: #8d8c99; --t3: #5c5b67;
+      --brand: #7b6fe8; --brand-s: rgba(123,111,232,0.12);
+      --green: #29a06b; --green-s: rgba(41,160,107,0.12);
+      --amber: #e08a0c; --amber-s: rgba(224,138,12,0.12);
+      --red: #df4545; --red-s: rgba(223,69,69,0.12);
+    }
+    [data-theme="light"] {
+      --bg-canvas: #f5f5f7; --bg-surface: #ffffff; --bg-card: #ffffff; --bg-raised: #f0f0f4;
+      --border: #e2e1ea; --border-strong: #c5c4d0;
+      --t1: #13121e; --t2: #6b6a78; --t3: #9b9aa7;
+      --brand: #6358d4; --brand-s: rgba(99,88,212,0.10);
+      --green: #1a8f5e; --green-s: rgba(26,143,94,0.10);
+      --amber: #c07800; --amber-s: rgba(192,120,0,0.10);
+      --red: #c93636; --red-s: rgba(201,54,54,0.10);
     }
 
-    // Body
-    ctx.shadowColor = sub.color;
-    ctx.shadowBlur = dark ? 12 : 6;
-    ctx.beginPath();
-    ctx.arc(x, y, sub.r, 0, Math.PI * 2);
-    const g = ctx.createRadialGradient(x - sub.r*0.3, y - sub.r*0.3, 0, x, y, sub.r);
-    g.addColorStop(0, lighten(sub.color, 0.3));
-    g.addColorStop(1, sub.color);
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.shadowBlur = 0;
+    /* ── RESET ──────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    button { font: inherit; cursor: pointer; background: none; border: none; color: inherit; }
+    input  { font: inherit; background: none; border: none; outline: none; color: inherit; }
 
-    // Initial letter
-    ctx.font = `bold ${Math.max(9, sub.r - 4)}px 'Manrope', sans-serif`;
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(sub.name[0], x, y);
+    /* ── OUTER LAYOUT ───────────────────────────── */
+    html, body { height: 100%; }
+    body {
+      font-family: var(--font);
+      background: #09090b;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px; min-height: 100dvh; padding: 20px 0 12px;
+    }
+    .page-label { color: #555; font-size: 11px; font-weight: 500; letter-spacing: 0.6px; text-transform: uppercase; }
+    .desktop-controls { display: flex; gap: 8px; }
+    .ctrl-btn {
+      height: 30px; padding: 0 14px; border-radius: var(--r-pill);
+      background: rgba(255,255,255,0.08); color: #bbb;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
+      transition: background 0.15s;
+    }
+    .ctrl-btn:hover { background: rgba(255,255,255,0.14); }
 
-    // Label below body
-    ctx.font = "600 8px 'Manrope', sans-serif";
-    ctx.fillStyle = colors.textSec;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(sub.name.split(' ')[0], x, y + sub.r + 3);
-  });
-}
-function lighten(hex, amt) {
-  const num = parseInt(hex.replace('#',''), 16);
-  const r = Math.min(255, (num >> 16) + Math.round(amt * 255));
-  const g = Math.min(255, ((num >> 8) & 0xff) + Math.round(amt * 255));
-  const b = Math.min(255, (num & 0xff) + Math.round(amt * 255));
-  return `rgb(${r},${g},${b})`;
-}
-const ORBIT_SPEED = (2 * Math.PI) / (4 * 60 * 60); // 4 min per rev at 60fps
-function animateOrbit(ts) {
-  orbitAngle += ORBIT_SPEED;
-  drawOrbit();
-  animFrame = requestAnimationFrame(animateOrbit);
-}
+    /* ── PHONE FRAME ────────────────────────────── */
+    .phone {
+      width: 393px; height: 852px;
+      background: var(--bg-surface);
+      border-radius: 44px; overflow: hidden; position: relative;
+      border: 1px solid rgba(255,255,255,0.07);
+      box-shadow: 0 40px 80px rgba(0,0,0,0.55);
+    }
+    @media (max-width: 430px) {
+      body { padding: 0; background: var(--bg-surface); justify-content: flex-start; }
+      .page-label, .desktop-controls { display: none; }
+      .phone { width: 100vw; height: 100dvh; border-radius: 0; box-shadow: none; border: none; }
+    }
 
-// Tooltip on canvas tap/click
-document.getElementById('orbit-canvas').addEventListener('click', function(e) {
-  const rect = this.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  const cx = rect.width / 2, cy = rect.height / 2;
-  let hit = null;
-  subs.forEach(sub => {
-    const angle = sub.phase + orbitAngle * sub.speed;
-    const x = cx + Math.cos(angle) * sub.ring;
-    const y = cy + Math.sin(angle) * sub.ring;
-    const dist = Math.sqrt((mx-x)**2 + (my-y)**2);
-    if (dist < sub.r + 8) hit = { sub, x, y };
-  });
-  const tooltip = document.getElementById('orbit-tooltip');
-  if (hit) {
-    document.getElementById('tt-name').textContent = hit.sub.name;
-    document.getElementById('tt-amount').textContent = hit.sub.amount + '/mån';
-    tooltip.style.display = 'block';
-    const left = Math.min(Math.max(hit.x - 60, 4), rect.width - 140);
-    tooltip.style.left = left + 'px';
-    tooltip.style.top = (hit.y - 60) + 'px';
-    setTimeout(() => openDrawer(hit.sub.key), 150);
-  } else {
-    tooltip.style.display = 'none';
-  }
-});
+    /* ── APP SCREEN ─────────────────────────────── */
+    .screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      background: var(--bg-canvas);
+      opacity: 0; pointer-events: none; transition: opacity 0.18s;
+    }
+    .screen.active { opacity: 1; pointer-events: all; }
 
-/* ── INIT ──────────────────────────────────────────────── */
-window.addEventListener('load', () => {
-  requestAnimationFrame(animateOrbit);
-});
-window.addEventListener('resize', drawOrbit);
-</script>
+    /* Status bar */
+    .sbar {
+      height: 44px; padding: 0 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; font-weight: 600; color: var(--t1); flex-shrink: 0;
+    }
+    .sbar-icons { display: flex; gap: 5px; align-items: center; }
+
+    /* Screen header */
+    .shdr { padding: 2px 20px 10px; flex-shrink: 0; }
+    .stitle { font-size: 20px; font-weight: 700; color: var(--t1); letter-spacing: -0.3px; }
+
+    /* Scroll body */
+    .sbody {
+      flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none; padding-bottom: 84px;
+    }
+    .sbody::-webkit-scrollbar { display: none; }
+
+    /* ── BOTTOM NAV ─────────────────────────────── */
+    .bnav {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 80px; background: var(--bg-surface);
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-around;
+      padding: 0 4px 14px;
+    }
+    .ni { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; }
+    .ni-wrap {
+      width: 28px; height: 28px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .ni.active .ni-wrap { background: var(--brand-s); }
+    .ni svg { width: 20px; height: 20px; fill: none; stroke: var(--t2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: stroke 0.15s; }
+    .ni.active svg { stroke: var(--brand); }
+    .ni-lbl { font-size: 10px; font-weight: 500; color: var(--t2); transition: color 0.15s; }
+    .ni.active .ni-lbl { color: var(--brand); }
+
+    /* ── SECTION HEADER ─────────────────────────── */
+    .sec-hdr { padding: 20px 20px 8px; font-size: 11px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: 0.7px; }
+
+    /* ── CARD ───────────────────────────────────── */
+    .card { margin: 0 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-card); overflow: hidden; }
+    .card + .card { margin-top: 8px; }
+
+    /* ── LIST ROW ───────────────────────────────── */
+    .lrow {
+      display: flex; align-items: center; padding: 14px 16px; gap: 12px;
+      border-bottom: 1px solid var(--border); cursor: pointer;
+      transition: background 0.1s;
+    }
+    .lrow:last-child { border-bottom: none; }
+    .lrow:active { background: var(--bg-raised); }
+    .ricon { width: 36px; height: 36px; border-radius: var(--r-icon); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .rtxt { flex: 1; min-width: 0; }
+    .rname { font-size: 15px; font-weight: 500; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rmeta { font-size: 13px; color: var(--t2); margin-top: 1px; }
+    .ramt { text-align: right; flex-shrink: 0; }
+    .rprice { font-size: 15px; font-weight: 600; color: var(--t1); font-variant-numeric: tabular-nums; }
+    .rperiod { font-size: 13px; color: var(--t2); margin-top: 1px; }
+
+    /* ── BADGE ──────────────────────────────────── */
+    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+    .bdot { width: 6px; height: 6px; border-radius: 50%; }
+    .b-amber { background: var(--amber-s); color: var(--amber); }
+    .b-amber .bdot { background: var(--amber); }
+    .b-green { background: var(--green-s); color: var(--green); }
+    .b-green .bdot { background: var(--green); }
+    .b-brand { background: var(--brand-s); color: var(--brand); }
+    .b-brand .bdot { background: var(--brand); }
+
+    /* ── HOME: HERO ─────────────────────────────── */
+    .hero { margin: 8px 20px 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-card); padding: 18px 20px; }
+    .hero-lbl { font-size: 11px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 6px; }
+    .hero-amt { font-size: 38px; font-weight: 600; color: var(--t1); letter-spacing: -0.8px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+    .hero-sfx { font-size: 18px; font-weight: 500; color: var(--t2); }
+    .hero-sub { font-size: 13px; color: var(--t2); margin-top: 4px; }
+    .hero-pills { display: flex; gap: 6px; margin-top: 14px; }
+    .hpill { padding: 6px 14px; border-radius: var(--r-pill); font-size: 13px; font-weight: 600; border: 1px solid var(--border); color: var(--t2); transition: all 0.15s; }
+    .hpill.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+    /* Member pills */
+    .mpills { display: flex; gap: 6px; padding: 10px 20px 0; flex-wrap: wrap; }
+    .mpill { padding: 5px 12px; border-radius: var(--r-pill); font-size: 13px; font-weight: 500; background: var(--bg-card); border: 1px solid var(--border); color: var(--t2); transition: all 0.15s; }
+    .mpill.active { background: var(--bg-raised); border-color: var(--border-strong); color: var(--t1); }
+
+    /* Upcoming rows */
+    .uprow { display: flex; align-items: center; padding: 12px 16px; gap: 12px; border-bottom: 1px solid var(--border); }
+    .uprow:last-child { border-bottom: none; }
+    .updot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .upinfo { flex: 1; }
+    .upname { font-size: 14px; font-weight: 500; color: var(--t1); }
+    .updays { font-size: 13px; color: var(--t2); margin-top: 1px; }
+    .upamt { font-size: 14px; font-weight: 600; color: var(--t1); font-variant-numeric: tabular-nums; }
+
+    /* Insight mini */
+    .imini { display: flex; align-items: flex-start; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    .imini:last-child { border-bottom: none; }
+    .imini-ic { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+    .imini-t { font-size: 14px; font-weight: 600; color: var(--t1); }
+    .imini-b { font-size: 13px; color: var(--t2); margin-top: 2px; line-height: 1.4; }
+
+    /* ── SUBS: SEARCH + FILTER ──────────────────── */
+    .search-wrap { margin: 0 20px 4px; display: flex; align-items: center; gap: 8px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-row); padding: 10px 14px; }
+    .search-wrap input { flex: 1; font-size: 15px; }
+    .search-wrap input::placeholder { color: var(--t3); }
+    .frow { display: flex; gap: 6px; padding: 6px 20px 4px; overflow-x: auto; scrollbar-width: none; }
+    .frow::-webkit-scrollbar { display: none; }
+    .fchip { padding: 5px 14px; border-radius: var(--r-pill); font-size: 13px; font-weight: 600; white-space: nowrap; border: 1px solid var(--border); color: var(--t2); background: var(--bg-card); transition: all 0.15s; }
+    .fchip.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .total-row { display: flex; align-items: center; padding: 14px 16px; background: var(--bg-raised); }
+    .total-lbl { flex: 1; font-size: 11px; font-weight: 600; color: var(--t2); text-transform: uppercase; letter-spacing: 0.5px; }
+    .total-amt { font-size: 15px; font-weight: 700; color: var(--t1); font-variant-numeric: tabular-nums; }
+
+    /* ── HOUSEHOLD ──────────────────────────────── */
+    .hh-card { margin: 0 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-card); padding: 16px; }
+    .hh-avatars { display: flex; margin-bottom: 12px; }
+    .hh-av { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; border: 2px solid var(--bg-surface); margin-right: -8px; }
+    .hh-stat { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--border); }
+    .hh-sl { font-size: 13px; color: var(--t2); }
+    .hh-sv { font-size: 15px; font-weight: 600; color: var(--t1); font-variant-numeric: tabular-nums; }
+    .setrow { display: flex; align-items: center; padding: 12px 16px; gap: 10px; border-bottom: 1px solid var(--border); }
+    .setrow:last-child { border-bottom: none; }
+    .setav { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
+    .setarr { color: var(--t3); font-size: 13px; }
+    .setinfo { flex: 1; }
+    .setnames { font-size: 14px; font-weight: 500; color: var(--t1); }
+    .setreason { font-size: 13px; color: var(--t2); }
+    .setamt { font-size: 15px; font-weight: 600; color: var(--t1); font-variant-numeric: tabular-nums; }
+
+    /* ── INSIGHTS ───────────────────────────────── */
+    .ai-card { margin: 0 20px; background: var(--brand-s); border: 1px solid rgba(123,111,232,0.18); border-radius: var(--r-card); padding: 16px; }
+    .ai-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--brand); margin-bottom: 8px; }
+    .ai-body { font-size: 14px; line-height: 1.55; color: var(--t1); }
+    .ai-body strong { font-weight: 700; }
+    .ins-card { margin: 0 20px 8px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-card); padding: 14px 16px; }
+    .ins-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .ins-title { font-size: 15px; font-weight: 600; color: var(--t1); }
+    .ins-body { font-size: 13px; color: var(--t2); line-height: 1.5; }
+    .ins-body strong { font-weight: 700; color: var(--t1); }
+    .chart-card { margin: 0 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-card); padding: 16px; }
+    .chart-title { font-size: 13px; font-weight: 600; color: var(--t2); margin-bottom: 14px; }
+    .chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
+    .cbar-w { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+    .cbar { width: 100%; border-radius: 4px 4px 0 0; background: var(--brand-s); border: 1px solid rgba(123,111,232,0.2); min-height: 4px; }
+    .cbar.cur { background: var(--brand); border-color: var(--brand); }
+    .cbar-l { font-size: 10px; font-weight: 500; color: var(--t3); }
+    .chart-foot { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+    .chart-foot-l { font-size: 12px; color: var(--t3); }
+    .chart-foot-r { font-size: 12px; font-weight: 600; color: var(--amber); }
+
+    /* ── PROFILE ────────────────────────────────── */
+    .prof-hero { display: flex; flex-direction: column; align-items: center; padding: 20px 20px 12px; gap: 8px; }
+    .prof-av { width: 64px; height: 64px; border-radius: 50%; background: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: #fff; }
+    .prof-name { font-size: 18px; font-weight: 700; color: var(--t1); letter-spacing: -0.2px; }
+    .prof-sub { font-size: 13px; color: var(--t2); }
+    .srow { display: flex; align-items: center; padding: 14px 16px; gap: 12px; border-bottom: 1px solid var(--border); }
+    .srow:last-child { border-bottom: none; }
+    .srow-ic { width: 32px; height: 32px; border-radius: 8px; background: var(--bg-raised); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+    .srow-lbl { font-size: 15px; font-weight: 500; color: var(--t1); }
+    .srow-val { font-size: 13px; color: var(--t2); margin-top: 1px; }
+    .srow-chev { color: var(--t3); font-size: 16px; margin-left: auto; }
+    .logout-btn { display: block; width: calc(100% - 40px); margin: 16px 20px; padding: 14px; border-radius: var(--r-card); background: var(--red-s); color: var(--red); font-size: 15px; font-weight: 600; text-align: center; border: 1px solid rgba(223,69,69,0.15); }
+
+    /* ── DRAWER ─────────────────────────────────── */
+    .drw-bg { position: absolute; inset: 0; background: rgba(0,0,0,0.5); opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 100; }
+    .drw-bg.open { opacity: 1; pointer-events: all; }
+    .drw { position: absolute; bottom: 0; left: 0; right: 0; background: var(--bg-surface); border-radius: 20px 20px 0 0; border-top: 1px solid var(--border); transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.32,0.72,0,1); z-index: 101; padding-bottom: 28px; }
+    .drw.open { transform: translateY(0); }
+    .drw-handle { width: 32px; height: 4px; background: var(--border-strong); border-radius: 2px; margin: 10px auto 12px; }
+    .drw-hdr { display: flex; align-items: center; gap: 12px; padding: 4px 20px 14px; border-bottom: 1px solid var(--border); }
+    .drw-ic { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: #fff; }
+    .drw-name { font-size: 18px; font-weight: 700; color: var(--t1); letter-spacing: -0.2px; }
+    .drw-plan { font-size: 14px; color: var(--t2); margin-top: 2px; }
+    .drw-price-blk { display: flex; align-items: baseline; gap: 4px; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+    .drw-price { font-size: 34px; font-weight: 600; color: var(--t1); font-variant-numeric: tabular-nums; letter-spacing: -0.5px; }
+    .drw-per { font-size: 15px; color: var(--t2); }
+    .drw-drow { display: flex; align-items: baseline; padding: 9px 20px; }
+    .drw-dk { font-size: 14px; color: var(--t2); width: 120px; flex-shrink: 0; }
+    .drw-dv { font-size: 14px; font-weight: 500; color: var(--t1); }
+    .drw-spark { margin: 6px 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-row); padding: 10px 12px; }
+    .drw-spark-lbl { font-size: 12px; color: var(--t3); margin-bottom: 6px; }
+    .sparkline { width: 100%; height: 32px; }
+    .drw-actions { display: flex; gap: 8px; padding: 12px 20px 0; }
+    .drw-btn { flex: 1; padding: 12px; border-radius: var(--r-row); font-size: 14px; font-weight: 600; text-align: center; border: 1px solid; }
+    .drw-btn-cancel { background: var(--red-s); color: var(--red); border-color: rgba(223,69,69,0.15); }
+    .drw-btn-ghost { background: var(--bg-raised); color: var(--t2); border-color: var(--border); }
+  </style>
+</head>
+<body>
+  <div class="page-label">SubTrack · Interactive Prototype</div>
+  <div class="desktop-controls">
+    <button class="ctrl-btn" onclick="toggleTheme()" id="theme-btn">☀️ Light</button>
+    <button class="ctrl-btn" onclick="toggleLang()" id="lang-btn">EN</button>
+  </div>
+
+  <div class="phone">
+
+    <!-- ═══ HOME ════════════════════════════════ -->
+    <div class="screen active" id="screen-home">
+      <div class="sbar">
+        <span>9:41</span>
+        <div class="sbar-icons">
+          <svg width="17" height="12" viewBox="0 0 17 12"><rect x="0" y="4" width="3" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="1" fill="currentColor" opacity="0.5"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor" opacity="0.7"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="currentColor"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2C11 2 13.5 3.5 15 5.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/><path d="M8 5C10 5 11.7 5.9 12.8 7.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity="0.35"/><rect x="2" y="2" width="15" height="8" rx="2" fill="currentColor"/><path d="M23 4v4c.83-.37 1.5-1.14 1.5-2S23.83 4.37 23 4Z" fill="currentColor" fill-opacity="0.4"/></svg>
+        </div>
+      </div>
+      <div class="shdr" style="display:flex;align-items:center;justify-content:space-between;padding-right:20px">
+        <div style="font-size:20px;font-weight:700;color:var(--t1);letter-spacing:-0.3px">SubTrack</div>
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff">SL</div>
+      </div>
+      <div class="sbody">
+        <div class="mpills">
+          <button class="mpill active" data-i18n="scope.household">Hushållet</button>
+          <button class="mpill">Sara</button>
+          <button class="mpill">Johan</button>
+          <button class="mpill">Elin</button>
+        </div>
+        <div style="padding:8px 0 0">
+          <div class="hero">
+            <div class="hero-lbl" data-i18n="hero.label">Totalt per månad</div>
+            <div><span class="hero-amt" id="hero-amount">1 373</span><span class="hero-sfx" id="hero-suffix"> kr/mån</span></div>
+            <div class="hero-sub" data-i18n="hero.sub">7 aktiva prenumerationer</div>
+            <div class="hero-pills">
+              <button class="hpill active" data-i18n="period.monthly" onclick="setPeriod('month',this)">Månadsvis</button>
+              <button class="hpill" data-i18n="period.annual" onclick="setPeriod('year',this)">Årsvis</button>
+            </div>
+          </div>
+        </div>
+        <div class="sec-hdr" data-i18n="home.upcoming">Kommande denna vecka</div>
+        <div class="card">
+          <div class="uprow">
+            <div class="updot" style="background:#7b6fe8"></div>
+            <div class="upinfo"><div class="upname">Netflix</div><div class="updays" data-i18n="upcoming.in2days">om 2 dagar</div></div>
+            <div class="upamt">179 kr</div>
+          </div>
+          <div class="uprow">
+            <div class="updot" style="background:#1db954"></div>
+            <div class="upinfo"><div class="upname">Spotify Family</div><div class="updays" data-i18n="upcoming.in5days">om 5 dagar</div></div>
+            <div class="upamt">219 kr</div>
+          </div>
+        </div>
+        <div class="sec-hdr" data-i18n="home.insights_hdr">Insikter</div>
+        <div class="card">
+          <div class="imini">
+            <div class="imini-ic" style="background:var(--amber-s)">⚠️</div>
+            <div><div class="imini-t" data-i18n="insight.price_title">Prisjustering</div><div class="imini-b" data-i18n="insight.price_body">Viaplay höjde priset med 20 kr sedan förra månaden.</div></div>
+          </div>
+          <div class="imini">
+            <div class="imini-ic" style="background:var(--brand-s)">💡</div>
+            <div><div class="imini-t" data-i18n="insight.double_title">Dubbelbetalning</div><div class="imini-b" data-i18n="insight.double_body">Ni har Netflix + Viaplay. Spara 1 788 kr/år.</div></div>
+          </div>
+        </div>
+      </div>
+      <nav class="bnav">
+        <button class="ni active" onclick="switchTab('home')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="ni-lbl" data-i18n="tab.home">Hem</span></button>
+        <button class="ni" onclick="switchTab('subs')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><span class="ni-lbl" data-i18n="tab.subs">Prenumerationer</span></button>
+        <button class="ni" onclick="switchTab('household')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="ni-lbl" data-i18n="tab.household">Hushåll</span></button>
+        <button class="ni" onclick="switchTab('insights')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="ni-lbl" data-i18n="tab.insights">Insikter</span></button>
+        <button class="ni" onclick="switchTab('profile')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="ni-lbl" data-i18n="tab.profile">Profil</span></button>
+      </nav>
+    </div>
+
+    <!-- ═══ SUBSCRIPTIONS ════════════════════════ -->
+    <div class="screen" id="screen-subs">
+      <div class="sbar"><span>9:41</span><div class="sbar-icons"><svg width="17" height="12" viewBox="0 0 17 12"><rect x="0" y="4" width="3" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="1" fill="currentColor" opacity="0.5"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor" opacity="0.7"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="currentColor"/></svg><svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2C11 2 13.5 3.5 15 5.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/><path d="M8 5C10 5 11.7 5.9 12.8 7.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/></svg><svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity="0.35"/><rect x="2" y="2" width="15" height="8" rx="2" fill="currentColor"/><path d="M23 4v4c.83-.37 1.5-1.14 1.5-2S23.83 4.37 23 4Z" fill="currentColor" fill-opacity="0.4"/></svg></div></div>
+      <div class="shdr"><div class="stitle" data-i18n="screen.subs_title">Prenumerationer</div></div>
+      <div class="sbody">
+        <div class="search-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" data-i18n-placeholder="search.placeholder" placeholder="Sök prenumeration...">
+        </div>
+        <div class="frow">
+          <button class="fchip active" data-i18n="filter.all">Alla</button>
+          <button class="fchip" data-i18n="filter.video">Film</button>
+          <button class="fchip" data-i18n="filter.music">Musik</button>
+          <button class="fchip" data-i18n="filter.software">Mjukvara</button>
+          <button class="fchip" data-i18n="filter.fitness">Träning</button>
+          <button class="fchip" data-i18n="filter.storage">Lagring</button>
+        </div>
+        <div class="card" style="margin-top:4px">
+          <div class="lrow" onclick="openDrawer('netflix')"><div class="ricon" style="background:#e50914">N</div><div class="rtxt"><div class="rname">Netflix</div><div class="rmeta" data-i18n="cat.video">👥 Film &amp; serier</div></div><div class="ramt"><div class="rprice">179 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow" onclick="openDrawer('spotify')"><div class="ricon" style="background:#1db954">S</div><div class="rtxt"><div class="rname">Spotify Family</div><div class="rmeta" data-i18n="cat.music">👥 Musik &amp; podd</div></div><div class="ramt"><div class="rprice">219 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow" onclick="openDrawer('ms365')"><div class="ricon" style="background:#0078d4">M</div><div class="rtxt"><div class="rname">Microsoft 365</div><div class="rmeta" data-i18n="cat.software">👥 Programvara</div></div><div class="ramt"><div class="rprice">109 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow" onclick="openDrawer('icloud')"><div class="ricon" style="background:#636366">☁</div><div class="rtxt"><div class="rname">iCloud+</div><div class="rmeta" data-i18n="cat.cloud_sara">🔒 Molnlagring · Sara</div></div><div class="ramt"><div class="rprice">39 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow" onclick="openDrawer('viaplay')"><div class="ricon" style="background:#ff2244">V</div><div class="rtxt"><div class="rname">Viaplay</div><div class="rmeta" data-i18n="cat.video">👥 Film &amp; serier</div></div><div class="ramt"><div class="rprice">149 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow" onclick="openDrawer('sats')"><div class="ricon" style="background:#ff6b00">G</div><div class="rtxt"><div class="rname">SATS</div><div class="rmeta" data-i18n="cat.fitness_elin">🔒 Träning · Elin</div></div><div class="ramt"><div class="rprice">499 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow" onclick="openDrawer('claude')"><div class="ricon" style="background:#7b6fe8">A</div><div class="rtxt"><div class="rname">Claude AI</div><div class="rmeta" data-i18n="cat.ai_sara">🔒 AI-verktyg · Sara</div></div><div class="ramt"><div class="rprice">179 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="total-row"><div class="total-lbl" data-i18n="subs.total_label">Totalt hushållet</div><div class="total-amt">1 373 kr</div></div>
+        </div>
+      </div>
+      <nav class="bnav">
+        <button class="ni" onclick="switchTab('home')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="ni-lbl" data-i18n="tab.home">Hem</span></button>
+        <button class="ni active" onclick="switchTab('subs')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><span class="ni-lbl" data-i18n="tab.subs">Prenumerationer</span></button>
+        <button class="ni" onclick="switchTab('household')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="ni-lbl" data-i18n="tab.household">Hushåll</span></button>
+        <button class="ni" onclick="switchTab('insights')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="ni-lbl" data-i18n="tab.insights">Insikter</span></button>
+        <button class="ni" onclick="switchTab('profile')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="ni-lbl" data-i18n="tab.profile">Profil</span></button>
+      </nav>
+    </div>
+
+    <!-- ═══ HOUSEHOLD ════════════════════════════ -->
+    <div class="screen" id="screen-household">
+      <div class="sbar"><span>9:41</span><div class="sbar-icons"><svg width="17" height="12" viewBox="0 0 17 12"><rect x="0" y="4" width="3" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="1" fill="currentColor" opacity="0.5"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor" opacity="0.7"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="currentColor"/></svg><svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2C11 2 13.5 3.5 15 5.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/><path d="M8 5C10 5 11.7 5.9 12.8 7.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/></svg><svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity="0.35"/><rect x="2" y="2" width="15" height="8" rx="2" fill="currentColor"/><path d="M23 4v4c.83-.37 1.5-1.14 1.5-2S23.83 4.37 23 4Z" fill="currentColor" fill-opacity="0.4"/></svg></div></div>
+      <div class="shdr"><div class="stitle" data-i18n="screen.household_title">Hushåll</div></div>
+      <div class="sbody">
+        <div class="hh-card">
+          <div class="hh-avatars">
+            <div class="hh-av" style="background:#7b6fe8">SL</div>
+            <div class="hh-av" style="background:#29a06b">JL</div>
+            <div class="hh-av" style="background:#e08a0c">EL</div>
+            <div class="hh-av" style="background:#df4545">AL</div>
+            <div class="hh-av" style="background:#636366">+1</div>
+          </div>
+          <div class="hh-stat"><span class="hh-sl" data-i18n="hh.members_label">Medlemmar</span><span class="hh-sv">5</span></div>
+          <div class="hh-stat"><span class="hh-sl" data-i18n="hh.subs_label">Prenumerationer</span><span class="hh-sv">7</span></div>
+          <div class="hh-stat"><span class="hh-sl" data-i18n="hh.monthly_label">Per månad</span><span class="hh-sv">1 373 kr</span></div>
+        </div>
+        <div class="sec-hdr" data-i18n="hh.settlements">Uppgörelser denna månad</div>
+        <div class="card">
+          <div class="setrow">
+            <div class="setav" style="background:#29a06b;margin-right:-6px;border:2px solid var(--bg-surface)">JL</div>
+            <div class="setav" style="background:#7b6fe8;border:2px solid var(--bg-surface)">SL</div>
+            <span class="setarr" style="margin-left:8px">→</span>
+            <div class="setinfo" style="margin-left:8px"><div class="setnames">Johan → Sara</div><div class="setreason" data-i18n="hh.netflix_share">Netflix, Spotify</div></div>
+            <div class="setamt">199 kr</div>
+          </div>
+          <div class="setrow">
+            <div class="setav" style="background:#df4545;margin-right:-6px;border:2px solid var(--bg-surface)">AL</div>
+            <div class="setav" style="background:#29a06b;border:2px solid var(--bg-surface)">JL</div>
+            <span class="setarr" style="margin-left:8px">→</span>
+            <div class="setinfo" style="margin-left:8px"><div class="setnames">Alex → Johan</div><div class="setreason" data-i18n="hh.ms_share">Microsoft 365</div></div>
+            <div class="setamt">36 kr</div>
+          </div>
+        </div>
+        <div class="sec-hdr" data-i18n="hh.shared_subs">Delade prenumerationer</div>
+        <div class="card">
+          <div class="lrow"><div class="ricon" style="background:#e50914">N</div><div class="rtxt"><div class="rname">Netflix</div><div class="rmeta" data-i18n="hh.pays_sara">Betalar: Sara</div></div><div class="ramt"><div class="rprice">179 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow"><div class="ricon" style="background:#1db954">S</div><div class="rtxt"><div class="rname">Spotify Family</div><div class="rmeta" data-i18n="hh.pays_sara">Betalar: Sara</div></div><div class="ramt"><div class="rprice">219 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow" style="border-bottom:none"><div class="ricon" style="background:#0078d4">M</div><div class="rtxt"><div class="rname">Microsoft 365</div><div class="rmeta" data-i18n="hh.pays_johan">Betalar: Johan</div></div><div class="ramt"><div class="rprice">109 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+        </div>
+      </div>
+      <nav class="bnav">
+        <button class="ni" onclick="switchTab('home')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="ni-lbl" data-i18n="tab.home">Hem</span></button>
+        <button class="ni" onclick="switchTab('subs')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><span class="ni-lbl" data-i18n="tab.subs">Prenumerationer</span></button>
+        <button class="ni active" onclick="switchTab('household')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="ni-lbl" data-i18n="tab.household">Hushåll</span></button>
+        <button class="ni" onclick="switchTab('insights')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="ni-lbl" data-i18n="tab.insights">Insikter</span></button>
+        <button class="ni" onclick="switchTab('profile')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="ni-lbl" data-i18n="tab.profile">Profil</span></button>
+      </nav>
+    </div>
+
+    <!-- ═══ INSIGHTS ══════════════════════════════ -->
+    <div class="screen" id="screen-insights">
+      <div class="sbar"><span>9:41</span><div class="sbar-icons"><svg width="17" height="12" viewBox="0 0 17 12"><rect x="0" y="4" width="3" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="1" fill="currentColor" opacity="0.5"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor" opacity="0.7"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="currentColor"/></svg><svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2C11 2 13.5 3.5 15 5.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/><path d="M8 5C10 5 11.7 5.9 12.8 7.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/></svg><svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity="0.35"/><rect x="2" y="2" width="15" height="8" rx="2" fill="currentColor"/><path d="M23 4v4c.83-.37 1.5-1.14 1.5-2S23.83 4.37 23 4Z" fill="currentColor" fill-opacity="0.4"/></svg></div></div>
+      <div class="shdr"><div class="stitle" data-i18n="screen.insights_title">Insikter</div></div>
+      <div class="sbody">
+        <div class="ai-card">
+          <div class="ai-lbl" data-i18n="insights.ai_label">✦ AI-sammanfattning</div>
+          <div class="ai-body" data-i18n="insights.ai_body">Det här hushållet lägger <strong>1 373 kr</strong> per månad på prenumerationer. Netflix och Viaplay överlappar — ni kan spara <strong>149 kr/mån</strong> om ni väljer ett av dem.</div>
+        </div>
+        <div class="sec-hdr" data-i18n="insights.cards_hdr">Åtgärdspunkter</div>
+        <div class="ins-card">
+          <div class="ins-top"><div class="ins-title" data-i18n="insights.card1_title">Prisjustering</div><span class="badge b-amber"><span class="bdot"></span><span data-i18n="badge.action">Åtgärda</span></span></div>
+          <div class="ins-body" data-i18n="insights.card1_body">Viaplay höjde priset med 20 kr (15%) sedan förra månaden. Ni betalade 129 kr, nu 149 kr.</div>
+        </div>
+        <div class="ins-card">
+          <div class="ins-top"><div class="ins-title" data-i18n="insights.card2_title">Dubbelbetalning</div><span class="badge b-brand"><span class="bdot"></span><span data-i18n="badge.save">Spara</span></span></div>
+          <div class="ins-body" data-i18n="insights.card2_body">Ni har Netflix + Viaplay. Välj en och spara <strong>1 788 kr/år</strong>.</div>
+        </div>
+        <div class="ins-card" style="margin-bottom:8px">
+          <div class="ins-top"><div class="ins-title" data-i18n="insights.card3_title">Delad optimering</div><span class="badge b-green"><span class="bdot"></span><span data-i18n="badge.good">Bra</span></span></div>
+          <div class="ins-body" data-i18n="insights.card3_body">3 av 7 prenumerationer delas. Familjeplanerna sparar ~<strong>340 kr/mån</strong>.</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title" data-i18n="insights.chart_label">Utgiftstrend — 6 månader</div>
+          <div class="chart-bars">
+            <div class="cbar-w"><div class="cbar" style="height:60%"></div><div class="cbar-l" data-i18n="month.may">Maj</div></div>
+            <div class="cbar-w"><div class="cbar" style="height:63%"></div><div class="cbar-l" data-i18n="month.jun">Jun</div></div>
+            <div class="cbar-w"><div class="cbar" style="height:65%"></div><div class="cbar-l" data-i18n="month.jul">Jul</div></div>
+            <div class="cbar-w"><div class="cbar" style="height:70%"></div><div class="cbar-l" data-i18n="month.aug">Aug</div></div>
+            <div class="cbar-w"><div class="cbar" style="height:75%"></div><div class="cbar-l" data-i18n="month.sep">Sep</div></div>
+            <div class="cbar-w"><div class="cbar cur" style="height:85%"></div><div class="cbar-l" data-i18n="month.oct">Okt</div></div>
+          </div>
+          <div class="chart-foot"><span class="chart-foot-l" data-i18n="chart.last6">Senaste 6 månaderna</span><span class="chart-foot-r">↑ 12%</span></div>
+        </div>
+      </div>
+      <nav class="bnav">
+        <button class="ni" onclick="switchTab('home')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="ni-lbl" data-i18n="tab.home">Hem</span></button>
+        <button class="ni" onclick="switchTab('subs')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><span class="ni-lbl" data-i18n="tab.subs">Prenumerationer</span></button>
+        <button class="ni" onclick="switchTab('household')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="ni-lbl" data-i18n="tab.household">Hushåll</span></button>
+        <button class="ni active" onclick="switchTab('insights')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="ni-lbl" data-i18n="tab.insights">Insikter</span></button>
+        <button class="ni" onclick="switchTab('profile')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="ni-lbl" data-i18n="tab.profile">Profil</span></button>
+      </nav>
+    </div>
+
+    <!-- ═══ PROFILE ═══════════════════════════════ -->
+    <div class="screen" id="screen-profile">
+      <div class="sbar"><span>9:41</span><div class="sbar-icons"><svg width="17" height="12" viewBox="0 0 17 12"><rect x="0" y="4" width="3" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="1" fill="currentColor" opacity="0.5"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor" opacity="0.7"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="currentColor"/></svg><svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2C11 2 13.5 3.5 15 5.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/><path d="M8 5C10 5 11.7 5.9 12.8 7.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/></svg><svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity="0.35"/><rect x="2" y="2" width="15" height="8" rx="2" fill="currentColor"/><path d="M23 4v4c.83-.37 1.5-1.14 1.5-2S23.83 4.37 23 4Z" fill="currentColor" fill-opacity="0.4"/></svg></div></div>
+      <div class="sbody" style="padding-top:0">
+        <div class="prof-hero">
+          <div class="prof-av">SL</div>
+          <div class="prof-name">Sara Lindqvist</div>
+          <div class="prof-sub" data-i18n="profile.sub">Hushållets admin</div>
+        </div>
+        <div class="sec-hdr" data-i18n="profile.settings_hdr">Inställningar</div>
+        <div class="card">
+          <div class="srow"><div class="srow-ic">🎨</div><div><div class="srow-lbl" data-i18n="profile.theme">Tema</div><div class="srow-val" id="theme-mode-val" data-i18n="profile.dark">Mörkt</div></div><span class="srow-chev">›</span></div>
+          <div class="srow"><div class="srow-ic">🌐</div><div><div class="srow-lbl" data-i18n="profile.language">Språk</div><div class="srow-val" id="lang-val" data-i18n="profile.lang_val">Svenska</div></div><span class="srow-chev">›</span></div>
+          <div class="srow"><div class="srow-ic">🔒</div><div><div class="srow-lbl" data-i18n="profile.privacy">Integritet</div></div><span class="srow-chev">›</span></div>
+        </div>
+        <div class="sec-hdr" data-i18n="profile.notif_hdr">Notifikationer</div>
+        <div class="card">
+          <div class="srow"><div class="srow-ic">🏦</div><div><div class="srow-lbl" data-i18n="profile.bank">Bankuppdateringar</div><div class="srow-val" style="color:var(--green)" data-i18n="profile.active">Aktiv</div></div><span class="srow-chev">›</span></div>
+          <div class="srow"><div class="srow-ic">🔔</div><div><div class="srow-lbl" data-i18n="profile.notifications">Notifikationer</div></div><span class="srow-chev">›</span></div>
+        </div>
+        <div class="sec-hdr" data-i18n="profile.support_hdr">Support</div>
+        <div class="card" style="margin-bottom:0">
+          <div class="srow"><div class="srow-ic">❓</div><div><div class="srow-lbl" data-i18n="profile.help">Hjälp</div></div><span class="srow-chev">›</span></div>
+        </div>
+        <button class="logout-btn" data-i18n="profile.logout">Logga ut</button>
+      </div>
+      <nav class="bnav">
+        <button class="ni" onclick="switchTab('home')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="ni-lbl" data-i18n="tab.home">Hem</span></button>
+        <button class="ni" onclick="switchTab('subs')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><span class="ni-lbl" data-i18n="tab.subs">Prenumerationer</span></button>
+        <button class="ni" onclick="switchTab('household')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="ni-lbl" data-i18n="tab.household">Hushåll</span></button>
+        <button class="ni" onclick="switchTab('insights')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="ni-lbl" data-i18n="tab.insights">Insikter</span></button>
+        <button class="ni active" onclick="switchTab('profile')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="ni-lbl" data-i18n="tab.profile">Profil</span></button>
+      </nav>
+    </div>
+
+    <!-- ═══ DRAWER ════════════════════════════════ -->
+    <div class="drw-bg" id="drw-bg" onclick="closeDrawer()"></div>
+    <div class="drw" id="drw">
+      <div class="drw-handle"></div>
+      <div class="drw-hdr">
+        <div class="drw-ic" id="d-icon">N</div>
+        <div><div class="drw-name" id="d-name">Netflix</div><div class="drw-plan" id="d-plan">Standard med annonser</div></div>
+      </div>
+      <div class="drw-price-blk">
+        <div class="drw-price" id="d-price">179 kr</div>
+        <div class="drw-per" data-i18n="period.per_mon">/mån</div>
+      </div>
+      <div>
+        <div class="drw-drow"><div class="drw-dk" data-i18n="drawer.renewal">Nästa förnyelse</div><div class="drw-dv" id="d-renewal">om 2 dagar</div></div>
+        <div class="drw-drow"><div class="drw-dk" data-i18n="drawer.annual_cost">Årsutgift</div><div class="drw-dv" id="d-annual">2 148 kr</div></div>
+        <div class="drw-drow"><div class="drw-dk" data-i18n="drawer.category">Kategori</div><div class="drw-dv" id="d-cat">Film &amp; serier</div></div>
+        <div class="drw-drow"><div class="drw-dk" data-i18n="drawer.pays">Betalar</div><div class="drw-dv" id="d-payer">Sara</div></div>
+      </div>
+      <div class="drw-spark">
+        <div class="drw-spark-lbl" id="d-spark-lbl">Prisjustering +30 kr (Mar 2026)</div>
+        <svg class="sparkline" viewBox="0 0 200 32" preserveAspectRatio="none">
+          <polyline points="0,28 40,26 80,24 120,20 160,18 200,14" fill="none" stroke="var(--brand)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="200" cy="14" r="3" fill="var(--brand)"/>
+        </svg>
+      </div>
+      <div class="drw-actions">
+        <button class="drw-btn drw-btn-cancel" data-i18n="drawer.cancel">Avsluta</button>
+        <button class="drw-btn drw-btn-ghost" data-i18n="drawer.mark_private">Markera privat</button>
+      </div>
+    </div>
+
+  </div><!-- .phone -->
+
+  <script>
+    const SUBS = {
+      netflix:  {icon:'N',color:'#e50914',name:'Netflix',plan:'Standard med annonser',planEn:'Standard with ads',price:'179 kr',renewal:'om 2 dagar',renewalEn:'in 2 days',annual:'2 148 kr',cat:'Film & serier',catEn:'Video streaming',payer:'Sara',spark:'Prisjustering +30 kr (Mar 2026)',sparkEn:'Price increase +SEK 30 (Mar 2026)'},
+      spotify:  {icon:'S',color:'#1db954',name:'Spotify Family',plan:'Family — upp till 6 konton',planEn:'Family — up to 6 accounts',price:'219 kr',renewal:'om 5 dagar',renewalEn:'in 5 days',annual:'2 628 kr',cat:'Musik & podd',catEn:'Music & podcasts',payer:'Sara',spark:'Stabil sedan Jan 2025',sparkEn:'Stable since Jan 2025'},
+      ms365:    {icon:'M',color:'#0078d4',name:'Microsoft 365',plan:'Family — upp till 6 enheter',planEn:'Family — up to 6 devices',price:'109 kr',renewal:'om 18 dagar',renewalEn:'in 18 days',annual:'1 308 kr',cat:'Programvara',catEn:'Software',payer:'Johan',spark:'Årsplan 109 kr/mån',sparkEn:'Annual plan SEK 109/mo'},
+      icloud:   {icon:'☁',color:'#636366',name:'iCloud+',plan:'200 GB lagring',planEn:'200 GB storage',price:'39 kr',renewal:'om 12 dagar',renewalEn:'in 12 days',annual:'468 kr',cat:'Molnlagring',catEn:'Cloud storage',payer:'Sara',spark:'Stabil pris',sparkEn:'Stable price'},
+      viaplay:  {icon:'V',color:'#ff2244',name:'Viaplay',plan:'Viaplay Total',planEn:'Viaplay Total',price:'149 kr',renewal:'om 8 dagar',renewalEn:'in 8 days',annual:'1 788 kr',cat:'Film & serier',catEn:'Video streaming',payer:'Sara',spark:'Höjning +20 kr (Sep 2026)',sparkEn:'Increase +SEK 20 (Sep 2026)'},
+      sats:     {icon:'G',color:'#ff6b00',name:'SATS',plan:'Rörligt månadsabonnemang',planEn:'Flexible monthly',price:'499 kr',renewal:'om 3 dagar',renewalEn:'in 3 days',annual:'5 988 kr',cat:'Träning & hälsa',catEn:'Fitness & health',payer:'Elin',spark:'Stabil sedan Jun 2025',sparkEn:'Stable since Jun 2025'},
+      claude:   {icon:'A',color:'#7b6fe8',name:'Claude AI',plan:'Pro — obegränsad användning',planEn:'Pro — unlimited usage',price:'179 kr',renewal:'om 15 dagar',renewalEn:'in 15 days',annual:'2 148 kr',cat:'AI-verktyg',catEn:'AI tools',payer:'Sara',spark:'Ny prenumeration (Jun 2026)',sparkEn:'New subscription (Jun 2026)'},
+    };
+
+    const T = {
+      sv: {
+        'scope.household':'Hushållet','period.monthly':'Månadsvis','period.annual':'Årsvis',
+        'period.per_month':'/månad','period.per_mon':'/mån',
+        'hero.label':'Totalt per månad','hero.sub':'7 aktiva prenumerationer',
+        'home.upcoming':'Kommande denna vecka','upcoming.in2days':'om 2 dagar','upcoming.in5days':'om 5 dagar',
+        'home.insights_hdr':'Insikter','insight.price_title':'Prisjustering',
+        'insight.price_body':'Viaplay höjde priset med 20 kr sedan förra månaden.',
+        'insight.double_title':'Dubbelbetalning','insight.double_body':'Ni har Netflix + Viaplay. Spara 1 788 kr/år.',
+        'screen.subs_title':'Prenumerationer','search.placeholder':'Sök prenumeration...',
+        'filter.all':'Alla','filter.video':'Film','filter.music':'Musik','filter.software':'Mjukvara','filter.fitness':'Träning','filter.storage':'Lagring',
+        'cat.video':'👥 Film & serier','cat.music':'👥 Musik & podd','cat.software':'👥 Programvara',
+        'cat.cloud_sara':'🔒 Molnlagring · Sara','cat.fitness_elin':'🔒 Träning · Elin','cat.ai_sara':'🔒 AI-verktyg · Sara',
+        'subs.total_label':'Totalt hushållet','screen.household_title':'Hushåll',
+        'hh.members_label':'Medlemmar','hh.subs_label':'Prenumerationer','hh.monthly_label':'Per månad',
+        'hh.settlements':'Uppgörelser denna månad','hh.netflix_share':'Netflix, Spotify','hh.ms_share':'Microsoft 365',
+        'hh.shared_subs':'Delade prenumerationer','hh.pays_sara':'Betalar: Sara','hh.pays_johan':'Betalar: Johan',
+        'screen.insights_title':'Insikter','insights.ai_label':'✦ AI-sammanfattning',
+        'insights.ai_body':'Det här hushållet lägger <strong>1 373 kr</strong> per månad på prenumerationer. Netflix och Viaplay överlappar — ni kan spara <strong>149 kr/mån</strong> om ni väljer ett av dem.',
+        'insights.cards_hdr':'Åtgärdspunkter',
+        'insights.card1_title':'Prisjustering','insights.card1_body':'Viaplay höjde priset med 20 kr (15%) sedan förra månaden. Ni betalade 129 kr, nu 149 kr.',
+        'insights.card2_title':'Dubbelbetalning','insights.card2_body':'Ni har Netflix + Viaplay. Välj en och spara <strong>1 788 kr/år</strong>.',
+        'insights.card3_title':'Delad optimering','insights.card3_body':'3 av 7 prenumerationer delas. Familjeplanerna sparar ~<strong>340 kr/mån</strong>.',
+        'insights.chart_label':'Utgiftstrend — 6 månader','chart.last6':'Senaste 6 månaderna',
+        'month.may':'Maj','month.jun':'Jun','month.jul':'Jul','month.aug':'Aug','month.sep':'Sep','month.oct':'Okt',
+        'badge.action':'Åtgärda','badge.save':'Spara','badge.good':'Bra',
+        'profile.sub':'Hushållets admin','profile.settings_hdr':'Inställningar',
+        'profile.theme':'Tema','profile.dark':'Mörkt','profile.light_val':'Ljust',
+        'profile.language':'Språk','profile.lang_val':'Svenska','profile.privacy':'Integritet',
+        'profile.notif_hdr':'Notifikationer','profile.bank':'Bankuppdateringar','profile.active':'Aktiv',
+        'profile.notifications':'Notifikationer','profile.support_hdr':'Support','profile.help':'Hjälp','profile.logout':'Logga ut',
+        'tab.home':'Hem','tab.subs':'Prenumerationer','tab.household':'Hushåll','tab.insights':'Insikter','tab.profile':'Profil',
+        'drawer.renewal':'Nästa förnyelse','drawer.annual_cost':'Årsutgift','drawer.category':'Kategori',
+        'drawer.pays':'Betalar','drawer.cancel':'Avsluta','drawer.mark_private':'Markera privat',
+      },
+      en: {
+        'scope.household':'Household','period.monthly':'Monthly','period.annual':'Annual',
+        'period.per_month':'/month','period.per_mon':'/mo',
+        'hero.label':'Total per month','hero.sub':'7 active subscriptions',
+        'home.upcoming':'Upcoming this week','upcoming.in2days':'in 2 days','upcoming.in5days':'in 5 days',
+        'home.insights_hdr':'Insights','insight.price_title':'Price increase',
+        'insight.price_body':'Viaplay raised the price by SEK 20 last month.',
+        'insight.double_title':'Duplicate service','insight.double_body':'You have Netflix + Viaplay. Save SEK 1,788/year.',
+        'screen.subs_title':'Subscriptions','search.placeholder':'Search subscriptions...',
+        'filter.all':'All','filter.video':'Video','filter.music':'Music','filter.software':'Software','filter.fitness':'Fitness','filter.storage':'Storage',
+        'cat.video':'👥 Video streaming','cat.music':'👥 Music & podcasts','cat.software':'👥 Software',
+        'cat.cloud_sara':'🔒 Cloud storage · Sara','cat.fitness_elin':'🔒 Fitness · Elin','cat.ai_sara':'🔒 AI tools · Sara',
+        'subs.total_label':'Household total','screen.household_title':'Household',
+        'hh.members_label':'Members','hh.subs_label':'Subscriptions','hh.monthly_label':'Per month',
+        'hh.settlements':'Settlements this month','hh.netflix_share':'Netflix, Spotify','hh.ms_share':'Microsoft 365',
+        'hh.shared_subs':'Shared subscriptions','hh.pays_sara':'Paid by: Sara','hh.pays_johan':'Paid by: Johan',
+        'screen.insights_title':'Insights','insights.ai_label':'✦ AI summary',
+        'insights.ai_body':'This household spends <strong>SEK 1,373</strong> per month on subscriptions. Netflix and Viaplay overlap — you could save <strong>SEK 149/mo</strong> by choosing one.',
+        'insights.cards_hdr':'Action items',
+        'insights.card1_title':'Price increase','insights.card1_body':'Viaplay raised the price by SEK 20 (15%) last month. You were paying SEK 129, now SEK 149.',
+        'insights.card2_title':'Duplicate service','insights.card2_body':'You have Netflix + Viaplay. Choose one and save <strong>SEK 1,788/year</strong>.',
+        'insights.card3_title':'Shared savings','insights.card3_body':'3 of 7 subscriptions are shared. Family plans save ~<strong>SEK 340/mo</strong>.',
+        'insights.chart_label':'Spending trend — 6 months','chart.last6':'Last 6 months',
+        'month.may':'May','month.jun':'Jun','month.jul':'Jul','month.aug':'Aug','month.sep':'Sep','month.oct':'Oct',
+        'badge.action':'Action','badge.save':'Save','badge.good':'Good',
+        'profile.sub':'Household admin','profile.settings_hdr':'Settings',
+        'profile.theme':'Theme','profile.dark':'Dark','profile.light_val':'Light',
+        'profile.language':'Language','profile.lang_val':'English','profile.privacy':'Privacy',
+        'profile.notif_hdr':'Notifications','profile.bank':'Bank updates','profile.active':'Active',
+        'profile.notifications':'Notifications','profile.support_hdr':'Support','profile.help':'Help','profile.logout':'Log out',
+        'tab.home':'Home','tab.subs':'Subscriptions','tab.household':'Household','tab.insights':'Insights','tab.profile':'Profile',
+        'drawer.renewal':'Next renewal','drawer.annual_cost':'Annual cost','drawer.category':'Category',
+        'drawer.pays':'Paid by','drawer.cancel':'Cancel','drawer.mark_private':'Mark private',
+      }
+    };
+
+    let lang = 'sv', theme = 'dark', activeDrawer = null;
+
+    function applyT() {
+      const d = T[lang];
+      document.querySelectorAll('[data-i18n]').forEach(el => { const v = d[el.dataset.i18n]; if (v !== undefined) el.innerHTML = v; });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { const v = d[el.dataset.i18nPlaceholder]; if (v !== undefined) el.placeholder = v; });
+      const tv = document.getElementById('theme-mode-val');
+      if (tv) tv.textContent = theme === 'dark' ? d['profile.dark'] : d['profile.light_val'];
+      const lb = document.getElementById('lang-btn'); if (lb) lb.textContent = lang === 'sv' ? 'EN' : 'SV';
+      const tb = document.getElementById('theme-btn'); if (tb) tb.textContent = theme === 'dark' ? (lang === 'sv' ? '☀️ Ljust' : '☀️ Light') : (lang === 'sv' ? '🌙 Mörkt' : '🌙 Dark');
+    }
+
+    function toggleLang() { lang = lang === 'sv' ? 'en' : 'sv'; document.documentElement.lang = lang; applyT(); if (activeDrawer) populateDrawer(activeDrawer); }
+    function toggleTheme() { theme = theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = theme; applyT(); }
+
+    function switchTab(name) {
+      ['home','subs','household','insights','profile'].forEach(s => document.getElementById('screen-'+s).classList.toggle('active', s === name));
+    }
+
+    function setPeriod(p, btn) {
+      document.querySelectorAll('.hpill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const amt = document.getElementById('hero-amount'), sfx = document.getElementById('hero-suffix');
+      if (p === 'year') { amt.textContent = '16 476'; sfx.textContent = lang === 'sv' ? ' kr/år' : ' kr/year'; }
+      else { amt.textContent = '1 373'; sfx.textContent = lang === 'sv' ? ' kr/mån' : ' kr/mo'; }
+    }
+
+    function populateDrawer(key) {
+      const s = SUBS[key]; if (!s) return;
+      document.getElementById('d-icon').textContent = s.icon;
+      document.getElementById('d-icon').style.background = s.color;
+      document.getElementById('d-name').textContent = s.name;
+      document.getElementById('d-plan').textContent = lang === 'en' ? s.planEn : s.plan;
+      document.getElementById('d-price').textContent = s.price;
+      document.getElementById('d-renewal').textContent = lang === 'en' ? s.renewalEn : s.renewal;
+      document.getElementById('d-annual').textContent = s.annual;
+      document.getElementById('d-cat').textContent = lang === 'en' ? s.catEn : s.cat;
+      document.getElementById('d-payer').textContent = s.payer;
+      document.getElementById('d-spark-lbl').textContent = lang === 'en' ? s.sparkEn : s.spark;
+    }
+
+    function openDrawer(key) { activeDrawer = key; populateDrawer(key); document.getElementById('drw-bg').classList.add('open'); document.getElementById('drw').classList.add('open'); }
+    function closeDrawer() { document.getElementById('drw-bg').classList.remove('open'); document.getElementById('drw').classList.remove('open'); }
+
+    document.querySelectorAll('.mpill').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.mpill').forEach(x => x.classList.remove('active')); b.classList.add('active'); }));
+    document.querySelectorAll('.fchip').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.fchip').forEach(x => x.classList.remove('active')); b.classList.add('active'); }));
+
+    applyT();
+  </script>
 </body>
 </html>
