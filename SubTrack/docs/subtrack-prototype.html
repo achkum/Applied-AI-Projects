@@ -340,21 +340,21 @@
           <input type="text" data-i18n-placeholder="search.placeholder" placeholder="Sök prenumeration...">
         </div>
         <div class="frow">
-          <button class="fchip active" data-i18n="filter.all">Alla</button>
-          <button class="fchip" data-i18n="filter.video">Film</button>
-          <button class="fchip" data-i18n="filter.music">Musik</button>
-          <button class="fchip" data-i18n="filter.software">Mjukvara</button>
-          <button class="fchip" data-i18n="filter.fitness">Träning</button>
-          <button class="fchip" data-i18n="filter.storage">Lagring</button>
+          <button class="fchip active" data-filter="all" data-i18n="filter.all">Alla</button>
+          <button class="fchip" data-filter="video" data-i18n="filter.video">Film</button>
+          <button class="fchip" data-filter="music" data-i18n="filter.music">Musik</button>
+          <button class="fchip" data-filter="software" data-i18n="filter.software">Mjukvara</button>
+          <button class="fchip" data-filter="fitness" data-i18n="filter.fitness">Träning</button>
+          <button class="fchip" data-filter="storage" data-i18n="filter.storage">Lagring</button>
         </div>
         <div class="card" style="margin-top:4px">
-          <div class="lrow" onclick="openDrawer('netflix')"><div class="ricon" style="background:#e50914">N</div><div class="rtxt"><div class="rname">Netflix</div><div class="rmeta" data-i18n="cat.video">👥 Film &amp; serier</div></div><div class="ramt"><div class="rprice">179 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
-          <div class="lrow" onclick="openDrawer('spotify')"><div class="ricon" style="background:#1db954">S</div><div class="rtxt"><div class="rname">Spotify Family</div><div class="rmeta" data-i18n="cat.music">👥 Musik &amp; podd</div></div><div class="ramt"><div class="rprice">219 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
-          <div class="lrow" onclick="openDrawer('ms365')"><div class="ricon" style="background:#0078d4">M</div><div class="rtxt"><div class="rname">Microsoft 365</div><div class="rmeta" data-i18n="cat.software">👥 Programvara</div></div><div class="ramt"><div class="rprice">109 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
-          <div class="lrow" onclick="openDrawer('icloud')"><div class="ricon" style="background:#636366">☁</div><div class="rtxt"><div class="rname">iCloud+</div><div class="rmeta" data-i18n="cat.cloud_sara">🔒 Molnlagring · Sara</div></div><div class="ramt"><div class="rprice">39 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
-          <div class="lrow" onclick="openDrawer('viaplay')"><div class="ricon" style="background:#ff2244">V</div><div class="rtxt"><div class="rname">Viaplay</div><div class="rmeta" data-i18n="cat.video">👥 Film &amp; serier</div></div><div class="ramt"><div class="rprice">149 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
-          <div class="lrow" onclick="openDrawer('sats')"><div class="ricon" style="background:#ff6b00">G</div><div class="rtxt"><div class="rname">SATS</div><div class="rmeta" data-i18n="cat.fitness_elin">🔒 Träning · Elin</div></div><div class="ramt"><div class="rprice">499 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
-          <div class="lrow" onclick="openDrawer('claude')"><div class="ricon" style="background:#7b6fe8">A</div><div class="rtxt"><div class="rname">Claude AI</div><div class="rmeta" data-i18n="cat.ai_sara">🔒 AI-verktyg · Sara</div></div><div class="ramt"><div class="rprice">179 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow sub-row" data-cat="video" onclick="openDrawer('netflix')"><div class="ricon" style="background:#e50914">N</div><div class="rtxt"><div class="rname">Netflix</div><div class="rmeta" data-i18n="cat.video">👥 Film &amp; serier</div></div><div class="ramt"><div class="rprice">179 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow sub-row" data-cat="music" onclick="openDrawer('spotify')"><div class="ricon" style="background:#1db954">S</div><div class="rtxt"><div class="rname">Spotify Family</div><div class="rmeta" data-i18n="cat.music">👥 Musik &amp; podd</div></div><div class="ramt"><div class="rprice">219 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow sub-row" data-cat="software" onclick="openDrawer('ms365')"><div class="ricon" style="background:#0078d4">M</div><div class="rtxt"><div class="rname">Microsoft 365</div><div class="rmeta" data-i18n="cat.software">👥 Programvara</div></div><div class="ramt"><div class="rprice">109 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow sub-row" data-cat="storage" onclick="openDrawer('icloud')"><div class="ricon" style="background:#636366">☁</div><div class="rtxt"><div class="rname">iCloud+</div><div class="rmeta" data-i18n="cat.cloud_sara">🔒 Molnlagring · Sara</div></div><div class="ramt"><div class="rprice">39 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow sub-row" data-cat="video" onclick="openDrawer('viaplay')"><div class="ricon" style="background:#ff2244">V</div><div class="rtxt"><div class="rname">Viaplay</div><div class="rmeta" data-i18n="cat.video">👥 Film &amp; serier</div></div><div class="ramt"><div class="rprice">149 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow sub-row" data-cat="fitness" onclick="openDrawer('sats')"><div class="ricon" style="background:#ff6b00">G</div><div class="rtxt"><div class="rname">SATS</div><div class="rmeta" data-i18n="cat.fitness_elin">🔒 Träning · Elin</div></div><div class="ramt"><div class="rprice">499 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow sub-row" data-cat="software" onclick="openDrawer('claude')"><div class="ricon" style="background:#7b6fe8">A</div><div class="rtxt"><div class="rname">Claude AI</div><div class="rmeta" data-i18n="cat.ai_sara">🔒 AI-verktyg · Sara</div></div><div class="ramt"><div class="rprice">179 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
           <div class="total-row"><div class="total-lbl" data-i18n="subs.total_label">Totalt hushållet</div><div class="total-amt">1 373 kr</div></div>
         </div>
       </div>
@@ -751,7 +751,15 @@
       b.classList.add('active');
       selectMember(b.dataset.member || 'household');
     }));
-    document.querySelectorAll('.fchip').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.fchip').forEach(x => x.classList.remove('active')); b.classList.add('active'); }));
+    document.querySelectorAll('.fchip').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('.fchip').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      const f = b.dataset.filter;
+      document.querySelectorAll('.sub-row').forEach(row => {
+        const show = f === 'all' || row.dataset.cat === f;
+        row.style.display = show ? '' : 'none';
+      });
+    }));
 
     applyT();
   </script>
