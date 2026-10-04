@@ -3,13 +3,13 @@
 # ST-003 is DONE on develop; ST-004 and other scaffold dependants may advance when ready.
 # M0 and D1 have seeded task contracts below; M1-M7 are represented at backlog level from BACKLOG_SEED.md.
 # Seeded M0/D1 contracts are planning placeholders, not all DoR-complete; see ST-014. ST-028 also requires split ST-015 before READY.
+# Last reconciled: 2026-10-04 — statuses synced against merged PR list (PRs 64–131, 133–134).
 milestone_current: M0
 items:
   - {id: ST-001, title: "Pre-flight report: toolchain, VPS resources, repo access, HUMAN_TODO status", owner: "conductor", size: "S", status: DONE, deps: []}
   - {id: ST-002, title: "Move legacy prototype to `SubTrack/_legacy/`; delete nested `SubTrack/SubTrack`, tarballs, `*_payload.json`, `plan_payload.json`; salvage audit hash-chain + consent logic notes into ADR appendix", owner: "devops-release", size: "S", status: DONE, deps: ["ST-001"]}
   - {id: ST-003, title: "Monorepo scaffold (pnpm, Turborepo, TS strict, eslint boundaries, prettier, `packages/config`)", owner: "architect-platform", size: "M", status: DONE, deps: ["ST-002"]}
   - {id: ST-004, title: "Docker Compose dev stack: postgres16, redis, mailpit, caddy; healthchecks; `make up/down/logs`", owner: "devops-release", size: "M", status: DONE, deps: ["ST-003"]}
-  - {id: ST-017, title: "CI wiring: contrast checker (ST-020) and visual regression (ST-022)", owner: "devops-release", size: "M", status: BACKLOG, deps: ["ST-020", "ST-022"]}
   - {id: ST-005, title: "CI workflow path-filtered to `SubTrack/**`: lint, typecheck, test, i18n parity, secret scan (gitleaks), licence check", owner: "devops-release", size: "M", status: DONE, deps: ["ST-003"]}
   - {id: ST-006, title: "`packages/contracts`: openapi.yaml skeleton + generator (TS client + zod) + contract test harness", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-003"]}
   - {id: ST-007, title: "`apps/api` NestJS skeleton: config, pino, problem+json errors, health/version, Prisma init, request-scoped RLS transaction helper", owner: "dev-backend", size: "L", status: DONE, deps: ["ST-006"]}
@@ -18,69 +18,77 @@ items:
   - {id: ST-010, title: "`services/ml` FastAPI skeleton + uv + pytest + Dockerfile; `/healthz`, `/ml/v1/models`", owner: "dev-data", size: "M", status: DONE, deps: ["ST-004"]}
   - {id: ST-011, title: "`packages/i18n` catalog structure + parity checker script", owner: "dev-web", size: "S", status: DONE, deps: ["ST-003"]}
   - {id: ST-012, title: "`.sdlc/` board initialised from this file; task files for M0/D1/M1", owner: "product-owner", size: "M", status: DONE, deps: ["ST-001"]}
+  - {id: ST-013, title: "Expand M1 task contracts", owner: "product-owner", size: M, status: DONE, deps: [ST-012]}
+  - {id: ST-014, title: "Refine M0/D1 task contracts to Definition of Ready", owner: "product-owner", size: M, status: DONE, deps: [ST-012]}
+  - {id: ST-015, title: "Split ST-028 hero-screen work into one-agent tasks", owner: "product-owner", size: S, status: DONE, deps: [ST-012, ST-023]}
+  - {id: ST-016, title: "Refine remaining D1 component and asset task contracts", owner: "product-owner", size: M, status: BACKLOG, deps: [ST-014, ST-023]}
+  - {id: ST-017, title: "CI wiring: contrast checker (ST-020) and visual regression (ST-022)", owner: "devops-release", size: "M", status: DONE, deps: ["ST-020", "ST-022"]}
   - {id: ST-020, title: "`packages/ui-tokens`: colour/type/space/radius/motion tokens JSON → CSS vars + RN theme; OKLCH category-hue generator; contrast checker in CI", owner: "design-lead", size: "L", status: DONE, deps: ["ST-003"]}
-  - {id: ST-021, title: "Fonts (Inter Variable, JetBrains Mono) self-hosted/bundled with OFL notices — Fraunces/Manrope retired with ST-163", owner: "dev-web", size: "S", status: BACKLOG, deps: ["ST-020", "ST-163"]}
-  - {id: ST-022, title: "Storybook for `packages/ui` + visual regression job", owner: "dev-web", size: "M", status: READY, deps: ["ST-020"]}
+  - {id: ST-021, title: "Fonts (Inter Variable, JetBrains Mono) self-hosted/bundled with OFL notices — Fraunces/Manrope retired with ST-163", owner: "dev-web", size: "S", status: DONE, deps: ["ST-020", "ST-163"]}
+  - {id: ST-022, title: "Storybook for `packages/ui` + visual regression job", owner: "dev-web", size: "M", status: DONE, deps: ["ST-020"]}
   - {id: ST-023, title: "Component specs (markdown) for the 7 signature components", owner: "design-lead", size: "M", status: DONE, deps: ["ST-020", "ST-030"]}
-  - {id: ST-030, title: "Theme-aware stable member identity accents for Scope switcher", owner: "design-lead", size: "M", status: DONE, deps: ["ST-020"]}
-  - {id: ST-024, title: "Web: RollingNumber, ScopeSwitcher, ReceiptCard", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-023", "ST-022"]}
+  - {id: ST-024, title: "Web: RollingNumber, ScopeSwitcher, ReceiptCard", owner: "dev-web", size: "L", status: DONE, deps: ["ST-023", "ST-022"]}
   - {id: ST-025, title: "Web: Orbit (SVG/Canvas) + accessible list fallback", owner: "dev-web", size: "L", status: REJECTED, deps: ["ST-023", "ST-022"], note: "CANCELLED — Orbit concept retired in ST-163 design pivot; Orbit does not exist in new Precision design direction"}
-  - {id: ST-163, title: "Design pivot: retire Norrsken orbital concept → Precision production design; rewrite prototype (Klarna/Kivra flat UI, single-nav slide transitions, fully interactive)", owner: "design-lead", size: "L", status: DONE, deps: ["ST-020", "ST-023"]}
-  - {id: ST-164, title: "Revise component specs (ST-023 set) to match Precision design direction — new components: SavingsCard, StatChipRow, InsightCard, MarketCard, FilterChips, MemberPills with slide nav; retire Orbit spec", owner: "design-lead", size: "M", status: READY, deps: ["ST-163"]}
-  - {id: ST-038, title: "Fix mobile component-render test harness (RN/@testing-library/react-native incompatibility)", owner: "dev-mobile", size: "S", status: READY, deps: []}
-  - {id: ST-026, title: "Mobile: RollingNumber, ScopeSwitcher, ReceiptCard (colocated)", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-164", "ST-038"]}
+  - {id: ST-026, title: "Mobile: RollingNumber, ScopeSwitcher, ReceiptCard (colocated)", owner: "dev-mobile", size: "L", status: DONE, deps: ["ST-164", "ST-038"]}
   - {id: ST-027, title: "Mobile: Orbit with react-native-skia + reduced-motion fallback", owner: "dev-mobile", size: "L", status: REJECTED, deps: ["ST-038"], note: "CANCELLED — Orbit concept retired in ST-163 design pivot"}
-  - {id: ST-039, title: "Maestro/device E2E + screen-reader backfill for D1 signature components", owner: "qa-engineer", size: "M", status: BACKLOG, deps: ["ST-024", "ST-025", "ST-026", "ST-027"]}
-  - {id: ST-056, title: "packages/money: shared money formatter (extract from D1 component duplication)", owner: "architect-platform", size: "S", status: BACKLOG, deps: []}
   - {id: ST-028, title: "Hero screens (Welcome, Home, Subscription detail) — parent, needs_split=true", owner: "conductor", size: "L", status: BACKLOG, deps: ["ST-024", "ST-025"], note: "Split by ST-015 into ST-057+ST-058; do not dispatch directly"}
-  - {id: ST-057, title: "Hero screens: design compositions (Storybook stories, G-DESIGN gate)", owner: "design-lead", size: "M", status: BACKLOG, deps: ["ST-164", "ST-024", "ST-022"]}
-  - {id: ST-058, title: "Hero screens: web page implementation (Welcome, Home, Subscription detail)", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-057", "ST-024", "ST-025"]}
   - {id: ST-029, title: "App icon, splash, store feature graphic concepts", owner: "design-lead", size: "M", status: BACKLOG, deps: ["ST-020"]}
-  - {id: ST-040, title: "Prisma schema: identity, household, invitation, consent, audit_log + RLS policies migration", owner: "architect-platform", size: "L", status: BLOCKED, deps: ["ST-007"]}
-  - {id: ST-041, title: "OTP service (email via SMTP/Mailpit, SMS via DevInbox adapter), rate limits, lockout", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-040"]}
-  - {id: ST-042, title: "IdentityProvider interface + BankID **simulator** (fixed demo identities)", owner: "dev-backend", size: "M", status: BACKLOG, deps: ["ST-040"]}
+  - {id: ST-030, title: "Theme-aware stable member identity accents for Scope switcher", owner: "design-lead", size: "M", status: DONE, deps: ["ST-020"]}
+  - {id: ST-031, title: "Amend governance for QA-gated merges to main", owner: "product-owner", size: S, status: DONE, deps: []}
+  - {id: ST-034, title: "Hotfix: regenerate pnpm-lock.yaml (CI install failing on main)", owner: "devops-release", size: S, status: DONE, deps: []}
+  - {id: ST-035, title: "Hotfix: restore missing root package.json (turbo script wrapper)", owner: "architect-platform", size: S, status: DONE, deps: []}
+  - {id: ST-036, title: "apps/mobile: fix ESLint 8/flat-config incompatibility and Jest/react-native polyfill parse error", owner: "dev-mobile", size: S, status: DONE, deps: []}
+  - {id: ST-037, title: "Fix license-check SPDX compound-expression parsing (false positives in CI gate)", owner: "devops-release", size: S, status: DONE, deps: []}
+  - {id: ST-038, title: "Fix mobile component-render test harness (RN/@testing-library/react-native incompatibility)", owner: "dev-mobile", size: "S", status: DONE, deps: []}
+  - {id: ST-039, title: "Maestro/device E2E + screen-reader backfill for D1 signature components", owner: "qa-engineer", size: "M", status: BACKLOG, deps: ["ST-024", "ST-025", "ST-026", "ST-027"]}
+  - {id: ST-040, title: "Prisma schema: identity, household, invitation, consent, audit_log + RLS policies migration", owner: "architect-platform", size: "L", status: DONE, deps: ["ST-007"]}
+  - {id: ST-041, title: "OTP service (email via SMTP/Mailpit, SMS via DevInbox adapter), rate limits, lockout", owner: "dev-backend", size: "L", status: DONE, deps: ["ST-040"]}
+  - {id: ST-042, title: "IdentityProvider interface + BankID **simulator** (fixed demo identities)", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-040"]}
   - {id: ST-043, title: "BankID **test** adapter: RP API v6.0 auth/collect/cancel, mTLS test cert, animated QR (qrStartToken/Secret HMAC), autostart", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-042"]}
-  - {id: ST-044, title: "Sessions: EdDSA JWT, refresh rotation + reuse detection, device list/revoke", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-041"]}
+  - {id: ST-044, title: "Sessions: EdDSA JWT, refresh rotation + reuse detection, device list/revoke", owner: "dev-backend", size: "L", status: DONE, deps: ["ST-041"]}
   - {id: ST-045, title: "Security review: auth threat model + review ST-041..044", owner: "security-privacy", size: "M", status: BACKLOG, deps: ["ST-041", "ST-042", "ST-043", "ST-044"]}
-  - {id: ST-046, title: "Household module: create, members, dependants, admin transfer, leave/remove, one-admin invariant", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-040"]}
-  - {id: ST-047, title: "Invitations: link/code/email/SMS, expiry, revoke, preview, accept/decline (idempotent), notifications to admin", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-042", "ST-046"]}
-  - {id: ST-048, title: "Visibility policy (`packages/domain/policy`) + property tests + RLS parity test", owner: "architect-platform", size: "L", status: BACKLOG, deps: ["ST-040"]}
-  - {id: ST-049, title: "Privacy: open_book toggle, always_private, \"preview as household\" endpoint, audit events", owner: "dev-backend", size: "M", status: BACKLOG, deps: ["ST-048"]}
+  - {id: ST-046, title: "Household module: create, members, dependants, admin transfer, leave/remove, one-admin invariant", owner: "dev-backend", size: "L", status: DONE, deps: ["ST-040"]}
+  - {id: ST-047, title: "Invitations: link/code/email/SMS, expiry, revoke, preview, accept/decline (idempotent), notifications to admin", owner: "dev-backend", size: "L", status: DONE, deps: ["ST-042", "ST-046"]}
+  - {id: ST-048, title: "Visibility policy (`packages/domain/policy`) + property tests + RLS parity test", owner: "architect-platform", size: "L", status: DONE, deps: ["ST-040"]}
+  - {id: ST-049, title: "Privacy: open_book toggle, always_private, \"preview as household\" endpoint, audit events", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-048"]}
   - {id: ST-050, title: "Web flows UF-01..UF-02", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-044", "ST-058"]}
   - {id: ST-051, title: "Mobile flows UF-01..UF-02", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-044", "ST-026"]}
   - {id: ST-052, title: "E2E: Playwright UF-01..04; Maestro UF-01..04", owner: "qa-engineer", size: "L", status: BACKLOG, deps: ["ST-050", "ST-051", "ST-054", "ST-055"]}
-  - {id: ST-053, title: "Data rights: export job (JSON/CSV zip), account delete with BankID reauth", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-044", "ST-046", "ST-047", "ST-048"]}
+  - {id: ST-053, title: "Data rights: export job (JSON/CSV zip), account delete with BankID reauth", owner: "dev-backend", size: "L", status: DONE, deps: ["ST-044", "ST-046", "ST-047", "ST-048"]}
   - {id: ST-054, title: "Web flows UF-03..UF-04 (second ST-050 slice)", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-044", "ST-047", "ST-049", "ST-050"]}
   - {id: ST-055, title: "Mobile flows UF-03..UF-04 (second ST-051 slice)", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-044", "ST-047", "ST-049", "ST-051"]}
-  - {id: ST-060, title: "Prisma schema: banking + catalogue + subscription tables", owner: "architect-platform", size: "M", status: BACKLOG, deps: ["ST-040"]}
+  - {id: ST-056, title: "packages/money: shared money formatter (extract from D1 component duplication)", owner: "architect-platform", size: "S", status: DONE, deps: []}
+  - {id: ST-057, title: "Hero screens: design compositions (Storybook stories, G-DESIGN gate)", owner: "design-lead", size: "M", status: IN_REVIEW, deps: ["ST-164", "ST-024", "ST-022"]}
+  - {id: ST-058, title: "Hero screens: web page implementation (Welcome, Home, Subscription detail)", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-057", "ST-024", "ST-025"]}
+  - {id: ST-060, title: "Prisma schema: banking + catalogue + subscription tables", owner: "architect-platform", size: "M", status: DONE, deps: ["ST-040"]}
   - {id: ST-061, title: "**Tink capability discovery** (docs + sandbox account): institutions, auth flow, transaction fields, history length, pagination, rate limits → `docs/architecture/TINK_DISCOVERY.md`", owner: "architect-platform", size: "M", status: BACKLOG, deps: ["HUMAN_TODO #1"]}
-  - {id: ST-062, title: "`packages/synthetic`: generator core, deterministic RNG, Swedish calendar (bank holidays), descriptor variants", owner: "dev-data", size: "L", status: BACKLOG, deps: ["ST-003"]}
-  - {id: ST-063, title: "Synthetic personas: 5 showcase households + background population; ground-truth labels; snapshot tests", owner: "dev-data", size: "L", status: BACKLOG, deps: ["ST-062"]}
-  - {id: ST-064, title: "`packages/catalog` seed YAML: ~60 merchants, aliases, ~120 plans (illustrative, sourced)", owner: "dev-data", size: "L", status: BACKLOG, deps: ["ST-060"]}
-  - {id: ST-065, title: "BankDataProvider interface + SyntheticBankProvider", owner: "dev-backend", size: "M", status: BACKLOG, deps: ["ST-063"]}
+  - {id: ST-062, title: "`packages/synthetic`: generator core, deterministic RNG, Swedish calendar (bank holidays), descriptor variants", owner: "dev-data", size: "L", status: DONE, deps: ["ST-003"]}
+  - {id: ST-063, title: "Synthetic personas: 5 showcase households + background population; ground-truth labels; snapshot tests", owner: "dev-data", size: "L", status: DONE, deps: ["ST-062"]}
+  - {id: ST-064, title: "`packages/catalog` seed YAML: ~60 merchants, aliases, ~120 plans (illustrative, sourced)", owner: "dev-data", size: "L", status: DONE, deps: ["ST-060"]}
+  - {id: ST-065, title: "BankDataProvider interface + SyntheticBankProvider", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-063"]}
   - {id: ST-066, title: "TinkSandboxProvider per discovery report (behind interface), encrypted token storage", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-061", "ST-065"]}
-  - {id: ST-067, title: "Ingestion worker: backfill, incremental sync, dedupe, pending→booked, raw payload retention job", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-065"]}
+  - {id: ST-067, title: "Ingestion worker: backfill, incremental sync, dedupe, pending→booked, raw payload retention job", owner: "dev-backend", size: "L", status: DONE, deps: ["ST-065"]}
   - {id: ST-068, title: "Normaliser + merchant matcher (`packages/domain`)", owner: "dev-data", size: "L", status: BACKLOG, deps: ["ST-064", "ST-067"]}
   - {id: ST-069, title: "Web + mobile: connect bank, syncing progress, connections list, disconnect/purge", owner: "dev-web / dev-mobile", size: "L each", status: BACKLOG, deps: ["ST-067"]}
   - {id: ST-080, title: "Recurring detection engine (cadence, amount bands, confidence, reasons) + evaluation harness vs synthetic truth", owner: "architect-data → dev-data", size: "L×2", status: BACKLOG, deps: ["ST-068"]}
   - {id: ST-081, title: "Subscription lifecycle + review inbox API + feedback capture", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-080"]}
   - {id: ST-082, title: "Dashboard API (scope-aware aggregates, upcoming renewals, deltas)", owner: "dev-backend", size: "M", status: BACKLOG, deps: ["ST-081", "ST-048"]}
   - {id: ST-083, title: "Price history + price_event detection (deterministic)", owner: "dev-data", size: "M", status: BACKLOG, deps: ["ST-081"]}
-  - {id: ST-084, title: "Web: Home (Orbit, totals, upcoming), Subscriptions list/filter, Detail (history/charges), Review deck", owner: "dev-web", size: "L×3", status: BACKLOG, deps: ["ST-082"]}
+  - {id: ST-084, title: "Web: Home (totals, upcoming), Subscriptions list/filter, Detail (history/charges), Review deck", owner: "dev-web", size: "L×3", status: BACKLOG, deps: ["ST-082"]}
   - {id: ST-085, title: "Mobile: same as ST-084 with swipe review + haptics", owner: "dev-mobile", size: "L×3", status: BACKLOG, deps: ["ST-082"]}
   - {id: ST-086, title: "Manual subscription add/edit", owner: "dev-backend + clients", size: "M", status: BACKLOG, deps: ["ST-081"]}
   - {id: ST-087, title: "E2E UF-05..UF-08 + detection quality report", owner: "qa-engineer", size: "L", status: BACKLOG, deps: ["ST-084", "ST-085"]}
-  - {id: ST-100, title: "`packages/money`: minor-unit ops, largest-remainder allocation, validation", owner: "architect-platform → dev-backend", size: "L", status: BACKLOG, deps: ["ST-003"]}
-  - {id: ST-101, title: "Golden money suite (≥60 cases) + fast-check invariants", owner: "qa-engineer", size: "L", status: BACKLOG, deps: ["ST-100"]}
+  - {id: ST-100, title: "`packages/money`: minor-unit ops, largest-remainder allocation, validation", owner: "architect-platform → dev-backend", size: "L", status: DONE, deps: ["ST-003"]}
+  - {id: ST-101, title: "Golden money suite (≥60 cases) + fast-check invariants", owner: "qa-engineer", size: "L", status: DONE, deps: ["ST-100"]}
   - {id: ST-102, title: "Share/unshare subscription, split rules API with effective dating", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-100", "ST-048"]}
   - {id: ST-103, title: "Settlement compute (itemised, netting, deterministic tie-breaks), settle, history", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-102"]}
   - {id: ST-104, title: "Web + mobile: split editor with live preview, settlement ribbon, history", owner: "dev-web / dev-mobile", size: "L each", status: BACKLOG, deps: ["ST-103"]}
   - {id: ST-105, title: "Security + architecture review of money & sharing", owner: "security-privacy", size: "M", status: BACKLOG, deps: ["ST-103"]}
-  - {id: ST-120, title: "`packages/llm-gateway`: providers (Gemini, Groq, OpenRouter free, Template), numeric post-check, caching, rate limits", owner: "dev-data", size: "L", status: BACKLOG, deps: ["ST-003"]}
+  - {id: ST-120, title: "`packages/llm-gateway`: providers (Gemini, Groq, OpenRouter free, Template), numeric post-check, caching, rate limits", owner: "dev-data", size: "L", status: DONE, deps: ["ST-003"]}
   - {id: ST-121, title: "Scraper framework (Playwright job, sources.yaml, extractors, LLM fallback, quarantine) + 15 sources", owner: "dev-data", size: "L×2", status: BACKLOG, deps: ["ST-064", "ST-120"]}
   - {id: ST-122, title: "Comparison/alternatives API + \"Better together\" detector", owner: "dev-backend", size: "M", status: BACKLOG, deps: ["ST-121", "ST-081"]}
   - {id: ST-123, title: "Forecast model + endpoint + backtest report + model card", owner: "dev-data", size: "L", status: BACKLOG, deps: ["ST-083"]}
-  - {id: ST-124, title: "Classifiers (subscription-vs-not, category) + training pipeline + model cards", owner: "dev-data", size: "L×2", status: BACKLOG, deps: ["ST-063"]}
+  - {id: ST-124, title: "Classifiers (subscription-vs-not, category) + training pipeline + model cards", owner: "dev-data", size: "L×2", status: IN_REVIEW, deps: ["ST-063"]}
   - {id: ST-125, title: "Clustering (personas, cohorts, descriptor clusters) + model card", owner: "dev-data", size: "L", status: BACKLOG, deps: ["ST-063"]}
   - {id: ST-126, title: "Anomaly rules + optional Isolation Forest", owner: "dev-data", size: "M", status: BACKLOG, deps: ["ST-081"]}
   - {id: ST-127, title: "Insights service: generate/store insights, monthly recap narratives sv/en", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-120", "ST-123", "ST-126"]}
@@ -95,18 +103,11 @@ items:
   - {id: ST-145, title: "Maestro full-regression suite + device matrix", owner: "qa-engineer", size: "L", status: BACKLOG, deps: ["M5"]}
   - {id: ST-160, title: "Staging + demo deploy on VPS (Compose, Caddy IP cert, basic-auth staging, backups with restore test)", owner: "devops-release", size: "L", status: BACKLOG, deps: ["M1"]}
   - {id: ST-161, title: "Monitoring: uptime check, GlitchTip/Sentry, disk/RAM alerts to Conductor", owner: "devops-release", size: "M", status: BACKLOG, deps: ["ST-160"]}
-  - {id: ST-162, title: "Demo tenant + nightly demo reseed with rolling `asOf`", owner: "devops-release + dev-data", size: "M", status: BACKLOG, deps: ["ST-063"]}
-  - {id: ST-163, title: "Security & privacy review (ASVS L2 checklist, DPIA-lite, data map, retention jobs verified)", owner: "security-privacy", size: "L", status: BACKLOG, deps: ["M5"]}
-  - {id: ST-164, title: "Legal pages: privacy policy, terms, in-app licences (sv/en) — drafts for founder review", owner: "product-owner", size: "M", status: BACKLOG, deps: ["ST-163"]}
+  - {id: ST-162, title: "Demo tenant + nightly demo reseed with rolling `asOf`", owner: "devops-release + dev-data", size: "M", status: DONE, deps: ["ST-063"]}
+  - {id: ST-163, title: "Design pivot: retire Norrsken orbital concept → Precision production design; rewrite prototype (Klarna/Kivra flat UI, single-nav slide transitions, fully interactive)", owner: "design-lead", size: "L", status: DONE, deps: ["ST-020", "ST-023"]}
+  - {id: ST-164, title: "Revise component specs (ST-023 set) to match Precision design direction — new components: SavingsCard, StatChipRow, InsightCard, MarketCard, FilterChips, MemberPills with slide nav; retire Orbit spec", owner: "design-lead", size: "M", status: READY, deps: ["ST-163"]}
   - {id: ST-165, title: "Store listings: screenshots (6.9\"/6.5\" iPhone, Android phone), descriptions sv/en, privacy nutrition labels / Data safety form", owner: "design-lead + product-owner", size: "L", status: BACKLOG, deps: ["M6"]}
   - {id: ST-166, title: "EAS Build/Submit pipelines: TestFlight + Play internal", owner: "devops-release", size: "M", status: BACKLOG, deps: ["HUMAN_TODO #3", "#4"]}
   - {id: ST-167, title: "v1.0 gate report + release PR develop → main (D-01)", owner: "conductor", size: "M", status: BACKLOG, deps: ["all"]}
-  - {id: ST-013, title: "Expand M1 task contracts", owner: "product-owner", size: M, status: DONE, deps: [ST-012]}
-  - {id: ST-014, title: "Refine M0/D1 task contracts to Definition of Ready", owner: "product-owner", size: M, status: DONE, deps: [ST-012]}
-  - {id: ST-015, title: "Split ST-028 hero-screen work into one-agent tasks", owner: "product-owner", size: S, status: BACKLOG, deps: [ST-012, ST-023]}
-  - {id: ST-016, title: "Refine remaining D1 component and asset task contracts", owner: "product-owner", size: M, status: BACKLOG, deps: [ST-014, ST-023]}
-  - {id: ST-031, title: "Amend governance for QA-gated merges to main", owner: "product-owner", size: S, status: DONE, deps: []}
-  - {id: ST-034, title: "Hotfix: regenerate pnpm-lock.yaml (CI install failing on main)", owner: "devops-release", size: S, status: DONE, deps: []}
-  - {id: ST-035, title: "Hotfix: restore missing root package.json (turbo script wrapper)", owner: "architect-platform", size: S, status: DONE, deps: []}
-  - {id: ST-036, title: "apps/mobile: fix ESLint 8/flat-config incompatibility and Jest/react-native polyfill parse error", owner: "dev-mobile", size: S, status: DONE, deps: []}
-  - {id: ST-037, title: "Fix license-check SPDX compound-expression parsing (false positives in CI gate)", owner: "devops-release", size: S, status: DONE, deps: []}
+  - {id: ST-168, title: "Security & privacy review (ASVS L2 checklist, DPIA-lite, data map, retention jobs verified)", owner: "security-privacy", size: "L", status: BACKLOG, deps: ["M5"]}
+  - {id: ST-169, title: "Legal pages: privacy policy, terms, in-app licences (sv/en) — drafts for founder review", owner: "product-owner", size: "M", status: BACKLOG, deps: ["ST-168"]}
