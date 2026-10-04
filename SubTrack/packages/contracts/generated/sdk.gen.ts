@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetVersionData, GetVersionErrors, GetVersionResponses } from './types.gen.js';
+import type { DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetVersionData, GetVersionErrors, GetVersionResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -27,6 +27,65 @@ export const getHealthz = <ThrowOnError extends boolean = false>(options?: Optio
  * Readiness check
  */
 export const getReadyz = <ThrowOnError extends boolean = false>(options?: Options<GetReadyzData, ThrowOnError>): RequestResult<GetReadyzResponses, GetReadyzErrors, ThrowOnError> => (options?.client ?? client).get<GetReadyzResponses, GetReadyzErrors, ThrowOnError>({ url: '/readyz', ...options });
+
+/**
+ * List open_book consent settings for all households (AC1)
+ */
+export const getPrivacySettings = <ThrowOnError extends boolean = false>(options: Options<GetPrivacySettingsData, ThrowOnError>): RequestResult<GetPrivacySettingsResponses, GetPrivacySettingsErrors, ThrowOnError> => (options.client ?? client).get<GetPrivacySettingsResponses, GetPrivacySettingsErrors, ThrowOnError>({ url: '/v1/privacy/settings', ...options });
+
+/**
+ * Toggle open_book for a household scope (AC1, AC4)
+ *
+ * Sets the caller's open_book consent for the specified household. Default is OFF. Only the caller themselves can change their own setting — admins cannot alter other members' privacy (AC4). Updates take effect within 5 seconds (cache TTL, AC1). Writes a hash-chained audit event.
+ *
+ */
+export const setOpenBook = <ThrowOnError extends boolean = false>(options: Options<SetOpenBookData, ThrowOnError>): RequestResult<SetOpenBookResponses, SetOpenBookErrors, ThrowOnError> => (options.client ?? client).patch<SetOpenBookResponses, SetOpenBookErrors, ThrowOnError>({
+    url: '/v1/privacy/open-book',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Preview subscriptions as a household member (AC3)
+ *
+ * Evaluates subscription visibility using the exact policy from ST-048. Returns safe subscription summaries — no raw transactions, balances, account numbers, or PII. Always-private subscriptions are hidden from non-owners even when the owner has open_book=ON (AC2).
+ *
+ */
+export const previewAsHousehold = <ThrowOnError extends boolean = false>(options: Options<PreviewAsHouseholdData, ThrowOnError>): RequestResult<PreviewAsHouseholdResponses, PreviewAsHouseholdErrors, ThrowOnError> => (options.client ?? client).get<PreviewAsHouseholdResponses, PreviewAsHouseholdErrors, ThrowOnError>({ url: '/v1/privacy/preview-as/{householdId}', ...options });
+
+/**
+ * Request a full personal data export (AC1)
+ *
+ * Assembles a ZIP archive containing export.json (all personal data) and subscriptions.csv. Returns a single-use download token valid for 24 hours. Scoped only to the caller's own data.
+ *
+ */
+export const requestDataExport = <ThrowOnError extends boolean = false>(options: Options<RequestDataExportData, ThrowOnError>): RequestResult<RequestDataExportResponses, RequestDataExportErrors, ThrowOnError> => (options.client ?? client).post<RequestDataExportResponses, RequestDataExportErrors, ThrowOnError>({ url: '/v1/data-rights/export', ...options });
+
+/**
+ * Download a previously requested data export (AC1, AC3)
+ *
+ * Returns the ZIP file for a valid, non-expired export token. Returns 404 for unknown or expired tokens — the response does not distinguish between the two cases (AC3).
+ *
+ */
+export const downloadDataExport = <ThrowOnError extends boolean = false>(options: Options<DownloadDataExportData, ThrowOnError>): RequestResult<DownloadDataExportResponses, DownloadDataExportErrors, ThrowOnError> => (options.client ?? client).get<DownloadDataExportResponses, DownloadDataExportErrors, ThrowOnError>({ url: '/v1/data-rights/export/{token}', ...options });
+
+/**
+ * Permanently delete account and personal data (AC2)
+ *
+ * Requires BankID or OTP re-authentication via `reAuthToken`. If the caller is the sole admin of a household with remaining members, returns 400 requiring role transfer first. Nullifies PII fields (email, phone, externalId) and sets deletedAt. Audit log entries are kept with pseudonymous identifiers only (AC2).
+ *
+ */
+export const deleteAccount = <ThrowOnError extends boolean = false>(options: Options<DeleteAccountData, ThrowOnError>): RequestResult<DeleteAccountResponses, DeleteAccountErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAccountResponses, DeleteAccountErrors, ThrowOnError>({
+    url: '/v1/data-rights/account',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * API version

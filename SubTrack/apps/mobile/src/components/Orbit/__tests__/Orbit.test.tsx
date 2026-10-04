@@ -1,6 +1,10 @@
-jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+jest.mock('react-native-reanimated', () => ({
+  ...jest.requireActual('react-native-reanimated/mock'),
+  useReducedMotion: jest.fn(() => false),
+}));
 
 import React from 'react';
+import { useReducedMotion } from 'react-native-reanimated';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { Orbit } from '../Orbit';
 import { OrbitListFallback } from '../OrbitListFallback';
@@ -12,7 +16,13 @@ const SUBS: OrbitSubscription[] = [
   { id: 'peloton',  name: 'Peloton',  category: 'fitness',   ownerType: 'MEMBER', memberId: 'alice', monthlyCostMinor: 44900, billingCadence: 'MONTHLY' },
 ];
 
+const mockUseReducedMotion = jest.mocked(useReducedMotion);
+
 describe('Orbit component', () => {
+  beforeEach(() => {
+    mockUseReducedMotion.mockReturnValue(false);
+  });
+
   it('renders without crashing', () => {
     expect(() => render(<Orbit subscriptions={SUBS} />)).not.toThrow();
   });
@@ -31,11 +41,20 @@ describe('Orbit component', () => {
     expect(screen.getByText('iCloud')).toBeTruthy();
   });
 
+  it('renders list fallback when reduced motion is enabled', () => {
+    mockUseReducedMotion.mockReturnValue(true);
+    render(<Orbit subscriptions={SUBS} />);
+    expect(screen.getByText('Netflix')).toBeTruthy();
+    expect(screen.getByText('iCloud')).toBeTruthy();
+  });
+
   it('fires onBodyPress when a body is pressed', () => {
     const pressed: string[] = [];
     render(<Orbit subscriptions={SUBS} onBodyPress={(id) => pressed.push(id)} />);
     const buttons = screen.getAllByRole('button');
-    fireEvent.press(buttons[0]);
+    const firstButton = buttons[0];
+    if (!firstButton) throw new Error('Expected at least one Orbit body button');
+    fireEvent.press(firstButton);
     expect(pressed).toHaveLength(1);
   });
 
@@ -56,7 +75,9 @@ describe('OrbitListFallback', () => {
     const pressed: string[] = [];
     render(<OrbitListFallback subscriptions={SUBS} onItemPress={(id) => pressed.push(id)} />);
     const items = screen.getAllByRole('link');
-    fireEvent.press(items[0]);
+    const firstItem = items[0];
+    if (!firstItem) throw new Error('Expected at least one Orbit list item');
+    fireEvent.press(firstItem);
     expect(pressed).toHaveLength(1);
   });
 

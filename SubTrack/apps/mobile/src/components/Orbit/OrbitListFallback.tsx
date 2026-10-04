@@ -49,7 +49,7 @@ export function OrbitListFallback({ subscriptions, onItemPress, activeId }: Prop
     <OrbitListItem
       sub={item}
       isActive={item.id === activeId}
-      onPress={onItemPress}
+      {...(onItemPress === undefined ? {} : { onPress: onItemPress })}
     />
   );
 

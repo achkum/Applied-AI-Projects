@@ -14,6 +14,14 @@ const mockShareFindMany     = vi.fn();
 const mockAuditFindFirst    = vi.fn();
 const mockAuditCreate       = vi.fn();
 
+function firstCallArgument<T>(calls: readonly (readonly unknown[])[], name: string): T {
+  const call = calls[0];
+  if (!call) throw new Error(`Expected ${name} to be called`);
+  const argument = call[0];
+  if (argument === undefined) throw new Error(`Expected ${name} to receive arguments`);
+  return argument as T;
+}
+
 const mockPrisma = {
   consent: {
     findMany:   mockConsentFindMany,
@@ -111,7 +119,7 @@ describe('PrivacyService.setOpenBook', () => {
 
     // Audit event written
     expect(mockAuditCreate).toHaveBeenCalledOnce();
-    const auditArgs = mockAuditCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    const auditArgs = firstCallArgument<{ data: Record<string, unknown> }>(mockAuditCreate.mock.calls, 'auditLog.create');
     expect(auditArgs.data.eventType).toBe('consent_updated');
     const payload = auditArgs.data.payload as Record<string, unknown>;
     // prevHash is null when no prior event (genesis)
@@ -132,7 +140,7 @@ describe('PrivacyService.setOpenBook', () => {
     const svc = makeService();
     await svc.setOpenBook('identity-1', { householdId: 'hh-1', openBook: false });
 
-    const auditArgs = mockAuditCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    const auditArgs = firstCallArgument<{ data: Record<string, unknown> }>(mockAuditCreate.mock.calls, 'auditLog.create');
     const payload = auditArgs.data.payload as Record<string, unknown>;
     // prevHash must be a 64-char hex string
     expect(typeof payload['prevHash']).toBe('string');

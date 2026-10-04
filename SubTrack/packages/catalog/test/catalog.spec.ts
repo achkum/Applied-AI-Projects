@@ -1,5 +1,12 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { loadCatalog, clearCatalogCache, type CatalogData } from '../src/index.js';
+import { parseMerchants, parsePlans } from '../src/loader.js';
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return { ...actual, readFileSync: vi.fn(actual.readFileSync) };
+});
 
 let catalog: CatalogData;
 
@@ -185,5 +192,132 @@ describe('loadCatalog caching', () => {
     const b = loadCatalog();
     expect(a).not.toBe(b);
     expect(a.merchants.length).toBe(b.merchants.length);
+  });
+});
+
+describe('optional catalogue fields', () => {
+  it('omits merchant optional fields when they are missing or null', () => {
+    const merchants = parseMerchants([
+      {
+        key: 'omitted',
+        canonical_name: 'Omitted Merchant',
+        aliases: [],
+        category: 'OTHER_SUBSCRIPTION',
+      },
+      {
+        key: 'null-fields',
+        canonical_name: 'Null Fields Merchant',
+        aliases: [],
+        category: 'OTHER_SUBSCRIPTION',
+        website: null,
+        category_hue: null,
+      },
+    ]);
+
+    expect(merchants).toHaveLength(2);
+    for (const merchant of merchants) {
+      expect(Object.hasOwn(merchant, 'website')).toBe(false);
+      expect(Object.hasOwn(merchant, 'categoryHue')).toBe(false);
+      expect(merchant.website).toBeUndefined();
+      expect(merchant.categoryHue).toBeUndefined();
+    }
+  });
+
+  it('retains valid merchant optional values', () => {
+    const [merchant] = parseMerchants([
+      {
+        key: 'complete',
+        canonical_name: 'Complete Merchant',
+        aliases: [],
+        category: 'OTHER_SUBSCRIPTION',
+        website: 'https://example.test',
+        category_hue: 120,
+      },
+    ]);
+
+    expect(merchant).toMatchObject({ website: 'https://example.test', categoryHue: 120 });
+  });
+
+  it('omits undefined plan pricing for omitted or null amount_minor and retains valid values', () => {
+    const plans = parsePlans([
+      { merchant_key: 'merchant', name: 'Omitted price', period: 'MONTHLY', currency: 'SEK' },
+      { merchant_key: 'merchant', name: 'Variable price', period: 'MONTHLY', currency: 'SEK', amount_minor: null },
+      { merchant_key: 'merchant', name: 'Fixed price', period: 'MONTHLY', currency: 'SEK', amount_minor: 9900 },
+    ], new Set(['merchant']));
+
+    expect(plans).toHaveLength(3);
+    expect(Object.hasOwn(plans[0] ?? {}, 'amountMinor')).toBe(false);
+    expect(Object.hasOwn(plans[1] ?? {}, 'amountMinor')).toBe(false);
+    expect(plans[0]?.amountMinor).toBeUndefined();
+    expect(plans[1]?.amountMinor).toBeUndefined();
+    expect(plans[2]?.amountMinor).toBe(9900);
+  });
+});
+
+describe('catalogue loader validation', () => {
+  const merchantErrors: ReadonlyArray<readonly [string, unknown, string]> = [
+    ['rejects non-array merchant input', null, 'merchants.yaml must be an array'],
+    ['rejects a non-object merchant row', [null], 'merchants.yaml[0]: must be an object'],
+    ['rejects a missing merchant key', [{ key: '', canonical_name: 'Name', aliases: [], category: 'OTHER_SUBSCRIPTION' }], "missing required field 'key'"],
+    ['rejects a missing canonical name', [{ key: 'merchant', canonical_name: '', aliases: [], category: 'OTHER_SUBSCRIPTION' }], "missing required field 'canonical_name'"],
+    ['rejects aliases that are not an array', [{ key: 'merchant', canonical_name: 'Name', aliases: 'name', category: 'OTHER_SUBSCRIPTION' }], "'aliases' must be an array"],
+    ['rejects a missing category', [{ key: 'merchant', canonical_name: 'Name', aliases: [], category: '' }], "missing required field 'category'"],
+  ];
+
+  for (const [label, raw, expectedError] of merchantErrors) {
+    it(label, () => expect(() => parseMerchants(raw)).toThrow(expectedError));
+  }
+
+  const planErrors: ReadonlyArray<readonly [string, unknown, string]> = [
+    ['rejects non-array plan input', undefined, 'plans.yaml must be an array'],
+    ['rejects a non-object plan row', [false], 'plans.yaml[0]: must be an object'],
+    ['rejects a missing merchant key', [{ merchant_key: '', name: 'Plan', period: 'MONTHLY', currency: 'SEK' }], "missing required field 'merchant_key'"],
+    ['rejects an unknown merchant key', [{ merchant_key: 'unknown', name: 'Plan', period: 'MONTHLY', currency: 'SEK' }], "unknown merchant_key 'unknown'"],
+    ['rejects a missing plan name', [{ merchant_key: 'merchant', name: '', period: 'MONTHLY', currency: 'SEK' }], "missing required field 'name'"],
+    ['rejects an invalid period', [{ merchant_key: 'merchant', name: 'Plan', period: 'DAILY', currency: 'SEK' }], "invalid period 'DAILY'"],
+    ['rejects a malformed currency code', [{ merchant_key: 'merchant', name: 'Plan', period: 'MONTHLY', currency: 'SE' }], "'currency' must be a 3-letter ISO code"],
+  ];
+
+  for (const [label, raw, expectedError] of planErrors) {
+    it(label, () => expect(() => parsePlans(raw, new Set(['merchant']))).toThrow(expectedError));
+  }
+
+  it('applies plan defaults and normalizes provided region and currency values', () => {
+    const [plan] = parsePlans([
+      { merchant_key: 'merchant', name: 'Plan', period: 'MONTHLY', amount_minor: '9900', currency: 'sek', region: 'se', active: false },
+    ], new Set(['merchant']));
+
+    expect(plan).toMatchObject({ amountMinor: 9900, currency: 'SEK', region: 'SE', active: false });
+
+    const [defaulted] = parsePlans([
+      { merchant_key: 'merchant', name: 'Variable plan', period: 'MONTHLY', currency: 'SEK' },
+    ], new Set(['merchant']));
+
+    expect(defaulted).toMatchObject({ currency: 'SEK', region: 'GLOBAL', active: true });
+    expect(Object.hasOwn(defaulted ?? {}, 'amountMinor')).toBe(false);
+  });
+
+  it('rejects duplicate merchant keys before reading plans', () => {
+    const duplicateMerchants = [
+      '- key: duplicate', '  canonical_name: First', '  aliases: []', '  category: OTHER_SUBSCRIPTION',
+      '- key: duplicate', '  canonical_name: Second', '  aliases: []', '  category: OTHER_SUBSCRIPTION',
+    ].join('\n');
+    vi.mocked(readFileSync).mockImplementationOnce(() => duplicateMerchants as never);
+    clearCatalogCache();
+
+    expect(() => loadCatalog()).toThrow('Duplicate merchant keys: duplicate');
+    clearCatalogCache();
+  });
+
+  it('rejects duplicate canonical names before reading plans', () => {
+    const duplicateCanonicalNames = [
+      '- key: first', '  canonical_name: Same Name', '  aliases: []', '  category: OTHER_SUBSCRIPTION',
+      '- key: second', '  canonical_name: Same Name', '  aliases: []', '  category: OTHER_SUBSCRIPTION',
+    ].join('\n');
+    vi.mocked(readFileSync).mockImplementationOnce(() => duplicateCanonicalNames as never);
+    clearCatalogCache();
+
+    expect(() => loadCatalog()).toThrow('Duplicate canonical_name values: Same Name');
+    clearCatalogCache();
   });
 });

@@ -5,10 +5,16 @@ import { RollingNumber } from './RollingNumber';
 const mockUseReducedMotion = jest.fn(() => false);
 
 jest.mock('@/context/ThemeContext', () => ({
-  useTheme: () => require('./testUtils/contextMocks').makeTheme(),
+  useTheme: () =>
+    jest
+      .requireActual<typeof import('./testUtils/contextMocks')>('./testUtils/contextMocks')
+      .makeTheme(),
 }));
 jest.mock('@/context/I18nContext', () => ({
-  useI18n: () => require('./testUtils/contextMocks').makeI18n('en'),
+  useI18n: () =>
+    jest
+      .requireActual<typeof import('./testUtils/contextMocks')>('./testUtils/contextMocks')
+      .makeI18n('en'),
 }));
 jest.mock('@/hooks/useReducedMotion', () => ({
   useReducedMotion: () => mockUseReducedMotion(),

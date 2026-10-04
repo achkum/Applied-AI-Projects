@@ -286,8 +286,7 @@ components:
           type: string
           format: uuid
         customName:
-          type: string
-          nullable: true
+          type: [string, 'null']
         categoryCode:
           type: string
         cadence:

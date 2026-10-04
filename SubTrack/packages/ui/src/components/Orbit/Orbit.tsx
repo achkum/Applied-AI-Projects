@@ -1,22 +1,22 @@
 import React from 'react';
 import styles from './Orbit.module.css';
-import { computeOrbitLayout } from './orbitMath';
+import { computeOrbitLayout, HIT_TARGET_REFERENCE_SIZE } from './orbitMath';
 import type { OrbitSubscription } from './types';
 
 /** CSS custom-property names per category. The host app owns colour values. */
 const CATEGORY_COLOR_VAR: Record<string, string> = {
-  streaming:     '--color-cat-streaming',
-  fitness:       '--color-cat-fitness',
-  productivity:  '--color-cat-productivity',
-  gaming:        '--color-cat-gaming',
-  music:         '--color-cat-music',
-  cloud:         '--color-cat-cloud',
-  news:          '--color-cat-news',
-  other:         '--color-cat-other',
+  streaming:     '--category-video-streaming',
+  fitness:       '--category-fitness-wellness',
+  productivity:  '--category-software-productivity',
+  gaming:        '--category-gaming',
+  music:         '--category-music-audio',
+  cloud:         '--category-cloud-storage',
+  news:          '--category-news-magazines',
+  other:         '--category-other-subscription',
 };
 
 function categoryColorVar(category: string): string {
-  return CATEGORY_COLOR_VAR[category.toLowerCase()] ?? CATEGORY_COLOR_VAR['other'];
+  return CATEGORY_COLOR_VAR[category.toLowerCase()] ?? '--category-other-subscription';
 }
 
 export interface OrbitProps {
@@ -45,7 +45,6 @@ export function Orbit({
 
   return (
     <figure
-      role="img"
       aria-label={ariaLabel}
       className={className}
       style={{ position: 'relative' }}
@@ -63,12 +62,10 @@ export function Orbit({
         className={styles.orbit}
         viewBox={`0 0 ${size} ${size}`}
         xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-        focusable="false"
       >
         {/* Static ring tracks */}
         {usedRings.map((ring) => {
-          const r = ringRadii[Math.min(ring, ringRadii.length - 1)] ?? ringRadii[ringRadii.length - 1];
+          const r = ringRadii[Math.min(ring, ringRadii.length - 1)] ?? 312;
           return (
             <circle
               key={`track-${ring}`}
@@ -79,6 +76,24 @@ export function Orbit({
             />
           );
         })}
+
+        {subscriptions.length === 0 && (
+          <g className={styles.emptyConstellation} aria-hidden="true">
+            <path d="M196 250 246 202 292 238 346 184 402 224 456 190" />
+            <path d="M220 310 270 276 324 302 376 270 430 300" />
+            <circle cx="196" cy="250" r="4" />
+            <circle cx="246" cy="202" r="6" />
+            <circle cx="292" cy="238" r="3" />
+            <circle cx="346" cy="184" r="5" />
+            <circle cx="402" cy="224" r="3" />
+            <circle cx="456" cy="190" r="4" />
+            <circle cx="220" cy="310" r="3" />
+            <circle cx="270" cy="276" r="4" />
+            <circle cx="324" cy="302" r="3" />
+            <circle cx="376" cy="270" r="5" />
+            <circle cx="430" cy="300" r="3" />
+          </g>
+        )}
 
         {/* Centre "Me" body — does not rotate */}
         <circle className={styles.centreBody} cx={cx} cy={cy} r={20} />
@@ -98,17 +113,14 @@ export function Orbit({
         <g className={styles.rotatingGroup}>
           {bodies.map((body) => {
             const isActive = body.id === activeId;
-            const colorVar = `var(${categoryColorVar(body.subscription.category)}, #666)`;
+            const colorVar = `var(${categoryColorVar(body.subscription.category)})`;
             return (
               <g key={body.id}>
                 <circle
-                  className={styles.subscriptionBody}
+                  className={styles.bodyHitTarget}
                   cx={body.cx}
                   cy={body.cy}
-                  r={body.r}
-                  style={{ '--body-color': colorVar } as React.CSSProperties}
-                  strokeWidth={isActive ? 2 : 0}
-                  stroke={isActive ? 'var(--color-orbit-active-ring, #fff)' : undefined}
+                  r={body.r * (size / HIT_TARGET_REFERENCE_SIZE)}
                   role="button"
                   tabIndex={0}
                   aria-label={body.subscription.name}
@@ -119,6 +131,15 @@ export function Orbit({
                       onBodySelect?.(body.id);
                     }
                   }}
+                />
+                <circle
+                  className={styles.subscriptionBody}
+                  cx={body.cx}
+                  cy={body.cy}
+                  r={body.r}
+                  style={{ '--body-color': colorVar } as React.CSSProperties}
+                  strokeWidth={isActive ? 2 : 0}
+                  stroke={isActive ? 'var(--ink-primary)' : undefined}
                 />
                 {/* Counter-rotate label so text stays readable */}
                 <text
