@@ -15,11 +15,15 @@
     "./ingestion": {
       "types": "./ingestion/index.ts",
       "import": "./ingestion/index.ts"
+    },
+    "./merchant": {
+      "types": "./merchant/index.ts",
+      "import": "./merchant/index.ts"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "eslint \"policy/**/*.ts\" \"bank/**/*.ts\" \"ingestion/**/*.ts\"",
+    "lint": "eslint \"policy/**/*.ts\" \"bank/**/*.ts\" \"ingestion/**/*.ts\" \"merchant/**/*.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
