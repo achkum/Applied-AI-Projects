@@ -101,10 +101,9 @@ describe('computeOrbitLayout', () => {
 
   it('assigns correct rings', () => {
     const { bodies } = computeOrbitLayout(subs);
-    const byId = Object.fromEntries(bodies.map((b) => [b.id, b]));
-    expect(byId['s1'].ring).toBe(0);
-    expect(byId['s2'].ring).toBe(1);
-    expect(byId['s3'].ring).toBe(2);
+    expect(bodies.map(({ id, ring }) => [id, ring])).toEqual([
+      ['s1', 0], ['s2', 1], ['s3', 2],
+    ]);
   });
 
   it('returns size=480 and cx=cy=240', () => {

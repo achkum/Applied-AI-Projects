@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   NotFoundException,
   UnprocessableEntityException,
-  BadRequestException,
 } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
@@ -92,7 +91,7 @@ export class InvitationsService {
       expiresAt: invitation.expiresAt.toISOString(),
       createdAt: invitation.createdAt.toISOString(),
       // Return raw token so the admin can share the LINK/CODE; omit for EMAIL/SMS
-      token: dto.channel === 'LINK' || dto.channel === 'CODE' ? rawToken : undefined,
+      ...((dto.channel === 'LINK' || dto.channel === 'CODE') ? { token: rawToken } : {}),
     };
   }
 

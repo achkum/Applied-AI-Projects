@@ -26,16 +26,18 @@ function buildSparklinePath(points: PricePoint[]): string {
   const min = Math.min(...points.map((p) => p.amountMinor));
   const max = Math.max(...points.map((p) => p.amountMinor));
   const range = max - min || 1;
-  const xs = points.map((_, i) => (i / (points.length - 1)) * SPARKLINE_WIDTH);
-  const ys = points.map((p) => SPARKLINE_HEIGHT - ((p.amountMinor - min) / range) * (SPARKLINE_HEIGHT - 4) - 2);
-  return xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${ys[i]!.toFixed(1)}`).join(' ');
+  return points.map((point, i) => {
+    const x = (i / (points.length - 1)) * SPARKLINE_WIDTH;
+    const y = SPARKLINE_HEIGHT - ((point.amountMinor - min) / range) * (SPARKLINE_HEIGHT - 4) - 2;
+    return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
 }
 
 function isPriceIncrease(history: PricePoint[]): boolean {
   if (history.length < 2) return false;
-  const last = history[history.length - 1]!;
-  const prev = history[history.length - 2]!;
-  return last.amountMinor > prev.amountMinor;
+  const last = history.at(-1);
+  const prev = history.at(-2);
+  return last !== undefined && prev !== undefined && last.amountMinor > prev.amountMinor;
 }
 
 export function ReceiptCard({
@@ -49,9 +51,10 @@ export function ReceiptCard({
   priceHistoryLabel = 'Price history',
 }: ReceiptCardProps) {
   const formatted = formatMoney(amountMinor, currency, locale);
-  const hasHistory = priceHistory != null && priceHistory.length >= 2;
-  const isIncrease = hasHistory && isPriceIncrease(priceHistory!);
-  const sparkPath = hasHistory ? buildSparklinePath(priceHistory!) : '';
+  const history = priceHistory ?? [];
+  const hasHistory = history.length >= 2;
+  const isIncrease = hasHistory && isPriceIncrease(history);
+  const sparkPath = hasHistory ? buildSparklinePath(history) : '';
   const categoryVar = `--category-${category}`;
 
   return (
@@ -93,7 +96,7 @@ export function ReceiptCard({
           <details className={styles.historyDetails}>
             <summary className={styles.historySummary}>{priceHistoryLabel}</summary>
             <ul className={styles.historyList}>
-              {priceHistory!.map((p) => (
+              {history.map((p) => (
                 <li key={p.date}>
                   {p.date}: {formatMoney(p.amountMinor, currency, locale)}
                 </li>

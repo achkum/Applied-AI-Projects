@@ -99,7 +99,7 @@ export function buildZip(entries: ZipEntry[]): Buffer {
       u16le(0),            // comment length
       u16le(0),            // disk number start
       u16le(0),            // internal attributes
-      u32le(0o100644 << 16), // external attributes: regular file 644
+      u32le((0o100644 << 16) >>> 0), // external attributes: regular file 644
       u32le(localOffset),
       nameBytes,
     ]);

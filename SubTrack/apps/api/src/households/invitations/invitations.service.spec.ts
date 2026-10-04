@@ -16,23 +16,35 @@ const mockFindMany     = vi.fn();
 const mockUpdate       = vi.fn();
 const mockCount        = vi.fn();
 const mockTransaction  = vi.fn();
+const mockHouseholdFindUnique = vi.fn();
+const mockIdentityFindUnique = vi.fn();
+const mockSendInvitation = vi.fn();
+const mockNotifyAdmin = vi.fn();
+
+function firstCallArgument<T>(calls: readonly (readonly unknown[])[], name: string): T {
+  const call = calls[0];
+  if (!call) throw new Error(`Expected ${name} to be called`);
+  const argument = call[0];
+  if (argument === undefined) throw new Error(`Expected ${name} to receive arguments`);
+  return argument as T;
+}
 
 const mockPrisma = {
   invitation: { create: mockCreate, findUnique: mockFindUnique, update: mockUpdate, findMany: mockFindMany },
-  household:  { findUnique: vi.fn() },
-  identity:   { findUnique: vi.fn() },
+  household:  { findUnique: mockHouseholdFindUnique },
+  identity:   { findUnique: mockIdentityFindUnique },
   householdMember: { create: vi.fn(), findFirst: mockFindFirst, count: mockCount },
   auditLog:   { create: vi.fn() },
   $transaction: mockTransaction,
-} as never;
+};
 
 const mockNotifications = {
-  sendInvitation: vi.fn(),
-  notifyAdmin:    vi.fn(),
+  sendInvitation: mockSendInvitation,
+  notifyAdmin:    mockNotifyAdmin,
 } as unknown as DevNotificationAdapter;
 
 function makeService() {
-  return new InvitationsService(mockPrisma, mockNotifications);
+  return new InvitationsService(mockPrisma as never, mockNotifications);
 }
 
 const NOW = new Date('2026-10-01T12:00:00Z');
@@ -62,11 +74,11 @@ function makeAdminMember() {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.setSystemTime(NOW);
-  (mockPrisma.household.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'hh-1', name: 'Smith Family' });
-  (mockPrisma.identity.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'identity-admin', email: 'admin@example.com', phone: null });
+  mockHouseholdFindUnique.mockResolvedValue({ id: 'hh-1', name: 'Smith Family' });
+  mockIdentityFindUnique.mockResolvedValue({ id: 'identity-admin', email: 'admin@example.com', phone: null });
   mockFindFirst.mockResolvedValue(makeAdminMember());
-  (mockNotifications.sendInvitation as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
-  (mockNotifications.notifyAdmin as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+  mockSendInvitation.mockResolvedValue(undefined);
+  mockNotifyAdmin.mockResolvedValue(undefined);
 });
 
 // ─── createInvitation ─────────────────────────────────────────────────────────
@@ -83,7 +95,7 @@ describe('InvitationsService.createInvitation', () => {
     });
 
     expect(mockCreate).toHaveBeenCalledOnce();
-    const args = mockCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    const args = firstCallArgument<{ data: Record<string, unknown> }>(mockCreate.mock.calls, 'invitation.create');
     expect(typeof args.data.tokenHash).toBe('string');
     expect((args.data.tokenHash as string)).toHaveLength(64);
     // 7-day expiry
@@ -105,6 +117,19 @@ describe('InvitationsService.createInvitation', () => {
     expect(result.token).toHaveLength(64);
   });
 
+  it('returns raw token for CODE channel', async () => {
+    const created = makeInvitation({ channel: 'CODE', recipient: null });
+    mockCreate.mockResolvedValue(created);
+
+    const svc = makeService();
+    const result = await svc.createInvitation('identity-admin', 'hh-1', {
+      channel: 'CODE',
+    });
+
+    expect(result.token).toBeDefined();
+    expect(result.token).toHaveLength(64);
+  });
+
   it('does not return raw token for EMAIL channel', async () => {
     mockCreate.mockResolvedValue(makeInvitation());
     const svc = makeService();
@@ -113,6 +138,7 @@ describe('InvitationsService.createInvitation', () => {
       recipient: 'x@example.com',
     });
     expect(result.token).toBeUndefined();
+    expect(Object.hasOwn(result, 'token')).toBe(false);
   });
 
   it('throws ForbiddenException when caller is not an admin (AC1)', async () => {
@@ -200,7 +226,7 @@ describe('InvitationsService.acceptInvitation', () => {
 
     expect(mockTransaction).toHaveBeenCalledOnce();
     expect(mockNotifications.notifyAdmin).toHaveBeenCalledOnce();
-    expect((mockNotifications.notifyAdmin as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatchObject({
+    expect(firstCallArgument<Record<string, unknown>>(mockNotifyAdmin.mock.calls, 'notifyAdmin')).toMatchObject({
       eventType: 'INVITATION_ACCEPTED',
     });
   });
@@ -244,7 +270,7 @@ describe('InvitationsService.declineInvitation', () => {
 
     expect(mockTransaction).toHaveBeenCalledOnce();
     expect(mockNotifications.notifyAdmin).toHaveBeenCalledOnce();
-    expect((mockNotifications.notifyAdmin as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatchObject({
+    expect(firstCallArgument<Record<string, unknown>>(mockNotifyAdmin.mock.calls, 'notifyAdmin')).toMatchObject({
       eventType: 'INVITATION_DECLINED',
     });
   });
@@ -269,7 +295,7 @@ describe('InvitationsService.revokeInvitation', () => {
     await svc.revokeInvitation('identity-admin', 'hh-1', 'inv-1');
 
     expect(mockUpdate).toHaveBeenCalledOnce();
-    const args = mockUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    const args = firstCallArgument<{ data: Record<string, unknown> }>(mockUpdate.mock.calls, 'invitation.update');
     expect(args.data.status).toBe('REVOKED');
   });
 

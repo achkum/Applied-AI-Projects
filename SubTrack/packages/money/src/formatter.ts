@@ -11,6 +11,20 @@ const BCP47: Record<MoneyLocale, string> = {
   en: 'en-SE',
 };
 
+function checkedFractionDigits(value: number | undefined): number {
+  if (
+    typeof value !== 'number'
+    || !Number.isFinite(value)
+    || !Number.isInteger(value)
+    || value < 0
+  ) {
+    throw new RangeError(
+      'Intl.NumberFormat did not provide a valid maximumFractionDigits value',
+    );
+  }
+  return value;
+}
+
 /**
  * Format a minor-unit integer amount (e.g. öre for SEK, cents for EUR/USD)
  * as a locale-aware currency string.
@@ -32,7 +46,9 @@ export function formatMoney(
     currencyDisplay: display,
   });
 
-  const { maximumFractionDigits } = formatter.resolvedOptions();
+  const maximumFractionDigits = checkedFractionDigits(
+    formatter.resolvedOptions().maximumFractionDigits,
+  );
   const divisor = Math.pow(10, maximumFractionDigits);
 
   return formatter.format(minorUnits / divisor);
@@ -47,5 +63,5 @@ export function minorUnitExponent(currencyCode: string): number {
     style: 'currency',
     currency: currencyCode,
   });
-  return formatter.resolvedOptions().maximumFractionDigits;
+  return checkedFractionDigits(formatter.resolvedOptions().maximumFractionDigits);
 }

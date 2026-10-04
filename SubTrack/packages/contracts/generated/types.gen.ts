@@ -19,6 +19,55 @@ export type VersionResponse = {
     version: string;
 };
 
+export type SetOpenBookBody = {
+    householdId: string;
+    /**
+     * true = share subscriptions with household peers; false (default) = private.
+     */
+    openBook: boolean;
+};
+
+export type ConsentSetting = {
+    householdId: string;
+    openBook: boolean;
+    updatedAt: string;
+};
+
+export type SubscriptionSummary = {
+    id: string;
+    customName?: string | null;
+    categoryCode: string;
+    cadence: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL' | 'CUSTOM';
+    status: 'DETECTED' | 'TRIAL' | 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'ARCHIVED' | 'REJECTED';
+    /**
+     * Only present for the subscription owner — never exposed to other members.
+     */
+    alwaysPrivate?: boolean;
+};
+
+export type ExportJobResponse = {
+    /**
+     * Single-use download token (64 hex chars).
+     */
+    token: string;
+    /**
+     * Relative URL to download the ZIP archive.
+     */
+    downloadUrl: string;
+    /**
+     * ISO-8601 timestamp after which the download token expires.
+     */
+    expiresAt: string;
+};
+
+export type DeleteAccountBody = {
+    /**
+     * BankID or OTP re-authentication credential. Required before personal data erasure. With A5 Assumed (dev/simulator), any non-empty string is accepted.
+     *
+     */
+    reAuthToken: string;
+};
+
 /**
  * RFC 9457 problem details.
  */
@@ -79,6 +128,227 @@ export type GetReadyzResponses = {
 };
 
 export type GetReadyzResponse = GetReadyzResponses[keyof GetReadyzResponses];
+
+export type GetPrivacySettingsData = {
+    body?: never;
+    headers: {
+        'X-Caller-Id': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v1/privacy/settings';
+};
+
+export type GetPrivacySettingsErrors = {
+    /**
+     * An error response following RFC 9457.
+     */
+    400: Problem;
+    /**
+     * An error response following RFC 9457.
+     */
+    default: Problem;
+};
+
+export type GetPrivacySettingsError = GetPrivacySettingsErrors[keyof GetPrivacySettingsErrors];
+
+export type GetPrivacySettingsResponses = {
+    /**
+     * List of consent settings, one entry per household.
+     */
+    200: Array<ConsentSetting>;
+};
+
+export type GetPrivacySettingsResponse = GetPrivacySettingsResponses[keyof GetPrivacySettingsResponses];
+
+export type SetOpenBookData = {
+    body: SetOpenBookBody;
+    headers: {
+        'X-Caller-Id': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v1/privacy/open-book';
+};
+
+export type SetOpenBookErrors = {
+    /**
+     * An error response following RFC 9457.
+     */
+    400: Problem;
+    /**
+     * An error response following RFC 9457.
+     */
+    403: Problem;
+    /**
+     * An error response following RFC 9457.
+     */
+    404: Problem;
+    /**
+     * An error response following RFC 9457.
+     */
+    default: Problem;
+};
+
+export type SetOpenBookError = SetOpenBookErrors[keyof SetOpenBookErrors];
+
+export type SetOpenBookResponses = {
+    /**
+     * Updated consent setting.
+     */
+    200: ConsentSetting;
+};
+
+export type SetOpenBookResponse = SetOpenBookResponses[keyof SetOpenBookResponses];
+
+export type PreviewAsHouseholdData = {
+    body?: never;
+    headers: {
+        'X-Caller-Id': string;
+    };
+    path: {
+        householdId: string;
+    };
+    query?: never;
+    url: '/v1/privacy/preview-as/{householdId}';
+};
+
+export type PreviewAsHouseholdErrors = {
+    /**
+     * An error response following RFC 9457.
+     */
+    400: Problem;
+    /**
+     * An error response following RFC 9457.
+     */
+    403: Problem;
+    /**
+     * An error response following RFC 9457.
+     */
+    default: Problem;
+};
+
+export type PreviewAsHouseholdError = PreviewAsHouseholdErrors[keyof PreviewAsHouseholdErrors];
+
+export type PreviewAsHouseholdResponses = {
+    /**
+     * Visible subscription summaries.
+     */
+    200: Array<SubscriptionSummary>;
+};
+
+export type PreviewAsHouseholdResponse = PreviewAsHouseholdResponses[keyof PreviewAsHouseholdResponses];
+
+export type RequestDataExportData = {
+    body?: never;
+    headers: {
+        'X-Caller-Id': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v1/data-rights/export';
+};
+
+export type RequestDataExportErrors = {
+    /**
+     * An error response following RFC 9457.
+     */
+    400: Problem;
+    /**
+     * An error response following RFC 9457.
+     */
+    404: Problem;
+    /**
+     * An error response following RFC 9457.
+     */
+    default: Problem;
+};
+
+export type RequestDataExportError = RequestDataExportErrors[keyof RequestDataExportErrors];
+
+export type RequestDataExportResponses = {
+    /**
+     * Export job accepted; archive is ready at the returned URL.
+     */
+    202: ExportJobResponse;
+};
+
+export type RequestDataExportResponse = RequestDataExportResponses[keyof RequestDataExportResponses];
+
+export type DownloadDataExportData = {
+    body?: never;
+    path: {
+        token: string;
+    };
+    query?: never;
+    url: '/v1/data-rights/export/{token}';
+};
+
+export type DownloadDataExportErrors = {
+    /**
+     * An error response following RFC 9457.
+     */
+    404: Problem;
+    /**
+     * An error response following RFC 9457.
+     */
+    default: Problem;
+};
+
+export type DownloadDataExportError = DownloadDataExportErrors[keyof DownloadDataExportErrors];
+
+export type DownloadDataExportResponses = {
+    /**
+     * ZIP archive download.
+     */
+    200: Blob | File;
+};
+
+export type DownloadDataExportResponse = DownloadDataExportResponses[keyof DownloadDataExportResponses];
+
+export type DeleteAccountData = {
+    body: DeleteAccountBody;
+    headers: {
+        'X-Caller-Id': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v1/data-rights/account';
+};
+
+export type DeleteAccountErrors = {
+    /**
+     * An error response following RFC 9457.
+     */
+    400: Problem;
+    /**
+     * An error response following RFC 9457.
+     */
+    401: Problem;
+    /**
+     * An error response following RFC 9457.
+     */
+    403: Problem;
+    /**
+     * An error response following RFC 9457.
+     */
+    404: Problem;
+    /**
+     * An error response following RFC 9457.
+     */
+    default: Problem;
+};
+
+export type DeleteAccountError = DeleteAccountErrors[keyof DeleteAccountErrors];
+
+export type DeleteAccountResponses = {
+    /**
+     * Account and personal data deleted.
+     */
+    204: void;
+};
+
+export type DeleteAccountResponse = DeleteAccountResponses[keyof DeleteAccountResponses];
 
 export type GetVersionData = {
     body?: never;

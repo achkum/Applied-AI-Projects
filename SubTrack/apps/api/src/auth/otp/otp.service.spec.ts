@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createHash } from 'node:crypto';
 import { BadRequestException, UnprocessableEntityException } from '@nestjs/common';
 import { OtpService } from './otp.service';
 import { clearInbox, peekOtp } from './dev-inbox';
@@ -9,6 +10,14 @@ const mockFindFirst  = vi.fn();
 const mockCreate     = vi.fn();
 const mockUpdate     = vi.fn();
 const mockAggregate  = vi.fn();
+
+function firstCallArgument<T>(calls: readonly (readonly unknown[])[], name: string): T {
+  const call = calls[0];
+  if (!call) throw new Error(`Expected ${name} to be called`);
+  const argument = call[0];
+  if (argument === undefined) throw new Error(`Expected ${name} to receive arguments`);
+  return argument as T;
+}
 
 const mockPrisma = {
   otpChallenge: {
@@ -42,7 +51,7 @@ describe('OtpService.requestOtp', () => {
     await svc.requestOtp('user@example.com', 'development');
 
     expect(mockCreate).toHaveBeenCalledOnce();
-    const args = mockCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    const args = firstCallArgument<{ data: Record<string, unknown> }>(mockCreate.mock.calls, 'otpChallenge.create');
     expect(args.data.identifier).toBe('user@example.com');
     expect(typeof args.data.codeHash).toBe('string');
     expect((args.data.codeHash as string)).toHaveLength(64); // SHA-256 hex
@@ -132,8 +141,7 @@ describe('OtpService.verifyOtp', () => {
       id: 'challenge-1',
       identifier: 'user@example.com',
       salt,
-      codeHash: require('node:crypto')
-        .createHash('sha256')
+      codeHash: createHash('sha256')
         .update('123456' + salt)
         .digest('hex'),
       expiresAt: new Date(NOW.getTime() + 600_000),
@@ -153,7 +161,7 @@ describe('OtpService.verifyOtp', () => {
     expect(result).toEqual({ verified: true });
     expect(mockUpdate).toHaveBeenCalledOnce();
     // Verify the update marks verifiedAt
-    const updateArgs = mockUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    const updateArgs = firstCallArgument<{ data: Record<string, unknown> }>(mockUpdate.mock.calls, 'otpChallenge.update');
     expect(updateArgs.data.verifiedAt).toBeInstanceOf(Date);
   });
 
@@ -163,7 +171,7 @@ describe('OtpService.verifyOtp', () => {
 
     const svc = makeService();
     await expect(svc.verifyOtp('user@example.com', '000000')).rejects.toThrow(BadRequestException);
-    const updateArgs = mockUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    const updateArgs = firstCallArgument<{ data: Record<string, unknown> }>(mockUpdate.mock.calls, 'otpChallenge.update');
     expect(updateArgs.data.attemptCount).toBe(1);
   });
 
@@ -173,7 +181,7 @@ describe('OtpService.verifyOtp', () => {
 
     const svc = makeService();
     await expect(svc.verifyOtp('user@example.com', '000000')).rejects.toThrow(BadRequestException);
-    const updateArgs = mockUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    const updateArgs = firstCallArgument<{ data: Record<string, unknown> }>(mockUpdate.mock.calls, 'otpChallenge.update');
     expect(updateArgs.data.lockedUntil).toBeInstanceOf(Date);
   });
 

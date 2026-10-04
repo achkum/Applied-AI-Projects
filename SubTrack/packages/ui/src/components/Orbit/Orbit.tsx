@@ -16,7 +16,7 @@ const CATEGORY_COLOR_VAR: Record<string, string> = {
 };
 
 function categoryColorVar(category: string): string {
-  return CATEGORY_COLOR_VAR[category.toLowerCase()] ?? CATEGORY_COLOR_VAR['other'];
+  return CATEGORY_COLOR_VAR[category.toLowerCase()] ?? '--color-cat-other';
 }
 
 export interface OrbitProps {
@@ -45,7 +45,6 @@ export function Orbit({
 
   return (
     <figure
-      role="img"
       aria-label={ariaLabel}
       className={className}
       style={{ position: 'relative' }}
@@ -63,12 +62,10 @@ export function Orbit({
         className={styles.orbit}
         viewBox={`0 0 ${size} ${size}`}
         xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-        focusable="false"
       >
         {/* Static ring tracks */}
         {usedRings.map((ring) => {
-          const r = ringRadii[Math.min(ring, ringRadii.length - 1)] ?? ringRadii[ringRadii.length - 1];
+          const r = ringRadii[Math.min(ring, ringRadii.length - 1)] ?? 312;
           return (
             <circle
               key={`track-${ring}`}

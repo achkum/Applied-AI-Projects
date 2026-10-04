@@ -3,10 +3,6 @@ import { fn } from '@storybook/test';
 import { ScopeSwitcher, ScopeOption } from './ScopeSwitcher';
 
 const meOnly: ScopeOption[] = [{ kind: 'me', label: 'Me' }];
-const meAndHousehold: ScopeOption[] = [
-  { kind: 'me', label: 'Me' },
-  { kind: 'household', label: 'Household' },
-];
 const full: ScopeOption[] = [
   { kind: 'me', label: 'Me' },
   { kind: 'household', label: 'Household' },
