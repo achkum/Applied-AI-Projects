@@ -1,4 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- ':(top)BreastCancerDetection'"
+  "ignoreCommand": "echo \"$VERCEL_GIT_COMMIT_REF\" | grep -qE \"^(st|conductor|chore/daily|docs/subtrack|docs/prototype)/\" && exit 0; git diff --quiet HEAD~1 HEAD -- BreastCancerDetection/ 2>/dev/null"
 }
