@@ -83,6 +83,7 @@ interface IdentityProvider { // BankID
 - AuthZ:
   - Policy functions in `packages/domain/policy`.
   - Postgres RLS, with `app.user_id` set through `SET LOCAL` in a per-request transaction.
+  - `app.current_user_id` is a compatibility alias for accepted historical RLS policies. The API request-transaction helper sets it transaction-locally to the same trusted request principal as canonical `app.user_id`, before running the request operation. Do not set the keys from separate identities or treat this helper as authentication; SEC-FU1 remains required before auth/session modules or protected routes are exposed.
 - Secrets:
   - `.env` files on the VPS, owned by root, mode 600, and never in git.
   - Future: Docker secrets or sops+age.
