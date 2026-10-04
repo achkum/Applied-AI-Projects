@@ -320,6 +320,16 @@
             <div class="hero-lbl" data-i18n="hero.label">Totalt per månad</div>
             <div><span class="hero-amt" id="hero-amount">1 373</span><span class="hero-sfx" id="hero-suffix"> kr/mån</span></div>
             <div class="hero-sub" data-i18n="hero.sub">7 aktiva prenumerationer</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+              <div style="display:flex;align-items:center;gap:4px">
+                <span style="font-size:13px;font-weight:600;color:var(--amber);font-variant-numeric:tabular-nums">↑ 240 kr</span>
+                <span style="font-size:12px;color:var(--t3)" data-i18n="hero.vs_last">vs sep</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px">
+                <span style="font-size:12px;color:var(--t3)" data-i18n="hero.saved_year">Sparat i år</span>
+                <span style="font-size:13px;font-weight:600;color:var(--green);font-variant-numeric:tabular-nums">2 340 kr</span>
+              </div>
+            </div>
             <div class="hero-pills">
               <button class="hpill active" data-i18n="period.monthly" onclick="setPeriod('month',this)">Månadsvis</button>
               <button class="hpill" data-i18n="period.annual" onclick="setPeriod('year',this)">Årsvis</button>
@@ -459,6 +469,34 @@
       <div class="sbar"><span>9:41</span><div class="sbar-icons"><svg width="17" height="12" viewBox="0 0 17 12"><rect x="0" y="4" width="3" height="8" rx="1" fill="currentColor" opacity="0.3"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="1" fill="currentColor" opacity="0.5"/><rect x="9" y="0" width="3" height="12" rx="1" fill="currentColor" opacity="0.7"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="currentColor"/></svg><svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2C11 2 13.5 3.5 15 5.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/><path d="M8 5C10 5 11.7 5.9 12.8 7.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/></svg><svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" stroke-opacity="0.35"/><rect x="2" y="2" width="15" height="8" rx="2" fill="currentColor"/><path d="M23 4v4c.83-.37 1.5-1.14 1.5-2S23.83 4.37 23 4Z" fill="currentColor" fill-opacity="0.4"/></svg></div></div>
       <div class="shdr"><div class="stitle" data-i18n="screen.insights_title">Insikter</div></div>
       <div class="sbody">
+        <!-- Health score -->
+        <div style="margin:0 20px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-card);padding:16px;display:flex;align-items:center;gap:16px;cursor:pointer" onclick="document.getElementById('score-detail').style.display=document.getElementById('score-detail').style.display==='none'?'block':'none'">
+          <div style="position:relative;flex-shrink:0">
+            <svg width="60" height="60" viewBox="0 0 60 60">
+              <circle cx="30" cy="30" r="24" fill="none" stroke="var(--border)" stroke-width="4"/>
+              <circle cx="30" cy="30" r="24" fill="none" stroke="var(--amber)" stroke-width="4" stroke-dasharray="101 50" stroke-dashoffset="37.7" stroke-linecap="round" transform="rotate(-90 30 30)"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+              <div style="font-size:18px;font-weight:700;color:var(--t1);font-variant-numeric:tabular-nums;line-height:1">68</div>
+              <div style="font-size:9px;color:var(--t3);font-weight:600">/100</div>
+            </div>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:3px" data-i18n="insights.score_title">Prenumerationsscore</div>
+            <div style="font-size:13px;color:var(--t2)" data-i18n="insights.score_body">4 åtgärder kan höja din score till 91</div>
+            <div style="margin-top:8px;height:5px;border-radius:3px;background:var(--bg-raised);overflow:hidden"><div style="width:68%;height:100%;background:var(--amber);border-radius:3px;transition:width 0.6s ease"></div></div>
+          </div>
+          <div style="font-size:18px;color:var(--t3)">›</div>
+        </div>
+        <div id="score-detail" style="display:none;margin:-4px 20px 12px;background:var(--bg-raised);border:1px solid var(--border);border-radius:0 0 var(--r-card) var(--r-card);padding:12px 14px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div style="background:var(--red-s);border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--red)">−8 Dubbla streaming</div>
+            <div style="background:var(--amber-s);border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--amber)">−6 Prisökning ej åtgärdad</div>
+            <div style="background:var(--amber-s);border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--amber)">−5 Betalar månadsvis</div>
+            <div style="background:var(--amber-s);border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--amber)">−4 Provperiod löpte ut</div>
+            <div style="background:var(--green-s);border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--green)">+12 Delade planer</div>
+          </div>
+        </div>
         <div class="ai-card">
           <div class="ai-lbl" data-i18n="insights.ai_label">✦ AI-sammanfattning</div>
           <div class="ai-body" data-i18n="insights.ai_body">Det här hushållet lägger <strong>1 373 kr</strong> per månad på prenumerationer. Netflix och Viaplay överlappar — ni kan spara <strong>149 kr/mån</strong> om ni väljer ett av dem.</div>
@@ -519,6 +557,27 @@
           <div class="ins-body" data-i18n="insights.card6_body">Provperioden övergick automatiskt till betald plan jun 2026.</div>
         </div>
         <div class="sec-hdr" data-i18n="insights.market_hdr">Marknadsnyheter</div>
+
+        <!-- Peer comparison -->
+        <div class="ins-card">
+          <div class="ins-top"><div class="ins-title" data-i18n="insights.peer_title">Hushåll som liknar er betalar mindre</div><span class="badge b-amber"><span class="bdot"></span><span data-i18n="badge.review">Se över</span></span></div>
+          <div class="ins-stat" style="color:var(--amber)">+233 kr/mån</div>
+          <div class="ins-stat-sub" data-i18n="insights.peer_sub">Liknande hushåll i Sverige betalar i snitt 1 140 kr/mån</div>
+          <div style="display:flex;gap:6px">
+            <div style="flex:1;background:var(--bg-raised);border-radius:6px;padding:10px 12px">
+              <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:0.4px" data-i18n="insights.peer_you">Ni</div>
+              <div style="font-size:17px;font-weight:700;color:var(--amber);font-variant-numeric:tabular-nums;margin-top:3px;letter-spacing:-0.3px">1 373 kr</div>
+            </div>
+            <div style="flex:1;background:var(--bg-raised);border-radius:6px;padding:10px 12px">
+              <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:0.4px" data-i18n="insights.peer_avg">Snitt</div>
+              <div style="font-size:17px;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums;margin-top:3px;letter-spacing:-0.3px">1 140 kr</div>
+            </div>
+            <div style="flex:1;background:var(--bg-raised);border-radius:6px;padding:10px 12px">
+              <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:0.4px" data-i18n="insights.peer_top">Topp 25%</div>
+              <div style="font-size:17px;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums;margin-top:3px;letter-spacing:-0.3px">890 kr</div>
+            </div>
+          </div>
+        </div>
 
         <div class="ins-card">
           <div class="ins-top">
@@ -625,6 +684,7 @@
       <div class="drw-price-blk">
         <div class="drw-price" id="d-price">179 kr</div>
         <div class="drw-per" data-i18n="period.per_mon">/mån</div>
+        <div id="d-price-diff" style="display:none;margin-left:auto;font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;background:rgba(224,138,12,0.12);color:var(--amber)"></div>
       </div>
       <div>
         <div class="drw-drow"><div class="drw-dk" data-i18n="drawer.renewal">Nästa förnyelse</div><div class="drw-dv" id="d-renewal">om 2 dagar</div></div>
@@ -649,11 +709,11 @@
 
   <script>
     const SUBS = {
-      netflix:  {icon:'N',color:'#e50914',name:'Netflix',plan:'Standard med annonser',planEn:'Standard with ads',price:'179 kr',renewal:'om 2 dagar',renewalEn:'in 2 days',annual:'2 148 kr',cat:'Film & serier',catEn:'Video streaming',payer:'Batman',spark:'Prisjustering +30 kr (Mar 2026)',sparkEn:'Price increase +SEK 30 (Mar 2026)'},
+      netflix:  {icon:'N',color:'#e50914',name:'Netflix',plan:'Standard med annonser',planEn:'Standard with ads',price:'179 kr',priceOld:'149 kr',renewal:'om 2 dagar',renewalEn:'in 2 days',annual:'2 148 kr',cat:'Film & serier',catEn:'Video streaming',payer:'Batman',spark:'Prisjustering +30 kr (Mar 2026)',sparkEn:'Price increase +SEK 30 (Mar 2026)'},
       spotify:  {icon:'S',color:'#1db954',name:'Spotify Family',plan:'Family — upp till 6 konton',planEn:'Family — up to 6 accounts',price:'219 kr',renewal:'om 5 dagar',renewalEn:'in 5 days',annual:'2 628 kr',cat:'Musik & podd',catEn:'Music & podcasts',payer:'Batman',spark:'Stabil sedan Jan 2025',sparkEn:'Stable since Jan 2025'},
       ms365:    {icon:'M',color:'#0078d4',name:'Microsoft 365',plan:'Family — upp till 6 enheter',planEn:'Family — up to 6 devices',price:'109 kr',renewal:'om 18 dagar',renewalEn:'in 18 days',annual:'1 308 kr',cat:'Programvara',catEn:'Software',payer:'Superman',spark:'Årsplan 109 kr/mån',sparkEn:'Annual plan SEK 109/mo'},
       icloud:   {icon:'☁',color:'#636366',name:'iCloud+',plan:'200 GB lagring',planEn:'200 GB storage',price:'39 kr',renewal:'om 12 dagar',renewalEn:'in 12 days',annual:'468 kr',cat:'Molnlagring',catEn:'Cloud storage',payer:'Batman',spark:'Stabil pris',sparkEn:'Stable price'},
-      viaplay:  {icon:'V',color:'#ff2244',name:'Viaplay',plan:'Viaplay Total',planEn:'Viaplay Total',price:'149 kr',renewal:'om 8 dagar',renewalEn:'in 8 days',annual:'1 788 kr',cat:'Film & serier',catEn:'Video streaming',payer:'Batman',spark:'Höjning +20 kr (Sep 2026)',sparkEn:'Increase +SEK 20 (Sep 2026)'},
+      viaplay:  {icon:'V',color:'#ff2244',name:'Viaplay',plan:'Viaplay Total',planEn:'Viaplay Total',price:'149 kr',priceOld:'129 kr',renewal:'om 8 dagar',renewalEn:'in 8 days',annual:'1 788 kr',cat:'Film & serier',catEn:'Video streaming',payer:'Batman',spark:'Höjning +20 kr (Sep 2026)',sparkEn:'Increase +SEK 20 (Sep 2026)'},
       sats:     {icon:'G',color:'#ff6b00',name:'SATS',plan:'Rörligt månadsabonnemang',planEn:'Flexible monthly',price:'499 kr',renewal:'om 3 dagar',renewalEn:'in 3 days',annual:'5 988 kr',cat:'Träning & hälsa',catEn:'Fitness & health',payer:'Spiderman',spark:'Stabil sedan Jun 2025',sparkEn:'Stable since Jun 2025'},
       claude:   {icon:'A',color:'#7b6fe8',name:'Claude AI',plan:'Pro — obegränsad användning',planEn:'Pro — unlimited usage',price:'179 kr',renewal:'om 15 dagar',renewalEn:'in 15 days',annual:'2 148 kr',cat:'AI-verktyg',catEn:'AI tools',payer:'Batman',spark:'Ny prenumeration (Jun 2026)',sparkEn:'New subscription (Jun 2026)'},
     };
@@ -711,6 +771,11 @@
         'tab.home':'Hem','tab.subs':'Prenumerationer','tab.household':'Hushåll','tab.insights':'Insikter','tab.profile':'Profil',
         'drawer.renewal':'Nästa förnyelse','drawer.annual_cost':'Årsutgift','drawer.category':'Kategori',
         'drawer.pays':'Betalar','drawer.cancel':'Avsluta','drawer.mark_private':'Markera privat',
+        'hero.vs_last':'vs sep','hero.saved_year':'Sparat i år',
+        'insights.score_title':'Prenumerationsscore','insights.score_body':'4 åtgärder kan höja din score till 91',
+        'insights.peer_title':'Hushåll som liknar er betalar mindre',
+        'insights.peer_sub':'Liknande hushåll i Sverige betalar i snitt 1 140 kr/mån',
+        'insights.peer_you':'Ni','insights.peer_avg':'Snitt','insights.peer_top':'Topp 25%',
       },
       en: {
         'scope.household':'Household','period.monthly':'Monthly','period.annual':'Annual',
@@ -764,6 +829,11 @@
         'tab.home':'Home','tab.subs':'Subscriptions','tab.household':'Household','tab.insights':'Insights','tab.profile':'Profile',
         'drawer.renewal':'Next renewal','drawer.annual_cost':'Annual cost','drawer.category':'Category',
         'drawer.pays':'Paid by','drawer.cancel':'Cancel','drawer.mark_private':'Mark private',
+        'hero.vs_last':'vs Sep','hero.saved_year':'Saved this year',
+        'insights.score_title':'Subscription score','insights.score_body':'4 actions can raise your score to 91',
+        'insights.peer_title':'Similar households pay less',
+        'insights.peer_sub':'Similar households in Sweden pay on average SEK 1,140/mo',
+        'insights.peer_you':'You','insights.peer_avg':'Average','insights.peer_top':'Top 25%',
       }
     };
 
@@ -858,6 +928,9 @@
       document.getElementById('d-name').textContent = s.name;
       document.getElementById('d-plan').textContent = lang === 'en' ? s.planEn : s.plan;
       document.getElementById('d-price').textContent = s.price;
+      const diffEl = document.getElementById('d-price-diff');
+      if (s.priceOld) { diffEl.style.display = ''; diffEl.textContent = s.priceOld + ' →'; }
+      else { diffEl.style.display = 'none'; }
       document.getElementById('d-renewal').textContent = lang === 'en' ? s.renewalEn : s.renewal;
       document.getElementById('d-annual').textContent = s.annual;
       document.getElementById('d-cat').textContent = lang === 'en' ? s.catEn : s.cat;
