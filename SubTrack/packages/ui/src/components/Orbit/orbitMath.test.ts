@@ -5,6 +5,7 @@ import {
   anglesForCadence,
   toCartesian,
   computeOrbitLayout,
+  HIT_TARGET_REFERENCE_SIZE,
 } from './orbitMath';
 import type { OrbitSubscription } from './types';
 
@@ -75,14 +76,14 @@ describe('anglesForCadence', () => {
 describe('toCartesian', () => {
   it('places ring 0 at angle 0 directly above centre', () => {
     const { x, y } = toCartesian(0, 0); // straight up
-    expect(x).toBeCloseTo(240, 1);      // cx=240, sin(0)=0
-    expect(y).toBeCloseTo(240 - 72, 1); // cy - RING_RADII[0]
+    expect(x).toBeCloseTo(360, 1);      // cx=360, sin(0)=0
+    expect(y).toBeCloseTo(360 - 72, 1); // cy - RING_RADII[0]
   });
 
   it('places ring 0 at angle π/2 to the right of centre', () => {
     const { x, y } = toCartesian(0, Math.PI / 2);
-    expect(x).toBeCloseTo(240 + 72, 1); // cx + r
-    expect(y).toBeCloseTo(240, 1);
+    expect(x).toBeCloseTo(360 + 72, 1); // cx + r
+    expect(y).toBeCloseTo(360, 1);
   });
 });
 
@@ -106,11 +107,47 @@ describe('computeOrbitLayout', () => {
     ]);
   });
 
-  it('returns size=480 and cx=cy=240', () => {
+  it('returns size=720 and cx=cy=360', () => {
     const { size, cx, cy } = computeOrbitLayout(subs);
-    expect(size).toBe(480);
-    expect(cx).toBe(240);
-    expect(cy).toBe(240);
+    expect(size).toBe(720);
+    expect(cx).toBe(360);
+    expect(cy).toBe(360);
+  });
+
+  it('contains rings 0–3, including the maximum body and selected stroke, with positive margins', () => {
+    const allRings: OrbitSubscription[] = [
+      { id: 'me', name: 'Me', category: 'streaming', ownerType: 'ME', monthlyCostMinor: 10000, billingCadence: 'MONTHLY' },
+      { id: 'household', name: 'Household', category: 'cloud', ownerType: 'HOUSEHOLD', monthlyCostMinor: 10000, billingCadence: 'MONTHLY' },
+      { id: 'member-a', name: 'Member A', category: 'fitness', ownerType: 'MEMBER', memberId: 'a', monthlyCostMinor: 10000, billingCadence: 'MONTHLY' },
+      { id: 'member-b', name: 'Member B', category: 'news', ownerType: 'MEMBER', memberId: 'b', monthlyCostMinor: 10000, billingCadence: 'ANNUAL' },
+    ];
+    const { bodies, size } = computeOrbitLayout(allRings);
+    const ringRadii = [72, 152, 232, 312];
+
+    expect(bodies.map(({ ring }) => ring)).toEqual([0, 1, 2, 3]);
+    expect(bodies.map(({ r }) => r)).toEqual([28, 28, 28, 28]);
+    for (const radius of ringRadii) {
+      expect(360 - radius - 0.5).toBeGreaterThan(0); // track stroke included
+      expect(360 + radius + 0.5).toBeLessThan(size);
+    }
+    for (const body of bodies) {
+      const strokeAllowance = body.id === 'member-b' ? 1 : 0;
+      const hitRadius = body.r * (size / HIT_TARGET_REFERENCE_SIZE);
+      expect(body.cx - body.r - strokeAllowance).toBeGreaterThan(0);
+      expect(body.cy - body.r - strokeAllowance).toBeGreaterThan(0);
+      expect(body.cx + body.r + strokeAllowance).toBeLessThan(size);
+      expect(body.cy + body.r + strokeAllowance).toBeLessThan(size);
+      expect(body.cx - hitRadius).toBeGreaterThan(0);
+      expect(body.cy - hitRadius).toBeGreaterThan(0);
+      expect(body.cx + hitRadius).toBeLessThan(size);
+      expect(body.cy + hitRadius).toBeLessThan(size);
+      expect(body.cx - hitRadius - 1).toBeGreaterThan(0); // focused hit-target stroke
+      expect(body.cx + hitRadius + 1).toBeLessThan(size);
+      expect(body.cy - hitRadius - 1).toBeGreaterThan(0);
+      expect(body.cy + hitRadius + 1).toBeLessThan(size);
+    }
+    expect(bodies.at(3)!.cx - 28 - 1).toBe(19);
+    expect(bodies.at(3)!.cx - 28 * (size / HIT_TARGET_REFERENCE_SIZE)).toBe(6);
   });
 
   it('handles empty subscription list', () => {

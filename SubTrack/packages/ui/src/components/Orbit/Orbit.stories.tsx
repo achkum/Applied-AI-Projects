@@ -56,11 +56,9 @@ export const Empty: Story = {
   },
 };
 
-/** Dark canvas — wrap in a dark background to preview dark-mode colours. */
+/** Dark canvas — use the preview decorator's generated dark theme tokens. */
 export const DarkCanvas: Story = {
-  parameters: {
-    backgrounds: { default: 'dark' },
-  },
+  globals: { theme: 'dark' },
   args: {
     subscriptions: SAMPLE_SUBS,
     ariaLabel: 'Dark mode orbit',

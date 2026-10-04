@@ -1,7 +1,9 @@
 import type { OrbitSubscription, BodyLayout, OrbitLayoutResult } from './types';
 
 /** SVG canvas half-width; viewBox is `0 0 SIZE SIZE`. */
-const SIZE = 480;
+const SIZE = 720;
+/** Original CSS viewBox scale used to preserve the existing pointer target size. */
+export const HIT_TARGET_REFERENCE_SIZE = 480;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
 
