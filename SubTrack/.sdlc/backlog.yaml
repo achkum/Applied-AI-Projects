@@ -6,21 +6,21 @@
 milestone_current: M0
 items:
   - {id: BUG-016, title: "Specify Orbit dense-layout and accessible fallback behavior", owner: "product-owner", size: "S", status: BACKLOG, deps: ["BUG-015"]}
-  - {id: BUG-015, title: "Repair Orbit canvas extents and missing visual states", owner: "dev-web", size: "M", status: IN_REVIEW, deps: []}
-  - {id: BUG-014, title: "Add reviewed missing Storybook visual baselines", owner: "conductor", size: "M", status: IN_REVIEW, deps: ["BUG-015"]}
+  - {id: BUG-015, title: "Repair Orbit canvas extents and missing visual states", owner: "dev-web", size: "M", status: DONE, deps: []}
+  - {id: BUG-014, title: "Add reviewed missing Storybook visual baselines", owner: "conductor", size: "M", status: DONE, deps: ["BUG-015"]}
   - {id: BUG-013, title: "Bind canonical and historical RLS identity settings", owner: "dev-backend", size: "S", status: IN_REVIEW, deps: []}
-  - {id: BUG-012, title: "Declare pinned Playwright CLI for visual CI", owner: "dev-platform", size: "S", status: IN_REVIEW, deps: []}
-  - {id: BUG-011, title: "Restore integration quality gates", owner: "conductor", size: "L", status: IN_REVIEW, deps: []}
-  - {id: BUG-010, title: "Unsigned ZIP external attributes", owner: "conductor", size: "M", status: IN_REVIEW, deps: []}
-  - {id: BUG-009, title: "API strict typing and accepted session schema parity", owner: "conductor", size: "M", status: IN_REVIEW, deps: []}
+  - {id: BUG-012, title: "Declare pinned Playwright CLI for visual CI", owner: "dev-platform", size: "S", status: DONE, deps: []}
+  - {id: BUG-011, title: "Restore integration quality gates", owner: "conductor", size: "L", status: DONE, deps: []}
+  - {id: BUG-010, title: "Unsigned ZIP external attributes", owner: "conductor", size: "M", status: DONE, deps: []}
+  - {id: BUG-009, title: "API strict typing and accepted session schema parity", owner: "conductor", size: "M", status: DONE, deps: []}
   - {id: BUG-008, title: "Duplicate subscription migration history audit", owner: "conductor", size: "M", status: BLOCKED, deps: []}
-  - {id: BUG-007, title: "Mobile strict typing and reduced-motion mock repairs", owner: "conductor", size: "M", status: IN_REVIEW, deps: []}
-  - {id: BUG-006, title: "UI and web integration gate repairs", owner: "conductor", size: "M", status: IN_REVIEW, deps: []}
-  - {id: BUG-005, title: "Backend and OpenAPI gate repairs", owner: "conductor", size: "M", status: IN_REVIEW, deps: []}
-  - {id: BUG-004, title: "Restore strict Intl currency exponent checking", owner: "dev-backend", size: "S", status: IN_REVIEW, deps: []}
-  - {id: BUG-003, title: "Break domain/synthetic test dependency cycle while retaining ingestion coverage", owner: "dev-backend", size: "S", status: IN_REVIEW, deps: []}
-  - {id: BUG-001, title: "Reconcile visibility policy API and types without weakening privacy", owner: "architect-platform", size: "M", status: IN_REVIEW, deps: []}
-  - {id: BUG-002, title: "Fix catalogue optional-field construction under strict typechecking", owner: "dev-data", size: "S", status: IN_REVIEW, deps: []}
+  - {id: BUG-007, title: "Mobile strict typing and reduced-motion mock repairs", owner: "conductor", size: "M", status: DONE, deps: []}
+  - {id: BUG-006, title: "UI and web integration gate repairs", owner: "conductor", size: "M", status: DONE, deps: []}
+  - {id: BUG-005, title: "Backend and OpenAPI gate repairs", owner: "conductor", size: "M", status: DONE, deps: []}
+  - {id: BUG-004, title: "Restore strict Intl currency exponent checking", owner: "dev-backend", size: "S", status: DONE, deps: []}
+  - {id: BUG-003, title: "Break domain/synthetic test dependency cycle while retaining ingestion coverage", owner: "dev-backend", size: "S", status: DONE, deps: []}
+  - {id: BUG-001, title: "Reconcile visibility policy API and types without weakening privacy", owner: "architect-platform", size: "M", status: DONE, deps: []}
+  - {id: BUG-002, title: "Fix catalogue optional-field construction under strict typechecking", owner: "dev-data", size: "S", status: DONE, deps: []}
   - {id: ST-001, title: "Pre-flight report: toolchain, VPS resources, repo access, HUMAN_TODO status", owner: "conductor", size: "S", status: DONE, deps: []}
   - {id: ST-002, title: "Move legacy prototype to `SubTrack/_legacy/`; delete nested `SubTrack/SubTrack`, tarballs, `*_payload.json`, `plan_payload.json`; salvage audit hash-chain + consent logic notes into ADR appendix", owner: "devops-release", size: "S", status: DONE, deps: ["ST-001"]}
   - {id: ST-003, title: "Monorepo scaffold (pnpm, Turborepo, TS strict, eslint boundaries, prettier, `packages/config`)", owner: "architect-platform", size: "M", status: DONE, deps: ["ST-002"]}
