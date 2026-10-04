@@ -565,6 +565,9 @@ importers:
       jest-image-snapshot:
         specifier: ^6.0.0
         version: 6.5.2(jest@29.7.0(@types/node@26.6.3)(supports-color@8.1.1))
+      playwright:
+        specifier: 1.63.0
+        version: 1.63.0
       react:
         specifier: ^19.0.0
         version: 19.3.0
