@@ -19,19 +19,21 @@ items:
   - {id: ST-011, title: "`packages/i18n` catalog structure + parity checker script", owner: "dev-web", size: "S", status: DONE, deps: ["ST-003"]}
   - {id: ST-012, title: "`.sdlc/` board initialised from this file; task files for M0/D1/M1", owner: "product-owner", size: "M", status: DONE, deps: ["ST-001"]}
   - {id: ST-020, title: "`packages/ui-tokens`: colour/type/space/radius/motion tokens JSON → CSS vars + RN theme; OKLCH category-hue generator; contrast checker in CI", owner: "design-lead", size: "L", status: DONE, deps: ["ST-003"]}
-  - {id: ST-021, title: "Fonts (Fraunces, Manrope, JetBrains Mono) self-hosted/bundled with OFL notices", owner: "dev-web", size: "S", status: BACKLOG, deps: ["ST-020"]}
+  - {id: ST-021, title: "Fonts (Inter Variable, JetBrains Mono) self-hosted/bundled with OFL notices — Fraunces/Manrope retired with ST-163", owner: "dev-web", size: "S", status: BACKLOG, deps: ["ST-020", "ST-163"]}
   - {id: ST-022, title: "Storybook for `packages/ui` + visual regression job", owner: "dev-web", size: "M", status: READY, deps: ["ST-020"]}
   - {id: ST-023, title: "Component specs (markdown) for the 7 signature components", owner: "design-lead", size: "M", status: DONE, deps: ["ST-020", "ST-030"]}
   - {id: ST-030, title: "Theme-aware stable member identity accents for Scope switcher", owner: "design-lead", size: "M", status: DONE, deps: ["ST-020"]}
   - {id: ST-024, title: "Web: RollingNumber, ScopeSwitcher, ReceiptCard", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-023", "ST-022"]}
-  - {id: ST-025, title: "Web: Orbit (SVG/Canvas) + accessible list fallback", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-023", "ST-022"]}
+  - {id: ST-025, title: "Web: Orbit (SVG/Canvas) + accessible list fallback", owner: "dev-web", size: "L", status: REJECTED, deps: ["ST-023", "ST-022"], note: "CANCELLED — Orbit concept retired in ST-163 design pivot; Orbit does not exist in new Precision design direction"}
+  - {id: ST-163, title: "Design pivot: retire Norrsken orbital concept → Precision production design; rewrite prototype (Klarna/Kivra flat UI, single-nav slide transitions, fully interactive)", owner: "design-lead", size: "L", status: DONE, deps: ["ST-020", "ST-023"]}
+  - {id: ST-164, title: "Revise component specs (ST-023 set) to match Precision design direction — new components: SavingsCard, StatChipRow, InsightCard, MarketCard, FilterChips, MemberPills with slide nav; retire Orbit spec", owner: "design-lead", size: "M", status: READY, deps: ["ST-163"]}
   - {id: ST-038, title: "Fix mobile component-render test harness (RN/@testing-library/react-native incompatibility)", owner: "dev-mobile", size: "S", status: READY, deps: []}
-  - {id: ST-026, title: "Mobile: RollingNumber, ScopeSwitcher, ReceiptCard (colocated)", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-023", "ST-038"]}
-  - {id: ST-027, title: "Mobile: Orbit with react-native-skia + reduced-motion fallback", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-023", "ST-038"]}
+  - {id: ST-026, title: "Mobile: RollingNumber, ScopeSwitcher, ReceiptCard (colocated)", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-164", "ST-038"]}
+  - {id: ST-027, title: "Mobile: Orbit with react-native-skia + reduced-motion fallback", owner: "dev-mobile", size: "L", status: REJECTED, deps: ["ST-038"], note: "CANCELLED — Orbit concept retired in ST-163 design pivot"}
   - {id: ST-039, title: "Maestro/device E2E + screen-reader backfill for D1 signature components", owner: "qa-engineer", size: "M", status: BACKLOG, deps: ["ST-024", "ST-025", "ST-026", "ST-027"]}
   - {id: ST-056, title: "packages/money: shared money formatter (extract from D1 component duplication)", owner: "architect-platform", size: "S", status: BACKLOG, deps: []}
   - {id: ST-028, title: "Hero screens (Welcome, Home, Subscription detail) — parent, needs_split=true", owner: "conductor", size: "L", status: BACKLOG, deps: ["ST-024", "ST-025"], note: "Split by ST-015 into ST-057+ST-058; do not dispatch directly"}
-  - {id: ST-057, title: "Hero screens: design compositions (Storybook stories, G-DESIGN gate)", owner: "design-lead", size: "M", status: BACKLOG, deps: ["ST-023", "ST-024", "ST-025", "ST-022"]}
+  - {id: ST-057, title: "Hero screens: design compositions (Storybook stories, G-DESIGN gate)", owner: "design-lead", size: "M", status: BACKLOG, deps: ["ST-164", "ST-024", "ST-022"]}
   - {id: ST-058, title: "Hero screens: web page implementation (Welcome, Home, Subscription detail)", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-057", "ST-024", "ST-025"]}
   - {id: ST-029, title: "App icon, splash, store feature graphic concepts", owner: "design-lead", size: "M", status: BACKLOG, deps: ["ST-020"]}
   - {id: ST-040, title: "Prisma schema: identity, household, invitation, consent, audit_log + RLS policies migration", owner: "architect-platform", size: "L", status: BLOCKED, deps: ["ST-007"]}

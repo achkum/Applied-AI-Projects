@@ -66,9 +66,12 @@
       position: absolute; inset: 0;
       display: flex; flex-direction: column;
       background: var(--bg-canvas);
-      opacity: 0; pointer-events: none; transition: opacity 0.18s;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+      pointer-events: none; will-change: transform;
     }
-    .screen.active { opacity: 1; pointer-events: all; }
+    .screen.active { transform: translateX(0); pointer-events: all; }
+    .screen.slide-prev { transform: translateX(-28%); }
 
     /* Status bar */
     .sbar {
@@ -95,7 +98,7 @@
       height: 80px; background: var(--bg-surface);
       border-top: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-around;
-      padding: 0 4px 14px;
+      padding: 0 4px 14px; z-index: 50;
     }
     .ni { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; }
     .ni-wrap {
@@ -108,6 +111,10 @@
     .ni.active svg { stroke: var(--brand); }
     .ni-lbl { font-size: 10px; font-weight: 500; color: var(--t2); transition: color 0.15s; }
     .ni.active .ni-lbl { color: var(--brand); }
+    .nav-badge { position: absolute; top: -2px; right: -4px; min-width: 14px; height: 14px; border-radius: 7px; background: var(--red); color: #fff; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 3px; border: 1.5px solid var(--bg-surface); pointer-events: none; }
+    .sec-hdr-row { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 8px; }
+    .sec-hdr-row .sec-hdr { padding: 0; }
+    .sec-see-all { font-size: 12px; font-weight: 600; color: var(--brand); cursor: pointer; padding: 4px 0; }
 
     /* ── SECTION HEADER ─────────────────────────── */
     .sec-hdr { padding: 20px 20px 8px; font-size: 11px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: 0.7px; }
@@ -319,23 +326,23 @@
             </div>
           </div>
         </div>
-        <div class="sec-hdr" data-i18n="home.upcoming">Kommande denna vecka</div>
+        <div class="sec-hdr-row"><div class="sec-hdr" data-i18n="home.upcoming">Kommande denna vecka</div><span class="sec-see-all" onclick="switchTab('subs')">Se alla →</span></div>
         <div class="card">
-          <div class="uprow">
-            <div class="updot" style="background:#7b6fe8"></div>
+          <div class="uprow" onclick="openDrawer('netflix')" style="cursor:pointer">
+            <div class="updot" style="background:#e50914"></div>
             <div class="upinfo"><div class="upname">Netflix</div><div class="updays" data-i18n="upcoming.in2days">om 2 dagar</div></div>
             <div class="upamt">179 kr</div>
           </div>
-          <div class="uprow">
+          <div class="uprow" onclick="openDrawer('spotify')" style="cursor:pointer">
             <div class="updot" style="background:#1db954"></div>
             <div class="upinfo"><div class="upname">Spotify Family</div><div class="updays" data-i18n="upcoming.in5days">om 5 dagar</div></div>
             <div class="upamt">219 kr</div>
           </div>
         </div>
-        <div class="sec-hdr" data-i18n="home.insights_hdr">Insikter</div>
+        <div class="sec-hdr-row"><div class="sec-hdr" data-i18n="home.insights_hdr">Insikter</div><span class="sec-see-all" onclick="switchTab('insights')">Se alla →</span></div>
 
         <!-- Savings summary -->
-        <div class="savings-card">
+        <div class="savings-card" onclick="switchTab('insights')" style="cursor:pointer">
           <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:6px" data-i18n="home.savings_lbl">Möjlig besparing</div>
           <div><span class="savings-amt" data-i18n="home.savings_amt">2 988</span><span class="savings-sfx" data-i18n="home.savings_sfx"> kr/år</span></div>
           <div class="compare-bar">
@@ -353,32 +360,25 @@
         </div>
 
         <!-- Stat chips -->
-        <div class="stat-row">
-          <div class="stat-chip">
+        <div class="stat-row" style="padding-bottom:8px">
+          <div class="stat-chip" onclick="switchTab('insights')" style="cursor:pointer">
             <div class="stat-num" style="color:var(--amber)">2</div>
             <div class="stat-lbl" data-i18n="home.stat_priceup">Prisökningar</div>
           </div>
-          <div class="stat-chip">
+          <div class="stat-chip" onclick="switchTab('insights')" style="cursor:pointer">
             <div class="stat-num" style="color:var(--red)">↑12%</div>
             <div class="stat-lbl" data-i18n="home.stat_trend">Sedan maj</div>
           </div>
-          <div class="stat-chip">
+          <div class="stat-chip" onclick="switchTab('household')" style="cursor:pointer">
             <div class="stat-num" style="color:var(--green)">3</div>
             <div class="stat-lbl" data-i18n="home.stat_shared">Delade planer</div>
           </div>
-          <div class="stat-chip">
+          <div class="stat-chip" onclick="switchTab('insights')" style="cursor:pointer">
             <div class="stat-num">4</div>
             <div class="stat-lbl" data-i18n="home.stat_actions">Åtgärder</div>
           </div>
         </div>
       </div>
-      <nav class="bnav">
-        <button class="ni active" onclick="switchTab('home')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="ni-lbl" data-i18n="tab.home">Hem</span></button>
-        <button class="ni" onclick="switchTab('subs')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><span class="ni-lbl" data-i18n="tab.subs">Prenumerationer</span></button>
-        <button class="ni" onclick="switchTab('household')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="ni-lbl" data-i18n="tab.household">Hushåll</span></button>
-        <button class="ni" onclick="switchTab('insights')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="ni-lbl" data-i18n="tab.insights">Insikter</span></button>
-        <button class="ni" onclick="switchTab('profile')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="ni-lbl" data-i18n="tab.profile">Profil</span></button>
-      </nav>
     </div>
 
     <!-- ═══ SUBSCRIPTIONS ════════════════════════ -->
@@ -409,13 +409,6 @@
           <div class="total-row"><div class="total-lbl" data-i18n="subs.total_label">Totalt hushållet</div><div class="total-amt">1 373 kr</div></div>
         </div>
       </div>
-      <nav class="bnav">
-        <button class="ni" onclick="switchTab('home')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="ni-lbl" data-i18n="tab.home">Hem</span></button>
-        <button class="ni active" onclick="switchTab('subs')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><span class="ni-lbl" data-i18n="tab.subs">Prenumerationer</span></button>
-        <button class="ni" onclick="switchTab('household')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="ni-lbl" data-i18n="tab.household">Hushåll</span></button>
-        <button class="ni" onclick="switchTab('insights')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="ni-lbl" data-i18n="tab.insights">Insikter</span></button>
-        <button class="ni" onclick="switchTab('profile')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="ni-lbl" data-i18n="tab.profile">Profil</span></button>
-      </nav>
     </div>
 
     <!-- ═══ HOUSEHOLD ════════════════════════════ -->
@@ -454,18 +447,11 @@
         </div>
         <div class="sec-hdr" data-i18n="hh.shared_subs">Delade prenumerationer</div>
         <div class="card">
-          <div class="lrow"><div class="ricon" style="background:#e50914">N</div><div class="rtxt"><div class="rname">Netflix</div><div class="rmeta" data-i18n="hh.pays_sara">Betalar: Sara</div></div><div class="ramt"><div class="rprice">179 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
-          <div class="lrow"><div class="ricon" style="background:#1db954">S</div><div class="rtxt"><div class="rname">Spotify Family</div><div class="rmeta" data-i18n="hh.pays_sara">Betalar: Sara</div></div><div class="ramt"><div class="rprice">219 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
-          <div class="lrow" style="border-bottom:none"><div class="ricon" style="background:#0078d4">M</div><div class="rtxt"><div class="rname">Microsoft 365</div><div class="rmeta" data-i18n="hh.pays_johan">Betalar: Johan</div></div><div class="ramt"><div class="rprice">109 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow" onclick="openDrawer('netflix')"><div class="ricon" style="background:#e50914">N</div><div class="rtxt"><div class="rname">Netflix</div><div class="rmeta" data-i18n="hh.pays_sara">Betalar: Batman</div></div><div class="ramt"><div class="rprice">179 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow" onclick="openDrawer('spotify')"><div class="ricon" style="background:#1db954">S</div><div class="rtxt"><div class="rname">Spotify Family</div><div class="rmeta" data-i18n="hh.pays_sara">Betalar: Batman</div></div><div class="ramt"><div class="rprice">219 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
+          <div class="lrow" style="border-bottom:none" onclick="openDrawer('ms365')"><div class="ricon" style="background:#0078d4">M</div><div class="rtxt"><div class="rname">Microsoft 365</div><div class="rmeta" data-i18n="hh.pays_johan">Betalar: Superman</div></div><div class="ramt"><div class="rprice">109 kr</div><div class="rperiod" data-i18n="period.per_mon">/mån</div></div></div>
         </div>
       </div>
-      <nav class="bnav">
-        <button class="ni" onclick="switchTab('home')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="ni-lbl" data-i18n="tab.home">Hem</span></button>
-        <button class="ni" onclick="switchTab('subs')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><span class="ni-lbl" data-i18n="tab.subs">Prenumerationer</span></button>
-        <button class="ni active" onclick="switchTab('household')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="ni-lbl" data-i18n="tab.household">Hushåll</span></button>
-        <button class="ni" onclick="switchTab('insights')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="ni-lbl" data-i18n="tab.insights">Insikter</span></button>
-        <button class="ni" onclick="switchTab('profile')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="ni-lbl" data-i18n="tab.profile">Profil</span></button>
-      </nav>
     </div>
 
     <!-- ═══ INSIGHTS ══════════════════════════════ -->
@@ -589,13 +575,6 @@
           <div class="chart-foot"><span class="chart-foot-l" data-i18n="chart.last6">Senaste 6 månaderna</span><span class="chart-foot-r">↑ 12%</span></div>
         </div>
       </div>
-      <nav class="bnav">
-        <button class="ni" onclick="switchTab('home')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="ni-lbl" data-i18n="tab.home">Hem</span></button>
-        <button class="ni" onclick="switchTab('subs')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><span class="ni-lbl" data-i18n="tab.subs">Prenumerationer</span></button>
-        <button class="ni" onclick="switchTab('household')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="ni-lbl" data-i18n="tab.household">Hushåll</span></button>
-        <button class="ni active" onclick="switchTab('insights')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="ni-lbl" data-i18n="tab.insights">Insikter</span></button>
-        <button class="ni" onclick="switchTab('profile')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="ni-lbl" data-i18n="tab.profile">Profil</span></button>
-      </nav>
     </div>
 
     <!-- ═══ PROFILE ═══════════════════════════════ -->
@@ -624,14 +603,16 @@
         </div>
         <button class="logout-btn" data-i18n="profile.logout">Logga ut</button>
       </div>
-      <nav class="bnav">
-        <button class="ni" onclick="switchTab('home')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="ni-lbl" data-i18n="tab.home">Hem</span></button>
-        <button class="ni" onclick="switchTab('subs')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><span class="ni-lbl" data-i18n="tab.subs">Prenumerationer</span></button>
-        <button class="ni" onclick="switchTab('household')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="ni-lbl" data-i18n="tab.household">Hushåll</span></button>
-        <button class="ni" onclick="switchTab('insights')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="ni-lbl" data-i18n="tab.insights">Insikter</span></button>
-        <button class="ni active" onclick="switchTab('profile')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="ni-lbl" data-i18n="tab.profile">Profil</span></button>
-      </nav>
     </div>
+
+    <!-- ═══ GLOBAL NAV ══════════════════════════════ -->
+    <nav class="bnav" id="main-nav">
+      <button class="ni active" data-tab="home" onclick="switchTab('home')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span class="ni-lbl" data-i18n="tab.home">Hem</span></button>
+      <button class="ni" data-tab="subs" onclick="switchTab('subs')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><span class="ni-lbl" data-i18n="tab.subs">Prenumerationer</span></button>
+      <button class="ni" data-tab="household" onclick="switchTab('household')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><span class="ni-lbl" data-i18n="tab.household">Hushåll</span></button>
+      <button class="ni" data-tab="insights" onclick="switchTab('insights')"><div class="ni-wrap" style="position:relative"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="nav-badge">4</span></div><span class="ni-lbl" data-i18n="tab.insights">Insikter</span></button>
+      <button class="ni" data-tab="profile" onclick="switchTab('profile')"><div class="ni-wrap"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="ni-lbl" data-i18n="tab.profile">Profil</span></button>
+    </nav>
 
     <!-- ═══ DRAWER ════════════════════════════════ -->
     <div class="drw-bg" id="drw-bg" onclick="closeDrawer()"></div>
@@ -807,8 +788,47 @@
     function toggleLang() { lang = lang === 'sv' ? 'en' : 'sv'; document.documentElement.lang = lang; applyT(); updateHero(); if (activeDrawer) populateDrawer(activeDrawer); }
     function toggleTheme() { theme = theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = theme; applyT(); }
 
+    const TAB_ORDER = ['home','subs','household','insights','profile'];
+    let currentTab = 'home';
+
     function switchTab(name) {
-      ['home','subs','household','insights','profile'].forEach(s => document.getElementById('screen-'+s).classList.toggle('active', s === name));
+      if (name === currentTab) return;
+      const prevIdx = TAB_ORDER.indexOf(currentTab);
+      const nextIdx = TAB_ORDER.indexOf(name);
+      const dir = nextIdx > prevIdx ? 1 : -1;
+
+      const cur = document.getElementById('screen-' + currentTab);
+      const nxt = document.getElementById('screen-' + name);
+
+      nxt.style.transition = 'none';
+      nxt.style.transform = `translateX(${dir * 100}%)`;
+      nxt.classList.add('active');
+      nxt.getBoundingClientRect();
+
+      const ease = 'transform 0.3s cubic-bezier(0.32,0.72,0,1)';
+      cur.style.transition = ease;
+      nxt.style.transition = ease;
+      cur.style.transform = `translateX(${-dir * 28}%)`;
+      nxt.style.transform = 'translateX(0)';
+
+      let cleaned = false;
+      const done = () => {
+        if (cleaned) return; cleaned = true;
+        cur.classList.remove('active');
+        cur.style.cssText = '';
+        nxt.style.transition = '';
+      };
+      cur.addEventListener('transitionend', done, { once: true });
+      setTimeout(done, 380);
+
+      document.querySelectorAll('#main-nav .ni').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === name);
+      });
+
+      const body = nxt.querySelector('.sbody');
+      if (body) body.scrollTop = 0;
+
+      currentTab = name;
     }
 
     function updateHero() {
