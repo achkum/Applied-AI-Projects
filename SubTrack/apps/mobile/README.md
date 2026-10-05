@@ -31,6 +31,7 @@ apps/mobile/
 Uses Expo Router for automatic routing based on file structure. Supports locale-based route prefixes:
 - `/en/*` routes for English
 - `/sv/*` routes for Swedish
+- `/` redirects to the stored locale route, defaulting to `/en` when no valid preference exists
 
 ### Internationalization (i18n)
 
@@ -96,6 +97,20 @@ pnpm android
 # Run on web
 pnpm web
 ```
+
+### Web export and runtime validation
+
+Run these commands from the `SubTrack/` workspace root:
+
+```bash
+# Start the Expo Router app in a browser
+pnpm --filter @subtrack/mobile start --web
+
+# Create a static web export outside the checkout
+pnpm --filter @subtrack/mobile exec expo export --platform web --output-dir /tmp/subtrack-mobile-web
+```
+
+The SDK 51 static export has been verified to complete. Metro warns that the current theme JSON import is not listed in the package exports and falls back to the existing file, and `app.json` points to a missing `assets/favicon.png`; neither warning prevents export. The web favicon asset remains unresolved. A successful export does not verify browser runtime behavior or startup on an iOS or Android device. Locale/theme interaction still needs browser validation, and native startup, assets, and provider behavior require simulator or device validation.
 
 ### Building
 
