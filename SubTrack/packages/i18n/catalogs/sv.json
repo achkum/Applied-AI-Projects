@@ -57,5 +57,11 @@
       "cadenceMonthly": "per månad",
       "priceHistory": "Prishistorik"
     }
+  },
+  "home": {
+    "totalHeading": "Återkommande kostnader",
+    "projection12Months": "Prognos för 12 månader",
+    "sampleCaption": "Illustrativa prenumerationsexempel",
+    "scopeDisclosure": "Hushållsvyn är en helt synlig visuell mockup; åtkomst och delning modelleras inte."
   }
 }
