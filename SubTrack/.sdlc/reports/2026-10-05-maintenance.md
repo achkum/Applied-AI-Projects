@@ -1,7 +1,7 @@
 # Compact accepted-work checkpoint — 2026-10-05
 
 - Development ACTIVE_BY_USER after explicit approval. Conductor main model; specialists fresh task-only Luna sessions, fork_turns:none.
-- Accepted mainc1956b52b0a4b26e234a3f833da0d9086d5ad283. Approved PR150 workflow repairs accepted at532b960;34requiredstepsSUCCESS,12Python+5Node helper tests and real semantic canary pass.
+- Accepted main5dfc3887d3b055f2ff81524f88d2ffa9c2a653f7. Approved PR150 workflow repairs accepted at532b960;34requiredstepsSUCCESS,12Python+5Node helper tests and real semantic canary pass.
 - PR132 classifier accepted at8805e375 from6a17081 after independent data/devops approvals,35lockedMLtests and CI37366329360 finalSUCCESS:25quality+9Compose steps, no skips. Initial Compose attempt acquired no hosted runner; one job-only retry passed. No held-out generalization claim.
 - Both newly merged source branches removed only after exact squash-tree equivalence and head-leased remote deletion. Earlier four verified merged-head cleanup receipts preserved. Never delete unknown/unmerged/holding work.
 - Accepted SEC-FU1a PR151 atc1956b5, exacthead954b25a CI37370589254 all34stepsSUCCESS; sourcebranch safelycleaned. Scope: narrow signed JWT runtime-claim validation, source/platform/security approvals;32focused and125fullAPI copied-source tests plus typecheck PASS. Final branch125APItests, lint/typecheck and100% JWTcoveragePASS; no HTTP principal, module registration, liveRLS or security-all-clear claim.
@@ -14,5 +14,8 @@
 - Dispatch/checkpoint sizes bounded; rotation at20reportedcalls/30min preserves original task budget/retry/failure history. Platform manages Conductor compaction; no claim that a tool forcibly cleared it.
 
 - Continued independent work during CI wait: fresh Luna internal auth decision record received independent platform/security APPROVE_INTERNAL_POLICY; publiccontracts/founderdeletionchoice/BUG008/PostgreSQLgates remain. Noauthmoduleexposure.
-- Current D1 ST029a concept slice: token-based dark/light/monochrome orbit icons, bilingual static splash and imagery-led store art. Local ChromiumQA PASS bundledfonts,9images,sv/enManrope500, no page/loaderrors, nooverflow1440/375; independent client/designAPPROVE_SOURCE; currentCI pending. ParentST029platformspecs remainblocked byofficialdocsproxy403, noexport/GDESIGNclaim.
+- Accepted PR152 ST029a at5dfc388, exacthead56cec488 CI37376921825 all34stepsSUCCESS and safelycleaned sourcebranch. Concept slice: token-based dark/light/monochrome orbit icons, bilingual static splash and imagery-led store art. Local ChromiumQA PASS bundledfonts,9images,sv/enManrope500, no page/loaderrors, nooverflow1440/375; independent client/designAPPROVE_SOURCE. ParentST029platformspecs remainblocked byofficialdocsproxy403, noexport/GDESIGNclaim.
 - Actual task tool counts can exceed requested per-agent dispatch caps; recorded honestly, guard counters are manual and do not intercept every tool. No claimed provider-quota savings.
+
+- Current ST125a offline clusteringcore: final40MLtestsPASS,5000artificialnumericrow smoke selected5/sample1000/ARI1.0; independentdataAPPROVE_SOURCE. ParentST125featurebuilder/cohort/labels/descriptor/productpopulation remain; no money/PII/routes/deps. CurrentCIpending.
+- Blocker resolution: authwireproposal now covers session-boundCSRF/loginbrowsernonce and has reviewedbootstrapproposal; deletefounderchoice/version/storage/pathgatesremain. LocalSubTrack/postgres DBs bothzeroapplicationtables/history; nonlocalscopequestionpending. Networkdraftsaved preserving8hosts+adding3officialApple/Googledochosts; requirespublication, notruntimeaccessclaim. OneboundedLunacapacityretryresumedtasks; no modelroutingchange.
