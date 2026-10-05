@@ -32,5 +32,12 @@
     "welcome": {
       "tagline": "Allt ni prenumererar på. På ett ställe."
     }
+  },
+  "hero": {
+    "subscriptionDetail": {
+      "title": "Prenumerationsdetalj",
+      "cadenceMonthly": "per månad",
+      "priceHistory": "Prishistorik"
+    }
   }
 }

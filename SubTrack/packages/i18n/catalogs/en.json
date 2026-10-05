@@ -32,5 +32,12 @@
     "welcome": {
       "tagline": "Everything you subscribe to. In one place."
     }
+  },
+  "hero": {
+    "subscriptionDetail": {
+      "title": "Subscription detail",
+      "cadenceMonthly": "per month",
+      "priceHistory": "Price history"
+    }
   }
 }
