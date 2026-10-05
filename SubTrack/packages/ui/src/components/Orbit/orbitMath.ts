@@ -1,7 +1,9 @@
 import type { OrbitSubscription, BodyLayout, OrbitLayoutResult } from './types';
 
 /** SVG canvas half-width; viewBox is `0 0 SIZE SIZE`. */
-const SIZE = 480;
+const SIZE = 720;
+/** Original CSS viewBox scale used to preserve the existing pointer target size. */
+export const HIT_TARGET_REFERENCE_SIZE = 480;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
 
@@ -65,7 +67,7 @@ export function anglesForCadence(
 
 /** Build SVG x,y from polar (ring + angle) relative to the canvas centre. */
 export function toCartesian(ring: number, angle: number): { x: number; y: number } {
-  const r = RING_RADII[Math.min(ring, RING_RADII.length - 1)] ?? RING_RADII[RING_RADII.length - 1];
+  const r = RING_RADII[Math.min(ring, RING_RADII.length - 1)] ?? 312;
   return {
     x: CX + r * Math.sin(angle),
     y: CY - r * Math.cos(angle),

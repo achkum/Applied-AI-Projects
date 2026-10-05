@@ -1,5 +1,5 @@
-import React, { useReducer } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import React from 'react';
+import { AnimatePresence, motion, useReducedMotion, type Transition } from 'framer-motion';
 import { formatMoney } from '../../utils/formatMoney';
 import styles from './RollingNumber.module.css';
 
@@ -11,6 +11,7 @@ export interface RollingNumberProps {
   onPeriodChange: (period: 'monthly' | 'annual') => void;
   monthlyLabel: string;
   annualLabel: string;
+  periodGroupLabel?: string;
   isLoading?: boolean;
   loadingLabel?: string;
   unavailableLabel?: string;
@@ -24,6 +25,7 @@ export function RollingNumber({
   onPeriodChange,
   monthlyLabel,
   annualLabel,
+  periodGroupLabel = 'Period',
   isLoading = false,
   loadingLabel = '…',
   unavailableLabel,
@@ -31,7 +33,7 @@ export function RollingNumber({
   const prefersReducedMotion = useReducedMotion();
   const formatted = formatMoney(amountMinor, currency, locale);
 
-  const spring = prefersReducedMotion
+  const spring: Transition = prefersReducedMotion
     ? { type: 'tween', duration: 0 }
     : { type: 'spring', damping: 18, stiffness: 180 };
 
@@ -52,9 +54,9 @@ export function RollingNumber({
         <AnimatePresence mode="wait" initial={false}>
           <motion.span
             key={displayText}
-            initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+            initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={prefersReducedMotion ? false : { opacity: 0, y: -12 }}
+            exit={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -12 }}
             transition={spring}
             className={styles.value}
           >
@@ -62,7 +64,7 @@ export function RollingNumber({
           </motion.span>
         </AnimatePresence>
       </div>
-      <div className={styles.toggle} role="group" aria-label="Period">
+      <div className={styles.toggle} role="group" aria-label={periodGroupLabel}>
         <button
           type="button"
           className={[styles.toggleBtn, period === 'monthly' ? styles.active : ''].join(' ')}

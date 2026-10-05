@@ -24,6 +24,10 @@ Selecting a segment changes the screen scope/accent; state is conveyed by select
 ## Accessibility and reduced motion
 Keyboard-operable segmented control; name each member; selected state exposed; avatar has text label; no color-only distinction. Reduced motion uses immediate accent update.
 
+Selected controls use a raised surface with primary ink, a separate scope identity-accent ring, and the generated 2 px primary-ink checkmark. Unselected controls use the sunken surface and primary ink without a checkmark. Member avatars use the raised surface and primary ink with their stable member-accent ring. A separate primary-ink focus outline distinguishes keyboard focus from selected state; the focused option is scrolled into view with immediate nearest-edge scrolling. Under reduced motion, the selected-state transition is disabled so the accent update is immediate.
+
+The host may supply a localized accessible group name through `ariaLabel`; when omitted, the component keeps the legacy name `Scope`.
+
 ## Content and localization (sv/en)
 Me / Jag; Household / Hushåll; member display name; selected-scope accessibility announcement.
 

@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { formatMoney, minorUnitExponent } from '../src/index.js';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('formatMoney', () => {
   it('formats SEK in Swedish locale by default', () => {
@@ -65,4 +69,28 @@ describe('minorUnitExponent', () => {
   it('returns 0 for JPY', () => {
     expect(minorUnitExponent('JPY')).toBe(0);
   });
+
+  const invalidDigitCounts: Array<{ label: string; value: number | undefined }> = [
+    { label: 'missing', value: undefined },
+    { label: 'NaN', value: Number.NaN },
+    { label: 'infinite', value: Number.POSITIVE_INFINITY },
+    { label: 'fractional', value: 1.5 },
+    { label: 'negative', value: -1 },
+  ];
+
+  for (const { label, value } of invalidDigitCounts) {
+    it(`throws when Intl returns ${label} maximumFractionDigits`, () => {
+      const nativeOptions = new Intl.NumberFormat('sv-SE', {
+        style: 'currency',
+        currency: 'SEK',
+      }).resolvedOptions();
+      const invalidOptions = { ...nativeOptions };
+      Object.defineProperty(invalidOptions, 'maximumFractionDigits', { value });
+      vi.spyOn(Intl.NumberFormat.prototype, 'resolvedOptions').mockReturnValue(invalidOptions);
+
+      expect(() => formatMoney(100, 'SEK')).toThrowError(
+        new RangeError('Intl.NumberFormat did not provide a valid maximumFractionDigits value'),
+      );
+    });
+  }
 });

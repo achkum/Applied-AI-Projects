@@ -1,6 +1,14 @@
 export type BillingCadence = 'MONTHLY' | 'ANNUAL';
 export type OwnerType = 'ME' | 'HOUSEHOLD' | 'MEMBER';
 
+/** Localized display copy prepared by the host; Orbit never formats money or enums. */
+export interface OrbitPresentation {
+  categoryLabel: string;
+  amountLabel: string;
+  cadenceLabel: string;
+  ownerLabel: string;
+}
+
 export interface OrbitSubscription {
   id: string;
   name: string;

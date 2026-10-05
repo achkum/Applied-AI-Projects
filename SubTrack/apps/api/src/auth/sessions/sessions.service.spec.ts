@@ -12,6 +12,14 @@ const mockUpdateMany   = vi.fn();
 const mockFindMany     = vi.fn();
 const mockTransaction  = vi.fn();
 
+function firstCallArgument<T>(calls: readonly (readonly unknown[])[], name: string): T {
+  const call = calls[0];
+  if (!call) throw new Error(`Expected ${name} to be called`);
+  const argument = call[0];
+  if (argument === undefined) throw new Error(`Expected ${name} to receive arguments`);
+  return argument as T;
+}
+
 const mockPrisma = {
   session: {
     create:      mockCreate,
@@ -63,7 +71,7 @@ describe('SessionsService.createSession', () => {
     const result = await svc.createSession('identity-1', 'Chrome on macOS');
 
     expect(mockCreate).toHaveBeenCalledOnce();
-    const args = mockCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    const args = firstCallArgument<{ data: Record<string, unknown> }>(mockCreate.mock.calls, 'session.create');
     expect(args.data.identityId).toBe('identity-1');
     expect(typeof args.data.refreshTokenHash).toBe('string');
     expect((args.data.refreshTokenHash as string)).toHaveLength(64); // SHA-256 hex
@@ -109,10 +117,10 @@ describe('SessionsService.refresh', () => {
     await expect(svc.refresh('c'.repeat(64))).rejects.toThrow(UnauthorizedException);
 
     expect(mockUpdateMany).toHaveBeenCalledOnce();
-    const args = mockUpdateMany.mock.calls[0][0] as {
+    const args = firstCallArgument<{
       where: Record<string, unknown>;
       data: Record<string, unknown>;
-    };
+    }>(mockUpdateMany.mock.calls, 'session.updateMany');
     expect(args.where.familyId).toBe('family-x');
     expect(args.data.revokedAt).toBeInstanceOf(Date);
   });
@@ -128,7 +136,7 @@ describe('SessionsService.listDevices', () => {
     await svc.listDevices('identity-1');
 
     expect(mockFindMany).toHaveBeenCalledOnce();
-    const args = mockFindMany.mock.calls[0][0] as { where: Record<string, unknown> };
+    const args = firstCallArgument<{ where: Record<string, unknown> }>(mockFindMany.mock.calls, 'session.findMany');
     expect(args.where.identityId).toBe('identity-1');
     expect(args.where.revokedAt).toBeNull();
   });
@@ -142,7 +150,9 @@ describe('SessionsService.listDevices', () => {
     const { svc } = makeService();
     const result = await svc.listDevices('identity-1');
     expect(result).toHaveLength(2);
-    expect(result[0]).toMatchObject({ id: 'sess-1', deviceName: 'iPhone' });
+    const firstDevice = result[0];
+    if (!firstDevice) throw new Error('Expected at least one active device');
+    expect(firstDevice).toMatchObject({ id: 'sess-1', deviceName: 'iPhone' });
   });
 });
 
@@ -157,7 +167,7 @@ describe('SessionsService.revokeDevice', () => {
     await svc.revokeDevice('sess-1', 'identity-1');
 
     expect(mockUpdate).toHaveBeenCalledOnce();
-    const args = mockUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    const args = firstCallArgument<{ data: Record<string, unknown> }>(mockUpdate.mock.calls, 'session.update');
     expect(args.data.revokedAt).toBeInstanceOf(Date);
   });
 

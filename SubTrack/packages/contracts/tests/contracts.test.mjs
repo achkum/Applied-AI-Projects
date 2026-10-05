@@ -86,7 +86,7 @@ test('validator accepts production source and rejects malformed OpenAPI with a d
   }
 });
 
-test('production contract contains exactly the approved Ops routes and response schemas', () => {
+test('production contract contains exactly the approved operational and privacy routes', () => {
   const directory = mkdtempSync(join(tmpdir(), 'st-006-bundle-'));
   try {
     const bundled = join(directory, 'openapi.json');
@@ -103,14 +103,25 @@ test('production contract contains exactly the approved Ops routes and response 
         Object.keys(item).map((method) => `${method.toUpperCase()} ${path}`),
     );
     assert.deepEqual(routes.sort(), [
+      'DELETE /v1/data-rights/account',
       'GET /healthz',
       'GET /readyz',
+      'GET /v1/data-rights/export/{token}',
+      'GET /v1/privacy/preview-as/{householdId}',
+      'GET /v1/privacy/settings',
       'GET /v1/version',
+      'PATCH /v1/privacy/open-book',
+      'POST /v1/data-rights/export',
     ]);
     assert.deepEqual(Object.keys(document.components?.schemas ?? {}).sort(), [
+      'ConsentSetting',
+      'DeleteAccountBody',
+      'ExportJobResponse',
       'HealthResponse',
       'Problem',
       'ReadinessResponse',
+      'SetOpenBookBody',
+      'SubscriptionSummary',
       'VersionResponse',
     ]);
     assert.deepEqual(Object.keys(document.components?.responses ?? {}), ['Problem']);
@@ -136,6 +147,41 @@ test('production contract contains exactly the approved Ops routes and response 
         assert.equal(responseSchema.properties.version.type, 'string');
       }
     }
+    const jsonResponseSchema = (path, method, status = '200') =>
+      document.paths[path][method].responses[status].content['application/json'].schema;
+    assert.deepEqual(
+      jsonResponseSchema('/v1/privacy/settings', 'get'),
+      { type: 'array', items: { $ref: '#/components/schemas/ConsentSetting' } },
+    );
+    assert.deepEqual(
+      jsonResponseSchema('/v1/privacy/open-book', 'patch'),
+      { $ref: '#/components/schemas/ConsentSetting' },
+    );
+    assert.deepEqual(
+      jsonResponseSchema('/v1/privacy/preview-as/{householdId}', 'get'),
+      { type: 'array', items: { $ref: '#/components/schemas/SubscriptionSummary' } },
+    );
+    assert.deepEqual(
+      document.components.schemas.SubscriptionSummary.properties.customName.type,
+      ['string', 'null'],
+    );
+    assert.equal(
+      document.components.schemas.SubscriptionSummary.required.includes('customName'),
+      false,
+      'customName remains optional while allowing an explicit null',
+    );
+    assert.deepEqual(
+      jsonResponseSchema('/v1/data-rights/export', 'post', '202'),
+      { $ref: '#/components/schemas/ExportJobResponse' },
+    );
+    assert.deepEqual(
+      document.paths['/v1/data-rights/export/{token}'].get.responses['200'].content['application/zip'].schema,
+      { type: 'string', format: 'binary' },
+    );
+    assert.deepEqual(
+      Object.keys(document.paths['/v1/data-rights/account'].delete.responses),
+      ['204', '400', '401', '403', '404', 'default'],
+    );
     assert.deepEqual(document.components.responses.Problem.content?.['application/problem+json']?.schema, {
       $ref: '#/components/schemas/Problem',
     });

@@ -11,16 +11,33 @@
     "./bank": {
       "types": "./bank/index.ts",
       "import": "./bank/index.ts"
+    },
+    "./ingestion": {
+      "types": "./ingestion/index.ts",
+      "import": "./ingestion/index.ts"
+    },
+    "./merchant": {
+      "types": "./merchant/index.ts",
+      "import": "./merchant/index.ts"
+    },
+    "./detection": {
+      "types": "./detection/index.ts",
+      "import": "./detection/index.ts"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "eslint \"policy/**/*.ts\" \"bank/**/*.ts\"",
+    "lint": "eslint \"policy/**/*.ts\" \"bank/**/*.ts\" \"ingestion/**/*.ts\" \"merchant/**/*.ts\" \"detection/**/*.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@subtrack/money": "workspace:*"
   },
   "devDependencies": {
     "@subtrack/config": "workspace:*",
+    "@vitest/coverage-v8": "4.1.11",
     "vitest": "4.1.11"
   }
 }

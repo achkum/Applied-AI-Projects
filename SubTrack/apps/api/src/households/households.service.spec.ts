@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   ForbiddenException,
-  NotFoundException,
   ConflictException,
 } from '@nestjs/common';
 import { HouseholdsService } from './households.service';
@@ -23,11 +22,19 @@ const mkTx = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+function firstCallArgument<T>(calls: readonly (readonly unknown[])[], name: string): T {
+  const call = calls[0];
+  if (!call) throw new Error(`Expected ${name} to be called`);
+  const argument = call[0];
+  if (argument === undefined) throw new Error(`Expected ${name} to receive arguments`);
+  return argument as T;
+}
+
 const mkPrisma = () => {
   const tx = mkTx();
   return {
     ...tx,
-    $transaction: vi.fn((fn: (tx: typeof tx) => Promise<unknown>) => fn(tx)),
+    $transaction: vi.fn((fn: (context: ReturnType<typeof mkTx>) => Promise<unknown>) => fn(tx)),
     _tx: tx,
   };
 };
@@ -51,7 +58,7 @@ describe('createHousehold', () => {
     const result = await svc.createHousehold('My House', 'caller-id');
 
     expect(result).toEqual(household);
-    const memberArgs = prisma._tx.householdMember.create.mock.calls[0][0] as { data: Record<string, unknown> };
+    const memberArgs = firstCallArgument<{ data: Record<string, unknown> }>(prisma._tx.householdMember.create.mock.calls, 'householdMember.create');
     expect(memberArgs.data.role).toBe('ADMIN');
     expect(memberArgs.data.identityId).toBe('caller-id');
   });
@@ -147,13 +154,13 @@ describe('addDependant', () => {
     const result = await svc.addDependant('hh-1', 'Child A', 'caller-id');
 
     expect(result.role).toBe('DEPENDANT');
-    const identityArgs = prisma._tx.identity.create.mock.calls[0][0] as { data: Record<string, unknown> };
+    const identityArgs = firstCallArgument<{ data: Record<string, unknown> }>(prisma._tx.identity.create.mock.calls, 'identity.create');
     // No email, no phone — synthetic identity
     expect(identityArgs.data.email).toBeUndefined();
     expect(identityArgs.data.phone).toBeUndefined();
     expect(identityArgs.data.authMethod).toBe('MOCK');
     // Audit log carries the display name, not the member row
-    const auditArgs = prisma._tx.auditLog.create.mock.calls[0][0] as { data: Record<string, unknown> };
+    const auditArgs = firstCallArgument<{ data: Record<string, unknown> }>(prisma._tx.auditLog.create.mock.calls, 'auditLog.create');
     expect((auditArgs.data.payload as Record<string, string>).displayName).toBe('Child A');
   });
 

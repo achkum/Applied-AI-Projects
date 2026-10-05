@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { Orbit } from '@subtrack/ui';
 import type { OrbitSubscription } from '@subtrack/ui';
 
@@ -12,14 +12,14 @@ const SUBS: OrbitSubscription[] = [
 describe('Orbit integration (apps/web)', () => {
   it('renders the orbit figure with the correct aria-label', () => {
     render(<Orbit subscriptions={SUBS} ariaLabel="Test subscription orbit" />);
-    expect(screen.getByRole('img', { name: 'Test subscription orbit' })).toBeDefined();
+    expect(screen.getByRole('figure', { name: 'Test subscription orbit' })).toBeDefined();
   });
 
   it('lists all subscription names in the accessible list', () => {
     render(<Orbit subscriptions={SUBS} />);
-    expect(screen.getByText('Netflix')).toBeDefined();
-    expect(screen.getByText('iCloud')).toBeDefined();
-    expect(screen.getByText('Peloton')).toBeDefined();
+    expect(screen.getByText(/Netflix — ME — MONTHLY/)).toBeDefined();
+    expect(screen.getByText(/iCloud — HOUSEHOLD — MONTHLY/)).toBeDefined();
+    expect(screen.getByText(/Peloton — MEMBER — MONTHLY/)).toBeDefined();
   });
 
   it('renders an SVG element', () => {
@@ -36,7 +36,10 @@ describe('Orbit integration (apps/web)', () => {
       />,
     );
     const buttons = screen.getAllByRole('button');
-    buttons[0]?.click();
+    const firstButton = buttons[0];
+    expect(firstButton).toBeDefined();
+    if (!firstButton) throw new Error('Expected at least one orbit body button');
+    fireEvent.click(firstButton);
     expect(selected).toHaveLength(1);
   });
 });

@@ -169,9 +169,14 @@ describe('API foundation', () => {
     };
     const tx = {
       $executeRaw: async (query: TemplateStringsArray, userId: string) => {
-        expect(query.join('?')).toContain("set_config('app.user_id', ?");
-        expect(query.join('?')).toContain(', true)');
-        events.push(`set:${userId}`);
+        const statement = query.join('?');
+        const setting = statement.includes("set_config('app.user_id', ?")
+          ? 'app.user_id'
+          : 'app.current_user_id';
+        expect(statement).toContain(`set_config('${setting}', ?`);
+        expect(statement).toContain(', true)');
+        expect(statement).not.toContain(userId);
+        events.push(`set:${setting}:${userId}`);
         return 1;
       },
     };
@@ -199,11 +204,84 @@ describe('API foundation', () => {
       },
     );
     expect(events).toEqual([
-      'set:user-a',
+      'set:app.user_id:user-a',
+      'set:app.current_user_id:user-a',
       'query:user-a',
-      'set:user-b',
+      'set:app.user_id:user-b',
+      'set:app.current_user_id:user-b',
       'query:user-b',
     ]);
+  });
+
+  it.each(['app.user_id', 'app.current_user_id'] as const)(
+    'does not invoke the operation when setting %s fails',
+    async (failedSetting) => {
+      const attempts: string[] = [];
+      let operationCalled = false;
+      const tx = {
+        $executeRaw: async (query: TemplateStringsArray) => {
+          const statement = query.join('?');
+          attempts.push(statement);
+          if (statement.includes(`set_config('${failedSetting}', ?`)) {
+            throw new Error(`failed ${failedSetting}`);
+          }
+          return 1;
+        },
+      };
+      const runner = {
+        $transaction: async <T>(callback: (client: typeof transaction) => Promise<T>) =>
+          callback(tx as typeof transaction),
+      };
+
+      await expect(
+        withRequestTransaction(runner as never, { userId: 'user-a' }, async () => {
+          operationCalled = true;
+        }),
+      ).rejects.toThrow(`failed ${failedSetting}`);
+      expect(operationCalled).toBe(false);
+      expect(attempts).toHaveLength(failedSetting === 'app.user_id' ? 1 : 2);
+    },
+  );
+
+  it('uses one captured identity even if the caller mutates its context during binding', async () => {
+    const context = { userId: 'user-original' };
+    const settingValues: string[] = [];
+    let operationCalled = false;
+    const tx = {
+      $executeRaw: async (query: TemplateStringsArray, userId: string) => {
+        settingValues.push(userId);
+        if (settingValues.length === 1) context.userId = 'user-mutated';
+        expect(query.join('?')).toContain(', true)');
+        return 1;
+      },
+    };
+    const runner = {
+      $transaction: async <T>(callback: (client: typeof transaction) => Promise<T>) =>
+        callback(tx as typeof transaction),
+    };
+
+    await withRequestTransaction(runner as never, context, async () => {
+      operationCalled = true;
+    });
+
+    expect(context.userId).toBe('user-mutated');
+    expect(settingValues).toEqual(['user-original', 'user-original']);
+    expect(operationCalled).toBe(true);
+  });
+
+  it('rejects blank request identity before opening a transaction', async () => {
+    let transactionStarted = false;
+    const runner = {
+      $transaction: async <T>(callback: (client: typeof transaction) => Promise<T>) => {
+        transactionStarted = true;
+        return callback(transaction);
+      },
+    };
+
+    await expect(
+      withRequestTransaction(runner as never, { userId: '  \t  ' }, async () => 'unreachable'),
+    ).rejects.toThrow('Authenticated request context is required');
+    expect(transactionStarted).toBe(false);
   });
 
   it('closes the transaction when the request operation fails', async () => {

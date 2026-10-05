@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, UnprocessableEntityException } from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import type { IdentityProvider, IdentityResult } from './identity-provider.interface';
 
