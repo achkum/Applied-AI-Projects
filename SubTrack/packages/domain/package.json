@@ -19,14 +19,21 @@
     "./merchant": {
       "types": "./merchant/index.ts",
       "import": "./merchant/index.ts"
+    },
+    "./detection": {
+      "types": "./detection/index.ts",
+      "import": "./detection/index.ts"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "eslint \"policy/**/*.ts\" \"bank/**/*.ts\" \"ingestion/**/*.ts\" \"merchant/**/*.ts\"",
+    "lint": "eslint \"policy/**/*.ts\" \"bank/**/*.ts\" \"ingestion/**/*.ts\" \"merchant/**/*.ts\" \"detection/**/*.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@subtrack/money": "workspace:*"
   },
   "devDependencies": {
     "@subtrack/config": "workspace:*",
