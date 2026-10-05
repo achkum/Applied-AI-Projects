@@ -1,7 +1,7 @@
 {
   "as_of": "2026-10-05",
-  "source": "st/ST-029a-brand-concepts",
-  "source_head": "cbec2d9b4d95dfe106418348a2a00a7bcd7e9088",
+  "source": "st/ST-125a-clustering-core",
+  "source_head": "f7cca2d93a136f838af2d53453b0bc52cc71ba37",
   "completed_task_ids": [
     "BUG-001",
     "BUG-002",
@@ -48,6 +48,7 @@
     "ST-025",
     "ST-026",
     "ST-027",
+    "ST-029a",
     "ST-030",
     "ST-031",
     "ST-034",
@@ -84,12 +85,12 @@
     "ST-162",
     "ST-168"
   ],
-  "completed_task_count": 80,
-  "record_count": 131,
+  "completed_task_count": 81,
+  "record_count": 132,
   "status_counts": {
     "BACKLOG": 46,
     "BLOCKED": 3,
-    "DONE": 80,
+    "DONE": 81,
     "IN_PROGRESS": 1,
     "IN_REVIEW": 1
   },
