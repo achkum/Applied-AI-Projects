@@ -1,7 +1,7 @@
 {
   "as_of": "2026-10-05",
-  "source": "st/SEC-FU1a-jwt-claims",
-  "source_head": "3bc6562e364403f71d9f7a1eba37f046d91b49f0",
+  "source": "st/ST-029a-brand-concepts",
+  "source_head": "cbec2d9b4d95dfe106418348a2a00a7bcd7e9088",
   "completed_task_ids": [
     "BUG-001",
     "BUG-002",
@@ -22,6 +22,7 @@
     "BUG-018",
     "BUG-019",
     "BUG-020",
+    "SEC-FU1a",
     "ST-001",
     "ST-002",
     "ST-003",
@@ -83,12 +84,12 @@
     "ST-162",
     "ST-168"
   ],
-  "completed_task_count": 79,
-  "record_count": 130,
+  "completed_task_count": 80,
+  "record_count": 131,
   "status_counts": {
     "BACKLOG": 46,
     "BLOCKED": 3,
-    "DONE": 79,
+    "DONE": 80,
     "IN_PROGRESS": 1,
     "IN_REVIEW": 1
   },
