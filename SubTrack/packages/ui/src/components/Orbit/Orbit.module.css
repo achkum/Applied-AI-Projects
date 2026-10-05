@@ -14,7 +14,7 @@
 .bodyLabel {
   fill: var(--ink-primary);
   stroke: var(--bg-raised);
-  stroke-width: 2px;
+  stroke-width: 3px;
   stroke-linejoin: round;
   paint-order: stroke fill;
   animation: orbit-counter-rotate 240s linear infinite;
