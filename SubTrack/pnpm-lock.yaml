@@ -453,6 +453,10 @@ importers:
         version: 4.6.5
 
   packages/domain:
+    dependencies:
+      '@subtrack/money':
+        specifier: workspace:*
+        version: link:../money
     devDependencies:
       '@subtrack/config':
         specifier: workspace:*
