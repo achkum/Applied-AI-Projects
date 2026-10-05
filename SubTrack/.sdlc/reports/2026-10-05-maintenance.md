@@ -23,3 +23,4 @@
 - Accepted PR153 ST125a at1947449, exactheadda731506 CI37380965053 all34requiredstepsSUCCESS; source safelycleaned. ParentST125remains partial.
 - BUG021b new opaque backplates frozen:83UItests,coverage98.18/95.83/100/100,lint/type/build/parity PASS;48actualbrowsercellsPASS plus Swedish/nativekeyboard/reduced-motion. Independent reviews then fivebaseline adoption/exactCI pending; original43PNG stillpreserved.
 - BUG021b independent client/design/source and QA APPROVE; root adoptedexact5reviewed OrbitPNG,38others byteidentical,total43. Mincomputedplatecontrast15.578:1, zerobackdrop leaks; separate actualJagcapture reviewed. Exact-headCI pending.
+- Accepted BUG021b PR154 at3b3b888; exact9c2ca334 CI37383300480 all34SUCCESS. Isolated Home restoration proceeds with93UItests/4visualstates/32glyphproofs/8narrowlayouts/4reduced/nativeinteractionPASS; independentvisualQA andexactCI pending, GDESIGNseparate.

@@ -1,0 +1,82 @@
+@font-face {
+  font-family: 'SubTrack Home Fraunces';
+  src: url('./fonts/Fraunces-VF.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SubTrack Home Manrope';
+  src: url('./fonts/Manrope-VF.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+.frame {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr);
+  grid-template-areas: 'header orbit' 'total orbit' 'disclosure orbit';
+  align-content: center;
+  align-items: center;
+  gap: clamp(1rem, 3vw, 2rem) clamp(2rem, 6vw, 6rem);
+  min-height: 100vh;
+  padding: clamp(2rem, 7vw, 6rem);
+  background: var(--bg-canvas);
+  color: var(--ink-primary);
+  --font-display: 'SubTrack Home Fraunces';
+  --font-ui: 'SubTrack Home Manrope';
+}
+
+.header {
+  display: grid;
+  grid-area: header;
+  justify-items: start;
+  gap: 1rem;
+}
+.eyebrow {
+  margin: 0;
+  color: var(--ink-secondary);
+  font-family: var(--font-ui), sans-serif;
+}
+.title {
+  max-width: 10ch;
+  margin: 0;
+  color: var(--ink-primary);
+  font-family: var(--font-display), Georgia, serif;
+  font-size: var(--font-size-hero);
+  font-weight: 500;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+.total { grid-area: total; }
+.totalCaption, .disclosure {
+  color: var(--ink-secondary);
+  font-family: var(--font-ui), sans-serif;
+  font-size: var(--font-size-sm);
+}
+.totalCaption { margin: 0.5rem 0 0; }
+.disclosure { grid-area: disclosure; max-width: 38ch; margin: 0; line-height: 1.5; }
+.orbit {
+  grid-area: orbit;
+  width: min(100%, 44rem);
+  justify-self: center;
+}
+
+@media (max-width: 760px) {
+  .frame {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'header' 'total' 'orbit' 'disclosure';
+    align-content: start;
+    gap: 1.5rem;
+    padding: clamp(1.5rem, 6vw, 3rem);
+  }
+  .title {
+    max-width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--font-size-4xl);
+  }
+}

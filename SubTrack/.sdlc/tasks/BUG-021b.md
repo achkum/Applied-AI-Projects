@@ -6,7 +6,7 @@ milestone: D1
 owner_role: dev-web
 reviewers: [architect-client, design-lead, qa-engineer, conductor]
 size: M
-status: IN_REVIEW
+status: DONE
 depends_on: [ST-077]
 allowed_paths:
   - SubTrack/packages/ui/src/components/Orbit/Orbit.tsx
@@ -42,3 +42,5 @@ AGENTS.md, Constitution, parent .sdlc/tasks/BUG-021.md, Orbit source/tests, docs
 
 ## Handoff
 Source frozen: opaque token-backed plate and counterrotated glyph group; no geometry/data/font/API changes. UI83tests/8files PASS; changed TS coverage98.18statements/95.83branches/100functions/100lines; lint/typecheck/build/catalog parity PASS. Actual Chromium151 DPR1 browser matrix48/48PASS, zero errors, exact flat PNG backdrop and visible glyph; real selection/hover, Swedish Jag, keyboard list and reduced-motion fallback PASS. Storybook URLargs ignored locale; diagnosed channel updateStoryArgs fixed the test helper without repeating48matrix. Independent client/design APPROVE_SOURCE; independent QA APPROVE including actual Swedish Jag capture and allfivebaselinevisualreviews. Root adopted exactlyfiveapproved Orbit PNGs; other38PNG SHA256byteidentical and total43unchanged. Exact-head CI pending. Home remains blocked until accepted merge.
+
+Accepted PR154 at3b3b888b07607b5901054a71d3db56bb5f03489c from exacthead9c2ca334894b924f33b3e56d9bfe2e777d8e13d0; CI37383300480 all34requiredstepsSUCCESS, none skipped. Independent source/client/design/QA APPROVE; exact5reviewedOrbitPNG adopted, other38byteidentical. Sourcebranch removed onlyaftertreeequivalence/headlease. Originalhalo candidates/history preserved; Home prerequisite resolved.
