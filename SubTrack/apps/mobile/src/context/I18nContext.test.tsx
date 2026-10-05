@@ -48,10 +48,21 @@ describe('I18nProvider with the installed i18n-js instance API', () => {
   });
 
   it('loads stored Swedish and translates shared and mobile-local interpolation strings', async () => {
-    mockStorage.getItem.mockResolvedValue('sv');
+    let resolveStoredLocale: (value: string | null) => void = () => {};
+    mockStorage.getItem.mockReturnValue(
+      new Promise(resolve => {
+        resolveStoredLocale = resolve;
+      }),
+    );
     renderProvider();
 
-    await screen.findByTestId('first.locale');
+    expect(mockStorage.getItem).toHaveBeenCalledWith('locale-preference');
+    expect(screen.queryByTestId('first.locale')).toBeNull();
+
+    await act(async () => {
+      resolveStoredLocale('sv');
+    });
+
     expectText('first.locale', 'sv');
     expectText('first.shared', 'Jag');
     expectText('first.signature', 'Priset höjdes till 10 kr');
