@@ -1,0 +1,88 @@
+@font-face {
+  font-family: 'SubTrack Welcome Fraunces';
+  src: url('./fonts/Fraunces-VF.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SubTrack Welcome Manrope';
+  src: url('./fonts/Manrope-VF.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+.frame {
+  box-sizing: border-box;
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: clamp(2rem, 8vw, 8rem);
+  background: var(--bg-canvas);
+  color: var(--ink-primary);
+  --font-display: 'SubTrack Welcome Fraunces';
+  --font-ui: 'SubTrack Welcome Manrope';
+}
+
+.hero {
+  display: grid;
+  justify-items: center;
+  gap: 1.5rem;
+  max-width: 52rem;
+  text-align: center;
+}
+
+.wordmark {
+  margin: 0;
+  background-image: var(--gradient-aurora);
+  background-size: 220% 100%;
+  background-position: 100% 50%;
+  background-clip: text;
+  color: transparent;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: var(--font-size-hero);
+  font-weight: 600;
+  font-optical-sizing: auto;
+  letter-spacing: 0.015em;
+  line-height: 1;
+  -webkit-text-fill-color: transparent;
+  animation: wordmark-form var(--motion-aurora-loop-seconds) ease-in-out infinite alternate;
+}
+
+.tagline {
+  max-width: 24ch;
+  margin: 0;
+  color: var(--ink-primary);
+  font-family: var(--font-ui), sans-serif;
+  font-size: var(--font-size-xl);
+  line-height: 1.4;
+}
+
+.wordmark,
+.tagline {
+  text-wrap: balance;
+}
+
+.hero[data-reduced-motion='true'] .wordmark {
+  animation: none;
+  background-position: 50% 50%;
+}
+
+@keyframes wordmark-form {
+  from {
+    background-position: 100% 50%;
+  }
+
+  to {
+    background-position: 0% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wordmark {
+    animation: none;
+    background-position: 50% 50%;
+  }
+}

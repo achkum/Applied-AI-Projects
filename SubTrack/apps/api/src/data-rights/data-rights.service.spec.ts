@@ -8,7 +8,6 @@ const mockIdentityFindUnique    = vi.fn();
 const mockIdentityUpdate        = vi.fn();
 const mockMemberFindMany        = vi.fn();
 const mockInvSentFindMany       = vi.fn();
-const mockInvRecvFindMany       = vi.fn();
 const mockInvUpdateMany         = vi.fn();
 const mockConsentFindMany       = vi.fn();
 const mockConsentDeleteMany     = vi.fn();

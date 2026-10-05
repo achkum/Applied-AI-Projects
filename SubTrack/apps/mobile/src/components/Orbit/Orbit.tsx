@@ -13,6 +13,7 @@ import { OrbitListFallback } from './OrbitListFallback';
 import type { OrbitSubscription } from './types';
 
 /** Map category slug → colour hex. Host theme overrides these via a theme provider. */
+const DEFAULT_CATEGORY_COLOR = '#6B7280';
 const CATEGORY_COLORS: Record<string, string> = {
   streaming:    '#7C3AED',
   fitness:      '#10B981',
@@ -21,11 +22,11 @@ const CATEGORY_COLORS: Record<string, string> = {
   music:        '#EC4899',
   cloud:        '#6366F1',
   news:         '#F97316',
-  other:        '#6B7280',
+  other:        DEFAULT_CATEGORY_COLOR,
 };
 
 function categoryColor(category: string): string {
-  return CATEGORY_COLORS[category.toLowerCase()] ?? CATEGORY_COLORS['other'];
+  return CATEGORY_COLORS[category.toLowerCase()] ?? DEFAULT_CATEGORY_COLOR;
 }
 
 export interface OrbitProps {
@@ -55,14 +56,14 @@ export function Orbit({ subscriptions, onBodyPress, activeId, forceList, style }
       <OrbitListFallback
         subscriptions={subscriptions}
         onItemPress={handlePress}
-        activeId={activeId}
+        {...(activeId === undefined ? {} : { activeId })}
       />
     );
   }
 
   // Unique rings for track rendering
   const usedRings = [...new Set(bodies.map((b) => b.ring))].sort((a, z) => a - z);
-  const ringRadii = [48, 104, 160, 216];
+  const ringRadii = [48, 104, 160, 216] as const;
 
   return (
     <View
@@ -72,7 +73,7 @@ export function Orbit({ subscriptions, onBodyPress, activeId, forceList, style }
     >
       {/* Static ring tracks */}
       {usedRings.map((ring) => {
-        const r = ringRadii[Math.min(ring, ringRadii.length - 1)] ?? ringRadii[ringRadii.length - 1];
+        const r = ringRadii[Math.min(ring, ringRadii.length - 1)] ?? 216;
         const diameter = r * 2;
         return (
           <View

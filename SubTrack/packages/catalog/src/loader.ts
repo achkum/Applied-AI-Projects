@@ -16,7 +16,8 @@ export interface CatalogData {
   plans: CatalogPlan[];
 }
 
-function parseMerchants(raw: unknown): CatalogMerchant[] {
+/** @internal Exported for focused loader tests; not part of the package entry point. */
+export function parseMerchants(raw: unknown): CatalogMerchant[] {
   if (!Array.isArray(raw)) throw new Error('merchants.yaml must be an array');
   return raw.map((item: unknown, i) => {
     if (!item || typeof item !== 'object') {
@@ -41,14 +42,15 @@ function parseMerchants(raw: unknown): CatalogMerchant[] {
       key: r['key'] as string,
       canonicalName: r['canonical_name'] as string,
       aliases: r['aliases'] as string[],
-      website: typeof r['website'] === 'string' ? r['website'] : undefined,
       category: r['category'] as string,
-      categoryHue: typeof r['category_hue'] === 'number' ? r['category_hue'] : undefined,
+      ...(typeof r['website'] === 'string' ? { website: r['website'] } : {}),
+      ...(typeof r['category_hue'] === 'number' ? { categoryHue: r['category_hue'] } : {}),
     } satisfies CatalogMerchant;
   });
 }
 
-function parsePlans(raw: unknown, merchantKeys: Set<string>): CatalogPlan[] {
+/** @internal Exported for focused loader tests; not part of the package entry point. */
+export function parsePlans(raw: unknown, merchantKeys: Set<string>): CatalogPlan[] {
   if (!Array.isArray(raw)) throw new Error('plans.yaml must be an array');
   return raw.map((item: unknown, i) => {
     if (!item || typeof item !== 'object') {
@@ -85,7 +87,7 @@ function parsePlans(raw: unknown, merchantKeys: Set<string>): CatalogPlan[] {
       merchantKey: r['merchant_key'] as string,
       name: r['name'] as string,
       period: r['period'] as BillingPeriod,
-      amountMinor,
+      ...(amountMinor === undefined ? {} : { amountMinor }),
       currency: (r['currency'] as string).toUpperCase(),
       region: typeof r['region'] === 'string' ? (r['region'] as string).toUpperCase() : 'GLOBAL',
       active: r['active'] !== false,

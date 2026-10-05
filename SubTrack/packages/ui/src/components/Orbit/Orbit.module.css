@@ -6,7 +6,7 @@
 }
 
 .rotatingGroup {
-  transform-origin: 240px 240px; /* SIZE/2, SIZE/2 */
+  transform-origin: 360px 360px; /* SIZE/2, SIZE/2 */
   animation: orbit-rotate 240s linear infinite;
 }
 
@@ -36,26 +36,53 @@
 /* Ring track lines */
 .ringTrack {
   fill: none;
-  stroke: var(--color-orbit-track, rgba(255, 255, 255, 0.08));
+  stroke: var(--line-hairline);
   stroke-width: 1;
 }
 
 /* Centre "Me" indicator */
 .centreBody {
-  fill: var(--color-orbit-centre, #1a1a2e);
-  stroke: var(--color-orbit-centre-ring, rgba(255, 255, 255, 0.35));
+  fill: var(--bg-raised);
+  stroke: var(--ink-secondary);
   stroke-width: 1.5;
+}
+
+.bodyHitTarget {
+  fill: transparent;
+  cursor: pointer;
+  pointer-events: all;
+}
+
+.bodyHitTarget:focus-visible {
+  outline: none;
+  stroke: var(--ink-primary);
+  stroke-width: 2;
+}
+
+.emptyConstellation {
+  stroke: var(--ink-secondary);
+  stroke-opacity: 0.45;
+  stroke-width: 1.5;
+}
+
+.emptyConstellation path {
+  fill: none;
+}
+
+.emptyConstellation circle {
+  stroke: none;
+  fill: var(--ink-secondary);
 }
 
 /* Subscription bodies — colour set via inline CSS var */
 .subscriptionBody {
-  fill: var(--body-color, #555);
-  cursor: pointer;
+  fill: var(--body-color, var(--category-other-subscription));
+  pointer-events: none;
   transition: opacity 0.15s ease;
 }
 
-.subscriptionBody:hover,
-.subscriptionBody:focus-visible {
+.bodyHitTarget:hover + .subscriptionBody,
+.bodyHitTarget:focus-visible + .subscriptionBody {
   opacity: 0.75;
   outline: none;
 }
@@ -71,4 +98,92 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.modeToggle {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  color: var(--ink-primary);
+  font: inherit;
+  font-family: var(--font-ui), sans-serif;
+  cursor: pointer;
+}
+
+.modeToggle:focus-visible,
+.listItem:focus-visible {
+  outline: 2px solid var(--ink-primary);
+  outline-offset: 2px;
+}
+
+.enriched > .presentationList {
+  position: relative;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.listHeading {
+  margin: 0 0 0.75rem;
+  color: var(--ink-primary);
+  font-family: var(--font-display), Georgia, serif;
+  font-size: var(--font-size-xl);
+  font-weight: 500;
+}
+
+.presentationList ul {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.listItem {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(6rem, 1fr) repeat(4, minmax(0, auto));
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-card);
+  background: var(--bg-raised);
+  color: var(--ink-primary);
+  font: inherit;
+  font-family: var(--font-ui), sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.listItem[aria-pressed='true'] {
+  outline: 2px solid var(--ink-primary);
+  outline-offset: 1px;
+}
+
+.listItem > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.listName {
+  font-weight: 600;
+}
+
+.enriched > .orbit[data-list-mode='true'] {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .listItem {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .listName {
+    grid-column: 1 / -1;
+  }
 }

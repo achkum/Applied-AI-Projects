@@ -5,6 +5,14 @@ import { IdentityProviderService } from './identity-provider.service';
 
 const HMAC_SECRET = 'test-secret';
 
+function firstCallArgument<T>(calls: readonly (readonly unknown[])[], name: string): T {
+  const call = calls[0];
+  if (!call) throw new Error(`Expected ${name} to be called`);
+  const argument = call[0];
+  if (argument === undefined) throw new Error(`Expected ${name} to receive arguments`);
+  return argument as T;
+}
+
 // ─── BankIdSimulator ──────────────────────────────────────────────────────────
 
 describe('BankIdSimulator', () => {
@@ -72,7 +80,7 @@ describe('IdentityProviderService', () => {
     expect(result.action).toBe('registered');
     expect(result.identityId).toBe('new-id');
     // Verify persisted data does NOT contain raw personnummer
-    const createArgs = mockCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    const createArgs = firstCallArgument<{ data: Record<string, unknown> }>(mockCreate.mock.calls, 'identity.create');
     expect(JSON.stringify(createArgs.data)).not.toContain('199001012391');
     expect(createArgs.data.authMethod).toBe('BANKID');
   });
@@ -102,7 +110,7 @@ describe('IdentityProviderService', () => {
     const svc = makeService();
     await svc.verifyAndRegister('bob');
 
-    const createArgs = mockCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    const createArgs = firstCallArgument<{ data: Record<string, unknown> }>(mockCreate.mock.calls, 'identity.create');
     // externalId must be a 64-char hex HMAC
     expect(typeof createArgs.data.externalId).toBe('string');
     expect(createArgs.data.externalId as string).toHaveLength(64);

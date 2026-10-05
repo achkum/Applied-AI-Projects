@@ -14,9 +14,27 @@
     "personal": "Jag",
     "shared": "Delat"
   },
+  "scopeSwitcher": {
+    "groupLabel": "Omfattning"
+  },
+  "rollingTotal": {
+    "periodGroupLabel": "Visningsperiod"
+  },
   "orbit": {
     "ariaLabel": "Prenumerationsorbit",
     "centreMeLabel": "Jag",
+    "viewAsList": "Visa som lista",
+    "listLabel": "Prenumerationer",
+    "monthlyEquivalent": "motsvarande per månad",
+    "categoryLabels": {
+      "streaming": "Videostreaming",
+      "music": "Musik",
+      "productivity": "Produktivitet",
+      "cloud": "Molnlagring",
+      "fitness": "Träning",
+      "gaming": "Spel",
+      "news": "Nyheter"
+    },
     "ownerType": {
       "ME": "Mina",
       "HOUSEHOLD": "Hushåll",
@@ -27,5 +45,17 @@
       "ANNUAL": "Årsvis"
     },
     "bodyAriaLabel": "{{name}}, {{ownerType}}, {{cadence}}"
+  },
+  "onboarding": {
+    "welcome": {
+      "tagline": "Allt ni prenumererar på. På ett ställe."
+    }
+  },
+  "hero": {
+    "subscriptionDetail": {
+      "title": "Prenumerationsdetalj",
+      "cadenceMonthly": "per månad",
+      "priceHistory": "Prishistorik"
+    }
   }
 }

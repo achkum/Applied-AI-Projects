@@ -39,6 +39,7 @@ model Identity {
   auditEntries          AuditLog[]
   subscriptions         Subscription[]
   sharedSubscriptions   SubscriptionShare[] @relation("sharer")
+  sessions              Session[]
 
   @@map("identity")
 }
@@ -49,6 +50,29 @@ enum AuthMethod {
   MOCK /// Only valid in development/simulator mode; rejected in production.
 
   @@map("auth_method")
+}
+
+// ---------------------------------------------------------------------------
+// SESSION
+//
+// Opaque refresh-token sessions as created by the accepted 0003_session
+// migration. RLS policies and database constraints are defined in that SQL.
+// ---------------------------------------------------------------------------
+model Session {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identityId       String    @map("identity_id") @db.Uuid
+  deviceName       String    @map("device_name") @db.VarChar(120)
+  refreshTokenHash String    @unique(map: "session_refresh_token_hash_key") @map("refresh_token_hash") @db.VarChar(64)
+  familyId         String    @map("family_id") @db.Uuid
+  generation       Int       @default(0)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastUsedAt       DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "session_identity_fkey")
+
+  @@index([identityId], map: "session_identity_id_idx")
+  @@map("session")
 }
 
 // ---------------------------------------------------------------------------

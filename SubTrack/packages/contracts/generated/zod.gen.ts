@@ -14,6 +14,51 @@ export const zVersionResponse = z.object({
     version: z.string()
 });
 
+export const zSetOpenBookBody = z.object({
+    householdId: z.uuid(),
+    openBook: z.boolean()
+});
+
+export const zConsentSetting = z.object({
+    householdId: z.uuid(),
+    openBook: z.boolean(),
+    updatedAt: z.iso.datetime()
+});
+
+export const zSubscriptionSummary = z.object({
+    id: z.uuid(),
+    customName: z.string().nullish(),
+    categoryCode: z.string(),
+    cadence: z.enum([
+        'WEEKLY',
+        'MONTHLY',
+        'QUARTERLY',
+        'SEMIANNUAL',
+        'ANNUAL',
+        'CUSTOM'
+    ]),
+    status: z.enum([
+        'DETECTED',
+        'TRIAL',
+        'ACTIVE',
+        'PAUSED',
+        'CANCELLED',
+        'ARCHIVED',
+        'REJECTED'
+    ]),
+    alwaysPrivate: z.boolean().optional()
+});
+
+export const zExportJobResponse = z.object({
+    token: z.string(),
+    downloadUrl: z.string(),
+    expiresAt: z.iso.datetime()
+});
+
+export const zDeleteAccountBody = z.object({
+    reAuthToken: z.string()
+});
+
 /**
  * RFC 9457 problem details.
  */
@@ -34,6 +79,68 @@ export const zGetHealthzResponse = zHealthResponse;
  * API is ready to receive requests.
  */
 export const zGetReadyzResponse = zReadinessResponse;
+
+export const zGetPrivacySettingsHeaders = z.object({
+    'X-Caller-Id': z.uuid()
+});
+
+/**
+ * List of consent settings, one entry per household.
+ */
+export const zGetPrivacySettingsResponse = z.array(zConsentSetting);
+
+export const zSetOpenBookBody2 = zSetOpenBookBody;
+
+export const zSetOpenBookHeaders = z.object({
+    'X-Caller-Id': z.uuid()
+});
+
+/**
+ * Updated consent setting.
+ */
+export const zSetOpenBookResponse = zConsentSetting;
+
+export const zPreviewAsHouseholdHeaders = z.object({
+    'X-Caller-Id': z.uuid()
+});
+
+export const zPreviewAsHouseholdPath = z.object({
+    householdId: z.uuid()
+});
+
+/**
+ * Visible subscription summaries.
+ */
+export const zPreviewAsHouseholdResponse = z.array(zSubscriptionSummary);
+
+export const zRequestDataExportHeaders = z.object({
+    'X-Caller-Id': z.uuid()
+});
+
+/**
+ * Export job accepted; archive is ready at the returned URL.
+ */
+export const zRequestDataExportResponse = zExportJobResponse;
+
+export const zDownloadDataExportPath = z.object({
+    token: z.string()
+});
+
+/**
+ * ZIP archive download.
+ */
+export const zDownloadDataExportResponse = z.string();
+
+export const zDeleteAccountBody2 = zDeleteAccountBody;
+
+export const zDeleteAccountHeaders = z.object({
+    'X-Caller-Id': z.uuid()
+});
+
+/**
+ * Account and personal data deleted.
+ */
+export const zDeleteAccountResponse = z.void();
 
 /**
  * API semantic version.

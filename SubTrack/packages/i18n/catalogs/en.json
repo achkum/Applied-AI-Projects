@@ -14,9 +14,27 @@
     "personal": "Me",
     "shared": "Shared"
   },
+  "scopeSwitcher": {
+    "groupLabel": "Subscription scope"
+  },
+  "rollingTotal": {
+    "periodGroupLabel": "Display period"
+  },
   "orbit": {
     "ariaLabel": "Subscription orbit",
     "centreMeLabel": "Me",
+    "viewAsList": "View as list",
+    "listLabel": "Subscriptions",
+    "monthlyEquivalent": "monthly equivalent",
+    "categoryLabels": {
+      "streaming": "Video streaming",
+      "music": "Music",
+      "productivity": "Productivity",
+      "cloud": "Cloud storage",
+      "fitness": "Fitness",
+      "gaming": "Gaming",
+      "news": "News"
+    },
     "ownerType": {
       "ME": "Mine",
       "HOUSEHOLD": "Household",
@@ -27,5 +45,17 @@
       "ANNUAL": "Annual"
     },
     "bodyAriaLabel": "{{name}}, {{ownerType}}, {{cadence}}"
+  },
+  "onboarding": {
+    "welcome": {
+      "tagline": "Everything you subscribe to. In one place."
+    }
+  },
+  "hero": {
+    "subscriptionDetail": {
+      "title": "Subscription detail",
+      "cadenceMonthly": "per month",
+      "priceHistory": "Price history"
+    }
   }
 }

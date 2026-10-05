@@ -11,6 +11,6 @@
     },
     "exactOptionalPropertyTypes": false
   },
-  "include": ["app/**/*.ts", "app/**/*.tsx", "lib/**/*.ts", "lib/**/*.tsx", "middleware.ts", "test/**/*.tsx"],
+  "include": ["app/**/*.ts", "app/**/*.tsx", "lib/**/*.ts", "lib/**/*.tsx", "middleware.ts", "test/**/*.tsx", "types/**/*.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SyntheticBankProvider, PERSONA_SOLBERG, PERSONA_LINDQVIST, ALL_PERSONAS } from '@subtrack/synthetic';
+import { SyntheticBankProvider, PERSONA_SOLBERG, PERSONA_LINDQVIST, ALL_PERSONAS } from '../src/index.js';
 import {
   normalizeTransaction,
   deduplicateRecords,
   InMemoryIngestionStore,
   IngestionWorker,
   type IngestionRecord,
-} from '../ingestion/index.js';
+} from '@subtrack/domain/ingestion';
 
 const FROM = new Date('2025-01-01');
 const UNTIL = new Date('2025-12-31');

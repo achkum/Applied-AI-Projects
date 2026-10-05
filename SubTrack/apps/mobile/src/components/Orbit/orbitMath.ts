@@ -37,7 +37,7 @@ export function anglesForCadence(count: number, cadence: 'MONTHLY' | 'ANNUAL'): 
 }
 
 export function toOffset(ring: number, angle: number): { dx: number; dy: number } {
-  const r = RING_RADII[Math.min(ring, RING_RADII.length - 1)] ?? RING_RADII[RING_RADII.length - 1];
+  const r = RING_RADII[Math.min(ring, RING_RADII.length - 1)] ?? 216;
   return {
     dx: r * Math.sin(angle),
     dy: -r * Math.cos(angle),
@@ -72,8 +72,10 @@ export function computeOrbitLayout(subs: readonly OrbitSubscription[]): OrbitLay
 
   const bodies: BodyLayout[] = [];
   for (const [key, group] of groups) {
-    const [ringStr, cadence] = key.split(':') as [string, 'MONTHLY' | 'ANNUAL'];
-    const ring = parseInt(ringStr, 10);
+    const firstSubscription = group[0];
+    if (!firstSubscription) throw new Error(`Orbit group ${key} has no subscriptions`);
+    const ring = ringIndex(firstSubscription, order);
+    const cadence = firstSubscription.billingCadence;
     const angles = anglesForCadence(group.length, cadence);
     group.forEach((sub, i) => {
       const angle = angles[i] ?? 0;

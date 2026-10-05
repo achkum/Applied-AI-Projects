@@ -4,5 +4,13 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['test/**/*.spec.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text'],
+      include: ['src/formatter.ts'],
+      thresholds: {
+        'src/formatter.ts': { branches: 100 },
+      },
+    },
   },
 });

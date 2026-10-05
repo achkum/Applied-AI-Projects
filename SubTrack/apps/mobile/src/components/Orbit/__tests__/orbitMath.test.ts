@@ -41,12 +41,14 @@ describe('anglesForCadence', () => {
   });
 
   it('centres single MONTHLY at π/2', () => {
-    const [a] = anglesForCadence(1, 'MONTHLY');
+    const a = anglesForCadence(1, 'MONTHLY')[0];
+    if (a === undefined) throw new Error('Expected one MONTHLY angle');
     expect(a).toBeCloseTo(Math.PI / 2, 5);
   });
 
   it('centres single ANNUAL at 3π/2', () => {
-    const [a] = anglesForCadence(1, 'ANNUAL');
+    const a = anglesForCadence(1, 'ANNUAL')[0];
+    if (a === undefined) throw new Error('Expected one ANNUAL angle');
     expect(a).toBeCloseTo((3 * Math.PI) / 2, 5);
   });
 });
@@ -79,9 +81,15 @@ describe('computeOrbitLayout', () => {
   it('assigns correct rings', () => {
     const { bodies } = computeOrbitLayout(subs);
     const byId = Object.fromEntries(bodies.map((b) => [b.id, b]));
-    expect(byId['s1'].ring).toBe(0);
-    expect(byId['s2'].ring).toBe(1);
-    expect(byId['s3'].ring).toBe(2);
+    const me = byId['s1'];
+    const household = byId['s2'];
+    const member = byId['s3'];
+    if (!me || !household || !member) {
+      throw new Error('Expected a layout body for every subscription');
+    }
+    expect(me.ring).toBe(0);
+    expect(household.ring).toBe(1);
+    expect(member.ring).toBe(2);
   });
 
   it('returns size=320, centre=160', () => {
