@@ -43,3 +43,21 @@ node --test SubTrack/tools/workflow/qa-common.test.cjs
 ```
 
 Use completion notifications instead of repeated short polls. One canonical task handoff should link evidence and blockers; do not copy whole logs or conversation histories into specialists. Inspect existing PRs before dispatching implementation. Delete only exact merged-head branches after live-head comparison; preserve holding and unaccepted work.
+
+## Fresh specialist context
+
+Every new specialist task uses a new Luna agent with `fork_turns: none`; do not follow up a completed agent with a different task. Before spawning, save and validate a small JSON envelope and pass those same values to the actual collaboration tool:
+
+```json
+{"contract":"DISPATCH/v1","task_id":"ST-123","model_tier":"luna","fork_turns":"none","session_id":"ST-123-context-1","task_file":"SubTrack/.sdlc/tasks/ST-123.md"}
+```
+
+Add `--dispatch-file /workspace/.setup/dispatch.json` to specialist `start`. Envelopes over 8000 characters, reused session ids and inherited-conversation forks are rejected. This validates requested policy; the Conductor must use it in the actual spawn call. These limits are characters, not measured tokens.
+
+A registered specialist gets `CONTEXT_REFRESH_REQUIRED` (exit2) after 20 reported calls or 30 minutes even with progress. Save a nonempty <=40-line/4000-character checkpoint containing goal, constraints, current SHA, evidence, blockers and next action. Stop owned jobs/end the old agent, then:
+
+```sh
+python SubTrack/tools/workflow/task_guard.py --state /workspace/.setup/workflow-sessions.json rotate-context ST-123 --dispatch-file /workspace/.setup/fresh-dispatch.json --checkpoint-file /workspace/.setup/ST-123-checkpoint.md
+```
+
+Spawn a fresh Luna agent using the validated new session id and task/checkpoint links. Rotation retains elapsed task budget, attempt number, tool-call totals and failure/review history. A BLOCKED task needs existing Conductor loop resolution; rotation cannot unblock it. Completing a task at a context boundary does not require spawning an unnecessary replacement. Keep a compact Conductor checkpoint at accepted task/milestone boundaries; archive long history and load only current context in a new conversation. No tool can clear/compact this current Conductor conversation, and no provider token totals are available.

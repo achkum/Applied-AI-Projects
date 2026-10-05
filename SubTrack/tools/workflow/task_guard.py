@@ -13,6 +13,21 @@ import time
 BUDGETS = {"S": 30, "M": 120, "L": 240}
 
 
+def validate_dispatch(dispatch, task, state):
+    if not isinstance(dispatch, dict) or dispatch.get("contract") != "DISPATCH/v1" or dispatch.get("task_id") != task:
+        raise ValueError("a task-matched dispatch envelope is required")
+    if dispatch.get("fork_turns") != "none" or dispatch.get("model_tier") != "luna":
+        raise ValueError("specialists require fresh task-only Luna context")
+    if len(json.dumps(dispatch, ensure_ascii=False)) > 8000:
+        raise ValueError("dispatch exceeds 8000 characters; link artifacts instead")
+    session_id = dispatch.get("session_id")
+    if not isinstance(session_id, str) or not 1 <= len(session_id) <= 100:
+        raise ValueError("unique session_id required")
+    if any(session_id in s.get("context_sessions", []) for s in state.values()):
+        raise ValueError("context session already used; spawn a fresh agent")
+    return session_id
+
+
 def blockers(session, now):
     reasons = []
     if now - session["started"] >= BUDGETS[session["size"]] * 60:
@@ -26,11 +41,11 @@ def blockers(session, now):
     return reasons
 
 
-def start(state, task, size, role, mode, now, paused=False):
+def start(state, task, size, role, mode, now, paused=False, dispatch=None):
     if paused and mode != "maintenance":
         raise ValueError("feature development is paused; maintenance authorization required")
-    active = [s for s in state.values() if s["status"] == "ACTIVE"]
-    if task in state and state[task]["status"] == "ACTIVE":
+    active = [s for s in state.values() if s["status"] in {"ACTIVE", "CONTEXT_REFRESH_REQUIRED"}]
+    if task in state and state[task]["status"] in {"ACTIVE", "CONTEXT_REFRESH_REQUIRED"}:
         raise ValueError("task already active; checkpoint instead of resetting counters")
     if role == "specialist" and sum(s["role"] == role for s in active) >= 4:
         raise ValueError("four-specialist concurrency limit reached")
@@ -39,6 +54,7 @@ def start(state, task, size, role, mode, now, paused=False):
         raise ValueError("three dispatches exhausted; founder decision required")
     if state.get(task, {}).get("status") == "BLOCKED" and attempt > 2:
         raise ValueError("narrower redispatch also blocked; founder decision required")
+    session_id = validate_dispatch(dispatch, task, state) if role == "specialist" else None
     state[task] = {
         "task": task, "size": size, "role": role, "mode": mode,
         "model_tier": "luna" if role == "specialist" else "main",
@@ -46,6 +62,8 @@ def start(state, task, size, role, mode, now, paused=False):
         "progress_at": now, "calls_without_progress": 0, "tool_calls": 0,
         "failures": {}, "rejections": {}, "heavy": False,
         "input_tokens": None, "output_tokens": None, "blocked_reasons": [],
+        "context_sessions": state.get(task, {}).get("context_sessions", []) + ([session_id] if session_id else []),
+        "context_started": now, "context_start_calls": 0,
     }
     return state[task]
 
@@ -77,6 +95,26 @@ def checkpoint(state, task, now, calls=0, progress=False, failure=None,
     reasons = blockers(session, now)
     if reasons:
         session.update(status="BLOCKED", blocked_reasons=reasons, heavy=False)
+    elif session["role"] == "specialist" and (
+            session["tool_calls"] - session.get("context_start_calls", 0) >= 20
+            or now - session.get("context_started", session["started"]) >= 30 * 60):
+        session.update(status="CONTEXT_REFRESH_REQUIRED", heavy=False)
+    return session
+
+
+def rotate_context(state, task, now, dispatch, checkpoint_text):
+    session = state[task]
+    if session["role"] != "specialist" or session["status"] not in {"ACTIVE", "CONTEXT_REFRESH_REQUIRED"}:
+        raise ValueError("only an active specialist context can rotate")
+    reasons = blockers(session, now)
+    if reasons:
+        session.update(status="BLOCKED", blocked_reasons=reasons, heavy=False)
+        return session
+    if not checkpoint_text.strip() or len(checkpoint_text) > 4000 or len(checkpoint_text.splitlines()) > 40:
+        raise ValueError("checkpoint must be nonempty and <=40 lines/4000 characters")
+    session_id = validate_dispatch(dispatch, task, state)
+    session["context_sessions"].append(session_id)
+    session.update(status="ACTIVE", context_started=now, context_start_calls=session["tool_calls"])
     return session
 
 
@@ -111,6 +149,7 @@ def main():
     p.add_argument("--role", choices=["conductor", "specialist"], required=True)
     p.add_argument("--mode", choices=["feature", "maintenance"], required=True)
     p.add_argument("--pause-file", type=Path, required=True)
+    p.add_argument("--dispatch-file", type=Path, help="Required JSON envelope for specialists")
     p = sub.add_parser("checkpoint")
     p.add_argument("task")
     p.add_argument("--calls", type=int, default=0)
@@ -120,6 +159,10 @@ def main():
     p.add_argument("--heavy", choices=["start", "end"])
     p = sub.add_parser("finish")
     p.add_argument("task")
+    p = sub.add_parser("rotate-context")
+    p.add_argument("task")
+    p.add_argument("--dispatch-file", type=Path, required=True)
+    p.add_argument("--checkpoint-file", type=Path, required=True)
     p = sub.add_parser("metrics")
     p.add_argument("--repo", type=Path, required=True)
     p.add_argument("--ref", default="origin/main")
@@ -140,22 +183,32 @@ def main():
         try:
             if args.command == "start":
                 pause = json.loads(args.pause_file.read_text())
-                if pause.get("development") not in {"PAUSED_BY_USER", "ACTIVE_BY_USER"}:
+                if not isinstance(pause, dict) or pause.get("development") not in {"PAUSED_BY_USER", "ACTIVE_BY_USER"}:
                     raise ValueError("missing or invalid development authorization state")
                 paused = pause["development"] == "PAUSED_BY_USER"
-                result = start(state, args.task, args.size, args.role, args.mode, now, paused)
+                dispatch = json.loads(args.dispatch_file.read_text()) if args.dispatch_file else None
+                result = start(state, args.task, args.size, args.role, args.mode, now, paused, dispatch)
             elif args.command == "checkpoint":
                 result = checkpoint(state, args.task, now, args.calls, args.progress,
                                     args.failure, args.rejection, None if not args.heavy else args.heavy == "start")
+            elif args.command == "rotate-context":
+                dispatch = json.loads(args.dispatch_file.read_text())
+                result = rotate_context(state, args.task, now, dispatch, args.checkpoint_file.read_text())
             else:
-                result = checkpoint(state, args.task, now)
-                if result["status"] == "ACTIVE":
+                result = state[args.task]
+                if result["status"] == "CONTEXT_REFRESH_REQUIRED":
+                    reasons = blockers(result, now)
+                    if reasons:
+                        result.update(status="BLOCKED", blocked_reasons=reasons)
+                else:
+                    result = checkpoint(state, args.task, now)
+                if result["status"] in {"ACTIVE", "CONTEXT_REFRESH_REQUIRED"}:
                     result.update(status="FINISHED", finished=now, heavy=False)
         except (ValueError, KeyError, OSError) as error:
             parser.exit(2, f"Guard rejected action: {error}\n")
         args.state.write_text(json.dumps(state, indent=2) + "\n")
         print(json.dumps(result))
-        return 2 if result["status"] == "BLOCKED" else 0
+        return 2 if result["status"] in {"BLOCKED", "CONTEXT_REFRESH_REQUIRED"} else 0
 
 
 if __name__ == "__main__":

@@ -1,0 +1,22 @@
+# Compact maintenance checkpoint — 2026-10-05
+
+- Goal: fix branch/PR backlog and avoidable context/token waste before feature development resumes.
+- Feature state: PAUSED_BY_USER; maintenance only. Do not resume features merely because maintenance passes.
+- Routing: Conductor on main model, specialists Luna. New task = fresh agent with fork_turns:none.
+- Accepted main: b8c94ff855bad14ba75908420914daadb089f1d5; unchanged in this maintenance.
+- Holding branch: hold/subtrack-progress-2026-10-05 at 28548704f0e4a86d2e8e67ba92a418ad07449822; preserve.
+- Held blockers: Orbit contrast full QA, Home Swedish320 title overflow, Home baselines/current CI, founder G-DESIGN. Do not mark Home/ST-057 DONE.
+- Maintenance proposal: PR150, maintenance/subtrack-workflow-repair; current source SHA is the Git commit containing this checkpoint.
+- PR150 guard/canary/metrics/CI tests are implemented. Twelve Python tests + five Node utility tests pass; actual browser canary passed. Final current-head CI is recorded in PR150.
+- PR150 governance changes need founder approval before merge (OPERATING_MODEL section5). Runtime maintenance uses the requested budgets/context discipline.
+- PR132 head84eac8ac7fb880295f331f9d2423587edc875987: main reconciled, Docker catalog packaging repaired, 27 ML tests pass; CI37359993473 quality and Compose proof SUCCESS. Architect-data feature acceptance still required; unmerged.
+- PR136 head48f65c4e95e1d6b20834d6aaea75138945ac2aa1: Vercel scoped root-path repair; five behavioral tests pass, Luna devops APPROVE, exact-head checks SUCCESS; unmerged.
+- PR122 closed as superseded by accepted #145–149 plus held Home work. Source branch retained.
+- PR135 draft/blocked on proposed design-direction replacement; unique work preserved, no direction approval.
+- Deleted only four exact merged-head branches: conductor/takeover-board-fix, docs/subtrack-overview, fix/extension-options, subtrack-mvp. Lease-protected proof retained locally.
+- Preserve all closed/unmerged, unknown and holding branch heads; never infer squash incorporation from ancestry alone.
+- Metrics: 77 DONE board records, named-ref SHA, overlapping parent/child records. Provider tokens and unmeasured historical metrics null.
+- Context discipline: dispatch <=8000 characters, checkpoint <=40 lines/4000 characters, refresh after20 reported calls/30min; retire prior specialist and spawn fresh with same task budget/retry history.
+- There is no callable platform tool to compact/clear this Conductor conversation. A new conversation reads this checkpoint/current task, not archived chat.
+- Local canary servers were stopped. No feature builds, feature merges or production releases authorized by this maintenance.
+- Next action: verify final PR150 CI, obtain founder governance review, then merge only when applicable gates/authorization are met. Feature resumption requires explicit user instruction.

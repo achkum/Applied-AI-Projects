@@ -4,15 +4,23 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from task_guard import start, checkpoint, metrics
+from task_guard import start, checkpoint, metrics, rotate_context, validate_dispatch
+
+
+def envelope(task, session="fresh-1"):
+    return {"contract": "DISPATCH/v1", "task_id": task, "model_tier": "luna",
+            "fork_turns": "none", "session_id": session}
 
 
 class GuardTests(unittest.TestCase):
     def test_cli_pause_is_fail_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             state, pause = Path(tmp)/"state.json", Path(tmp)/"pause.json"
+            dispatch = Path(tmp)/"dispatch.json"
+            dispatch.write_text(json.dumps(envelope("ST-168")))
             args = [sys.executable, str(Path(__file__).with_name("task_guard.py")), "--state", str(state),
                     "start", "ST-168", "--size", "S", "--role", "specialist", "--mode", "feature"]
+            args += ["--dispatch-file", str(dispatch)]
             def code(extra):
                 return subprocess.run(args + extra, capture_output=True).returncode
             self.assertEqual(code([]), 2)
@@ -37,7 +45,7 @@ class GuardTests(unittest.TestCase):
     def test_luna_routing_and_concurrency(self):
         state = {}
         for i in range(4):
-            self.assertEqual(start(state, str(i), "M", "specialist", "maintenance", 0)["model_tier"], "luna")
+            self.assertEqual(start(state, str(i), "M", "specialist", "maintenance", 0, dispatch=envelope(str(i), str(i)))["model_tier"], "luna")
         with self.assertRaisesRegex(ValueError, "concurrency"):
             start(state, "fifth", "S", "specialist", "maintenance", 0)
 
@@ -77,12 +85,37 @@ class GuardTests(unittest.TestCase):
 
     def test_one_heavy_job(self):
         state = self.session()
-        start(state, "other", "M", "specialist", "maintenance", 0)
+        start(state, "other", "M", "specialist", "maintenance", 0, dispatch=envelope("other"))
         checkpoint(state, "ST-168", 1, heavy=True)
         with self.assertRaisesRegex(ValueError, "heavy"):
             checkpoint(state, "other", 2, heavy=True)
         checkpoint(state, "ST-168", 3, heavy=False)
         self.assertTrue(checkpoint(state, "other", 4, heavy=True)["heavy"])
+
+    def test_fresh_context_and_dispatch_size_required(self):
+        with self.assertRaisesRegex(ValueError, "envelope"):
+            start({}, "ST-1", "M", "specialist", "maintenance", 0)
+        for value in ({**envelope("ST-1"), "fork_turns": "all"},
+                      {**envelope("ST-1"), "model_tier": "main"},
+                      {**envelope("ST-1"), "history": "x"*8000}):
+            with self.assertRaises(ValueError):
+                validate_dispatch(value, "ST-1", {})
+
+    def test_context_rotation_retains_budget_and_failure_history(self):
+        state = {}
+        start(state, "ST-1", "M", "specialist", "maintenance", 0, dispatch=envelope("ST-1"))
+        result = checkpoint(state, "ST-1", 1, calls=20, progress=True, failure="flaky")
+        self.assertEqual(result["status"], "CONTEXT_REFRESH_REQUIRED")
+        with self.assertRaisesRegex(ValueError, "already used"):
+            rotate_context(state, "ST-1", 2, envelope("ST-1"), "source/test receipt")
+        with self.assertRaisesRegex(ValueError, "checkpoint"):
+            rotate_context(state, "ST-1", 2, envelope("ST-1", "fresh-2"), "x"*4001)
+        result = rotate_context(state, "ST-1", 2, envelope("ST-1", "fresh-2"), "source/test receipt")
+        self.assertEqual((result["started"], result["attempt"], result["tool_calls"]), (0, 1, 20))
+        self.assertEqual(result["failures"], {"flaky": 1})
+        self.assertEqual(result["status"], "ACTIVE")
+        self.assertEqual(checkpoint(state, "ST-1", 1802, progress=True)["status"], "CONTEXT_REFRESH_REQUIRED")
+        self.assertEqual(rotate_context(state, "ST-1", 7200, envelope("ST-1", "fresh-3"), "receipt")["status"], "BLOCKED")
 
     def test_metrics_unknown_is_not_zero(self):
         result = metrics('- {id: ST-1, status: DONE}\n- {id: ST-2, status: BLOCKED}', 'origin/main', 'abc', 0)
