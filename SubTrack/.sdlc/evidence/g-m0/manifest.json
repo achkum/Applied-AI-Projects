@@ -1,0 +1,18 @@
+{
+  "capturedAt": "2026-10-05T23:05:06.095582+00:00",
+  "run": 37385938006,
+  "runHead": "1c5b5736687cf05444b32e9fc078796f36e84d2b",
+  "acceptedMain": "e22734dd474f2ec2a40dd941284bb0d4802cd3bb",
+  "requiredSuccessfulSteps": 34,
+  "services": 5,
+  "acceptedSeedADRs": 8,
+  "gate": "FOUNDER_REVIEW_PENDING",
+  "format": "Local Chromium screenshot of official Actions API-backed CI receipt",
+  "files": {
+    "adr-list.json": "7ef8a0a73d25ab6a60a9f5d28a2bb2182afae5477b4678efb55d41d40f908776",
+    "index.html": "f253bffb8f01e6090f786d11c0edc4a7999146e12f69a63d425dde1bad5930ec",
+    "ci-receipt.png": "caf9c24e516624be80c1c652f24a07a3d5d48341e55835e2de85a71b13289175",
+    "ci-source.json": "3c474d8e043f343272f43b89a0034974bff7e2a97b192f6d9b7b691c573b6092",
+    "compose-source.json": "b381733cbece73589ae879f9dcec2a6f0fa9a79d929d17857e7a7b746382f34d"
+  }
+}

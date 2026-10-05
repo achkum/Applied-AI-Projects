@@ -2,7 +2,7 @@
 
 Development is ACTIVE_BY_USER. Conductor uses the main model; specialists use fresh task-only Luna contexts. This report is a compact checkpoint; earlier detailed lineage remains in Git and preserved ignored artifacts.
 
-- Accepted main: 9b90e2acebba575df5ac419de8dd14ec7162596a (Home PR155).
+- Accepted main: e22734dd474f2ec2a40dd941284bb0d4802cd3bb (principal-core PR156).
 - PR150 workflow repairs: approved and accepted532b960; all34CI steps,12Python/5Node helper tests and real semantic canary passed.
 - PR132 classifier: accepted8805e375;35MLtests, independent data/devops approvals and exact CI37366329360 all34SUCCESS after one justified runner-only retry.
 - PR151 JWT claims: acceptedc1956b5;125APItests,100%JWTcoverage, platform/security approvals, exact CI37370589254 all34SUCCESS. No HTTP-principal or live-RLS claim.
@@ -15,11 +15,11 @@ Development is ACTIVE_BY_USER. Conductor uses the main model; specialists use fr
 - Old halo interval calibration was falsified by1024known swatches(90false-infeasible). Opaque source/direct-backdrop proof replaced it; no arbitrary tolerance was widened and old candidates were not accepted.
 - Home reduced-motion helper initially selected ScopeSwitcher’s SVG; scoping it to figure SVG fixed the check. Only affected checks reran.
 - Founder G-DESIGN package:12fresh1440x1000PNG,20.0s natural Orbit WebM,interactiveHTML/manifest at /workspace/.setup/SubTrack-design-review.zip. Founder decision requested; engineering merges do not approve the gate.
-- Internal principal policy has platform/security approval. New SEC-FU1b plain unregistered validation core has independent readiness approval; final138APItests/100%resolvercoverage/lint/typecheck and independent platform/security source approvals pass; exact-head CI pending. It changes no route, module, DB adapter, public contract, transaction or RLS behavior.
+- Internal principal policy has platform/security approval. New SEC-FU1b plain unregistered validation core has independent readiness approval; final138APItests/100%resolvercoverage/lint/typecheck and independent platform/security source approvals pass; accepted PR156 with exact CI37385938006 all34SUCCESS. It changes no route, module, DB adapter, public contract, transaction or RLS behavior.
 - Public auth contract draft covers bound CSRF and browser bootstrap nonce. Founder development deletion proof choice and wire/version/storage decisions remain unresolved; Auth/Sessions modules stay unregistered.
 - BUG008: both local postgres/SubTrack databases have zero application tables/history. Other environment existence remains unknown pending inventory-scope answer. No migration/schema/data changes or absence claims.
 - Official Apple/Google documentation hosts added to preserved network draft. Install/start drafts updated with pinned video encoder and current tested receipts. Requires publication; saved draft does not alter runtime access.
-- GitHub normal-browser TLS screenshot remains blocked despite matching trusted CA/curl verification. No TLS bypass or fabricated image.
+- G-M0 CI receipt screenshot now prepared from fresh official ActionsJSON, with exacthead/sourceURL/time,34successfulsteps, realfivehealthyCompose and8acceptedADRs. Independent format review supports existing CI-screenshot wording. FounderG-M0review pending; separate GitHub normal-browser TLS remains unresolved, with no bypass or UI fabrication.
 - PR136 reviewed/CI-green deployment configuration remains a separate production gate. PR135 conflicting draft and PR122 unique superseded source remain preserved.
 - Heavy local jobs are serialized, owned QA servers stopped after evidence. Manual guard counters include corrected late reports; they do not intercept tools or prove provider quota savings. Finished visual reviews exceeded dispatch/context call caps; counts/history are retained honestly.
 - Metrics come from an explicit named Git ref/SHA. Parent/child DONE counts overlap requirements; provider token telemetry remains null.

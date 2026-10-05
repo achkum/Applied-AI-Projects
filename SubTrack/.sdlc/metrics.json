@@ -1,7 +1,7 @@
 {
   "as_of": "2026-10-05",
-  "source": "refs/heads/st/SEC-FU1b-principal-core",
-  "source_head": "4e7d2601b4d6a2cac99303f1bc98dac419f1a89b",
+  "source": "refs/heads/maintenance/subtrack-acceptance-closeout",
+  "source_head": "edb7e686e9281feaa5e20143c2b30a5b3fdfda75",
   "completed_task_ids": [
     "BUG-001",
     "BUG-002",
@@ -25,6 +25,7 @@
     "BUG-021",
     "BUG-021b",
     "SEC-FU1a",
+    "SEC-FU1b",
     "ST-001",
     "ST-002",
     "ST-003",
@@ -89,14 +90,13 @@
     "ST-162",
     "ST-168"
   ],
-  "completed_task_count": 85,
+  "completed_task_count": 86,
   "record_count": 135,
   "status_counts": {
     "BACKLOG": 46,
     "BLOCKED": 2,
-    "DONE": 85,
-    "IN_PROGRESS": 1,
-    "IN_REVIEW": 1
+    "DONE": 86,
+    "IN_PROGRESS": 1
   },
   "throughput_today": null,
   "cycle_time_hours": null,
