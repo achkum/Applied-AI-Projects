@@ -76,7 +76,7 @@ items:
   - {id: ST-067, title: "Ingestion worker: backfill, incremental sync, dedupe, pending→booked, raw payload retention job", owner: "dev-backend", size: "L", status: DONE, deps: ["ST-065"]}
   - {id: ST-068, title: "Normaliser + merchant matcher (`packages/domain`)", owner: "dev-data", size: "L", status: DONE, deps: ["ST-064", "ST-067"]}
   - {id: ST-069, title: "Web + mobile: connect bank, syncing progress, connections list, disconnect/purge", owner: "dev-web / dev-mobile", size: "L each", status: BACKLOG, deps: ["ST-067"]}
-  - {id: ST-080, title: "Recurring detection engine (cadence, amount bands, confidence, reasons) + evaluation harness vs synthetic truth", owner: "architect-data → dev-data", size: "L×2", status: IN_PROGRESS, deps: ["ST-068"]}
+  - {id: ST-080, title: "Recurring detection engine (cadence, amount bands, confidence, reasons) + evaluation harness vs synthetic truth", owner: "architect-data → dev-data", size: "L×2", status: DONE, deps: ["ST-068"]}
   - {id: ST-081, title: "Subscription lifecycle + review inbox API + feedback capture", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-080"]}
   - {id: ST-082, title: "Dashboard API (scope-aware aggregates, upcoming renewals, deltas)", owner: "dev-backend", size: "M", status: BACKLOG, deps: ["ST-081", "ST-048"]}
   - {id: ST-083, title: "Price history + price_event detection (deterministic)", owner: "dev-data", size: "M", status: BACKLOG, deps: ["ST-081"]}
