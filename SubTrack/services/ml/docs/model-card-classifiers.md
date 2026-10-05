@@ -16,18 +16,19 @@
 - Stage 1 — Rule-based exact/partial alias match against `packages/catalog/data/merchants.yaml`
 - Stage 2 — TF-IDF (`char_wb`, n-gram 3–5, 8 000 features, sublinear TF) + Logistic Regression (C=4, balanced class weights)
 
-**Training data:** All `aliases` fields from the merchant catalog (~300+ positive examples) plus 31 hand-curated negative examples (groceries, restaurants, ATM withdrawals, etc.)
+**Training data:** All `aliases` fields from the merchant catalog (~300+ positive examples) plus 31 hand-curated negative examples (groceries, restaurants, ATM withdrawals, etc.). The available smoke checks include these training descriptors and do not measure generalization.
 
 **Output:**
 ```json
 { "is_subscription": true, "confidence": 0.99, "matched_alias": "NETFLIX" }
 ```
 
-**Threshold:** `confidence ≥ 0.5` → `is_subscription = true`
+**Decision threshold:** the fallback predicts subscription when its estimated subscription probability is at least 0.5. The returned `confidence` is the confidence in the predicted class (`sub_prob` for a positive prediction and `1 - sub_prob` for a negative prediction); it is not the subscription probability. Rule matches return fixed confidence values (0.99 for exact aliases and 0.90 for partial matches). The `matched_alias` response field contains the submitted description as a match trace.
 
 **Known limitations:**
 - Negatives are hand-curated, not sampled from real bank data; recall on novel non-subscription descriptors may be lower.
-- Stage 1 partial match requires `len(alias) ≥ 5` to avoid false positives from short tokens.
+- Stage 1 partial matching requires a catalog alias of at least five normalized characters to occur inside the normalized submitted description. Empty descriptions after normalization are deterministically negative.
+- The current classifier smoke tests exercise catalog training descriptors and hand-curated negative training examples. They establish known-example behavior, not generalization to unseen bank descriptors. No held-out or cross-validation evaluation is currently reported; fallback performance on novel descriptors is therefore unsubstantiated.
 
 ---
 
@@ -52,7 +53,7 @@
 
 **Known limitations:**
 - Categories with few merchants (< 3) may have degraded precision.
-- Novel merchant descriptors not in the catalog will be classified by n-gram similarity to existing examples.
+- Novel merchant descriptors not in the catalog will be classified by n-gram similarity to existing examples. The available smoke checks exercise catalog training descriptors and do not establish generalization; no held-out or cross-validation evaluation is currently reported.
 
 ---
 

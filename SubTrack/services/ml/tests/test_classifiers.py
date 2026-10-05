@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.classifiers.subscription import SubscriptionClassifier
+import app.classifiers.subscription as subscription_module
 from app.classifiers.category import CategoryClassifier
 from app.catalog import get_alias_category_pairs, get_canonical_names
 
@@ -60,6 +61,33 @@ def test_subscription_restaurant_is_not_subscription(sub_clf: SubscriptionClassi
 def test_subscription_confidence_between_0_and_1(sub_clf: SubscriptionClassifier) -> None:
     result = sub_clf.predict("SOME RANDOM TRANSACTION")
     assert 0.0 <= result.confidence <= 1.0
+
+
+@pytest.mark.parametrize("description", ["", "!!!", "...---___", "   !!!   "])
+def test_subscription_empty_after_normalization_is_negative(
+    sub_clf: SubscriptionClassifier, description: str
+) -> None:
+    result = sub_clf.predict(description)
+    assert result.is_subscription is False
+    assert result.confidence == 1.0
+    assert result.matched_alias is None
+
+
+@pytest.mark.parametrize("description", ["n", "e", "t", "flix"])
+def test_subscription_short_alias_fragments_do_not_rule_match(
+    sub_clf: SubscriptionClassifier, description: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class NegativeFallback:
+        def predict_proba(self, descriptions: list[str]) -> list[list[float]]:
+            return [[0.9, 0.1]]
+
+    monkeypatch.setattr(
+        subscription_module, "_build_pipeline", lambda: (NegativeFallback(), ["netflix"])
+    )
+    result = sub_clf.predict(description)
+    assert result.is_subscription is False
+    assert result.confidence == 0.9
+    assert result.matched_alias is None
 
 
 def test_subscription_partial_match_returns_matched_alias(sub_clf: SubscriptionClassifier) -> None:

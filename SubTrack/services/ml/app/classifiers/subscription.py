@@ -109,6 +109,14 @@ class SubscriptionClassifier:
 
         norm_desc = _normalize(description)
 
+        # Empty after normalization is never a subscription. Keep confidence
+        # consistent with the API's predicted-class confidence semantics.
+        if not norm_desc:
+            return SubscriptionPrediction(
+                is_subscription=False,
+                confidence=1.0,
+            )
+
         # Stage 1: exact match
         for alias in norm_aliases:
             if alias == norm_desc:
@@ -118,9 +126,11 @@ class SubscriptionClassifier:
                     matched_alias=description,
                 )
 
-        # Stage 1b: partial match (alias appears inside description or vice versa)
+        # Stage 1b: partial match only when a catalog alias appears inside the
+        # normalized description. A short input fragment must not match merely
+        # because it is contained within a longer alias.
         for alias in norm_aliases:
-            if len(alias) >= 5 and (alias in norm_desc or norm_desc in alias):
+            if len(alias) >= 5 and alias in norm_desc:
                 return SubscriptionPrediction(
                     is_subscription=True,
                     confidence=0.90,

@@ -103,7 +103,7 @@ items:
   - {id: ST-121, title: "Scraper framework (Playwright job, sources.yaml, extractors, LLM fallback, quarantine) + 15 sources", owner: "dev-data", size: "L×2", status: BACKLOG, deps: ["ST-064", "ST-120"]}
   - {id: ST-122, title: "Comparison/alternatives API + \"Better together\" detector", owner: "dev-backend", size: "M", status: BACKLOG, deps: ["ST-121", "ST-081"]}
   - {id: ST-123, title: "Forecast model + endpoint + backtest report + model card", owner: "dev-data", size: "L", status: BACKLOG, deps: ["ST-083"]}
-  - {id: ST-124, title: "Classifiers (subscription-vs-not, category) + training pipeline + model cards", owner: "dev-data", size: "L×2", status: BACKLOG, deps: ["ST-063"]}
+  - {id: ST-124, title: "Classifiers (subscription-vs-not, category) + training pipeline + model cards", owner: "dev-data", size: "L×2", status: IN_REVIEW, deps: ["ST-063"]}
   - {id: ST-125, title: "Clustering (personas, cohorts, descriptor clusters) + model card", owner: "dev-data", size: "L", status: BACKLOG, deps: ["ST-063"]}
   - {id: ST-126, title: "Anomaly rules + optional Isolation Forest", owner: "dev-data", size: "M", status: BACKLOG, deps: ["ST-081"]}
   - {id: ST-127, title: "Insights service: generate/store insights, monthly recap narratives sv/en", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-120", "ST-123", "ST-126"]}
