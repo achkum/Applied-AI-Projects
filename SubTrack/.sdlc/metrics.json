@@ -1,7 +1,7 @@
 {
   "as_of": "2026-10-05",
-  "source": "st/ST-125a-clustering-core",
-  "source_head": "f7cca2d93a136f838af2d53453b0bc52cc71ba37",
+  "source": "refs/heads/st/BUG-021b-label-backplates",
+  "source_head": "282b0d3396896627c51651724f0cf0f384649d5f",
   "completed_task_ids": [
     "BUG-001",
     "BUG-002",
@@ -82,15 +82,16 @@
     "ST-101",
     "ST-120",
     "ST-124",
+    "ST-125a",
     "ST-162",
     "ST-168"
   ],
-  "completed_task_count": 81,
-  "record_count": 132,
+  "completed_task_count": 82,
+  "record_count": 133,
   "status_counts": {
     "BACKLOG": 46,
     "BLOCKED": 3,
-    "DONE": 81,
+    "DONE": 82,
     "IN_PROGRESS": 1,
     "IN_REVIEW": 1
   },
