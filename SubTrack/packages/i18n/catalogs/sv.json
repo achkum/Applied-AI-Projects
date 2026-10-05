@@ -17,6 +17,18 @@
   "orbit": {
     "ariaLabel": "Prenumerationsorbit",
     "centreMeLabel": "Jag",
+    "viewAsList": "Visa som lista",
+    "listLabel": "Prenumerationer",
+    "monthlyEquivalent": "motsvarande per månad",
+    "categoryLabels": {
+      "streaming": "Videostreaming",
+      "music": "Musik",
+      "productivity": "Produktivitet",
+      "cloud": "Molnlagring",
+      "fitness": "Träning",
+      "gaming": "Spel",
+      "news": "Nyheter"
+    },
     "ownerType": {
       "ME": "Mina",
       "HOUSEHOLD": "Hushåll",

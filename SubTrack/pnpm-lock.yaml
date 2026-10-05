@@ -526,6 +526,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@subtrack/i18n':
+        specifier: workspace:*
+        version: link:../i18n
       framer-motion:
         specifier: ^13.4.6
         version: 13.4.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -548,9 +551,6 @@ importers:
       '@subtrack/config':
         specifier: workspace:*
         version: link:../config
-      '@subtrack/i18n':
-        specifier: workspace:*
-        version: link:../i18n
       '@subtrack/ui-tokens':
         specifier: workspace:*
         version: link:../ui-tokens
