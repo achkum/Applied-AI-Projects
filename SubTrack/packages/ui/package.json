@@ -28,7 +28,6 @@
     "@storybook/test": "^8.0.0",
     "@storybook/test-runner": "^0.19.0",
     "@subtrack/config": "workspace:*",
-    "@subtrack/i18n": "workspace:*",
     "@subtrack/ui-tokens": "workspace:*",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
@@ -47,6 +46,7 @@
     "vitest": "5.0.3"
   },
   "dependencies": {
+    "@subtrack/i18n": "workspace:*",
     "framer-motion": "^13.4.6"
   }
 }

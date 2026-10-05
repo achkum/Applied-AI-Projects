@@ -17,6 +17,18 @@
   "orbit": {
     "ariaLabel": "Subscription orbit",
     "centreMeLabel": "Me",
+    "viewAsList": "View as list",
+    "listLabel": "Subscriptions",
+    "monthlyEquivalent": "monthly equivalent",
+    "categoryLabels": {
+      "streaming": "Video streaming",
+      "music": "Music",
+      "productivity": "Productivity",
+      "cloud": "Cloud storage",
+      "fitness": "Fitness",
+      "gaming": "Gaming",
+      "news": "News"
+    },
     "ownerType": {
       "ME": "Mine",
       "HOUSEHOLD": "Household",
