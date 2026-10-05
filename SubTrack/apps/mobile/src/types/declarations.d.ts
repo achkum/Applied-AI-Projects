@@ -18,16 +18,3 @@ declare module '@subtrack/ui-tokens/generated/theme.native.json' {
   };
   export default theme;
 }
-
-declare module 'i18n-js' {
-  interface I18n {
-    defaultLocale?: string;
-    locale?: string;
-    fallbacks?: Record<string, string>;
-    translations?: Record<string, Record<string, unknown>>;
-    t(key: string, options?: Record<string, string | number>): string;
-  }
-
-  const I18n: I18n;
-  export default I18n;
-}

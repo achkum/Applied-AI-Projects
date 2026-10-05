@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import I18n from 'i18n-js';
+import { I18n } from 'i18n-js';
 import { catalogs } from '@subtrack/i18n';
 import { Locale } from '@/types';
 import { en as signatureComponentsEn, sv as signatureComponentsSv } from '@/i18n/signatureComponents';
@@ -15,15 +15,18 @@ const I18nContext = createContext<I18nContextType | undefined>(undefined);
 
 const LOCALE_KEY = 'locale-preference';
 
-// Initialize i18n configuration
-I18n.defaultLocale = 'en';
-I18n.fallbacks = { sv: 'en' };
-I18n.translations = {
-  en: { ...catalogs.en, ...signatureComponentsEn },
-  sv: { ...catalogs.sv, ...signatureComponentsSv },
-} as Record<string, Record<string, unknown>>;
+function createI18n(): I18n {
+  return new I18n(
+    {
+      en: { ...catalogs.en, ...signatureComponentsEn },
+      sv: { ...catalogs.sv, ...signatureComponentsSv },
+    },
+    { defaultLocale: 'en', locale: 'en', enableFallback: true },
+  );
+}
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
+  const [i18n] = useState(createI18n);
   const [locale, setLocaleState] = useState<Locale>('en');
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -31,15 +34,11 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     const loadLocale = async () => {
       try {
         const stored = await AsyncStorage.getItem(LOCALE_KEY);
-        const userLocale = (stored as Locale) || 'en';
-        if (userLocale === 'en' || userLocale === 'sv') {
-          setLocaleState(userLocale);
-          I18n.locale = userLocale;
-        } else {
-          I18n.locale = 'en';
-        }
-      } catch (error) {
-        console.error('Failed to load locale:', error);
+        const userLocale = stored === 'sv' || stored === 'en' ? stored : 'en';
+        i18n.locale = userLocale;
+        setLocaleState(userLocale);
+      } catch {
+        console.error('Failed to load locale preference.');
       } finally {
         setIsLoaded(true);
       }
@@ -51,15 +50,15 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const setLocale = async (newLocale: Locale) => {
     try {
       await AsyncStorage.setItem(LOCALE_KEY, newLocale);
+      i18n.locale = newLocale;
       setLocaleState(newLocale);
-      I18n.locale = newLocale;
-    } catch (error) {
-      console.error('Failed to save locale:', error);
+    } catch {
+      console.error('Failed to save locale preference.');
     }
   };
 
   const t = (key: string, options?: Record<string, string | number>): string => {
-    return I18n.t(key, options);
+    return i18n.t(key, options);
   };
 
   const value: I18nContextType = {
