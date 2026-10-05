@@ -263,23 +263,34 @@ export function Orbit({
                   strokeWidth={isActive ? 2 : 0}
                   stroke={isActive ? 'var(--ink-primary)' : undefined}
                 />
-                {/* Counter-rotate label so text stays readable */}
-                <text
-                  className={styles.bodyLabel}
-                  x={body.cx}
-                  y={body.cy}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fontSize={8}
-                  fill="currentColor"
-                  style={{
-                    pointerEvents: 'none',
-                    userSelect: 'none',
-                    transformOrigin: `${body.cx}px ${body.cy}px`,
-                  }}
+                {/* Counter-rotate the opaque plate with its glyph to keep the underlay aligned. */}
+                <g
+                  aria-hidden="true"
+                  className={styles.bodyLabelGroup}
+                  style={{ transformOrigin: `${body.cx}px ${body.cy}px` }}
                 >
-                  {body.subscription.name.slice(0, 3)}
-                </text>
+                  <rect
+                    aria-hidden="true"
+                    className={styles.bodyLabelPlate}
+                    height={14}
+                    rx={2}
+                    width={32}
+                    x={body.cx - 16}
+                    y={body.cy - 7}
+                  />
+                  <text
+                    className={styles.bodyLabel}
+                    x={body.cx}
+                    y={body.cy}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontSize={8}
+                    fill="currentColor"
+                    style={{ pointerEvents: 'none', userSelect: 'none' }}
+                  >
+                    {body.subscription.name.slice(0, 3)}
+                  </text>
+                </g>
               </g>
             );
           })}

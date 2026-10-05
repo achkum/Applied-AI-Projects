@@ -10,9 +10,19 @@
   animation: orbit-rotate 240s linear infinite;
 }
 
-/* Counter-rotate each label so text stays upright while the ring turns. */
-.bodyLabel {
+/* Keep the opaque label surface and glyph upright as one painted unit. */
+.bodyLabelGroup {
   animation: orbit-counter-rotate 240s linear infinite;
+}
+
+.bodyLabelPlate {
+  fill: var(--bg-raised);
+  pointer-events: none;
+}
+
+.bodyLabel {
+  fill: var(--ink-primary);
+  pointer-events: none;
 }
 
 @keyframes orbit-rotate {
@@ -28,7 +38,7 @@
 /* Honour prefers-reduced-motion — freeze all rotation. */
 @media (prefers-reduced-motion: reduce) {
   .rotatingGroup,
-  .bodyLabel {
+  .bodyLabelGroup {
     animation: none;
   }
 }
