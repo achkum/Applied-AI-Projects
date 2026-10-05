@@ -110,7 +110,7 @@ pnpm --filter @subtrack/mobile start --web
 pnpm --filter @subtrack/mobile exec expo export --platform web --output-dir /tmp/subtrack-mobile-web
 ```
 
-The SDK 51 static export has been verified to complete. Metro warns that the current theme JSON import is not listed in the package exports and falls back to the existing file, and `app.json` points to a missing `assets/favicon.png`; neither warning prevents export. The web favicon asset remains unresolved. A successful export does not verify browser runtime behavior or startup on an iOS or Android device. Locale/theme interaction still needs browser validation, and native startup, assets, and provider behavior require simulator or device validation.
+The SDK 51 static export has been verified to complete. Metro warns that the current theme JSON import is not listed in the package exports and falls back to the existing file, and `app.json` points to a missing `assets/favicon.png`; neither warning prevents export. Browser validation of the exported app verified the root route selects `/sv` for stored Swedish, `/en` for stored English, and `/en` for missing or invalid preferences. Clicking locale and theme controls saved preferences and rendered the expected language and canvas palette; reloading `/` after selecting Swedish returned to `/sv`. No JavaScript page errors occurred. The missing favicon request still returns 404. This web check does not verify startup on an iOS or Android device; native startup, assets, and provider behavior require simulator or device validation.
 
 ### Building
 
