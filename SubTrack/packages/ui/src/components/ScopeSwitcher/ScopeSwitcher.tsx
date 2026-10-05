@@ -21,7 +21,7 @@ function optionLabel(opt: ScopeOption): string {
 function optionAccentVar(opt: ScopeOption): string {
   if (opt.kind === 'me') return 'var(--aurora-violet)';
   if (opt.kind === 'household') return 'var(--aurora-green)';
-  const slot = memberAccentForId(opt.memberId);
+  const slot = memberAccentForId(opt.memberId).replace(/\./g, '-');
   return `var(--${slot})`;
 }
 
@@ -52,6 +52,13 @@ export function ScopeSwitcher({
             aria-checked={isSelected}
             aria-label={label}
             className={[styles.segment, isSelected ? styles.selected : ''].join(' ')}
+            onFocus={(event) => {
+              event.currentTarget.scrollIntoView({
+                block: 'nearest',
+                inline: 'nearest',
+                behavior: 'instant',
+              });
+            }}
             onClick={() => {
               if (isSelected) return;
               onSelect(i);
@@ -73,12 +80,24 @@ export function ScopeSwitcher({
               <span
                 className={styles.avatar}
                 aria-hidden="true"
-                style={{ background: `var(--${memberAccentForId(opt.memberId)})` }}
+                style={{ '--member-accent': optionAccentVar(opt) } as React.CSSProperties}
               >
                 {opt.displayName.slice(0, 1).toUpperCase()}
               </span>
             )}
             <span className={styles.label}>{label}</span>
+            {isSelected && (
+              <svg className={styles.selectedIndicator} viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  d="M3 8.5 6.5 12 13 4.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="var(--scope-switcher-selected-indicator-stroke-width)"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
           </button>
         );
       })}
