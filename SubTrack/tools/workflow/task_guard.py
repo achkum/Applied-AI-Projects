@@ -57,13 +57,13 @@ def checkpoint(state, task, now, calls=0, progress=False, failure=None,
         raise ValueError("task is not active; hand back to Conductor")
     if calls < 0:
         raise ValueError("tool calls must be nonnegative")
-    # Evaluate existing limits before allowing new progress to erase them.
+    # Progress may describe the last reported call, not erase a long failed batch.
+    session["tool_calls"] += calls
+    session["calls_without_progress"] += max(0, calls - int(progress))
     reasons = blockers(session, now)
     if reasons:
         session.update(status="BLOCKED", blocked_reasons=reasons, heavy=False)
         return session
-    session["tool_calls"] += calls
-    session["calls_without_progress"] += calls
     if progress:
         session["progress_at"] = now
         session["calls_without_progress"] = 0

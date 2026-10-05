@@ -71,6 +71,10 @@ class GuardTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "founder"):
             start(state, "ST-168", "S", "conductor", "maintenance", 3602)
 
+    def test_late_progress_cannot_erase_a_long_tool_batch(self):
+        self.assertEqual(checkpoint(self.session("M"), "ST-168", 1, calls=30, progress=True)["status"], "BLOCKED")
+        self.assertEqual(checkpoint(self.session("M"), "ST-168", 1, calls=25, progress=True)["status"], "ACTIVE")
+
     def test_one_heavy_job(self):
         state = self.session()
         start(state, "other", "M", "specialist", "maintenance", 0)
