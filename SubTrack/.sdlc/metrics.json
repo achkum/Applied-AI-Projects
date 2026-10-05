@@ -1,7 +1,7 @@
 {
   "as_of": "2026-10-05",
-  "source": "refs/heads/st/ST-076-home-resume",
-  "source_head": "e41eab6a4e77e4a4a442843c89886c0b7ad91d8d",
+  "source": "refs/heads/st/SEC-FU1b-principal-core",
+  "source_head": "4e7d2601b4d6a2cac99303f1bc98dac419f1a89b",
   "completed_task_ids": [
     "BUG-001",
     "BUG-002",
@@ -77,6 +77,7 @@
     "ST-068",
     "ST-074",
     "ST-075",
+    "ST-076",
     "ST-077",
     "ST-079",
     "ST-080",
@@ -88,12 +89,12 @@
     "ST-162",
     "ST-168"
   ],
-  "completed_task_count": 84,
-  "record_count": 134,
+  "completed_task_count": 85,
+  "record_count": 135,
   "status_counts": {
     "BACKLOG": 46,
     "BLOCKED": 2,
-    "DONE": 84,
+    "DONE": 85,
     "IN_PROGRESS": 1,
     "IN_REVIEW": 1
   },
