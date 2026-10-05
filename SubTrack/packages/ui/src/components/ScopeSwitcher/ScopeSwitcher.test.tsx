@@ -2,13 +2,33 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import { axe } from 'jest-axe';
-import { ScopeSwitcher, ScopeOption } from './ScopeSwitcher';
+import { catalogs } from '@subtrack/i18n';
+import { ScopeSwitcher } from './ScopeSwitcher';
+import type { ScopeOption, ScopeSwitcherProps } from './ScopeSwitcher';
+import {
+  WithLocalizedGroupEnLight,
+  WithLocalizedGroupSvLight,
+} from './ScopeSwitcher.stories';
 
 const options: ScopeOption[] = [
   { kind: 'me', label: 'Me' },
   { kind: 'household', label: 'Household' },
   { kind: 'member', memberId: 'member-1', displayName: 'Alex' },
 ];
+
+function propsFromStory(story: { args?: Partial<ScopeSwitcherProps> }): ScopeSwitcherProps {
+  const args = story.args;
+  if (!args?.options || args.selectedIndex === undefined || args.ariaLabel === undefined) {
+    throw new Error('Localized ScopeSwitcher story is missing required args.');
+  }
+
+  return {
+    options: args.options,
+    selectedIndex: args.selectedIndex,
+    onSelect: vi.fn(),
+    ariaLabel: args.ariaLabel,
+  };
+}
 
 describe('ScopeSwitcher', () => {
   it('renders all scope segments', () => {
@@ -17,6 +37,33 @@ describe('ScopeSwitcher', () => {
     expect(screen.getByRole('radio', { name: 'Household' })).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'Alex' })).toBeTruthy();
   });
+
+  it('keeps the legacy group name when no localized label is supplied', () => {
+    render(<ScopeSwitcher options={options} selectedIndex={0} onSelect={vi.fn()} />);
+    expect(screen.getByRole('group', { name: 'Scope' })).toBeTruthy();
+  });
+
+  it.each([
+    ['en', WithLocalizedGroupEnLight],
+    ['sv', WithLocalizedGroupSvLight],
+  ] as const)(
+    'uses the %s story host catalog labels for the accessible group and options',
+    async (locale, story) => {
+      const catalog = catalogs[locale];
+      const props = propsFromStory(story);
+      const onSelect = vi.fn();
+      const { container } = render(<ScopeSwitcher {...props} onSelect={onSelect} />);
+
+      expect(screen.getByRole('group', { name: catalog.scopeSwitcher.groupLabel })).toBeTruthy();
+      expect(screen.getByRole('radio', { name: catalog.scope.personal })).toBeTruthy();
+      expect(screen.getByRole('radio', { name: catalog.navigation.household })).toBeTruthy();
+      expect(screen.getByRole('radio', { name: 'Alex' })).toBeTruthy();
+      expect(screen.getByRole('radio', { name: 'Sam' })).toBeTruthy();
+      fireEvent.click(screen.getByRole('radio', { name: catalog.navigation.household }));
+      expect(onSelect).toHaveBeenCalledWith(1);
+      expect(await axe(container)).toHaveNoViolations();
+    },
+  );
 
   it('marks selected segment with aria-checked', () => {
     render(<ScopeSwitcher options={options} selectedIndex={1} onSelect={vi.fn()} />);

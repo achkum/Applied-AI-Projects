@@ -24,6 +24,8 @@ Scope changes roll digits; period toggle flips between monthly and annual total;
 ## Accessibility and reduced motion
 Expose full formatted amount and period as one coherent accessible value; tabular figures; locale-aware formatting from sv-SE/en-SE; integer minor-unit source only, no UI arithmetic.
 
+The host may supply a localized accessible period-group name through `periodGroupLabel`; when omitted, the component keeps the legacy name `Period`.
+
 ## Content and localization (sv/en)
 Formatted currency and period label; Monthly / Månadsvis; Annual / Årsvis; loading and unavailable announcements.
 

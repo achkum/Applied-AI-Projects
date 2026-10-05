@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { fn } from '@storybook/test';
+import { catalogs } from '@subtrack/i18n';
+import type { Locale } from '@subtrack/i18n';
 import { RollingNumber } from './RollingNumber';
 
 const meta = {
@@ -17,6 +19,18 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+function localizedStoryArgs(locale: Locale) {
+  const catalog = catalogs[locale];
+  return {
+    amountMinor: 139000,
+    locale: locale === 'sv' ? 'sv-SE' as const : 'en-SE' as const,
+    period: 'monthly' as const,
+    periodGroupLabel: catalog.rollingTotal.periodGroupLabel,
+    monthlyLabel: catalog.orbit.billingCadence.MONTHLY,
+    annualLabel: catalog.orbit.billingCadence.ANNUAL,
+  };
+}
 
 export const SvMonthly: Story = {
   name: 'sv-SE Monthly',
@@ -60,4 +74,24 @@ export const Unavailable: Story = {
     locale: 'sv-SE',
     unavailableLabel: 'Unavailable',
   },
+};
+
+export const WithLocalizedGroupEnLight: Story = {
+  globals: { theme: 'light' },
+  args: localizedStoryArgs('en'),
+};
+
+export const WithLocalizedGroupEnDark: Story = {
+  globals: { theme: 'dark' },
+  args: localizedStoryArgs('en'),
+};
+
+export const WithLocalizedGroupSvLight: Story = {
+  globals: { theme: 'light' },
+  args: localizedStoryArgs('sv'),
+};
+
+export const WithLocalizedGroupSvDark: Story = {
+  globals: { theme: 'dark' },
+  args: localizedStoryArgs('sv'),
 };
