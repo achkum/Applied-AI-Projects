@@ -8,7 +8,7 @@ items:
   - {id: BUG-016, title: "Specify Orbit dense-layout and accessible fallback behavior", owner: "product-owner", size: "S", status: BACKLOG, deps: ["BUG-015"]}
   - {id: BUG-015, title: "Repair Orbit canvas extents and missing visual states", owner: "dev-web", size: "M", status: DONE, deps: []}
   - {id: BUG-014, title: "Add reviewed missing Storybook visual baselines", owner: "conductor", size: "M", status: DONE, deps: ["BUG-015"]}
-  - {id: BUG-013, title: "Bind canonical and historical RLS identity settings", owner: "dev-backend", size: "S", status: IN_REVIEW, deps: []}
+  - {id: BUG-013, title: "Bind canonical and historical RLS identity settings", owner: "dev-backend", size: "S", status: DONE, deps: []}
   - {id: BUG-012, title: "Declare pinned Playwright CLI for visual CI", owner: "dev-platform", size: "S", status: DONE, deps: []}
   - {id: BUG-011, title: "Restore integration quality gates", owner: "conductor", size: "L", status: DONE, deps: []}
   - {id: BUG-010, title: "Unsigned ZIP external attributes", owner: "conductor", size: "M", status: DONE, deps: []}
@@ -55,7 +55,7 @@ items:
   - {id: ST-042, title: "IdentityProvider interface + BankID **simulator** (fixed demo identities)", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-040"]}
   - {id: ST-043, title: "BankID **test** adapter: RP API v6.0 auth/collect/cancel, mTLS test cert, animated QR (qrStartToken/Secret HMAC), autostart", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-042"]}
   - {id: ST-044, title: "Sessions: EdDSA JWT, refresh rotation + reuse detection, device list/revoke", owner: "dev-backend", size: "L", status: DONE, deps: ["ST-041"]}
-  - {id: ST-045, title: "Security review: auth threat model + review ST-041..044", owner: "security-privacy", size: "M", status: BACKLOG, deps: ["ST-041", "ST-042", "ST-043", "ST-044"]}
+  - {id: ST-045, title: "Security review: auth threat model + review ST-041..044", owner: "security-privacy", size: "M", status: BLOCKED, deps: ["ST-041", "ST-042", "ST-043", "ST-044"]}
   - {id: ST-046, title: "Household module: create, members, dependants, admin transfer, leave/remove, one-admin invariant", owner: "dev-backend", size: "L", status: DONE, deps: ["ST-040"]}
   - {id: ST-047, title: "Invitations: link/code/email/SMS, expiry, revoke, preview, accept/decline (idempotent), notifications to admin", owner: "dev-backend", size: "L", status: DONE, deps: ["ST-042", "ST-046"]}
   - {id: ST-048, title: "Visibility policy (`packages/domain/policy`) + property tests + RLS parity test", owner: "architect-platform", size: "L", status: DONE, deps: ["ST-040"]}
