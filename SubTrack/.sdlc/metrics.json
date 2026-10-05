@@ -1,7 +1,7 @@
 {
   "as_of": "2026-10-05",
-  "source": "refs/heads/st/BUG-021b-label-backplates",
-  "source_head": "282b0d3396896627c51651724f0cf0f384649d5f",
+  "source": "refs/heads/st/ST-076-home-resume",
+  "source_head": "e41eab6a4e77e4a4a442843c89886c0b7ad91d8d",
   "completed_task_ids": [
     "BUG-001",
     "BUG-002",
@@ -22,6 +22,8 @@
     "BUG-018",
     "BUG-019",
     "BUG-020",
+    "BUG-021",
+    "BUG-021b",
     "SEC-FU1a",
     "ST-001",
     "ST-002",
@@ -86,12 +88,12 @@
     "ST-162",
     "ST-168"
   ],
-  "completed_task_count": 82,
-  "record_count": 133,
+  "completed_task_count": 84,
+  "record_count": 134,
   "status_counts": {
     "BACKLOG": 46,
-    "BLOCKED": 3,
-    "DONE": 82,
+    "BLOCKED": 2,
+    "DONE": 84,
     "IN_PROGRESS": 1,
     "IN_REVIEW": 1
   },
