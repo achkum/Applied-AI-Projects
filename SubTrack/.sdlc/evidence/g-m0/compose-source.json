@@ -1,0 +1,32 @@
+[
+  {
+    "Name": "subtrack-caddy-1",
+    "Service": "caddy",
+    "State": "running",
+    "Health": "healthy"
+  },
+  {
+    "Name": "subtrack-mailpit-1",
+    "Service": "mailpit",
+    "State": "running",
+    "Health": "healthy"
+  },
+  {
+    "Name": "subtrack-ml-1",
+    "Service": "ml",
+    "State": "running",
+    "Health": "healthy"
+  },
+  {
+    "Name": "subtrack-postgres-1",
+    "Service": "postgres",
+    "State": "running",
+    "Health": "healthy"
+  },
+  {
+    "Name": "subtrack-redis-1",
+    "Service": "redis",
+    "State": "running",
+    "Health": "healthy"
+  }
+]

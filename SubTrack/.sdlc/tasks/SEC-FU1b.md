@@ -6,7 +6,7 @@ milestone: M1
 owner_role: dev-backend
 reviewers: [architect-platform, security-privacy, conductor]
 size: S
-status: IN_REVIEW
+status: DONE
 depends_on: [SEC-FU1a]
 allowed_paths:
   - SubTrack/apps/api/src/auth/sessions/principal-resolver.ts
@@ -42,3 +42,5 @@ Independent architect/security APPROVE_READINESS at /workspace/.setup/principal-
 
 ## Frozen verification
 FinalcorrectAPI-directory suite138tests/11filesPASS, no skips; principal-resolver100%statements/branches/functions/lines. Scopedlint/typecheckPASS after normalPrismageneration. Firstroot-directoryVitest invocation included23unrelatedsuites and is excluded; generic401test initially omittedNest’s standarderrorfield, corrected without resolver changes. Independent platform/security source APPROVE after inspecting correctedassertion/finalcoverage. NoHTTP/DB/RLS claim; exact-head CI pending.
+
+Accepted PR156 ate22734dd474f2ec2a40dd941284bb0d4802cd3bb from exacthead1c5b5736687cf05444b32e9fc078796f36e84d2b; CI37385938006 all34requiredstepsSUCCESS, none skipped. Independent platform/security sourceAPPROVE and138APItests/100%resolvercoverage/lint/typecheckPASS. Branchremovedonlyafterexacttree/headleaseproof. Internalcorecomplete; HTTP/adapter/RLS/contracts remain gated.
