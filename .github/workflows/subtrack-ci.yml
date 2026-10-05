@@ -106,6 +106,11 @@ jobs:
           cache: pnpm
           cache-dependency-path: SubTrack/pnpm-lock.yaml
 
+      - name: Test maintenance workflow helpers
+        run: |
+          python3 -m unittest discover -s tools/workflow -p 'test_*.py' -v
+          node --test tools/workflow/qa-common.test.cjs
+
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
