@@ -1,7 +1,7 @@
 {
   "as_of": "2026-10-05",
   "source": "HEAD",
-  "source_head": "7544a408390119df149737c87e7191cbd79c124b",
+  "source_head": "3cb516b574949524e496a16ba5fbda65c7091e52",
   "completed_task_ids": [
     "BUG-001",
     "BUG-002",
@@ -96,5 +96,5 @@
   "escalation_count": null,
   "input_tokens": null,
   "output_tokens": null,
-  "limitations": "Board snapshot; parent/child records overlap. Unmerged holding work excluded. Historical throughput, cycle time, escalations and provider usage not measured."
+  "limitations": "Board snapshot at the selected ref; parent/child records overlap. DONE statuses are board claims, not fresh QA. Work on other refs is not included. Historical throughput, cycle time, escalations and provider usage not measured."
 }
