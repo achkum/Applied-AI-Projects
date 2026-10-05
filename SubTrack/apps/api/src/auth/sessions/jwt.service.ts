@@ -18,7 +18,11 @@ export interface JwtClaims {
 }
 
 function toBase64url(buf: Buffer): string {
-  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  return buf
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
 }
 
 function fromBase64url(s: string): Buffer {
@@ -85,11 +89,39 @@ export class JwtService {
       throw new Error('JWT signature verification failed.');
     }
 
-    const claims = JSON.parse(fromBase64url(payloadB64).toString('utf8')) as JwtClaims;
+    const payload: unknown = JSON.parse(
+      fromBase64url(payloadB64).toString('utf8'),
+    );
+    if (
+      payload === null ||
+      typeof payload !== 'object' ||
+      Array.isArray(payload) ||
+      Object.getPrototypeOf(payload) !== Object.prototype
+    ) {
+      throw new Error('JWT payload must be a plain object.');
+    }
+
+    const claims = payload as Record<string, unknown>;
+    if (
+      typeof claims.sub !== 'string' ||
+      claims.sub.trim().length === 0 ||
+      typeof claims.sid !== 'string' ||
+      claims.sid.trim().length === 0 ||
+      typeof claims.iat !== 'number' ||
+      !Number.isFinite(claims.iat) ||
+      !Number.isInteger(claims.iat) ||
+      typeof claims.exp !== 'number' ||
+      !Number.isFinite(claims.exp) ||
+      !Number.isInteger(claims.exp) ||
+      claims.exp <= claims.iat
+    ) {
+      throw new Error('JWT payload has invalid claims.');
+    }
+
     const now = Math.floor(Date.now() / 1_000);
     if (claims.exp <= now) {
       throw new Error('JWT has expired.');
     }
-    return claims;
+    return claims as unknown as JwtClaims;
   }
 }
