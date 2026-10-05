@@ -11,6 +11,7 @@ export interface RollingNumberProps {
   onPeriodChange: (period: 'monthly' | 'annual') => void;
   monthlyLabel: string;
   annualLabel: string;
+  periodGroupLabel?: string;
   isLoading?: boolean;
   loadingLabel?: string;
   unavailableLabel?: string;
@@ -24,6 +25,7 @@ export function RollingNumber({
   onPeriodChange,
   monthlyLabel,
   annualLabel,
+  periodGroupLabel = 'Period',
   isLoading = false,
   loadingLabel = '…',
   unavailableLabel,
@@ -62,7 +64,7 @@ export function RollingNumber({
           </motion.span>
         </AnimatePresence>
       </div>
-      <div className={styles.toggle} role="group" aria-label="Period">
+      <div className={styles.toggle} role="group" aria-label={periodGroupLabel}>
         <button
           type="button"
           className={[styles.toggleBtn, period === 'monthly' ? styles.active : ''].join(' ')}

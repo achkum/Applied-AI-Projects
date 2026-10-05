@@ -11,6 +11,7 @@ export interface ScopeSwitcherProps {
   options: ScopeOption[];
   selectedIndex: number;
   onSelect: (index: number) => void;
+  ariaLabel?: string;
   selectedAnnouncementLabel?: (name: string) => string;
 }
 
@@ -29,6 +30,7 @@ export function ScopeSwitcher({
   options,
   selectedIndex,
   onSelect,
+  ariaLabel = 'Scope',
   selectedAnnouncementLabel,
 }: ScopeSwitcherProps) {
   const selectedOption = options[selectedIndex];
@@ -37,7 +39,7 @@ export function ScopeSwitcher({
   return (
     <div
       role="group"
-      aria-label="Scope"
+      aria-label={ariaLabel}
       className={styles.root}
       style={{ '--scope-accent': accent } as React.CSSProperties}
     >
