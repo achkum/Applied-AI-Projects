@@ -12,6 +12,11 @@
 
 /* Counter-rotate each label so text stays upright while the ring turns. */
 .bodyLabel {
+  fill: var(--ink-primary);
+  stroke: var(--bg-raised);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
   animation: orbit-counter-rotate 240s linear infinite;
 }
 
