@@ -27,5 +27,10 @@
       "ANNUAL": "Annual"
     },
     "bodyAriaLabel": "{{name}}, {{ownerType}}, {{cadence}}"
+  },
+  "onboarding": {
+    "welcome": {
+      "tagline": "Everything you subscribe to. In one place."
+    }
   }
 }

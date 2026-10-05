@@ -27,5 +27,10 @@
       "ANNUAL": "Årsvis"
     },
     "bodyAriaLabel": "{{name}}, {{ownerType}}, {{cadence}}"
+  },
+  "onboarding": {
+    "welcome": {
+      "tagline": "Allt ni prenumererar på. På ett ställe."
+    }
   }
 }
