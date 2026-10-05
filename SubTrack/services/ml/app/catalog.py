@@ -8,18 +8,23 @@ from typing import Any
 
 import yaml
 
-_CATALOG_PATH = (
-    pathlib.Path(__file__).resolve().parents[3]
-    / "packages"
-    / "catalog"
-    / "data"
-    / "merchants.yaml"
-)
+def _catalog_path() -> pathlib.Path:
+    module = pathlib.Path(__file__).resolve()
+    candidates = [module.parent.parent / "data" / "merchants.yaml"]
+    candidates.extend(
+        parent / "packages" / "catalog" / "data" / "merchants.yaml"
+        for parent in module.parents
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    searched = ", ".join(str(path) for path in candidates)
+    raise FileNotFoundError(f"merchant catalog not found; searched: {searched}")
 
 
 @lru_cache(maxsize=1)
 def _load_merchants() -> list[dict[str, Any]]:
-    with open(_CATALOG_PATH, encoding="utf-8") as fh:
+    with _catalog_path().open(encoding="utf-8") as fh:
         return yaml.safe_load(fh)  # type: ignore[return-value]
 
 

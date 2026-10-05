@@ -5,9 +5,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN pip install --no-cache-dir uv==0.12.19
-COPY pyproject.toml uv.lock ./
+COPY services/ml/pyproject.toml services/ml/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
-COPY app ./app
+COPY services/ml/app ./app
+COPY packages/catalog/data/merchants.yaml ./data/merchants.yaml
 
 EXPOSE 8000
 CMD ["uv", "run", "--frozen", "--no-sync", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
