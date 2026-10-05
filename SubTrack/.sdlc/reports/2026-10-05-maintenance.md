@@ -1,23 +1,14 @@
-# Compact maintenance checkpoint — 2026-10-05
+# Compact accepted-work checkpoint — 2026-10-05
 
-- Goal: fix branch/PR backlog and avoidable context/token waste before feature development resumes.
-- Feature state: ACTIVE_BY_USER; user explicitly approved PR150 merge and development resumption.
-- Routing: Conductor on main model, specialists Luna. New task = fresh agent with fork_turns:none.
-- Accepted main:532b9608291bd4d0e0f4dd0cf51b7a01f0799fe3 after approved PR150 squash merge.
-- Holding branch: hold/subtrack-progress-2026-10-05 at 28548704f0e4a86d2e8e67ba92a418ad07449822; preserve.
-- Held blockers: Orbit contrast full QA, Home Swedish320 title overflow, Home baselines/current CI, founder G-DESIGN. Do not mark Home/ST-057 DONE.
-- Current task: PR132 classifier repair integration on st/ST-124-classifiers after Orbit QA stopped inconclusive; candidate preserved at79508ce.
-- PR150 guard/canary/metrics/CI tests are implemented. Twelve Python tests + five Node utility tests pass; actual browser canary passed. Final current-head CI is recorded in PR150.
-- PR150 founder approval received and exact source2675e3b merged after all required CI steps SUCCESS; merged branch removed.
-- PR132 head84eac8ac7fb880295f331f9d2423587edc875987: main reconciled, Docker catalog packaging repaired, 27 ML tests pass; CI37359993473 quality and Compose proof SUCCESS. Fresh architect-data review found rule/model-card majors; Luna repair applied and independently source-approved;35lockedMLtestsPASS. New exact-headCI and devops review pending; unmerged.
-- PR136 head48f65c4e95e1d6b20834d6aaea75138945ac2aa1: Vercel scoped root-path repair; five behavioral tests pass, Luna devops APPROVE, exact-head checks SUCCESS; unmerged.
-- PR122 closed as superseded by accepted #145–149 plus held Home work. Source branch retained.
-- PR135 draft/blocked on proposed design-direction replacement; unique work preserved, no direction approval.
-- Deleted only four exact merged-head branches: conductor/takeover-board-fix, docs/subtrack-overview, fix/extension-options, subtrack-mvp. Lease-protected proof retained locally.
-- Preserve all closed/unmerged, unknown and holding branch heads; never infer squash incorporation from ancestry alone.
-- Metrics: 77 DONE board records, named-ref SHA, overlapping parent/child records. Provider tokens and unmeasured historical metrics null.
-- Context discipline: dispatch <=8000 characters, checkpoint <=40 lines/4000 characters, refresh after20 reported calls/30min; retire prior specialist and spawn fresh with same task budget/retry history.
-- There is no callable platform tool to compact/clear this Conductor conversation. A new conversation reads this checkpoint/current task, not archived chat.
-- Feature development authorized by explicit approval; reused frozen Orbit Storybook is served by root-owned loopback QA server. Production release remains separate.
-- Orbit v2:48coveragechecksPASS,47pixelcellsPASS/1INCONCLUSIVE darkselectedgh; accepted PNGs untouched. Independent measurement review pending; no acceptance/currentCI. Home remains blocked.
-- Next: classifier devops review/currentCI/merge; bounded Orbit proof diagnosis; Home restored after Orbit acceptance.
+- Development ACTIVE_BY_USER after explicit approval. Conductor main model; specialists fresh task-only Luna sessions, fork_turns:none.
+- Accepted main8805e3752e8799a68258b23e7fbe02bb69d9180b. Approved PR150 workflow repairs accepted at532b960;34requiredstepsSUCCESS,12Python+5Node helper tests and real semantic canary pass.
+- PR132 classifier accepted at8805e375 from6a17081 after independent data/devops approvals,35lockedMLtests and CI37366329360 finalSUCCESS:25quality+9Compose steps, no skips. Initial Compose attempt acquired no hosted runner; one job-only retry passed. No held-out generalization claim.
+- Both newly merged source branches removed only after exact squash-tree equivalence and head-leased remote deletion. Earlier four verified merged-head cleanup receipts preserved. Never delete unknown/unmerged/holding work.
+- Current SEC-FU1a: narrow signed JWT runtime-claim validation, source/platform/security approvals;32focused and125fullAPI copied-source tests plus typecheck PASS. Current-final branch125APItests, lint/typecheck and100% JWTcoveragePASS; currentCI pending; no HTTP principal, module registration, liveRLS or security-all-clear claim.
+- Orbit BUG021 candidate preserved remotely on st/BUG-021-orbit-contrast-resume at79508ce; source not accepted into main. Revised halo covers all48cells,47pixelcellsPASS/1INCONCLUSIVE dark selectedgh under frozen measurement model. No baseline adoption; all43accepted PNGs preserved. Owned QA servers stopped; no repeated model/tolerance loop.
+- Holding branch hold/subtrack-progress-2026-10-05 at28548704f0e4a86d2e8e67ba92a418ad07449822 remains unchanged. Home title patch prepared; Home QA/CI/G-DESIGN still blocked on Orbit acceptance.
+- Mobile ST051 preflight blocked on source/OpenAPI drift and verified authentication/principal contracts. Concrete SEC-FU1 decision proposal has independent REQUEST_CHANGES; founder question pending conflicting deletion BankID versus development OTP contracts. Narrow JWT defensive work separately ready.
+- M0 CI screenshot still unavailable: supplied CA matches existing shared NSS root and curl verifies actualGitHubpage, but one fresh normal Chromium attempt fails ERR_CERT_AUTHORITY_INVALID. No screenshot fabrication or certificate-verification bypass.
+- PR13648f65c4 independently reviewed and CI green; deployment-config production handling remains separate. PR135 draft conflicts with accepted design direction; preserved. PR122 closed as superseded, unique source retained.
+- Metrics refreshed from a named Git ref with SHA. DONE board records overlap parent/child requirements; provider/historical token telemetry remains null.
+- Dispatch/checkpoint sizes bounded; rotation at20reportedcalls/30min preserves original task budget/retry/failure history. Platform manages Conductor compaction; no claim that a tool forcibly cleared it.

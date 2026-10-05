@@ -1,17 +1,36 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { generateKeyPairSync, sign } from 'node:crypto';
 import { JwtService } from './jwt.service';
 
 describe('JwtService', () => {
   let svc: JwtService;
+  let fixturePrivateKey: string;
 
   beforeEach(() => {
-    delete process.env['JWT_PRIVATE_KEY_PEM'];
+    const pair = generateKeyPairSync('ed25519');
+    fixturePrivateKey = pair.privateKey
+      .export({ type: 'pkcs8', format: 'pem' })
+      .toString();
+    vi.stubEnv('JWT_PRIVATE_KEY_PEM', fixturePrivateKey);
     svc = new JwtService();
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
   });
+
+  function signedPayload(json: string): string {
+    const header = Buffer.from(
+      JSON.stringify({ alg: 'EdDSA', crv: 'Ed25519', typ: 'JWT' }),
+    ).toString('base64url');
+    const payload = Buffer.from(json).toString('base64url');
+    const message = Buffer.from(`${header}.${payload}`);
+    const signature = sign(null, message, fixturePrivateKey).toString(
+      'base64url',
+    );
+    return `${header}.${payload}.${signature}`;
+  }
 
   it('issues a JWT with three dot-separated parts', () => {
     const token = svc.issue('identity-1', 'session-1');
@@ -53,8 +72,66 @@ describe('JwtService', () => {
     expect(() => svc.verify(token)).toThrow('JWT has expired.');
   });
 
+  it.each(['null', '[]', '"text"', '42'])(
+    'verify rejects signed non-object payload %s',
+    (json) => {
+      expect(() => svc.verify(signedPayload(json))).toThrow(
+        'JWT payload must be a plain object.',
+      );
+    },
+  );
+
+  it.each([
+    '{}',
+    '{"sid":"session-1","iat":100,"exp":200}',
+    '{"sub":"identity-1","iat":100,"exp":200}',
+    '{"sub":"identity-1","sid":"session-1","exp":200}',
+    '{"sub":"identity-1","sid":"session-1","iat":100}',
+    '{"sub":"","sid":"session-1","iat":100,"exp":200}',
+    '{"sub":"  ","sid":"session-1","iat":100,"exp":200}',
+    '{"sub":"identity-1","sid":"","iat":100,"exp":200}',
+    '{"sub":"identity-1","sid":"  ","iat":100,"exp":200}',
+    '{"sub":1,"sid":"session-1","iat":100,"exp":200}',
+    '{"sub":"identity-1","sid":true,"iat":100,"exp":200}',
+    '{"sub":"identity-1","sid":"session-1","iat":"100","exp":200}',
+    '{"sub":"identity-1","sid":"session-1","iat":100,"exp":"200"}',
+    '{"sub":"identity-1","sid":"session-1","iat":true,"exp":200}',
+    '{"sub":"identity-1","sid":"session-1","iat":100,"exp":false}',
+    '{"sub":"identity-1","sid":"session-1","iat":100.5,"exp":200}',
+    '{"sub":"identity-1","sid":"session-1","iat":100,"exp":200.5}',
+    '{"sub":"identity-1","sid":"session-1","iat":1e999,"exp":200}',
+    '{"sub":"identity-1","sid":"session-1","iat":100,"exp":1e999}',
+    '{"sub":"identity-1","sid":"session-1","iat":200,"exp":200}',
+    '{"sub":"identity-1","sid":"session-1","iat":201,"exp":200}',
+  ])('verify rejects signed invalid claims %s', (json) => {
+    vi.setSystemTime(150_000);
+    expect(() => svc.verify(signedPayload(json))).toThrow(
+      'JWT payload has invalid claims.',
+    );
+  });
+
+  it('verify accepts signed well-typed unexpired claims', () => {
+    const now = Math.floor(Date.now() / 1_000);
+    const token = signedPayload(
+      JSON.stringify({
+        sub: 'identity-1',
+        sid: 'session-1',
+        iat: now,
+        exp: now + 60,
+      }),
+    );
+    expect(svc.verify(token)).toEqual({
+      sub: 'identity-1',
+      sid: 'session-1',
+      iat: now,
+      exp: now + 60,
+    });
+  });
+
   it('token from one JwtService instance cannot be verified by another', () => {
+    vi.stubEnv('JWT_PRIVATE_KEY_PEM', undefined);
     const other = new JwtService(); // different key pair (dev fallback)
+    vi.stubEnv('JWT_PRIVATE_KEY_PEM', fixturePrivateKey);
     const token = svc.issue('identity-1', 'session-1');
     expect(() => other.verify(token)).toThrow();
   });

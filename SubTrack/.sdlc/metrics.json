@@ -1,7 +1,7 @@
 {
   "as_of": "2026-10-05",
-  "source": "HEAD",
-  "source_head": "3cb516b574949524e496a16ba5fbda65c7091e52",
+  "source": "st/SEC-FU1a-jwt-claims",
+  "source_head": "3bc6562e364403f71d9f7a1eba37f046d91b49f0",
   "completed_task_ids": [
     "BUG-001",
     "BUG-002",
@@ -79,14 +79,16 @@
     "ST-100",
     "ST-101",
     "ST-120",
-    "ST-162"
+    "ST-124",
+    "ST-162",
+    "ST-168"
   ],
-  "completed_task_count": 77,
-  "record_count": 128,
+  "completed_task_count": 79,
+  "record_count": 130,
   "status_counts": {
-    "BACKLOG": 47,
-    "BLOCKED": 2,
-    "DONE": 77,
+    "BACKLOG": 46,
+    "BLOCKED": 3,
+    "DONE": 79,
     "IN_PROGRESS": 1,
     "IN_REVIEW": 1
   },
