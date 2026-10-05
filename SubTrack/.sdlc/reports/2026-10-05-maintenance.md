@@ -1,10 +1,10 @@
 # Compact accepted-work checkpoint — 2026-10-05
 
 - Development ACTIVE_BY_USER after explicit approval. Conductor main model; specialists fresh task-only Luna sessions, fork_turns:none.
-- Accepted main8805e3752e8799a68258b23e7fbe02bb69d9180b. Approved PR150 workflow repairs accepted at532b960;34requiredstepsSUCCESS,12Python+5Node helper tests and real semantic canary pass.
+- Accepted mainc1956b52b0a4b26e234a3f833da0d9086d5ad283. Approved PR150 workflow repairs accepted at532b960;34requiredstepsSUCCESS,12Python+5Node helper tests and real semantic canary pass.
 - PR132 classifier accepted at8805e375 from6a17081 after independent data/devops approvals,35lockedMLtests and CI37366329360 finalSUCCESS:25quality+9Compose steps, no skips. Initial Compose attempt acquired no hosted runner; one job-only retry passed. No held-out generalization claim.
 - Both newly merged source branches removed only after exact squash-tree equivalence and head-leased remote deletion. Earlier four verified merged-head cleanup receipts preserved. Never delete unknown/unmerged/holding work.
-- Current SEC-FU1a: narrow signed JWT runtime-claim validation, source/platform/security approvals;32focused and125fullAPI copied-source tests plus typecheck PASS. Current-final branch125APItests, lint/typecheck and100% JWTcoveragePASS; currentCI pending; no HTTP principal, module registration, liveRLS or security-all-clear claim.
+- Accepted SEC-FU1a PR151 atc1956b5, exacthead954b25a CI37370589254 all34stepsSUCCESS; sourcebranch safelycleaned. Scope: narrow signed JWT runtime-claim validation, source/platform/security approvals;32focused and125fullAPI copied-source tests plus typecheck PASS. Final branch125APItests, lint/typecheck and100% JWTcoveragePASS; no HTTP principal, module registration, liveRLS or security-all-clear claim.
 - Orbit BUG021 candidate preserved remotely on st/BUG-021-orbit-contrast-resume at79508ce; source not accepted into main. Revised halo covers all48cells,47pixelcellsPASS/1INCONCLUSIVE dark selectedgh under frozen measurement model. No baseline adoption; all43accepted PNGs preserved. Owned QA servers stopped; no repeated model/tolerance loop.
 - Holding branch hold/subtrack-progress-2026-10-05 at28548704f0e4a86d2e8e67ba92a418ad07449822 remains unchanged. Home title patch prepared; Home QA/CI/G-DESIGN still blocked on Orbit acceptance.
 - Mobile ST051 preflight blocked on source/OpenAPI drift and verified authentication/principal contracts. Concrete SEC-FU1 decision proposal has independent REQUEST_CHANGES; founder question pending conflicting deletion BankID versus development OTP contracts. Narrow JWT defensive work separately ready.
@@ -12,3 +12,7 @@
 - PR13648f65c4 independently reviewed and CI green; deployment-config production handling remains separate. PR135 draft conflicts with accepted design direction; preserved. PR122 closed as superseded, unique source retained.
 - Metrics refreshed from a named Git ref with SHA. DONE board records overlap parent/child requirements; provider/historical token telemetry remains null.
 - Dispatch/checkpoint sizes bounded; rotation at20reportedcalls/30min preserves original task budget/retry/failure history. Platform manages Conductor compaction; no claim that a tool forcibly cleared it.
+
+- Continued independent work during CI wait: fresh Luna internal auth decision record received independent platform/security APPROVE_INTERNAL_POLICY; publiccontracts/founderdeletionchoice/BUG008/PostgreSQLgates remain. Noauthmoduleexposure.
+- Current D1 ST029a concept slice: token-based dark/light/monochrome orbit icons, bilingual static splash and imagery-led store art. Local ChromiumQA PASS bundledfonts,9images,sv/enManrope500, no page/loaderrors, nooverflow1440/375; independent client/designAPPROVE_SOURCE; currentCI pending. ParentST029platformspecs remainblocked byofficialdocsproxy403, noexport/GDESIGNclaim.
+- Actual task tool counts can exceed requested per-agent dispatch caps; recorded honestly, guard counters are manual and do not intercept every tool. No claimed provider-quota savings.

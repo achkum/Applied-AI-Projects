@@ -6,7 +6,7 @@ milestone: M1
 owner_role: dev-backend
 reviewers: [architect-platform, security-privacy, conductor]
 size: S
-status: IN_REVIEW
+status: DONE
 depends_on: [ST-044]
 allowed_paths:
   - SubTrack/apps/api/src/auth/sessions/jwt.service.ts
@@ -35,3 +35,6 @@ Fresh Luna implementation prepared the scoped two-file patch. Independent fresh 
 
 ## Conductor bookkeeping scope
 Reconcile already accepted ST-124 (PR132, current-head CI37366329360:25 quality+9 Compose steps successful,35MLtests, source/data/devops reviews) and ST-168 (approved PR150) only after merge. Record unaccepted BUG021 at its preserved branch, with no Orbit source or baseline adoption in this task. Refresh metrics from an explicit named Git ref.
+
+## Acceptance receipt
+PR151 merged to main c1956b52b0a4b26e234a3f833da0d9086d5ad283 from954b25a34151af6a63c8508eaa62d32af9cf2025. Exact-head CI37370589254:25quality+9Compose steps SUCCESS, none skipped. Required independent platform/security reviews and final branch125APItests/lint/typecheck/100%JWTcoverage passed. Source branch deleted only after exact squash-tree equivalence and head-leased remote deletion. Broader SEC-FU1 remains blocked.
