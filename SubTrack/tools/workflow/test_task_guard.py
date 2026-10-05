@@ -1,8 +1,29 @@
 import unittest
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
 from task_guard import start, checkpoint, metrics
 
 
 class GuardTests(unittest.TestCase):
+    def test_cli_pause_is_fail_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state, pause = Path(tmp)/"state.json", Path(tmp)/"pause.json"
+            args = [sys.executable, str(Path(__file__).with_name("task_guard.py")), "--state", str(state),
+                    "start", "ST-168", "--size", "S", "--role", "specialist", "--mode", "feature"]
+            def code(extra):
+                return subprocess.run(args + extra, capture_output=True).returncode
+            self.assertEqual(code([]), 2)
+            self.assertEqual(code(["--pause-file", str(pause)]), 2)
+            for value in ("invalid json", "{}", json.dumps({"development":"PAUSED_BY_USER"})):
+                pause.write_text(value)
+                self.assertEqual(code(["--pause-file", str(pause)]), 2)
+                self.assertFalse(state.exists())
+            pause.write_text(json.dumps({"development":"ACTIVE_BY_USER"}))
+            self.assertEqual(code(["--pause-file", str(pause)]), 0)
+
     def session(self, size="S"):
         state = {}
         start(state, "ST-168", size, "conductor", "maintenance", 0, True)

@@ -97,7 +97,7 @@ def metrics(board, source, head, now):
         "throughput_today": None, "cycle_time_hours": None,
         "reopen_rate": None, "escalation_count": None,
         "input_tokens": None, "output_tokens": None,
-        "limitations": "Board snapshot; parent/child records overlap. Unmerged holding work excluded. Historical throughput, cycle time, escalations and provider usage not measured.",
+        "limitations": "Board snapshot at the selected ref; parent/child records overlap. DONE statuses are board claims, not fresh QA. Work on other refs is not included. Historical throughput, cycle time, escalations and provider usage not measured.",
     }
 
 
@@ -110,7 +110,7 @@ def main():
     p.add_argument("--size", choices=BUDGETS, required=True)
     p.add_argument("--role", choices=["conductor", "specialist"], required=True)
     p.add_argument("--mode", choices=["feature", "maintenance"], required=True)
-    p.add_argument("--pause-file", type=Path)
+    p.add_argument("--pause-file", type=Path, required=True)
     p = sub.add_parser("checkpoint")
     p.add_argument("task")
     p.add_argument("--calls", type=int, default=0)
@@ -139,9 +139,10 @@ def main():
         state = json.loads(args.state.read_text()) if args.state.exists() else {}
         try:
             if args.command == "start":
-                paused = False
-                if args.pause_file and args.pause_file.exists():
-                    paused = json.loads(args.pause_file.read_text()).get("development") == "PAUSED_BY_USER"
+                pause = json.loads(args.pause_file.read_text())
+                if pause.get("development") not in {"PAUSED_BY_USER", "ACTIVE_BY_USER"}:
+                    raise ValueError("missing or invalid development authorization state")
+                paused = pause["development"] == "PAUSED_BY_USER"
                 result = start(state, args.task, args.size, args.role, args.mode, now, paused)
             elif args.command == "checkpoint":
                 result = checkpoint(state, args.task, now, args.calls, args.progress,
@@ -150,7 +151,7 @@ def main():
                 result = checkpoint(state, args.task, now)
                 if result["status"] == "ACTIVE":
                     result.update(status="FINISHED", finished=now, heavy=False)
-        except (ValueError, KeyError) as error:
+        except (ValueError, KeyError, OSError) as error:
             parser.exit(2, f"Guard rejected action: {error}\n")
         args.state.write_text(json.dumps(state, indent=2) + "\n")
         print(json.dumps(result))
