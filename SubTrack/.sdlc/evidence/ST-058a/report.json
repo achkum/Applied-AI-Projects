@@ -1,0 +1,79 @@
+{
+  "browser": "151.0.7922.173",
+  "states": [
+    {
+      "lang": "sv",
+      "html": 1,
+      "body": 1,
+      "theme": null,
+      "heading": "SubTrack",
+      "tagline": "Allt ni prenumererar på. På ett ställe.",
+      "font": "fraunces, \"fraunces Fallback\", Georgia, serif",
+      "background": "rgb(247, 244, 238)",
+      "fonts": [
+        "fraunces",
+        "manrope"
+      ],
+      "animation": "welcome-screen-module__IJMmOa__wordmark-form",
+      "overflow": false,
+      "narrow375": true,
+      "reducedMotion": true
+    },
+    {
+      "lang": "sv",
+      "html": 1,
+      "body": 1,
+      "theme": "dark",
+      "heading": "SubTrack",
+      "tagline": "Allt ni prenumererar på. På ett ställe.",
+      "font": "fraunces, \"fraunces Fallback\", Georgia, serif",
+      "background": "rgb(10, 12, 20)",
+      "fonts": [
+        "fraunces",
+        "manrope"
+      ],
+      "animation": "welcome-screen-module__IJMmOa__wordmark-form",
+      "overflow": false,
+      "narrow375": true,
+      "reducedMotion": true
+    },
+    {
+      "lang": "en",
+      "html": 1,
+      "body": 1,
+      "theme": null,
+      "heading": "SubTrack",
+      "tagline": "Everything you subscribe to. In one place.",
+      "font": "fraunces, \"fraunces Fallback\", Georgia, serif",
+      "background": "rgb(247, 244, 238)",
+      "fonts": [
+        "fraunces",
+        "manrope"
+      ],
+      "animation": "welcome-screen-module__IJMmOa__wordmark-form",
+      "overflow": false,
+      "narrow375": true,
+      "reducedMotion": true
+    },
+    {
+      "lang": "en",
+      "html": 1,
+      "body": 1,
+      "theme": "dark",
+      "heading": "SubTrack",
+      "tagline": "Everything you subscribe to. In one place.",
+      "font": "fraunces, \"fraunces Fallback\", Georgia, serif",
+      "background": "rgb(10, 12, 20)",
+      "fonts": [
+        "fraunces",
+        "manrope"
+      ],
+      "animation": "welcome-screen-module__IJMmOa__wordmark-form",
+      "overflow": false,
+      "narrow375": true,
+      "reducedMotion": true
+    }
+  ],
+  "errors": [],
+  "invalidLocale": 404
+}
