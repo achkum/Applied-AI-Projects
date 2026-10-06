@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { ThemeProvider } from '@/lib/theme-provider';
 import { fontClassNames } from '@/lib/fonts';
+import { Preferences } from '@/components/preferences/preferences';
 
 const themeScript = `
   (function() {
@@ -46,7 +47,10 @@ export default async function LocaleLayout({
       </head>
       <body>
         <NextIntlClientProvider locale={locale} messages={catalogs[locale]}>
-          <ThemeProvider>{children}</ThemeProvider>
+          <ThemeProvider>
+            <Preferences locale={locale} />
+            {children}
+          </ThemeProvider>
         </NextIntlClientProvider>
       </body>
     </html>

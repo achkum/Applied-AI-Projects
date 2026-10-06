@@ -58,6 +58,13 @@
       "priceHistory": "Prishistorik"
     }
   },
+  "preferences": {
+    "label": "Inställningar",
+    "languageLabel": "Språk",
+    "languageName": { "en": "Engelska", "sv": "Svenska" },
+    "themeLabel": "Färgtema",
+    "themes": { "light": "Ljust", "dark": "Mörkt", "system": "System" }
+  },
   "home": {
     "totalHeading": "Återkommande kostnader",
     "projection12Months": "Prognos för 12 månader",

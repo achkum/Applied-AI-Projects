@@ -1,0 +1,79 @@
+{
+  "task": "ST-058c",
+  "baseMain": "6715c60dee4184faaaf14abe4e7730aa8d75cfa4",
+  "branch": "st/ST-058c-detail-preferences",
+  "webTests": {
+    "passed": 49,
+    "files": 7,
+    "skipped": 0
+  },
+  "coverage": {
+    "scope": "Changed detail/preferences and locale root layout functional TS",
+    "summary": {
+      "lines": {
+        "total": 23,
+        "covered": 23,
+        "skipped": 0,
+        "pct": 100
+      },
+      "statements": {
+        "total": 25,
+        "covered": 25,
+        "skipped": 0,
+        "pct": 100
+      },
+      "functions": {
+        "total": 8,
+        "covered": 8,
+        "skipped": 0,
+        "pct": 100
+      },
+      "branches": {
+        "total": 15,
+        "covered": 15,
+        "skipped": 0,
+        "pct": 100
+      },
+      "branchesTrue": {
+        "total": 0,
+        "covered": 0,
+        "skipped": 0,
+        "pct": 100
+      }
+    },
+    "runner": "Vitest5.0.2/provider5.0.2 (ignored runner-local override)"
+  },
+  "productionBuild": "Next16.3.6 PASS both Welcome/Home locale routes and dynamic detail",
+  "sourceFiles": {
+    "SubTrack/apps/web/app/[locale]/subscriptions/[id]/page.tsx": "86d6e223c11425588a164d2a8ea46cb6714c038015d6cc3e7272b098b20ab8b9",
+    "SubTrack/apps/web/app/[locale]/subscriptions/[id]/subscription-detail.tsx": "b3c132493049f44622877ccfa0aa282b669afb299e82b6725cd8166f4b2b2d28",
+    "SubTrack/apps/web/app/[locale]/subscriptions/[id]/subscription-detail.module.css": "4d00ff4d4c1cc4a934d11de73ca4a003cd07c6d250b4472294d8cd1a99d2ec97",
+    "SubTrack/apps/web/components/preferences/preferences.tsx": "4885cacfaed0303b356059ece146628bf92f30ee784a4f05fb2cfd47af1b27b8",
+    "SubTrack/apps/web/components/preferences/preferences.module.css": "51c2dd2c37dc3ca5e5dfc2c1d852cfd1e291b091f4fb078ea54f8cb1b9b6cf0f",
+    "SubTrack/apps/web/app/[locale]/layout.tsx": "063a35607a5bb7db6c81dfc8683abf5824eae02c47d731c06df5d0c71a5c8004",
+    "SubTrack/packages/i18n/catalogs/en.json": "360bbdc45277f02773423fdaab649ba5a44c947e17bf6370a06cf4f0d93e1846",
+    "SubTrack/packages/i18n/catalogs/sv.json": "bb5aa2ff888742e07e18283600c9dd2732fe9f3bb912a48db87d902656178b96"
+  },
+  "artifacts": {
+    "subscriptions-spotify-sv-light.png": "b76a50dd2de13306b2e305807772f5f34c6c56cedb58750eb8af7bc6c972d605",
+    "coverage-summary.json": "a84264b1f4e629815ffee4cd96940181d20c0a28342f2959a7dde3f299623ff0",
+    "home-sv-dark.png": "8a2575acb7816ed031fff7c319094556722c261649f625607186ee25069c8d3d",
+    "subscriptions-spotify-en-light.png": "81c16ab256831574b5a6f6367d9eb44880099b7f2b44edf5625be4d9aa2856e1",
+    "design-review.md": "62a5d258c67d042c50e45018859a96c5c5d80a3d5c982cc790e2e243661ab5de",
+    "subscriptions-spotify-sv-dark.png": "538744fb0abd23e7cd8c48a84d3ee9ea0483eba8b2d971f6cc52d07c25712ca5",
+    "welcome-en-light.png": "dd27c7af714c18e09e79763d696515692f01c74a3d25698a713e2a519ce6f45e",
+    "welcome-narrow.png": "08f036f7f45b2a20b709cfa861c570f4b2000904af92429ad2783d270e8ecb23",
+    "welcome-sv-dark.png": "d35b27055d7e757241e5982fd60b5e9c7b1147640eae74849b575d20affa7468",
+    "home-sv-light.png": "849d2cd2a2b42fb3f05d5f9ec81716c0a1a39ed43c87aca4919f9f8f96999aec",
+    "home-narrow.png": "5bfa0e840c4c2ab0421cc1ee07e722a4c6ea5ded9cdf74ad127890fff7213d87",
+    "home-en-light.png": "8bd7d5ebb33bcb27374b485c8278391a3ac66ad9441d922765cca5d5c960b4f8",
+    "welcome-sv-light.png": "cb097f5019f9f281be3c8b520e0c3607d5e4ff8c5cb71b454f55b37706f087d9",
+    "home-en-dark.png": "91e53dcf7b2821eafa43fafdde644c3118b96cb863f6e27cd8ccd4be98200ac8",
+    "subscriptions-spotify-en-dark.png": "344386073545dca4dae4b3c95833701b60000e12b455e95141c40e03d1197582",
+    "client-review.md": "15a4a29c3763f6f1482f1095d759b66ccd003789fd2b14434e3f100e8b45c4b8",
+    "subscriptions-spotify-narrow.png": "ad971d386627a37e1f3ad03158de80396d0db71aae2c967a9020a994ca170685",
+    "report.json": "5305c4ec2fd471f47a7ec7b2fc658727ea595354cd7b5ab1c1d826815ae0381b",
+    "invalid-route-proof.json": "6bb9a37bf91e99fc2217f55b0503c60c2a7144ba38a0ed56c293e5c5f65632ac",
+    "welcome-en-dark.png": "f6cf83be38957d2c58e906204ad910d7d724c2addafed740f5e3ff5d2cc6c8c5"
+  }
+}

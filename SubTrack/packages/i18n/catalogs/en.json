@@ -58,6 +58,13 @@
       "priceHistory": "Price history"
     }
   },
+  "preferences": {
+    "label": "Preferences",
+    "languageLabel": "Language",
+    "languageName": { "en": "English", "sv": "Swedish" },
+    "themeLabel": "Color theme",
+    "themes": { "light": "Light", "dark": "Dark", "system": "System" }
+  },
   "home": {
     "totalHeading": "Recurring total",
     "projection12Months": "12-month projection",

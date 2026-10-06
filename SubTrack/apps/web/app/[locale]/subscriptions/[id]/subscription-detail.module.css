@@ -1,0 +1,38 @@
+.frame {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 100vh;
+  place-items: center;
+  padding: clamp(1.5rem, 8vw, 8rem);
+  background: var(--bg-canvas);
+  color: var(--ink-primary);
+}
+
+.detail {
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  width: min(100%, 42rem);
+  min-width: 0;
+  justify-self: center;
+}
+
+.title {
+  max-width: 12ch;
+  margin: 0;
+  color: var(--ink-primary);
+  font-family: var(--font-display), Georgia, serif;
+  font-size: var(--font-size-4xl);
+  font-weight: 500;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.disclosure {
+  margin: 0;
+  color: var(--ink-secondary);
+  font-family: var(--font-ui), sans-serif;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
