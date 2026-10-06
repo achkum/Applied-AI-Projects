@@ -1,0 +1,25 @@
+{
+  "focusedTests": {
+    "cases": 11,
+    "suites": 1,
+    "coverage": {
+      "statements": 98.41,
+      "branches": 98.46,
+      "functions": 100,
+      "lines": 98.21,
+      "scope": "idempotency-guard.ts"
+    }
+  },
+  "apiTypecheck": "PASS (local Prisma Client generation only; no database contact)",
+  "scopedESLint": "PASS",
+  "sourceRebase": "Main1c47445; board conflict preserved both tasks; API source/spec byte check against reviewed localcommit passed before adding clock-failure test",
+  "reviews": "Final actual-source platform/security reviews identify no blocker; guard source unchanged after review; one added test exercises existing clock-failure behavior",
+  "exactHeadCI": "PENDING",
+  "runtimeLimits": [
+    "in-memory development/test reference",
+    "no HTTP/controller/module/provider/DB migration",
+    "authority brand is compile-time only; future adapter must verify authority and canonicalize requests",
+    "bootstrap trust/durable cross-process atomicity/session/refresh retry not implemented"
+  ],
+  "budget": "FreshLuna author/reviewers; manuallyreported counts not token telemetry; originalauthorcount ambiguous; securitypre-review exceeded wrapper target and corrections disclosed; root calls unreported, no automatic savingsclaim"
+}

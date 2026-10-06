@@ -1,0 +1,9 @@
+# ST-170c2 internal idempotency reservation core
+
+Synchronous process-local reference for the seven accepted v2 mutating POST operations. Mandatory copied HMAC key binds raw idempotency key lookup and framed operation/transport/authority/request digests. Only hash/state/expiry records persist in memory. One opaque hashed owner handle settles a pending row once; pending/completed/failed duplicates fail with generic AUTH_RESTART_REQUIRED, never replay results. Explicit bounded TTL/capacity, safe injected clock and immutable copies.
+
+Trusted authority digests are internal future-adapter inputs, not authentication capabilities. This core does not derive bootstrap trust, canonicalize wire requests, verify a principal, wire HTTP, issue sessions, retry refresh, or provide durable/cross-process storage. Parent ST170c remains incomplete.
+
+Final API TypeScript/scoped lint and11focused tests pass with >98% statement/branch coverage. Platform/security reviewed actual integrated source, with no blocker; one subsequent clock-failure test exercises unchanged code. Exact-headCI required beforemerge. Early staging had wrong operation-list spec, readonly mutation and Vitest matcher/reusedkey errors corrected; no failed tests represented as passed. Root replaced inferred never-arrow with function declaration for TypeScript control-flow narrowing, preserving generic error behavior. Rebase changed board only; reviewed API files verified unchanged. Previous accepted WelcomePR169 receipt supports DONE reconciliation. Counters are manual/unreported; no billed-token or automated context clearing claim.
+
+LocalprepushGitleaks flagged4inline synthetic idempotency-key fixtures in unpublishedsourcehistory. Replacedwithgeneratedrepeated-characterfixtures (samevalidation/collisionsemantics); consolidatedunpublishedlocaltaskcommits sohistoricalfakefixturesarenotpublished. No suppressions/allowlist/scanbypass orrealcredentialuse. Rerun focusedtests/lint/scanbeforepush.
