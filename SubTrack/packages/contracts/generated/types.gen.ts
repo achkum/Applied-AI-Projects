@@ -68,6 +68,283 @@ export type DeleteAccountBody = {
     reAuthToken: string;
 };
 
+export type WebOtpStartBody = {
+    channel: 'sms' | 'email';
+    identifier: string;
+    purpose: 'enroll_identifier' | 'otp_step_up';
+    transport: 'web';
+};
+
+export type WebOtpVerifyBody = {
+    challengeId: string;
+    code: string;
+    transport: 'web';
+};
+
+export type MobileOtpStartBody = {
+    channel: 'sms' | 'email';
+    identifier: string;
+    purpose: 'enroll_identifier' | 'otp_step_up';
+    transport: 'mobile';
+};
+
+export type MobileOtpVerifyBody = {
+    challengeId: string;
+    code: string;
+    transport: 'mobile';
+};
+
+export type WebOtpStartWireCall = WebOtpStartCallEnvelope;
+
+export type WebOtpStartCallEnvelope = {
+    transport: 'web';
+    headers: WebOtpStartHeaders;
+    body: WebOtpStartBody;
+};
+
+export type MobileOtpStartCallEnvelope = {
+    transport: 'mobile';
+    headers: MobileOtpHeaders;
+    body: MobileOtpStartBody;
+};
+
+export type WebOtpVerifyCallEnvelope = {
+    transport: 'web';
+    headers: WebOtpHeaders;
+    body: WebOtpVerifyBody;
+};
+
+export type MobileOtpVerifyCallEnvelope = {
+    transport: 'mobile';
+    headers: MobileOtpHeaders;
+    body: MobileOtpVerifyBody;
+};
+
+export type WebSessionCallEnvelope = {
+    transport: 'web';
+    headers: WebSessionHeaders;
+    body: WebSessionRequest;
+};
+
+export type MobileSessionCallEnvelope = {
+    transport: 'mobile';
+    headers: MobileSessionHeaders;
+    body: MobileSessionRequest;
+};
+
+export type WebRefreshCallEnvelope = {
+    transport: 'web';
+    headers: WebRefreshHeaders;
+    body: null;
+};
+
+export type MobileRefreshCallEnvelope = {
+    transport: 'mobile';
+    headers: MobileRefreshHeaders;
+    body: null;
+};
+
+export type WebOtpStartHeaders = {
+    idempotencyKey: string;
+    /**
+     * Browser supplies Origin; client JavaScript must not set this forbidden header.
+     */
+    origin: string;
+    /**
+     * Public X-Browser-Nonce value.
+     */
+    browserNonce: string;
+};
+
+export type WebOtpHeaders = {
+    idempotencyKey: string;
+    /**
+     * Browser supplies Origin; client JavaScript must not set this forbidden header.
+     */
+    origin: string;
+    browserNonce: string;
+};
+
+export type MobileOtpHeaders = {
+    idempotencyKey: string;
+};
+
+export type WebSessionHeaders = {
+    idempotencyKey: string;
+    /**
+     * Browser supplies Origin; client JavaScript must not set this forbidden header.
+     */
+    origin: string;
+};
+
+export type MobileSessionHeaders = {
+    idempotencyKey: string;
+};
+
+export type WebRefreshHeaders = {
+    idempotencyKey: string;
+    /**
+     * Browser supplies Origin; client JavaScript must not set this forbidden header.
+     */
+    origin: string;
+    sessionCsrf: string;
+};
+
+export type MobileRefreshHeaders = {
+    idempotencyKey: string;
+    /**
+     * Opaque refresh credential; no Origin, nonce or CSRF fields.
+     */
+    authorization: string;
+};
+
+export type BrowserNonceRequest = {
+    purpose: 'enroll_identifier' | 'otp_step_up' | 'session';
+};
+
+export type BrowserNonceResponse = {
+    /**
+     * Public one-use nonce, sent by JS in a custom header.
+     */
+    nonce: string;
+};
+
+export type OtpStartRequest = {
+    channel: 'sms' | 'email';
+    /**
+     * Normalized server-side; never echoed.
+     */
+    identifier: string;
+    purpose: 'enroll_identifier' | 'otp_step_up';
+    transport: 'web' | 'mobile';
+};
+
+export type OtpStartResponse = {
+    challengeId: string;
+    status: 'accepted';
+    /**
+     * Next public nonce for browser flow; null for mobile.
+     */
+    nextBrowserNonce: string | null;
+};
+
+export type OtpVerifyRequest = {
+    challengeId: string;
+    code: string;
+    transport: 'web' | 'mobile';
+};
+
+export type OtpVerifyResponse = {
+    purpose: 'enroll_identifier' | 'otp_step_up';
+    /**
+     * Opaque one-use purpose and transport-bound proof; store hash only.
+     */
+    proof: string;
+    /**
+     * Next public nonce for browser flow; null for mobile.
+     */
+    nextBrowserNonce: string | null;
+};
+
+export type SessionRequest = ({
+    transport: 'web';
+} & WebSessionRequest) | ({
+    transport: 'mobile';
+} & MobileSessionRequest);
+
+export type WebSessionRequest = {
+    transport: 'web';
+    /**
+     * Server-issued one-use login proof bound to web transport.
+     */
+    loginProof: string;
+};
+
+export type MobileSessionRequest = {
+    transport: 'mobile';
+    /**
+     * Server-issued one-use login proof bound to mobile transport.
+     */
+    loginProof: string;
+    deviceName?: string;
+};
+
+export type WebSessionResponse = {
+    transport: 'web';
+    sessionId: string;
+    /**
+     * Readable session-bound CSRF token, distinct from browser nonce.
+     */
+    csrfToken: string;
+};
+
+export type MobileSessionResponse = {
+    transport: 'mobile';
+    sessionId: string;
+    /**
+     * Short-lived v2 access JWT returned once for OS secure storage.
+     */
+    accessToken: string;
+    /**
+     * Opaque refresh credential returned once for OS secure storage.
+     */
+    refreshToken: string;
+};
+
+export type WebRefreshResponse = {
+    transport: 'web';
+    sessionId: string;
+    /**
+     * Rotated readable session-bound CSRF token.
+     */
+    csrfToken: string;
+};
+
+export type MobileRefreshResponse = {
+    transport: 'mobile';
+    sessionId: string;
+    /**
+     * Short-lived v2 access JWT rotated within the same session family.
+     */
+    accessToken: string;
+    refreshToken: string;
+};
+
+export type SessionSummary = {
+    id: string;
+    createdAt: string;
+    current: boolean;
+    deviceName?: string | null;
+};
+
+export type DeleteOtpStartRequest = {
+    channel: 'sms' | 'email';
+};
+
+export type DeleteOtpStartResponse = {
+    challengeId: string;
+    status: 'accepted';
+};
+
+export type DeleteOtpVerifyRequest = {
+    challengeId: string;
+    code: string;
+};
+
+export type DeleteOtpVerifyResponse = {
+    /**
+     * Opaque one-use account-delete-only proof; store hash only.
+     */
+    reauthProof: string;
+};
+
+export type DeleteMeRequest = {
+    /**
+     * Independent same-principal account-delete proof; atomically consumed.
+     */
+    reauthProof: string;
+};
+
 /**
  * RFC 9457 problem details.
  */
@@ -78,6 +355,39 @@ export type Problem = {
     detail?: string;
     instance?: string;
 };
+
+export type V2Problem = Problem & {
+    /**
+     * Stable generic machine code; AUTH_RESTART_REQUIRED signals a new verification flow.
+     */
+    code: string;
+};
+
+/**
+ * Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
+ */
+export type IdempotencyKey = string;
+
+/**
+ * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+ */
+export type ExactOrigin = string;
+
+/**
+ * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+ */
+export type OriginForWeb = string;
+
+/**
+ * Required for web transport only: public nonce paired with the distinct HttpOnly browser binding cookie. Mobile omits it.
+ *
+ */
+export type BrowserNonce = string;
+
+/**
+ * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+ */
+export type SessionCsrf = string;
 
 export type GetHealthzData = {
     body?: never;
@@ -374,3 +684,503 @@ export type GetVersionResponses = {
 };
 
 export type GetVersionResponse = GetVersionResponses[keyof GetVersionResponses];
+
+export type CreateV2BrowserNonceData = {
+    body: BrowserNonceRequest;
+    headers: {
+        /**
+         * Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
+         */
+        'Idempotency-Key': string;
+        /**
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+         */
+        Origin: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/auth/browser-nonce';
+};
+
+export type CreateV2BrowserNonceErrors = {
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    400: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    403: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    409: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    default: V2Problem;
+};
+
+export type CreateV2BrowserNonceError = CreateV2BrowserNonceErrors[keyof CreateV2BrowserNonceErrors];
+
+export type CreateV2BrowserNonceResponses = {
+    /**
+     * Public nonce; binding cookie is set separately.
+     */
+    200: BrowserNonceResponse;
+};
+
+export type CreateV2BrowserNonceResponse = CreateV2BrowserNonceResponses[keyof CreateV2BrowserNonceResponses];
+
+export type StartV2OtpData = {
+    body: OtpStartRequest;
+    headers: {
+        /**
+         * Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
+         */
+        'Idempotency-Key': string;
+        /**
+         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         */
+        Origin?: string;
+        /**
+         * Required for web transport only: public nonce paired with the distinct HttpOnly browser binding cookie. Mobile omits it.
+         *
+         */
+        'X-Browser-Nonce'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/auth/otp/start';
+};
+
+export type StartV2OtpErrors = {
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    400: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    403: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    409: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    429: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    default: V2Problem;
+};
+
+export type StartV2OtpError = StartV2OtpErrors[keyof StartV2OtpErrors];
+
+export type StartV2OtpResponses = {
+    /**
+     * Generic accepted response; no identity or delivery claim.
+     */
+    202: OtpStartResponse;
+};
+
+export type StartV2OtpResponse = StartV2OtpResponses[keyof StartV2OtpResponses];
+
+export type VerifyV2OtpData = {
+    body: OtpVerifyRequest;
+    headers: {
+        /**
+         * Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
+         */
+        'Idempotency-Key': string;
+        /**
+         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         */
+        Origin?: string;
+        /**
+         * Required for web transport only: public nonce paired with the distinct HttpOnly browser binding cookie. Mobile omits it.
+         *
+         */
+        'X-Browser-Nonce'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/auth/otp/verify';
+};
+
+export type VerifyV2OtpErrors = {
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    400: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    401: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    403: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    409: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    429: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    default: V2Problem;
+};
+
+export type VerifyV2OtpError = VerifyV2OtpErrors[keyof VerifyV2OtpErrors];
+
+export type VerifyV2OtpResponses = {
+    /**
+     * Restricted one-use proof; no-store.
+     */
+    200: OtpVerifyResponse;
+};
+
+export type VerifyV2OtpResponse = VerifyV2OtpResponses[keyof VerifyV2OtpResponses];
+
+export type CreateV2SessionData = {
+    body: SessionRequest;
+    headers: {
+        /**
+         * Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
+         */
+        'Idempotency-Key': string;
+        /**
+         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         */
+        Origin?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/auth/session';
+};
+
+export type CreateV2SessionErrors = {
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    400: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    401: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    403: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    409: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    default: V2Problem;
+};
+
+export type CreateV2SessionError = CreateV2SessionErrors[keyof CreateV2SessionErrors];
+
+export type CreateV2SessionResponses = {
+    /**
+     * Session created. no-store; web sets access and refresh cookies.
+     */
+    201: WebSessionResponse | MobileSessionResponse;
+};
+
+export type CreateV2SessionResponse = CreateV2SessionResponses[keyof CreateV2SessionResponses];
+
+export type RefreshV2SessionData = {
+    body?: never;
+    headers: {
+        /**
+         * Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
+         */
+        'Idempotency-Key': string;
+        /**
+         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         */
+        Origin?: string;
+        /**
+         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         */
+        'X-Session-CSRF'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/auth/refresh';
+};
+
+export type RefreshV2SessionErrors = {
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    401: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    403: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    409: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    default: V2Problem;
+};
+
+export type RefreshV2SessionError = RefreshV2SessionErrors[keyof RefreshV2SessionErrors];
+
+export type RefreshV2SessionResponses = {
+    /**
+     * Rotated credentials. no-store; web rotates cookies.
+     */
+    200: WebRefreshResponse | MobileRefreshResponse;
+};
+
+export type RefreshV2SessionResponse = RefreshV2SessionResponses[keyof RefreshV2SessionResponses];
+
+export type ListV2SessionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v2/me/sessions';
+};
+
+export type ListV2SessionsErrors = {
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    401: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    default: V2Problem;
+};
+
+export type ListV2SessionsError = ListV2SessionsErrors[keyof ListV2SessionsErrors];
+
+export type ListV2SessionsResponses = {
+    /**
+     * Caller-owned sessions.
+     */
+    200: Array<SessionSummary>;
+};
+
+export type ListV2SessionsResponse = ListV2SessionsResponses[keyof ListV2SessionsResponses];
+
+export type RevokeV2SessionData = {
+    body?: never;
+    headers?: {
+        /**
+         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         */
+        Origin?: string;
+        /**
+         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         */
+        'X-Session-CSRF'?: string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/v2/me/sessions/{id}';
+};
+
+export type RevokeV2SessionErrors = {
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    401: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    403: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    404: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    default: V2Problem;
+};
+
+export type RevokeV2SessionError = RevokeV2SessionErrors[keyof RevokeV2SessionErrors];
+
+export type RevokeV2SessionResponses = {
+    /**
+     * Session revoked.
+     */
+    204: void;
+};
+
+export type RevokeV2SessionResponse = RevokeV2SessionResponses[keyof RevokeV2SessionResponses];
+
+export type StartV2DeleteOtpReauthData = {
+    body: DeleteOtpStartRequest;
+    headers: {
+        /**
+         * Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
+         */
+        'Idempotency-Key': string;
+        /**
+         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         */
+        Origin?: string;
+        /**
+         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         */
+        'X-Session-CSRF'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/me/reauth/otp/start';
+};
+
+export type StartV2DeleteOtpReauthErrors = {
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    401: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    403: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    409: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    429: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    default: V2Problem;
+};
+
+export type StartV2DeleteOtpReauthError = StartV2DeleteOtpReauthErrors[keyof StartV2DeleteOtpReauthErrors];
+
+export type StartV2DeleteOtpReauthResponses = {
+    /**
+     * Generic challenge accepted.
+     */
+    202: DeleteOtpStartResponse;
+};
+
+export type StartV2DeleteOtpReauthResponse = StartV2DeleteOtpReauthResponses[keyof StartV2DeleteOtpReauthResponses];
+
+export type VerifyV2DeleteOtpReauthData = {
+    body: DeleteOtpVerifyRequest;
+    headers: {
+        /**
+         * Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
+         */
+        'Idempotency-Key': string;
+        /**
+         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         */
+        Origin?: string;
+        /**
+         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         */
+        'X-Session-CSRF'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/me/reauth/otp/verify';
+};
+
+export type VerifyV2DeleteOtpReauthErrors = {
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    401: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    403: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    409: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    default: V2Problem;
+};
+
+export type VerifyV2DeleteOtpReauthError = VerifyV2DeleteOtpReauthErrors[keyof VerifyV2DeleteOtpReauthErrors];
+
+export type VerifyV2DeleteOtpReauthResponses = {
+    /**
+     * Deletion-only proof; no-store.
+     */
+    200: DeleteOtpVerifyResponse;
+};
+
+export type VerifyV2DeleteOtpReauthResponse = VerifyV2DeleteOtpReauthResponses[keyof VerifyV2DeleteOtpReauthResponses];
+
+export type DeleteV2MeData = {
+    body: DeleteMeRequest;
+    headers?: {
+        /**
+         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         */
+        Origin?: string;
+        /**
+         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         */
+        'X-Session-CSRF'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/me';
+};
+
+export type DeleteV2MeErrors = {
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    400: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    401: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    403: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    404: V2Problem;
+    /**
+     * Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+     */
+    default: V2Problem;
+};
+
+export type DeleteV2MeError = DeleteV2MeErrors[keyof DeleteV2MeErrors];
+
+export type DeleteV2MeResponses = {
+    /**
+     * Account deleted.
+     */
+    204: void;
+};
+
+export type DeleteV2MeResponse = DeleteV2MeResponses[keyof DeleteV2MeResponses];

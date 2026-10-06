@@ -59,6 +59,226 @@ export const zDeleteAccountBody = z.object({
     reAuthToken: z.string()
 });
 
+export const zWebOtpStartBody = z.object({
+    channel: z.enum(['sms', 'email']),
+    identifier: z.string(),
+    purpose: z.enum(['enroll_identifier', 'otp_step_up']),
+    transport: z.literal('web')
+}).strict();
+
+export const zWebOtpVerifyBody = z.object({
+    challengeId: z.string(),
+    code: z.string().min(1),
+    transport: z.literal('web')
+}).strict();
+
+export const zMobileOtpStartBody = z.object({
+    channel: z.enum(['sms', 'email']),
+    identifier: z.string(),
+    purpose: z.enum(['enroll_identifier', 'otp_step_up']),
+    transport: z.literal('mobile')
+}).strict();
+
+export const zMobileOtpVerifyBody = z.object({
+    challengeId: z.string(),
+    code: z.string().min(1),
+    transport: z.literal('mobile')
+}).strict();
+
+export const zWebOtpStartHeaders = z.object({
+    idempotencyKey: z.string().min(16).max(255),
+    origin: z.url(),
+    browserNonce: z.string()
+}).strict();
+
+export const zWebOtpStartCallEnvelope = z.object({
+    transport: z.literal('web'),
+    headers: zWebOtpStartHeaders,
+    body: zWebOtpStartBody
+}).strict();
+
+export const zWebOtpStartWireCall = zWebOtpStartCallEnvelope;
+
+export const zWebOtpHeaders = z.object({
+    idempotencyKey: z.string().min(16).max(255),
+    origin: z.url(),
+    browserNonce: z.string()
+}).strict();
+
+export const zWebOtpVerifyCallEnvelope = z.object({
+    transport: z.literal('web'),
+    headers: zWebOtpHeaders,
+    body: zWebOtpVerifyBody
+}).strict();
+
+export const zMobileOtpHeaders = z.object({
+    idempotencyKey: z.string().min(16).max(255)
+}).strict();
+
+export const zMobileOtpStartCallEnvelope = z.object({
+    transport: z.literal('mobile'),
+    headers: zMobileOtpHeaders,
+    body: zMobileOtpStartBody
+}).strict();
+
+export const zMobileOtpVerifyCallEnvelope = z.object({
+    transport: z.literal('mobile'),
+    headers: zMobileOtpHeaders,
+    body: zMobileOtpVerifyBody
+}).strict();
+
+export const zWebSessionHeaders = z.object({
+    idempotencyKey: z.string().min(16).max(255),
+    origin: z.url()
+}).strict();
+
+export const zMobileSessionHeaders = z.object({
+    idempotencyKey: z.string().min(16).max(255)
+}).strict();
+
+export const zWebRefreshHeaders = z.object({
+    idempotencyKey: z.string().min(16).max(255),
+    origin: z.url(),
+    sessionCsrf: z.string()
+}).strict();
+
+export const zWebRefreshCallEnvelope = z.object({
+    transport: z.literal('web'),
+    headers: zWebRefreshHeaders,
+    body: z.null()
+}).strict();
+
+export const zMobileRefreshHeaders = z.object({
+    idempotencyKey: z.string().min(16).max(255),
+    authorization: z.string().regex(/^Refresh .+$/)
+}).strict();
+
+export const zMobileRefreshCallEnvelope = z.object({
+    transport: z.literal('mobile'),
+    headers: zMobileRefreshHeaders,
+    body: z.null()
+}).strict();
+
+export const zBrowserNonceRequest = z.object({
+    purpose: z.enum([
+        'enroll_identifier',
+        'otp_step_up',
+        'session'
+    ])
+}).strict();
+
+export const zBrowserNonceResponse = z.object({
+    nonce: z.string()
+}).strict();
+
+export const zOtpStartRequest = z.object({
+    channel: z.enum(['sms', 'email']),
+    identifier: z.string(),
+    purpose: z.enum(['enroll_identifier', 'otp_step_up']),
+    transport: z.enum(['web', 'mobile'])
+}).strict();
+
+export const zOtpStartResponse = z.object({
+    challengeId: z.string(),
+    status: z.literal('accepted'),
+    nextBrowserNonce: z.string().nullable()
+}).strict();
+
+export const zOtpVerifyRequest = z.object({
+    challengeId: z.string(),
+    code: z.string().min(1),
+    transport: z.enum(['web', 'mobile'])
+}).strict();
+
+export const zOtpVerifyResponse = z.object({
+    purpose: z.enum(['enroll_identifier', 'otp_step_up']),
+    proof: z.string(),
+    nextBrowserNonce: z.string().nullable()
+}).strict();
+
+export const zWebSessionRequest = z.object({
+    transport: z.literal('web'),
+    loginProof: z.string()
+}).strict();
+
+export const zWebSessionCallEnvelope = z.object({
+    transport: z.literal('web'),
+    headers: zWebSessionHeaders,
+    body: zWebSessionRequest
+}).strict();
+
+export const zMobileSessionRequest = z.object({
+    transport: z.literal('mobile'),
+    loginProof: z.string(),
+    deviceName: z.string().max(100).optional()
+}).strict();
+
+export const zMobileSessionCallEnvelope = z.object({
+    transport: z.literal('mobile'),
+    headers: zMobileSessionHeaders,
+    body: zMobileSessionRequest
+}).strict();
+
+export const zSessionRequest = z.discriminatedUnion('transport', [
+    zWebSessionRequest,
+    zMobileSessionRequest
+]);
+
+export const zWebSessionResponse = z.object({
+    transport: z.literal('web'),
+    sessionId: z.uuid(),
+    csrfToken: z.string()
+}).strict();
+
+export const zMobileSessionResponse = z.object({
+    transport: z.literal('mobile'),
+    sessionId: z.uuid(),
+    accessToken: z.string(),
+    refreshToken: z.string()
+}).strict();
+
+export const zWebRefreshResponse = z.object({
+    transport: z.literal('web'),
+    sessionId: z.uuid(),
+    csrfToken: z.string()
+}).strict();
+
+export const zMobileRefreshResponse = z.object({
+    transport: z.literal('mobile'),
+    sessionId: z.uuid(),
+    accessToken: z.string(),
+    refreshToken: z.string()
+}).strict();
+
+export const zSessionSummary = z.object({
+    id: z.uuid(),
+    createdAt: z.iso.datetime(),
+    current: z.boolean(),
+    deviceName: z.string().nullish()
+}).strict();
+
+export const zDeleteOtpStartRequest = z.object({
+    channel: z.enum(['sms', 'email'])
+}).strict();
+
+export const zDeleteOtpStartResponse = z.object({
+    challengeId: z.string(),
+    status: z.literal('accepted')
+}).strict();
+
+export const zDeleteOtpVerifyRequest = z.object({
+    challengeId: z.string(),
+    code: z.string().min(1)
+}).strict();
+
+export const zDeleteOtpVerifyResponse = z.object({
+    reauthProof: z.string()
+}).strict();
+
+export const zDeleteMeRequest = z.object({
+    reauthProof: z.string()
+}).strict();
+
 /**
  * RFC 9457 problem details.
  */
@@ -69,6 +289,36 @@ export const zProblem = z.object({
     detail: z.string().optional(),
     instance: z.string().optional()
 });
+
+export const zV2Problem = zProblem.and(z.object({
+    code: z.string()
+}));
+
+/**
+ * Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
+ */
+export const zIdempotencyKey = z.string().min(16).max(255);
+
+/**
+ * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+ */
+export const zExactOrigin = z.url();
+
+/**
+ * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+ */
+export const zOriginForWeb = z.url();
+
+/**
+ * Required for web transport only: public nonce paired with the distinct HttpOnly browser binding cookie. Mobile omits it.
+ *
+ */
+export const zBrowserNonce = z.string();
+
+/**
+ * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+ */
+export const zSessionCsrf = z.string();
 
 /**
  * API process is healthy.
@@ -146,3 +396,127 @@ export const zDeleteAccountResponse = z.void();
  * API semantic version.
  */
 export const zGetVersionResponse = zVersionResponse;
+
+export const zCreateV2BrowserNonceBody = zBrowserNonceRequest;
+
+export const zCreateV2BrowserNonceHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255),
+    Origin: z.url()
+});
+
+/**
+ * Public nonce; binding cookie is set separately.
+ */
+export const zCreateV2BrowserNonceResponse = zBrowserNonceResponse;
+
+export const zStartV2OtpBody = zOtpStartRequest;
+
+export const zStartV2OtpHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255),
+    Origin: z.url().optional(),
+    'X-Browser-Nonce': z.string().optional()
+});
+
+/**
+ * Generic accepted response; no identity or delivery claim.
+ */
+export const zStartV2OtpResponse = zOtpStartResponse;
+
+export const zVerifyV2OtpBody = zOtpVerifyRequest;
+
+export const zVerifyV2OtpHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255),
+    Origin: z.url().optional(),
+    'X-Browser-Nonce': z.string().optional()
+});
+
+/**
+ * Restricted one-use proof; no-store.
+ */
+export const zVerifyV2OtpResponse = zOtpVerifyResponse;
+
+export const zCreateV2SessionBody = zSessionRequest;
+
+export const zCreateV2SessionHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255),
+    Origin: z.url().optional()
+});
+
+/**
+ * Session created. no-store; web sets access and refresh cookies.
+ */
+export const zCreateV2SessionResponse = z.union([
+    zWebSessionResponse,
+    zMobileSessionResponse
+]);
+
+export const zRefreshV2SessionHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255),
+    Origin: z.url().optional(),
+    'X-Session-CSRF': z.string().optional()
+});
+
+/**
+ * Rotated credentials. no-store; web rotates cookies.
+ */
+export const zRefreshV2SessionResponse = z.union([
+    zWebRefreshResponse,
+    zMobileRefreshResponse
+]);
+
+/**
+ * Caller-owned sessions.
+ */
+export const zListV2SessionsResponse = z.array(zSessionSummary);
+
+export const zRevokeV2SessionHeaders = z.object({
+    Origin: z.url().optional(),
+    'X-Session-CSRF': z.string().optional()
+});
+
+export const zRevokeV2SessionPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Session revoked.
+ */
+export const zRevokeV2SessionResponse = z.void();
+
+export const zStartV2DeleteOtpReauthBody = zDeleteOtpStartRequest;
+
+export const zStartV2DeleteOtpReauthHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255),
+    Origin: z.url().optional(),
+    'X-Session-CSRF': z.string().optional()
+});
+
+/**
+ * Generic challenge accepted.
+ */
+export const zStartV2DeleteOtpReauthResponse = zDeleteOtpStartResponse;
+
+export const zVerifyV2DeleteOtpReauthBody = zDeleteOtpVerifyRequest;
+
+export const zVerifyV2DeleteOtpReauthHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255),
+    Origin: z.url().optional(),
+    'X-Session-CSRF': z.string().optional()
+});
+
+/**
+ * Deletion-only proof; no-store.
+ */
+export const zVerifyV2DeleteOtpReauthResponse = zDeleteOtpVerifyResponse;
+
+export const zDeleteV2MeBody = zDeleteMeRequest;
+
+export const zDeleteV2MeHeaders = z.object({
+    Origin: z.url().optional(),
+    'X-Session-CSRF': z.string().optional()
+});
+
+/**
+ * Account deleted.
+ */
+export const zDeleteV2MeResponse = z.void();

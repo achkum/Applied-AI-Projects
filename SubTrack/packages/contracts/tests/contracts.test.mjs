@@ -86,7 +86,7 @@ test('validator accepts production source and rejects malformed OpenAPI with a d
   }
 });
 
-test('production contract contains exactly the approved operational and privacy routes', () => {
+test('production contract preserves approved operational and privacy routes', () => {
   const directory = mkdtempSync(join(tmpdir(), 'st-006-bundle-'));
   try {
     const bundled = join(directory, 'openapi.json');
@@ -102,7 +102,22 @@ test('production contract contains exactly the approved operational and privacy 
       ([path, item]) =>
         Object.keys(item).map((method) => `${method.toUpperCase()} ${path}`),
     );
-    assert.deepEqual(routes.sort(), [
+    // Accepted-main baseline deb58ea: preserve all v1/operational paths and legacy components.
+    const legacyNames = ["HealthResponse", "ReadinessResponse", "VersionResponse", "SetOpenBookBody", "ConsentSetting", "SubscriptionSummary", "ExportJobResponse", "DeleteAccountBody", "Problem"];
+    const canonical = (value) => Array.isArray(value) ? value.map(canonical)
+      : value && typeof value === 'object'
+        ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]))
+        : value;
+    const legacy = {
+      paths: Object.fromEntries(Object.entries(document.paths).filter(([path]) => !path.startsWith('/v2/'))),
+      schemas: Object.fromEntries(legacyNames.map((name) => [name, document.components.schemas[name]])),
+      responses: { Problem: document.components.responses.Problem },
+    };
+    assert.equal(createHash('sha256').update(JSON.stringify(canonical(legacy))).digest('hex'),
+      'b285db5679a2fe78f96823722d30b38eed1cc53b00db5c8040f4f533ae0f3146',
+      'accepted v1 and operational contracts must remain semantically unchanged');
+
+    assert.deepEqual(routes.filter((route) => !route.includes('/v2/')).sort(), [
       'DELETE /v1/data-rights/account',
       'GET /healthz',
       'GET /readyz',
@@ -113,7 +128,7 @@ test('production contract contains exactly the approved operational and privacy 
       'PATCH /v1/privacy/open-book',
       'POST /v1/data-rights/export',
     ]);
-    assert.deepEqual(Object.keys(document.components?.schemas ?? {}).sort(), [
+    assert.deepEqual(Object.keys(document.components?.schemas ?? {}).filter((name) => ['ConsentSetting', 'DeleteAccountBody', 'ExportJobResponse', 'HealthResponse', 'Problem', 'ReadinessResponse', 'SetOpenBookBody', 'SubscriptionSummary', 'VersionResponse'].includes(name)).sort(), [
       'ConsentSetting',
       'DeleteAccountBody',
       'ExportJobResponse',
@@ -124,7 +139,7 @@ test('production contract contains exactly the approved operational and privacy 
       'SubscriptionSummary',
       'VersionResponse',
     ]);
-    assert.deepEqual(Object.keys(document.components?.responses ?? {}), ['Problem']);
+    assert.deepEqual(Object.keys(document.components?.responses ?? {}).filter((name) => name === 'Problem'), ['Problem']);
     for (const [path, schema, status] of [
       ['/healthz', 'HealthResponse', 'ok'],
       ['/readyz', 'ReadinessResponse', 'ready'],

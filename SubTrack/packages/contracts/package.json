@@ -15,7 +15,7 @@
     "generate": "openapi-ts -f ./openapi-ts.config.mjs --no-log-file",
     "lint": "pnpm contract:validate",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test ./tests/contracts.test.mjs && pnpm test:zod-fixture",
+    "test": "node --test ./tests/*.test.mjs && pnpm test:zod-fixture",
     "generate:fixture": "openapi-ts -f ./openapi-ts.fixture.config.mjs --no-log-file",
     "test:zod-fixture": "pnpm generate:fixture && node --experimental-strip-types --input-type=module -e \"import { zProbeOnly } from './fixtures/generated/zod.gen.ts'; if (!zProbeOnly.safeParse({ probeId: 'fixture' }).success) process.exit(1);\""
   },

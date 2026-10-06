@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetVersionData, GetVersionErrors, GetVersionResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses } from './types.gen.js';
+import type { CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -91,3 +91,171 @@ export const deleteAccount = <ThrowOnError extends boolean = false>(options: Opt
  * API version
  */
 export const getVersion = <ThrowOnError extends boolean = false>(options?: Options<GetVersionData, ThrowOnError>): RequestResult<GetVersionResponses, GetVersionErrors, ThrowOnError> => (options?.client ?? client).get<GetVersionResponses, GetVersionErrors, ThrowOnError>({ url: '/v1/version', ...options });
+
+/**
+ * Issue a one-use browser nonce and binding cookie
+ *
+ * Browser-only bootstrap. Require HTTPS outside local development and an exact configured Origin allowlist match; reject Origin null, wildcard or reflected credentialed CORS. Set a distinct host-only Secure; HttpOnly; SameSite=Lax binding cookie (Domain omitted), and return the public nonce for a custom request header. The binding cookie is not the nonce. Every mutating POST requires Idempotency-Key; idempotent retries must never replay a code, proof, or bypass throttles. Nonces are purpose, origin, challenge-chain and cookie-pair bound, short-lived and single-use. A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof. Bootstrap a fresh nonce with a unique key; it invalidates the prior browser chain.
+ *
+ */
+export const createV2BrowserNonce = <ThrowOnError extends boolean = false>(options: Options<CreateV2BrowserNonceData, ThrowOnError>): RequestResult<CreateV2BrowserNonceResponses, CreateV2BrowserNonceErrors, ThrowOnError> => (options.client ?? client).post<CreateV2BrowserNonceResponses, CreateV2BrowserNonceErrors, ThrowOnError>({
+    url: '/v2/auth/browser-nonce',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Start identifier verification or OTP step-up
+ *
+ * Does not select or create a principal. Normalize identifier/channel and throttle by IP and identifier. Return generic status, body and timing; 202 does not assert delivery or account existence. Browser requests also require the nonce header, binding cookie and exact Origin; consume and rotate the browser nonce and return the next nonce. Idempotency-Key is required, but retries never replay codes or bypass throttles. A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof. Start a fresh challenge on a fresh nonce chain and obey the existing throttles.
+ *
+ */
+export const startV2Otp = <ThrowOnError extends boolean = false>(options: Options<StartV2OtpData, ThrowOnError>): RequestResult<StartV2OtpResponses, StartV2OtpErrors, ThrowOnError> => (options.client ?? client).post<StartV2OtpResponses, StartV2OtpErrors, ThrowOnError>({
+    url: '/v2/auth/otp/start',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Verify an OTP challenge and issue a restricted proof
+ *
+ * Returns an opaque one-use proof bound to purpose, initiating challenge, normalized identifier hash where applicable, selected transport and browser nonce chain; proofs expire after five minutes. Enrollment proof only permits the mandatory BankID continuation; step-up proof cannot establish login. No provider fields or client-asserted BankID result are accepted. Browser nonce is consumed and rotated; response returns the next public nonce. Idempotency retries cannot replay a proof. A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof. Obtain a fresh challenge and verify again under existing throttles.
+ *
+ */
+export const verifyV2Otp = <ThrowOnError extends boolean = false>(options: Options<VerifyV2OtpData, ThrowOnError>): RequestResult<VerifyV2OtpResponses, VerifyV2OtpErrors, ThrowOnError> => (options.client ?? client).post<VerifyV2OtpResponses, VerifyV2OtpErrors, ThrowOnError>({
+    url: '/v2/auth/otp/verify',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Redeem a server-issued login proof for a session
+ *
+ * Login proof must come from server-verified BankID, or a server-verified registered mobile passkey/biometric assertion plus OTP. ST170b proof producer integration is a prerequisite; this contract does not claim client readiness. Proof is one-use, transport-bound, and cannot switch web/mobile modes. OTP enrollment and step-up proofs are not login proofs. Store only proof hashes and redeem atomically. no-store responses. Web cookies are host-only Secure; HttpOnly; SameSite=Lax: st_v2_access Path /v2 and st_v2_refresh Path /v2/auth; omit Domain and do not use __Host- with narrower paths. Web returns a distinct readable session-bound CSRF token. Mobile receives the access JWT and opaque refresh secret once for OS secure storage. A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof. Discard local credentials and complete a fresh server-verified login; ST170b is required. After login, owner-scoped session listing/revocation can address a known prior sessionId; an unknown orphan expires normally.
+ *
+ */
+export const createV2Session = <ThrowOnError extends boolean = false>(options: Options<CreateV2SessionData, ThrowOnError>): RequestResult<CreateV2SessionResponses, CreateV2SessionErrors, ThrowOnError> => (options.client ?? client).post<CreateV2SessionResponses, CreateV2SessionErrors, ThrowOnError>({
+    url: '/v2/auth/session',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Rotate refresh credential within the selected transport
+ *
+ * Request body is forbidden. Web uses only st_v2_refresh cookie with exact Origin and session-bound CSRF header; mobile uses only Authorization: Refresh <opaque-secret>, never body or query. Reject mixed cookie and Authorization credentials. Atomically consume one active refresh hash and create one same-identity, same-family successor; concurrent losers create none and consumed-token reuse revokes the family. Retain consumed hashes for the applicable refresh lifetime. No-store. Idempotency-Key is required and cannot replay secrets or bypass rotation. If outcome is uncertain, never retry the old refresh credential: reuse revokes its family. Discard local credentials and complete fresh verified login; afterward use owner-scoped session listing/revocation for any known prior sessionId. An unknown orphan expires normally. A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof.
+ *
+ */
+export const refreshV2Session = <ThrowOnError extends boolean = false>(options: Options<RefreshV2SessionData, ThrowOnError>): RequestResult<RefreshV2SessionResponses, RefreshV2SessionErrors, ThrowOnError> => (options.client ?? client).post<RefreshV2SessionResponses, RefreshV2SessionErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'st_v2_refresh',
+            type: 'apiKey'
+        }, { name: 'Authorization', type: 'apiKey' }],
+    url: '/v2/auth/refresh',
+    ...options
+});
+
+/**
+ * List sessions owned by the authenticated caller
+ *
+ * Derive identity and session only from an active v2 server-validated credential. Never accept an identity selector or fall back to v1. Reject cookie plus Bearer credentials; mobile protected calls use only Bearer access JWT. Session list is owner-scoped.
+ *
+ */
+export const listV2Sessions = <ThrowOnError extends boolean = false>(options?: Options<ListV2SessionsData, ThrowOnError>): RequestResult<ListV2SessionsResponses, ListV2SessionsErrors, ThrowOnError> => (options?.client ?? client).get<ListV2SessionsResponses, ListV2SessionsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'st_v2_access',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/v2/me/sessions',
+    ...options
+});
+
+/**
+ * Revoke one caller-owned session
+ *
+ * Revoke only a session belonging to authenticated identity. Web requires exact Origin and session-bound CSRF; Bearer mobile requires no cookie CSRF. Reject mixed credentials and unknown/foreign IDs without exposing ownership.
+ *
+ */
+export const revokeV2Session = <ThrowOnError extends boolean = false>(options: Options<RevokeV2SessionData, ThrowOnError>): RequestResult<RevokeV2SessionResponses, RevokeV2SessionErrors, ThrowOnError> => (options.client ?? client).delete<RevokeV2SessionResponses, RevokeV2SessionErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'st_v2_access',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/v2/me/sessions/{id}',
+    ...options
+});
+
+/**
+ * Start development-only same-principal delete reauthentication
+ *
+ * Authenticated caller only. Server resolves caller's registered identifier from session context; no identity, identifier, environment, or method selector is accepted. Enforce AUTH_DELETE_OTP_DEV_ONLY=true and explicit development mode, failing closed elsewhere. Challenge is bound to same principal and session, account-delete action and transport. Generic 202 does not assert delivery. Web requires exact Origin and session CSRF. Idempotency retries do not replay codes or bypass throttles. A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof. Start a fresh challenge on a fresh nonce chain and obey the existing throttles.
+ *
+ */
+export const startV2DeleteOtpReauth = <ThrowOnError extends boolean = false>(options: Options<StartV2DeleteOtpReauthData, ThrowOnError>): RequestResult<StartV2DeleteOtpReauthResponses, StartV2DeleteOtpReauthErrors, ThrowOnError> => (options.client ?? client).post<StartV2DeleteOtpReauthResponses, StartV2DeleteOtpReauthErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'st_v2_access',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/v2/me/reauth/otp/start',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Verify development-only account-delete OTP reauthentication
+ *
+ * Authenticated same principal and session as challenge start. Enforce AUTH_DELETE_OTP_DEV_ONLY=true plus explicit development mode and fail closed elsewhere. Atomically verify and consume caller-owned challenge; issue opaque reauthProof bound only to same principal/session and account deletion, never a login proof. Web requires exact Origin and session CSRF. no-store; Idempotency-Key retry cannot replay proof. A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof. Obtain a fresh challenge and verify again under existing throttles.
+ *
+ */
+export const verifyV2DeleteOtpReauth = <ThrowOnError extends boolean = false>(options: Options<VerifyV2DeleteOtpReauthData, ThrowOnError>): RequestResult<VerifyV2DeleteOtpReauthResponses, VerifyV2DeleteOtpReauthErrors, ThrowOnError> => (options.client ?? client).post<VerifyV2DeleteOtpReauthResponses, VerifyV2DeleteOtpReauthErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'st_v2_access',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/v2/me/reauth/otp/verify',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete the authenticated caller's account
+ *
+ * Requires the current active same-principal session plus independent deletion-only reauthProof consumed atomically. Production proof requires recent BankID verification; development OTP proof is accepted only with explicit development mode and AUTH_DELETE_OTP_DEV_ONLY=true. Web always requires exact Origin and session-bound CSRF. Never trust proof alone or accept an identity selector. Mobile uses Bearer access credential.
+ *
+ */
+export const deleteV2Me = <ThrowOnError extends boolean = false>(options: Options<DeleteV2MeData, ThrowOnError>): RequestResult<DeleteV2MeResponses, DeleteV2MeErrors, ThrowOnError> => (options.client ?? client).delete<DeleteV2MeResponses, DeleteV2MeErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'st_v2_access',
+            type: 'apiKey'
+        }, { scheme: 'bearer', type: 'http' }],
+    url: '/v2/me',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
