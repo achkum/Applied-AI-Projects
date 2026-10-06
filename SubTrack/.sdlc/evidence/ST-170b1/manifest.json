@@ -1,0 +1,13 @@
+{
+  "scope": "internal reference proof core, not provider/HTTP/auth readiness",
+  "sources": [
+    {
+      "path": "apps/api/src/auth/proofs-v2/proof-store.spec.ts",
+      "sha256": "b6a73c15c4f270e9f331312d198f0470f81dfe7003021653bc1c98b38b985357"
+    },
+    {
+      "path": "apps/api/src/auth/proofs-v2/proof-store.ts",
+      "sha256": "c1980bdb1469849e9b6593eecd6ac8500bd6432c78a3fe1a2807a7b816876909"
+    }
+  ]
+}

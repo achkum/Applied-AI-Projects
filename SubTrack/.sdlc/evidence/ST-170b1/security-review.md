@@ -1,0 +1,9 @@
+# ST170b1 security review
+
+Decision: APPROVE
+
+Reviewed the staged internal proof core and specs, along with the task contract, SubTrack Constitution, and accepted v2 OpenAPI contract. The earlier origin finding is resolved: the core now accepts canonical HTTPS origins and HTTP loopback origins for local development, while rejecting wildcard, `null`, paths, query/fragment, userinfo, non-HTTP(S), malformed, and noncanonical values. For example, `issue({purpose:'stepup', challenge:'c', transport:'web', identifierHash:'a'.repeat(64), exactOrigin:'*', browserChainId:'chain'})` now fails with the generic `Proof unavailable`; an equivalent scope with `exactOrigin:'https://app.example'` is accepted and matched exactly. The configured-origin allowlist remains the trusted producer's responsibility, as this core does not claim to implement it.
+
+The review also confirms 32-byte CSPRNG secrets with a `v2.` prefix, domain-separated SHA-256-only persistence, fixed five-minute expiry, copied/frozen binding fields, complete purpose/action and context matching, and atomic compare-and-consume behavior in the explicitly test/dev-only in-memory adapter. Mismatches do not burn a proof; replay, expiry, malformed inputs, and repository exceptions return the same invalid result. Issuance storage exceptions return generic `Proof unavailable`. Required identity/session/identifier bindings and mobile/browser-field separation are enforced. The staged specs include meaningful missing-identifier and origin boundaries; the supplied coverage summary reports 100% lines, statements, functions, and branches.
+
+No tests, builds, Git commands, setup, discovery, or source edits were run as part of this review. The call examples above describe the assertions in the staged specs; they were not executed independently.

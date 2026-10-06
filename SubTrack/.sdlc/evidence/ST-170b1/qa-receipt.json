@@ -1,0 +1,12 @@
+{
+  "focused_tests": {
+    "passed": 60,
+    "failed": 0,
+    "skipped": 0
+  },
+  "scope": "integrated API internal proof core",
+  "lint": "passed",
+  "api_typecheck": "passed",
+  "coverage": "100% statements branches functions lines",
+  "provider_http_runtime_certification": false
+}
