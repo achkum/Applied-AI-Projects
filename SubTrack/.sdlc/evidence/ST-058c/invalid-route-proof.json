@@ -1,0 +1,7 @@
+{
+  "routes": {
+    "/sv/subscriptions/unknown": 404,
+    "/fr/subscriptions/spotify": 404
+  },
+  "method": "Actual Chromium APIRequest GET against local production server8782"
+}
