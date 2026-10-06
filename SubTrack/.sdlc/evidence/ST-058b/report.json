@@ -1,0 +1,74 @@
+{
+  "browser": "151.0.7922.173",
+  "states": [
+    {
+      "lang": "sv",
+      "theme": null,
+      "background": "rgb(247, 244, 238)",
+      "fonts": [
+        "fraunces",
+        "manrope"
+      ],
+      "html": 1,
+      "body": 1,
+      "scope3to5": true,
+      "exactTotals": true,
+      "nativePointerAndKeyboard": true,
+      "hiddenSelectionRestored": true,
+      "reducedMotion": true,
+      "narrow375": true
+    },
+    {
+      "lang": "sv",
+      "theme": "dark",
+      "background": "rgb(10, 12, 20)",
+      "fonts": [
+        "fraunces",
+        "manrope"
+      ],
+      "html": 1,
+      "body": 1,
+      "scope3to5": true,
+      "exactTotals": true,
+      "nativePointerAndKeyboard": true,
+      "hiddenSelectionRestored": true,
+      "reducedMotion": true,
+      "narrow375": true
+    },
+    {
+      "lang": "en",
+      "theme": null,
+      "background": "rgb(247, 244, 238)",
+      "fonts": [
+        "fraunces",
+        "manrope"
+      ],
+      "html": 1,
+      "body": 1,
+      "scope3to5": true,
+      "exactTotals": true,
+      "nativePointerAndKeyboard": true,
+      "hiddenSelectionRestored": true,
+      "reducedMotion": true,
+      "narrow375": true
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "background": "rgb(10, 12, 20)",
+      "fonts": [
+        "fraunces",
+        "manrope"
+      ],
+      "html": 1,
+      "body": 1,
+      "scope3to5": true,
+      "exactTotals": true,
+      "nativePointerAndKeyboard": true,
+      "hiddenSelectionRestored": true,
+      "reducedMotion": true,
+      "narrow375": true
+    }
+  ],
+  "errors": []
+}
