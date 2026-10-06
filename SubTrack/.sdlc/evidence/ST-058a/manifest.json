@@ -1,0 +1,42 @@
+{
+  "baseMain": "301b6e3c761345d14942a4142011437e46029ba7",
+  "task": "ST-058a",
+  "branch": "st/ST-058a-welcome-web",
+  "productionBuild": "Next16.3.6 normal next build PASS; /sv and /en static HTML",
+  "webTests": {
+    "files": 5,
+    "passed": 27,
+    "skipped": 0
+  },
+  "browserReport": "report.json",
+  "artifacts": {
+    "reviews.md": "968f9474ad30fd8783dac3418f6da567efe40505e1675442e98b11ef1e356598",
+    "sv-dark.png": "08d68ba7b71c5ef5c5fcb86d887e0bf4882887cb1720e7e27fe3b8e17e93529b",
+    "sv-light.png": "1f85605d82a8b369c2bf1b5221b50190ca3f776e38fbfa70261c455552f2baae",
+    "en-light.png": "fbbb805c2aacc518d9d546b80d9bf8aa308b861f8f2564c113d1894a80b3b8fb",
+    "report.json": "d20fd1242a6c83eae9590fbad972ccc443121adff3ae99e92affa4e13838bcae",
+    "en-dark.png": "b72d739e9bb0396f1026ef223df53c26a615a721f994116fd90f6e70364a5795",
+    "coverage-summary.json": "5f5e3ab26add52f3e4930b3d790a403438b44ed91a95b8978762e72e3ea2e108"
+  },
+  "sourceFiles": {
+    "SubTrack/apps/web/app/[locale]/page.tsx": "923d5ff928bd63ac0e409ba3a1edcfa9ba94875948adc59dae699c095247ee0b",
+    "SubTrack/apps/web/app/[locale]/icon.svg": "64a5b0fad72e504175583a0be8356d3c44310f6c031d527ed19feefbeb872496",
+    "SubTrack/apps/web/app/[locale]/welcome-screen.module.css": "65ccee5a7561a4e2d2445809f26de2800285aa3f93024706705a06172b31ca05",
+    "SubTrack/apps/web/app/[locale]/welcome-screen.tsx": "15c462d7eb3e15bd85b14fd5c9b3f22c5b4f2d5948fe3385b0684027c718e8ae",
+    "SubTrack/apps/web/app/[locale]/layout.tsx": "47ee86468a36ed365c5d551a06c147e77c60c9be1a0ad6b2c80ed315aeeb1a9d",
+    "SubTrack/apps/web/i18n/request.ts": "24723d513a8101ab9c69d05fdf29f6ed9c1facfed8f6775336a028b701f139a5",
+    "SubTrack/apps/web/lib/fonts.ts": "58313ebca77985b98ed6ae86cd761b5781d71c2adb54f30ed5264888f6e71264",
+    "SubTrack/apps/web/next.config.ts": "f272e6928d359cfed58ecf3617dbf3d931e0a05e4ead0a6cc804c4f9dddd3d41",
+    "SubTrack/apps/web/public/fonts/Fraunces-VF.ttf": "177ff6c0f14e5550a3c624247cd1189611d4eb65d000b14944c63d967958abbb",
+    "SubTrack/apps/web/public/fonts/Manrope-VF.ttf": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6"
+  },
+  "coverage": {
+    "provider": "v8",
+    "vitestVersion": "5.0.2",
+    "scope": "Changed route/layout/Welcome, i18n request config and local font declaration TS; browser separately verifies fonts/themes/hydration",
+    "statements": 100,
+    "branches": 100,
+    "functions": 100,
+    "lines": 100
+  }
+}
