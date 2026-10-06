@@ -1,0 +1,25 @@
+# ST051b: RootLayout first-test CI timeout diagnosis
+
+## Evidence
+
+The third CI attempt's targeted log at `/workspace/.setup/ST051b-third-ci-failure.log:513-529` reports the first test in `RootLayout.test.tsx` exceeding its 15,000 ms Jest limit; the test file itself took 33.123 s. Other mobile tests completed, including `RootIndex.test.tsx`, `ThemeContext.test.tsx`, and `I18nContext.test.tsx`. The supplied local measurement is 81 mobile tests passing in 13.6 s with a cold cache; the reported cold RootIndex provider mount range is 4.1–4.9 s. This evidence points to an expensive first-use path sensitive to CI startup contention, but does not identify an asynchronous hang. The CI excerpt gives Jest's test timeout and the source location, not a stuck await or assertion-specific timeout.
+
+`RootLayout.test.tsx` imports RootLayout at module scope. Its first test renders it, flushes one resolved Promise, checks splash and storage calls, queries the router/provider state, and waits for `hideAsync`. `app/_layout.tsx` calls `useFonts`, renders null until fonts settle or error, then mounts `RootProvider`; both context providers independently await AsyncStorage and render null until loaded. In this test `useFonts` is mocked ready and both storage reads are resolved to null, so there is no intentionally unresolved application Promise. `SplashScreen.hideAsync` is mocked to resolve. The later font-pending test is synchronous apart from `act`, and the font-error test has no custom timeout. RootIndex deliberately serializes resolution of both provider reads, but its CI test passed. The current first test's Promise flush was already introduced after removing a zero-duration timer, so restoring that timer is not indicated.
+
+The mobile Jest config uses `jest-expo`, transforms the React Native/Expo packages under pnpm, and allows two workers. The test setup mocks the known RN 0.74 DebuggingOverlay component. I resolved `@testing-library/react-native` from `apps/mobile/package.json` with Node `createRequire`; the published installed package is RNTL 12.4.3 under the pnpm store. Its shipped `build/helpers/host-component-names.js` shows `getHostComponentNames()` lazily calls `detectHostComponentNames()` when no names have been configured. Detection itself renders a fixture containing View, Text, TextInput, Switch, ScrollView, and Modal, then queries it to infer host names. Thus an RNTL query can trigger an extra native render and component detection on first use. This is a code-supported cold-start candidate, not proof that those exact operations consume the missing CI time.
+
+## Narrow alternative to test
+
+Add a file-local `beforeAll` prewarm in `RootLayout.test.tsx`: render a tiny native fixture (`View` containing a uniquely identified `Text`) with RNTL, call the returned render result's `getByTestId` on that text to force host-name detection, then unmount the fixture. Keep it separate from RootLayout and from all startup assertions. The existing first-test timeout and all assertions remain unchanged; do not add a generic deadline increase. This makes the RNTL one-time native detection cost occur before the startup assertion's clock begins while keeping the production provider startup behavior under test. It is a bounded and targeted experiment because it moves exactly the lazy work present in the published RNTL implementation.
+
+A diagnostic implementation should measure (with `performance.now()` or `process.hrtime.bigint()`) the prewarm render+query duration and the existing RootLayout render-to-router-state/splash completion duration separately, emitting one concise timing line in an opt-in CI diagnostic run. Compare first cold CI run with and without only this prewarm; do not interpret a warm local run as cold-start evidence. Use the same CI runner, worker count, and timeout. Do not layer this experiment with workers=1/2 changes or a deadline change; two workers are already configured and RootIndex already has the 15 s budget.
+
+## Verification and failure criteria
+
+The alternative is supported if the first cold CI run passes with the unchanged 15 s startup-test limit and the measured prewarm duration accounts for a material portion of the prior overrun, while provider/storage/splash assertions still execute and pass. Repeat a fresh cold CI run to establish stability; the current observations are 3 CI failures at 5 s, 5 s, and 15 s (per task report), versus 81/81 local cold-cache passes in 13.6 s.
+
+Reject this explanation if prewarm does not invoke/measure meaningful one-time work, if RootLayout still times out at 15 s, or if its measured startup remains near/above the limit after detection has been moved. In that case capture per-phase timings around render, the resolved storage effects, router query, and splash wait, then investigate the phase that stalls. Do not increase the shared Jest timeout as a substitute for locating that phase.
+
+## Scope
+
+This is a read-only architecture diagnosis with a proposed verification experiment. No repository source, tests, configuration, Git state, or CI workflows were changed, and no tests were run.

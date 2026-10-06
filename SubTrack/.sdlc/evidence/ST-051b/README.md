@@ -13,3 +13,5 @@ Expo sources: https://docs.expo.dev/versions/v51.0.0/sdk/font/ and https://docs.
 Initial CI failed one startup test deadline among81cases. The final corrected test removes its timer and flushes promises after synchronousrender; mobile Jest workers capped2. All16suites81cases pass locally; focused startup5tests preserve100percentcoverage. Exact-headCIrerunpending.
 
 SecondCI repeated first coldmount5secondtimeout. MatchexistingRootIndex15second firstmountallowance only; allassertionsandtheirfind/waitfordeadlines retained. Independentclientreviewapproves. Coldno-cachefullsuite16suites81testsPASS13.606seconds. ThirdexactheadCIpending.
+
+ThirdCI15sfirststartupfailure triggered fresharchitectredispatch underDecisionRules5. ReviewedseparateRNTLhostfixturepreparation keeps15sappstartupassertdeadline/allassertions. Localcold81casesPASS; frameworksetup4660ms vsstartup51ms. NarrowerCIexperimentpending; noacceptancebeforegreen. Architectexceededcallcap disclosed qa-receipt.

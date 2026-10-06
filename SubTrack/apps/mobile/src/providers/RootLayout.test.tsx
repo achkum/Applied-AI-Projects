@@ -1,4 +1,5 @@
 import React from 'react';
+import { Text, View } from 'react-native';
 import { act, render, screen, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RootLayout from '../../app/_layout';
@@ -49,6 +50,14 @@ jest.mock('expo-router', () => {
 const mockStorage = jest.mocked(AsyncStorage);
 
 describe('root layout startup imports', () => {
+  // RNTL lazily initializes native host fixtures; isolate harness setup from app startup.
+  beforeAll(() => {
+    const started = Date.now();
+    const fixture = render(<View><Text testID="host-ready">ready</Text></View>);
+    fixture.getByTestId('host-ready');
+    fixture.unmount();
+    console.info('ST051b native test harness preparation ms', Date.now() - started);
+  }, 60_000);
   beforeEach(() => {
     mockStorage.getItem.mockClear();
     mockStorage.setItem.mockClear();
@@ -59,7 +68,9 @@ describe('root layout startup imports', () => {
 
   // Match RootIndex's cold native/Babel mount budget; async assertions retain their own deadlines.
   it('mounts the router and hides the splash through named native exports', async () => {
+    const started = Date.now();
     render(<RootLayout />);
+    const renderMs = Date.now() - started;
     await act(async () => {
       await Promise.resolve();
     });
@@ -70,6 +81,7 @@ describe('root layout startup imports', () => {
     expect(mockStorage.getItem).toHaveBeenCalledWith('theme-mode-preference');
     expect(mockStorage.getItem).toHaveBeenCalledWith('locale-preference');
     await waitFor(() => expect(SplashScreen.hideAsync).toHaveBeenCalledTimes(1));
+    console.info('ST051b startup assertion timing ms', { renderMs, totalMs: Date.now() - started });
   }, 15_000);
 
   it('keeps providers and splash pending, then starts once fonts load', async () => {
