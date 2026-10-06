@@ -6,6 +6,13 @@ export interface FormatMoneyOptions {
   display?: CurrencyDisplay;
 }
 
+export type MinorUnitsCurrencyDisplay = 'symbol' | 'code' | 'narrowSymbol';
+
+export interface FormatMinorUnitsOptions {
+  locale?: MoneyLocale;
+  display?: MinorUnitsCurrencyDisplay;
+}
+
 const BCP47: Record<MoneyLocale, string> = {
   sv: 'sv-SE',
   en: 'en-SE',
@@ -52,6 +59,66 @@ export function formatMoney(
   const divisor = Math.pow(10, maximumFractionDigits);
 
   return formatter.format(minorUnits / divisor);
+}
+
+/** Format an exact integer amount in currency minor units. */
+export function formatMinorUnits(
+  minorUnits: bigint,
+  currencyCode: string,
+  options?: FormatMinorUnitsOptions,
+): string {
+  if (typeof minorUnits !== 'bigint') {
+    throw new TypeError('minorUnits must be a bigint');
+  }
+
+  const locale = options?.locale ?? 'sv';
+  if (locale !== 'sv' && locale !== 'en') {
+    throw new RangeError('Unsupported money locale');
+  }
+  const display = options?.display ?? 'symbol';
+  if (display !== 'symbol' && display !== 'code' && display !== 'narrowSymbol') {
+    throw new RangeError('Unsupported currency display');
+  }
+
+  const tag = BCP47[locale];
+  const currencyFormatter = new Intl.NumberFormat(tag, {
+    style: 'currency',
+    currency: currencyCode,
+    currencyDisplay: display,
+  });
+  const digits = checkedFractionDigits(
+    currencyFormatter.resolvedOptions().maximumFractionDigits,
+  );
+  const absolute = minorUnits < 0n ? -minorUnits : minorUnits;
+  const scale = 10n ** BigInt(digits);
+  const whole = absolute / scale;
+  const remainder = absolute % scale;
+  const template = currencyFormatter.formatToParts(minorUnits < 0n ? -1n : 1n);
+  const integerParts = new Intl.NumberFormat(tag, {
+    useGrouping: true,
+    maximumFractionDigits: 0,
+  }).formatToParts(whole);
+  const fractionParts = digits === 0
+    ? []
+    : new Intl.NumberFormat(tag, {
+        useGrouping: false,
+        minimumIntegerDigits: digits,
+        maximumFractionDigits: 0,
+      }).formatToParts(remainder);
+  const localizedFraction = fractionParts
+    .filter((part) => part.type === 'integer')
+    .map((part) => part.value)
+    .join('');
+  return template.map((part) => {
+    if (part.type === 'integer') {
+      return integerParts
+        .filter((integerPart) => integerPart.type === 'integer' || integerPart.type === 'group')
+        .map((integerPart) => integerPart.value)
+        .join('');
+    }
+    if (part.type === 'fraction') return localizedFraction;
+    return part.value;
+  }).join('');
 }
 
 /**

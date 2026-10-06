@@ -1,9 +1,12 @@
 export {
   formatMoney,
+  formatMinorUnits,
   minorUnitExponent,
   type MoneyLocale,
   type CurrencyDisplay,
   type FormatMoneyOptions,
+  type MinorUnitsCurrencyDisplay,
+  type FormatMinorUnitsOptions,
 } from './formatter.js';
 
 export {

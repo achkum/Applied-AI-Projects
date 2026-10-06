@@ -1,0 +1,10 @@
+$ vitest run
+
+ RUN  v4.1.11 /workspace/Applied-AI-Projects/SubTrack/packages/money
+
+
+ Test Files  5 passed (5)
+      Tests  110 passed (110)
+   Start at  10:02:09
+   Duration  476ms (transform 190ms, setup 0ms, import 412ms, tests 153ms, environment 1ms)
+
