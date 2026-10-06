@@ -53,4 +53,16 @@ describe('v2 API configuration', () => {
   it('accepts explicit loopback HTTP only in development', () => {
     expect(validateConfig({ ...enabled, AUTH_V2_ALLOW_LOOPBACK_HTTP: 'true', AUTH_V2_ALLOWED_ORIGINS: '["http://localhost"]' }).AUTH_V2_ALLOWED_ORIGINS).toEqual(['http://localhost']);
   });
+
+  it('enables the browser nonce endpoint only with distinct valid development keys', () => {
+    const configured = validateConfig({ ...enabled, AUTH_V2_BROWSER_NONCE_ENABLED: 'true', AUTH_V2_IDEMPOTENCY_KEY: 'ab'.repeat(32), AUTH_V2_BROWSER_ORIGIN_HMAC_KEY: 'cd'.repeat(32) });
+    expect(configured.AUTH_V2_BROWSER_NONCE_ENABLED).toBe(true);
+    for (const input of [
+      { ...enabled, AUTH_V2_BROWSER_NONCE_ENABLED: 'true' },
+      { ...enabled, NODE_ENV: 'test', AUTH_V2_BROWSER_NONCE_ENABLED: 'true', AUTH_V2_IDEMPOTENCY_KEY: 'ab'.repeat(32), AUTH_V2_BROWSER_ORIGIN_HMAC_KEY: 'cd'.repeat(32) },
+      { ...enabled, NODE_ENV: 'production', AUTH_V2_BROWSER_NONCE_ENABLED: 'true', AUTH_V2_IDEMPOTENCY_KEY: 'ab'.repeat(32), AUTH_V2_BROWSER_ORIGIN_HMAC_KEY: 'cd'.repeat(32) },
+      { ...enabled, AUTH_V2_BROWSER_NONCE_ENABLED: 'true', AUTH_V2_IDEMPOTENCY_KEY: 'ab'.repeat(32), AUTH_V2_BROWSER_ORIGIN_HMAC_KEY: 'AB'.repeat(32) },
+      { ...enabled, AUTH_V2_BROWSER_NONCE_ENABLED: 'true', AUTH_V2_IDEMPOTENCY_KEY: 'zz'.repeat(32), AUTH_V2_BROWSER_ORIGIN_HMAC_KEY: 'cd'.repeat(32) },
+    ]) expect(() => validateConfig(input)).toThrow(/AUTH_V2/);
+  });
 });

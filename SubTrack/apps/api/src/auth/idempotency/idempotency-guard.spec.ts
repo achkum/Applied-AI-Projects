@@ -6,8 +6,8 @@ import {
   type TrustedAuthorityDigest,
 } from './idempotency-guard.js';
 
-const authority = (kind = 'browser-chain', digest = 'a'.repeat(64)): TrustedAuthorityDigest =>
-  ({ kind, digest } as TrustedAuthorityDigest);
+const authority = <K extends TrustedAuthorityDigest['kind'] = 'browser-chain'>(kind: K = 'browser-chain' as K, digest = 'a'.repeat(64)): TrustedAuthorityDigest<K> =>
+  ({ kind, digest } as TrustedAuthorityDigest<K>);
 const input = (overrides: Partial<IdempotencyReservationInput> = {}): IdempotencyReservationInput => ({
   operation: 'startV2Otp',
   transport: 'web',
@@ -15,7 +15,7 @@ const input = (overrides: Partial<IdempotencyReservationInput> = {}): Idempotenc
   canonicalRequestDigest: 'b'.repeat(64),
   idempotencyKey: 'i'.repeat(16),
   ...overrides,
-});
+} as IdempotencyReservationInput);
 const make = (overrides: Partial<ConstructorParameters<typeof InMemoryIdempotencyGuard>[0]> = {}) =>
   new InMemoryIdempotencyGuard({ key: Buffer.alloc(32, 7), ttlMs: 60_000, ...overrides });
 const restart = new Error('AUTH_RESTART_REQUIRED');
@@ -38,10 +38,20 @@ describe('InMemoryIdempotencyGuard', () => {
       input({ idempotencyKey: 'a'.repeat(256) }), input({ idempotencyKey: 'key\n' + 'a'.repeat(12) }),
       input({ canonicalRequestDigest: 'g'.repeat(64) }), input({ canonicalRequestDigest: 'a'.repeat(63) }),
       input({ transport: 'desktop' as IdempotencyReservationInput['transport'] }),
-      input({ authority: authority('caller-id') }), input({ authority: authority('verified-principal', 'f'.repeat(63)) }),
+      input({ authority: authority('caller-id' as TrustedAuthorityDigest['kind']) }), input({ authority: authority('verified-principal', 'f'.repeat(63)) }),
     ];
     for (const item of malformed) expect(() => guard.reserve(item)).toThrow(restart);
     expect(guard.snapshot()).toHaveLength(0);
+  });
+
+  it('limits the browser bootstrap origin coordination scope to its web nonce operation', () => {
+    const guard = make();
+    const bootstrap = authority('browser-bootstrap-origin');
+    expect(() => guard.reserve(input({ operation: 'createV2BrowserNonce', authority: bootstrap }))).not.toThrow();
+    for (const operation of V2_IDEMPOTENT_OPERATIONS.filter(value => value !== 'createV2BrowserNonce')) {
+      expect(() => guard.reserve({ ...input(), operation, authority: authority('browser-bootstrap-origin') } as unknown as IdempotencyReservationInput)).toThrow(restart);
+    }
+    expect(() => guard.reserve({ ...input(), operation: 'createV2BrowserNonce', transport: 'mobile', authority: bootstrap } as unknown as IdempotencyReservationInput)).toThrow(restart);
   });
 
   it('copies the mandatory HMAC key and binds operation, transport, authority, and request digest', () => {

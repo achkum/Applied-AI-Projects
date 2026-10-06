@@ -1,0 +1,8 @@
+
+ RUN  v4.1.11 /workspace/Applied-AI-Projects/SubTrack/apps/api
+
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  19:22:38
+   Duration  1.72s (transform 155ms, setup 0ms, import 480ms, tests 1.11s, environment 0ms)

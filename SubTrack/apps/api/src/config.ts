@@ -20,11 +20,27 @@ const configSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65_535).default(4000),
   DATABASE_URL: z.string().url().min(1),
   AUTH_V2_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  AUTH_V2_BROWSER_NONCE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  AUTH_V2_IDEMPOTENCY_KEY: z.string().optional(),
+  AUTH_V2_BROWSER_ORIGIN_HMAC_KEY: z.string().optional(),
   AUTH_V2_ALLOWED_ORIGINS: z.string().optional(),
   AUTH_V2_BINDING_COOKIE_NAME: z.string().optional(),
   AUTH_V2_BINDING_COOKIE_PATH: z.string().optional(),
   AUTH_V2_ALLOW_LOOPBACK_HTTP: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 }).superRefine((value, ctx) => {
+  if (value.AUTH_V2_BROWSER_NONCE_ENABLED) {
+    if (value.NODE_ENV !== 'development' || !value.AUTH_V2_ENABLED) {
+      ctx.addIssue({ code: 'custom', path: ['AUTH_V2_BROWSER_NONCE_ENABLED'], message: 'invalid' });
+    }
+    const keyPattern = /^[0-9a-fA-F]{64}$/;
+    const idempotency = value.AUTH_V2_IDEMPOTENCY_KEY;
+    const origin = value.AUTH_V2_BROWSER_ORIGIN_HMAC_KEY;
+    if (!idempotency || !keyPattern.test(idempotency)) ctx.addIssue({ code: 'custom', path: ['AUTH_V2_IDEMPOTENCY_KEY'], message: 'invalid' });
+    if (!origin || !keyPattern.test(origin)) ctx.addIssue({ code: 'custom', path: ['AUTH_V2_BROWSER_ORIGIN_HMAC_KEY'], message: 'invalid' });
+    if (idempotency && origin && keyPattern.test(idempotency) && keyPattern.test(origin) && Buffer.from(idempotency, 'hex').equals(Buffer.from(origin, 'hex'))) {
+      ctx.addIssue({ code: 'custom', path: ['AUTH_V2_BROWSER_ORIGIN_HMAC_KEY'], message: 'invalid' });
+    }
+  }
   if (value.AUTH_V2_ALLOW_LOOPBACK_HTTP && value.NODE_ENV !== 'development') {
     ctx.addIssue({ code: 'custom', path: ['AUTH_V2_ALLOW_LOOPBACK_HTTP'], message: 'invalid' });
   }
