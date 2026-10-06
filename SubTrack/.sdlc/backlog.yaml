@@ -167,3 +167,4 @@ items:
   - {id: ST-173, title: "Web read-only fictional household demo", owner: "dev-web", size: "M", status: DONE, deps: ["ST-171", "ST-058"]}
   - {id: ST-174, title: "Android and iOS mobile demo validation", owner: "qa", size: "M", status: TODO, deps: ["ST-172"]}
   - {id: ST-175, title: "V2 browser HTTP transport configuration and response policy", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-170a", "ST-170c1", "ST-170c4"]}
+  - {id: ST-176, title: "Development-only v2 browser nonce HTTP endpoint", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-175", "ST-170c1", "ST-170c2"]}

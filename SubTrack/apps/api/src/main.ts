@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { appModuleFor } from './app.module';
 import { validateConfig } from './config';
 import { ProblemDetailsFilter } from './common/problem-details.filter';
 import { httpLogger } from './common/http-logger';
@@ -8,7 +8,7 @@ import { v2BrowserContextMiddleware, v2NoStoreMiddleware } from './auth/http/v2-
 
 async function bootstrap(): Promise<void> {
   const config = validateConfig(process.env);
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(appModuleFor(config), { bufferLogs: true });
   app.use(httpLogger);
   app.use(v2NoStoreMiddleware);
   if (config.AUTH_V2_ENABLED) {

@@ -12,7 +12,7 @@ export const V2_IDEMPOTENT_OPERATIONS = Object.freeze([
 
 export type V2IdempotentOperation = (typeof V2_IDEMPOTENT_OPERATIONS)[number];
 export type IdempotencyTransport = 'web' | 'mobile';
-export type AuthorityKind = 'browser-chain' | 'verified-principal';
+export type AuthorityKind = 'browser-chain' | 'verified-principal' | 'browser-bootstrap-origin';
 
 declare const trustedAuthorityDigestBrand: unique symbol;
 
@@ -21,21 +21,22 @@ declare const trustedAuthorityDigestBrand: unique symbol;
  * this type after deriving the digest from a verified browser chain or principal.
  * This core does not authenticate, resolve, or mint authority.
  */
-export type TrustedAuthorityDigest = Readonly<{
-  kind: AuthorityKind;
+export type TrustedAuthorityDigest<K extends AuthorityKind = AuthorityKind> = Readonly<{
+  kind: K;
   digest: string;
   readonly [trustedAuthorityDigestBrand]: true;
 }>;
 
-export type IdempotencyReservationInput = Readonly<{
-  operation: V2IdempotentOperation;
-  transport: IdempotencyTransport;
-  authority: TrustedAuthorityDigest;
+type IdempotencyReservationFields = Readonly<{
   /** Strict lowercase or uppercase 64-character hex SHA-256 prepared by a trusted adapter. */
   canonicalRequestDigest: string;
   /** The caller's opaque Idempotency-Key; this value is never retained. */
   idempotencyKey: string;
 }>;
+export type IdempotencyReservationInput = IdempotencyReservationFields & (
+  | Readonly<{ operation: 'createV2BrowserNonce'; transport: 'web'; authority: TrustedAuthorityDigest }>
+  | Readonly<{ operation: V2IdempotentOperation; transport: IdempotencyTransport; authority: TrustedAuthorityDigest<Exclude<AuthorityKind, 'browser-bootstrap-origin'>> }>
+);
 
 export type IdempotencyOwner = Readonly<{
   /** Random, opaque, one-time owner handle. The repository stores only its hash. */
@@ -75,7 +76,7 @@ const HEX_256 = /^[0-9a-fA-F]{64}$/;
 const IDEMPOTENCY_KEY = /^[\x21-\x7e]{16,255}$/;
 const OPERATIONS: ReadonlySet<string> = new Set(V2_IDEMPOTENT_OPERATIONS);
 const TRANSPORTS: ReadonlySet<string> = new Set(['web', 'mobile']);
-const AUTHORITY_KINDS: ReadonlySet<string> = new Set(['browser-chain', 'verified-principal']);
+const AUTHORITY_KINDS: ReadonlySet<string> = new Set(['browser-chain', 'verified-principal', 'browser-bootstrap-origin']);
 const domain = 'subtrack:v2:idempotency:core:v1';
 
 function fail(): never { throw new Error(GENERIC_ERROR); }
@@ -91,6 +92,8 @@ function validateInput(input: IdempotencyReservationInput): void {
     typeof input.canonicalRequestDigest !== 'string' || !HEX_256.test(input.canonicalRequestDigest) || !isRecord(input.authority) ||
     typeof input.authority.kind !== 'string' || !AUTHORITY_KINDS.has(input.authority.kind) ||
     typeof input.authority.digest !== 'string' || !HEX_256.test(input.authority.digest)) fail();
+  if (input.authority.kind === 'browser-bootstrap-origin' &&
+      (input.operation !== 'createV2BrowserNonce' || input.transport !== 'web')) fail();
 }
 
 function frame(value: string): string {
