@@ -48,7 +48,10 @@
   },
   "onboarding": {
     "welcome": {
-      "tagline": "Everything you subscribe to. In one place."
+      "tagline": "Everything you subscribe to. In one place.",
+      "createAccount": "Create account",
+      "logIn": "Log in",
+      "exploreDemo": "Explore demo household"
     },
     "identifier": {
       "channelLabel": "Choose contact method",

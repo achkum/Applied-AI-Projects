@@ -1,0 +1,18 @@
+[
+  {
+    "path": "apps/mobile/src/components/onboarding/WelcomeActions.tsx",
+    "sha256": "751af3de7af9b392eb47db18773c32fdbd330f16e0d3542514159dc9e572483c"
+  },
+  {
+    "path": "apps/mobile/src/components/onboarding/WelcomeActions.test.tsx",
+    "sha256": "7fecc27558a927a544366e471bbdd222c5617ef9c2a804e1b9a59d2f8d6ea2fa"
+  },
+  {
+    "path": "packages/i18n/catalogs/en.json",
+    "sha256": "6e5ec2505d9d4a9f97ac49914516650e3e2d7df3f2089b14748b8369a3bb4619"
+  },
+  {
+    "path": "packages/i18n/catalogs/sv.json",
+    "sha256": "01d94c9d047fe955cb91b295306ca2a07807a4e21666ca69724670692d18874f"
+  }
+]

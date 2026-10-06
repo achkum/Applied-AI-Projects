@@ -48,7 +48,10 @@
   },
   "onboarding": {
     "welcome": {
-      "tagline": "Allt ni prenumererar på. På ett ställe."
+      "tagline": "Allt ni prenumererar på. På ett ställe.",
+      "createAccount": "Skapa konto",
+      "logIn": "Logga in",
+      "exploreDemo": "Utforska demohushåll"
     },
     "identifier": {
       "channelLabel": "Välj kontaktmetod",

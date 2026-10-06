@@ -1,0 +1,9 @@
+# ST-051c design review
+
+**Verdict: Design review passes for the scoped WelcomeActions component.** The four normal screenshots show consistent hierarchy and readable localized labels across Swedish and English, in light and dark themes. Brand and tagline sit clearly above a single prominent account action and two secondary actions. The 48 logical unit button height exceeds the 44 unit target, and generous horizontal inset plus pill shapes keep the controls distinct. The longest Swedish and English labels fit on one line in the supplied normal screenshots without clipping or crowding.
+
+The busy screenshots retain the same layout while removing the primary fill distinction. Labels appear muted against the raised surface in both themes, while the controls remain fully opaque and visibly outlined. This reads as a coherent disabled state and aligns with the required raised/secondary ink pair. The source also exposes disabled accessibility state and suppresses callback dispatch when busy. Normal-state surfaces use the expected primary ink/canvas pair and raised/primary-ink secondary pair.
+
+Localization and typography look consistent: the brand remains intact, the tagline is appropriately quieter, and action text uses the UI face while the brand uses the display face. The eight-state receipt records all three callbacks once in normal states, zero in busy states, loaded fonts, both 375 and 320 widths, and no browser errors. The images supplied for visual review are the six named states and visibly show a 375-pixel canvas; 320-pixel wrapping is supported here by the receipt only, not independently judged from a screenshot.
+
+This verdict covers the isolated React Native Web component and its visual presentation. It does not approve UF-01 completion, native accessibility behavior, route wiring, or the application screen. The artifact identifies itself as isolated component evidence, not app routes or native devices.
