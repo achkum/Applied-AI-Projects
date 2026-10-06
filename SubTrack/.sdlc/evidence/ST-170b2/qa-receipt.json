@@ -1,0 +1,28 @@
+{
+  "focused_tests": 32,
+  "scoped_lint": "pass",
+  "api_typecheck": "pass",
+  "prisma_generate": "codegen only; no database apply",
+  "changed_coverage": {
+    "statements": "74/76",
+    "branches": "94/95",
+    "functions": "13/13",
+    "lines": "61/61"
+  },
+  "independent_reviews": [
+    "platform APPROVE",
+    "security APPROVE"
+  ],
+  "limits": [
+    "internal dev/test in-memory repository",
+    "no durable storage/HTTP/provider/delivery/authenticated flow claim",
+    "exact-head CI pending"
+  ],
+  "author_budget": {
+    "wrappers_reported": 10,
+    "total_with_nested": 20,
+    "wrapper_cap": 8,
+    "exceeded": true
+  },
+  "root_call_counts": "unreported; not token telemetry"
+}

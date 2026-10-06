@@ -1,0 +1,13 @@
+{
+  "sources": [
+    {
+      "path": "apps/api/src/auth/proofs-v2/otp-proof-producer.ts",
+      "sha256": "f21b158289da18faf1aff1ccc13074d66fa1c368b5ee4c40bc579029acb5c622"
+    },
+    {
+      "path": "apps/api/src/auth/proofs-v2/otp-proof-producer.spec.ts",
+      "sha256": "eceb83149f69ac8b6420e99b3916ed4baa228494e802cdbd7a21d3478b652ec4"
+    }
+  ],
+  "accepted_base": "6eb7b2b0fd056502d1867e08fee54f269e593c42"
+}
