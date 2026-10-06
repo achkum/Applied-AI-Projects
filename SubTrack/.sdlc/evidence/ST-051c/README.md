@@ -1,0 +1,5 @@
+# ST-051c localized Welcome actions
+
+Reusable mobile Welcome composition with three required callbacks and bilingual labels. Busy disables native interaction and explicitly guards callbacks. Fonts/colors/radius use public native tokens; fixed logical-unit spacing follows the accepted IdentifierEntry convention because the native theme contains no spacing scale. Parent routing/auth/demo integration remains pending.
+
+Four focused tests passed with actual catalogs and actual translation helper, plus scoped lint, mobile TypeScript and catalog parity. Isolated actual React Native Web component QA covers eight locale/theme/busy states with 375px screenshots and320px overflow checks. Client/design reviews approve scoped evidence. No native device/screenreader/fullapp/UF01 completion claim; exactheadCI required beforemerge. The author supplied staged files, root corrected duplicated translation fixture and typing/style assertion assumptions before final review. Preceding font acceptance receipt reconcilesST051b DONE.

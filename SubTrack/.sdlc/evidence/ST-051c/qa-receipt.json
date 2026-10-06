@@ -1,0 +1,21 @@
+{
+  "focusedTests": {
+    "cases": 4,
+    "suites": 1,
+    "coverage": {
+      "statements": 100,
+      "branches": 90.9,
+      "functions": 100,
+      "lines": 100,
+      "scope": "WelcomeActions.tsx"
+    }
+  },
+  "mobileTypecheck": "PASS",
+  "scopedESLint": "PASS",
+  "catalogParity": "PASS",
+  "isolatedRNweb": "8 sv/en x light/dark x enabled/busy states;375screenshots+320width assertions; real catalog and component; three distinct callbacks once each or0 whenbusy;fontsloaded;zeroerrors",
+  "nativeDevice": "NOT RUN",
+  "appRouteWiring": "NOT IMPLEMENTED in this slice",
+  "exactHeadCI": "PENDING",
+  "counts": "FreshLunaauthor/client/design; manuallyreported counts, no automatic quota telemetry or savingsclaim; rootunreported. Design4wrappers+9nestedoperations13total within16target."
+}

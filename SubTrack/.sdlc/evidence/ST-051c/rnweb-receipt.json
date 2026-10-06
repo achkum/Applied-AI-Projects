@@ -1,0 +1,126 @@
+{
+  "kind": "Actual WelcomeActions component in isolated React Native Web composition; not app routes or native devices",
+  "states": [
+    {
+      "locale": "sv",
+      "theme": "light",
+      "busy": false,
+      "widths": [
+        375,
+        320
+      ],
+      "fontsLoaded": true,
+      "callbacks": {
+        "create": 1,
+        "login": 1,
+        "demo": 1
+      }
+    },
+    {
+      "locale": "sv",
+      "theme": "light",
+      "busy": true,
+      "widths": [
+        375,
+        320
+      ],
+      "fontsLoaded": true,
+      "callbacks": {
+        "create": 0,
+        "login": 0,
+        "demo": 0
+      }
+    },
+    {
+      "locale": "sv",
+      "theme": "dark",
+      "busy": false,
+      "widths": [
+        375,
+        320
+      ],
+      "fontsLoaded": true,
+      "callbacks": {
+        "create": 1,
+        "login": 1,
+        "demo": 1
+      }
+    },
+    {
+      "locale": "sv",
+      "theme": "dark",
+      "busy": true,
+      "widths": [
+        375,
+        320
+      ],
+      "fontsLoaded": true,
+      "callbacks": {
+        "create": 0,
+        "login": 0,
+        "demo": 0
+      }
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "busy": false,
+      "widths": [
+        375,
+        320
+      ],
+      "fontsLoaded": true,
+      "callbacks": {
+        "create": 1,
+        "login": 1,
+        "demo": 1
+      }
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "busy": true,
+      "widths": [
+        375,
+        320
+      ],
+      "fontsLoaded": true,
+      "callbacks": {
+        "create": 0,
+        "login": 0,
+        "demo": 0
+      }
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "busy": false,
+      "widths": [
+        375,
+        320
+      ],
+      "fontsLoaded": true,
+      "callbacks": {
+        "create": 1,
+        "login": 1,
+        "demo": 1
+      }
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "busy": true,
+      "widths": [
+        375,
+        320
+      ],
+      "fontsLoaded": true,
+      "callbacks": {
+        "create": 0,
+        "login": 0,
+        "demo": 0
+      }
+    }
+  ],
+  "errors": []
+}
