@@ -1,0 +1,20 @@
+{
+  "focusedTests": 10,
+  "suites": 1,
+  "coverage": {
+    "statements": 100,
+    "branches": 100,
+    "functions": 100,
+    "lines": 100,
+    "scope": "session-csrf.ts"
+  },
+  "scopedESLint": "PASS",
+  "apiTypecheck": "PASS (local Prisma client generation only; no DB contact)",
+  "exactHeadCI": "PENDING",
+  "limits": [
+    "internal in-memory reference",
+    "compile-time authority brand does not authenticate",
+    "no HTTP/current active session/Origin/TLS/provider/durable store/production claim"
+  ],
+  "budget": "Fresh Luna <=10 calls author, manual counts not token telemetry; root call count unreported"
+}

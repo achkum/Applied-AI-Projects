@@ -155,4 +155,6 @@ items:
   - {id: ST-037, title: "Fix license-check SPDX compound-expression parsing (false positives in CI gate)", owner: "devops-release", size: S, status: DONE, deps: []}
   - {id: ST-051c, title: "Mobile localized Welcome action component", owner: "dev-mobile", size: "M", status: DONE, deps: ["ST-051b"]}
 
-  - {id: ST-170c2, title: "V2 internal idempotency reservation core", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-170a", "ST-170c1"]}
+  - {id: ST-170c2, title: "V2 internal idempotency reservation core", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-170a", "ST-170c1"]}
+
+  - {id: ST-170c3, title: "Internal v2 session-bound CSRF core", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-170a", "ST-170c2"]}
