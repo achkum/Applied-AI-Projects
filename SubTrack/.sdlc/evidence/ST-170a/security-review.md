@@ -17,3 +17,7 @@ The residual wording issue is resolved: `MobileRefreshResponse.accessToken` is n
 - **Problem schema and v1 boundary: preserved in the reviewed text.** V2 adds `V2Problem` with stable `code` and no-store headers; legacy `Problem` remains separate and v1 routes continue to reference it. The reviewed contract/ADR state additive v2 and preserved v1 behavior. This textual review does not establish byte-for-byte or runtime compatibility.
 
 This contract-only review approves the reviewed security/privacy wording. It does not imply runtime, provider, deployment, or rollout approval.
+
+## Narrow CI false-positive review
+
+**Verdict remains APPROVE.** The three historical Gitleaks `generic-api-key` alerts are public SHA-256 source fingerprints. Current hashes for `packages/contracts/openapi.yaml`, `packages/contracts/openapi-ts.config.mjs`, and `packages/contracts/tests/v2-auth.test.mjs` match their manifest entries, and each alert maps to one exact commit/path/rule/line fingerprint in `/workspace/Applied-AI-Projects/.gitleaksignore`. The file contains exactly these three non-comment entries; there is no broad rule or path suppression. These are not credentials, so no rotation is indicated. Source authentication files were unchanged.
