@@ -1,0 +1,28 @@
+Starting Metro Bundler
+transform[stderr]: (node:43313) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+transform[stderr]: (Use `node --trace-warnings ...` to show where the warning was created)
+transform[stderr]: (node:43315) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+transform[stderr]: (Use `node --trace-warnings ...` to show where the warning was created)
+transform[stderr]: (node:43314) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+transform[stderr]: (Use `node --trace-warnings ...` to show where the warning was created)
+transform[stderr]: (node:43316) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+transform[stderr]: (Use `node --trace-warnings ...` to show where the warning was created)
+Android Bundled 3976ms ../../node_modules/.pnpm/expo-router@3.5.24_82d1755dcc60de13ab7c6cc0c002684a/node_modules/expo-router/entry.js (1071 modules)
+
+Exporting 12 assets:
+../../node_modules/.pnpm/@react-navigation+elements@1.3.31_@react-navigation+native@6.1.18_react-native@0.74.0_@_43482a46557dca7f8aead963fc25b211/node_modules/@react-navigation/elements/src/assets/back-icon-mask.png (913 B)
+../../node_modules/.pnpm/@react-navigation+elements@1.3.31_@react-navigation+native@6.1.18_react-native@0.74.0_@_43482a46557dca7f8aead963fc25b211/node_modules/@react-navigation/elements/src/assets/back-icon.png (5 variations | 148 B)
+../../node_modules/.pnpm/expo-router@3.5.24_82d1755dcc60de13ab7c6cc0c002684a/node_modules/expo-router/assets/error.png (516 B)
+../../node_modules/.pnpm/expo-router@3.5.24_82d1755dcc60de13ab7c6cc0c002684a/node_modules/expo-router/assets/file.png (158 B)
+../../node_modules/.pnpm/expo-router@3.5.24_82d1755dcc60de13ab7c6cc0c002684a/node_modules/expo-router/assets/forward.png (250 B)
+../../node_modules/.pnpm/expo-router@3.5.24_82d1755dcc60de13ab7c6cc0c002684a/node_modules/expo-router/assets/pkg.png (429 B)
+assets/fonts/Fraunces-VF.ttf (360 kB)
+assets/fonts/Manrope-VF.ttf (165 kB)
+
+Exporting 1 bundle for android:
+_expo/static/js/android/entry-4fb7646d9ad387baf046504517fe7784.hbc (2.32 MB)
+
+Exporting 1 file:
+metadata.json (905 B)
+
+App exported to: /workspace/.setup/ST172-android-export

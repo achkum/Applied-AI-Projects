@@ -1,0 +1,22 @@
+[
+  {
+    "check": "mobile-full-test",
+    "exitCode": 0
+  },
+  {
+    "check": "mobile-lint",
+    "exitCode": 0
+  },
+  {
+    "check": "mobile-typecheck",
+    "exitCode": 0
+  },
+  {
+    "check": "boundaries",
+    "exitCode": 0
+  },
+  {
+    "check": "root-mobile-policy",
+    "exitCode": 0
+  }
+]

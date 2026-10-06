@@ -78,9 +78,16 @@
   "preferences": {
     "label": "Inställningar",
     "languageLabel": "Språk",
-    "languageName": { "en": "Engelska", "sv": "Svenska" },
+    "languageName": {
+      "en": "Engelska",
+      "sv": "Svenska"
+    },
     "themeLabel": "Färgtema",
-    "themes": { "light": "Ljust", "dark": "Mörkt", "system": "System" }
+    "themes": {
+      "light": "Ljust",
+      "dark": "Mörkt",
+      "system": "System"
+    }
   },
   "home": {
     "totalHeading": "Återkommande kostnader",
@@ -92,8 +99,20 @@
     "eyebrow": "Fiktivt demohushåll",
     "disclosure": "De här inbyggda prenumerationsexemplen tillhör det fiktiva hushållet Lars och Maria Lindqvist. Den här skrivskyddade demon är inte ett inloggat hushåll och skapar ingen session.",
     "subscriptions": "Prenumerationer",
-    "cadence": { "MONTHLY": "per månad", "ANNUAL": "per år" },
+    "cadence": {
+      "MONTHLY": "per månad",
+      "ANNUAL": "per år"
+    },
     "amountUnavailable": "Belopp saknas",
     "returnToWelcome": "Tillbaka till välkomstsidan"
+  },
+  "mobileDemo": {
+    "banner": "Demo: uppgifterna är fiktiva",
+    "title": "Lars & Maria Lindqvist",
+    "description": "Ett skrivskyddat exempelhushåll med sex prenumerationer.",
+    "unavailable": "Demons visningsdata är inte tillgängliga. Beloppen är dolda.",
+    "return": "Tillbaka till välkomstsidan",
+    "monthly": "Debiteras månadsvis",
+    "annual": "Debiteras årsvis"
   }
 }

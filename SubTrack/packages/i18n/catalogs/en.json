@@ -78,9 +78,16 @@
   "preferences": {
     "label": "Preferences",
     "languageLabel": "Language",
-    "languageName": { "en": "English", "sv": "Swedish" },
+    "languageName": {
+      "en": "English",
+      "sv": "Swedish"
+    },
     "themeLabel": "Color theme",
-    "themes": { "light": "Light", "dark": "Dark", "system": "System" }
+    "themes": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    }
   },
   "home": {
     "totalHeading": "Recurring total",
@@ -92,8 +99,20 @@
     "eyebrow": "Fictional demo household",
     "disclosure": "These bundled example subscriptions belong to the fictional Lars and Maria Lindqvist household. This read-only demo is not a signed-in household and does not create a session.",
     "subscriptions": "Subscriptions",
-    "cadence": { "MONTHLY": "per month", "ANNUAL": "per year" },
+    "cadence": {
+      "MONTHLY": "per month",
+      "ANNUAL": "per year"
+    },
     "amountUnavailable": "Amount unavailable",
     "returnToWelcome": "Return to welcome"
+  },
+  "mobileDemo": {
+    "banner": "Demo: data is fictional",
+    "title": "Lars & Maria Lindqvist",
+    "description": "A read-only example household with six subscriptions.",
+    "unavailable": "Demo display data is unavailable. Amounts are hidden.",
+    "return": "Return to welcome",
+    "monthly": "Billed monthly",
+    "annual": "Billed annually"
   }
 }

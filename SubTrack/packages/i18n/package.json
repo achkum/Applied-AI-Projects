@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./catalogs/en": "./catalogs/en.json",
-    "./catalogs/sv": "./catalogs/sv.json"
+    "./catalogs/sv": "./catalogs/sv.json",
+    "./catalogs/demo-fixture": "./catalogs/demo-fixture.json"
   },
   "scripts": {
     "build": "pnpm typecheck",

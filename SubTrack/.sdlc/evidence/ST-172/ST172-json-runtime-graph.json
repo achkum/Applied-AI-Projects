@@ -1,0 +1,10 @@
+{
+  "maps": 1,
+  "sourceCount": 858,
+  "demoSources": [
+    "/../../packages/i18n/catalogs/demo-fixture.json"
+  ],
+  "moneyRuntimeAbsent": true,
+  "syntheticRuntimeAbsent": true,
+  "uiIndexRuntimeAbsent": true
+}

@@ -1,0 +1,9 @@
+# ST-172 review and QA evidence
+
+Actual Expo Web QA passed 10 scenarios: both locales and themes at 320 and 375 units, plus two injected BigInt precision failures with every amount hidden. It checked all six original prices and cadences, return navigation and 44-unit controls. Screenshots show real Expo development builds and include Expo development chrome. Client and design approvals and the platform resolver review are attached with source hashes.
+
+The full mobile suite passed 101 tests across 19 suites. Mobile lint, typecheck and i18n parity passed. The focused suite passed 16 tests across two suites, with aggregate statements 86.56%, branches 84.61%, functions 65% and lines 88.13%. The new screen and adapter have 100% function and line coverage; unchanged Welcome theme and locale handlers explain the lower aggregate function coverage. After the full suite, a test-only type annotation and CommonJS lint comments were corrected; focused tests, lint and typecheck passed again. No executable app behavior changed.
+
+Offline Android and iOS Metro exports produced Hermes bytecode successfully. Compilation does not prove runtime support. Actual Expo/Hermes device or simulator execution remains required and pending. This task must not merge or be marked DONE until that gate passes. The fictional client fixture is not a server-created demo session; UF-12 tenant isolation and rate limiting remain separate pending requirements.
+
+Manual author call estimates were 25, 24 and 18 across fresh contexts. The first two exceeded the 20-call boundary and were rotated; the original task budget and retries were preserved. Platform reported 20 execution calls, client 13 and design 12. Counts may exclude collaboration calls; root calls and billed tokens are unreported. No automatic context clearing or token savings are claimed.

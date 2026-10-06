@@ -1,0 +1,11 @@
+$ node --test test/*.test.mjs
+i18n parity tests passed (matching, missing key, nested shape, leaf type, ICU placeholders, package exports).
+✔ test/check-parity.test.mjs (285.908686ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 293.726605

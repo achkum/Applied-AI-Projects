@@ -1,0 +1,9 @@
+$ DEMO_GENERATION=1 vitest run src/demo-fixture.test.ts --mode generate-demo
+
+ RUN  v5.0.3 /workspace/Applied-AI-Projects/SubTrack/packages/ui
+
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  11:58:35
+   Duration  948ms (environment 63%, setup 18%, transform 13%, tests 4%, import 2%, worker 1%)

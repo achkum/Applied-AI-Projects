@@ -1,0 +1,2 @@
+$ node scripts/check-parity.mjs
+Swedish and English catalogs have matching nested keys, value shapes, and ICU placeholders.
