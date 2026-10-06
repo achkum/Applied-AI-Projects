@@ -162,6 +162,7 @@ items:
   - {id: ST-170c4, title: "Internal exclusive v2 credential transport selector", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-170a"]}
 
   - {id: ST-171, title: "Exact bigint currency formatter", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-100"]}
-  - {id: ST-172, title: "Mobile read-only demo with exact-money runtime gate", owner: "dev-mobile", size: "M", status: IN_REVIEW, deps: ["ST-171", "ST-051c"]}
+  - {id: ST-172, title: "Mobile read-only fictional household demo", owner: "dev-mobile", size: "M", status: DONE, deps: ["ST-171", "ST-051c"]}
 
-  - {id: ST-173, title: "Web read-only fictional household demo", owner: "dev-web", size: "M", status: IN_REVIEW, deps: ["ST-171", "ST-058"]}
+  - {id: ST-173, title: "Web read-only fictional household demo", owner: "dev-web", size: "M", status: DONE, deps: ["ST-171", "ST-058"]}
+  - {id: ST-174, title: "Android and iOS mobile demo validation", owner: "qa", size: "M", status: TODO, deps: ["ST-172"]}

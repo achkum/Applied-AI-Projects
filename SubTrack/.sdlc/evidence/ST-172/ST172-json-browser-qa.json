@@ -1,0 +1,192 @@
+[
+  {
+    "locale": "en",
+    "theme": "light",
+    "width": 375,
+    "url": "http://127.0.0.1:8083/en/demo",
+    "text": "SubTrack\nDemo: data is fictional\nLars & Maria Lindqvist\nA read-only example household with six subscriptions.\nDisney+\n139,00 kr\nBilled monthly\nYouTube Premium\n219,00 kr\nBilled monthly\nSpotify Duo\n159,00 kr\nBilled monthly\nStorytel\n179,00 kr\nBilled monthly\nMicrosoft 365 Family\n1 199,00 kr\nBilled annually\niCloud 2TB\n99,00 kr\nBilled monthly\nReturn to welcome\nRefreshing...\nDon't see your changes? Reload the app",
+    "overflow": false,
+    "errors": [],
+    "apiRequests": [],
+    "launcherBounds": {
+      "x": 20,
+      "y": 76,
+      "width": 335,
+      "height": 48
+    },
+    "backBounds": {
+      "x": 20,
+      "y": 752,
+      "width": 335,
+      "height": 48
+    }
+  },
+  {
+    "locale": "en",
+    "theme": "light",
+    "width": 320,
+    "url": "http://127.0.0.1:8083/en/demo",
+    "text": "SubTrack\nDemo: data is fictional\nLars & Maria Lindqvist\nA read-only example household with six subscriptions.\nDisney+\n139,00 kr\nBilled monthly\nYouTube Premium\n219,00 kr\nBilled monthly\nSpotify Duo\n159,00 kr\nBilled monthly\nStorytel\n179,00 kr\nBilled monthly\nMicrosoft 365 Family\n1 199,00 kr\nBilled annually\niCloud 2TB\n99,00 kr\nBilled monthly\nReturn to welcome\nRefreshing...\nDon't see your changes? Reload the app",
+    "overflow": false,
+    "errors": [],
+    "apiRequests": [],
+    "launcherBounds": {
+      "x": 20,
+      "y": 76,
+      "width": 280,
+      "height": 48
+    },
+    "backBounds": {
+      "x": 20,
+      "y": 786,
+      "width": 280,
+      "height": 48
+    }
+  },
+  {
+    "locale": "en",
+    "theme": "dark",
+    "width": 375,
+    "url": "http://127.0.0.1:8083/en/demo",
+    "text": "SubTrack\nDemo: data is fictional\nLars & Maria Lindqvist\nA read-only example household with six subscriptions.\nDisney+\n139,00 kr\nBilled monthly\nYouTube Premium\n219,00 kr\nBilled monthly\nSpotify Duo\n159,00 kr\nBilled monthly\nStorytel\n179,00 kr\nBilled monthly\nMicrosoft 365 Family\n1 199,00 kr\nBilled annually\niCloud 2TB\n99,00 kr\nBilled monthly\nReturn to welcome\nRefreshing...\nDon't see your changes? Reload the app",
+    "overflow": false,
+    "errors": [],
+    "apiRequests": [],
+    "launcherBounds": {
+      "x": 20,
+      "y": 76,
+      "width": 335,
+      "height": 48
+    },
+    "backBounds": {
+      "x": 20,
+      "y": 752,
+      "width": 335,
+      "height": 48
+    }
+  },
+  {
+    "locale": "en",
+    "theme": "dark",
+    "width": 320,
+    "url": "http://127.0.0.1:8083/en/demo",
+    "text": "SubTrack\nDemo: data is fictional\nLars & Maria Lindqvist\nA read-only example household with six subscriptions.\nDisney+\n139,00 kr\nBilled monthly\nYouTube Premium\n219,00 kr\nBilled monthly\nSpotify Duo\n159,00 kr\nBilled monthly\nStorytel\n179,00 kr\nBilled monthly\nMicrosoft 365 Family\n1 199,00 kr\nBilled annually\niCloud 2TB\n99,00 kr\nBilled monthly\nReturn to welcome\nRefreshing...\nDon't see your changes? Reload the app",
+    "overflow": false,
+    "errors": [],
+    "apiRequests": [],
+    "launcherBounds": {
+      "x": 20,
+      "y": 76,
+      "width": 280,
+      "height": 48
+    },
+    "backBounds": {
+      "x": 20,
+      "y": 786,
+      "width": 280,
+      "height": 48
+    }
+  },
+  {
+    "locale": "sv",
+    "theme": "light",
+    "width": 375,
+    "url": "http://127.0.0.1:8083/sv/demo",
+    "text": "SubTrack\nDemo: uppgifterna är fiktiva\nLars & Maria Lindqvist\nEtt skrivskyddat exempelhushåll med sex prenumerationer.\nDisney+\n139,00 kr\nDebiteras månadsvis\nYouTube Premium\n219,00 kr\nDebiteras månadsvis\nSpotify Duo\n159,00 kr\nDebiteras månadsvis\nStorytel\n179,00 kr\nDebiteras månadsvis\nMicrosoft 365 Family\n1 199,00 kr\nDebiteras årsvis\niCloud 2TB\n99,00 kr\nDebiteras månadsvis\nTillbaka till välkomstsidan\nRefreshing...\nDon't see your changes? Reload the app",
+    "overflow": false,
+    "errors": [],
+    "apiRequests": [],
+    "launcherBounds": {
+      "x": 20,
+      "y": 76,
+      "width": 335,
+      "height": 48
+    },
+    "backBounds": {
+      "x": 20,
+      "y": 752,
+      "width": 335,
+      "height": 48
+    }
+  },
+  {
+    "locale": "sv",
+    "theme": "light",
+    "width": 320,
+    "url": "http://127.0.0.1:8083/sv/demo",
+    "text": "SubTrack\nDemo: uppgifterna är fiktiva\nLars & Maria Lindqvist\nEtt skrivskyddat exempelhushåll med sex prenumerationer.\nDisney+\n139,00 kr\nDebiteras månadsvis\nYouTube Premium\n219,00 kr\nDebiteras månadsvis\nSpotify Duo\n159,00 kr\nDebiteras månadsvis\nStorytel\n179,00 kr\nDebiteras månadsvis\nMicrosoft 365 Family\n1 199,00 kr\nDebiteras årsvis\niCloud 2TB\n99,00 kr\nDebiteras månadsvis\nTillbaka till välkomstsidan\nRefreshing...\nDon't see your changes? Reload the app",
+    "overflow": false,
+    "errors": [],
+    "apiRequests": [],
+    "launcherBounds": {
+      "x": 20,
+      "y": 76,
+      "width": 280,
+      "height": 48
+    },
+    "backBounds": {
+      "x": 20,
+      "y": 786,
+      "width": 280,
+      "height": 48
+    }
+  },
+  {
+    "locale": "sv",
+    "theme": "dark",
+    "width": 375,
+    "url": "http://127.0.0.1:8083/sv/demo",
+    "text": "SubTrack\nDemo: uppgifterna är fiktiva\nLars & Maria Lindqvist\nEtt skrivskyddat exempelhushåll med sex prenumerationer.\nDisney+\n139,00 kr\nDebiteras månadsvis\nYouTube Premium\n219,00 kr\nDebiteras månadsvis\nSpotify Duo\n159,00 kr\nDebiteras månadsvis\nStorytel\n179,00 kr\nDebiteras månadsvis\nMicrosoft 365 Family\n1 199,00 kr\nDebiteras årsvis\niCloud 2TB\n99,00 kr\nDebiteras månadsvis\nTillbaka till välkomstsidan\nRefreshing...\nDon't see your changes? Reload the app",
+    "overflow": false,
+    "errors": [],
+    "apiRequests": [],
+    "launcherBounds": {
+      "x": 20,
+      "y": 76,
+      "width": 335,
+      "height": 48
+    },
+    "backBounds": {
+      "x": 20,
+      "y": 752,
+      "width": 335,
+      "height": 48
+    }
+  },
+  {
+    "locale": "sv",
+    "theme": "dark",
+    "width": 320,
+    "url": "http://127.0.0.1:8083/sv/demo",
+    "text": "SubTrack\nDemo: uppgifterna är fiktiva\nLars & Maria Lindqvist\nEtt skrivskyddat exempelhushåll med sex prenumerationer.\nDisney+\n139,00 kr\nDebiteras månadsvis\nYouTube Premium\n219,00 kr\nDebiteras månadsvis\nSpotify Duo\n159,00 kr\nDebiteras månadsvis\nStorytel\n179,00 kr\nDebiteras månadsvis\nMicrosoft 365 Family\n1 199,00 kr\nDebiteras årsvis\niCloud 2TB\n99,00 kr\nDebiteras månadsvis\nTillbaka till välkomstsidan\nRefreshing...\nDon't see your changes? Reload the app",
+    "overflow": false,
+    "errors": [],
+    "apiRequests": [],
+    "launcherBounds": {
+      "x": 20,
+      "y": 76,
+      "width": 280,
+      "height": 48
+    },
+    "backBounds": {
+      "x": 20,
+      "y": 786,
+      "width": 280,
+      "height": 48
+    }
+  },
+  {
+    "locale": "en",
+    "scenario": "BigInt Intl unavailable",
+    "originalAmountsVisible": true,
+    "bigIntIntlCalls": 0,
+    "text": "SubTrack\nDemo: data is fictional\nLars & Maria Lindqvist\nA read-only example household with six subscriptions.\nDisney+\n139,00 kr\nBilled monthly\nYouTube Premium\n219,00 kr\nBilled monthly\nSpotify Duo\n159,00 kr\nBilled monthly\nStorytel\n179,00 kr\nBilled monthly\nMicrosoft 365 Family\n1 199,00 kr\nBilled annually\niCloud 2TB\n99,00 kr\nBilled monthly\nReturn to welcome\nRefreshing...\nDon't see your changes? Reload the app"
+  },
+  {
+    "locale": "sv",
+    "scenario": "BigInt Intl unavailable",
+    "originalAmountsVisible": true,
+    "bigIntIntlCalls": 0,
+    "text": "SubTrack\nDemo: uppgifterna är fiktiva\nLars & Maria Lindqvist\nEtt skrivskyddat exempelhushåll med sex prenumerationer.\nDisney+\n139,00 kr\nDebiteras månadsvis\nYouTube Premium\n219,00 kr\nDebiteras månadsvis\nSpotify Duo\n159,00 kr\nDebiteras månadsvis\nStorytel\n179,00 kr\nDebiteras månadsvis\nMicrosoft 365 Family\n1 199,00 kr\nDebiteras årsvis\niCloud 2TB\n99,00 kr\nDebiteras månadsvis\nTillbaka till välkomstsidan\nRefreshing...\nDon't see your changes? Reload the app"
+  }
+]

@@ -1,0 +1,16 @@
+✔ domain and money cannot import I/O layers (625.677707ms)
+✔ pure packages reject Node and framework imports (24.920786ms)
+✔ clients cannot import server-side layers directly (77.49115ms)
+✔ client boundaries cover relative static re-exports (109.38264ms)
+✔ clients reject every unapproved static workspace alias (233.023263ms)
+✔ public config entry is importable (1.082889ms)
+✔ web may import the approved demo display JSON subpath only through UI (22.703459ms)
+✔ mobile demo may import the approved display JSON subpath and rejects money/synthetic boundaries (11.177122ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1265.346602

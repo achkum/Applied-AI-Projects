@@ -110,7 +110,7 @@
     "banner": "Demo: data is fictional",
     "title": "Lars & Maria Lindqvist",
     "description": "A read-only example household with six subscriptions.",
-    "unavailable": "Exact currency formatting is unavailable on this device. Amounts are hidden.",
+    "unavailable": "Demo display data is unavailable. Amounts are hidden.",
     "return": "Return to welcome",
     "monthly": "Billed monthly",
     "annual": "Billed annually"

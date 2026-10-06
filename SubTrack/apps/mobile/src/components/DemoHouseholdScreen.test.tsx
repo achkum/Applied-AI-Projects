@@ -2,9 +2,9 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import mockEnCatalog from '@subtrack/i18n/catalogs/en';
 import mockSvCatalog from '@subtrack/i18n/catalogs/sv';
+import demoFixture from '@subtrack/i18n/catalogs/demo-fixture';
 import { DemoHouseholdScreen } from './DemoHouseholdScreen';
 import { WelcomeScreen } from './WelcomeScreen';
-import * as demoMoney from './demo-money';
 import { testTheme as mockTestTheme } from './signature/testTheme';
 
 const mockPush = jest.fn();
@@ -60,14 +60,57 @@ describe('localized demo household path', () => {
     expect(mockPush).toHaveBeenLastCalledWith('/sv/demo');
   });
 
-  it('shows fictional data, all six original prices and original cadence without a total', () => {
-    const { getByText, queryByText } = render(<DemoHouseholdScreen locale="en" />);
-    expect(getByText(englishCopy.mobileDemo.banner)).toBeTruthy();
-    expect(getByText('Lars & Maria Lindqvist')).toBeTruthy();
-    for (const label of ['Disney+', 'YouTube Premium', 'Spotify Duo', 'Storytel', 'Microsoft 365 Family', 'iCloud 2TB']) {
-      expect(getByText(label)).toBeTruthy();
+  it('shows exact English and Swedish display strings with each original cadence and no total', () => {
+    const expected = [
+      ['Disney+', '139,00 kr', 'Billed monthly', 'Debiteras månadsvis'],
+      ['YouTube Premium', '219,00 kr', 'Billed monthly', 'Debiteras månadsvis'],
+      ['Spotify Duo', '159,00 kr', 'Billed monthly', 'Debiteras månadsvis'],
+      ['Storytel', '179,00 kr', 'Billed monthly', 'Debiteras månadsvis'],
+      ['Microsoft 365 Family', '1 199,00 kr', 'Billed annually', 'Debiteras årsvis'],
+      ['iCloud 2TB', '99,00 kr', 'Billed monthly', 'Debiteras månadsvis'],
+    ] as const;
+    const english = render(<DemoHouseholdScreen locale="en" />);
+    expect(english.getByText(englishCopy.mobileDemo.banner)).toBeTruthy();
+    expect(english.getByText(englishCopy.mobileDemo.title)).toBeTruthy();
+    for (const [merchant, amount, cadence] of expected) {
+      expect(english.getByLabelText(`${merchant}, ${amount}, ${cadence}`)).toBeTruthy();
     }
-    expect(queryByText(/total|equivalent/i)).toBeNull();
+    expect(english.queryByText(/total|equivalent/i)).toBeNull();
+    english.unmount();
+
+    mockLocale = 'sv';
+    const swedish = render(<DemoHouseholdScreen locale="sv" />);
+    expected.forEach(([merchant, , , cadence], index) => {
+      const subscription = demoFixture.subscriptions[index];
+      if (!subscription) throw new Error(`Missing fixture row at index ${index}`);
+      expect(swedish.getByLabelText(`${merchant}, ${subscription.displayAmount.sv}, ${cadence}`)).toBeTruthy();
+    });
+    expect(swedish.getByText(swedishCopy.mobileDemo.banner)).toBeTruthy();
+    expect(swedish.queryByText(/total|motsvarande/i)).toBeNull();
+  });
+
+  it.each(['en', 'sv'] as const)('hides all amounts when a localized display string is missing in %s', (locale) => {
+    const incompleteFixture = {
+      ...demoFixture,
+      subscriptions: demoFixture.subscriptions.map((subscription, index) => index === 0
+        ? { ...subscription, displayAmount: { ...subscription.displayAmount, [locale]: '' } }
+        : subscription),
+    } as typeof demoFixture;
+    const { getByText, queryByText } = render(<DemoHouseholdScreen locale={locale} fixture={incompleteFixture} />);
+    expect(getByText(locale === 'en' ? englishCopy.mobileDemo.unavailable : swedishCopy.mobileDemo.unavailable)).toBeTruthy();
+    expect(queryByText('139,00 kr')).toBeNull();
+    expect(queryByText('219,00 kr')).toBeNull();
+    expect(queryByText('Disney+')).toBeNull();
+  });
+
+  it.each([0, 5])('hides all amounts when the fixture has only %s rows', (count) => {
+    const fixture = { ...demoFixture, subscriptions: demoFixture.subscriptions.slice(0, count) };
+    const { getByText, queryByText } = render(<DemoHouseholdScreen locale="en" fixture={fixture} />);
+    expect(getByText(englishCopy.mobileDemo.unavailable)).toBeTruthy();
+    for (const row of demoFixture.subscriptions) {
+      expect(queryByText(row.merchantName)).toBeNull();
+      expect(queryByText(row.displayAmount.en)).toBeNull();
+    }
   });
 
   it('keeps direct Swedish route copy Swedish even when the provider locale is English', () => {
@@ -79,34 +122,6 @@ describe('localized demo household path', () => {
     expect(mockReplace).toHaveBeenCalledWith('/sv');
   });
 
-  it('hides every amount when the exact-money capability is unsupported or throws', () => {
-    const capability = jest.spyOn(demoMoney, 'supportsExactDemoMoney').mockReturnValue(false);
-    const conversion = jest.spyOn(demoMoney, 'formatDemoSubscriptions');
-    const unavailable = render(<DemoHouseholdScreen locale="en" />);
-    expect(unavailable.getByText(englishCopy.mobileDemo.unavailable)).toBeTruthy();
-    expect(conversion).not.toHaveBeenCalled();
-    for (const label of ['Disney+', 'YouTube Premium', 'Spotify Duo', 'Storytel', 'Microsoft 365 Family', 'iCloud 2TB']) {
-      expect(unavailable.queryByText(label)).toBeNull();
-    }
-    expect(unavailable.queryByText('139,00 kr')).toBeNull();
-    unavailable.unmount();
-    conversion.mockRestore();
-
-    capability.mockImplementation(() => { throw new Error('probe failed'); });
-    const failed = render(<DemoHouseholdScreen locale="en" />);
-    expect(failed.getByText(englishCopy.mobileDemo.unavailable)).toBeTruthy();
-    expect(failed.queryByText('139,00 kr')).toBeNull();
-    expect(failed.queryByText('Disney+')).toBeNull();
-    capability.mockRestore();
-
-    const conversionFailure = jest.spyOn(demoMoney, 'formatDemoSubscriptions').mockImplementation(() => {
-      throw new Error('format failed');
-    });
-    const formattingFailure = render(<DemoHouseholdScreen locale="en" />);
-    expect(formattingFailure.getByText(englishCopy.mobileDemo.unavailable)).toBeTruthy();
-    expect(formattingFailure.queryByText('139,00 kr')).toBeNull();
-    conversionFailure.mockRestore();
-  });
 
   it('uses localized launcher labels and a 44-unit target', () => {
     const { getByRole } = render(<WelcomeScreen />);

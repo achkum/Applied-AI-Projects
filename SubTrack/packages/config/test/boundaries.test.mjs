@@ -261,3 +261,34 @@ test('web may import the approved demo display JSON subpath only through UI', as
     );
   }
 });
+
+
+test('mobile demo may import the approved display JSON subpath and rejects money/synthetic boundaries', async () => {
+  const eslint = new ESLint({
+    cwd: fileURLToPath(new URL('../../../', import.meta.url)),
+  });
+  const filePath = fileURLToPath(
+    new URL('../../../apps/mobile/src/components/DemoHouseholdScreen.tsx', import.meta.url),
+  );
+  const [approved] = await eslint.lintText(
+    "import demo from '@subtrack/i18n/catalogs/demo-fixture';\n",
+    { filePath },
+  );
+  assert.ok(
+    approved &&
+      !approved.messages.some((message) =>
+        ['boundaries/element-types', 'no-restricted-imports'].includes(message.ruleId ?? ''),
+      ),
+  );
+  for (const target of ['@subtrack/money', '@subtrack/synthetic']) {
+    for (const statement of [`import '${target}';\n`, `export * from '${target}';\n`]) {
+      const [denied] = await eslint.lintText(statement, { filePath });
+      assert.ok(
+        denied?.messages.some((message) =>
+          ['boundaries/external', 'no-restricted-imports'].includes(message.ruleId ?? ''),
+        ),
+        statement,
+      );
+    }
+  }
+});

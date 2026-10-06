@@ -1,7 +1,6 @@
 module.exports = {
   preset: 'jest-expo',
   testEnvironment: 'node',
-  resolver: '<rootDir>/jest.workspace-resolver.cjs',
   setupFilesAfterEnv: ['./jest.setup.js'],
   // jest-expo's default transformIgnorePatterns anchors on the segment right
   // after "node_modules/", which breaks under pnpm's nested

@@ -1,23 +1,21 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import demoFixture from '@subtrack/i18n/catalogs/demo-fixture';
 import enCatalog from '@subtrack/i18n/catalogs/en';
 import svCatalog from '@subtrack/i18n/catalogs/sv';
-import { PERSONA_LINDQVIST } from '@subtrack/synthetic';
-import type { MoneyLocale } from '@subtrack/money';
 import { useI18n } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { formatDemoSubscriptions, supportsExactDemoMoney } from './demo-money';
 
 type CopyKey =
   | 'mobileDemo.banner'
-  | 'mobileDemo.title'
   | 'mobileDemo.description'
   | 'mobileDemo.unavailable'
   | 'mobileDemo.return'
   | 'mobileDemo.monthly'
   | 'mobileDemo.annual';
 type Locale = 'en' | 'sv';
+type DemoFixture = typeof demoFixture;
 const catalogs = { en: enCatalog, sv: svCatalog };
 
 function catalogText(locale: Locale, key: CopyKey): string {
@@ -29,7 +27,13 @@ function catalogText(locale: Locale, key: CopyKey): string {
   return value;
 }
 
-export function DemoHouseholdScreen({ locale }: { locale: Locale }) {
+export function DemoHouseholdScreen({
+  locale,
+  fixture = demoFixture,
+}: {
+  locale: Locale;
+  fixture?: DemoFixture;
+}) {
   const router = useRouter();
   const { locale: providerLocale, t } = useI18n();
   const { theme, isDark } = useTheme();
@@ -37,14 +41,13 @@ export function DemoHouseholdScreen({ locale }: { locale: Locale }) {
   const copy = (key: CopyKey) => providerLocale === locale
     ? t(key)
     : catalogText(locale, key);
-  const subscriptions = useMemo(() => {
-    try {
-      if (!supportsExactDemoMoney(locale as MoneyLocale)) return null;
-      return formatDemoSubscriptions(PERSONA_LINDQVIST.subscriptions, locale as MoneyLocale);
-    } catch {
-      return null;
-    }
-  }, [locale]);
+  const subscriptions = fixture.subscriptions.length === demoFixture.subscriptions.length && fixture.subscriptions.every((subscription) =>
+    typeof subscription.displayAmount?.[locale] === 'string'
+      && subscription.displayAmount[locale].length > 0
+      && typeof subscription.merchantName === 'string'
+      && subscription.merchantName.length > 0
+      && (subscription.billingCadence === 'MONTHLY' || subscription.billingCadence === 'ANNUAL'),
+  ) ? fixture.subscriptions : null;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: palette['bg.canvas'] }}>
@@ -62,7 +65,7 @@ export function DemoHouseholdScreen({ locale }: { locale: Locale }) {
         </View>
 
         <Text accessibilityRole="header" style={{ color: palette['ink.primary'], fontFamily: theme.typography.fontFamily.display, fontSize: theme.typography.fontSize['2xl'] }}>
-          {copy('mobileDemo.title')}
+          {fixture.householdName}
         </Text>
         <Text style={{ color: palette['ink.secondary'], fontFamily: theme.typography.fontFamily.ui, fontSize: theme.typography.fontSize.md }}>
           {copy('mobileDemo.description')}
@@ -74,26 +77,30 @@ export function DemoHouseholdScreen({ locale }: { locale: Locale }) {
           </Text>
         ) : (
           <View>
-            {subscriptions.map((subscription) => (
-              <View
-                key={subscription.id}
-                accessible
-                accessibilityLabel={`${subscription.merchantName}, ${subscription.formattedAmount}, ${copy(subscription.billingCadence === 'MONTHLY' ? 'mobileDemo.monthly' : 'mobileDemo.annual')}`}
-                style={{ paddingVertical: 14, gap: 8, borderBottomWidth: 1, borderBottomColor: palette['bg.sunken'] }}
-              >
-                <Text style={{ color: palette['ink.primary'], fontFamily: theme.typography.fontFamily.ui, fontSize: theme.typography.fontSize.md, fontWeight: '600' }}>
-                  {subscription.merchantName}
-                </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 }}>
-                  <Text style={{ color: palette['ink.primary'], fontFamily: theme.typography.fontFamily.display, fontSize: theme.typography.fontSize.lg, fontVariant: ['tabular-nums'] }}>
-                    {subscription.formattedAmount}
+            {subscriptions.map((subscription) => {
+              const amount = subscription.displayAmount[locale];
+              const cadenceKey = subscription.billingCadence === 'MONTHLY' ? 'mobileDemo.monthly' : 'mobileDemo.annual';
+              return (
+                <View
+                  key={subscription.id}
+                  accessible
+                  accessibilityLabel={`${subscription.merchantName}, ${amount}, ${copy(cadenceKey)}`}
+                  style={{ paddingVertical: 14, gap: 8, borderBottomWidth: 1, borderBottomColor: palette['bg.sunken'] }}
+                >
+                  <Text style={{ color: palette['ink.primary'], fontFamily: theme.typography.fontFamily.ui, fontSize: theme.typography.fontSize.md, fontWeight: '600' }}>
+                    {subscription.merchantName}
                   </Text>
-                  <Text style={{ color: palette['ink.secondary'], fontFamily: theme.typography.fontFamily.ui, fontSize: theme.typography.fontSize.md }}>
-                    {copy(subscription.billingCadence === 'MONTHLY' ? 'mobileDemo.monthly' : 'mobileDemo.annual')}
-                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 }}>
+                    <Text style={{ color: palette['ink.primary'], fontFamily: theme.typography.fontFamily.display, fontSize: theme.typography.fontSize.lg, fontVariant: ['tabular-nums'] }}>
+                      {amount}
+                    </Text>
+                    <Text style={{ color: palette['ink.secondary'], fontFamily: theme.typography.fontFamily.ui, fontSize: theme.typography.fontSize.md }}>
+                      {copy(cadenceKey)}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 

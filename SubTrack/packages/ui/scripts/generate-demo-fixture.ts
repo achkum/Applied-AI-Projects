@@ -43,13 +43,15 @@ export function createDemoFixture(
 }
 
 export async function generateDemoFixtureAtomically(
-  destination = resolve(process.cwd(), 'src/generated/demo-fixture.json'),
+  destinations: string | readonly string[] = resolve(process.cwd(), 'src/generated/demo-fixture.json'),
   subscriptions = PERSONA_LINDQVIST.subscriptions,
   formatter: typeof formatMinorUnits = formatMinorUnits,
 ): Promise<void> {
   const fixture = createDemoFixture(subscriptions, formatter);
-  const temporary = `${destination}.${process.pid}.tmp`;
-  await mkdir(dirname(destination), { recursive: true });
-  await writeFile(temporary, `${JSON.stringify(fixture, null, 2)}\n`, 'utf8');
-  await rename(temporary, destination);
+  for (const destination of typeof destinations === 'string' ? [destinations] : destinations) {
+    const temporary = `${destination}.${process.pid}.tmp`;
+    await mkdir(dirname(destination), { recursive: true });
+    await writeFile(temporary, `${JSON.stringify(fixture, null, 2)}\n`, 'utf8');
+    await rename(temporary, destination);
+  }
 }

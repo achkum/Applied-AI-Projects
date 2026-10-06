@@ -1,0 +1,26 @@
+Starting Metro Bundler
+transform[stderr]: (node:51492) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+transform[stderr]: (Use `node --trace-warnings ...` to show where the warning was created)
+transform[stderr]: (node:51493) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+transform[stderr]: (Use `node --trace-warnings ...` to show where the warning was created)
+Web Bundled 10851ms ../../node_modules/.pnpm/expo-router@3.5.24_82d1755dcc60de13ab7c6cc0c002684a/node_modules/expo-router/entry.js (853 modules)
+Preparing additional debugging files
+
+Exporting 2 bundles for web:
+_expo/static/js/web/entry-8b010c1af2465c60752a3d866e1e755b.js (1.09 MB)
+_expo/static/js/web/entry-8b010c1af2465c60752a3d866e1e755b.js.map (3.85 MB)
+
+Exporting 11 files:
+assets/__node_modules/.pnpm/@react-navigation+elements@1.3.31_@react-navigation+native@6.1.18_react-native@0.74.0_@_43482a46557dca7f8aead963fc25b211/node_modules/@react-navigation/elements/lib/module/assets/back-icon-mask.5223c8d9b0d08b82a5670fb5f71faf78.png (913 B)
+assets/__node_modules/.pnpm/@react-navigation+elements@1.3.31_@react-navigation+native@6.1.18_react-native@0.74.0_@_43482a46557dca7f8aead963fc25b211/node_modules/@react-navigation/elements/lib/module/assets/back-icon.35ba0eaec5a4f5ed12ca16fabeae451d.png (207 B)
+assets/__node_modules/.pnpm/expo-router@3.5.24_82d1755dcc60de13ab7c6cc0c002684a/node_modules/expo-router/assets/error.563d5e3294b67811d0a1aede6f601e30.png (516 B)
+assets/__node_modules/.pnpm/expo-router@3.5.24_82d1755dcc60de13ab7c6cc0c002684a/node_modules/expo-router/assets/file.b6c297a501e289394b0bc5dc69c265e6.png (158 B)
+assets/__node_modules/.pnpm/expo-router@3.5.24_82d1755dcc60de13ab7c6cc0c002684a/node_modules/expo-router/assets/forward.9d9c5644f55c2f6e4b7f247c378b2fe9.png (250 B)
+assets/__node_modules/.pnpm/expo-router@3.5.24_82d1755dcc60de13ab7c6cc0c002684a/node_modules/expo-router/assets/pkg.5974eb3e1c5314e8d5a822702d7d0740.png (429 B)
+assets/assets/fonts/Fraunces-VF.df89c7ab0af2020b3949cf8a4bece47a.ttf (360 kB)
+assets/assets/fonts/Manrope-VF.946beb949095146693eb61281f15d355.ttf (165 kB)
+debug.html (292 B)
+index.html (1.18 kB)
+metadata.json (49 B)
+
+App exported to: /workspace/.setup/ST172-json-web-export
