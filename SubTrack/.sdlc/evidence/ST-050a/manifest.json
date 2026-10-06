@@ -1,0 +1,12 @@
+{
+  "scope": "isolated callback component, not full onboarding or deployed route",
+  "sources": {
+    "apps/web/components/onboarding/identifier-entry.tsx": "d376a022a929a5f1af03a430bf774eec3c60c25d27a5e7849b898cff6e112a63",
+    "apps/web/components/onboarding/identifier-entry.module.css": "a6eb90e458cdba60bb6dfdae3478dc5473bed70fd43dccac9fecbb3353d33300",
+    "apps/web/lib/onboarding-identifier.ts": "c5aa2def1b6b8b1db013b5816bb0db25c011f172006333cae53e4369d178e1f1",
+    "apps/web/test/onboarding-identifier.test.tsx": "ac2ab6da29a1e5a627235b15becebb862698490ec96263aa30eabb19b5faa9c9",
+    "packages/ui/src/components/Button/Button.tsx": "3b502531276918d9c2c76e058b1d6cdc66e44a9935841111b66561071e058c06",
+    "packages/i18n/catalogs/en.json": "da3d9f6d189402a0065a52d5718f1cb1f12f7d6aac71daa3df2fd39232185d77",
+    "packages/i18n/catalogs/sv.json": "73b3424964e712bb135f4844accabd7f964fe5c67f0753dd45071a7225b33344"
+  }
+}

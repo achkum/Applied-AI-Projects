@@ -49,6 +49,20 @@
   "onboarding": {
     "welcome": {
       "tagline": "Everything you subscribe to. In one place."
+    },
+    "identifier": {
+      "channelLabel": "Choose contact method",
+      "emailChannel": "Email",
+      "phoneChannel": "Mobile number",
+      "emailLabel": "Email address",
+      "phoneLabel": "Mobile number",
+      "continueLabel": "Continue",
+      "errors": {
+        "required": "Enter an email address or mobile number.",
+        "email_format": "Enter an email address in the format name@example.test.",
+        "phone_format": "Enter a Swedish mobile number using digits and ordinary separators.",
+        "phone_length": "Check the number of digits and try again."
+      }
     }
   },
   "hero": {
