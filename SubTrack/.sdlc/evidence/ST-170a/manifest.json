@@ -5,7 +5,7 @@
     "packages/contracts/openapi-ts.config.mjs": "cbe2995294dd43f0c9d4b24e9bc34a96a10bc1beefa7493428163bcd1ce0d39f",
     "packages/contracts/tests/contracts.test.mjs": "b8ef7fdf5a788eface401153909dfb7252aa577d1a2e49e673c2c5de90d6d1e1",
     "packages/contracts/tests/v2-auth.test.mjs": "9cf4b88bf0cb6d4cab90e1cc3a30b9f08fedd2e1a918a55e32bdabb62886dd43",
-    "packages/contracts/package.json": "3fd1637a63ed0c7d91cb8a766e146fc0d707157c48a3e8d5c3eb804b1c6a95f4",
+    "packages/contracts/package.json": "03c15b2196d2abdbf427d76ad57d244de97ab4eae36f0e4ea569ceab1f811a10",
     "packages/contracts/generated/sdk.gen.ts": "bed489b5670b7fb7e79c47e7075f5f7a6247754461cf05dbb054ff6de5ea35d7",
     "packages/contracts/generated/index.ts": "23b3fde2e1f4a0c60e21553f44acfe01eaeacfdaea75648dc27afae7aede2864",
     "packages/contracts/generated/types.gen.ts": "e96547e251ec73f129c6d3892386bfd54032f364ef95b6b9371a736ae2fcea20",
