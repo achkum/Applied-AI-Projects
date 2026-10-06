@@ -16,3 +16,5 @@
 | 2026-10-06 | SEC-FU1-dev-delete | Development security choice | "Approved." — adopt the immediately preceding recommendation: server-verified OTP reauthentication in development; recent server-verified BankID remains required in production. Caller-provided nonempty proofs are never sufficient. Wire/storage/schema changes require separate architect/security review. | Founder in this session | SEC-FU1 public contract reconciliation draft |
 
 - 2026-10-06: Type2a ST170a / ADR-0010 accepted opt-in v2 internal auth wire and generated validation artifacts after independent platform/client/security approval. Preserve v1; no runtime/provider/migration/deployment/rollout authorization. Proof producer and client adapters remain gates.
+
+- 2026-10-06: Type2a ST051a / ADR-0011 accepts shared pure identifier normalizer in existing contracts dependency after client/platform and security review; mobile callback-only presentation approved by design. No native device or complete onboarding claim.

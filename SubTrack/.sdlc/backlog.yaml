@@ -5,7 +5,7 @@
 # Seeded M0/D1 contracts are planning placeholders, not all DoR-complete; see ST-014. ST-028 also requires split ST-015 before READY.
 milestone_current: M0
 items:
-  - {id: ST-170b1, title: "Bound hashed one-use proof repository core", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-170a"]}
+  - {id: ST-170b1, title: "Bound hashed one-use proof repository core", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-170a"]}
   - {id: ST-170b, title: "Server-owned v2 proof producer integration", owner: "dev-backend", size: "L", status: IN_PROGRESS, deps: ["ST-170a"]}
   - {id: ST-170a, title: "Opt-in v2 auth wire contract and generated clients", owner: "architect-platform", size: "M", status: DONE, deps: ["ST-044"]}
   - {id: ST-050a, title: "Web identifier entry and validated callback", owner: "dev-web", size: "M", status: DONE, deps: ["ST-058"]}
@@ -85,7 +85,8 @@ items:
   - {id: ST-048, title: "Visibility policy (`packages/domain/policy`) + property tests + RLS parity test", owner: "architect-platform", size: "L", status: DONE, deps: ["ST-040"]}
   - {id: ST-049, title: "Privacy: open_book toggle, always_private, \"preview as household\" endpoint, audit events", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-048"]}
   - {id: ST-050, title: "Web flows UF-01..UF-02", owner: "dev-web", size: "L", status: IN_PROGRESS, deps: ["ST-044", "ST-058"]}
-  - {id: ST-051, title: "Mobile flows UF-01..UF-02", owner: "dev-mobile", size: "L", status: BACKLOG, deps: ["ST-044", "ST-026"]}
+  - {id: ST-051a, title: "Mobile identifier entry and shared normalization", owner: "dev-mobile", size: "M", status: IN_REVIEW, deps: ["ST-050a"]}
+  - {id: ST-051, title: "Mobile flows UF-01..UF-02", owner: "dev-mobile", size: "L", status: IN_PROGRESS, deps: ["ST-044", "ST-026"]}
   - {id: ST-052, title: "E2E: Playwright UF-01..04; Maestro UF-01..04", owner: "qa-engineer", size: "L", status: BACKLOG, deps: ["ST-050", "ST-051", "ST-054", "ST-055"]}
   - {id: ST-053, title: "Data rights: export job (JSON/CSV zip), account delete with BankID reauth", owner: "dev-backend", size: "L", status: DONE, deps: ["ST-044", "ST-046", "ST-047", "ST-048"]}
   - {id: ST-054, title: "Web flows UF-03..UF-04 (second ST-050 slice)", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-044", "ST-047", "ST-049", "ST-050"]}
