@@ -1,0 +1,12 @@
+{
+  "contract_tests": {
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0
+  },
+  "fixture": "passed",
+  "openapi_lint": "passed",
+  "generation": "passed deterministic second run",
+  "contracts_typecheck": "passed",
+  "runtime_or_provider_certification": false
+}

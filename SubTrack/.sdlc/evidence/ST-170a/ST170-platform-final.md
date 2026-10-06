@@ -1,6 +1,6 @@
 # ST170 platform review — candidate v2
 
-**Verdict: APPROVE_PROPOSAL**  
+**Verdict: APPROVE_PROPOSAL**
 **Ratings:** version/wire direction 5/5; principal rules 5/5; repository boundary 5/5; onboarding coverage 5/5; route completeness 5/5.
 
 This review approves the proposal for contract reconciliation and OpenAPI work. It does not authorize implementation, deployment, migration, provider changes, or rollout. The candidate remains opt-in `/v2`, preserves `/v1`, and makes no rollout-safety claim.

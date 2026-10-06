@@ -1,7 +1,7 @@
 # ST-170a security/privacy actual-contract review
 
-**Verdict: APPROVE**  
-**Scope:** Contract-only review of the revised OpenAPI, API contract addendum, task, prior review, and ADR-0010. This does not certify runtime enforcement, deployment, provider behavior, or rollout safety.  
+**Verdict: APPROVE**
+**Scope:** Contract-only review of the revised OpenAPI, API contract addendum, task, prior review, and ADR-0010. This does not certify runtime enforcement, deployment, provider behavior, or rollout safety.
 **Review effort:** 4 tool wrappers / 4 shell-command calls total, including the narrow residual re-review. No tests, builds, discovery, or Git mutations were run.
 
 ## Residual finding resolved
