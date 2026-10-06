@@ -1,0 +1,10 @@
+[
+  {
+    "path": "SubTrack/apps/api/src/auth/session-csrf/session-csrf.ts",
+    "sha256": "db046ad013d31573f339af34088dc637e9e123c68a4ee53d6f2d9a0237b3a7db"
+  },
+  {
+    "path": "SubTrack/apps/api/src/auth/session-csrf/session-csrf.spec.ts",
+    "sha256": "500e81a3c4f70d0e1abd11f027abf22248bb426494953ffd6921ae7d078e979d"
+  }
+]
