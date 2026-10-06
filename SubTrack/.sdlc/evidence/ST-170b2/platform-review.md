@@ -1,0 +1,11 @@
+# ST-170b2 platform review
+
+**Review:** 2026-10-06  
+**Decision:** APPROVE the reviewed source and focused acceptance coverage.  
+**Scope:** Final read-only review of `otp-proof-producer.ts`, `otp-proof-producer.spec.ts`, and `proof-store.ts` against ST-170b2 and `/workspace/.setup/ST170b2-architecture.md`. No tests, lint or typecheck were run by this reviewer; root's final QA is pending.
+
+The final producer keeps purpose, identifier hash and proof bindings server-owned. It maps only `enroll_identifier` → `enrollment` and `otp_step_up` → `stepup`, derives the binding from the consumed record, and does not issue identity/session fields. It copies and validates the mandatory 32-byte-minimum HMAC key, uses a domain- and challenge-bound SHA-256 HMAC, compares equal-length digests with `timingSafeEqual`, and validates safe injectable clock values and bounded expiry. The in-memory repository copies/freeze-wraps records and performs context/expiry/attempt checks followed by attempt replacement or successful deletion without an `await`; concurrent calls therefore have one winner in this reference implementation. Failures are collapsed to generic producer errors, and proof issuance failure occurs after challenge consumption.
+
+The updated spec now demonstrates purpose mapping for both restricted purposes, web and mobile binding behavior, wrong-purpose proof redemption followed by valid one-time redemption and replay rejection, caller-supplied purpose rejection, missing challenges, context substitutions without burning the correct challenge, malformed provisioning contexts, malformed consumed repository records, clock/expiry/lockout behavior, concurrency, and generic error handling. `proof-store.spec.ts` additionally exercises rejection for changed purpose, challenge, transport, exact origin and browser-chain bindings before a valid one-time consume. The former acceptance evidence gaps are addressed by the final source/spec set.
+
+This approval is limited to the reviewed bounded internal implementation. The in-memory reference is not production persistence or production-readiness evidence. I have not verified root's running final tests, coverage, lint, TypeScript, CI/head identity, or the independent security review; those remain separate pending gates until root records their outcomes.

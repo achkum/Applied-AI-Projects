@@ -1,0 +1,9 @@
+# ST-170b2 author handoff
+
+Staged files: `otp-proof-producer.ts` and `otp-proof-producer.spec.ts`. Imports deliberately use `./proof-store`; copy these beside the existing proof store during integration. No repository files, proof-store source, task trackers, or architecture notes were edited.
+
+`OtpProofProducer.provision` is an internal trusted-server boundary. It takes only a precomputed SHA-256 identifier hash, restricted server purpose, channel, and verified transport context; it returns the challenge ID and code for a trusted delivery boundary. The repository persists a copied/frozen record with an HMAC-SHA256 digest, not the raw code. Construct the producer with an injected server key of at least 32 bytes. The key has no default. `verify` accepts only challenge ID, submitted code, and verified transport context; metadata for proof issuance comes from the consumed repository record. The in-memory repository is a dev/test reference only.
+
+The implementation keeps repository compare/context/attempt/consume synchronous. Context mismatch leaves attempts untouched. A correct-context bad code increments attempts and locks at five. A successful consume happens before `ProofStore.issue`, so an issuance error requires restarting verification with a new challenge. OTP purposes map only to `enrollment` and `stepup`.
+
+No tests, lint, typecheck, or coverage commands were run, per task handoff instructions; the conductor owns QA and integration. The staged spec covers both purpose mappings, transport binding, key length/copying, digest persistence, context mismatch, wrong code, lockout, expiry, rollback, replay, concurrent one-winner behavior, issuance failure consumption, and generic repository failures. It should be reviewed and run from the integrated API package. Review risk: the exactTypeScript/API compatibility and measured 80% coverage remain unverified until conductor QA.
