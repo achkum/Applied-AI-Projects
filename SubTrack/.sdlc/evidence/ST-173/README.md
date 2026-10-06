@@ -1,0 +1,7 @@
+# ST173 bilingual web demo
+
+Localized welcome links lead to a read-only fictional Lindqvist household with all six original prices and cadences. English and Swedish display strings are generated through the public exact bigint formatter in UI tooling; the web runtime imports only the dedicated public UI JSON entry. Client guards remain intact, generated Next output is ignored narrowly, and normal tests verify the checked-in data stays fresh.
+
+Production Next16 build passes. Full web94tests and UI96tests passed, followed by final atomic generation3tests and actual demo-path boundary7tests. Web/UI/sharedconfig lint/typecheck, generator lint and catalog parity pass. Actual production Chromium13scenarios pass (12 locale/theme/viewport combinations and unsupportedlocale404), including original prices, localized navigation, 44px controls, no overflow/errors/API requests. All twelve screenshots have independent design approval; client and platform source reviews approve their bounded snapshots.
+
+The first direct-import build failed on TypeScript module resolution; the approved JSON boundary removes those graphs rather than adding private aliases. Root corrected missing atomic failure and realpath boundary evidence after independent review. No full UF12 session/tenant/rate-limit completion, mobile native-runtime proof, provider authentication, or measured token savings is claimed. Mobile PR174 remains held separately. Exact-head CI is required before merge.

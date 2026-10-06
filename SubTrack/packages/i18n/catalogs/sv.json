@@ -87,5 +87,13 @@
     "projection12Months": "Prognos för 12 månader",
     "sampleCaption": "Illustrativa prenumerationsexempel",
     "scopeDisclosure": "Hushållsvyn är en helt synlig visuell mockup; åtkomst och delning modelleras inte."
+  },
+  "demo": {
+    "eyebrow": "Fiktivt demohushåll",
+    "disclosure": "De här inbyggda prenumerationsexemplen tillhör det fiktiva hushållet Lars och Maria Lindqvist. Den här skrivskyddade demon är inte ett inloggat hushåll och skapar ingen session.",
+    "subscriptions": "Prenumerationer",
+    "cadence": { "MONTHLY": "per månad", "ANNUAL": "per år" },
+    "amountUnavailable": "Belopp saknas",
+    "returnToWelcome": "Tillbaka till välkomstsidan"
   }
 }

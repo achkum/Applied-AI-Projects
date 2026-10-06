@@ -1,0 +1,22 @@
+[
+  {
+    "check": "web-lint",
+    "exitCode": 0
+  },
+  {
+    "check": "web-typecheck",
+    "exitCode": 0
+  },
+  {
+    "check": "i18n-parity",
+    "exitCode": 0
+  },
+  {
+    "check": "config-lint",
+    "exitCode": 0
+  },
+  {
+    "check": "config-typecheck",
+    "exitCode": 0
+  }
+]

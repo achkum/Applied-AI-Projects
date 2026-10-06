@@ -1,4 +1,6 @@
 import styles from './welcome-screen.module.css';
+import Link from 'next/link';
+import { catalogs } from '@subtrack/i18n';
 
 export function WelcomeScreen({
   locale,
@@ -14,6 +16,9 @@ export function WelcomeScreen({
           SubTrack
         </h1>
         <p className={styles.tagline}>{tagline}</p>
+        <Link className={styles.demoLink} href={`/${locale}/demo`}>
+          {catalogs[locale].onboarding.welcome.exploreDemo}
+        </Link>
       </section>
     </main>
   );

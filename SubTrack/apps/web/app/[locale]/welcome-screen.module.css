@@ -44,6 +44,16 @@
   text-wrap: balance;
 }
 
+.demoLink {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--ink-primary);
+  font-family: var(--font-ui), sans-serif;
+  font-size: var(--font-size-md);
+  text-underline-offset: 0.2em;
+}
+
 @keyframes wordmark-form {
   from {
     background-position: 100% 50%;

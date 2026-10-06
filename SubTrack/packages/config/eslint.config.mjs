@@ -7,6 +7,7 @@ export default [
     ignores: [
       '**/node_modules/**',
       '**/dist/**',
+      '**/.next/**',
       '_legacy/**',
       'docs/**',
       '.sdlc/**',

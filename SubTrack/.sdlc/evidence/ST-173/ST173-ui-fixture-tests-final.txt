@@ -1,0 +1,8 @@
+
+ RUN  v5.0.3 /workspace/Applied-AI-Projects/SubTrack/packages/ui
+
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  11:28:19
+   Duration  984ms (environment 63%, setup 19%, transform 13%, tests 3%, import 2%, worker 1%)

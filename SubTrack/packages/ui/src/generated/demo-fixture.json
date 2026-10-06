@@ -1,0 +1,71 @@
+{
+  "householdName": "Lars & Maria Lindqvist",
+  "subscriptions": [
+    {
+      "id": "lindqvist-disney",
+      "merchantName": "Disney+",
+      "billingCadence": "MONTHLY",
+      "currency": "SEK",
+      "amountMinor": "13900",
+      "displayAmount": {
+        "en": "139,00 kr",
+        "sv": "139,00 kr"
+      }
+    },
+    {
+      "id": "lindqvist-youtube",
+      "merchantName": "YouTube Premium",
+      "billingCadence": "MONTHLY",
+      "currency": "SEK",
+      "amountMinor": "21900",
+      "displayAmount": {
+        "en": "219,00 kr",
+        "sv": "219,00 kr"
+      }
+    },
+    {
+      "id": "lindqvist-spotify",
+      "merchantName": "Spotify Duo",
+      "billingCadence": "MONTHLY",
+      "currency": "SEK",
+      "amountMinor": "15900",
+      "displayAmount": {
+        "en": "159,00 kr",
+        "sv": "159,00 kr"
+      }
+    },
+    {
+      "id": "lindqvist-storytel",
+      "merchantName": "Storytel",
+      "billingCadence": "MONTHLY",
+      "currency": "SEK",
+      "amountMinor": "17900",
+      "displayAmount": {
+        "en": "179,00 kr",
+        "sv": "179,00 kr"
+      }
+    },
+    {
+      "id": "lindqvist-microsoft365",
+      "merchantName": "Microsoft 365 Family",
+      "billingCadence": "ANNUAL",
+      "currency": "SEK",
+      "amountMinor": "119900",
+      "displayAmount": {
+        "en": "1 199,00 kr",
+        "sv": "1 199,00 kr"
+      }
+    },
+    {
+      "id": "lindqvist-icloud",
+      "merchantName": "iCloud 2TB",
+      "billingCadence": "MONTHLY",
+      "currency": "SEK",
+      "amountMinor": "9900",
+      "displayAmount": {
+        "en": "99,00 kr",
+        "sv": "99,00 kr"
+      }
+    }
+  ]
+}
