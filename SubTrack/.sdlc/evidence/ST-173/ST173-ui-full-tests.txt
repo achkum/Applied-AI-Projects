@@ -1,0 +1,13 @@
+$ vitest run
+
+ RUN  v5.0.3 /workspace/Applied-AI-Projects/SubTrack/packages/ui
+
+
+ Test Files  10 passed (10)
+      Tests  96 passed (96)
+   Start at  11:27:24
+   Duration  6.75s (tests 46%, environment 34%, setup 10%, import 6%, transform 4%)
+
+Environment  jsdom was created 10 times · 6.01s total, 34% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments

@@ -233,3 +233,31 @@ test('public config entry is importable', async () => {
   const { configVersion } = await import('@subtrack/config');
   assert.equal(configVersion, '0.0.0');
 });
+
+test('web may import the approved demo display JSON subpath only through UI', async () => {
+  const eslint = new ESLint({
+    cwd: fileURLToPath(new URL('../../../', import.meta.url)),
+  });
+  const filePath = fileURLToPath(
+    new URL('../../../apps/web/app/[locale]/demo/demo-screen.tsx', import.meta.url),
+  );
+  const [approved] = await eslint.lintText(
+    "import demo from '@subtrack/ui/demo-fixture';\n",
+    { filePath },
+  );
+  assert.ok(
+    approved &&
+      !approved.messages.some((message) =>
+        ['boundaries/element-types', 'no-restricted-imports'].includes(message.ruleId ?? ''),
+      ),
+  );
+  for (const target of ['@subtrack/money', '@subtrack/synthetic']) {
+    const [denied] = await eslint.lintText(`import '${target}';\n`, { filePath });
+    assert.ok(
+      denied?.messages.some((message) =>
+        ['boundaries/external', 'no-restricted-imports'].includes(message.ruleId ?? ''),
+      ),
+      target,
+    );
+  }
+});

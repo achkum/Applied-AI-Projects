@@ -563,6 +563,9 @@ importers:
       '@subtrack/money':
         specifier: workspace:*
         version: link:../money
+      '@subtrack/synthetic':
+        specifier: workspace:*
+        version: link:../synthetic
       '@subtrack/ui-tokens':
         specifier: workspace:*
         version: link:../ui-tokens

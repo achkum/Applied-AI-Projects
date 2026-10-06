@@ -31,6 +31,8 @@ describe('Welcome route', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'SubTrack' })).toBeTruthy();
     expect(screen.getByText(catalogs[locale].onboarding.welcome.tagline)).toBeTruthy();
+    expect(screen.getByRole('link', { name: catalogs[locale].onboarding.welcome.exploreDemo }).getAttribute('href'))
+      .toBe(`/${locale}/demo`);
     expect((await axe(container)).violations).toHaveLength(0);
   });
 
