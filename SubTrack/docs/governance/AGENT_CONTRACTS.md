@@ -9,7 +9,9 @@ Sent as the spawn/task message. It must be self-contained, because specialists m
 contract: DISPATCH/v1
 task_id: ST-123
 role: dev-backend
-model_tier: luna            # luna | sol
+model_tier: luna            # current user instruction: specialists Luna
+fork_turns: none            # actual spawn call must use this; no inherited conversation
+session_id: ST-123-context-1 # unique fresh agent; never reuse across tasks
 attempt: 1                  # increments on re-dispatch
 repo: $REPO_DIR
 branch: st/ST-123-household-invitations   # after ST-031 takes effect, create from main; until then follow the current approved cadence
@@ -18,9 +20,12 @@ must_read:
   - SubTrack/docs/governance/CONSTITUTION.md
   - SubTrack/docs/product/USER_FLOWS.md#uf-03
 skills: [sdlc-core, backend-nestjs, money-and-splits]
-time_budget_min: 120
+size: M                    # copied from task; S=30, M=120, L=240 minutes
+time_budget_min: 120        # derive from size; never inherit 120 for S
 return: HANDOFF/v1
 ```
+
+Before dispatch, register the task with `tools/workflow/task_guard.py` (see its README). Use only task-specific context and linked artifacts, not the whole conversation. Checkpoint before a retry/review cycle or heavy job, and on measurable progress. A `BLOCKED` guard result returns control to the Conductor; never reset the state to evade a limit. User model instructions override default routing. Specialist registration requires a compact JSON dispatch envelope (<=8000 characters) with a unique session id and `fork_turns: none`. New task means a new Luna agent, not a follow-up in a completed agent's old thread. Same-task review/fix follow-ups stay within existing caps. After 20 reported tool calls or 30 minutes in a specialist context, save a <=40-line/4000-character checkpoint, end/interrupt the old agent and rotate to a fresh task-only context using `rotate-context`. Preserve task time, attempt and failure counters; context rotation never resets a stuck task's budget. Do not continue in a context flagged `CONTEXT_REFRESH_REQUIRED`.
 
 ## C2 — Handoff (specialist → Conductor), written into the task file and returned as the final message
 ```yaml
@@ -28,6 +33,7 @@ contract: HANDOFF/v1
 task_id: ST-123
 status: DONE | BLOCKED | PARTIAL
 summary: <≤5 lines, what changed and why>
+checkpoint: <canonical compact artifact; latest SHA, evidence, blockers and next action>
 pr: <url or branch name>
 evidence:
   tests: ["api/household/invitations.spec.ts: 14 passed"]

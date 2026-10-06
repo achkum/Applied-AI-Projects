@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 
+from app.routers.classify import router as classify_router
+
 app = FastAPI(title="SubTrack ML Service", docs_url=None, redoc_url=None)
+
+app.include_router(classify_router)
 
 
 @app.get("/healthz")
@@ -10,4 +14,9 @@ def healthz() -> dict[str, str]:
 
 @app.get("/ml/v1/models")
 def list_models() -> dict[str, list[dict[str, object]]]:
-    return {"models": []}
+    return {
+        "models": [
+            {"name": "subscription-classifier", "version": "1.0.0", "type": "rule+lr"},
+            {"name": "category-classifier", "version": "1.0.0", "type": "tfidf+lr"},
+        ]
+    }

@@ -12,6 +12,8 @@ Loading; populated; no subscriptions (line-art constellation); selected; many bo
 ## Themes
 Resolve named semantic roles against both `light` and `dark` themes; never hard-code color values. Verify text/foreground combinations against the declared contrast pairs.
 
+Visible three-character body labels use an opaque `bg-raised` SVG plate beneath `ink-primary` text. The centered plate and text counter-rotate together with the existing label motion, and the plate is hidden from assistive technology and transparent to pointer input. Assess normal-text contrast as the `ink-primary` / `bg-raised` pair in both themes; category body colors remain visible around the plate and are not part of the text contrast pair.
+
 ## Responsive behavior
 Canvas/SVG scales within hero container; preserve a 44 × 44 CSS-pixel / platform-point minimum hit target around each body and readable ring labels. If scope bands cannot fit without overlapping hit targets, default to the list rather than changing the cost/cadence mapping. Never infer a different cost from viewport size.
 

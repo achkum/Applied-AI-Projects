@@ -164,6 +164,26 @@ describe('Orbit component (SSR smoke tests)', () => {
     fireEvent.keyDown(target, { key: ' ' });
     expect(onBodySelect).toHaveBeenCalledTimes(3);
   });
+
+  it('keeps the decorative opaque label plate out of selection and accessibility semantics', () => {
+    const onBodySelect = vi.fn();
+    const { container } = render(<Orbit subscriptions={SUBS} onBodySelect={onBodySelect} />);
+    const plate = container.querySelector('rect[class*="bodyLabelPlate"]');
+    const label = container.querySelector('text[class*="bodyLabel"]');
+    const target = screen.getByRole('button', { name: 'Netflix' });
+
+    expect(plate).toHaveAttribute('aria-hidden', 'true');
+    expect(plate?.parentElement).toBe(label?.parentElement);
+    expect(plate?.nextElementSibling).toBe(label);
+    expect(plate?.parentElement).toHaveAttribute('aria-hidden', 'true');
+    expect(label).toHaveTextContent('Net');
+    expect(target).toHaveAttribute('tabindex', '0');
+
+    fireEvent.click(target);
+    expect(onBodySelect).toHaveBeenCalledWith('a');
+    fireEvent.keyDown(target, { key: 'Enter' });
+    expect(onBodySelect).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('Orbit enriched presentation mode', () => {

@@ -66,3 +66,13 @@ Reviews are recorded as a structured comment (templates/REVIEW.md): verdict `APP
 - Agents communicate through **artifacts** (the task file, PR, review comment, handoff note), not chat. The Conductor summarises for the founder.
 - Telegram is Conductor-only and never contains secrets, tokens, personal data or raw logs. It uses the templates in REPORT.md.
 - Questions for the founder are batched: at most 3 open questions at once, except blockers.
+
+## 8. Measured execution and backlog hygiene
+- Before dispatch: reconcile existing open PRs and the holding branch against the task to prevent duplicate implementation. Preserve unaccepted work; close a superseded PR only after recording its replacement and remaining blockers.
+- Register size-derived budgets with `tools/workflow/task_guard.py`; checkpoint failure/review signatures and progress. Existing DECISION_RULES limits apply unchanged. Token counters remain null unless provider telemetry is available. Refresh metrics from an explicit Git ref and record its SHA; board counts are not disjoint requirement counts.
+- Use agent completion notifications or bounded 30–60 second waits. Status questions do not require waking specialists. Keep one canonical task handoff; link evidence rather than copying logs and the same state into multiple messages.
+- Run the reusable Storybook canary before expanding a browser matrix. Reuse an unchanged build only when its source/build manifest matches. A canary pass is helper readiness, never product QA, accessibility acceptance or baseline approval.
+- Before deleting a branch, fetch its live head and match it to a merged PR head. Preserve branches with later commits, closed/unmerged PRs, unknown incorporation, or active holding work.
+
+- Context lifecycle: new specialist task = fresh Luna agent with `fork_turns: none`; retire completed agents instead of assigning a different task into their old thread. At 20 reported calls or 30 minutes, checkpoint and rotate context while preserving the task's original budget/retry counters. This is a context boundary, not permission to rerun failed work.
+- The Conductor writes one compact checkpoint at each accepted task/milestone boundary and before any conversation handoff/compaction, and links the full audit trail. Platform context clearing/compaction is not callable here; never claim it happened. A new Conductor conversation reads the compact checkpoint plus current task, not the entire archived chat. Do not equate character limits or tool-call counters with billed tokens.

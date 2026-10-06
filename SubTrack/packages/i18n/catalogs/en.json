@@ -57,5 +57,11 @@
       "cadenceMonthly": "per month",
       "priceHistory": "Price history"
     }
+  },
+  "home": {
+    "totalHeading": "Recurring total",
+    "projection12Months": "12-month projection",
+    "sampleCaption": "Illustrative subscription data",
+    "scopeDisclosure": "The household scope is a fully visible visual mock; access and sharing are not modeled."
   }
 }

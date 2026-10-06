@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Norrsken orbit icon, light study</title>
+  <desc id="desc">Three distinct aurora colored bodies follow an open orbital path around a quiet center.</desc>
+  <rect width="512" height="512" rx="112" fill="#F7F4EE"/>
+  <ellipse cx="256" cy="256" rx="153" ry="105" transform="rotate(-32 256 256)" fill="none" stroke="#5B5E6B" stroke-opacity=".55" stroke-width="5"/>
+  <circle cx="126" cy="322" r="22" fill="#6A58F0"/>
+  <circle cx="341" cy="141" r="17" fill="#0B8FB0"/>
+  <circle cx="390" cy="319" r="13" fill="#0E9F6E"/>
+</svg>
