@@ -87,5 +87,13 @@
     "projection12Months": "12-month projection",
     "sampleCaption": "Illustrative subscription data",
     "scopeDisclosure": "The household scope is a fully visible visual mock; access and sharing are not modeled."
+  },
+  "demo": {
+    "eyebrow": "Fictional demo household",
+    "disclosure": "These bundled example subscriptions belong to the fictional Lars and Maria Lindqvist household. This read-only demo is not a signed-in household and does not create a session.",
+    "subscriptions": "Subscriptions",
+    "cadence": { "MONTHLY": "per month", "ANNUAL": "per year" },
+    "amountUnavailable": "Amount unavailable",
+    "returnToWelcome": "Return to welcome"
   }
 }
