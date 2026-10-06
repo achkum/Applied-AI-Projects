@@ -1,31 +1,43 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { useFonts } from 'expo-font';
+import { Platform } from 'react-native';
 import { RootProvider } from '@/providers/RootProvider';
+import manropeFont from '../assets/fonts/Manrope-VF.ttf';
+import frauncesFont from '../assets/fonts/Fraunces-VF.ttf';
 
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Manrope: manropeFont,
+    Fraunces: frauncesFont,
+  });
+  const ready = fontsLoaded || fontError != null;
+
   React.useEffect(() => {
-    const hideSplash = async () => {
-      await SplashScreen.hideAsync();
-    };
-    hideSplash();
-  }, []);
+    if (ready) {
+      void SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [ready]);
+
+  if (!ready) return null;
+
+  const useSystemFonts = fontError != null;
+  const systemFontFamily = Platform.select({
+    ios: 'System',
+    android: 'sans-serif',
+    default: 'system-ui',
+  });
 
   return (
-    <RootProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        <Stack.Screen
-          name="(tabs)"
-          options={{
-            headerShown: false,
-          }}
-        />
+    <RootProvider
+      useSystemFonts={useSystemFonts}
+      systemFontFamily={systemFontFamily}
+    >
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
     </RootProvider>
   );

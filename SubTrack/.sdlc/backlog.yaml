@@ -6,7 +6,7 @@
 milestone_current: M0
 items:
   - {id: ST-170c, title: "V2 auth transport guards and HTTP integration", owner: "dev-backend", size: "L", status: IN_PROGRESS, deps: ["ST-170a"]}
-  - {id: ST-170c1, title: "One-use browser nonce and binding-cookie guard core", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-170a"]}
+  - {id: ST-170c1, title: "One-use browser nonce and binding-cookie guard core", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-170a"]}
   - {id: ST-170b2, title: "Atomic restricted OTP verification proof producer", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-170b1"]}
   - {id: ST-170b1, title: "Bound hashed one-use proof repository core", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-170a"]}
   - {id: ST-170b, title: "Server-owned v2 proof producer integration", owner: "dev-backend", size: "L", status: IN_PROGRESS, deps: ["ST-170a"]}
@@ -88,6 +88,7 @@ items:
   - {id: ST-048, title: "Visibility policy (`packages/domain/policy`) + property tests + RLS parity test", owner: "architect-platform", size: "L", status: DONE, deps: ["ST-040"]}
   - {id: ST-049, title: "Privacy: open_book toggle, always_private, \"preview as household\" endpoint, audit events", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-048"]}
   - {id: ST-050, title: "Web flows UF-01..UF-02", owner: "dev-web", size: "L", status: IN_PROGRESS, deps: ["ST-044", "ST-058"]}
+  - {id: ST-051b, title: "Mobile bundled font readiness and safe fallback", owner: "dev-mobile", size: "M", status: IN_PROGRESS, deps: ["ST-051a"]}
   - {id: ST-051a, title: "Mobile identifier entry and shared normalization", owner: "dev-mobile", size: "M", status: DONE, deps: ["ST-050a"]}
   - {id: ST-051, title: "Mobile flows UF-01..UF-02", owner: "dev-mobile", size: "L", status: IN_PROGRESS, deps: ["ST-044", "ST-026"]}
   - {id: ST-052, title: "E2E: Playwright UF-01..04; Maestro UF-01..04", owner: "qa-engineer", size: "L", status: BACKLOG, deps: ["ST-050", "ST-051", "ST-054", "ST-055"]}

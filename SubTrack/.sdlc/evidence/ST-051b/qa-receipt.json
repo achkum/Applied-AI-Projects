@@ -1,0 +1,25 @@
+{
+  "tests": {
+    "suites": 2,
+    "cases": 5,
+    "coverage": {
+      "scope": [
+        "app/_layout.tsx",
+        "src/providers/RootProvider.tsx"
+      ],
+      "statements": 100,
+      "branches": 100,
+      "functions": 100,
+      "lines": 100
+    }
+  },
+  "mobileTypecheck": "PASS",
+  "scopedESLint": "PASS",
+  "frozenOfflineInstall": "PASS",
+  "iosOfflineExport": "PASS",
+  "androidOfflineExport": "PASS",
+  "browser": "Actual Expo RN Web; four explicit locale/theme states; font faces loaded; no pageerrors",
+  "nativeDevices": "NOT RUN",
+  "ci": "pending exact source head",
+  "budgets": "Manual counters only; root calls unreported; font author handoff did not report call count. Design reviewer 4 wrappers plus 10 nested tool operations exceeded 8-total target; final platform review needed disclosed extensions. No token telemetry or savings claim."
+}

@@ -1,0 +1,58 @@
+[
+  {
+    "path": "apps/mobile/app/_layout.tsx",
+    "sha256": "221862ecd648e76199e7b53a24740175722a7314e48864fc1af7fe0bcee65149"
+  },
+  {
+    "path": "apps/mobile/app.json",
+    "sha256": "b0c33c5bac757ca5b3a2c4e7d1273fe42a2092f988e2cd6e9b7ad799968e0b08"
+  },
+  {
+    "path": "apps/mobile/metro.config.js",
+    "sha256": "4d4386237e387d2f70f3bdba0f00e4cb603ac8e2141ecaef3406f20ee1037717"
+  },
+  {
+    "path": "apps/mobile/package.json",
+    "sha256": "82bf581f59d26708845580d4b497124b37cae6a815c62c4bac12c27df0e8b63d"
+  },
+  {
+    "path": "apps/mobile/src/providers/RootProvider.tsx",
+    "sha256": "4f97c8e59aa1cc95a68abd0166973768ca2cae78335b4f0ef188f8eefeb237ee"
+  },
+  {
+    "path": "apps/mobile/src/providers/RootLayout.test.tsx",
+    "sha256": "850ac47bd96423e5cc15e0b6d4e8f6691751b3b4dba02cea22aa85630514e8c3"
+  },
+  {
+    "path": "apps/mobile/src/context/ThemeContext.tsx",
+    "sha256": "c1688a1edd5c1b8b90386020e89c278909aad2733fc7218658dedc6f2b9aed33"
+  },
+  {
+    "path": "apps/mobile/src/context/ThemeContext.test.tsx",
+    "sha256": "ea3c5468c9d8e6c8fb626c4384cc25c3cdb604bc1554078beb9112a9a77af81f"
+  },
+  {
+    "path": "apps/mobile/src/types/declarations.d.ts",
+    "sha256": "b5d4fe332b830cb9d443e4b582bbc2fc0cadefd647986add242d7bc9207dd94d"
+  },
+  {
+    "path": "pnpm-lock.yaml",
+    "sha256": "eb7715521326bd81de69313065718782b9609dfe15a900917d68caf5a34965ab"
+  },
+  {
+    "path": "apps/mobile/assets/fonts/OFL-Manrope.txt",
+    "sha256": "d6a309fcfb963d329a93baf9df66fa5f3c23a4be2b5f67edf24d6cafecde12ac"
+  },
+  {
+    "path": "apps/mobile/assets/fonts/Fraunces-VF.ttf",
+    "sha256": "177ff6c0f14e5550a3c624247cd1189611d4eb65d000b14944c63d967958abbb"
+  },
+  {
+    "path": "apps/mobile/assets/fonts/OFL-Fraunces.txt",
+    "sha256": "6732d6cc72c5d09292ff754dc1f39d9ea14918f74e87a17afa3f00a5120c3d48"
+  },
+  {
+    "path": "apps/mobile/assets/fonts/Manrope-VF.ttf",
+    "sha256": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6"
+  }
+]
