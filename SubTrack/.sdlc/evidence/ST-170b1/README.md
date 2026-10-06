@@ -1,0 +1,7 @@
+# ST170b1 verification
+
+Actual integrated API source passes scoped ESLint, API TypeScript and 60 focused Vitest4.1.11 cases. Coverage for proof-store.ts: statements83/83, branches108/108, functions10/10, lines58/58, all100%. Staged QA and independent platform/security reviews preceded integration; only the test invocation whitespace changed during lint. Integrated coverage is authoritative; stage report kept as an audit receipt.
+
+Proof purpose/action, full caller-owned server binding, challenge, identity/session, identifier hash, transport, origin/chain substitution, fixed5minute TTL/exactexpiry/clockrollback, malformed runtime fields, hash-only records, caller mutation, repository failures and concurrent one-winner redemption are covered. Origin checks accept canonicalHTTPS and localHTTPloopback only; configured allowlist remains producer/deployment responsibility. Mismatch does not consume valid proof. In-memory reference compares and consumes synchronously; durable adapter must use atomic compare+consume transaction.
+
+This internal core trusts a future verified producer. It is not provider verification, an HTTP/auth guard, client integration, production persistence or completed ST170b. No migrations/deployments/external provider calls. No token telemetry available; fresh authors/reviewers used task-only contexts. Some call counts were unreported and remain unknown; guard zeros do not represent zero usage. Required exact-head CI/accepted-main integration remains pending.
