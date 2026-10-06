@@ -33,3 +33,7 @@ Reviewed the CI correction after the initial exact-head run. The log shows one f
 ## Final mobile suite result
 
 The full mobile test log `/workspace/.setup/ST051b-full-mobile-tests.log` reports 16 of 16 suites and 81 of 81 tests passed in 2.476 seconds. This verifies the Jest suite at the reviewed source state; it does not establish native device rendering or splash behavior.
+
+## Second CI cold-mount timeout review
+
+The second CI log shows the same five-second timeout on the first RootLayout cold-mount test while the other 80 tests passed, with no functional assertion failure. The first-test async work includes provider initialization and storage reads. The repository already gives the first cold-mount test in `RootIndex.test.tsx` a 15-second allowance. Applying that same 15-second budget only to this first RootLayout test is justified by the observed cold CI startup cost and existing precedent; the `findBy` and `waitFor` assertion deadlines remain unchanged. No other tests receive a broader timeout, and no assertion is weakened or skipped. I approve this scoped allowance. The meaningful `--no-cache` full mobile rerun is in progress, so its result is not claimed here.

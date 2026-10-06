@@ -57,6 +57,7 @@ describe('root layout startup imports', () => {
     jest.mocked(SplashScreen.hideAsync).mockClear().mockResolvedValue(true);
   });
 
+  // Match RootIndex's cold native/Babel mount budget; async assertions retain their own deadlines.
   it('mounts the router and hides the splash through named native exports', async () => {
     render(<RootLayout />);
     await act(async () => {
@@ -69,7 +70,7 @@ describe('root layout startup imports', () => {
     expect(mockStorage.getItem).toHaveBeenCalledWith('theme-mode-preference');
     expect(mockStorage.getItem).toHaveBeenCalledWith('locale-preference');
     await waitFor(() => expect(SplashScreen.hideAsync).toHaveBeenCalledTimes(1));
-  });
+  }, 15_000);
 
   it('keeps providers and splash pending, then starts once fonts load', async () => {
     mockUseFonts.mockReturnValue([false, null]);

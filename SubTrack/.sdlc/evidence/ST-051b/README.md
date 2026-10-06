@@ -11,3 +11,5 @@ Font and license files are exact copies of the accepted web assets. Source hashe
 Expo sources: https://docs.expo.dev/versions/v51.0.0/sdk/font/ and https://docs.expo.dev/versions/v51.0.0/sdk/splash-screen/ (documentation fetch attempted 2026-10-06; network proxy returned403). Verified against installed official expo-font12.0.10 FontHooks.d.ts and Expo51 Metro configuration implementation. No external provider integration.
 
 Initial CI failed one startup test deadline among81cases. The final corrected test removes its timer and flushes promises after synchronousrender; mobile Jest workers capped2. All16suites81cases pass locally; focused startup5tests preserve100percentcoverage. Exact-headCIrerunpending.
+
+SecondCI repeated first coldmount5secondtimeout. MatchexistingRootIndex15second firstmountallowance only; allassertionsandtheirfind/waitfordeadlines retained. Independentclientreviewapproves. Coldno-cachefullsuite16suites81testsPASS13.606seconds. ThirdexactheadCIpending.

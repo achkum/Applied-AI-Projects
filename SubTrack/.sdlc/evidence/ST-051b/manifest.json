@@ -21,7 +21,7 @@
   },
   {
     "path": "apps/mobile/src/providers/RootLayout.test.tsx",
-    "sha256": "52fe53a8c5d6a12ffd0c367a04081fcaa5358fdd50825949296161b8156ba005"
+    "sha256": "fec9d970fb5c3e87d1b63967e75542844e66cc6df999414a32452af6593a44e2"
   },
   {
     "path": "apps/mobile/src/context/ThemeContext.tsx",

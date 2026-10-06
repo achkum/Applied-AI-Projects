@@ -28,5 +28,12 @@
     "result": "PASS",
     "workers": 2
   },
-  "ciCorrection": "Initial exacthead CI1of81startup test timeout. Removed timer, flush resolved storage with asyncact after synchronousrender; boundedworkers2. Initial nestedrenderinasyncact failedRNTLhostdiscovery; corrected before greenfullsuite. No timeout/assertion/coverage waiver."
+  "ciCorrection": "Initial exacthead CI1of81startup test timeout. Removed timer, flush resolved storage with asyncact after synchronousrender; boundedworkers2. Initial nestedrenderinasyncact failedRNTLhostdiscovery; corrected before greenfullsuite. No timeout/assertion/coverage waiver. SecondCI same5s coldtimeout; firsttestonly matchesexistingRootIndex15second coldmountbudget, asyncfind/waitForassertdeadlinesunchanged; independentclientapproved; coldno-cache81testsPASS.",
+  "coldNoCacheFullMobileTests": {
+    "suites": 16,
+    "cases": 81,
+    "seconds": 13.606,
+    "result": "PASS",
+    "workers": 2
+  }
 }
