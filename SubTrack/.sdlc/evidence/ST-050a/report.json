@@ -1,0 +1,75 @@
+{
+  "browser": "151.0.7922.173",
+  "kind": "Isolated actual client component harness, not a published registration route or authenticated flow",
+  "states": [
+    {
+      "locale": "sv",
+      "theme": "light",
+      "nativeEnterSubmit": true,
+      "nativeClickSubmit": true,
+      "invalidDisabled": true,
+      "modeClearsState": true,
+      "narrow375": true,
+      "contrasts": {
+        "buttonText": 16.442687631561267,
+        "buttonBoundary": 5.871219630786456,
+        "inputBoundary": 6.445240706685504
+      },
+      "fonts": [
+        "Manrope QA"
+      ]
+    },
+    {
+      "locale": "sv",
+      "theme": "dark",
+      "nativeEnterSubmit": true,
+      "nativeClickSubmit": true,
+      "invalidDisabled": true,
+      "modeClearsState": true,
+      "narrow375": true,
+      "contrasts": {
+        "buttonText": 17.002003755420617,
+        "buttonBoundary": 8.384740770804603,
+        "inputBoundary": 7.68248148627789
+      },
+      "fonts": [
+        "Manrope QA"
+      ]
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "nativeEnterSubmit": true,
+      "nativeClickSubmit": true,
+      "invalidDisabled": true,
+      "modeClearsState": true,
+      "narrow375": true,
+      "contrasts": {
+        "buttonText": 16.442687631561267,
+        "buttonBoundary": 5.871219630786456,
+        "inputBoundary": 6.445240706685504
+      },
+      "fonts": [
+        "Manrope QA"
+      ]
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "nativeEnterSubmit": true,
+      "nativeClickSubmit": true,
+      "invalidDisabled": true,
+      "modeClearsState": true,
+      "narrow375": true,
+      "contrasts": {
+        "buttonText": 17.002003755420617,
+        "buttonBoundary": 8.384740770804603,
+        "inputBoundary": 7.68248148627789
+      },
+      "fonts": [
+        "Manrope QA"
+      ]
+    }
+  ],
+  "errors": []
+}

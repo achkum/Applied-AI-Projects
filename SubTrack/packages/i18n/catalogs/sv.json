@@ -49,6 +49,20 @@
   "onboarding": {
     "welcome": {
       "tagline": "Allt ni prenumererar på. På ett ställe."
+    },
+    "identifier": {
+      "channelLabel": "Välj kontaktmetod",
+      "emailChannel": "E-post",
+      "phoneChannel": "Mobilnummer",
+      "emailLabel": "E-postadress",
+      "phoneLabel": "Mobilnummer",
+      "continueLabel": "Fortsätt",
+      "errors": {
+        "required": "Ange en e-postadress eller ett mobilnummer.",
+        "email_format": "Ange en e-postadress i formatet namn@example.test.",
+        "phone_format": "Ange ett svenskt mobilnummer med siffror och vanliga avgränsare.",
+        "phone_length": "Kontrollera antalet siffror och försök igen."
+      }
     }
   },
   "hero": {
