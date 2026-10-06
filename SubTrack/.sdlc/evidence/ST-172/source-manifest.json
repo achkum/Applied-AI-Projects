@@ -1,0 +1,16 @@
+{
+  "apps/mobile/src/components/DemoHouseholdScreen.tsx": "fbca9b4df16584298080b1fc101104e15e0a0eacd7d0d69a97e3dbf5bcdde7cc",
+  "apps/mobile/src/components/demo-money.ts": "1cb3ece363f1dc233879edc8ade6cf1a75686e9c50ce6a07391bb7799313390a",
+  "apps/mobile/src/components/WelcomeScreen.tsx": "62587802686a7623d7b9a4925cb7da79482ae3ef7dcb09e26af27800093cd47c",
+  "apps/mobile/app/(tabs)/en/demo.tsx": "5142d8261fbe8db02b2e2c27cdea7c122d375336ad081bd315a458a2dd073cb7",
+  "apps/mobile/app/(tabs)/sv/demo.tsx": "6ec103c62b8b0fc89b0068a82dfc566b790730deb4a6fcdd7b98d1a809d9105d",
+  "packages/i18n/catalogs/en.json": "d916d55538eb5c7b6a4d27f6ede967236ff49b8d24b7af9c3aff106be99009b1",
+  "packages/i18n/catalogs/sv.json": "b643675b16e3c041ad7225ff9916add3385b6070d89da438d671b1f181974df5",
+  "apps/mobile/jest.config.js": "d0b1cef18bee24720df5a522874e67fbce0813002e3db9b254c4b6e3a078abfb",
+  "apps/mobile/jest.workspace-resolver.cjs": "44c965bdcc5e51e616d008d197c735a65fdf6ed200428eda9fbea999b008a423",
+  "apps/mobile/metro.config.js": "76bd5d8a7d5dd1d8b89735dd3d6c26f235ef4e10d28ea0fa16c746049a49e5ec",
+  "apps/mobile/src/components/demo-money.test.ts": "015ed2a50a44c6db2527211400ae4de4be41adcd03fdcad328f2ef5dfed30a75",
+  "apps/mobile/src/components/DemoHouseholdScreen.test.tsx": "d3ea0fbb1f29a7f64377ff159214a1abc517c4176d2e0f05fdf76a53a66499ee",
+  "apps/mobile/package.json": "7d9ca15606463b43788c902f36df5a5df7294fc8ca85bee20afdb9fb1afc62aa",
+  "pnpm-lock.yaml": "f05ac01e996a133d05396fd5ecfba100b70537dad50f4dd2ae516f394c62a702"
+}

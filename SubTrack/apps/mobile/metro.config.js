@@ -18,6 +18,31 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 config.resolver.unstable_enablePackageExports = true;
+const packageSourceDirs = [
+  path.resolve(monorepoRoot, 'packages/money/src'),
+  path.resolve(monorepoRoot, 'packages/synthetic/src'),
+];
+function isInside(directory, candidate) {
+  const relative = path.relative(directory, candidate);
+  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+}
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  try {
+    return context.resolveRequest(context, moduleName, platform);
+  } catch (originalError) {
+    const isRelativeJs = moduleName.endsWith('.js')
+      && (moduleName.startsWith('./') || moduleName.startsWith('../'));
+    const originPath = path.resolve(context.originModulePath);
+    if (!isRelativeJs || !packageSourceDirs.some((directory) => isInside(directory, originPath))) {
+      throw originalError;
+    }
+    try {
+      return context.resolveRequest(context, `${moduleName.slice(0, -3)}.ts`, platform);
+    } catch {
+      throw originalError;
+    }
+  }
+};
 // Resolve the native asset registry from React Native's declared dependency under pnpm.
 config.transformer.assetRegistryPath = require.resolve('@react-native/assets-registry/registry', {
   paths: [path.dirname(require.resolve('react-native/package.json'))],

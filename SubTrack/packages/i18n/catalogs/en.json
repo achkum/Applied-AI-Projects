@@ -87,5 +87,14 @@
     "projection12Months": "12-month projection",
     "sampleCaption": "Illustrative subscription data",
     "scopeDisclosure": "The household scope is a fully visible visual mock; access and sharing are not modeled."
+  },
+  "mobileDemo": {
+    "banner": "Demo: data is fictional",
+    "title": "Lars & Maria Lindqvist",
+    "description": "A read-only example household with six subscriptions.",
+    "unavailable": "Exact currency formatting is unavailable on this device. Amounts are hidden.",
+    "return": "Return to welcome",
+    "monthly": "Billed monthly",
+    "annual": "Billed annually"
   }
 }

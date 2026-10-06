@@ -1,0 +1,72 @@
+[
+  {
+    "mode": "light",
+    "fg": "bg.raised",
+    "bg": "aurora.violet",
+    "ratio": 4.921516123357195,
+    "passesNormalText": true
+  },
+  {
+    "mode": "light",
+    "fg": "ink.primary",
+    "bg": "bg.canvas",
+    "ratio": 16.442687631561267,
+    "passesNormalText": true
+  },
+  {
+    "mode": "light",
+    "fg": "ink.secondary",
+    "bg": "bg.canvas",
+    "ratio": 5.871219630786456,
+    "passesNormalText": true
+  },
+  {
+    "mode": "light",
+    "fg": "ink.primary",
+    "bg": "bg.raised",
+    "ratio": 18.050266608073937,
+    "passesNormalText": true
+  },
+  {
+    "mode": "light",
+    "fg": "ink.secondary",
+    "bg": "bg.raised",
+    "ratio": 6.445240706685504,
+    "passesNormalText": true
+  },
+  {
+    "mode": "dark",
+    "fg": "bg.canvas",
+    "bg": "aurora.violet",
+    "ratio": 7.055572138388753,
+    "passesNormalText": true
+  },
+  {
+    "mode": "dark",
+    "fg": "ink.primary",
+    "bg": "bg.canvas",
+    "ratio": 17.002003755420617,
+    "passesNormalText": true
+  },
+  {
+    "mode": "dark",
+    "fg": "ink.secondary",
+    "bg": "bg.canvas",
+    "ratio": 8.384740770804603,
+    "passesNormalText": true
+  },
+  {
+    "mode": "dark",
+    "fg": "ink.primary",
+    "bg": "bg.raised",
+    "ratio": 15.578010418098106,
+    "passesNormalText": true
+  },
+  {
+    "mode": "dark",
+    "fg": "ink.secondary",
+    "bg": "bg.raised",
+    "ratio": 7.68248148627789,
+    "passesNormalText": true
+  }
+]

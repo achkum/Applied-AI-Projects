@@ -1,0 +1,16 @@
+PASS src/components/DemoHouseholdScreen.test.tsx
+PASS src/components/demo-money.test.ts
+-------------------------|---------|----------|---------|---------|-------------------
+File                     | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+-------------------------|---------|----------|---------|---------|-------------------
+All files                |   86.56 |    84.61 |      65 |   88.13 |
+ DemoHouseholdScreen.tsx |   95.45 |    81.25 |     100 |     100 | 28-36,59
+ WelcomeScreen.tsx       |   53.33 |    78.94 |   22.22 |   53.33 | 15,19,106-226
+ demo-money.ts           |   96.66 |    95.83 |     100 |     100 | 52
+-------------------------|---------|----------|---------|---------|-------------------
+
+Test Suites: 2 passed, 2 total
+Tests:       16 passed, 16 total
+Snapshots:   0 total
+Time:        1.296 s
+Ran all test suites matching /src\/components\/demo-money.test.ts|src\/components\/DemoHouseholdScreen.test.tsx/i.

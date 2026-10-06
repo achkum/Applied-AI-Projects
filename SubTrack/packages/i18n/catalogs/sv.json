@@ -87,5 +87,14 @@
     "projection12Months": "Prognos för 12 månader",
     "sampleCaption": "Illustrativa prenumerationsexempel",
     "scopeDisclosure": "Hushållsvyn är en helt synlig visuell mockup; åtkomst och delning modelleras inte."
+  },
+  "mobileDemo": {
+    "banner": "Demo: uppgifterna är fiktiva",
+    "title": "Lars & Maria Lindqvist",
+    "description": "Ett skrivskyddat exempelhushåll med sex prenumerationer.",
+    "unavailable": "Exakt valutavisning stöds inte på den här enheten. Beloppen är dolda.",
+    "return": "Tillbaka till välkomstsidan",
+    "monthly": "Debiteras månadsvis",
+    "annual": "Debiteras årsvis"
   }
 }

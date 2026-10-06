@@ -2,10 +2,12 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useI18n } from '@/context/I18nContext';
+import { useRouter } from 'expo-router';
 
 export function WelcomeScreen() {
   const { mode, setMode, theme, isDark } = useTheme();
-  const { locale, setLocale } = useI18n();
+  const { locale, setLocale, t } = useI18n();
+  const router = useRouter();
 
   const palette = isDark ? theme.color.dark : theme.color.light;
 
@@ -42,6 +44,26 @@ export function WelcomeScreen() {
         >
           SubTrack
         </Text>
+
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('onboarding.welcome.exploreDemo')}
+          onPress={() => router.push(`/${locale}/demo`)}
+          activeOpacity={0.72}
+          style={{
+            minHeight: 48,
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            marginBottom: 24,
+            backgroundColor: palette['aurora.violet'],
+            borderRadius: theme.radius.pill,
+          }}
+        >
+          <Text style={{ color: isDark ? palette['bg.canvas'] : palette['bg.raised'], fontSize: theme.typography.fontSize.md, fontWeight: '600' }}>
+            {t('onboarding.welcome.exploreDemo')}
+          </Text>
+        </TouchableOpacity>
 
         <Text
           style={{

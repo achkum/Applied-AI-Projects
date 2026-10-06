@@ -266,6 +266,12 @@ importers:
       '@subtrack/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@subtrack/money':
+        specifier: workspace:*
+        version: link:../../packages/money
+      '@subtrack/synthetic':
+        specifier: workspace:*
+        version: link:../../packages/synthetic
       '@subtrack/ui-tokens':
         specifier: workspace:*
         version: link:../../packages/ui-tokens

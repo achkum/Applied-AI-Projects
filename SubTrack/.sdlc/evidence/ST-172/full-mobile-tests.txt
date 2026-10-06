@@ -1,0 +1,99 @@
+$ jest --maxWorkers=2
+PASS src/providers/RootLayout.test.tsx
+  ● Console
+
+    console.info
+      ST051b native test harness preparation ms 271
+
+      at Object.info (src/providers/RootLayout.test.tsx:59:13)
+
+    console.info
+      ST051b startup assertion timing ms { renderMs: 63, totalMs: 73 }
+
+      at Object.info (src/providers/RootLayout.test.tsx:84:13)
+
+PASS src/context/I18nContext.test.tsx
+PASS src/components/signature/RollingNumber.test.tsx (5.122 s)
+PASS src/components/Orbit/__tests__/Orbit.test.tsx (5.809 s)
+PASS src/components/DemoHouseholdScreen.test.tsx
+PASS src/components/onboarding/WelcomeActions.test.tsx
+PASS src/components/demo-money.test.ts
+PASS src/components/onboarding/IdentifierEntry.test.tsx
+PASS src/components/signature/ScopeSwitcher.test.tsx
+PASS src/hooks/useReducedMotion.test.ts
+  ● Console
+
+    console.error
+      Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+      When testing, code that causes React state updates should be wrapped into act(...):
+
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+          at renderCallbackProps (/workspace/Applied-AI-Projects/SubTrack/node_modules/.pnpm/@testing-library+react-native@12.4.3_jest@29.7.0_@types+node@26.6.3_supports-color@8.1._4ee606d04cbffd1179f957646dfe4abb/node_modules/@testing-library/react-native/src/render-hook.tsx:26:5)
+
+      14 |
+      15 |     AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+    > 16 |       if (isMounted) setReducedMotion(enabled);
+         |                      ^
+      17 |     });
+      18 |
+      19 |     const subscription = AccessibilityInfo.addEventListener(
+
+      at printWarning (../../node_modules/.pnpm/react-test-renderer@18.2.0_react@18.2.0/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:72:30)
+      at error (../../node_modules/.pnpm/react-test-renderer@18.2.0_react@18.2.0/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:46:7)
+      at warnIfUpdatesNotWrappedWithActDEV (../../node_modules/.pnpm/react-test-renderer@18.2.0_react@18.2.0/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16677:9)
+      at scheduleUpdateOnFiber (../../node_modules/.pnpm/react-test-renderer@18.2.0_react@18.2.0/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14877:5)
+      at dispatchSetState (../../node_modules/.pnpm/react-test-renderer@18.2.0_react@18.2.0/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7510:7)
+      at setReducedMotion (src/hooks/useReducedMotion.ts:16:22)
+
+    console.error
+      Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+      When testing, code that causes React state updates should be wrapped into act(...):
+
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+          at renderCallbackProps (/workspace/Applied-AI-Projects/SubTrack/node_modules/.pnpm/@testing-library+react-native@12.4.3_jest@29.7.0_@types+node@26.6.3_supports-color@8.1._4ee606d04cbffd1179f957646dfe4abb/node_modules/@testing-library/react-native/src/render-hook.tsx:26:5)
+
+      19 |     const subscription = AccessibilityInfo.addEventListener(
+      20 |       'reduceMotionChanged',
+    > 21 |       (enabled: boolean) => setReducedMotion(enabled),
+         |                             ^
+      22 |     );
+      23 |
+      24 |     return () => {
+
+      at printWarning (../../node_modules/.pnpm/react-test-renderer@18.2.0_react@18.2.0/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:72:30)
+      at error (../../node_modules/.pnpm/react-test-renderer@18.2.0_react@18.2.0/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:46:7)
+      at warnIfUpdatesNotWrappedWithActDEV (../../node_modules/.pnpm/react-test-renderer@18.2.0_react@18.2.0/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16677:9)
+      at scheduleUpdateOnFiber (../../node_modules/.pnpm/react-test-renderer@18.2.0_react@18.2.0/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14877:5)
+      at dispatchSetState (../../node_modules/.pnpm/react-test-renderer@18.2.0_react@18.2.0/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7510:7)
+      at setReducedMotion (src/hooks/useReducedMotion.ts:21:29)
+      at Object.changeHandler (src/hooks/useReducedMotion.test.ts:51:5)
+      at asyncGeneratorStep (../../node_modules/.pnpm/@babel+runtime@7.29.7/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (../../node_modules/.pnpm/@babel+runtime@7.29.7/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS src/components/signature/ReceiptCard.test.tsx
+PASS src/components/Orbit/__tests__/orbitMath.test.ts
+PASS src/context/ThemeContext.test.tsx
+PASS src/providers/RootIndex.test.tsx
+PASS src/utils/formatMoney.test.ts
+PASS src/components/__tests__/render.smoke.test.tsx
+PASS src/utils/oklch.test.ts
+PASS src/i18n/signatureComponents.test.ts
+PASS src/utils/colors.test.ts
+
+Test Suites: 19 passed, 19 total
+Tests:       101 passed, 101 total
+Snapshots:   0 total
+Time:        8.582 s, estimated 15 s
+Ran all test suites.
