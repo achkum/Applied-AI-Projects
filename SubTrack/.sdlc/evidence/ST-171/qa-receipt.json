@@ -1,0 +1,31 @@
+{
+  "focusedTests": 25,
+  "suites": 2,
+  "formatterCoverage": {
+    "statements": 100,
+    "branches": 100,
+    "functions": 100,
+    "lines": 100
+  },
+  "authorExitCodes": {
+    "focusedTests": 0,
+    "moneyLint": 0,
+    "moneyTypecheck": 0
+  },
+  "rootIndependentChecks": {
+    "fullMoneyPackageTests": 110,
+    "suites": 5,
+    "exitCode": 0,
+    "nativeExactDecimalStringComparisons": 312,
+    "precisionSentinel": "PASS;9007199254740993 string exact",
+    "runtime": "Node24.19.0 only"
+  },
+  "reviews": "Independent platform/security APPROVE same source hashes",
+  "exactHeadCI": "PENDING",
+  "limits": [
+    "No Expo/Hermes support proof",
+    "Legacy number formatter and clients unchanged",
+    "No mobile adoption yet"
+  ],
+  "budget": "FreshLuna author did focusedchecks beforehandoff; manualtoolcounts/rootcalls unreported, no token telemetry"
+}
