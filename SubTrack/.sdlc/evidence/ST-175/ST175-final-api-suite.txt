@@ -1,0 +1,19 @@
+$ prisma generate --schema=prisma/schema.prisma && vitest run
+Prisma schema loaded from prisma/schema.prisma
+
+✔ Generated Prisma Client (v6.19.2) to ./../../node_modules/.pnpm/@prisma+client@6.19.2_prisma@6.19.2_typescript@5.9.3__typescript@5.9.3/node_modules/@prisma/client in 79ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Need your database queries to be 1000x faster? Accelerate offers you that and more: https://pris.ly/tip-2-accelerate
+
+
+ RUN  v4.1.11 /workspace/Applied-AI-Projects/SubTrack/apps/api
+
+[DevInbox] synthetic fixture delivery output redacted
+[DevInbox] synthetic fixture delivery output redacted
+
+ Test Files  20 passed (20)
+      Tests  316 passed (316)
+   Start at  12:43:13
+   Duration  2.19s (transform 753ms, setup 0ms, import 3.01s, tests 584ms, environment 2ms)
