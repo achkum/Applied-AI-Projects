@@ -1,0 +1,33 @@
+{
+  "sources": [
+    {
+      "path": "apps/mobile/src/components/onboarding/IdentifierEntry.tsx",
+      "sha256": "ef6379720b782e4a8bcf091093bf33a51bf1ace2c58bc4899bdc3de75d1d88fb"
+    },
+    {
+      "path": "apps/mobile/src/components/onboarding/IdentifierEntry.test.tsx",
+      "sha256": "6379434921cf3b1ea18b3e6d3aae8f84414dad30beeb6f457a0f730b2819fe43"
+    },
+    {
+      "path": "packages/contracts/identifiers.ts",
+      "sha256": "c5aa2def1b6b8b1db013b5816bb0db25c011f172006333cae53e4369d178e1f1"
+    },
+    {
+      "path": "packages/contracts/package.json",
+      "sha256": "bc667d239a48b20118899e2f98794e948c98556ffe35ea42c30fdc6916a8a9a0"
+    },
+    {
+      "path": "packages/contracts/tsconfig.json",
+      "sha256": "58c52a34566d9eb32f0a57e586784db28cdb8c9008df26b0b81edb9487977e31"
+    },
+    {
+      "path": "packages/contracts/tests/identifiers.test.mjs",
+      "sha256": "9b78c4db4817fb4251bbe624597fec9bf2d4126679b417c7618c1bbc34a0f5e6"
+    },
+    {
+      "path": "apps/web/lib/onboarding-identifier.ts",
+      "sha256": "e4abdb951831ca880312edcbb6bb7d64fbdce08c025ecddd87ac03bf8c852f9a"
+    }
+  ],
+  "accepted_base": "fa9fdaf0a6c6ee2650ce786e0c3c28048a8311d7"
+}

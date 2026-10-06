@@ -1,0 +1,3 @@
+# ST-051a evidence
+Reusable mobile identifier callback component; accepted web normalizer moved unchanged to a pure contracts leaf export. Native Jest tests and disclosed isolated React Native Web screenshots validate this slice; no device, provider or completed onboarding claim. Parent ST-051 remains incomplete. See independent reviews and QA receipt. Exact-head CI required before merge.
+Author exceeded eight-wrapper limit by one; no automated token telemetry or quota-saving claim. Conductor first focused run overlapped author test edits and failed; final frozen-source rerun passes eight tests. Future verification starts after source handoff.

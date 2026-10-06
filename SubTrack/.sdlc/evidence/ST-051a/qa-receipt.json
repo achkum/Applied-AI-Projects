@@ -1,0 +1,24 @@
+{
+  "mobile_tests": 8,
+  "web_tests": 85,
+  "normalizer_contract_test": 1,
+  "mobile_changed_coverage": {
+    "statements": 97.05,
+    "branches": 88.46,
+    "functions": 100,
+    "lines": 100
+  },
+  "typecheck": [
+    "mobile",
+    "web",
+    "contracts"
+  ],
+  "scoped_lint": "pass",
+  "i18n_parity": "pass",
+  "normalizer_exact_accepted_source_bytes": true,
+  "native_device_validation": false,
+  "limits": "Callback-only; parent incomplete; CI and merge pending",
+  "budget_counts_manual_not_token_telemetry": true,
+  "web_production_build": "pass",
+  "font_evidence": "RNweb loads existing Manrope and FontFace check passes; native font registration and device QA pending parent"
+}

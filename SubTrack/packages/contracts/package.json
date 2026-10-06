@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./generated/index.ts"
+    ".": "./generated/index.ts",
+    "./identifiers": "./identifiers.ts"
   },
   "engines": {
     "node": ">=22.18.0"

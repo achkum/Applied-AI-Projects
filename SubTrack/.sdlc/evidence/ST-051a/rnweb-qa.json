@@ -1,0 +1,39 @@
+{
+  "kind": "Actual React Native Web component isolated composition; not native device or onboarding auth flow",
+  "browser": "151.0.7922.173",
+  "states": [
+    {
+      "locale": "sv",
+      "theme": "light",
+      "width": 375,
+      "invalidBlocked": true,
+      "modeReset": true,
+      "callbacks": 2
+    },
+    {
+      "locale": "sv",
+      "theme": "dark",
+      "width": 375,
+      "invalidBlocked": true,
+      "modeReset": true,
+      "callbacks": 2
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "width": 375,
+      "invalidBlocked": true,
+      "modeReset": true,
+      "callbacks": 2
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "width": 375,
+      "invalidBlocked": true,
+      "modeReset": true,
+      "callbacks": 2
+    }
+  ],
+  "errors": []
+}
