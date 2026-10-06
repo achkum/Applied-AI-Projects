@@ -5,6 +5,7 @@
 # Seeded M0/D1 contracts are planning placeholders, not all DoR-complete; see ST-014. ST-028 also requires split ST-015 before READY.
 milestone_current: M0
 items:
+  - {id: ST-169, title: "Record founder milestone/design approval and development deletion choice", owner: "conductor", size: "S", status: IN_REVIEW, deps: ["ST-168", "ST-076"]}
   - {id: SEC-FU1b, title: "Resolve verified principals against current session ownership", owner: "dev-backend", size: "S", status: DONE, deps: ["SEC-FU1a"]}
   - {id: ST-076, title: "Home hero Storybook design composition", owner: "design-lead", size: "S", status: DONE, deps: ["ST-022", "ST-023", "ST-024", "ST-025", "ST-074", "ST-075", "ST-077", "ST-079", "BUG-020", "BUG-021"]}
   - {id: BUG-021b, title: "Orbit opaque label backplates and direct backdrop proof", owner: "dev-web", size: "M", status: DONE, deps: ["ST-077"]}
@@ -63,7 +64,7 @@ items:
   - {id: ST-039, title: "Maestro/device E2E + screen-reader backfill for D1 signature components", owner: "qa-engineer", size: "M", status: BACKLOG, deps: ["ST-024", "ST-025", "ST-026", "ST-027"]}
   - {id: ST-056, title: "packages/money: shared money formatter (extract from D1 component duplication)", owner: "architect-platform", size: "S", status: DONE, deps: []}
   - {id: ST-028, title: "Hero screens (Welcome, Home, Subscription detail) — parent, needs_split=true", owner: "conductor", size: "L", status: BACKLOG, deps: ["ST-024", "ST-025"], note: "Split by ST-015 into ST-057+ST-058; do not dispatch directly"}
-  - {id: ST-057, title: "Hero screens: design compositions (Storybook stories, G-DESIGN gate)", owner: "design-lead", size: "M", status: IN_PROGRESS, deps: ["ST-023", "ST-024", "ST-025", "ST-022"]}
+  - {id: ST-057, title: "Hero screens: design compositions (Storybook stories, G-DESIGN gate)", owner: "design-lead", size: "M", status: DONE, deps: ["ST-023", "ST-024", "ST-025", "ST-022"]}
   - {id: ST-058, title: "Hero screens: web page implementation (Welcome, Home, Subscription detail)", owner: "dev-web", size: "L", status: BACKLOG, deps: ["ST-057", "ST-024", "ST-025"]}
   - {id: ST-029, title: "App icon, splash, store feature graphic concepts", owner: "design-lead", size: "M", status: BACKLOG, deps: ["ST-020"]}
   - {id: ST-040, title: "Prisma schema: identity, household, invitation, consent, audit_log + RLS policies migration", owner: "architect-platform", size: "L", status: DONE, deps: ["ST-007"]}
