@@ -1,0 +1,10 @@
+[
+  {
+    "path": "SubTrack/apps/api/src/auth/transport/credential-selector.ts",
+    "sha256": "41c2035191d88bec7d4c0304e77ed7a9515357c78a378e6844e4a81d8c549089"
+  },
+  {
+    "path": "SubTrack/apps/api/src/auth/transport/credential-selector.spec.ts",
+    "sha256": "a5232ffc94379e160d25ab969bfc443f78fa875693983ee3f96261ebe653c441"
+  }
+]

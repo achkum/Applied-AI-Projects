@@ -1,0 +1,29 @@
+{
+  "tests": 9,
+  "suites": 1,
+  "coverage": {
+    "statements": 95.16,
+    "branches": 94.28,
+    "functions": 100,
+    "lines": 98.07
+  },
+  "scopedLint": "PASS",
+  "apiTypecheck": "PASS; local Prisma generation only, no DB contact",
+  "fixes": [
+    "Validate full Authorization scheme plus token rather than cookie-token whitespace rules",
+    "Check regex capture type under API noUncheckedIndexedAccess"
+  ],
+  "exactHeadCI": "PENDING",
+  "limitations": [
+    "internal branch selection only",
+    "no credential verification, active-owner trust, HTTP parser fidelity, Origin/CSRF, durable storage or production claim"
+  ],
+  "budget": "Fresh Luna reviews; root tool count unreported; no token telemetry",
+  "exitCodes": {
+    "tests": 0,
+    "lint": 0,
+    "apiTypecheck": 0
+  },
+  "securityRegression": "Before correction2of9failed; aftercorrection9pass. Direct descriptors ignore iterators/rejectaccessors.",
+  "reviews": "Independent final platform/security APPROVE bound to source/spec hashes"
+}
