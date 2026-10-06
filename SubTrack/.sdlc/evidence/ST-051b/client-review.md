@@ -1,0 +1,39 @@
+# ST051b client review
+
+**Verdict: approve actual source.** The reviewed client implementation meets the specified startup and fallback behavior. This is a source review only; no tests, Git commands, or device checks were run, and I make no claim about native device appearance.
+
+## Findings
+
+- `app/_layout.tsx` imports both bundled font assets statically and passes the requested `Manrope` and `Fraunces` aliases to Expo's `useFonts`. It returns `null` while loading, then renders the root providers once fonts are loaded or errored. The splash hide call is gated by that settled state and catches promise rejection; the initial prevent-auto-hide rejection is caught as well.
+- On font load error, the root passes `useSystemFonts` and a platform-selected family through `RootProvider`. `ThemeProvider` creates a derived theme with only the UI and display family aliases replaced. The generated token object and stored theme preference are left untouched, and existing callers retain the default behavior.
+- The declarations type bundled `.ttf` imports as asset numbers. The mobile manifest pins `expo-font` to `12.0.10`, matching the task. Theme imports use the public `@subtrack/ui-tokens` export.
+- The existing root startup integration test remains and covers pending-to-loaded timing, error fallback, splash rejection, real provider state, and preference reads. Theme context coverage checks fallback forwarding, token immutability, storage behavior, and default callers.
+
+## Scope and evidence limits
+
+The reviewed files show no auth, route, network, database, backend, or shared token schema changes. The requested licensed font asset byte comparison, lint, TypeScript, and Expo bundle checks were not part of this review and are not claimed as passed. Native device rendering, splash behavior, and accessibility remain unverified, as the task states.
+
+## Sources reviewed
+
+- `/workspace/Applied-AI-Projects/SubTrack/.sdlc/tasks/ST-051b.md`
+- `/workspace/Applied-AI-Projects/SubTrack/AGENTS.md`
+- `/workspace/Applied-AI-Projects/SubTrack/apps/mobile/app/_layout.tsx`
+- `/workspace/Applied-AI-Projects/SubTrack/apps/mobile/src/providers/RootProvider.tsx`
+- `/workspace/Applied-AI-Projects/SubTrack/apps/mobile/src/providers/RootLayout.test.tsx`
+- `/workspace/Applied-AI-Projects/SubTrack/apps/mobile/src/context/ThemeContext.tsx`
+- `/workspace/Applied-AI-Projects/SubTrack/apps/mobile/src/context/ThemeContext.test.tsx`
+- `/workspace/Applied-AI-Projects/SubTrack/apps/mobile/src/types/declarations.d.ts`
+- `/workspace/Applied-AI-Projects/SubTrack/apps/mobile/package.json`
+
+## CI timeout correction review
+
+Reviewed the CI correction after the initial exact-head run. The log shows one failure among 81 tests: the existing startup integration test exceeded Jest's default five-second timeout while awaiting a zero-delay timer inside `act`; the other 80 tests passed. The final first-test correction keeps `render(<RootLayout />)` outside `act` and flushes the resolved provider storage work with `await act(async () => { await Promise.resolve(); })`. This avoids the host-component discovery failure seen when render was placed inside an outer async `act`, while removing the timer that exceeded the test timeout. Its assertions remain intact, and the rest of the startup tests are unchanged. The mobile test script caps Jest at two workers to reduce cold-transform resource pressure. The correction does not increase the timeout, skip assertions, or disable coverage. I approve this targeted CI correction.
+
+
+## Final mobile suite result
+
+The full mobile test log `/workspace/.setup/ST051b-full-mobile-tests.log` reports 16 of 16 suites and 81 of 81 tests passed in 2.476 seconds. This verifies the Jest suite at the reviewed source state; it does not establish native device rendering or splash behavior.
+
+## Second CI cold-mount timeout review
+
+The second CI log shows the same five-second timeout on the first RootLayout cold-mount test while the other 80 tests passed, with no functional assertion failure. The first-test async work includes provider initialization and storage reads. The repository already gives the first cold-mount test in `RootIndex.test.tsx` a 15-second allowance. Applying that same 15-second budget only to this first RootLayout test is justified by the observed cold CI startup cost and existing precedent; the `findBy` and `waitFor` assertion deadlines remain unchanged. No other tests receive a broader timeout, and no assertion is weakened or skipped. I approve this scoped allowance. The meaningful `--no-cache` full mobile rerun is in progress, so its result is not claimed here.

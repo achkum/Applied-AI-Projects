@@ -1,0 +1,50 @@
+{
+  "tests": {
+    "suites": 2,
+    "cases": 5,
+    "coverage": {
+      "scope": [
+        "app/_layout.tsx",
+        "src/providers/RootProvider.tsx"
+      ],
+      "statements": 100,
+      "branches": 100,
+      "functions": 100,
+      "lines": 100
+    }
+  },
+  "mobileTypecheck": "PASS",
+  "scopedESLint": "PASS",
+  "frozenOfflineInstall": "PASS",
+  "iosOfflineExport": "PASS",
+  "androidOfflineExport": "PASS",
+  "browser": "Actual Expo RN Web; four explicit locale/theme states; font faces loaded; no pageerrors",
+  "nativeDevices": "NOT RUN",
+  "ci": "pending exact source head",
+  "budgets": "Manual counters only; root calls unreported; font author handoff did not report call count. Design reviewer 4 wrappers plus 10 nested tool operations exceeded 8-total target; final platform review needed disclosed extensions. No token telemetry or savings claim. Cold-start architect reported7wrappers+8nestedcommands+mandatoryskill andexceededtarget; retiredafterhandoff. No savingsclaim.",
+  "fullMobileTests": {
+    "suites": 16,
+    "cases": 81,
+    "result": "PASS",
+    "workers": 2
+  },
+  "ciCorrection": "Initial exacthead CI1of81startup test timeout. Removed timer, flush resolved storage with asyncact after synchronousrender; boundedworkers2. Initial nestedrenderinasyncact failedRNTLhostdiscovery; corrected before greenfullsuite. No timeout/assertion/coverage waiver. SecondCI same5s coldtimeout; firsttestonly matchesexistingRootIndex15second coldmountbudget, asyncfind/waitForassertdeadlinesunchanged; independentclientapproved; coldno-cache81testsPASS. ThirdCI15scoldtimeout->DecisionRules5 once-narrower fresharchitectredispatch. IsolatedRNTLfirstnativefixtureinitializationbeforeAll (60ssetupbudget) retaining15sappdeadlineandallassertions. Reviewedcorrection/coldfull81pass; nextCIexperimentpending.",
+  "coldNoCacheFullMobileTests": {
+    "suites": 16,
+    "cases": 81,
+    "seconds": 13.606,
+    "result": "PASS",
+    "workers": 2
+  },
+  "coldHarnessPreparation": {
+    "suites": 16,
+    "tests": 81,
+    "result": "PASS",
+    "suiteSeconds": 13.862,
+    "nativeHarnessPreparationMs": 4660,
+    "startupRenderMs": 37,
+    "startupAssertionTotalMs": 51,
+    "startupDeadlineMs": 15000,
+    "harnessDeadlineMs": 60000
+  }
+}

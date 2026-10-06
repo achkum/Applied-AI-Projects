@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import themeData from '@subtrack/ui-tokens/generated/theme.native.json';
+import themeData from '@subtrack/ui-tokens';
 import { Theme, ThemeMode } from '@/types';
 
 interface ThemeContextType {
@@ -15,7 +15,13 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_MODE_KEY = 'theme-mode-preference';
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+interface ThemeProviderProps {
+  children: React.ReactNode;
+  useSystemFonts?: boolean;
+  systemFontFamily?: string | undefined;
+}
+
+export function ThemeProvider({ children, useSystemFonts = false, systemFontFamily = 'system-ui' }: ThemeProviderProps) {
   const colorScheme = useColorScheme();
   const [mode, setModeState] = useState<ThemeMode>('system');
   const [isLoaded, setIsLoaded] = useState(false);
@@ -49,10 +55,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const isDark =
     mode === 'system' ? colorScheme === 'dark' : mode === 'dark';
 
+  const baseTheme = themeData as Theme;
+  const theme: Theme = useSystemFonts ? {
+    ...baseTheme,
+    typography: {
+      ...baseTheme.typography,
+      fontFamily: { ...baseTheme.typography.fontFamily, ui: systemFontFamily, display: systemFontFamily },
+    },
+  } : baseTheme;
+
   const value: ThemeContextType = {
     mode,
     setMode,
-    theme: themeData as Theme,
+    theme,
     isDark,
   };
 

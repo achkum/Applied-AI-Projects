@@ -1,0 +1,67 @@
+{
+  "kind": "Actual Expo React Native Web app, not an iOS/Android device",
+  "browser": "151.0.7922.173",
+  "states": [
+    {
+      "locale": "sv",
+      "theme": "light",
+      "fonts": [
+        {
+          "family": "Manrope",
+          "status": "loaded"
+        },
+        {
+          "family": "Fraunces",
+          "status": "loaded"
+        }
+      ],
+      "brandFont": "Fraunces"
+    },
+    {
+      "locale": "sv",
+      "theme": "dark",
+      "fonts": [
+        {
+          "family": "Manrope",
+          "status": "loaded"
+        },
+        {
+          "family": "Fraunces",
+          "status": "loaded"
+        }
+      ],
+      "brandFont": "Fraunces"
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "fonts": [
+        {
+          "family": "Manrope",
+          "status": "loaded"
+        },
+        {
+          "family": "Fraunces",
+          "status": "loaded"
+        }
+      ],
+      "brandFont": "Fraunces"
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "fonts": [
+        {
+          "family": "Manrope",
+          "status": "loaded"
+        },
+        {
+          "family": "Fraunces",
+          "status": "loaded"
+        }
+      ],
+      "brandFont": "Fraunces"
+    }
+  ],
+  "errors": []
+}
