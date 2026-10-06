@@ -157,4 +157,6 @@ items:
 
   - {id: ST-170c2, title: "V2 internal idempotency reservation core", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-170a", "ST-170c1"]}
 
-  - {id: ST-170c3, title: "Internal v2 session-bound CSRF core", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-170a", "ST-170c2"]}
+  - {id: ST-170c3, title: "Internal v2 session-bound CSRF core", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-170a", "ST-170c2"]}
+
+  - {id: ST-170c4, title: "Internal exclusive v2 credential transport selector", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-170a"]}
