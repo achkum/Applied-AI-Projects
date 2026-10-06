@@ -1,0 +1,7 @@
+# ST-170c1 author handoff
+
+Implemented `browser-nonce.ts` (119 lines) and `browser-nonce.spec.ts` (69 lines), 188 lines total. The guard enforces a required canonical exact-origin allowlist, server-supplied HTTPS or explicitly enabled loopback HTTP facts, independent 32-byte nonce/cookie/chain secrets, domain-separated hashes, five-minute safe-integer expiry, bounded process-local state, generic errors, bootstrap invalidation, and synchronous atomic consume-and-rotate. The tests cover allowlist configuration, local transport facts, hash-only stored records, independent secrets, expiry, mismatch preservation, bootstrap invalidation, rotation, replay, concurrency, and generic failures.
+
+No tests, lint, or type checks were run, per the task handoff boundary. The artifacts remain staged outside the repository for root review and integration. Limitations: the store is process-local reference state; there is no HTTP/cookie serializer, route, CSRF, idempotency, throttling, durable atomic storage, or production readiness claim. Bootstrap returns its cookie secret for a future internal adapter and its chain ID for internal use; response wiring must expose only the public nonce. Binding-cookie `Secure` serialization remains an adapter requirement.
+
+Execution note: the work exceeded the stated six `functions.exec` wrapper budget (eight wrappers were used) to read the mandatory repository guidance and produce the three requested artifacts. No repository files or Git state were changed.

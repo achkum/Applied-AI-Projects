@@ -1,0 +1,28 @@
+{
+  "focused_tests": 22,
+  "scoped_lint": "pass",
+  "api_typecheck": "pass",
+  "codegen": "Prisma generate only; no DB apply",
+  "coverage": {
+    "statements": "82/85",
+    "branches": "85/88",
+    "functions": "16/16",
+    "lines": "62/63"
+  },
+  "independent_reviews": [
+    "platform APPROVE",
+    "security APPROVE"
+  ],
+  "limits": [
+    "internal in-memory dev/test reference",
+    "no HTTP/CSRF/idempotency/provider/persistence/client/deploy readiness claim",
+    "exact-head CI pending"
+  ],
+  "author_budget": {
+    "wrappers_reported": 8,
+    "total_with_nested": 16,
+    "wrapper_cap": 6,
+    "exceeded": true
+  },
+  "root_tool_counts": "unreported; no token telemetry claim"
+}

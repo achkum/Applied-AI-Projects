@@ -1,0 +1,13 @@
+{
+  "sources": [
+    {
+      "path": "apps/api/src/auth/browser-nonce/browser-nonce.ts",
+      "sha256": "d76c95d50ccf8eacbd463b967a3db037d06fe7c7bf582dcd6b4f79a1e5d38864"
+    },
+    {
+      "path": "apps/api/src/auth/browser-nonce/browser-nonce.spec.ts",
+      "sha256": "b6d30104cf5a5e2ad51566785bdf185d76639313576968a1fbe034a682dab614"
+    }
+  ],
+  "accepted_base": "c96e67f31cc342ed710d1b85775faf02a308e534"
+}
