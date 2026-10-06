@@ -1,4 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- ':(top)TokenOptimizer/frontend'"
+  "ignoreCommand": "repo_root=$(git rev-parse --show-toplevel) || exit 1; git -C \"$repo_root\" diff --quiet HEAD^ HEAD -- TokenOptimizer/frontend/"
 }
