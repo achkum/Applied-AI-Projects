@@ -1,0 +1,5 @@
+# ST170a: exact historical source-digest false positives, verified against each source.
+# These are public SHA256 evidence fingerprints, not credentials. No rule/path blanket ignores.
+e753e98d5ac064cbeb93fd9a7cc81b15a6a7bb66:SubTrack/.sdlc/evidence/ST-170a/manifest.json:generic-api-key:4
+e753e98d5ac064cbeb93fd9a7cc81b15a6a7bb66:SubTrack/.sdlc/evidence/ST-170a/manifest.json:generic-api-key:5
+e753e98d5ac064cbeb93fd9a7cc81b15a6a7bb66:SubTrack/.sdlc/evidence/ST-170a/manifest.json:generic-api-key:7

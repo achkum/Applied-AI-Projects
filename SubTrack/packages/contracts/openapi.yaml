@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SubTrack API
-  version: 1.0.0
+  version: 1.1.0
   description: Contract metadata and approved operational endpoints.
 paths:
   /healthz:
@@ -225,6 +225,374 @@ paths:
                 $ref: '#/components/schemas/VersionResponse'
         default:
           $ref: '#/components/responses/Problem'
+
+  /v2/auth/browser-nonce:
+    post:
+      operationId: createV2BrowserNonce
+      summary: Issue a one-use browser nonce and binding cookie
+      description: >
+        Browser-only bootstrap. Require HTTPS outside local development and an
+        exact configured Origin allowlist match; reject Origin null, wildcard or
+        reflected credentialed CORS. Set a distinct host-only Secure; HttpOnly;
+        SameSite=Lax binding cookie (Domain omitted), and return the public nonce
+        for a custom request header. The binding cookie is not the nonce. Every
+        mutating POST requires Idempotency-Key; idempotent retries must never
+        replay a code, proof, or bypass throttles. Nonces are purpose, origin,
+        challenge-chain and cookie-pair bound, short-lived and single-use.
+        A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof. Bootstrap a fresh nonce with a unique key; it invalidates the prior browser chain.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ExactOrigin'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrowserNonceRequest'
+      responses:
+        '200':
+          description: Public nonce; binding cookie is set separately.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+            Pragma: { schema: { type: string, const: no-cache } }
+            Set-Cookie:
+              schema: { type: string }
+              description: >
+                Host-only Secure; HttpOnly; SameSite=Lax binding cookie. Cookie
+                name and Path are deployment-configured; Domain is omitted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrowserNonceResponse'
+        '400': { $ref: '#/components/responses/V2Problem' }
+        '403': { $ref: '#/components/responses/V2Problem' }
+        '409': { $ref: '#/components/responses/V2Problem' }
+        default: { $ref: '#/components/responses/V2Problem' }
+
+  /v2/auth/otp/start:
+    post:
+      x-wire-call-envelopes: ['WebOtpStartCallEnvelope', 'MobileOtpStartCallEnvelope']
+      operationId: startV2Otp
+      summary: Start identifier verification or OTP step-up
+      description: >
+        Does not select or create a principal. Normalize identifier/channel and
+        throttle by IP and identifier. Return generic status, body and timing;
+        202 does not assert delivery or account existence. Browser requests also
+        require the nonce header, binding cookie and exact Origin; consume and
+        rotate the browser nonce and return the next nonce. Idempotency-Key is
+        required, but retries never replay codes or bypass throttles.
+        A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof. Start a fresh challenge on a fresh nonce chain and obey the existing throttles.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/OriginForWeb'
+        - $ref: '#/components/parameters/BrowserNonce'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpStartRequest'
+      responses:
+        '202':
+          description: Generic accepted response; no identity or delivery claim.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpStartResponse'
+        '400': { $ref: '#/components/responses/V2Problem' }
+        '403': { $ref: '#/components/responses/V2Problem' }
+        '429': { $ref: '#/components/responses/V2Problem' }
+        '409': { $ref: '#/components/responses/V2Problem' }
+        default: { $ref: '#/components/responses/V2Problem' }
+
+  /v2/auth/otp/verify:
+    post:
+      x-wire-call-envelopes: ['WebOtpVerifyCallEnvelope', 'MobileOtpVerifyCallEnvelope']
+      operationId: verifyV2Otp
+      summary: Verify an OTP challenge and issue a restricted proof
+      description: >
+        Returns an opaque one-use proof bound to purpose, initiating challenge,
+        normalized identifier hash where applicable, selected transport and
+        browser nonce chain; proofs expire after five minutes. Enrollment proof only permits the mandatory BankID
+        continuation; step-up proof cannot establish login. No provider fields
+        or client-asserted BankID result are accepted. Browser nonce is consumed
+        and rotated; response returns the next public nonce. Idempotency retries
+        cannot replay a proof.
+        A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof. Obtain a fresh challenge and verify again under existing throttles.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/OriginForWeb'
+        - $ref: '#/components/parameters/BrowserNonce'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+      responses:
+        '200':
+          description: Restricted one-use proof; no-store.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResponse'
+        '400': { $ref: '#/components/responses/V2Problem' }
+        '401': { $ref: '#/components/responses/V2Problem' }
+        '403': { $ref: '#/components/responses/V2Problem' }
+        '429': { $ref: '#/components/responses/V2Problem' }
+        '409': { $ref: '#/components/responses/V2Problem' }
+        default: { $ref: '#/components/responses/V2Problem' }
+
+  /v2/auth/session:
+    post:
+      x-wire-call-envelopes: ['WebSessionCallEnvelope', 'MobileSessionCallEnvelope']
+      operationId: createV2Session
+      summary: Redeem a server-issued login proof for a session
+      description: >
+        Login proof must come from server-verified BankID, or a server-verified
+        registered mobile passkey/biometric assertion plus OTP. ST170b proof
+        producer integration is a prerequisite; this contract does not claim
+        client readiness. Proof is one-use, transport-bound, and cannot switch
+        web/mobile modes. OTP enrollment and step-up proofs are not login proofs.
+        Store only proof hashes and redeem atomically. no-store responses. Web
+        cookies are host-only Secure; HttpOnly; SameSite=Lax: st_v2_access Path
+        /v2 and st_v2_refresh Path /v2/auth; omit Domain and do not use __Host-
+        with narrower paths. Web returns a distinct readable session-bound CSRF
+        token. Mobile receives the access JWT and opaque refresh secret once for OS secure storage.
+        A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof. Discard local credentials and complete a fresh server-verified login; ST170b is required. After login, owner-scoped session listing/revocation can address a known prior sessionId; an unknown orphan expires normally.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/OriginForWeb'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionRequest'
+      responses:
+        '201':
+          description: Session created. no-store; web sets access and refresh cookies.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+            Pragma: { schema: { type: string, const: no-cache } }
+            Set-Cookie:
+              schema: { type: string }
+              description: >
+                Web only: host-only Secure; HttpOnly; SameSite=Lax cookies with
+                st_v2_access Path=/v2 and st_v2_refresh Path=/v2/auth. Domain omitted.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/WebSessionResponse'
+                  - $ref: '#/components/schemas/MobileSessionResponse'
+        '400': { $ref: '#/components/responses/V2Problem' }
+        '401': { $ref: '#/components/responses/V2Problem' }
+        '403': { $ref: '#/components/responses/V2Problem' }
+        '409': { $ref: '#/components/responses/V2Problem' }
+        default: { $ref: '#/components/responses/V2Problem' }
+
+  /v2/auth/refresh:
+    post:
+      x-wire-call-envelopes: ['WebRefreshCallEnvelope', 'MobileRefreshCallEnvelope']
+      operationId: refreshV2Session
+      summary: Rotate refresh credential within the selected transport
+      description: >
+        Request body is forbidden. Web uses only st_v2_refresh cookie with exact
+        Origin and session-bound CSRF header; mobile uses only Authorization:
+        Refresh <opaque-secret>, never body or query. Reject mixed cookie and
+        Authorization credentials. Atomically consume one active refresh hash
+        and create one same-identity, same-family successor; concurrent losers
+        create none and consumed-token reuse revokes the family. Retain consumed
+        hashes for the applicable refresh lifetime. No-store. Idempotency-Key is
+        required and cannot replay secrets or bypass rotation.
+        If outcome is uncertain, never retry the old refresh credential: reuse revokes its family. Discard local credentials and complete fresh verified login; afterward use owner-scoped session listing/revocation for any known prior sessionId. An unknown orphan expires normally. A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/OriginForWeb'
+        - $ref: '#/components/parameters/SessionCsrf'
+      security:
+        - V2WebRefreshCookie: []
+        - V2MobileRefresh: []
+      responses:
+        '200':
+          description: Rotated credentials. no-store; web rotates cookies.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+            Pragma: { schema: { type: string, const: no-cache } }
+            Set-Cookie:
+              schema: { type: string }
+              description: Web only; same attributes and paths as session creation.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/WebRefreshResponse'
+                  - $ref: '#/components/schemas/MobileRefreshResponse'
+        '401': { $ref: '#/components/responses/V2Problem' }
+        '403': { $ref: '#/components/responses/V2Problem' }
+        '409': { $ref: '#/components/responses/V2Problem' }
+        default: { $ref: '#/components/responses/V2Problem' }
+
+  /v2/me/sessions:
+    get:
+      operationId: listV2Sessions
+      summary: List sessions owned by the authenticated caller
+      description: >
+        Derive identity and session only from an active v2 server-validated
+        credential. Never accept an identity selector or fall back to v1.
+        Reject cookie plus Bearer credentials; mobile protected calls use only
+        Bearer access JWT. Session list is owner-scoped.
+      security:
+        - V2WebAccessCookie: []
+        - V2AccessBearer: []
+      responses:
+        '200':
+          description: Caller-owned sessions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SessionSummary' }
+        '401': { $ref: '#/components/responses/V2Problem' }
+        default: { $ref: '#/components/responses/V2Problem' }
+
+  /v2/me/sessions/{id}:
+    delete:
+      operationId: revokeV2Session
+      summary: Revoke one caller-owned session
+      description: >
+        Revoke only a session belonging to authenticated identity. Web requires
+        exact Origin and session-bound CSRF; Bearer mobile requires no cookie
+        CSRF. Reject mixed credentials and unknown/foreign IDs without exposing
+        ownership.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/OriginForWeb'
+        - $ref: '#/components/parameters/SessionCsrf'
+      security:
+        - V2WebAccessCookie: []
+        - V2AccessBearer: []
+      responses:
+        '204': { description: Session revoked. }
+        '401': { $ref: '#/components/responses/V2Problem' }
+        '403': { $ref: '#/components/responses/V2Problem' }
+        '404': { $ref: '#/components/responses/V2Problem' }
+        default: { $ref: '#/components/responses/V2Problem' }
+
+  /v2/me/reauth/otp/start:
+    post:
+      operationId: startV2DeleteOtpReauth
+      summary: Start development-only same-principal delete reauthentication
+      description: >
+        Authenticated caller only. Server resolves caller's registered identifier
+        from session context; no identity, identifier, environment, or method
+        selector is accepted. Enforce AUTH_DELETE_OTP_DEV_ONLY=true and explicit
+        development mode, failing closed elsewhere. Challenge is bound to same
+        principal and session, account-delete action and transport. Generic 202
+        does not assert delivery. Web requires exact Origin and session CSRF.
+        Idempotency retries do not replay codes or bypass throttles.
+        A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof. Start a fresh challenge on a fresh nonce chain and obey the existing throttles.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/OriginForWeb'
+        - $ref: '#/components/parameters/SessionCsrf'
+      security:
+        - V2WebAccessCookie: []
+        - V2AccessBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeleteOtpStartRequest' }
+      responses:
+        '202':
+          description: Generic challenge accepted.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeleteOtpStartResponse' }
+        '401': { $ref: '#/components/responses/V2Problem' }
+        '403': { $ref: '#/components/responses/V2Problem' }
+        '429': { $ref: '#/components/responses/V2Problem' }
+        '409': { $ref: '#/components/responses/V2Problem' }
+        default: { $ref: '#/components/responses/V2Problem' }
+
+  /v2/me/reauth/otp/verify:
+    post:
+      operationId: verifyV2DeleteOtpReauth
+      summary: Verify development-only account-delete OTP reauthentication
+      description: >
+        Authenticated same principal and session as challenge start. Enforce
+        AUTH_DELETE_OTP_DEV_ONLY=true plus explicit development mode and fail
+        closed elsewhere. Atomically verify and consume caller-owned challenge;
+        issue opaque reauthProof bound only to same principal/session and account
+        deletion, never a login proof. Web requires exact Origin and session CSRF.
+        no-store; Idempotency-Key retry cannot replay proof.
+        A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof. Obtain a fresh challenge and verify again under existing throttles.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/OriginForWeb'
+        - $ref: '#/components/parameters/SessionCsrf'
+      security:
+        - V2WebAccessCookie: []
+        - V2AccessBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeleteOtpVerifyRequest' }
+      responses:
+        '200':
+          description: Deletion-only proof; no-store.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeleteOtpVerifyResponse' }
+        '401': { $ref: '#/components/responses/V2Problem' }
+        '403': { $ref: '#/components/responses/V2Problem' }
+        '409': { $ref: '#/components/responses/V2Problem' }
+        default: { $ref: '#/components/responses/V2Problem' }
+
+  /v2/me:
+    delete:
+      operationId: deleteV2Me
+      summary: Delete the authenticated caller's account
+      description: >
+        Requires the current active same-principal session plus independent
+        deletion-only reauthProof consumed atomically. Production proof requires
+        recent BankID verification; development OTP proof is accepted only with
+        explicit development mode and AUTH_DELETE_OTP_DEV_ONLY=true. Web always
+        requires exact Origin and session-bound CSRF. Never trust proof alone or
+        accept an identity selector. Mobile uses Bearer access credential.
+      parameters:
+        - $ref: '#/components/parameters/OriginForWeb'
+        - $ref: '#/components/parameters/SessionCsrf'
+      security:
+        - V2WebAccessCookie: []
+        - V2AccessBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeleteMeRequest' }
+      responses:
+        '204': { description: Account deleted. }
+        '400': { $ref: '#/components/responses/V2Problem' }
+        '401': { $ref: '#/components/responses/V2Problem' }
+        '403': { $ref: '#/components/responses/V2Problem' }
+        '404': { $ref: '#/components/responses/V2Problem' }
+        default: { $ref: '#/components/responses/V2Problem' }
+
 components:
   schemas:
     HealthResponse:
@@ -327,6 +695,301 @@ components:
             data erasure. With A5 Assumed (dev/simulator), any non-empty string
             is accepted.
 
+
+    # Client/server wire-call models. These envelopes are validation guidance for
+    # adapters; actual HTTP sends body and headers in their normal locations.
+    WebOtpStartBody:
+      type: object
+      additionalProperties: false
+      required: [channel, identifier, purpose, transport]
+      properties:
+        channel: { type: string, enum: [sms, email] }
+        identifier: { type: string }
+        purpose: { type: string, enum: [enroll_identifier, otp_step_up] }
+        transport: { type: string, const: web }
+    WebOtpVerifyBody:
+      type: object
+      additionalProperties: false
+      required: [challengeId, code, transport]
+      properties:
+        challengeId: { type: string }
+        code: { type: string, minLength: 1 }
+        transport: { type: string, const: web }
+    MobileOtpStartBody:
+      type: object
+      additionalProperties: false
+      required: [channel, identifier, purpose, transport]
+      properties:
+        channel: { type: string, enum: [sms, email] }
+        identifier: { type: string }
+        purpose: { type: string, enum: [enroll_identifier, otp_step_up] }
+        transport: { type: string, const: mobile }
+    MobileOtpVerifyBody:
+      type: object
+      additionalProperties: false
+      required: [challengeId, code, transport]
+      properties:
+        challengeId: { type: string }
+        code: { type: string, minLength: 1 }
+        transport: { type: string, const: mobile }
+    WebOtpStartWireCall:
+      $ref: '#/components/schemas/WebOtpStartCallEnvelope'
+    WebOtpStartCallEnvelope:
+      type: object
+      additionalProperties: false
+      required: [transport, headers, body]
+      properties:
+        transport: { type: string, const: web }
+        headers: { $ref: '#/components/schemas/WebOtpStartHeaders' }
+        body: { $ref: "#/components/schemas/WebOtpStartBody" }
+    MobileOtpStartCallEnvelope:
+      type: object
+      additionalProperties: false
+      required: [transport, headers, body]
+      properties:
+        transport: { type: string, const: mobile }
+        headers: { $ref: '#/components/schemas/MobileOtpHeaders' }
+        body: { $ref: "#/components/schemas/MobileOtpStartBody" }
+    WebOtpVerifyCallEnvelope:
+      type: object
+      additionalProperties: false
+      required: [transport, headers, body]
+      properties:
+        transport: { type: string, const: web }
+        headers: { $ref: '#/components/schemas/WebOtpHeaders' }
+        body: { $ref: "#/components/schemas/WebOtpVerifyBody" }
+    MobileOtpVerifyCallEnvelope:
+      type: object
+      additionalProperties: false
+      required: [transport, headers, body]
+      properties:
+        transport: { type: string, const: mobile }
+        headers: { $ref: '#/components/schemas/MobileOtpHeaders' }
+        body: { $ref: "#/components/schemas/MobileOtpVerifyBody" }
+    WebSessionCallEnvelope:
+      type: object
+      additionalProperties: false
+      required: [transport, headers, body]
+      properties:
+        transport: { type: string, const: web }
+        headers: { $ref: '#/components/schemas/WebSessionHeaders' }
+        body: { $ref: "#/components/schemas/WebSessionRequest" }
+    MobileSessionCallEnvelope:
+      type: object
+      additionalProperties: false
+      required: [transport, headers, body]
+      properties:
+        transport: { type: string, const: mobile }
+        headers: { $ref: '#/components/schemas/MobileSessionHeaders' }
+        body: { $ref: "#/components/schemas/MobileSessionRequest" }
+    WebRefreshCallEnvelope:
+      type: object
+      additionalProperties: false
+      required: [transport, headers, body]
+      properties:
+        transport: { type: string, const: web }
+        headers: { $ref: '#/components/schemas/WebRefreshHeaders' }
+        body: { type: 'null', const: null }
+    MobileRefreshCallEnvelope:
+      type: object
+      additionalProperties: false
+      required: [transport, headers, body]
+      properties:
+        transport: { type: string, const: mobile }
+        headers: { $ref: '#/components/schemas/MobileRefreshHeaders' }
+        body: { type: 'null', const: null }
+    WebOtpStartHeaders:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, origin, browserNonce]
+      properties:
+        idempotencyKey: { type: string, minLength: 16, maxLength: 255 }
+        origin: { type: string, format: uri, description: Browser supplies Origin; client JavaScript must not set this forbidden header. }
+        browserNonce: { type: string, description: Public X-Browser-Nonce value. }
+    WebOtpHeaders:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, origin, browserNonce]
+      properties:
+        idempotencyKey: { type: string, minLength: 16, maxLength: 255 }
+        origin: { type: string, format: uri, description: Browser supplies Origin; client JavaScript must not set this forbidden header. }
+        browserNonce: { type: string }
+    MobileOtpHeaders:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey]
+      properties:
+        idempotencyKey: { type: string, minLength: 16, maxLength: 255 }
+    WebSessionHeaders:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, origin]
+      properties:
+        idempotencyKey: { type: string, minLength: 16, maxLength: 255 }
+        origin: { type: string, format: uri, description: Browser supplies Origin; client JavaScript must not set this forbidden header. }
+    MobileSessionHeaders:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey]
+      properties:
+        idempotencyKey: { type: string, minLength: 16, maxLength: 255 }
+    WebRefreshHeaders:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, origin, sessionCsrf]
+      properties:
+        idempotencyKey: { type: string, minLength: 16, maxLength: 255 }
+        origin: { type: string, format: uri, description: Browser supplies Origin; client JavaScript must not set this forbidden header. }
+        sessionCsrf: { type: string }
+    MobileRefreshHeaders:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, authorization]
+      properties:
+        idempotencyKey: { type: string, minLength: 16, maxLength: 255 }
+        authorization: { type: string, pattern: '^Refresh .+$', description: "Opaque refresh credential; no Origin, nonce or CSRF fields." }
+    BrowserNonceRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose]
+      properties:
+        purpose: { type: string, enum: [enroll_identifier, otp_step_up, session] }
+    BrowserNonceResponse:
+      type: object
+      additionalProperties: false
+      required: [nonce]
+      properties:
+        nonce: { type: string, description: "Public one-use nonce, sent by JS in a custom header." }
+    OtpStartRequest:
+      type: object
+      additionalProperties: false
+      required: [channel, identifier, purpose, transport]
+      properties:
+        channel: { type: string, enum: [sms, email] }
+        identifier: { type: string, description: "Normalized server-side; never echoed." }
+        purpose: { type: string, enum: [enroll_identifier, otp_step_up] }
+        transport: { type: string, enum: [web, mobile] }
+    OtpStartResponse:
+      type: object
+      additionalProperties: false
+      required: [challengeId, status, nextBrowserNonce]
+      properties:
+        challengeId: { type: string }
+        status: { type: string, const: accepted }
+        nextBrowserNonce: { type: [string, 'null'], description: "Next public nonce for browser flow; null for mobile." }
+    OtpVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [challengeId, code, transport]
+      properties:
+        challengeId: { type: string }
+        code: { type: string, minLength: 1 }
+        transport: { type: string, enum: [web, mobile] }
+    OtpVerifyResponse:
+      type: object
+      additionalProperties: false
+      required: [purpose, proof, nextBrowserNonce]
+      properties:
+        purpose: { type: string, enum: [enroll_identifier, otp_step_up] }
+        proof: { type: string, description: "Opaque one-use purpose and transport-bound proof; store hash only." }
+        nextBrowserNonce: { type: [string, 'null'], description: "Next public nonce for browser flow; null for mobile." }
+    SessionRequest:
+      oneOf:
+        - $ref: '#/components/schemas/WebSessionRequest'
+        - $ref: '#/components/schemas/MobileSessionRequest'
+      discriminator:
+        propertyName: transport
+        mapping: { web: '#/components/schemas/WebSessionRequest', mobile: '#/components/schemas/MobileSessionRequest' }
+    WebSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [transport, loginProof]
+      properties:
+        transport: { type: string, const: web }
+        loginProof: { type: string, description: "Server-issued one-use login proof bound to web transport." }
+    MobileSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [transport, loginProof]
+      properties:
+        transport: { type: string, const: mobile }
+        loginProof: { type: string, description: "Server-issued one-use login proof bound to mobile transport." }
+        deviceName: { type: string, maxLength: 100 }
+    WebSessionResponse:
+      type: object
+      additionalProperties: false
+      required: [transport, sessionId, csrfToken]
+      properties:
+        transport: { type: string, const: web }
+        sessionId: { type: string, format: uuid }
+        csrfToken: { type: string, description: "Readable session-bound CSRF token, distinct from browser nonce." }
+    MobileSessionResponse:
+      type: object
+      additionalProperties: false
+      required: [transport, sessionId, accessToken, refreshToken]
+      properties:
+        transport: { type: string, const: mobile }
+        sessionId: { type: string, format: uuid }
+        accessToken: { type: string, description: "Short-lived v2 access JWT returned once for OS secure storage." }
+        refreshToken: { type: string, description: "Opaque refresh credential returned once for OS secure storage." }
+    WebRefreshResponse:
+      type: object
+      additionalProperties: false
+      required: [transport, sessionId, csrfToken]
+      properties:
+        transport: { type: string, const: web }
+        sessionId: { type: string, format: uuid }
+        csrfToken: { type: string, description: "Rotated readable session-bound CSRF token." }
+    MobileRefreshResponse:
+      type: object
+      additionalProperties: false
+      required: [transport, sessionId, accessToken, refreshToken]
+      properties:
+        transport: { type: string, const: mobile }
+        sessionId: { type: string, format: uuid }
+        accessToken: { type: string, description: Short-lived v2 access JWT rotated within the same session family. }
+        refreshToken: { type: string }
+    SessionSummary:
+      type: object
+      additionalProperties: false
+      required: [id, createdAt, current]
+      properties:
+        id: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        current: { type: boolean }
+        deviceName: { type: [string, 'null'] }
+    DeleteOtpStartRequest:
+      type: object
+      additionalProperties: false
+      required: [channel]
+      properties:
+        channel: { type: string, enum: [sms, email] }
+    DeleteOtpStartResponse:
+      type: object
+      additionalProperties: false
+      required: [challengeId, status]
+      properties:
+        challengeId: { type: string }
+        status: { type: string, const: accepted }
+    DeleteOtpVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [challengeId, code]
+      properties:
+        challengeId: { type: string }
+        code: { type: string, minLength: 1 }
+    DeleteOtpVerifyResponse:
+      type: object
+      additionalProperties: false
+      required: [reauthProof]
+      properties:
+        reauthProof: { type: string, description: "Opaque one-use account-delete-only proof; store hash only." }
+    DeleteMeRequest:
+      type: object
+      additionalProperties: false
+      required: [reauthProof]
+      properties:
+        reauthProof: { type: string, description: "Independent same-principal account-delete proof; atomically consumed." }
     Problem:
       type: object
       description: RFC 9457 problem details.
@@ -343,6 +1006,68 @@ components:
         instance:
           type: string
       required: [type, title, status]
+    V2Problem:
+      allOf:
+        - $ref: "#/components/schemas/Problem"
+        - type: object
+          required: [code]
+          properties:
+            code: { type: string, description: "Stable generic machine code; AUTH_RESTART_REQUIRED signals a new verification flow." }
+
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 16, maxLength: 255 }
+      description: Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
+    ExactOrigin:
+      name: Origin
+      in: header
+      required: true
+      schema: { type: string, format: uri }
+      description: Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+    OriginForWeb:
+      name: Origin
+      in: header
+      required: false
+      schema: { type: string, format: uri }
+      description: Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+    BrowserNonce:
+      name: X-Browser-Nonce
+      in: header
+      required: false
+      schema: { type: string }
+      description: >
+        Required for web transport only: public nonce paired with the distinct HttpOnly browser binding cookie. Mobile omits it.
+    SessionCsrf:
+      name: X-Session-CSRF
+      in: header
+      required: false
+      schema: { type: string }
+      description: Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+  securitySchemes:
+    V2WebAccessCookie:
+      type: apiKey
+      in: cookie
+      name: st_v2_access
+      description: Web access cookie; host-only Secure HttpOnly SameSite=Lax, Path=/v2. Reject alongside Authorization credentials.
+    V2AccessBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Mobile access only; JWT with v2 issuer/audience/key namespace, no fallback to v1 identity headers.
+    V2WebRefreshCookie:
+      type: apiKey
+      in: cookie
+      name: st_v2_refresh
+      description: Web refresh cookie; host-only Secure HttpOnly SameSite=Lax, Path=/v2/auth.
+    V2MobileRefresh:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Mobile only, exact form `Refresh <opaque-secret>`; custom auth scheme, never body/query.
   responses:
     Problem:
       description: An error response following RFC 9457.
@@ -350,3 +1075,12 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+
+    V2Problem:
+      description: Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
+      headers:
+        Cache-Control: { schema: { type: string, const: no-store } }
+        Pragma: { schema: { type: string, const: no-cache } }
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/V2Problem" }
