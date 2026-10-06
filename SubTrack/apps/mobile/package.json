@@ -11,7 +11,7 @@
     "build": "eas build",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest --maxWorkers=2"
   },
   "dependencies": {
     "@babel/runtime": "7.29.7",

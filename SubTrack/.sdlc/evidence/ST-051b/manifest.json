@@ -13,7 +13,7 @@
   },
   {
     "path": "apps/mobile/package.json",
-    "sha256": "82bf581f59d26708845580d4b497124b37cae6a815c62c4bac12c27df0e8b63d"
+    "sha256": "d616bf2283853fc0f1934c796d53c86df6a867b8e2915d9b94440f17f4927363"
   },
   {
     "path": "apps/mobile/src/providers/RootProvider.tsx",
@@ -21,7 +21,7 @@
   },
   {
     "path": "apps/mobile/src/providers/RootLayout.test.tsx",
-    "sha256": "850ac47bd96423e5cc15e0b6d4e8f6691751b3b4dba02cea22aa85630514e8c3"
+    "sha256": "52fe53a8c5d6a12ffd0c367a04081fcaa5358fdd50825949296161b8156ba005"
   },
   {
     "path": "apps/mobile/src/context/ThemeContext.tsx",

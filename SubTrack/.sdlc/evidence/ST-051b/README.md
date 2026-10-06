@@ -9,3 +9,5 @@ No native device, screen reader, native splash appearance, binary release, or co
 Font and license files are exact copies of the accepted web assets. Source hashes below bind the reviewed source; browser/native evidence is separate from device acceptance. Author staging had schema assumptions corrected by root; original startup/provider integration coverage preserved. Manual call counters and budget exceptions are disclosed in qa-receipt.json; no automatic context clearing or token savings are claimed.
 
 Expo sources: https://docs.expo.dev/versions/v51.0.0/sdk/font/ and https://docs.expo.dev/versions/v51.0.0/sdk/splash-screen/ (documentation fetch attempted 2026-10-06; network proxy returned403). Verified against installed official expo-font12.0.10 FontHooks.d.ts and Expo51 Metro configuration implementation. No external provider integration.
+
+Initial CI failed one startup test deadline among81cases. The final corrected test removes its timer and flushes promises after synchronousrender; mobile Jest workers capped2. All16suites81cases pass locally; focused startup5tests preserve100percentcoverage. Exact-headCIrerunpending.

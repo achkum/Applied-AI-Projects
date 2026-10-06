@@ -24,3 +24,12 @@ The reviewed files show no auth, route, network, database, backend, or shared to
 - `/workspace/Applied-AI-Projects/SubTrack/apps/mobile/src/context/ThemeContext.test.tsx`
 - `/workspace/Applied-AI-Projects/SubTrack/apps/mobile/src/types/declarations.d.ts`
 - `/workspace/Applied-AI-Projects/SubTrack/apps/mobile/package.json`
+
+## CI timeout correction review
+
+Reviewed the CI correction after the initial exact-head run. The log shows one failure among 81 tests: the existing startup integration test exceeded Jest's default five-second timeout while awaiting a zero-delay timer inside `act`; the other 80 tests passed. The final first-test correction keeps `render(<RootLayout />)` outside `act` and flushes the resolved provider storage work with `await act(async () => { await Promise.resolve(); })`. This avoids the host-component discovery failure seen when render was placed inside an outer async `act`, while removing the timer that exceeded the test timeout. Its assertions remain intact, and the rest of the startup tests are unchanged. The mobile test script caps Jest at two workers to reduce cold-transform resource pressure. The correction does not increase the timeout, skip assertions, or disable coverage. I approve this targeted CI correction.
+
+
+## Final mobile suite result
+
+The full mobile test log `/workspace/.setup/ST051b-full-mobile-tests.log` reports 16 of 16 suites and 81 of 81 tests passed in 2.476 seconds. This verifies the Jest suite at the reviewed source state; it does not establish native device rendering or splash behavior.

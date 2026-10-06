@@ -60,7 +60,7 @@ describe('root layout startup imports', () => {
   it('mounts the router and hides the splash through named native exports', async () => {
     render(<RootLayout />);
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await Promise.resolve();
     });
 
     expect(SplashScreen.preventAutoHideAsync).toHaveBeenCalledTimes(1);

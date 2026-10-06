@@ -21,5 +21,12 @@
   "browser": "Actual Expo RN Web; four explicit locale/theme states; font faces loaded; no pageerrors",
   "nativeDevices": "NOT RUN",
   "ci": "pending exact source head",
-  "budgets": "Manual counters only; root calls unreported; font author handoff did not report call count. Design reviewer 4 wrappers plus 10 nested tool operations exceeded 8-total target; final platform review needed disclosed extensions. No token telemetry or savings claim."
+  "budgets": "Manual counters only; root calls unreported; font author handoff did not report call count. Design reviewer 4 wrappers plus 10 nested tool operations exceeded 8-total target; final platform review needed disclosed extensions. No token telemetry or savings claim.",
+  "fullMobileTests": {
+    "suites": 16,
+    "cases": 81,
+    "result": "PASS",
+    "workers": 2
+  },
+  "ciCorrection": "Initial exacthead CI1of81startup test timeout. Removed timer, flush resolved storage with asyncact after synchronousrender; boundedworkers2. Initial nestedrenderinasyncact failedRNTLhostdiscovery; corrected before greenfullsuite. No timeout/assertion/coverage waiver."
 }
