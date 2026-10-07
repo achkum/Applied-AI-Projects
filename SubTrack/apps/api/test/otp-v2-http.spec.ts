@@ -230,4 +230,29 @@ describe('OTP sliding rate limiter', () => {
     expect(limiter.allowVerify('198.51.100.1', 0)).toBe(false);
     expect(limiter.allowVerify('198.51.100.1', 60_000)).toBe(true);
   });
+
+  it('scans buckets only when the earliest expiry is due and prunes with one bounded pass', () => {
+    const limiter = new OtpRateLimiter(Buffer.alloc(32, 5));
+    const buckets = (limiter as unknown as { buckets: { [Symbol.iterator](): IterableIterator<[string, unknown]> } }).buckets;
+    const iterate = buckets[Symbol.iterator].bind(buckets);
+    let yielded = 0;
+    buckets[Symbol.iterator] = function* () {
+      for (const entry of iterate()) { yielded += 1; yield entry; }
+    };
+
+    for (let i = 0; i < 10_000; i += 1) expect(limiter.allowVerify(`bucket-${i}`, 0)).toBe(true);
+    expect(yielded).toBe(0);
+    expect(limiter.allowVerify('expired-bucket', 60_000)).toBe(true);
+    expect(yielded).toBe(10_000);
+    expect(limiter.allowVerify('another-bucket', 60_000)).toBe(true);
+  });
+
+  it('frees exactly the earliest expired slot while later buckets remain capacity-bound', () => {
+    const limiter = new OtpRateLimiter(Buffer.alloc(32, 6));
+    expect(limiter.allowVerify('earliest', 0)).toBe(true);
+    for (let i = 0; i < 9_999; i += 1) expect(limiter.allowVerify(`later-${i}`, 30_000)).toBe(true);
+    expect(limiter.allowVerify('at-capacity', 30_000)).toBe(false);
+    expect(limiter.allowVerify('replacement', 60_000)).toBe(true);
+    expect(limiter.allowVerify('still-at-capacity', 60_000)).toBe(false);
+  });
 });

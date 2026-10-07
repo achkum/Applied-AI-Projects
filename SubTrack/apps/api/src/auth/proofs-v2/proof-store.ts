@@ -16,6 +16,15 @@ interface ProofBindingBase {
 
 export type ProofBinding = Readonly<ProofBindingBase>;
 
+/** Caller context used only to match a previously issued login proof. */
+export type LoginProofContext = Readonly<{
+  readonly transport: ProofTransport;
+  readonly exactOrigin?: string;
+  readonly browserChainId?: string;
+}>;
+
+export type LoginConsumeResult = Readonly<{ valid: true; identityId: string }> | typeof INVALID;
+
 export interface StoredProof {
   readonly hash: string;
   readonly purpose: ProofPurpose;
@@ -40,6 +49,12 @@ export interface ProofRepository {
     expected: ProofBinding,
     now: number,
   ): boolean | Promise<boolean>;
+  /** Must atomically match a login/authenticate proof, delete it, then return its stored identity. */
+  compareAndConsumeLogin?(
+    hash: string,
+    expected: LoginProofContext,
+    now: number,
+  ): string | null | Promise<string | null>;
 }
 
 export const PROOF_TTL_MS = 5 * 60 * 1000;
@@ -95,6 +110,37 @@ function validateBinding(input: unknown): ProofBinding {
   return Object.freeze({ ...value }) as ProofBinding;
 }
 
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value);
+}
+
+function snapshotLoginContext(input: unknown): LoginProofContext {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) throw new Error();
+  const proto = Object.getPrototypeOf(input);
+  if (proto !== null && proto !== Object.prototype) throw new Error();
+  const keys = Reflect.ownKeys(input);
+  const allowed = new Set(['transport', 'exactOrigin', 'browserChainId']);
+  const values: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+  for (const key of keys) {
+    if (typeof key !== 'string' || !allowed.has(key)) throw new Error();
+    const descriptor = Object.getOwnPropertyDescriptor(input, key);
+    if (!descriptor || !('value' in descriptor) || !descriptor.enumerable) throw new Error();
+    values[key] = descriptor.value;
+  }
+  if (!(values.transport === 'web' || values.transport === 'mobile')) throw new Error();
+  if (values.transport === 'web') {
+    if (!isExactHttpsOrigin(values.exactOrigin) || !isNonEmpty(values.browserChainId)) throw new Error();
+    return Object.freeze(values) as LoginProofContext;
+  }
+  if (keys.length !== 1 || values.exactOrigin !== undefined || values.browserChainId !== undefined) throw new Error();
+  return Object.freeze(values) as LoginProofContext;
+}
+
+function isExactHttpsOrigin(value: unknown): value is string {
+  if (!isNonEmpty(value) || value !== value.trim()) return false;
+  try { const url = new URL(value); return url.protocol === 'https:' && url.origin === value && !url.hostname.includes('*'); } catch { return false; }
+}
+
 function hashSecret(secret: string): string {
   return createHash('sha256').update(HASH_DOMAIN, 'utf8').update(secret, 'utf8').digest('hex');
 }
@@ -131,6 +177,18 @@ export class ProofStore {
     return secret;
   }
 
+  async consumeLogin(secret: string, context: LoginProofContext): Promise<LoginConsumeResult> {
+    try {
+      const expected = snapshotLoginContext(context);
+      const now = this.clock();
+      if (!Number.isSafeInteger(now) || now < 0 || !isNonEmpty(secret) || !/^v2\.[A-Za-z0-9_-]{43}$/.test(secret)) return INVALID;
+      const consume = this.repository.compareAndConsumeLogin;
+      if (typeof consume !== 'function') return INVALID;
+      const identityId = await consume.call(this.repository, hashSecret(secret), expected, now);
+      return isUuid(identityId) ? Object.freeze({ valid: true, identityId }) : INVALID;
+    } catch { return INVALID; }
+  }
+
   async consume(secret: string, input: ProofBinding): Promise<Readonly<{ valid: boolean }>> {
     try {
       const binding = validateBinding(input);
@@ -154,6 +212,21 @@ export class InMemoryProofRepository implements ProofRepository {
     this.prune(record.issuedAt);
     if (this.records.size >= this.maxRecords) throw new Error('capacity');
     this.records.set(record.hash, Object.freeze({ ...record }));
+  }
+
+  compareAndConsumeLogin(hash: string, expected: LoginProofContext, now: number): string | null {
+    if (!Number.isSafeInteger(now) || now < 0) return null;
+    let context: LoginProofContext;
+    try { context = snapshotLoginContext(expected); } catch { return null; }
+    this.prune(now);
+    const record = this.records.get(hash);
+    if (!record || record.hash !== hash || now < record.issuedAt || now >= record.expiresAt ||
+      !Number.isSafeInteger(record.issuedAt) || record.issuedAt < 0 || !Number.isSafeInteger(record.expiresAt) ||
+      record.expiresAt !== record.issuedAt + PROOF_TTL_MS || record.purpose !== 'login' ||
+      record.action !== ACTIONS.login || !isNonEmpty(record.challenge) || record.transport !== context.transport ||
+      record.exactOrigin !== context.exactOrigin || record.browserChainId !== context.browserChainId || !isUuid(record.identityId)) return null;
+    this.records.delete(hash);
+    return record.identityId;
   }
 
   compareAndConsume(hash: string, expected: ProofBinding, now: number): boolean {

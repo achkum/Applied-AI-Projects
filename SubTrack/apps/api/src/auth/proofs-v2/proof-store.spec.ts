@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { DevelopmentSimulatorLoginProofProducer } from './bankid-simulator-proof-producer';
+import { describe, expect, it, vi } from 'vitest';
 import {
   InMemoryProofRepository,
   PROOF_TTL_MS,
@@ -13,6 +14,9 @@ const binding: ProofBinding = Object.freeze({
   purpose: 'stepup', challenge: 'challenge-A', transport: 'web',
   identifierHash: 'a'.repeat(64), exactOrigin: 'https://app.example', browserChainId: 'chain-A',
 });
+const loginIdentity = '123e4567-e89b-42d3-a456-426614174000';
+const loginMobile = Object.freeze({ purpose: 'login', challenge: 'login-challenge', transport: 'mobile', identityId: loginIdentity });
+const loginWeb = Object.freeze({ ...loginMobile, transport: 'web', exactOrigin: 'https://app.example', browserChainId: 'browser-chain' });
 const hashSecret = (secret: string) => createHash('sha256').update('subtrack:auth-proof:v2:', 'utf8').update(secret, 'utf8').digest('hex');
 
 describe('ProofStore', () => {
@@ -41,6 +45,75 @@ describe('ProofStore', () => {
     const results = await Promise.all(Array.from({ length: 12 }, () => store.consume(secret, binding)));
     expect(results.filter((result) => result.valid)).toHaveLength(1);
     expect(results.every((result) => Object.isFrozen(result))).toBe(true);
+  });
+
+  it('redeems a stored login proof once and returns only its canonical stored identity', async () => {
+    const repo = new InMemoryProofRepository();
+    const store = new ProofStore(repo, () => 4000);
+    const secret = await store.issue(loginMobile);
+    const [a, b] = await Promise.all([
+      store.consumeLogin(secret, { transport: 'mobile' }),
+      store.consumeLogin(secret, { transport: 'mobile' }),
+    ]);
+    expect([a, b].filter((result) => result.valid)).toHaveLength(1);
+    expect([a, b].find((result) => result.valid)).toEqual({ valid: true, identityId: loginIdentity });
+  });
+
+  it('supports the fixed web transport scope and rejects a changed origin before valid redemption', async () => {
+    const store = new ProofStore(new InMemoryProofRepository(), () => 4100);
+    const secret = await store.issue(loginWeb);
+    expect(await store.consumeLogin(secret, { transport: 'web', exactOrigin: 'https://evil.example', browserChainId: 'browser-chain' })).toEqual({ valid: false });
+    expect(await store.consumeLogin(secret, { transport: 'web', exactOrigin: 'https://app.example', browserChainId: 'browser-chain' })).toEqual({ valid: true, identityId: loginIdentity });
+  });
+
+  it.each([
+    ['caller challenge selector', { challenge: 'other', transport: 'mobile' }],
+    ['transport', { transport: 'web', exactOrigin: 'https://app.example', browserChainId: 'browser-chain' }],
+    ['extra identity selector', { transport: 'mobile', identityId: loginIdentity }],
+    ['non-enumerable field', Object.defineProperty({ transport: 'mobile' }, 'hidden', { value: true })],
+    ['accessor', Object.defineProperty({ transport: 'mobile' }, 'challenge', { enumerable: true, get: () => 'login-challenge' })],
+    ['symbol', { transport: 'mobile', [Symbol('x')]: true }],
+    ['custom prototype', Object.assign(Object.create({ inherited: true }), { transport: 'mobile' })],
+  ])('rejects %s context without burning a login proof', async (_label, context) => {
+    const store = new ProofStore(new InMemoryProofRepository(), () => 4200);
+    const secret = await store.issue(loginMobile);
+    expect(await store.consumeLogin(secret, context as never)).toEqual({ valid: false });
+    expect(await store.consumeLogin(secret, { transport: 'mobile' })).toEqual({ valid: true, identityId: loginIdentity });
+  });
+
+  it.each([
+    ['enrollment', { ...loginMobile, purpose: 'enrollment', action: 'enroll-credential' }],
+    ['login with wrong action', { ...loginMobile, action: 'step-up' }],
+    ['step-up purpose with login action', { ...loginMobile, purpose: 'stepup', action: 'authenticate' }],
+    ['account-delete purpose with login action', { ...loginMobile, purpose: 'account-delete', action: 'authenticate' }],
+    ['mobile with web metadata', { ...loginMobile, exactOrigin: 'https://app.example', browserChainId: 'chain' }],
+    ['negative issuance', { ...loginMobile, issuedAt: -1, expiresAt: PROOF_TTL_MS - 1 }],
+    ['missing stored challenge', { ...loginMobile, challenge: '' }],
+    ['malformed identity', { ...loginMobile, identityId: 'not-a-uuid' }],
+    ['uppercase identity', { ...loginMobile, identityId: loginIdentity.toUpperCase() }],
+    ['invalid timestamps', { ...loginMobile, issuedAt: 4000, expiresAt: 4000 + PROOF_TTL_MS + 1 }],
+    ['future issuance', { ...loginMobile, issuedAt: 4300, expiresAt: 4300 + PROOF_TTL_MS }],
+  ])('does not redeem corrupted %s records', async (_label, record) => {
+    const repo = new InMemoryProofRepository();
+    const store = new ProofStore(repo, () => 4250);
+    const secret = await store.issue(loginMobile);
+    const corrupt = record as Record<string, unknown>;
+    const records = (repo as unknown as { records: Map<string, StoredProof> }).records;
+    records.set(hashSecret(secret), Object.freeze({ hash: hashSecret(secret), action: 'authenticate', ...corrupt, issuedAt: corrupt.issuedAt ?? 4000, expiresAt: corrupt.expiresAt ?? 4000 + PROOF_TTL_MS }) as unknown as StoredProof);
+    expect(await store.consumeLogin(secret, { transport: 'mobile' })).toEqual({ valid: false });
+    expect(records.has(hashSecret(secret))).toBe(true);
+  });
+
+  it('fails closed for absent or failing atomic login repository methods and rejects invalid repository identities', async () => {
+    const secret = 'v2.' + 'A'.repeat(43);
+    const context = { transport: 'mobile' as const };
+    const noMethod: ProofRepository = { insert: () => undefined, compareAndConsume: () => true };
+    expect(await new ProofStore(noMethod, () => 1).consumeLogin(secret, context)).toEqual({ valid: false });
+    const failing = { ...noMethod, compareAndConsumeLogin: () => { throw new Error('private details'); } };
+    expect(await new ProofStore(failing, () => 1).consumeLogin(secret, context)).toEqual({ valid: false });
+    const invalid = { ...noMethod, compareAndConsumeLogin: () => 'identity-not-valid' };
+    expect(await new ProofStore(invalid, () => 1).consumeLogin(secret, context)).toEqual({ valid: false });
+    expect(JSON.stringify(await new ProofStore(invalid, () => 1).consumeLogin(secret, context))).not.toContain(secret);
   });
 
   it('rejects at exact expiry and for invalid clock values', async () => {
@@ -180,4 +253,61 @@ describe('ProofStore', () => {
     expect(secret).toMatch(/^v2\./);
     expect(await new ProofStore(corrupt, () => 9600).consume(secret, binding)).toEqual({ valid: false });
   });
+});
+
+
+describe('server-owned simulator login proof redemption', () => {
+  it('redeems actual web/mobile fixture proofs using no caller identity or server challenge', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.parse('2026-10-07T12:00:00.000Z'));
+    try {
+      const memory = new InMemoryProofRepository();
+      const records: StoredProof[] = [];
+      const repository: ProofRepository = {
+        insert: row => { records.push(row); memory.insert(row); },
+        compareAndConsume: (hash, context, now) => memory.compareAndConsume(hash, context, now),
+        compareAndConsumeLogin: (hash, context, now) => memory.compareAndConsumeLogin(hash, context, now),
+      };
+      const store = new ProofStore(repository);
+      const producer = new DevelopmentSimulatorLoginProofProducer({ environment: 'development', enabled: true,
+        simulatorHmacKey: Buffer.alloc(32, 7), identityResolver: { resolveRegisteredIdentityId: () => loginIdentity }, proofStore: store });
+      for (const context of [{ transport: 'mobile' }, { transport: 'web', exactOrigin: 'https://app.example', browserChainId: 'server-chain' }] as const) {
+        const secret = await producer.issue(context);
+        expect(JSON.stringify(records)).not.toContain(secret);
+        if (context.transport === 'web') {
+          expect(await store.consumeLogin(secret, { ...context, browserChainId: 'wrong-chain' })).toEqual({ valid: false });
+          expect(await store.consumeLogin(secret, { ...context, exactOrigin: 'https://elsewhere.example' })).toEqual({ valid: false });
+        }
+        const results = await Promise.all(Array.from({ length: 8 }, () => store.consumeLogin(secret, context)));
+        expect(results.filter(result => result.valid)).toEqual([{ valid: true, identityId: loginIdentity }]);
+        expect(results.every(result => Object.isFrozen(result))).toBe(true);
+        expect(await store.consumeLogin(secret, context)).toEqual({ valid: false });
+      }
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('rejects context accessors without invoking them or the atomic repository', async () => {
+    const getter = vi.fn(() => 'https://app.example');
+    const atomic = vi.fn(() => loginIdentity);
+    const store = new ProofStore({ insert: () => undefined, compareAndConsume: () => false, compareAndConsumeLogin: atomic });
+    const context = Object.defineProperty({ transport: 'web', browserChainId: 'server-chain' }, 'exactOrigin', { enumerable: true, get: getter });
+    expect(await store.consumeLogin('v2.' + 'A'.repeat(43), context as never)).toEqual({ valid: false });
+    expect(getter).not.toHaveBeenCalled();
+    expect(atomic).not.toHaveBeenCalled();
+  });
+});
+
+
+it('rejects malformed login secrets and invalid login clocks without invoking atomic consumption', async () => {
+  const atomic = vi.fn(() => loginIdentity);
+  const repository: ProofRepository = { insert: () => undefined, compareAndConsume: () => false, compareAndConsumeLogin: atomic };
+  const context = { transport: 'mobile' as const };
+  for (const clock of [() => -1, () => NaN, () => Infinity, () => 1.5, () => { throw new Error('private-clock-detail'); }]) {
+    expect(await new ProofStore(repository, clock).consumeLogin('v2.' + 'A'.repeat(43), context)).toEqual({ valid: false });
+  }
+  const store = new ProofStore(repository, () => 1);
+  for (const secret of ['', 'v1.' + 'A'.repeat(43), 'v2.' + 'A'.repeat(42), 'v2.' + 'A'.repeat(44), 'v2.' + '!'.repeat(43)]) {
+    expect(await store.consumeLogin(secret, context)).toEqual({ valid: false });
+  }
+  expect(atomic).not.toHaveBeenCalled();
 });
