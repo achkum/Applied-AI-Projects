@@ -1,0 +1,16 @@
+{
+  "pr": 180,
+  "url": "https://github.com/achkum/Applied-AI-Projects/pull/180",
+  "sourceHead": "6efc58c02fad62a6d1169f99f8684176bf253488",
+  "acceptedMain": "e512f0b046b3ee944bf397a77635e992ca462193",
+  "sourceAndMainTree": "22264966e8eea9a87bdd336058499a51871b7509",
+  "exactRemoteLease": "6efc58c02fad62a6d1169f99f8684176bf253488",
+  "ciRun": 37604396549,
+  "actualSuccessfulSteps": 34,
+  "apiTests": 405,
+  "apiFiles": 25,
+  "tasks": [
+    "ST-179",
+    "ST-181"
+  ]
+}
