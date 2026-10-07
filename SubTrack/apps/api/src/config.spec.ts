@@ -9,6 +9,14 @@ const enabled = {
   AUTH_V2_BINDING_COOKIE_NAME: 'st_v2_browser',
   AUTH_V2_BINDING_COOKIE_PATH: '/v2/auth',
 };
+const otpKeyConfig = {
+  AUTH_V2_BROWSER_NONCE_ENABLED: 'true',
+  AUTH_V2_IDEMPOTENCY_KEY: 'ab'.repeat(32),
+  AUTH_V2_BROWSER_ORIGIN_HMAC_KEY: 'cd'.repeat(32),
+  AUTH_V2_OTP_HTTP_ENABLED: 'true',
+  AUTH_V2_OTP_HMAC_KEY: 'ef'.repeat(32),
+  AUTH_V2_RATE_LIMIT_HMAC_KEY: '12'.repeat(32),
+};
 
 describe('v2 API configuration', () => {
   it('preserves disabled defaults and does not require v2 deployment values', () => {
@@ -64,5 +72,50 @@ describe('v2 API configuration', () => {
       { ...enabled, AUTH_V2_BROWSER_NONCE_ENABLED: 'true', AUTH_V2_IDEMPOTENCY_KEY: 'ab'.repeat(32), AUTH_V2_BROWSER_ORIGIN_HMAC_KEY: 'AB'.repeat(32) },
       { ...enabled, AUTH_V2_BROWSER_NONCE_ENABLED: 'true', AUTH_V2_IDEMPOTENCY_KEY: 'zz'.repeat(32), AUTH_V2_BROWSER_ORIGIN_HMAC_KEY: 'cd'.repeat(32) },
     ]) expect(() => validateConfig(input)).toThrow(/AUTH_V2/);
+  });
+  it('requires a development-only OTP gate and four distinct decoded 32-byte keys', () => {
+    const keys = { ...enabled, AUTH_V2_BROWSER_NONCE_ENABLED:'true', AUTH_V2_IDEMPOTENCY_KEY:'ab'.repeat(32), AUTH_V2_BROWSER_ORIGIN_HMAC_KEY:'cd'.repeat(32), AUTH_V2_OTP_HTTP_ENABLED:'true', AUTH_V2_OTP_HMAC_KEY:'ef'.repeat(32), AUTH_V2_RATE_LIMIT_HMAC_KEY:'12'.repeat(32) };
+    expect(validateConfig(keys).AUTH_V2_OTP_HTTP_ENABLED).toBe(true);
+  });
+
+  it.each([
+    ['OTP gate defaults off', base],
+    ['malformed OTP gate', { ...base, AUTH_V2_OTP_HTTP_ENABLED: 'yes' }],
+    ['test environment', { ...enabled, NODE_ENV: 'test', ...otpKeyConfig }],
+    ['production environment', { ...enabled, NODE_ENV: 'production', ...otpKeyConfig }],
+    ['v2 gate is required', { ...enabled, ...otpKeyConfig, AUTH_V2_ENABLED: 'false' }],
+    ['browser nonce gate is required', { ...enabled, ...otpKeyConfig, AUTH_V2_BROWSER_NONCE_ENABLED: 'false' }],
+    ['origins are required', { ...enabled, ...otpKeyConfig, AUTH_V2_ALLOWED_ORIGINS: undefined }],
+    ['binding cookie name is required', { ...enabled, ...otpKeyConfig, AUTH_V2_BINDING_COOKIE_NAME: undefined }],
+    ['binding cookie path is required', { ...enabled, ...otpKeyConfig, AUTH_V2_BINDING_COOKIE_PATH: undefined }],
+    ['nonce idempotency key is required', { ...enabled, ...otpKeyConfig, AUTH_V2_IDEMPOTENCY_KEY: undefined }],
+    ['browser origin key is required', { ...enabled, ...otpKeyConfig, AUTH_V2_BROWSER_ORIGIN_HMAC_KEY: undefined }],
+    ['OTP key is required', { ...enabled, ...otpKeyConfig, AUTH_V2_OTP_HMAC_KEY: undefined }],
+    ['rate key is required', { ...enabled, ...otpKeyConfig, AUTH_V2_RATE_LIMIT_HMAC_KEY: undefined }],
+    ['malformed OTP key', { ...enabled, ...otpKeyConfig, AUTH_V2_OTP_HMAC_KEY: 'otp-secret-sentinel' }],
+    ['malformed rate key', { ...enabled, ...otpKeyConfig, AUTH_V2_RATE_LIMIT_HMAC_KEY: 'rate-secret-sentinel' }],
+    ['OTP key equals idempotency key', { ...enabled, ...otpKeyConfig, AUTH_V2_OTP_HMAC_KEY: 'ab'.repeat(32) }],
+    ['OTP key equals browser origin key ignoring hex case', { ...enabled, ...otpKeyConfig, AUTH_V2_OTP_HMAC_KEY: 'CD'.repeat(32) }],
+    ['rate key equals idempotency key ignoring hex case', { ...enabled, ...otpKeyConfig, AUTH_V2_RATE_LIMIT_HMAC_KEY: 'AB'.repeat(32) }],
+    ['rate key equals browser origin key', { ...enabled, ...otpKeyConfig, AUTH_V2_RATE_LIMIT_HMAC_KEY: 'cd'.repeat(32) }],
+    ['rate key equals OTP key ignoring hex case', { ...enabled, ...otpKeyConfig, AUTH_V2_RATE_LIMIT_HMAC_KEY: 'EF'.repeat(32) }],
+  ])('validates OTP configuration: %s', (label, input) => {
+    if (label === 'OTP gate defaults off') {
+      expect(validateConfig(input).AUTH_V2_OTP_HTTP_ENABLED).toBe(false);
+      return;
+    }
+
+    expect(() => validateConfig(input)).toThrow(/AUTH_V2/);
+    try {
+      validateConfig(input);
+    } catch (error) {
+      const message = (error as Error).message;
+      expect(message).not.toContain('otp-secret-sentinel');
+      expect(message).not.toContain('rate-secret-sentinel');
+      expect(message).not.toContain('ab'.repeat(32));
+      expect(message).not.toContain('cd'.repeat(32));
+      expect(message).not.toContain('ef'.repeat(32));
+      expect(message).not.toContain('12'.repeat(32));
+    }
   });
 });
