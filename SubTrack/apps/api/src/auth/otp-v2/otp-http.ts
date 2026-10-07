@@ -24,16 +24,24 @@ export class DevelopmentOtpCodeSink {
 type Bucket = { events: number[]; expiresAt: number };
 export class OtpRateLimiter {
   private readonly buckets = new Map<string, Bucket>();
+  private nextPruneAt = Number.POSITIVE_INFINITY;
   constructor(private readonly key: Uint8Array, private readonly clock = Date.now) { if (key.byteLength < 32) throw new Error('OTP rate limit unavailable'); }
   private digest(kind: string, value: string): string { return createHmac('sha256', this.key).update(`subtrack:otp-rate:v1:${kind}:`).update(value).digest('hex'); }
   private take(id: string, limit: number, window: number, now: number): boolean {
-    for (const [key, row] of this.buckets) if (now >= row.expiresAt) this.buckets.delete(key);
+    if (now >= this.nextPruneAt) {
+      let nextPruneAt = Number.POSITIVE_INFINITY;
+      for (const [key, row] of this.buckets) {
+        if (now >= row.expiresAt) this.buckets.delete(key);
+        else nextPruneAt = Math.min(nextPruneAt, row.expiresAt);
+      }
+      this.nextPruneAt = nextPruneAt;
+    }
     let bucket = this.buckets.get(id);
-    if (!bucket) { if (this.buckets.size >= LIMIT) return false; bucket = { events: [], expiresAt: now + window }; this.buckets.set(id, bucket); }
+    if (!bucket) { if (this.buckets.size >= LIMIT) return false; bucket = { events: [], expiresAt: now + window }; this.buckets.set(id, bucket); this.nextPruneAt = Math.min(this.nextPruneAt, bucket.expiresAt); }
     if (now < (bucket.events.at(-1) ?? now)) return false;
     while (bucket.events.length && now - bucket.events[0]! >= window) bucket.events.shift();
     if (bucket.events.length >= limit) return false;
-    bucket.events.push(now); bucket.expiresAt = now + window; return true;
+    bucket.events.push(now); bucket.expiresAt = now + window; this.nextPruneAt = Math.min(this.nextPruneAt, bucket.expiresAt); return true;
   }
   allowStart(ip: string, identifier: string, now = this.clock()): boolean {
     if (!Number.isSafeInteger(now) || now < 0) return false;
