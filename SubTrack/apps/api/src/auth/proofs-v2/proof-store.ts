@@ -147,12 +147,17 @@ export class ProofStore {
 /** Test/dev reference only. The compare and delete below intentionally contain no await. */
 export class InMemoryProofRepository implements ProofRepository {
   private readonly records = new Map<string, StoredProof>();
+  constructor(private readonly maxRecords = 10_000) { if (!Number.isSafeInteger(maxRecords) || maxRecords < 1 || maxRecords > 10_000) throw new Error('capacity'); }
+  private prune(now: number): void { for (const [hash, record] of this.records) if (now >= record.expiresAt) this.records.delete(hash); }
 
   insert(record: StoredProof): void {
+    this.prune(record.issuedAt);
+    if (this.records.size >= this.maxRecords) throw new Error('capacity');
     this.records.set(record.hash, Object.freeze({ ...record }));
   }
 
   compareAndConsume(hash: string, expected: ProofBinding, now: number): boolean {
+    this.prune(now);
     const record = this.records.get(hash);
     if (!record || !Number.isFinite(now) || now < record.issuedAt || now >= record.expiresAt ||
       record.expiresAt !== record.issuedAt + PROOF_TTL_MS || !sameBinding(record, expected)) return false;

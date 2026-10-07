@@ -21,13 +21,24 @@ const configSchema = z.object({
   DATABASE_URL: z.string().url().min(1),
   AUTH_V2_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   AUTH_V2_BROWSER_NONCE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  AUTH_V2_OTP_HTTP_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   AUTH_V2_IDEMPOTENCY_KEY: z.string().optional(),
   AUTH_V2_BROWSER_ORIGIN_HMAC_KEY: z.string().optional(),
+  AUTH_V2_OTP_HMAC_KEY: z.string().optional(),
+  AUTH_V2_RATE_LIMIT_HMAC_KEY: z.string().optional(),
   AUTH_V2_ALLOWED_ORIGINS: z.string().optional(),
   AUTH_V2_BINDING_COOKIE_NAME: z.string().optional(),
   AUTH_V2_BINDING_COOKIE_PATH: z.string().optional(),
   AUTH_V2_ALLOW_LOOPBACK_HTTP: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 }).superRefine((value, ctx) => {
+  if (value.AUTH_V2_OTP_HTTP_ENABLED) {
+    if (value.NODE_ENV !== 'development' || !value.AUTH_V2_ENABLED || !value.AUTH_V2_BROWSER_NONCE_ENABLED) ctx.addIssue({ code: 'custom', path: ['AUTH_V2_OTP_HTTP_ENABLED'], message: 'invalid' });
+    const names = ['AUTH_V2_OTP_HMAC_KEY', 'AUTH_V2_RATE_LIMIT_HMAC_KEY', 'AUTH_V2_IDEMPOTENCY_KEY', 'AUTH_V2_BROWSER_ORIGIN_HMAC_KEY'] as const;
+    const keys = names.map(name => value[name]);
+    for (let i = 0; i < names.length; i += 1) if (!keys[i] || !/^[0-9a-fA-F]{64}$/.test(keys[i]!)) ctx.addIssue({ code: 'custom', path: [names[i]!], message: 'invalid' });
+    const decoded = keys.map(key => key && /^[0-9a-fA-F]{64}$/.test(key) ? Buffer.from(key, 'hex') : null);
+    for (let i = 0; i < decoded.length; i += 1) for (let j = 0; j < i; j += 1) if (decoded[i] && decoded[j] && decoded[i]!.equals(decoded[j]!)) ctx.addIssue({ code: 'custom', path: [names[i]!], message: 'invalid' });
+  }
   if (value.AUTH_V2_BROWSER_NONCE_ENABLED) {
     if (value.NODE_ENV !== 'development' || !value.AUTH_V2_ENABLED) {
       ctx.addIssue({ code: 'custom', path: ['AUTH_V2_BROWSER_NONCE_ENABLED'], message: 'invalid' });

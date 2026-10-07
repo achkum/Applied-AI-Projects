@@ -67,11 +67,16 @@ function validHash(hash: unknown): hash is string { return typeof hash === 'stri
 /** In-memory development/test reference. No awaits occur inside its state transition. */
 export class InMemoryOtpChallengeRepository implements OtpChallengeRepository {
   private readonly records = new Map<string, OtpChallengeRecord>();
+  constructor(private readonly maxRecords = 10_000) { if (!Number.isSafeInteger(maxRecords) || maxRecords < 1 || maxRecords > 10_000) throw new Error('capacity'); }
+  private prune(now: number): void { for (const [id, record] of this.records) if (now >= record.expiresAt) this.records.delete(id); }
   insert(record: OtpChallengeRecord): void {
+    this.prune(record.issuedAt);
     if (this.records.has(record.challengeId)) throw new Error('duplicate');
+    if (this.records.size >= this.maxRecords) throw new Error('capacity');
     this.records.set(record.challengeId, copyRecord(record));
   }
   verifyAndConsume(input: { challengeId: string; codeDigest: Buffer; transportContext: VerifiedTransportContext; now: number }): OtpChallengeRecord | null {
+    this.prune(input.now);
     const record = this.records.get(input.challengeId);
     if (!record || !Number.isFinite(input.now) || input.now < record.issuedAt || input.now >= record.expiresAt ||
       record.attempts >= MAX_ATTEMPTS || !sameContext(record.transportContext, input.transportContext)) return null;

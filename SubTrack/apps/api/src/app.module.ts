@@ -25,6 +25,8 @@ export function appModuleFor(config?: ApiConfig): typeof AppModule | DynamicModu
       allowLoopbackHttp: config.AUTH_V2_ALLOW_LOOPBACK_HTTP,
       idempotencyKey: Buffer.from(config.AUTH_V2_IDEMPOTENCY_KEY!, 'hex'),
       originKey: Buffer.from(config.AUTH_V2_BROWSER_ORIGIN_HMAC_KEY!, 'hex'),
+      otpEnabled: config.AUTH_V2_OTP_HTTP_ENABLED,
+      ...(config.AUTH_V2_OTP_HTTP_ENABLED ? { otpKey: Buffer.from(config.AUTH_V2_OTP_HMAC_KEY!, 'hex'), rateKey: Buffer.from(config.AUTH_V2_RATE_LIMIT_HMAC_KEY!, 'hex') } : {}),
     })],
   };
 }

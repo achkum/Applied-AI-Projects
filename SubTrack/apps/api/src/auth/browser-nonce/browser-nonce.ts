@@ -39,6 +39,7 @@ export interface BrowserNonceConfig {
 }
 export interface BrowserNonceStore {
   bootstrap(record: NonceRecord, previousCookieHash: string | null, now: number): void;
+  peek(nonceHash: string, cookieHash: string, origin: string, purpose: BrowserPurpose, now: number): NonceRecord | null;
   rotate(nonceHash: string, cookieHash: string, origin: string, purpose: BrowserPurpose, now: number, next: NonceRecord): string | null;
 }
 export type NonceRecord = Readonly<{ nonceHash: string; cookieHash: string; chainId: string; origin: string; purpose: BrowserPurpose; issuedAt: number; expiresAt: number }>;
@@ -54,6 +55,14 @@ export class InMemoryBrowserNonceStore implements BrowserNonceStore {
     if (previousCookieHash) for (const [key, r] of this.records) if (r.cookieHash === previousCookieHash) this.records.delete(key);
     if (this.records.size >= MAX_RECORDS) throw failure();
     this.records.set(record.nonceHash, Object.freeze({ ...record }));
+  }
+  peek(nonceHash: string, cookieHash: string, origin: string, purpose: BrowserPurpose, now: number): NonceRecord | null {
+    this.prune(now);
+    const record = this.records.get(nonceHash);
+    if (!record || record.cookieHash !== cookieHash || record.origin !== origin || record.purpose !== purpose ||
+      !Number.isSafeInteger(now) || now < record.issuedAt || now >= record.expiresAt ||
+      record.expiresAt !== record.issuedAt + BROWSER_NONCE_TTL_MS) return null;
+    return Object.freeze({ ...record });
   }
   rotate(nonceHash: string, cookieHash: string, origin: string, purpose: BrowserPurpose, now: number, next: NonceRecord): string | null {
     this.prune(now);
@@ -115,6 +124,16 @@ export class BrowserNonceGuard {
       const chainId = this.store.rotate(domain('nonce', nonce), domain('cookie', cookieSecret), origin, purpose, now, next);
       if (!chainId) throw failure();
       return Object.freeze({ nonce: nextNonce, context: Object.freeze({ chainId, origin, purpose }) });
+    } catch { throw failure(); }
+  }
+  /** Non-mutating preflight. Chain authority is returned only after the stored pair and transport bind. */
+  validateBound(purpose: BrowserPurpose, evidence: BrowserEvidence, nonce: string, cookieSecret: string): TrustedBrowserContext {
+    try {
+      const { origin, now } = this.validate(evidence, purpose);
+      if (typeof nonce !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(nonce) || typeof cookieSecret !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(cookieSecret)) throw failure();
+      const record = this.store.peek(domain('nonce', nonce), domain('cookie', cookieSecret), origin, purpose, now);
+      if (!record) throw failure();
+      return Object.freeze({ chainId: record.chainId, origin: record.origin, purpose: record.purpose });
     } catch { throw failure(); }
   }
 }
