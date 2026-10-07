@@ -168,4 +168,5 @@ items:
   - {id: ST-174, title: "Android and iOS mobile demo validation", owner: "qa", size: "M", status: TODO, deps: ["ST-172"]}
   - {id: ST-175, title: "V2 browser HTTP transport configuration and response policy", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-170a", "ST-170c1", "ST-170c4"]}
   - {id: ST-176, title: "Development-only v2 browser nonce HTTP endpoint", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-175", "ST-170c1", "ST-170c2"]}
-  - {id: ST-177, title: "Development-only web OTP HTTP bridge", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-176", "ST-170b2", "ST-170c2"]}
+  - {id: ST-177, title: "Development-only web OTP HTTP bridge", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-176", "ST-170b2", "ST-170c2"]}
+  - {id: ST-178, title: "Internal development simulator login proof producer", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-170b1", "ST-177"]}

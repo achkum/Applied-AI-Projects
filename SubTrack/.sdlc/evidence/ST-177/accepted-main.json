@@ -1,0 +1,22 @@
+{
+  "task": "ST-177",
+  "pr": "https://github.com/achkum/Applied-AI-Projects/pull/178",
+  "source": "545e0edde2065cec48dcff00b363357621283853",
+  "accepted_main": "cdbe087e1c1d01be836c3bb25d6d64272b4b6f4b",
+  "source_tree": "0b8b7a15821ff2976de4c4c5010e5ad09d709988",
+  "main_tree": "0b8b7a15821ff2976de4c4c5010e5ad09d709988",
+  "ci_run": 37596342144,
+  "ci_steps_success": 34,
+  "remote_lease": "545e0edde2065cec48dcff00b363357621283853",
+  "api_tests": 366,
+  "api_files": 24,
+  "affected_https_tests": 8,
+  "lint": "PASS",
+  "typecheck": "PASS",
+  "reviews": [
+    "platform APPROVE",
+    "security APPROVE"
+  ],
+  "native_ST174": "deferred",
+  "parent_auth": "incomplete"
+}

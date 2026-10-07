@@ -1,0 +1,13 @@
+{
+  "source": "2f93ea4d9feaf4e9ba8533068f3124439d80476d",
+  "ci_run": 37598399499,
+  "conclusion": "success",
+  "actual_steps_success": 34,
+  "api_tests": 379,
+  "api_files": 25,
+  "source_reviews": [
+    "platform APPROVE",
+    "security APPROVE"
+  ],
+  "note": "Validated implementation commit. Following documentation-only completion commit still requires exact-head CI before merge."
+}

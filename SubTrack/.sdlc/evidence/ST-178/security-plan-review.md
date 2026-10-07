@@ -1,0 +1,16 @@
+# ST-178 security/privacy preimplementation review
+
+Decision: approve the exact bounded internal development reference design, subject to the controls below. No source was reviewed or implemented; this is not final source-bound approval or a QA claim.
+
+Reviewed: `.setup/ST178-task-draft.md`; `SubTrack/AGENTS.md`; `docs/governance/CONSTITUTION.md`; `docs/architecture/adr/ADR-0010.md`; `apps/api/src/auth/proofs-v2/proof-store.ts`; `apps/api/src/auth/proofs-v2/otp-proof-producer.ts`; `apps/api/src/auth/identity-provider/bankid-simulator.ts`; `packages/contracts/openapi.yaml` session/OTP sections.
+
+The internal typed trusted-context boundary is sufficient for this reference because the task excludes HTTP/controller wiring and the producer remains unregistered. Preserve that limit: it must accept only the existing verified context shape, reject extra/missing/invalid fields at runtime, copy it, and validate it before invoking the simulator or resolver. Web requires exact HTTPS origin plus nonempty server-derived browser chain; mobile has neither field. Do not accept caller-selectable origin, chain, fixture, identity, challenge, or provider result.
+
+Required controls for implementation:
+- Constructor fails closed unless environment is exactly development, enabled is exactly true, and key material contains at least 32 bytes. Copy key bytes on construction; preserve a well-defined HMAC key representation compatible with the existing string-key simulator, and test that caller mutation cannot alter it. Do not add config wiring or production/test activation.
+- Producer owns the sole fixed `verify('alice')` invocation. Validate returned method, lowercase 64-hex HMAC, and canonical ISO timestamp against the injected clock (not future, no older than five minutes); discard name/fixture/result and expose generic failure only. Simulator output is synthetic evidence, never real BankID assurance.
+- Resolver receives only the validated simulator HMAC and returns an already-registered canonical UUID. Reject malformed/missing identity and resolver failures generically; no account creation, identifier persistence, or identity input from caller.
+- Generate a fresh server-random opaque challenge on each call; issue only a login binding through the injected ProofStore using validated transport context and resolved identity. Return only its opaque proof. Existing ProofStore supplies five-minute expiry, opaque secret, and one-use consume semantics; do not bypass it.
+- No raw identifier, simulator result, name, identity, challenge, proof, or key in logs/errors. Public failure text remains generic. Restricted OTP proofs must remain non-login; enrollment continuation mapping and atomic consume stay explicitly pending/out of scope.
+
+OpenAPI and ADR-0010 require server-verified proof for session exchange and state OTP enrollment/step-up cannot establish login. Constitution requires privacy by default and tests for new behavior. Test the gates, key copy, context rejection before provider/resolver, fixed fixture path, HMAC-only resolver input, generic failures, freshness and web/mobile binding, and rejection of OTP proof for login. Final security approval requires review of the implemented source and its evidence.
