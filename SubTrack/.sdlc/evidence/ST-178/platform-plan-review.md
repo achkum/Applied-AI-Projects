@@ -1,0 +1,17 @@
+# ST-178 platform Type 2a preimplementation review
+
+Decision: APPROVE the bounded internal development reference, with the constraints below. This advances the server-owned simulator proof branch required by ST-170b while preserving ADR-0010’s contract-only status; it does not make session exchange client-ready or alter scope.
+
+The producer may export its class from its own implementation file so colocated tests can import it, but must remain internal: no public package/index/barrel export, controller, module/config registration, HTTP route, database writes, session calls, provider selection, or production wiring. Require explicit `development`, `enabled === true`, and a copied simulator HMAC key of at least 32 bytes; reject `test`, production, absent values, and malformed keys before constructing or invoking the simulator. The only simulator invocation is fixed `verify('alice')`; never accept or log its fixture selector or result fields beyond validating method, HMAC, and timestamp.
+
+Validate a strict plain transport object and exact allowed keys before any simulator or resolver work: web requires exact HTTPS origin and nonempty browser-chain ID; mobile carries neither web field. Build the `ProofBinding` from this validated server context, resolver-returned canonical registered UUID, and fresh server-random challenge. Use only `ProofStore.issue` with purpose `login`; return only the opaque proof. Preserve its five-minute TTL and one-use full-binding consumption. Do not adapt or redeem OTP proof as login.
+
+The existing `IdentityProviderService.verifyAndRegister` is unsuitable: it accepts caller tokens, persists missing identities, and surfaces provider errors. Inject a narrow read-only resolver whose contract maps only the simulator HMAC to an already existing registered UUID and returns no match otherwise. Do not create storage/resolver implementation in this slice. Keep HMAC derivation confined to the simulator; do not persist, return, or log name, demo identifier, HMAC, or provider result.
+
+Timestamp validation must parse a canonical ISO timestamp, reject invalid/future values, and enforce the five-minute age against an injected clock. Validate the HMAC as lowercase 64-hex and method exactly `BANKID`; collapse all provider/resolver/store errors to `Simulator proof unavailable`. Ensure the simulator key is copied and passed without lossy encoding. Tests should exercise key/environment fail-closed behavior, ordering (invalid transport invokes neither dependency), registered/unregistered resolver paths, result bounds, web/mobile proof binding, fresh challenges, consume-once, and generic failure leakage.
+
+No HTTP, configuration/env wiring, database/schema, provider behavior, identity creation, enrollment continuation mapping, OTP/login bridge, or production enablement is approved here. ST-177 and parent ST-170b remain incomplete; session routes must continue to treat this proof producer as prerequisite work only. Existing OpenAPI v2 session proof requirements remain authoritative.
+
+Reviewed: `/workspace/.setup/ST178-task-draft.md`, `SubTrack/AGENTS.md`, Constitution, ADR-0010, ProofStore, OTP producer, BankIdSimulator/interface, IdentityProviderService, ST-177, ST-170b, and `/v2/auth/session` OpenAPI description.
+
+Actual tool calls: 7 total (6 bounded read-only shell/Python invocations and 1 artifact-write invocation). No tests, builds, lint, or other checks executed. No source/Git edits. Only this review artifact was written.
