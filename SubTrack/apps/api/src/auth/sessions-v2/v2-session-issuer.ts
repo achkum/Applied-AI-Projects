@@ -14,7 +14,7 @@ export type SessionTransport = 'web' | 'mobile';
 export interface SessionRecord {
   readonly identityId: string; readonly sessionId: string; readonly familyId: string; readonly generation: 0;
   readonly refreshTokenHash: string; readonly transport: SessionTransport; readonly exactOrigin?: string;
-  readonly browserChainId?: string; readonly deviceName: string | null; readonly createdAt: number; readonly expiresAt: number;
+  readonly browserChainId?: string; readonly browserBindingCookieHash?: string; readonly deviceName: string | null; readonly createdAt: number; readonly expiresAt: number;
 }
 export interface FrozenSessionSummary { readonly id: string; readonly createdAt: string; readonly current: boolean; readonly deviceName: string | null }
 export type SessionRequestContext = Readonly<RequestContext>;
@@ -22,13 +22,17 @@ export interface SessionRepository {
   createForActiveIdentity(record: SessionRecord, context: Readonly<SessionRequestContext>): boolean | Promise<boolean>;
   rollbackCreatedSession(record: SessionRecord, context: Readonly<SessionRequestContext>): boolean | Promise<boolean>;
   readSession(sessionId: string, context: Readonly<SessionRequestContext>, now: number): Readonly<SessionRecord> | null;
+  webContextForCurrentSession?(sessionId: string, context: Readonly<RequestContext>, browserBindingCookieHash: string, exactOrigin: string, observedAt: number): Readonly<WebSessionContext> | null;
+  webContextForRefresh?(refreshTokenHash: string, browserBindingCookieHash: string, exactOrigin: string, observedAt: number): Readonly<WebRefreshCredentialContext> | null;
 }
+export interface WebSessionContext { readonly transport: 'web'; readonly exactOrigin: string; readonly browserChainId: string }
+export interface WebRefreshCredentialContext { readonly identityId: string; readonly sessionId: string; readonly transportContext: WebSessionContext }
 export type RefreshTransportContext = Readonly<{ transport: 'mobile' } | { transport: 'web'; exactOrigin: string; browserChainId: string }>;
 export interface RefreshRotationInput { readonly refreshTokenHash: string; readonly successorRefreshTokenHash: string; readonly transportContext: RefreshTransportContext; readonly observedAt: number }
 export type RefreshRotationResult = Readonly<{ kind: 'rotated'; identityId: string; sessionId: string; familyId: string; expiresAt: number } | { kind: 'reused' } | { kind: 'invalid' }>;
 export type CurrentSessionRevocationResult = Readonly<{ kind: 'revoked' | 'invalid' | 'missing' | 'capacity' }>;
 export interface RotatedFamilyExpectation { readonly identityId: string; readonly sessionId: string; readonly familyId: string; readonly refreshTokenHash: string }
-export interface SessionIssuerInput { readonly loginProof: string; readonly transportContext: LoginProofContext; readonly deviceName?: string }
+export interface SessionIssuerInput { readonly loginProof: string; readonly transportContext: LoginProofContext; readonly deviceName?: string; readonly browserBindingCookieHash?: string }
 export interface SessionIssuerConfig {
   readonly environment: 'development'; readonly enabled: true; readonly proofStore: Pick<ProofStore, 'consumeLogin'>;
   readonly accessTokens: { issue(identityId: string, sessionId: string): string };
@@ -57,12 +61,13 @@ function webOrigin(value: unknown): value is string {
 }
 function copyRecord(input: unknown): Readonly<SessionRecord> {
   const keys = ['identityId','sessionId','familyId','generation','refreshTokenHash','transport','deviceName','createdAt','expiresAt'];
-  const v = snapshot(input, keys, ['exactOrigin','browserChainId']);
+  const v = snapshot(input, keys, ['exactOrigin','browserChainId','browserBindingCookieHash']);
   if (!isUuid(v.identityId) || !isUuid(v.sessionId) || !isUuid(v.familyId) || v.sessionId === v.familyId || v.generation !== 0 ||
     typeof v.refreshTokenHash !== 'string' || !/^[a-f0-9]{64}$/.test(v.refreshTokenHash) || !validClock(v.createdAt) || !Number.isSafeInteger(v.expiresAt) || v.expiresAt !== (v.createdAt as number) + TTL ||
     !(v.transport === 'web' || v.transport === 'mobile') || !(v.deviceName === null || (typeof v.deviceName === 'string' && [...v.deviceName].length <= 100))) throw new Error(FAILURE);
+  if (Object.hasOwn(v, 'browserBindingCookieHash') && (v.transport !== 'web' || typeof v.browserBindingCookieHash !== 'string' || !/^[a-f0-9]{64}$/.test(v.browserBindingCookieHash))) throw new Error(FAILURE);
   if (v.transport === 'web') { if (!webOrigin(v.exactOrigin) || typeof v.browserChainId !== 'string' || !v.browserChainId || v.deviceName !== null) throw new Error(FAILURE); }
-  else if (Object.hasOwn(v, 'exactOrigin') || Object.hasOwn(v, 'browserChainId')) throw new Error(FAILURE);
+  else if (Object.hasOwn(v, 'exactOrigin') || Object.hasOwn(v, 'browserChainId') || Object.hasOwn(v, 'browserBindingCookieHash')) throw new Error(FAILURE);
   return Object.freeze({ ...v }) as unknown as Readonly<SessionRecord>;
 }
 function contextCopy(value: unknown): Readonly<SessionRequestContext> {
@@ -81,7 +86,7 @@ function snapshotTransport(value: unknown): Record<string, unknown> {
 export class InMemoryV2SessionRepository implements SessionRepository {
   private readonly active: Set<string>;
   private readonly records = new Map<string, Readonly<SessionRecord>>();
-  private readonly consumed = new Map<string, Readonly<{ identityId: string; sessionId: string; familyId: string; createdAt: number; expiresAt: number; transport: SessionTransport; exactOrigin?: string; browserChainId?: string }>>();
+  private readonly consumed = new Map<string, Readonly<{ identityId: string; sessionId: string; familyId: string; createdAt: number; expiresAt: number; transport: SessionTransport; exactOrigin?: string; browserChainId?: string; browserBindingCookieHash?: string }>>();
   private readonly maxSessions: number;
   private readonly maxConsumed: number;
   private readonly clock: () => number;
@@ -126,7 +131,7 @@ export class InMemoryV2SessionRepository implements SessionRepository {
         const owner = Object.freeze({ userId: row.identityId });
         if (owner.userId !== row.identityId || !this.active.has(owner.userId) || !this.matchesTransport(row, transport) || row.createdAt > (v.observedAt as number) || (v.observedAt as number) > trustedNow || trustedNow >= row.expiresAt) return invalid;
         if (this.consumed.has(successorHash) || [...this.records.values()].some((candidate) => candidate.refreshTokenHash === successorHash) || this.consumed.size >= this.maxConsumed) return invalid;
-        const tombstone = Object.freeze({ identityId: row.identityId, sessionId: row.sessionId, familyId: row.familyId, createdAt: row.createdAt, expiresAt: row.expiresAt, transport: row.transport, ...(row.transport === 'web' ? { exactOrigin: row.exactOrigin as string, browserChainId: row.browserChainId as string } : {}) });
+        const tombstone = Object.freeze({ identityId: row.identityId, sessionId: row.sessionId, familyId: row.familyId, createdAt: row.createdAt, expiresAt: row.expiresAt, transport: row.transport, ...(row.transport === 'web' ? { exactOrigin: row.exactOrigin as string, browserChainId: row.browserChainId as string, ...(row.browserBindingCookieHash ? { browserBindingCookieHash: row.browserBindingCookieHash } : {}) } : {}) });
         const replacement = Object.freeze({ ...row, refreshTokenHash: successorHash });
         this.consumed.set(currentHash, tombstone);
         this.records.set(row.sessionId, replacement);
@@ -173,7 +178,7 @@ export class InMemoryV2SessionRepository implements SessionRepository {
       if (collision || liveConsumed >= this.maxConsumed) return capacity;
       const tombstone = Object.freeze({ identityId: target.identityId, sessionId: target.sessionId, familyId: target.familyId,
         createdAt: target.createdAt, expiresAt: target.expiresAt, transport: target.transport,
-        ...(target.transport === 'web' ? { exactOrigin: target.exactOrigin as string, browserChainId: target.browserChainId as string } : {}) });
+        ...(target.transport === 'web' ? { exactOrigin: target.exactOrigin as string, browserChainId: target.browserChainId as string, ...(target.browserBindingCookieHash ? { browserBindingCookieHash: target.browserBindingCookieHash } : {}) } : {}) });
       for (const hash of expiredHashes) this.consumed.delete(hash);
       this.consumed.set(target.refreshTokenHash, tombstone);
       this.records.delete(target.sessionId);
@@ -204,6 +209,24 @@ export class InMemoryV2SessionRepository implements SessionRepository {
     try { const c = contextCopy(contextInput); if (!isUuid(sessionId) || !Number.isSafeInteger(now) || now < 0) return null;
       const current = this.clock(); if (!validClock(current) || now > current) return null;
       this.prune(current); const r = this.records.get(sessionId); return r && r.identityId === c.userId && this.active.has(c.userId) && now >= r.createdAt && current >= r.createdAt && current < r.expiresAt ? Object.freeze({ ...r }) : null;
+    } catch { return null; }
+  }
+  webContextForCurrentSession(sessionId: string, contextInput: Readonly<RequestContext>, cookieHash: string, exactOrigin: string, observedAt: number): Readonly<WebSessionContext> | null {
+    try {
+      const c = contextCopy(contextInput); const now = this.clock();
+      if (!isUuid(sessionId) || typeof cookieHash !== 'string' || !/^[a-f0-9]{64}$/.test(cookieHash) || !webOrigin(exactOrigin) || !validClock(observedAt) || !validClock(now) || observedAt > now || !Number.isFinite(new Date(observedAt).getTime()) || !Number.isFinite(new Date(now).getTime())) return null;
+      const r = this.records.get(sessionId);
+      if (!r || r.identityId !== c.userId || !this.active.has(c.userId) || r.transport !== 'web' || r.browserBindingCookieHash !== cookieHash || r.exactOrigin !== exactOrigin || r.createdAt > observedAt || r.createdAt > now || now >= r.expiresAt || !Number.isFinite(new Date(r.createdAt).getTime()) || !Number.isFinite(new Date(r.expiresAt).getTime())) return null;
+      return Object.freeze({ transport: 'web', exactOrigin: r.exactOrigin as string, browserChainId: r.browserChainId as string });
+    } catch { return null; }
+  }
+  webContextForRefresh(refreshTokenHash: string, cookieHash: string, exactOrigin: string, observedAt: number): Readonly<WebRefreshCredentialContext> | null {
+    try {
+      const now = this.clock();
+      if (typeof refreshTokenHash !== 'string' || !/^[a-f0-9]{64}$/.test(refreshTokenHash) || typeof cookieHash !== 'string' || !/^[a-f0-9]{64}$/.test(cookieHash) || !webOrigin(exactOrigin) || !validClock(observedAt) || !validClock(now) || observedAt > now || !Number.isFinite(new Date(observedAt).getTime()) || !Number.isFinite(new Date(now).getTime())) return null;
+      const r = [...this.records.values()].find((candidate) => candidate.refreshTokenHash === refreshTokenHash) ?? this.consumed.get(refreshTokenHash);
+      if (!r || r.transport !== 'web' || r.browserBindingCookieHash !== cookieHash || r.exactOrigin !== exactOrigin || !this.active.has(r.identityId) || r.createdAt > observedAt || r.createdAt > now || now >= r.expiresAt || !Number.isFinite(new Date(r.createdAt).getTime()) || !Number.isFinite(new Date(r.expiresAt).getTime())) return null;
+      return Object.freeze({ identityId: r.identityId, sessionId: r.sessionId, transportContext: Object.freeze({ transport: 'web' as const, exactOrigin: r.exactOrigin as string, browserChainId: r.browserChainId as string }) });
     } catch { return null; }
   }
   listForCurrentSession(sessionId: string, contextInput: Readonly<SessionRequestContext>, observedAt: number): readonly FrozenSessionSummary[] | null {
@@ -260,13 +283,14 @@ export class DevelopmentV2SessionIssuer {
   async issueFromLoginProof(input: SessionIssuerInput): Promise<Readonly<SessionResponse>> {
     let record: Readonly<SessionRecord> | undefined; let context: Readonly<SessionRequestContext> | undefined; let insertionAttempted = false;
     try {
-      const v = snapshot(input, ['loginProof','transportContext'], ['deviceName']);
+      const v = snapshot(input, ['loginProof','transportContext'], ['deviceName','browserBindingCookieHash']);
       if (typeof v.loginProof !== 'string' || !PROOF.test(v.loginProof)) throw new Error(FAILURE);
       const tc = snapshotTransport(v.transportContext);
       if (tc.transport === 'web') { if (!webOrigin(tc.exactOrigin) || typeof tc.browserChainId !== 'string' || !tc.browserChainId || Object.hasOwn(v, 'deviceName')) throw new Error(FAILURE); }
       else if (tc.transport === 'mobile') { if (Object.hasOwn(v, 'deviceName') && (typeof v.deviceName !== 'string' || [...v.deviceName].length > 100)) throw new Error(FAILURE); }
       else throw new Error(FAILURE);
       if (Object.hasOwn(v, 'deviceName') && tc.transport !== 'mobile') throw new Error(FAILURE);
+      if (Object.hasOwn(v, 'browserBindingCookieHash') && (tc.transport !== 'web' || typeof v.browserBindingCookieHash !== 'string' || !/^[a-f0-9]{64}$/.test(v.browserBindingCookieHash))) throw new Error(FAILURE);
       const proofContext = Object.freeze({ ...tc }) as unknown as LoginProofContext;
       const before = this.clock(); if (!validClock(before)) throw new Error(FAILURE);
       const consumed = snapshot(await this.proofStore.consumeLogin(v.loginProof, proofContext), ['valid', 'identityId']);
@@ -280,6 +304,7 @@ export class DevelopmentV2SessionIssuer {
       const refreshTokenHash = createHash('sha256').update(HASH_DOMAIN, 'utf8').update(refreshToken, 'utf8').digest('hex');
       const data: SessionRecord = Object.freeze({ identityId: consumed.identityId, sessionId, familyId, generation: 0, refreshTokenHash,
         transport: tc.transport as SessionTransport, ...(tc.transport === 'web' ? { exactOrigin: tc.exactOrigin as string, browserChainId: tc.browserChainId as string } : {}),
+        ...(Object.hasOwn(v, 'browserBindingCookieHash') ? { browserBindingCookieHash: v.browserBindingCookieHash as string } : {}),
         deviceName: tc.transport === 'mobile' ? (v.deviceName as string | undefined ?? null) : null, createdAt: now, expiresAt: now + TTL });
       record = copyRecord(data); insertionAttempted = true;
       const stored = await this.repository.createForActiveIdentity(record, context);

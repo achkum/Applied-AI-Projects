@@ -2,6 +2,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import type { RequestContext } from '../../database/request-transaction';
 import type { V2AccessToken, V2AccessTokenClaims } from './v2-access-token';
 import type { SessionRecord } from './v2-session-issuer';
+import { isBrowserBindingCookieHash } from './v2-web-session-binding';
 
 const UNAUTHORIZED = 'Unauthorized';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -67,13 +68,14 @@ function findDataMethod(target: object, key: string): PropertyDescriptor | undef
   return undefined;
 }
 function copyRecord(input: unknown): Readonly<SessionRecord> {
-  const v = exactSnapshot(input, ['identityId', 'sessionId', 'familyId', 'generation', 'refreshTokenHash', 'transport', 'deviceName', 'createdAt', 'expiresAt'], ['exactOrigin', 'browserChainId']);
+  const v = exactSnapshot(input, ['identityId', 'sessionId', 'familyId', 'generation', 'refreshTokenHash', 'transport', 'deviceName', 'createdAt', 'expiresAt'], ['exactOrigin', 'browserChainId', 'browserBindingCookieHash']);
   if (!validUuid(v.identityId) || !validUuid(v.sessionId) || !validUuid(v.familyId) || v.sessionId === v.familyId || v.generation !== 0 ||
       typeof v.refreshTokenHash !== 'string' || !HASH.test(v.refreshTokenHash) || !validNow(v.createdAt) || !validNow(v.expiresAt) ||
       v.expiresAt !== (v.createdAt as number) + SESSION_TTL || !(v.transport === 'mobile' || v.transport === 'web') ||
       !(v.deviceName === null || (typeof v.deviceName === 'string' && [...v.deviceName].length <= 100))) throw new Error();
+  if (Object.hasOwn(v, 'browserBindingCookieHash') && (v.transport !== 'web' || !isBrowserBindingCookieHash(v.browserBindingCookieHash))) throw new Error();
   if (v.transport === 'mobile') {
-    if (Object.hasOwn(v, 'exactOrigin') || Object.hasOwn(v, 'browserChainId')) throw new Error();
+    if (Object.hasOwn(v, 'exactOrigin') || Object.hasOwn(v, 'browserChainId') || Object.hasOwn(v, 'browserBindingCookieHash')) throw new Error();
   } else if (!canonicalOrigin(v.exactOrigin) || typeof v.browserChainId !== 'string' || v.browserChainId.length === 0 || v.deviceName !== null) throw new Error();
   return Object.freeze({ ...v }) as unknown as Readonly<SessionRecord>;
 }
