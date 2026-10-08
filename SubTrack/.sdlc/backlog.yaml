@@ -185,4 +185,5 @@ items:
   - {id: ST-191, title: "Internal web session cookie binding and credential-scoped context recovery", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-190", "ST-188", "ST-189"]}
   - {id: ST-192, title: "Development-only HTTPS web session exchange bridge", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-191", "ST-188", "ST-189"]}
   - {id: ST-193, title: "Development-only HTTPS web refresh bridge", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-192", "ST-191", "ST-185"]}
-  - {id: ST-194, title: "Development-only HTTPS web session revocation bridge", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-193", "ST-191", "ST-187"]}
+  - {id: ST-194, title: "Development-only HTTPS web session revocation bridge", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-193", "ST-191", "ST-187"]}
+  - {id: ST-195, title: "Development-only HTTPS mobile session listing bridge", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-194", "ST-186", "ST-183"]}
