@@ -23,11 +23,15 @@
     "./detection": {
       "types": "./detection/index.ts",
       "import": "./detection/index.ts"
+    },
+    "./clustering": {
+      "types": "./clustering/index.ts",
+      "import": "./clustering/index.ts"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "eslint \"policy/**/*.ts\" \"bank/**/*.ts\" \"ingestion/**/*.ts\" \"merchant/**/*.ts\" \"detection/**/*.ts\"",
+    "lint": "eslint \"policy/**/*.ts\" \"bank/**/*.ts\" \"ingestion/**/*.ts\" \"merchant/**/*.ts\" \"detection/**/*.ts\" \"clustering/**/*.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"

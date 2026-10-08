@@ -191,3 +191,4 @@ items:
   - {id: ST-197, title: "Development-only unified HTTPS session revocation dispatcher", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-196", "ST-194", "ST-170c4"]}
   - {id: ST-199, title: "Internal development deletion-only OTP proof core", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-197", "ST-170b1"]}
   - {id: ST-200, title: "Internal mobile deletion OTP trusted authority resolver", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-199", "ST-183"]}
+  - {id: ST-125b, title: "Offline deterministic persona clustering feature builder", owner: "dev-data", size: "M", status: IN_REVIEW, deps: ["ST-125a", "ST-063"]}
