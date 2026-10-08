@@ -187,4 +187,5 @@ items:
   - {id: ST-193, title: "Development-only HTTPS web refresh bridge", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-192", "ST-191", "ST-185"]}
   - {id: ST-194, title: "Development-only HTTPS web session revocation bridge", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-193", "ST-191", "ST-187"]}
   - {id: ST-195, title: "Development-only HTTPS mobile session listing bridge", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-194", "ST-186", "ST-183"]}
-  - {id: ST-196, title: "Development-only HTTPS mobile session revocation bridge", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-195", "ST-187", "ST-183"]}
+  - {id: ST-196, title: "Development-only HTTPS mobile session revocation bridge", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-195", "ST-187", "ST-183"]}
+  - {id: ST-197, title: "Development-only unified HTTPS session revocation dispatcher", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-196", "ST-194", "ST-170c4"]}

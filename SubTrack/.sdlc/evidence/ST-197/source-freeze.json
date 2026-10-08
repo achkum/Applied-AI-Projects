@@ -1,0 +1,6 @@
+{
+  "apps/api/src/auth/sessions-v2/v2-session-revocation-http.ts": "119c22d880e5f15b60d61a998e458caca41284242976d3b6f56cb5ff50bb5fd0",
+  "apps/api/src/auth/sessions-v2/v2-session-revocation-http.module.ts": "14ddb7a400802deed9c16869732e64b268fbbf006275377fb5264ea2252d5cfa",
+  "apps/api/src/auth/sessions-v2/v2-session-revocation-http.spec.ts": "6782019051f739f1e28226b3c1ff5bdc24aa3b5f379fbe6ab350b366e86ad7a8",
+  "apps/api/test/v2-session-revocation-http.spec.ts": "a259919b312fad7f85eb949de4976b27a5f5aab824f852a79a1ec62ae1a14259"
+}
