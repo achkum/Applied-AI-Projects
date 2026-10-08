@@ -1,0 +1,26 @@
+# ST-187 platform preimplementation review
+
+**Decision: APPROVE with the proposed bounded, fail-closed capacity policy.** This approval is limited to the internal development reference described in the task draft. It is not approval for an HTTP route, public contract change, production storage/runtime, or a successful-logout guarantee. Source work may proceed before ST-186 merge only on a new dependent branch based on immutable, reviewed ST-186 candidate head a311042 while its exact-head CI is pending; the ST-186 PR and branch must remain untouched. This does not represent ST-186 as accepted. ST-183/ST-184/ST-185 prerequisites remain required.
+
+## Conditions for implementation
+
+- Keep the operation inside `InMemoryV2SessionRepository` and make validation plus mutation one synchronous atomic section. Recheck the requesting session after any earlier resolver authorization: it must still exist, belong to the exact active owner in `RequestContext`, and be live at trusted time. Reject a stale/revoked/deleted request without mutation.
+- Validate canonical request and target UUIDs, strict own-context shape, and safe observed time before any pruning. Only trusted time may prune. A live owned target, including the current session, is eligible. Missing, foreign, expired, or otherwise unavailable targets must produce the same `missing` result, with no ownership oracle. The frozen result contains only `kind`.
+- Before deleting the target row, retain its active refresh hash as a consumed tombstone with the original owner, session, family, creation/expiry, and transport binding. Preserve all unexpired consumed hashes; never restore or reuse them. Delete only the target session row. This is needed so already-issued access credentials fail the stored-session check and refresh replay cannot reactivate the target. A successful self-revocation consequently makes current-session listing fail. Do not claim that revocation succeeded if this invariant cannot be committed.
+- If the target hash collides with an unexpired tombstone, or retaining it would exceed the existing `maxConsumed` bound, return `capacity` before changing either map. Do not evict a tombstone or prune using caller-supplied time. Expiry pruning may reclaim capacity only at validated trusted time. Document that this in-memory operation can fail closed at capacity and does not promise logout success under that resource failure.
+- Keep consumed-token replay behavior scoped to the matching transport and stored family. Neighboring sessions/families and other owners remain untouched. Do not add fields to the frozen result, raw secret storage, logs, a new limit/lifetime, or wire error mapping.
+- Add focused integration tests through the accepted issuer, resolver, refresher, and listing paths: ordinary revocation and self-revocation; access and refresh rejection; current listing rejection; same-owner neighbor listing/refresh; other-owner isolation; unknown/foreign equivalence; post-resolver request-session reuse/deletion/expiry; malformed input with no mutation; tombstone collision and full-capacity preservation; and trusted-time reclamation.
+
+## Basis and limits
+
+The proposal preserves the source's existing bounded consumed-hash map (`maxConsumed`, default 10,000), its trusted-time expiry pruning, and its existing refresh replay tombstone model. The repository already fails refresh rotation closed when consumed storage is full; ST-187's explicit `capacity` result makes the equivalent revocation failure reviewable without falsely reporting success or discarding replay protection. This is a reasonable bounded dev-reference policy. A durable implementation must receive its own storage, transaction, retention, and public failure-policy review.
+
+The OpenAPI excerpt already declares a DELETE session route, but ADR-0010 limits acceptance to the versioned contract and does not authorize runtime behavior. This review therefore does not approve wiring that route, choosing HTTP status/error mappings, or making client/production readiness claims.
+
+## Workflow amendment: conditional source start during ST-186 CI
+
+**Decision: APPROVE this narrow workflow amendment.** ST-187 source may start from immutable reviewed ST-186 candidate head `a311042` on a new dependent branch while ST-186 exact-head CI runs, with no mutation to the ST-186 PR or branch. This permits disjoint task work; the shared issuer file is a dependency in the branch snapshot, not a simultaneous source-author conflict.
+
+This is conditional sequencing approval only. It does not claim ST-186 has merged or passed exact-head CI. ST-187 must not merge until ST-186 is accepted/merged. Before ST-187 merge, rebase or otherwise prove the source/tree includes the accepted ST-186 head, run full declared QA on the final ST-187 head, obtain independent source reviews, and pass ST-187 exact-head CI. Preserve all previously approved capacity, tombstone, isolation, no-oracle, and no-successful-logout-guarantee conditions. If ST-186 exact-head CI fails or its reviewed source changes, stop and reconcile the dependent branch before proceeding.
+
+This amendment authorizes source work only under those conditions; it does not approve changing ST-186 metadata or claiming prerequisite acceptance.

@@ -26,6 +26,7 @@ export interface SessionRepository {
 export type RefreshTransportContext = Readonly<{ transport: 'mobile' } | { transport: 'web'; exactOrigin: string; browserChainId: string }>;
 export interface RefreshRotationInput { readonly refreshTokenHash: string; readonly successorRefreshTokenHash: string; readonly transportContext: RefreshTransportContext; readonly observedAt: number }
 export type RefreshRotationResult = Readonly<{ kind: 'rotated'; identityId: string; sessionId: string; familyId: string; expiresAt: number } | { kind: 'reused' } | { kind: 'invalid' }>;
+export type CurrentSessionRevocationResult = Readonly<{ kind: 'revoked' | 'invalid' | 'missing' | 'capacity' }>;
 export interface RotatedFamilyExpectation { readonly identityId: string; readonly sessionId: string; readonly familyId: string; readonly refreshTokenHash: string }
 export interface SessionIssuerInput { readonly loginProof: string; readonly transportContext: LoginProofContext; readonly deviceName?: string }
 export interface SessionIssuerConfig {
@@ -136,6 +137,47 @@ export class InMemoryV2SessionRepository implements SessionRepository {
       const owner = Object.freeze({ userId: replay.identityId });
       for (const [id, candidate] of this.records) if (candidate.identityId === owner.userId && candidate.familyId === replay.familyId) this.records.delete(id);
       return Object.freeze({ kind: 'reused' });
+    } catch { return invalid; }
+  }
+  /** Current-session scoped development reference operation. Validation and the tombstone/delete commit are synchronous and atomic. */
+  revokeForCurrentSession(requestSessionId: string, targetSessionId: string, contextInput: Readonly<SessionRequestContext>, observedAt: number): CurrentSessionRevocationResult {
+    const invalid = Object.freeze({ kind: 'invalid' as const });
+    const missing = Object.freeze({ kind: 'missing' as const });
+    const capacity = Object.freeze({ kind: 'capacity' as const });
+    try {
+      if (!isUuid(requestSessionId) || !isUuid(targetSessionId) || !validClock(observedAt) ||
+          !Number.isFinite(new Date(observedAt).getTime())) return invalid;
+      const context = contextCopy(contextInput);
+      const trustedNow = this.clock();
+      if (!validClock(trustedNow) || observedAt > trustedNow || !Number.isFinite(new Date(trustedNow).getTime())) return invalid;
+
+      // Recheck the request session in this same synchronous commit section, before touching target state.
+      const request = this.records.get(requestSessionId);
+      if (!request || request.identityId !== context.userId || !this.active.has(context.userId) ||
+          !Number.isFinite(new Date(request.createdAt).getTime()) || !Number.isFinite(new Date(request.expiresAt).getTime()) ||
+          request.createdAt > observedAt || request.createdAt > trustedNow || trustedNow >= request.expiresAt) return invalid;
+
+      const target = this.records.get(targetSessionId);
+      if (!target || target.identityId !== context.userId || !this.active.has(context.userId) ||
+          !Number.isFinite(new Date(target.createdAt).getTime()) || !Number.isFinite(new Date(target.expiresAt).getTime()) ||
+          target.createdAt > observedAt || target.createdAt > trustedNow || trustedNow >= target.expiresAt) return missing;
+
+      // Stage expiry pruning so a failed capacity/collision preflight changes no tombstone.
+      const expiredHashes: string[] = [];
+      let liveConsumed = 0;
+      let collision = false;
+      for (const [hash, prior] of this.consumed) {
+        if (trustedNow >= prior.expiresAt) expiredHashes.push(hash);
+        else { liveConsumed += 1; if (hash === target.refreshTokenHash) collision = true; }
+      }
+      if (collision || liveConsumed >= this.maxConsumed) return capacity;
+      const tombstone = Object.freeze({ identityId: target.identityId, sessionId: target.sessionId, familyId: target.familyId,
+        createdAt: target.createdAt, expiresAt: target.expiresAt, transport: target.transport,
+        ...(target.transport === 'web' ? { exactOrigin: target.exactOrigin as string, browserChainId: target.browserChainId as string } : {}) });
+      for (const hash of expiredHashes) this.consumed.delete(hash);
+      this.consumed.set(target.refreshTokenHash, tombstone);
+      this.records.delete(target.sessionId);
+      return Object.freeze({ kind: 'revoked' });
     } catch { return invalid; }
   }
   private matchesTransport(record: Readonly<{ transport: SessionTransport; exactOrigin?: string; browserChainId?: string }>, transport: Record<string, unknown>): boolean {
