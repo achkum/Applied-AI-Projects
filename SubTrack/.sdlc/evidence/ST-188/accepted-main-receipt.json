@@ -1,0 +1,10 @@
+{
+  "task": "ST-188",
+  "source": "654437a4059c02c11e39241ff52654638012f259",
+  "accepted_main": "847da09123f026c4c32dfb2d6752ff3303f1d2b3",
+  "tree": "74f1a12dc9248992450cf38d2c8ed040d3658b7e",
+  "remote_branch_lease": "654437a4059c02c11e39241ff52654638012f259",
+  "ci_run": 37743053841,
+  "successful_ci_steps": 34,
+  "contract_tests": 9
+}

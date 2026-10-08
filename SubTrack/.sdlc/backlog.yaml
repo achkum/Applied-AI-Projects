@@ -179,4 +179,5 @@ items:
   - {id: ST-185, title: "Internal development v2 refresh service", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-183", "ST-184"]}
   - {id: ST-186, title: "Internal current-session-scoped v2 session listing", owner: "dev-backend", size: "S", status: DONE, deps: ["ST-183", "ST-184"]}
   - {id: ST-187, title: "Internal current-session-scoped v2 revocation", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-183", "ST-184", "ST-186"]}
-  - {id: ST-188, title: "Web session nonce contract alignment", owner: "dev-backend", size: "S", status: IN_REVIEW, deps: ["ST-187", "ST-170a"]}
+  - {id: ST-188, title: "Web session nonce contract alignment", owner: "dev-backend", size: "S", status: DONE, deps: ["ST-187", "ST-170a"]}
+  - {id: ST-189, title: "Internal terminal session nonce consumption", owner: "dev-backend", size: "S", status: IN_REVIEW, deps: ["ST-188", "ST-170c1"]}
