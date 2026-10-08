@@ -478,7 +478,8 @@ describe('DevelopmentMobileDeletionOtpStartHttpService', () => {
     expect(out.result.statusCode).toBe(429);
     expect(f.reserve).toHaveBeenCalledTimes(300);
     expect(f.privateCodes.size).toBe(300);
-  });
+    // Real issuer/proof hashing for 61 principals needs headroom on shared CI.
+  }, 30_000);
 
   it('maps genuine core quota to429 and rejects imitations and challenge capacity generically', async () => {
     const f = await fixture();

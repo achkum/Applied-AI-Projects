@@ -17,3 +17,5 @@ Security follow-up: added final JWT/current-row recheck after completed settleme
 Final corrected freeze QA: API lint, strict typecheck, full suite (1,072 tests in 51 files), and build all passed. No source change after this run.
 
 Final secret scan initially flagged literal synthetic idempotency test key (generic-api-key), not a credential. Fixture now constructs the identical value from static components. No scanner suppression. Targeted34tests pass; staged gitleaks passes; both source reviewers independently approved updated7hash freeze. Final source review counts platform13/security14 cumulative; platform follow-up cap overrun1 retained.
+
+Initial PR CI failed only global HTTP-quota test: real61-principal/301-request cryptographic fixture exceeded Vitest default5sec under shared runner; 1071 other APItests passed, Compose passed. Dedicated30sec timeout added only to this workload; all301requests and original boundary/300effects assertions retained. No behavior quota/coverage/assertion threshold changed. New source-spec freeze requires reviewer revalidation.

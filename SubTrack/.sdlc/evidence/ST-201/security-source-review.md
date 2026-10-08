@@ -41,3 +41,7 @@ a77f387bf3d04012e17970daa8a34c88f19d43a03e3377495013898111b05596  `apps/api/src/
 ## Scanner-only fixture follow-up (2026-10-08)
 
 **Disposition remains APPROVE_SOURCE.** The fixture default key now uses `['test', 'idempotency', 'key', '0001'].join('-')`, preserving the exact runtime value while avoiding the scanner's generic `api-key` false positive. No runtime source changed. I independently recomputed all seven hashes and confirmed they match the updated freeze manifest; only `apps/api/src/auth/proofs-v2/mobile-deletion-otp-start-http.spec.ts` changed, to `fbc8d3bce24345fa05c3d0b05638be6413dafb446b889ec1787b716fddea58b7`. The supplied 34 focused unit tests and preceding full API/lint/typecheck/build results are recorded as external validation evidence; I did not run tests.
+
+## CI timeout follow-up (2026-10-08)
+
+**Disposition remains APPROVE_SOURCE.** The only change is a dedicated 30-second timeout on the real global-quota integration test, with a comment explaining the shared-CI headroom. The test still creates 61 genuine principals, performs all 301 requests, expects the boundary response to be 429, and asserts exactly 300 reservations and private codes. No source, threshold, assertion, or quota behavior changed. I independently recomputed all seven frozen-file hashes and confirmed they match the manifest; only `apps/api/src/auth/proofs-v2/mobile-deletion-otp-start-http.spec.ts` changed, now `86cd1cfe99b69ddfe1fa973750fe3cce1ec1f6660cdc27ba613f87e54648335e`. Reported focused test results are recorded as provided; I did not run tests.
