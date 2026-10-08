@@ -1,0 +1,11 @@
+# ST192 security/privacy plan review
+
+**Decision: Approve as Type 2a, conditional on the stated source gate and constraints.** ADR-0010 is accepted contract-only; it permits the additive v2 contract while explicitly requiring separate runtime and security review. ST191 is WIP, so ST192 must remain hard-gated until ST191 is accepted and its interfaces are verified. This review does not approve client readiness, production use, or enabling the module.
+
+Terminal nonce consumption before proof redemption is acceptable and required by ADR-0010. Once exchange is attempted, already-consumed nonce/proof state and the idempotency reservation remain burned on failure: never restore or retry them. Preserve ProofStore scope isolation: wrong-purpose, wrong-transport, or foreign-chain proofs remain untouched; the adapter must not force-consume or burn a nonmatching proof. Fail closed with generic restart/error responses and require a fresh verified login and nonce chain after consumed state. Do not claim transactionality across proof store, issuer, and HTTP delivery.
+
+Use the specified shared 60-per-origin/300-global per-minute development throttle, with bounded storage and fail-closed behavior. Reject malformed/duplicate headers, wrong origin or raw TLS evidence, wrong purpose, and mixed transports before mutation; return generic 409 for unavailable/consumed nonce or reservation, 401 for invalid proof, 429 for throttle, and generic 500 after commit failure. Never cache or log credentials.
+
+CSRF authority must be branded from the verified principal plus the current owner-scoped session row and match the issued session. Cleanup may roll back only the exact known issuance when owner, sid, family, and current refresh hash still match; refuse advanced, foreign, or unknown rows. Unknown/malformed commits remain bounded by the accepted issuer’s 24-hour orphan expiry. Invalidate CSRF only for the matching verified authority.
+
+Keep registration inside an explicit development-only opt-in Nest module requiring HTTPS, canonical origins, configured cookie name, copied 256-bit HMAC key, and trusted shared ports. No AppModule/runtime/provider/config or production enablement. Publish both static cookie headers in one Set-Cookie array only after validation; no credentials in JSON, successor nonce, or failure cookies. Lost responses require fresh login.
