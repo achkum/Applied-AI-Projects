@@ -29,3 +29,9 @@ export {
 } from './personas.js';
 
 export { SyntheticBankProvider } from './bank-provider.js';
+
+export {
+  createClusteringPopulation,
+  type ClusteringPopulation,
+  type ClusteringPopulationConfig,
+} from './clustering-population.js';
