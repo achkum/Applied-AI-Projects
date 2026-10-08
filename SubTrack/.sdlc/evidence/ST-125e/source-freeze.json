@@ -1,0 +1,7 @@
+{
+  "services/ml/app/clustering/core.py": "fa0127bb1c8e66f5089feb6ced48bdd8d9409880ab428192abd5ffafcdc9faad",
+  "services/ml/app/clustering/centroid_descriptions.py": "39a7026b3c5f9203f4689a541d06e9c99167cde22cb719ffa82602e1d07d35ca",
+  "services/ml/app/clustering/__init__.py": "23beb3203574d07bfd95f4f6d44c2979e47d67bf0d7e8a3da9af70478bd0e3bc",
+  "services/ml/tests/test_centroid_descriptions.py": "a7b57e4c738f812da2ac3566c0b9174abe45e5e516e1777b49e56d603933eec1",
+  "services/ml/model_cards/persona-clustering-features.md": "06900fb67eb433193a01f775f46400b0f70b7d4851330be4ce20a195b2ee7131"
+}

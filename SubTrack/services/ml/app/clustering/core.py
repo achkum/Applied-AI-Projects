@@ -3,12 +3,43 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
+
+
+PERSONA_FEATURE_SCHEMA = "household-persona-v1"
+PERSONA_FEATURE_NAMES = (
+    "VIDEO_STREAMING",
+    "MUSIC_AUDIO",
+    "AUDIOBOOKS_EBOOKS",
+    "NEWS_MAGAZINES",
+    "GAMING",
+    "SOFTWARE_PRODUCTIVITY",
+    "CLOUD_STORAGE",
+    "AI_TOOLS",
+    "MOBILE_PLAN",
+    "BROADBAND_TV",
+    "FITNESS_WELLNESS",
+    "FOOD_MEALKITS",
+    "TRANSPORT_MOBILITY",
+    "HOME_SECURITY",
+    "EDUCATION_KIDS",
+    "PETS",
+    "SHOPPING_MEMBERSHIPS",
+    "VPN_SECURITY",
+    "DONATIONS",
+    "DATING_SOCIAL",
+    "APP_STORE_BILLING",
+    "OTHER_SUBSCRIPTION",
+    "subscriptionCount",
+    "averageMonthlyPriceRelativeTo1000Sek",
+    "annualShare",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +75,8 @@ class PersonaClusterer:
         self.candidate_scores_: tuple[CandidateScore, ...] = ()
         self.skipped_k_: tuple[int, ...] = ()
         self.silhouette_sample_size_: int = 0
+        self.feature_schema_: str | None = None
+        self.feature_names_: tuple[str, ...] | None = None
 
     @staticmethod
     def _matrix(values: ArrayLike, *, expected_features: int | None = None) -> NDArray[np.float64]:
@@ -62,8 +95,17 @@ class PersonaClusterer:
             raise ValueError(f"expected {expected_features} features, got {matrix.shape[1]}")
         return matrix
 
-    def fit(self, features: ArrayLike) -> PersonaClusterer:
+    def fit(
+        self,
+        features: ArrayLike,
+        *,
+        feature_schema: Literal["household-persona-v1"] | None = None,
+    ) -> PersonaClusterer:
+        if feature_schema is not None and feature_schema != PERSONA_FEATURE_SCHEMA:
+            raise ValueError("unsupported feature schema")
         matrix = self._matrix(features)
+        if feature_schema == PERSONA_FEATURE_SCHEMA and matrix.shape[1] != len(PERSONA_FEATURE_NAMES):
+            raise ValueError("persona schema requires 25 features")
         if matrix.shape[0] < 9:
             raise ValueError("at least 9 rows are required to evaluate k=4..8")
         if np.any(np.ptp(matrix, axis=0) == 0):
@@ -121,6 +163,8 @@ class PersonaClusterer:
         self.candidate_scores_ = tuple(scores)
         self.skipped_k_ = tuple(skipped)
         self.silhouette_sample_size_ = sample_size
+        self.feature_schema_ = feature_schema
+        self.feature_names_ = PERSONA_FEATURE_NAMES if feature_schema is not None else None
         return self
 
     @property

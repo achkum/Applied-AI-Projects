@@ -1,0 +1,17 @@
+{
+  "task": "ST-125d",
+  "pull_request": 203,
+  "source_commit": "75d0e3710d88ffe65d166dfe09310b7a1bc34d23",
+  "main_commit": "a4393b79fdb100feefab7c9e7b52c8bbc78d52a7",
+  "tree": "d18dd7c339c1c261adc60f79462130027fa8f0ea",
+  "ci_run": 37798882146,
+  "ci_steps": 34,
+  "all_ci_steps_passed": true,
+  "qa": {
+    "ml_tests": 60,
+    "descriptor_tests": 20,
+    "gitleaks": "PASS"
+  },
+  "review": "Independent architect-data APPROVE_SOURCE all4frozenhashes",
+  "scope": "Private offline synthetic descriptor TFIDF/HDBSCAN primitive; no merchant-quality/alias-autoacceptance/parent125completion claim"
+}

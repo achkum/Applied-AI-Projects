@@ -1,7 +1,15 @@
-# Persona clustering feature builder (partial)
+# Persona clustering feature construction and centroid review (partial)
 
-**Status:** deterministic offline TypeScript feature construction only; not an integrated persona or cohort feature.
+**Status:** deterministic offline feature construction and centroid review; not an integrated persona or cohort feature.
 **Implementation version:** 0.1.0.
+
+## Offline centroid review primitive
+
+`PersonaClusterer.fit` optionally accepts the closed marker `household-persona-v1`. A successful marked fit must have exactly the canonical 25 columns: the 22 category codes in domain order, `subscriptionCount`, `averageMonthlyPriceRelativeTo1000Sek`, and `annualShare`. The clusterer stores the marker and an immutable copy of these names. The marker is an upstream schema attestation; it does not inspect feature values to prove semantic order, authenticate a caller, or establish privacy. Generic fits remain supported and carry no schema metadata. A successful generic refit clears prior metadata, while failed fits preserve the previous fitted state.
+
+`describe_persona_centroids` returns only immutable cluster IDs and canonical `(feature name, value)` pairs. It inverse-scales selected K-Means centers into their original dimensionless feature units. Category shares and annual share are bounded to [0, 1], count to [0, 10,000], and average-relative value to [0, 10,000,000]. It rejects absent or inconsistent fit metadata, non-finite results, and values outside these bounds. These are statistical review coordinates: the average-relative value is not currency, and counts and shares do not encode money amounts. The primitive performs no fit, prediction, logging, data access, or provider call.
+
+The descriptions are not persona names, human-approved labels, or cohort statistics. This implementation makes no LLM, human-label, synthetic 5,000-household fit, integration, or product-quality claim. Focused tests have been authored but not run by the author; QA owns verification.
 
 ## Input and scope boundary
 
@@ -20,3 +28,7 @@ Focused TypeScript tests have been authored for schema order, arithmetic and rou
 ## Conductor verification
 
 22 focused tests and all105domain tests in6files passed. Domain lint, strict typecheck and build passed. The full V8 JSON report verified100% feature-module statement/function/branch coverage. These are deterministic implementation checks, not a household training or product quality evaluation.
+
+## ST125e conductor verification
+
+Full ML suite: 78 tests passed (18 centroid-description, 60 previous), with four existing dependency warnings. The final inverse-scaling expected value uses independent center*scale+mean arithmetic; no-fit/predict controls, exact domain-schema parity, mutation isolation, bounds, corrupted states and fit metadata/refit atomicity are checked. Initial author suite71 passed; root strengthened tests and enforces existing4..8cluster bound before final78pass run. No5kfit/LLM/human-label/cohort/product integration claim.
