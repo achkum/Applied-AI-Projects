@@ -1,4 +1,14 @@
 {
   "extends": "../../packages/config/tsconfig.preset.json",
-  "include": ["src/**/*.ts", "src/**/*.tsx", "policy/**/*.ts", "bank/**/*.ts", "ingestion/**/*.ts", "merchant/**/*.ts", "detection/**/*.ts", "test/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "policy/**/*.ts",
+    "bank/**/*.ts",
+    "ingestion/**/*.ts",
+    "merchant/**/*.ts",
+    "detection/**/*.ts",
+    "clustering/**/*.ts",
+    "test/**/*.ts"
+  ]
 }
