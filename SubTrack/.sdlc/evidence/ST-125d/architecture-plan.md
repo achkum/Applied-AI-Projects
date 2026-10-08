@@ -1,0 +1,17 @@
+# ST125d architect plan review
+
+**Decision: APPROVE_PLAN — Type 2b (local module design).** The proposed work adds a pure offline primitive in the existing clustering module, with no dependency, API, schema, money computation, data-access, or provider change. The AI/ML spec permits descriptor HDBSCAN with character n-grams, and the installed sklearn dependency already supplies it. This review covers implementation planning only; it does not authorize production use or claim real merchant matching quality.
+
+## Recommended API and behavior
+
+Add `services/ml/app/clustering/descriptors.py` with a public `cluster_descriptors(descriptors, *, min_cluster_size=3, min_samples=2) -> DescriptorClusteringResult`. Accept only a nonempty `list[str]` or `tuple[str, ...]`; reject other containers, non-strings, empty strings, and strings longer than 256 characters. Cap input at 2,000 rows. Reject bools as integer parameters; constrain `min_cluster_size` to 2..n and `min_samples` to 1..n. A too-large parameter should be a clear `ValueError`, rather than silently becoming an all-noise result.
+
+Return a frozen, slotted dataclass with `labels: tuple[int, ...]`, `sample_count`, `cluster_count`, and `noise_count`. Labels correspond to input order, use `-1` for noise, and normalize non-noise cluster IDs by first occurrence to make repeated runs on the same ordered input stable. Do not promise permutation invariance or semantic label identities. Do not include input text in the result or logs.
+
+Build a float64, L2-normalized dense matrix using `TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5), max_features=1024, norm="l2", dtype=np.float64)`. Catch vectorizer's empty-vocabulary `ValueError` and re-raise a stable, descriptive input `ValueError`. Reject an input whose transformed rows are all identical (including a single unique descriptor) as degenerate; repeated descriptors alongside other content remain valid input. Run sklearn HDBSCAN with `metric="euclidean"`, fixed `min_cluster_size`/`min_samples`, and no approximate prediction or quality score. The selected caps bound matrix size; never add raw descriptors to diagnostic text.
+
+## Test plan
+
+Add focused offline tests in `tests/test_descriptor_clustering.py`: similar synthetic merchant-like descriptor groups plus a clearly separate/noise fixture; repeated descriptors and deterministic repeat calls on identical ordered input; malformed containers/values, >256-character strings, >2,000 rows, bad/bool/out-of-range parameters, too-short strings that yield an empty vocabulary, and all-identical input; frozen result and tuple labels; counts and `-1` noise accounting; and an assertion that returned metadata contains no descriptors. Use synthetic strings only, and avoid asserting guessed aliases or a quality score. The model card should state the synthetic-only scope, API bounds, algorithm parameters, observed test behavior without product-quality claims, and that callers must establish privacy/scoping before invocation.
+
+Run the focused tests during implementation, then the repository's lightweight ML suite once as the root validation step; avoid large fitting workloads and descriptor dumps. Keep exports limited to the new result/function alongside the current `PersonaClusterer`. No router, registry, DB, provider, alias auto-application, threshold, money fields, or contract changes belong in this task. Human review integration remains a separate task.

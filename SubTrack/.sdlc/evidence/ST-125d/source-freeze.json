@@ -1,0 +1,6 @@
+{
+  "services/ml/app/clustering/descriptors.py": "9e7a79129f201acd75e934023633844740205813859771f8b684167f9a1426af",
+  "services/ml/app/clustering/__init__.py": "8694a1dc8f93814ae6b562d0c0b2eb513639e87acb8bd11ea823e915ece67447",
+  "services/ml/tests/test_descriptor_clustering.py": "e255c5c9ce04d0fed4ebb72d5aeb26fc346ea794063478bec63806b1d036544a",
+  "services/ml/model_cards/descriptor-clustering-core.md": "1a6497468f2f764bafedab7515ad159faa734d427adfcbd4359216e7b8fdc25e"
+}

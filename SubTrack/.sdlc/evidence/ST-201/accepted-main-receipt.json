@@ -1,0 +1,21 @@
+{
+  "task": "ST-201",
+  "pull_request": 202,
+  "source_commit": "f2a94d3d1705719d9d8f50295e1edc50e16b8244",
+  "main_commit": "5e96d5dbbc05d90ef93e5a604ea4ab794b7c4b07",
+  "tree": "2614b5796003c12435edd5030853d56a861187eb",
+  "ci_run": 37798192744,
+  "ci_steps": 34,
+  "all_ci_steps_passed": true,
+  "qa": {
+    "api_tests": 1072,
+    "api_files": 51,
+    "targeted_final_tests": 34,
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "gitleaks": "PASS"
+  },
+  "review": "Independent platform/security APPROVE_SOURCE all7currentfrozenhashes",
+  "scope": "Founder-approved dev-only MOBILE OTP START; private local synchronous code sink; no delivery/default wiring/ST198 authority approval"
+}
