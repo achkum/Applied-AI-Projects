@@ -192,4 +192,5 @@ items:
   - {id: ST-199, title: "Internal development deletion-only OTP proof core", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-197", "ST-170b1"]}
   - {id: ST-200, title: "Internal mobile deletion OTP trusted authority resolver", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-199", "ST-183"]}
   - {id: ST-125b, title: "Offline deterministic persona clustering feature builder", owner: "dev-data", size: "M", status: DONE, deps: ["ST-125a", "ST-063"]}
-  - {id: ST-125c, title: "Offline synthetic household population for persona clustering", owner: "dev-data", size: "M", status: IN_REVIEW, deps: ["ST-125b", "ST-125a", "ST-063"]}
+  - {id: ST-125c, title: "Offline synthetic household population for persona clustering", owner: "dev-data", size: "M", status: DONE, deps: ["ST-125b", "ST-125a", "ST-063"]}
+  - {id: ST-201, title: "Development-only mobile deletion OTP challenge-start HTTPS adapter", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-200", "ST-199", "ST-170c2"]}

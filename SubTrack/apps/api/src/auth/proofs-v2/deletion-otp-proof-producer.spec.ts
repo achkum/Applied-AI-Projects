@@ -6,6 +6,8 @@ import {
 } from './proof-store';
 import {
   DevelopmentDeletionOtpProofProducer,
+  DeletionOtpRateLimitError,
+  isDeletionOtpRateLimitError,
   type DeletionOtpProofProducerConfig,
   type TrustedDeletionOtpAuthority,
 } from './deletion-otp-proof-producer';
@@ -294,6 +296,56 @@ describe('DevelopmentDeletionOtpProofProducer', () => {
     expect(() =>
       bucketCap.producer.start(authority({ identityId: otherIdentityId })),
     ).not.toThrow();
+  });
+
+  it('classifies only locally minted rolling quota failures as rate limits', () => {
+    const perIdentity = setup();
+    for (let i = 0; i < 5; i++) perIdentity.producer.start(authority());
+    let quotaError: unknown;
+    try {
+      perIdentity.producer.start(authority());
+    } catch (error) {
+      quotaError = error;
+    }
+    expect(quotaError).toBeInstanceOf(DeletionOtpRateLimitError);
+    expect(isDeletionOtpRateLimitError(quotaError)).toBe(true);
+    expect(String(quotaError)).not.toContain(identityId);
+
+    const lookalike = new DeletionOtpRateLimitError();
+    expect(isDeletionOtpRateLimitError(lookalike)).toBe(false);
+    expect(isDeletionOtpRateLimitError(new Error('rate limit'))).toBe(false);
+
+    const capacity = setup({ maxChallenges: 1 });
+    capacity.producer.start(authority());
+    let capacityError: unknown;
+    try {
+      capacity.producer.start(authority());
+    } catch (error) {
+      capacityError = error;
+    }
+    expect(capacityError).toBeInstanceOf(Error);
+    expect(isDeletionOtpRateLimitError(capacityError)).toBe(false);
+  });
+
+  it('keeps clock failures generic and outside the locally minted quota class', () => {
+    const config: DeletionOtpProofProducerConfig = {
+      environment: 'development',
+      enabled: true,
+      authDeleteOtpDevOnly: true,
+      key,
+      proofStore: new ProofStore(new InMemoryProofRepository()),
+      clock: () => {
+        throw new DeletionOtpRateLimitError();
+      },
+    };
+    const producer = new DevelopmentDeletionOtpProofProducer(config);
+    let clockError: unknown;
+    try {
+      producer.start(authority());
+    } catch (error) {
+      clockError = error;
+    }
+    expect(isDeletionOtpRateLimitError(clockError)).toBe(false);
   });
 
   it('copies the HMAC key and captures config and method values without invoking getters', () => {

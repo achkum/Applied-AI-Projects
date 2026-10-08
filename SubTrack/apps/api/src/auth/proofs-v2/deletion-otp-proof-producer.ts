@@ -63,6 +63,23 @@ const WINDOW = 60_000;
 const MAX_WRONG = 5;
 const DOMAIN = 'subtrack:auth:deletion-otp:v2\0';
 const FAILURE = 'Deletion verification unavailable';
+const quotaErrors = new WeakSet<object>();
+const quotaToken = Symbol('local deletion OTP quota');
+
+/** Generic local quota signal; instances created by callers are not trusted. */
+export class DeletionOtpRateLimitError extends Error {
+  constructor(token?: symbol) {
+    super('Deletion verification unavailable');
+    this.name = 'DeletionOtpRateLimitError';
+    if (token === quotaToken) quotaErrors.add(this);
+  }
+}
+
+export function isDeletionOtpRateLimitError(
+  value: unknown,
+): value is DeletionOtpRateLimitError {
+  return typeof value === 'object' && value !== null && quotaErrors.has(value);
+}
 const CONFIG_KEYS = new Set([
   'environment',
   'enabled',
@@ -287,6 +304,7 @@ export class DevelopmentDeletionOtpProofProducer {
   }
 
   start(authority: TrustedDeletionOtpAuthority): StartResult {
+    let quotaRejected = false;
     try {
       const scope = exactAuthority(authority);
       const now = this.now();
@@ -294,11 +312,16 @@ export class DevelopmentDeletionOtpProofProducer {
       const bucket = this.buckets.get(scope.identityId);
       if (
         (!bucket && this.buckets.size >= this.maxRateBuckets) ||
-        this.challenges.size >= this.maxChallenges ||
-        (bucket?.starts.length ?? 0) >= 5 ||
-        this.globalStarts.length >= 300
+        this.challenges.size >= this.maxChallenges
       )
         throw new Error();
+      if (
+        (bucket?.starts.length ?? 0) >= 5 ||
+        this.globalStarts.length >= 300
+      ) {
+        quotaRejected = true;
+        throw new Error();
+      }
       const challengeId = randomBytes(32).toString('base64url');
       if (this.challenges.has(challengeId)) throw new Error();
       const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
@@ -319,6 +342,7 @@ export class DevelopmentDeletionOtpProofProducer {
       this.globalStarts.push(now);
       return Object.freeze({ challengeId, code, expiresAt });
     } catch {
+      if (quotaRejected) throw new DeletionOtpRateLimitError(quotaToken);
       throw new Error(FAILURE);
     }
   }
