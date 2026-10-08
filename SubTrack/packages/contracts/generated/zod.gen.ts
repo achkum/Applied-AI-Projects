@@ -127,9 +127,13 @@ export const zMobileOtpVerifyCallEnvelope = z.object({
     body: zMobileOtpVerifyBody
 }).strict();
 
+/**
+ * Web-only headers; the public nonce must pair with the distinct HttpOnly binding cookie and exact allowlisted Origin.
+ */
 export const zWebSessionHeaders = z.object({
     idempotencyKey: z.string().min(16).max(255),
-    origin: z.url()
+    origin: z.url(),
+    browserNonce: z.string()
 }).strict();
 
 export const zMobileSessionHeaders = z.object({
@@ -439,7 +443,8 @@ export const zCreateV2SessionBody = zSessionRequest;
 
 export const zCreateV2SessionHeaders = z.object({
     'Idempotency-Key': z.string().min(16).max(255),
-    Origin: z.url().optional()
+    Origin: z.url().optional(),
+    'X-Browser-Nonce': z.string().optional()
 });
 
 /**

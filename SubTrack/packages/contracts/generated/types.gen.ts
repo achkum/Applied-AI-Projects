@@ -169,12 +169,19 @@ export type MobileOtpHeaders = {
     idempotencyKey: string;
 };
 
+/**
+ * Web-only headers; the public nonce must pair with the distinct HttpOnly binding cookie and exact allowlisted Origin.
+ */
 export type WebSessionHeaders = {
     idempotencyKey: string;
     /**
-     * Browser supplies Origin; client JavaScript must not set this forbidden header.
+     * Browser supplies exact allowlisted Origin; client JavaScript must not set this forbidden header.
      */
     origin: string;
+    /**
+     * Existing public X-Browser-Nonce value; terminally consumed on successful proof redemption, with no successor nonce.
+     */
+    browserNonce: string;
 };
 
 export type MobileSessionHeaders = {
@@ -859,6 +866,11 @@ export type CreateV2SessionData = {
          * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
          */
         Origin?: string;
+        /**
+         * Required for web transport only: public nonce paired with the distinct HttpOnly browser binding cookie. Mobile omits it.
+         *
+         */
+        'X-Browser-Nonce'?: string;
     };
     path?: never;
     query?: never;
