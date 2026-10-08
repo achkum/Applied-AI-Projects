@@ -1,0 +1,49 @@
+{
+  "task": "ST-125c",
+  "input": "5000 lightweight synthetic statistical household subscription bundles, not arbitrary numeric rows or banking-history households",
+  "dataset_sha256": "7d3fcff47e610e56f705359b38f6c107e9eaca45be6dd2ac7c0557105dca0d8b",
+  "seed": "st125c-offline-evaluation-v1",
+  "shape": [
+    5000,
+    25
+  ],
+  "model_seed": 42,
+  "n_init": 10,
+  "numerical_threads": 1,
+  "silhouette_sample_size": 1000,
+  "selected_k": 8,
+  "candidate_scores": [
+    {
+      "k": 4,
+      "silhouette": 0.12570540195672011
+    },
+    {
+      "k": 5,
+      "silhouette": 0.11315643992286632
+    },
+    {
+      "k": 6,
+      "silhouette": 0.12190100790649132
+    },
+    {
+      "k": 7,
+      "silhouette": 0.1222032281299318
+    },
+    {
+      "k": 8,
+      "silhouette": 0.13414094511155428
+    }
+  ],
+  "skipped_k": [],
+  "cluster_counts": [
+    582,
+    841,
+    827,
+    996,
+    227,
+    945,
+    342,
+    240
+  ],
+  "limitation": "Sampling-recipe evaluation only; no real-household representativeness, target quality, groundtruth recovery, frozen labels, cohort stats or integration claim"
+}

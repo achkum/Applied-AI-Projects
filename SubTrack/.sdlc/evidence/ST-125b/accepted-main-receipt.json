@@ -1,0 +1,22 @@
+{
+  "task": "ST-125b",
+  "pull_request": 200,
+  "source_commit": "288f1d8d55ed99f725910e4c70f92e0788ed212c",
+  "main_commit": "1559061a6bda96ea232ff1463b0b7512f81296dd",
+  "tree": "3ab313d11fde4dec0f57088667a17fcca312d766",
+  "ci_run": 37772678510,
+  "ci_steps": 34,
+  "all_ci_steps_passed": true,
+  "qa": {
+    "focused_tests": 22,
+    "domain_tests": 105,
+    "domain_files": 6,
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "feature_statement_function_branch_coverage": 100,
+    "gitleaks": "PASS"
+  },
+  "review": "APPROVE_SOURCE all7frozenfiles",
+  "scope": "Offline deterministic feature builder only; parent ST125 incomplete"
+}
