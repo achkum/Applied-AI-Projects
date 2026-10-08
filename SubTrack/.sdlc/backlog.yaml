@@ -173,3 +173,4 @@ items:
   - {id: ST-179, title: "Internal atomic login proof redemption", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-178", "ST-170b1"]}
   - {id: ST-181, title: "Avoid quadratic OTP rate limiter expiry scans", owner: "dev-backend", size: "S", status: DONE, deps: ["ST-177"]}
   - {id: ST-180, title: "Internal isolated v2 access token core", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-170a", "ST-179"]}
+  - {id: ST-182, title: "Internal atomic v2 session issuance reference", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-179", "ST-180"]}
