@@ -271,7 +271,7 @@ export class DevelopmentV2SessionIssuer {
       const before = this.clock(); if (!validClock(before)) throw new Error(FAILURE);
       const consumed = snapshot(await this.proofStore.consumeLogin(v.loginProof, proofContext), ['valid', 'identityId']);
       if (!consumed || consumed.valid !== true || typeof consumed.identityId !== 'string' || !UUID.test(consumed.identityId)) throw new Error(FAILURE);
-      const now = this.clock(); if (!validClock(now)) throw new Error(FAILURE);
+      const now = this.clock(); if (!validClock(now) || now < before) throw new Error(FAILURE);
       context = Object.freeze({ userId: consumed.identityId });
       const sessionId = this.uuid(); const familyId = this.uuid();
       if (!isUuid(sessionId) || !isUuid(familyId) || sessionId === familyId) throw new Error(FAILURE);
