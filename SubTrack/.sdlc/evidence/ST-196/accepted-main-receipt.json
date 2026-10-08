@@ -1,0 +1,16 @@
+{
+  "task": "ST-196",
+  "pr": 196,
+  "source": "0031c87cb5ea13fdc940fff0e1204843cebf61ea",
+  "accepted_main": "59040dca1d05d0257088bd74ea087b8c8b660dac",
+  "tree": "cd3584026f954976e93296f126bc34e9399080af",
+  "ci_run": 37761987866,
+  "ci_steps": 34,
+  "api_tests": 963,
+  "api_test_files": 45,
+  "focused_tests": 33,
+  "lint": "PASS",
+  "typecheck": "PASS",
+  "build": "PASS",
+  "independent_reviews": "APPROVE"
+}
