@@ -18,3 +18,5 @@
 - 2026-10-06: Type2a ST170a / ADR-0010 accepted opt-in v2 internal auth wire and generated validation artifacts after independent platform/client/security approval. Preserve v1; no runtime/provider/migration/deployment/rollout authorization. Proof producer and client adapters remain gates.
 
 - 2026-10-06: Type2a ST051a / ADR-0011 accepts shared pure identifier normalizer in existing contracts dependency after client/platform and security review; mobile callback-only presentation approved by design. No native device or complete onboarding claim.
+
+|2026-10-08|D-12-ST201-dev-otp-start|Type1|"Approved" — implement the presented development-only mobile deletion OTP challenge-start adapter; all review/QA/CI gates remain. No provider/public/default/deletion/ST198 approval.|Founder in this session|docs/architecture/adr/ADR-0012.md; .sdlc/evidence/ST-201/founder-approval.md|

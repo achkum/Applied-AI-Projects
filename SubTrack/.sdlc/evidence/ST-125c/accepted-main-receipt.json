@@ -1,0 +1,28 @@
+{
+  "task": "ST-125c",
+  "pull_request": 201,
+  "source_commit": "fde42694f9a678c067d4320eefb14b7ae0a28cdf",
+  "main_commit": "24c99c836c66104b16e29dee291f96c61c90ddc5",
+  "tree": "3b85bba1e22f9538e7966a0793d61ffdfbc11f6b",
+  "ci_run": 37774449819,
+  "ci_steps": 34,
+  "all_ci_steps_passed": true,
+  "qa": {
+    "focused_tests": 21,
+    "synthetic_tests": 163,
+    "synthetic_files": 8,
+    "lint": "PASS existingrngwarning",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "gitleaks": "PASS"
+  },
+  "review": "APPROVE_SOURCE all4frozenfiles",
+  "evaluation": {
+    "household_subscription_bundles": 5000,
+    "features": 25,
+    "selected_k": 8,
+    "silhouette": 0.13414094511155428,
+    "silhouette_sample": 1000
+  },
+  "scope": "Offline statistical sampling recipe; weakseparation documented, no productquality/realhouseholdclaim"
+}

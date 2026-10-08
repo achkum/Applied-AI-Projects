@@ -1,0 +1,7 @@
+# ST201 founder approval receipt
+
+Date:2026-10-08 UTC. User said "Approved" immediately after the status response identifying ST201 as awaiting explicit founder approval because automatic review rejected proceeding under its recorded Type1 gate. Approval applies to the previously presented narrow development-only MOBILE deletion OTP challenge START adapter. The conductor acknowledged this exact scope before implementation. This is user authorization, not an override invented by an agent. Original conflicting platformType1/securityType2a plan classifications are retained; the stricter founder prerequisite is satisfied.
+
+Authorized POST /v2/me/reauth/otp/start existing contract {channel:sms|email}, current serververified mobileprincipal/ownedrow/serverregisteredcontact, explicitdevelopment+enabled+AUTH_DELETE_OTP_DEV_ONLY gates, private synchronous local testcode sink, fresh authorization checks before mutations, existingverified-principal idempotency, quota/error distinction, independentreviews/actualCAHTTPS/fullAPIQA/CI before routine merge. No realSMS/email/publicport/defaultwiring/accountdeletion/production/provider/client integration. No approval for separately pending ST198 new authority kinds is inferred. No securityHigh/Critical waiver.
+
+This approval supersedes the prior implementation auto-review rejection's missing-authority condition for this exact task. It does not change CONSTITUTION or DECISION_RULES. Record ADR0012 and decisionlog; all original plan requirements remain.
