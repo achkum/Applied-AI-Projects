@@ -68,6 +68,19 @@ test('v2 mutating POSTs require idempotency and browser state distinguishes nonc
     assert.ok(nonce.responses['200'].headers['Set-Cookie']);
     assert.equal(nonce.responses['200'].headers['Cache-Control'].schema.const, 'no-store');
     assert.equal(nonce.responses['200'].headers.Pragma.schema.const, 'no-cache');
+    const session = document.paths['/v2/auth/session'].post;
+    const sessionOrigin = session.parameters.find((parameter) => parameter.name === 'Origin');
+    const sessionNonce = session.parameters.find((parameter) => parameter.name === 'X-Browser-Nonce');
+    assert.equal(sessionOrigin.required, false);
+    assert.match(sessionOrigin.description, /Required for web.*transport/i);
+    assert.equal(sessionNonce.required, false);
+    assert.match(sessionNonce.description, /Required for web transport only/i);
+    assert.match(session.description, /HttpOnly binding cookie/i);
+    assert.match(session.description, /exact.*Origin/i);
+    assert.match(session.description, /same trusted browser chain/i);
+    assert.match(session.description, /consume\s+the nonce terminally/i);
+    assert.match(session.description, /session-bound CSRF/i);
+    assert.match(session.description, /AUTH_RESTART_REQUIRED/i);
     assert.ok(document.components.parameters.SessionCsrf);
     assert.match(document.components.parameters.SessionCsrf.description, /separate from browser nonce/i);
     for (const path of ['/v2/auth/otp/start', '/v2/auth/otp/verify']) {
@@ -123,11 +136,14 @@ test('generated v2 Zod schemas validate transport envelopes and reject mixed or 
     assert.equal(z.zMobileOtpStartCallEnvelope.safeParse({ transport: 'mobile', headers: { ...mobileHeaders, origin, browserNonce: 'nonce' }, body: mobileStart }).success, false);
     assert.equal(z.zMobileOtpVerifyCallEnvelope.safeParse({ transport: 'mobile', headers: mobileHeaders, body: { ...mobileVerify, origin } }).success, false);
 
-    assert.equal(z.zWebSessionCallEnvelope.safeParse({ transport: 'web', headers: { idempotencyKey, origin }, body: { transport: 'web', loginProof: 'proof' } }).success, true);
+    assert.equal(z.zWebSessionCallEnvelope.safeParse({ transport: 'web', headers: { idempotencyKey, origin, browserNonce: 'nonce' }, body: { transport: 'web', loginProof: 'proof' } }).success, true);
+    assert.equal(z.zWebSessionCallEnvelope.safeParse({ transport: 'web', headers: { idempotencyKey, origin }, body: { transport: 'web', loginProof: 'proof' } }).success, false);
     assert.equal(z.zWebSessionCallEnvelope.safeParse({ transport: 'web', headers: { idempotencyKey }, body: { transport: 'web', loginProof: 'proof' } }).success, false);
     assert.equal(z.zMobileSessionCallEnvelope.safeParse({ transport: 'mobile', headers: mobileHeaders, body: { transport: 'mobile', loginProof: 'proof', deviceName: 'Phone' } }).success, true);
     assert.equal(z.zMobileSessionCallEnvelope.safeParse({ transport: 'mobile', headers: { ...mobileHeaders, origin }, body: { transport: 'mobile', loginProof: 'proof' } }).success, false);
-    assert.equal(z.zWebSessionCallEnvelope.safeParse({ transport: 'web', headers: { idempotencyKey, origin }, body: { transport: 'web', loginProof: 'proof', deviceName: 'Phone' } }).success, false);
+    assert.equal(z.zMobileSessionCallEnvelope.safeParse({ transport: 'mobile', headers: { ...mobileHeaders, browserNonce: 'nonce' }, body: { transport: 'mobile', loginProof: 'proof' } }).success, false);
+    assert.equal(z.zMobileSessionCallEnvelope.safeParse({ transport: 'mobile', headers: { ...mobileHeaders, sessionCsrf: 'csrf' }, body: { transport: 'mobile', loginProof: 'proof' } }).success, false);
+    assert.equal(z.zWebSessionCallEnvelope.safeParse({ transport: 'web', headers: { idempotencyKey, origin, browserNonce: 'nonce' }, body: { transport: 'web', loginProof: 'proof', deviceName: 'Phone' } }).success, false);
 
     assert.equal(z.zWebRefreshCallEnvelope.safeParse({ transport: 'web', headers: { idempotencyKey, origin, sessionCsrf: 'csrf' }, body: null }).success, true);
     assert.equal(z.zWebRefreshCallEnvelope.safeParse({ transport: 'web', headers: { idempotencyKey, origin }, body: null }).success, false);
@@ -139,6 +155,7 @@ test('generated v2 Zod schemas validate transport envelopes and reject mixed or 
     const sessionId = 'd9428888-122b-4f8c-9e33-71a48c10d25a';
     assert.equal(z.zWebSessionResponse.safeParse({ transport: 'web', sessionId, csrfToken: 'csrf' }).success, true);
     assert.equal(z.zWebSessionResponse.safeParse({ transport: 'web', sessionId, csrfToken: 'csrf', accessToken: 'secret', refreshToken: 'secret' }).success, false);
+    assert.equal(z.zWebSessionResponse.safeParse({ transport: 'web', sessionId, csrfToken: 'csrf', nextBrowserNonce: 'nonce' }).success, false);
     assert.equal(z.zMobileSessionResponse.safeParse({ transport: 'mobile', sessionId, accessToken: 'fictional.jwt.string', refreshToken: 'opaque-refresh' }).success, true);
     assert.equal(z.zDeleteOtpStartRequest.safeParse({ channel: 'email' }).success, true);
     assert.equal(z.zDeleteOtpStartRequest.safeParse({ channel: 'phone' }).success, false);

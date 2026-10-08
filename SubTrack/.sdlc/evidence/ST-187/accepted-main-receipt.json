@@ -1,0 +1,11 @@
+{
+  "task": "ST-187",
+  "source": "e3137a9b75bd04c222dffe943d410c7aed901a1c",
+  "accepted_main": "73c1b6096a990344d95265a2f38b6e9c8b2988aa",
+  "tree": "3f2c6e7e1cf5ee83b0a11b3c08f8303be5e804de",
+  "remote_branch_lease": "e3137a9b75bd04c222dffe943d410c7aed901a1c",
+  "ci_run": 37741988746,
+  "successful_ci_steps": 34,
+  "api_tests": 660,
+  "api_test_files": 32
+}
