@@ -1,0 +1,15 @@
+{
+  "task": "ST-197",
+  "pr": 197,
+  "source": "563c2a162a9d0e7cce937939457ac137c3c37198",
+  "main": "c51ee027754bcdd944bd298b3573a37922680d7c",
+  "tree": "04d412b2d7ce5a712e19bc043d9db18894b2c583",
+  "ci_run": 37764563010,
+  "ci_steps_passed": 34,
+  "focused_tests": 25,
+  "api_tests": 988,
+  "api_test_files": 47,
+  "qa": "lint/typecheck/build/actual CA HTTPS/gitleaks PASS",
+  "source_reviews": "platform and security APPROVE",
+  "own_branch_cleanup": "exact incorporated tree and live remote lease verified"
+}

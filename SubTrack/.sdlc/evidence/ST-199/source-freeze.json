@@ -1,0 +1,4 @@
+{
+  "apps/api/src/auth/proofs-v2/deletion-otp-proof-producer.ts": "1224d4f12e3d751c46cec52221bd9b853ba0af7c3f8b05c5d6c7d3e3977ee227",
+  "apps/api/src/auth/proofs-v2/deletion-otp-proof-producer.spec.ts": "e0c124e240a87e7ff0a6bf4c14f42f0e3e70b18afaf3e11db7e94bf6ca865a66"
+}
