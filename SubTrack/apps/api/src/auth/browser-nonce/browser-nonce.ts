@@ -41,8 +41,37 @@ export interface BrowserNonceStore {
   bootstrap(record: NonceRecord, previousCookieHash: string | null, now: number): void;
   peek(nonceHash: string, cookieHash: string, origin: string, purpose: BrowserPurpose, now: number): NonceRecord | null;
   rotate(nonceHash: string, cookieHash: string, origin: string, purpose: BrowserPurpose, now: number, next: NonceRecord): string | null;
+  /** Atomically removes and returns only a matching live session-purpose row. */
+  consumeSession?(nonceHash: string, cookieHash: string, origin: string, now: number): NonceRecord | null;
 }
 export type NonceRecord = Readonly<{ nonceHash: string; cookieHash: string; chainId: string; origin: string; purpose: BrowserPurpose; issuedAt: number; expiresAt: number }>;
+
+/** Snapshot the trusted terminal-store result without invoking accessors. */
+function terminalRecord(value: unknown): NonceRecord {
+  const expected = ['nonceHash', 'cookieHash', 'chainId', 'origin', 'purpose', 'issuedAt', 'expiresAt'];
+  if (!value || typeof value !== 'object' || Object.getPrototypeOf(value) !== Object.prototype || Reflect.ownKeys(value).length !== expected.length) throw failure();
+  const copied: Record<string, unknown> = {};
+  for (const key of expected) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !('value' in descriptor) || !descriptor.enumerable) throw failure();
+    copied[key] = descriptor.value;
+  }
+  return Object.freeze(copied) as unknown as NonceRecord;
+}
+
+/** Resolve a trusted adapter data method while preserving its receiver. */
+function terminalPort(store: BrowserNonceStore): NonNullable<BrowserNonceStore['consumeSession']> {
+  let current: object | null = store;
+  while (current) {
+    const descriptor = Object.getOwnPropertyDescriptor(current, 'consumeSession');
+    if (descriptor) {
+      if (!('value' in descriptor) || typeof descriptor.value !== 'function') throw failure();
+      return descriptor.value.bind(store) as NonNullable<BrowserNonceStore['consumeSession']>;
+    }
+    current = Object.getPrototypeOf(current) as object | null;
+  }
+  throw failure();
+}
 
 /** Process-local reference store. Each state transition is synchronous and atomic within this process. */
 export class InMemoryBrowserNonceStore implements BrowserNonceStore {
@@ -73,6 +102,17 @@ export class InMemoryBrowserNonceStore implements BrowserNonceStore {
     this.records.delete(nonceHash);
     this.records.set(next.nonceHash, Object.freeze({ ...next, chainId: r.chainId }));
     return r.chainId;
+  }
+  consumeSession(nonceHash: string, cookieHash: string, origin: string, now: number): NonceRecord | null {
+    // Validate the clock before pruning so an invalid request cannot mutate any row.
+    if (!Number.isSafeInteger(now) || now < 0) return null;
+    this.prune(now);
+    const record = this.records.get(nonceHash);
+    if (!record || record.nonceHash !== nonceHash || record.cookieHash !== cookieHash || record.origin !== origin || record.purpose !== 'session' ||
+      !Number.isSafeInteger(record.issuedAt) || record.issuedAt < 0 || !Number.isSafeInteger(record.expiresAt) || now < record.issuedAt || now >= record.expiresAt ||
+      record.expiresAt !== record.issuedAt + BROWSER_NONCE_TTL_MS) return null;
+    this.records.delete(nonceHash);
+    return Object.freeze({ ...record });
   }
   /** Safe diagnostic view for focused tests; contains hashes only. */
   snapshot(): readonly NonceRecord[] { return Object.freeze([...this.records.values()].map(r => Object.freeze({ ...r }))); }
@@ -134,6 +174,20 @@ export class BrowserNonceGuard {
       const record = this.store.peek(domain('nonce', nonce), domain('cookie', cookieSecret), origin, purpose, now);
       if (!record) throw failure();
       return Object.freeze({ chainId: record.chainId, origin: record.origin, purpose: record.purpose });
+    } catch { throw failure(); }
+  }
+  /** Terminally consume a session-purpose nonce without creating a successor. */
+  consumeForSession(evidence: BrowserEvidence, nonce: string, cookieSecret: string): TrustedBrowserContext {
+    try {
+      const { origin, now } = this.validate(evidence, 'session');
+      if (typeof nonce !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(nonce) || typeof cookieSecret !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(cookieSecret) ||
+        !Number.isSafeInteger(now + BROWSER_NONCE_TTL_MS)) throw failure();
+      const nonceHash = domain('nonce', nonce), cookieHash = domain('cookie', cookieSecret);
+      const record = terminalRecord(terminalPort(this.store)(nonceHash, cookieHash, origin, now));
+      if (!record || record.nonceHash !== nonceHash || record.cookieHash !== cookieHash || record.origin !== origin || record.purpose !== 'session' ||
+        typeof record.chainId !== 'string' || record.chainId.length === 0 || !Number.isSafeInteger(record.issuedAt) || record.issuedAt < 0 || !Number.isSafeInteger(record.expiresAt) ||
+        now < record.issuedAt || now >= record.expiresAt || record.expiresAt !== record.issuedAt + BROWSER_NONCE_TTL_MS) throw failure();
+      return Object.freeze({ chainId: record.chainId, origin, purpose: 'session' });
     } catch { throw failure(); }
   }
 }
