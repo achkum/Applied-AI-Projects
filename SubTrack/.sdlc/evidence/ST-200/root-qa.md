@@ -1,0 +1,9 @@
+# ST200 conductor verification
+
+15 focused tests PASS,1029 full API tests across49files PASS; APIlint/typecheck/build PASS. Real fixedsimulator proof/issuer/JWT/principal/currentownedrepo -> scopedservercontact ->199deletion-onlyproof reference pipeline tested. NoHTTP/native/provider/durableproduction acceptance claimed.
+
+Root expanded initially4tests to15 (tables exercise additional malformed records), deterministic fixedsimulator time, corrected test lint closures, and added foreign/revoked/web credentials deniedbeforecontact, wrongprincipal, alreadyresolved/deferred principal revocation, pendingcontactexpiry, postcontactfullrow corruption, raw/extra/gettercontacts, hostilethenables/asyncrowread, capturedmethodreceivers/context/configmutation, developmentgates, malformedverifiedclaims. Root racefixture initially assumed one microtask reached contact; corrected deterministic entered barrier. Sourceimplementation unchangedexceptformat. Finalread currentowner guarantee is linearization only; futureunsafeconsumer mustfreshrecheck principal/row and independentlyenforceHTTPsecurity/idempotency.
+
+Author reported13 normalized tool-call count but did not separate final; conservative14recorded (reported13+final), within15cap. No additional accounting round requested; ambiguityexplicit, notprecisebilling claim. Plans3platform/5security withcorrectivegateamendment, originalcap/timerspreserved. No actualcontextclear/tokenquota savings claim.
+
+Independentplatform/security frozen-source APPROVE bothnewhashes. Platform6normalized originalcap5 overrun1: reviewerexplicitlyauthorizedroot QA sentence correction(49 testfiles,notlintfiles), decision/findings/hashesunchanged. Security7normalized originalcap5 overrun2: missingnew-spec hash/review requirednarrowadditionalread+ownamendment, bothnewfilesnowmatchedexactfreeze. No budgets/timersreset.
