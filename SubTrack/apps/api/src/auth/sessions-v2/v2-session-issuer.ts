@@ -16,6 +16,7 @@ export interface SessionRecord {
   readonly refreshTokenHash: string; readonly transport: SessionTransport; readonly exactOrigin?: string;
   readonly browserChainId?: string; readonly deviceName: string | null; readonly createdAt: number; readonly expiresAt: number;
 }
+export interface FrozenSessionSummary { readonly id: string; readonly createdAt: string; readonly current: boolean; readonly deviceName: string | null }
 export type SessionRequestContext = Readonly<RequestContext>;
 export interface SessionRepository {
   createForActiveIdentity(record: SessionRecord, context: Readonly<SessionRequestContext>): boolean | Promise<boolean>;
@@ -161,6 +162,27 @@ export class InMemoryV2SessionRepository implements SessionRepository {
     try { const c = contextCopy(contextInput); if (!isUuid(sessionId) || !Number.isSafeInteger(now) || now < 0) return null;
       const current = this.clock(); if (!validClock(current) || now > current) return null;
       this.prune(current); const r = this.records.get(sessionId); return r && r.identityId === c.userId && this.active.has(c.userId) && now >= r.createdAt && current >= r.createdAt && current < r.expiresAt ? Object.freeze({ ...r }) : null;
+    } catch { return null; }
+  }
+  listForCurrentSession(sessionId: string, contextInput: Readonly<SessionRequestContext>, observedAt: number): readonly FrozenSessionSummary[] | null {
+    try {
+      const context = contextCopy(contextInput);
+      if (!isUuid(sessionId) || !validClock(observedAt)) return null;
+      const trustedNow = this.clock();
+      if (!validClock(trustedNow) || observedAt > trustedNow || !Number.isFinite(new Date(observedAt).getTime()) || !Number.isFinite(new Date(trustedNow).getTime())) return null;
+      const request = this.records.get(sessionId);
+      if (!request || request.identityId !== context.userId || !this.active.has(context.userId) ||
+          request.createdAt > observedAt || request.createdAt > trustedNow || trustedNow >= request.expiresAt ||
+          !Number.isFinite(new Date(request.createdAt).getTime())) return null;
+      // Validate every timestamp before pruning; only trusted time may mutate the store.
+      const ownerRows: Readonly<SessionRecord>[] = [];
+      for (const row of this.records.values()) if (row.identityId === context.userId) {
+        if (!Number.isFinite(new Date(row.createdAt).getTime()) || !Number.isFinite(new Date(row.expiresAt).getTime())) return null;
+        if (row.createdAt <= trustedNow && trustedNow < row.expiresAt) ownerRows.push(row);
+      }
+      this.prune(trustedNow);
+      ownerRows.sort((a, b) => b.createdAt - a.createdAt || (a.sessionId < b.sessionId ? -1 : a.sessionId > b.sessionId ? 1 : 0));
+      return Object.freeze(ownerRows.map((row) => Object.freeze({ id: row.sessionId, createdAt: new Date(row.createdAt).toISOString(), current: row.sessionId === sessionId, deviceName: row.deviceName })));
     } catch { return null; }
   }
   markIdentityDeleted(identityId: string, contextInput: Readonly<SessionRequestContext>): boolean {

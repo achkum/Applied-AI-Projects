@@ -1,0 +1,3 @@
+631 API tests31files PASS; API lint/typecheck/build PASS. Rawlogs /tmp/st186-api-tests.txt /tmp/st186-lint.txt /tmp/st186-typecheck.txt /tmp/st186-build.txt outsideGit. Author12calls3tests; rootfixed missing Datebounds/futurecreatedfilter andexpanded28listingcases. Current-sessionrevocation-after-resolverrace, independentcopies/frozenoutput/deterministicties, clocks/expiry/owner/getter/symbol/time-prune tests. No skips/timeoutchanges. ExactsourceCI required beforemerge.
+
+Securityfound missingownedexpiryDatepreflight; rootfixedbeforeprune andadded2nonmutation/isolationregressions. Final631tests31files/fullQA PASS; corrective sourceplatform5/security6 cumulativecalls APPROVE atcurrenthashes.

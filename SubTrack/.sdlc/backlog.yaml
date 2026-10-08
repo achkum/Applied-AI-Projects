@@ -176,4 +176,5 @@ items:
   - {id: ST-182, title: "Internal atomic v2 session issuance reference", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-179", "ST-180"]}
   - {id: ST-183, title: "Internal current-owner v2 principal resolver", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-180", "ST-182"]}
   - {id: ST-184, title: "Internal atomic v2 refresh lifecycle repository", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-182", "ST-183"]}
-  - {id: ST-185, title: "Internal development v2 refresh service", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-183", "ST-184"]}
+  - {id: ST-185, title: "Internal development v2 refresh service", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-183", "ST-184"]}
+  - {id: ST-186, title: "Internal current-session-scoped v2 session listing", owner: "dev-backend", size: "S", status: IN_REVIEW, deps: ["ST-183", "ST-184"]}
