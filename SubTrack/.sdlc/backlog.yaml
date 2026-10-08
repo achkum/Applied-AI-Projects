@@ -181,4 +181,5 @@ items:
   - {id: ST-187, title: "Internal current-session-scoped v2 revocation", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-183", "ST-184", "ST-186"]}
   - {id: ST-188, title: "Web session nonce contract alignment", owner: "dev-backend", size: "S", status: DONE, deps: ["ST-187", "ST-170a"]}
   - {id: ST-189, title: "Internal terminal session nonce consumption", owner: "dev-backend", size: "S", status: DONE, deps: ["ST-188", "ST-170c1"]}
-  - {id: ST-190, title: "Reject issuer clock regression across login proof await", owner: "dev-backend", size: "S", status: IN_REVIEW, deps: ["ST-182", "ST-189"]}
+  - {id: ST-190, title: "Reject issuer clock regression across login proof await", owner: "dev-backend", size: "S", status: DONE, deps: ["ST-182", "ST-189"]}
+  - {id: ST-191, title: "Internal web session cookie binding and credential-scoped context recovery", owner: "dev-backend", size: "M", status: IN_REVIEW, deps: ["ST-190", "ST-188", "ST-189"]}
