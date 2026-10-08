@@ -13,4 +13,4 @@ Reviewed canonical source SHA-256:
 - `apps/api/src/auth/sessions-v2/v2-web-session-binding.ts` — `5ff037900ef875d119a6a5b397b571873acfeece488a43f29a991776131ef78b`
 - `apps/api/src/auth/sessions-v2/v2-web-session-binding.spec.ts` — `384baf740707fe87d3a1fb901814b6e969e868ac9baa915ce1f494b93bf613e0`
 
-Reviewer tools used: 4, including this handoff. No tests run; root owns QA.
+Reviewer tools used: 5, including this handoff. No tests run; root owns QA.
