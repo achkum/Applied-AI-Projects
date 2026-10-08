@@ -1,0 +1,13 @@
+{
+  "task": "ST-192",
+  "source": "bd60a9a25691783f00e406ee9e0e01c2c78297e7",
+  "accepted_main": "e6f4bbacd856e63af1dc4cf7ccc1367e057d43a7",
+  "tree": "7ba0c30f9b2a1a18f44d05b5b3dbc5ac71913eda",
+  "remote_branch_lease": "bd60a9a25691783f00e406ee9e0e01c2c78297e7",
+  "ci_run": 37752132656,
+  "successful_ci_steps": 34,
+  "api_tests": 816,
+  "api_test_files": 37,
+  "focused_tests": 49,
+  "browser_harness_tests": 4
+}
