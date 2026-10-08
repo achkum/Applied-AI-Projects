@@ -1,0 +1,17 @@
+{
+  "task": "ST-193",
+  "pr": 193,
+  "source": "229e732801b799f810d8d86b6a73ed9743b62326",
+  "accepted_main": "857c0402331bba469568dde0dea386a965dac76a",
+  "tree": "c8dec4bf453e0b784391a338eead3842792af47e",
+  "ci_run": 37756304033,
+  "ci_steps": 34,
+  "api_tests": 858,
+  "api_test_files": 39,
+  "focused_tests": 42,
+  "chromium_harness_tests": 5,
+  "lint": "PASS",
+  "typecheck": "PASS",
+  "build": "PASS",
+  "independent_reviews": "APPROVE"
+}
