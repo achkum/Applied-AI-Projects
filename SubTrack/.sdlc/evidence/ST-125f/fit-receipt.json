@@ -1,0 +1,30 @@
+{
+  "task": "ST-125f",
+  "input_sha256": "7d3fcff47e610e56f705359b38f6c107e9eaca45be6dd2ac7c0557105dca0d8b",
+  "input_shape": [
+    5000,
+    25
+  ],
+  "schema": "household-persona-v1",
+  "new_fit": true,
+  "fit_count": 1,
+  "random_state": 42,
+  "n_init": 10,
+  "silhouette_sample_size": 1000,
+  "numerical_threads": 1,
+  "artifact_sha256": "c4784550a74f225db7477f39b5766b8f6de3d54c7bd333f1a806f1f076a8e366",
+  "selected_k": 8,
+  "training_sample_count": 5000,
+  "label_counts": [
+    582,
+    841,
+    827,
+    996,
+    227,
+    945,
+    342,
+    240
+  ],
+  "selected_silhouette": 0.13414094511155428,
+  "scope": "Aggregate offline synthetic review data; weak separation, no real-household/semantic labels/cohort currency/registry/integration claim"
+}

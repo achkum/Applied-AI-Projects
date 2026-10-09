@@ -1,0 +1,17 @@
+{
+  "task": "ST-125e",
+  "pull_request": 204,
+  "source_commit": "e189d423a3fe01b6f8c5fa91444d26afb784e313",
+  "main_commit": "3c195ef56969ac2b5140fc002d42b8d4ae6b26a0",
+  "tree": "cda2936230860a456bbc003710171b9232940165",
+  "ci_run": 37800883581,
+  "ci_steps": 34,
+  "all_ci_steps_passed": true,
+  "qa": {
+    "ml_tests": 78,
+    "centroid_tests": 18,
+    "gitleaks": "PASS"
+  },
+  "review": "Independent architect-data APPROVE_SOURCE all5frozenhashes",
+  "scope": "Offline schema-bound dimensionless centroid descriptions; trusted marker is not semantic proof/auth; no LLM/human-label/cohort/product integration/parent125completion"
+}
