@@ -1,0 +1,17 @@
+{
+  "task": "ST-126d",
+  "pr": 213,
+  "source_head": "01ff1b0a07b72fef9cb35c3951753e6b19b043d8",
+  "accepted_main": "1f5fff3fb21e82c2ea2cb83396ea4d2e154b18ee",
+  "source_main_tree": "6237d3341546fb3a419fca5f1cfd292ee9201c50",
+  "ci_run": 38003450179,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "full_domain_tests": 153,
+  "focused_tests": 13,
+  "helper_branches": "33/33 (100%)",
+  "independent_source_review": "APPROVE (three frozen hashes)",
+  "staged_gitleaks": "PASS",
+  "lint_typecheck_build": "PASS",
+  "limits": "Private caller-scoped exact amount-anomaly findings only; fullST081ST126integration pending; existingUIunchanged."
+}
