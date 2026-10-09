@@ -106,7 +106,7 @@ items:
   - {id: ST-068, title: "Normaliser + merchant matcher (`packages/domain`)", owner: "dev-data", size: "L", status: DONE, deps: ["ST-064", "ST-067"]}
   - {id: ST-069, title: "Web + mobile: connect bank, syncing progress, connections list, disconnect/purge", owner: "dev-web / dev-mobile", size: "L each", status: BACKLOG, deps: ["ST-067"]}
   - {id: ST-080, title: "Recurring detection engine (cadence, amount bands, confidence, reasons) + evaluation harness vs synthetic truth", owner: "architect-data → dev-data", size: "L×2", status: DONE, deps: ["ST-068"]}
-  - {id: ST-081, title: "Subscription lifecycle + review inbox API + feedback capture", owner: "dev-backend", size: "L", status: BACKLOG, deps: ["ST-080"]}
+  - {id: ST-081, title: "Subscription lifecycle + review inbox API + feedback capture", owner: "dev-backend", size: "L", status: BLOCKED, deps: ["ST-080"]}
   - {id: ST-082, title: "Dashboard API (scope-aware aggregates, upcoming renewals, deltas)", owner: "dev-backend", size: "M", status: BACKLOG, deps: ["ST-081", "ST-048"]}
   - {id: ST-083, title: "Price history + price_event detection (deterministic)", owner: "dev-data", size: "M", status: BACKLOG, deps: ["ST-081"]}
   - {id: ST-084, title: "Web: Home (Orbit, totals, upcoming), Subscriptions list/filter, Detail (history/charges), Review deck", owner: "dev-web", size: "L×3", status: BACKLOG, deps: ["ST-082"]}
@@ -207,4 +207,5 @@ items:
   - {id: ST-126c, title: "Exact Money median and MAD decision primitive", owner: dev-backend, size: M, status: DONE, deps: []}
   - {id: ST-126d, title: "Private exact amount-anomaly findings", owner: dev-backend, size: M, status: DONE, deps: [ST-126c]}
   - {id: ST-126e, title: "Exact advisory converted-cost swing primitive", owner: dev-backend, size: M, status: DONE, deps: []}
-  - {id: ST-126f, title: "Private converted-cost anomaly findings", owner: dev-backend, size: M, status: REVIEW, deps: [ST-126e]}
+  - {id: ST-126f, title: "Private converted-cost anomaly findings", owner: dev-backend, size: M, status: DONE, deps: [ST-126e]}
+  - {id: ST-205, title: "Bounded subscription contract decisions and remaining gates", milestone: M2, owner: architect-platform, size: M, status: REVIEW, deps: [ST-080, BUG-013]}
