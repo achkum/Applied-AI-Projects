@@ -1,0 +1,17 @@
+{
+  "task": "ST-126c",
+  "pr": 212,
+  "source_head": "8da08826010037a6e67e1b022730e6cec0c5072d",
+  "accepted_main": "3088b9273861a0d0bf9791d7db113d0230ec1aa2",
+  "source_main_tree": "b3f7e36ccd0fe346f6b843e245a2cddc17c703fb",
+  "ci_run": 38002818249,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "full_money_tests": 124,
+  "focused_tests": 14,
+  "helper_branches": "28/28 (100%)",
+  "independent_source_review": "APPROVE (four frozen hashes, exact arithmetic)",
+  "staged_gitleaks": "PASS",
+  "lint_typecheck_build": "PASS",
+  "limits": "Additive exact Money median/MAD API only, no defaultconsumer/fullST081ST126integration; existingUIunchanged."
+}
