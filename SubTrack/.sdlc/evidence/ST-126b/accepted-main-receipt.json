@@ -1,0 +1,17 @@
+{
+  "task": "ST-126b",
+  "pr": 211,
+  "source_head": "2dd8497e6bcc2397fe0d173558e85cd41d8359b7",
+  "accepted_main": "1aa29d9aeb70826fcf26f1da10c221e33b929ce1",
+  "source_main_tree": "6eff5a40116fcbfc502239a3289a163c66aa497c",
+  "ci_run": 38002221704,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "full_domain_tests": 140,
+  "focused_tests": 22,
+  "helper_branches": "27/27 (100%)",
+  "independent_source_review": "APPROVE (three frozen hashes)",
+  "staged_gitleaks": "PASS",
+  "lint_typecheck_build": "PASS",
+  "limits": "Private caller-scoped confirmed-cancellation charge rule only; fullST081/ST126integration pending, existingUIunchanged."
+}

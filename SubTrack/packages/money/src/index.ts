@@ -29,3 +29,5 @@ export {
 } from './money.js';
 
 export { assertValidCurrencyCode, assertSafeMinorUnits } from './validate.js';
+
+export { isAmountOutsideMedianMad } from './median-mad.js';
