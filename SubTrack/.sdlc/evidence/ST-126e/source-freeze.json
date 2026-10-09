@@ -1,0 +1,9 @@
+{
+  "base_main": "1f5fff3fb21e82c2ea2cb83396ea4d2e154b18ee",
+  "sha256": {
+    "packages/money/src/converted-cost.ts": "832c416bded5c293be785df87897e7d78cc5a6d5d3a34aa0e6aa6fe6e3822158",
+    "packages/money/src/index.ts": "a32721ac2c8e9192775312e6b88a91801aaf09142ba12b27b64e6ae56336bab8",
+    "packages/money/test/converted-cost.spec.ts": "b571dfb53e7100f07f83e04c99fb203d5981c9560f9ba7e042d4b72f86154713",
+    "packages/money/src/converted-cost.md": "740332ce9d50ba432834b9f6cbcaa2550845905e644c231c0c56815e2c685e8a"
+  }
+}

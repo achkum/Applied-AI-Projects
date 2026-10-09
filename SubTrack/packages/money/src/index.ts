@@ -31,3 +31,8 @@ export {
 export { assertValidCurrencyCode, assertSafeMinorUnits } from './validate.js';
 
 export { isAmountOutsideMedianMad } from './median-mad.js';
+
+export {
+  isConvertedCostOutsideMedianBand,
+  type ConvertedChargeCost,
+} from './converted-cost.js';
