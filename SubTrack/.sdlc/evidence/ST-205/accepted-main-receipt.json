@@ -1,0 +1,15 @@
+{
+  "task": "ST-205",
+  "pr": 216,
+  "source_head": "6d2e1cd2968b0d16c6e6f5889e7f57fd01056ccf",
+  "accepted_main": "4bcc853845dde11482cb0431b3bb911d58c46e88",
+  "source_main_tree": "590ef3c31806b01fd53b6f3c5bb73bc3787c09e2",
+  "ci_run": 38005738133,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "independent_architecture_data_review": "APPROVE (bounded documentation)",
+  "independent_privacy_review": "APPROVE (bounded documentation; implementation gates BLOCKED)",
+  "staged_gitleaks": "PASS",
+  "local_tests": "Not rerun for documentation-only change",
+  "limits": "No runtime/API/schema/migration/database/default/UI/governance changes. ST081 notREADY; feedback/receiptretention and DB/auth/RLS gates unresolved."
+}

@@ -1,0 +1,9 @@
+# Standalone SEK price increase confirmation
+
+`isConfirmedSekPriceIncrease(firstNewCharge, nextCycleCharge, previousThreeCharges)` is a pure boolean rule over five caller-supplied `Money` values. Each unique Money object is snapshotted once per call; aliases reuse the captured magnitude. The history must be an actual array with captured length exactly `3`; its three indexed entries are read once, and its iterator is not used.
+
+All five logical values must have `currency === 'SEK'` and a nonzero `bigint` `minorUnits`. Signed values are converted to positive magnitudes. Invalid shapes, currencies, amounts, property access, or unexpected errors produce `MoneyError('Price increase confirmation unavailable')`. Inputs are not modified.
+
+Let `M` be the middle value after sorting the three prior magnitudes, `C` the first new charge magnitude, and `N` the next-cycle magnitude. The function returns true exactly when `C === N`, `delta = C - M` is positive, and either `100 * delta > 3 * M` or `delta > 500`. All arithmetic and comparisons use `bigint`. Equality is inside each threshold independently; because the thresholds are joined with OR, equality at one threshold can still confirm through the other. The repeat must match exactly in normalized minor units. The median of three is the defined baseline; no additional variance condition applies.
+
+The caller owns authoritative posted-charge eligibility and provenance, refunds and exclusions, one-owner/service/cadence grouping, chronological selection of the three prior charges, and proof that the next-cycle charge is the actual next cycle. This function does not establish those facts, persist a `price_event`, schedule or trigger an action, or validate a data source. The rule is SEK-only; it performs no currency conversion. Persisted price events, foreign-currency thresholds, and broader price-intelligence integration remain outside this helper.
