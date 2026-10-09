@@ -1,0 +1,7 @@
+# Converted cost anomaly primitive
+
+`detectConvertedCostAnomalies` is a standalone, advisory domain primitive. For each supplied transaction, it delegates the candidate pair, every prior pair, and all converted-cost arithmetic to `isConvertedCostOutsideMedianBand` from `@subtrack/money`. A finding contains only the transaction ID and the fixed reason `CONVERTED_COST_SWING`; results and findings are frozen.
+
+The Money primitive requires valid billed and settled `Money` pairs with homogeneous currencies, accepts 0–50 history pairs, and flags a strict relative drift greater than 5% from the ordinary exact-rational median when at least four prior pairs exist. Histories of 0–3 valid pairs produce no finding, while every pair is still validated. Equality at 5% remains inside the band. These thresholds are reversible advisory heuristics, not a confidence claim.
+
+Callers must supply authoritative booked billed/settled pairs and own one-owner authorization, posted-debit/refund eligibility, service and currency grouping, chronological prior selection, and candidate exclusion. Costs represent effective booked conversion cost including fees, markup, and rounding; the primitive does not isolate market FX movement. No provider integration, persistence, automatic action, or caller policy is implied. Malformed input or delegated failures produce only `Error('Converted cost anomaly detection unavailable')`, without raw values or causes.
