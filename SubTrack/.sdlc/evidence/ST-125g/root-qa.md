@@ -1,0 +1,7 @@
+# ST125g root verification
+
+The final three reviewed source hashes are recorded in source-freeze.json. Focused snapshot, clustering, centroid-description and review-artifact checks passed: **68 passed in 2.25s**, no skips. Command: `OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 services/ml/.venv/bin/python -m pytest -o addopts='' -q services/ml/tests/test_persona_model_snapshot.py services/ml/tests/test_clustering.py services/ml/tests/test_centroid_descriptions.py services/ml/tests/test_persona_review_artifact.py`, from SubTrack. Output retained outside git in /tmp/st125g-final-focused-qa.log.
+
+Checks cover native prediction parity on training rows, inverse-scaled centers and a probe; immutable detached weights; strict JSON round trips, malformed/duplicate/unknown fields, schema/order/type/finite/numeric limits; native estimator/config/sample checks; strict built-in inference numbers; exact ties. Only one small module-scoped 16-row canonical fit is needed per run. No 5,000-row fit, provider, file I/O, new dependency, UI, API or production integration. The first test command failed because it referenced two nonexistent filenames; corrected targets passed, then the final run verified the primitive-type tightening.
+
+The final source passed independent Luna review. Prior ST125f acceptance and DONE status are carried with their actual receipt. Product persona labeling, cohort monetary comparisons, registry and application integration remain pending.

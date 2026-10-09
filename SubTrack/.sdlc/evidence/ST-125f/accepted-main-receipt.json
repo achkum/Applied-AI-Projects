@@ -1,0 +1,28 @@
+{
+  "task": "ST-125f",
+  "pr": 205,
+  "source_head": "3fd29a7c8780a814986f257d0f4d62de3da62e5f",
+  "accepted_main": "27bc0b9fa0cc6f88005f3651f9e73da7f854ef2a",
+  "source_main_tree": "58b8e83f9199f7b2b8ce6b166c5ffb61a07a3dda",
+  "ci_run": 37992969773,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "source_freeze": {
+    "services/ml/app/clustering/review_artifact.py": "7e22033d85f63caf2de8b3c079ff02d0d7f6e73cd1979753da20f69127963b65",
+    "services/ml/app/clustering/__init__.py": "0dcaf57971c9d7ae99a1bbcd9a7b142d5f02655aef4e9ff6fead2ee44f3a1d0b",
+    "services/ml/tests/test_persona_review_artifact.py": "c9acd9e646c40ae0985dfac50f50a57d776e77ca22533cf9fb39c22199d24af4",
+    "services/ml/model_cards/persona-review-artifact.md": "8cc6f104d1136ce1b90d42a16c03c5f479cdb3f87b08c29a80d1e25948d87220"
+  },
+  "review": "Independent exact4hash APPROVE_SOURCE",
+  "full_ml_suite": {
+    "passed": 109,
+    "new": 31,
+    "prior": 78,
+    "existing_warnings": 4
+  },
+  "fit_count": 1,
+  "fit_population": 5000,
+  "fit_quality": "k8 silhouette0.13414094511155428 weak separation",
+  "staged_gitleaks": "PASS",
+  "limits": "Private dimensionless aggregate review export; no modelpersistence/semanticlabels/cohortmoney/registry/productionintegration"
+}
