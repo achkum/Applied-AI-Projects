@@ -202,4 +202,5 @@ items:
   - {id: ST-125g, title: "Private persona model snapshot and anonymous inference", owner: dev-data, size: M, status: DONE, deps: [ST-125f]}
   - {id: ST-125h, title: "Private canonical persona training step", owner: dev-data, size: M, status: DONE, deps: [ST-125g]}
   - {id: ST-203, title: "Development mobile deletion OTP verify HTTPS adapter", owner: dev-backend, size: M, status: DONE, deps: [ST-201, ST-200, ST-199]}
-  - {id: ST-126a, title: "Private account-scoped duplicate-charge anomaly rule", owner: dev-backend, size: M, status: REVIEW, deps: []}
+  - {id: ST-126a, title: "Private account-scoped duplicate-charge anomaly rule", owner: dev-backend, size: M, status: DONE, deps: []}
+  - {id: ST-126b, title: "Private confirmed-cancellation charge anomaly rule", owner: dev-backend, size: M, status: REVIEW, deps: []}

@@ -27,3 +27,5 @@ Agents treat an item as **binding** once its status is `Confirmed`, or once it h
 
 ## ST126a local duplicate-charge window (Assumed)
 This private rule compares already-authorized one-owner posteddebit charges within the same account, merchant andcurrency using exact Money equality. Within3days means UTCcalendar-date difference<=3 inclusive. These conservative local assumptions do notchangeunsafelegacy amountrepresentation orassertST081/ST126integration acceptance. Cross-account rules, exact72-hour interpretation orproductintegration require a reviewedfollow-up.
+
+- ST126b (Assumed, 2026-10-09): "charge after cancellation" uses strict native epoch-millisecond `chargedAt > cancelledAt` against a caller-supplied authoritative confirmed-cancellation effective instant; equal instants are excluded and no grace period is inferred. Caller owns posted debit filtering, transaction/subscription association and one-owner authorization. This private helper does not establish cancellation lifecycle or satisfy ST081/ST126 integration.

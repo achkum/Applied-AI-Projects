@@ -1,0 +1,8 @@
+{
+  "base_main": "7ea0c408e4a00f2066391aa55085eb8e5b425788",
+  "sha256": {
+    "packages/domain/detection/cancelled-charge-anomalies.ts": "87f37a8de4e20f89b5c26bdfb015fd8a1ef44c538ec8c9fcd9e4d8bb4735c455",
+    "packages/domain/test/cancelled-charge-anomalies.spec.ts": "83913ca4890bee0c55ba97f91ae687cb2fbebfbcbb7c79ecf487b57af6b8bc63",
+    "packages/domain/detection/cancelled-charge-anomalies.md": "cb74f500c47ac6305a4c5843e15a3bbd182a02b0eff7f052356155e0d4d836ae"
+  }
+}
