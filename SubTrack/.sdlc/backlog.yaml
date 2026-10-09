@@ -206,4 +206,5 @@ items:
   - {id: ST-126b, title: "Private confirmed-cancellation charge anomaly rule", owner: dev-backend, size: M, status: DONE, deps: []}
   - {id: ST-126c, title: "Exact Money median and MAD decision primitive", owner: dev-backend, size: M, status: DONE, deps: []}
   - {id: ST-126d, title: "Private exact amount-anomaly findings", owner: dev-backend, size: M, status: DONE, deps: [ST-126c]}
-  - {id: ST-126e, title: "Exact advisory converted-cost swing primitive", owner: dev-backend, size: M, status: REVIEW, deps: []}
+  - {id: ST-126e, title: "Exact advisory converted-cost swing primitive", owner: dev-backend, size: M, status: DONE, deps: []}
+  - {id: ST-126f, title: "Private converted-cost anomaly findings", owner: dev-backend, size: M, status: REVIEW, deps: [ST-126e]}

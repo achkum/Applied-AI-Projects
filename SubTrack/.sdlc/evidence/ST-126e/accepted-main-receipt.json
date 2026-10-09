@@ -1,0 +1,17 @@
+{
+  "task": "ST-126e",
+  "pr": 214,
+  "source_head": "555c90b870d96288706c489bb0dccd85f0b83efe",
+  "accepted_main": "f8fd556b3194e9a16d471cc0b9bf0b87fb6aada8",
+  "source_main_tree": "a91ed0374807eb45ea32937fcd98d444ab899529",
+  "ci_run": 38004335176,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "full_money_tests": 142,
+  "focused_tests": 18,
+  "helper_branches": "41/41 (100%)",
+  "independent_source_review": "APPROVE (four frozen hashes)",
+  "staged_gitleaks": "PASS",
+  "lint_typecheck_build": "PASS",
+  "limits": "Standalone effective booked converted-cost primitive only; no marketFX/sourceflow/default/confidence/fullST081ST126completion claim; existingUIunchanged."
+}
