@@ -3,6 +3,8 @@
 **Status:** offline statistical core only; not an integrated persona or cohort feature.
 **Implementation version:** 0.1.0 (package version); **seed:** 42 by default; **K-Means `n_init`:** 10 by default.
 
+The private `train_persona_model` entry point accepts only 9–5,000 rows of 25 built-in numeric values in the canonical feature order and bounds. It performs one native `PersonaClusterer.fit` call with the canonical schema, seed 42, `n_init=10`, and a silhouette sample limit of 1,000, then exports the same fit as an immutable review artifact and model snapshot. Input shape and numeric bounds do not prove that the caller constructed semantically correct or properly scoped features; that remains the caller's responsibility. Training errors expose only a generic unavailable error. This callable does not register, persist, or expose a fitted model.
+
 ## Method and input boundary
 
 `PersonaClusterer` accepts only a non-empty, finite, rectangular real numeric matrix. The upstream caller is responsible for authorization, scope, and constructing deterministic features. Input semantic scoping is the upstream caller’s responsibility; this component validates numeric shape/finite values and does not extract identifiers, transaction descriptors, account data or monetary features, or calculate spending. It standardizes the matrix with a fitted `StandardScaler`, fits scikit-learn K-Means for feasible `k` values from 4 through 8, and selects the largest silhouette score. Iteration is ascending and exact ties select the smaller `k`. K-Means uses a fixed random seed and explicit `n_init=10` by default. For more than 1,000 rows, silhouette scoring uses a deterministic sample selected with the same seed; candidate K-Means fits still use all supplied rows.

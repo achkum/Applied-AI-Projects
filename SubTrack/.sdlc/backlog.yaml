@@ -199,4 +199,5 @@ items:
 
   - {id: ST-202, title: "CI-only public registry mirrors for Docker Hub pull quota", milestone: M0, owner: devops-release, size: S, status: DONE}
   - {id: ST-125f, title: "Private offline persona review artifact", owner: "dev-data", size: "M", status: DONE, deps: ["ST-125c", "ST-125e"]}
-  - {id: ST-125g, title: "Private persona model snapshot and anonymous inference", owner: dev-data, size: M, status: REVIEW, deps: [ST-125f]}
+  - {id: ST-125g, title: "Private persona model snapshot and anonymous inference", owner: dev-data, size: M, status: DONE, deps: [ST-125f]}
+  - {id: ST-125h, title: "Private canonical persona training step", owner: dev-data, size: M, status: REVIEW, deps: [ST-125g]}

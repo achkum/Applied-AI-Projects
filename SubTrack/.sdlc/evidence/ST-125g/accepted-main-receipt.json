@@ -1,0 +1,19 @@
+{
+  "task": "ST-125g",
+  "pr": 207,
+  "source_head": "857b86f0a0fb9883694885023c6a0c13953ce9ea",
+  "accepted_main": "e7003d1bfdaac00c8d989239bfcab031b831516d",
+  "source_main_tree": "09d2f1195670025f360d95a6ab7acd1065ebe6b9",
+  "ci_run": 37997967010,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "focused_tests": 68,
+  "source_freeze": {
+    "services/ml/app/clustering/model_snapshot.py": "5d1aa6a765b3cef214ce9ccc2199f409ce4a411c6eed81ebed155b19aae00fb1",
+    "services/ml/tests/test_persona_model_snapshot.py": "831a9c6317a75f437ee4d74551de0c61eaac400ae55b6aeda74c5ef0ef41e3b8",
+    "services/ml/model_cards/persona-clustering-core.md": "0680418d1e11b0a135a7b3a7d9c30e465804112b4443c0da0824231db8c52f43"
+  },
+  "review": "Independent exact3hash APPROVE",
+  "staged_gitleaks": "PASS",
+  "limits": "Private immutable native weights, strict bounded JSON, anonymous inference; no population fit, labels, registry or integration."
+}
