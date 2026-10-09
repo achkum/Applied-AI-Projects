@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: public.ecr.aws/docker/library/postgres:16-alpine
+
+  redis:
+    image: public.ecr.aws/docker/library/redis:7-alpine
+
+  mailpit:
+    image: ghcr.io/axllent/mailpit@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68
+
+  caddy:
+    image: public.ecr.aws/docker/library/caddy:2-alpine
+
+  ml:
+    build:
+      args:
+        PYTHON_BASE_IMAGE: public.ecr.aws/docker/library/python:3.12-slim

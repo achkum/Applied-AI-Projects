@@ -196,3 +196,5 @@ items:
   - {id: ST-201, title: "Development-only mobile deletion OTP challenge-start HTTPS adapter", owner: "dev-backend", size: "M", status: DONE, deps: ["ST-200", "ST-199", "ST-170c2"]}
   - {id: ST-125d, title: "Offline synthetic descriptor clustering core", owner: "dev-data", size: "M", status: DONE, deps: ["ST-125a"]}
   - {id: ST-125e, title: "Offline schema-bound persona centroid review descriptions", owner: "dev-data", size: "M", status: IN_REVIEW, deps: ["ST-125a", "ST-125b"]}
+
+  - {id: ST-202, title: "CI-only public registry mirrors for Docker Hub pull quota", milestone: M0, owner: devops-release, size: S, status: IN_REVIEW}
