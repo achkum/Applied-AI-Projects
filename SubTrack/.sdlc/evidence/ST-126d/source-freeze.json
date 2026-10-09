@@ -1,0 +1,8 @@
+{
+  "base_main": "3088b9273861a0d0bf9791d7db113d0230ec1aa2",
+  "sha256": {
+    "packages/domain/detection/amount-anomalies.ts": "45c6d5d381648b4c4e1edb9fd6739bec3545c1c55282dd93886ffeec07337069",
+    "packages/domain/test/amount-anomalies.spec.ts": "f9cc96fbd5544199907c50622cb5f051483fdca482d45ac7a8fd9849d293d935",
+    "packages/domain/detection/amount-anomalies.md": "6577071f1d34493820d24fc791fafd4fecd854b767b76473d9a49a56773bce65"
+  }
+}
