@@ -1,0 +1,9 @@
+{
+  "base_main": "1aa29d9aeb70826fcf26f1da10c221e33b929ce1",
+  "sha256": {
+    "packages/money/src/median-mad.ts": "c362210e7b3780aac2cc34e68d773a23b48be90a31eb961ed5e49381f3664ba9",
+    "packages/money/src/index.ts": "795df7f338c3ac2f563f3eb27e88f35c1cc91ce03449094ec7f8314167a0f33c",
+    "packages/money/test/median-mad.spec.ts": "49fb2489f3fcbf99ffefbd7345d09201fda6d24dcc0ef16e12208b3887cbde43",
+    "packages/money/src/median-mad.md": "610749a6c1b767303155b6d276f9585d61d62c932988d09446df4ad4325070b7"
+  }
+}
