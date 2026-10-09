@@ -1,0 +1,5 @@
+# ST125h verification
+
+Final focused training/snapshot/clustering/centroid/review suite: **85 passed in 2.36s**, no skips. Command from services/ml: `OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 .venv/bin/python -m pytest -o addopts='' -q tests/test_persona_training.py tests/test_persona_model_snapshot.py tests/test_clustering.py tests/test_centroid_descriptions.py tests/test_persona_review_artifact.py`; log /tmp/st125h-final-focused-qa.log.
+
+The initial new-test run had one incorrect fixture: 15 rows were marked too few although the minimum is9. Root corrected it to8rows and corrected a malformed-width annual-share case so it tests the intended coordinate boundary, then added price-coordinate/list-row cases. No source behavior was weakened. Final run verifies strict pre-fit rejection, one canonical native fit invocation, matching immutable exports, degenerate/unsupported-domain safe errors and existing ML regressions. Small16rowfits only; no5000fit/provider/registry/UI/API. Independent exact3hash source review APPROVE. Actual ST125g accepted receipt/DONE carried.
