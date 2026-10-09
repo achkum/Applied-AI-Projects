@@ -28,16 +28,16 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --location \
-            https://docs.aws.amazon.com/AmazonECR/latest/public/public-registries.html \
-            --output "$RUNNER_TEMP/ecr-public-registries.html"
-          test -s "$RUNNER_TEMP/ecr-public-registries.html"
-          echo 'Fetched official Amazon ECR Public registry documentation.'
+            https://cloud.google.com/artifact-registry/docs/pull-cached-dockerhub-images \
+            --output "$RUNNER_TEMP/dockerhub-cache-docs.html"
+          test -s "$RUNNER_TEMP/dockerhub-cache-docs.html"
+          echo 'Fetched official Google Artifact Registry Docker Hub cache documentation.'
           images=(
-            public.ecr.aws/docker/library/postgres:16-alpine
-            public.ecr.aws/docker/library/redis:7-alpine
+            mirror.gcr.io/library/postgres:16-alpine
+            mirror.gcr.io/library/redis:7-alpine
             ghcr.io/axllent/mailpit@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68
-            public.ecr.aws/docker/library/caddy:2-alpine
-            public.ecr.aws/docker/library/python:3.12-slim
+            mirror.gcr.io/library/caddy:2-alpine
+            mirror.gcr.io/library/python:3.12-slim
           )
           for image in "${images[@]}"; do
             echo "Inspecting $image"
