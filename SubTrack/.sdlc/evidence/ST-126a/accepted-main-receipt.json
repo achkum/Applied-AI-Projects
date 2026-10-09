@@ -1,0 +1,17 @@
+{
+  "task": "ST-126a",
+  "pr": 210,
+  "source_head": "1731451b6b6d209b4c55bf0a26d4b6aa264cdb7a",
+  "accepted_main": "7ea0c408e4a00f2066391aa55085eb8e5b425788",
+  "source_main_tree": "009c35ade038b0880cf1b214f3f8f25465906e04",
+  "ci_run": 38001704422,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "full_domain_tests": 118,
+  "focused_tests": 13,
+  "helper_branches": "39/39 (100%)",
+  "independent_source_review": "APPROVE (three frozen hashes)",
+  "staged_gitleaks": "PASS",
+  "lint_typecheck_build": "PASS",
+  "limits": "Private caller-scoped duplicate-charge helper only; full ST081/ST126 integration pending; existing UI unchanged."
+}

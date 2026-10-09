@@ -1,0 +1,9 @@
+# Cancelled charge anomaly rule
+
+`detectChargesAfterCancellation` is a deterministic, private domain helper for the accepted AI/ML specification rule “A charge after the subscription was CANCELLED.” It flags a charge only when its captured native epoch-millisecond instant is strictly later than the supplied authoritative cancellation instant. Equal instants are not flagged. Calendar dates and timezone labels do not affect the comparison once the `Date` values represent the same instant; no grace period is applied.
+
+The caller supplies at most 1,000 posted debit charges belonging to one authorized owner, already associated with a subscription whose cancellation is confirmed, and supplies that cancellation's authoritative effective instant. The helper does not establish ownership, authorization, posted-debit status, transaction-to-subscription association, or cancellation lifecycle. In particular, a cancellation request alone and missed cadence do not establish confirmed cancellation. This local rule is not full ST081/ST126 integration and claims no dependency acceptance.
+
+The rule does not use amount, fetch data, classify direction or refunds, or retain input rows or dates. Both instants must be native `Date` instances with finite values. IDs must be nonblank strings no longer than 128 UTF-16 code units, and transaction IDs must be unique across the input because repeated IDs make associations ambiguous. Invalid input or any unexpected failure throws only `Error('Cancelled charge detection unavailable')`, without including caller data. Results contain only transaction ID, subscription ID, and the fixed reason; IDs are sorted by Unicode codepoint order, each output object and the result array are frozen, and inputs are left untouched.
+
+This bounded local implementation adds no database, schema, provider, API, UI, index, package, dependency, default, or governance behavior.
