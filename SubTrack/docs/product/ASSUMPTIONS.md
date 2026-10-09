@@ -24,3 +24,6 @@ Agents treat an item as **binding** once its status is `Confirmed`, or once it h
 ## Open questions for the founder (agents: ask via Telegram only if blocked)
 - Q1: Which free LLM provider should be first choice: Gemini (AI Studio) or Groq? The default is Gemini first, then Groq, then the template fallback.
 - Q2: Should the web app be publicly reachable (with demo mode), or behind basic-auth until v1.0? The default is basic-auth on staging, and demo mode public at v1.0.
+
+## ST126a local duplicate-charge window (Assumed)
+This private rule compares already-authorized one-owner posteddebit charges within the same account, merchant andcurrency using exact Money equality. Within3days means UTCcalendar-date difference<=3 inclusive. These conservative local assumptions do notchangeunsafelegacy amountrepresentation orassertST081/ST126integration acceptance. Cross-account rules, exact72-hour interpretation orproductintegration require a reviewedfollow-up.

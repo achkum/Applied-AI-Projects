@@ -1,0 +1,23 @@
+{
+  "task": "ST-203",
+  "pr": 209,
+  "source_head": "81ed6efae5fba10661d6da6173f8960dd97b6e15",
+  "accepted_main": "b27c9cfd49eb60db81d5579a280729a8dc6dff99",
+  "source_main_tree": "fab1066c04f163dbb76fd3f73ad4bcc97a46d86e",
+  "ci_run": 38000297323,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "focused_tests": 33,
+  "full_api_tests": 1105,
+  "api_files": 53,
+  "source_freeze": {
+    "apps/api/src/auth/proofs-v2/mobile-deletion-otp-verify-http.ts": "9c025f722f9b771776c7d06eafac36bdfe414b4c0ac82d412b30a9b6c6872028",
+    "apps/api/src/auth/proofs-v2/mobile-deletion-otp-verify-http.module.ts": "df2878b9748e9349f7d17c02fc3205cbea22146dd02ee1d1a3e600d5c240b3f5",
+    "apps/api/src/auth/proofs-v2/mobile-deletion-otp-verify-http.spec.ts": "e28b7fc7b3ff5fbc7500f0fc3774d6ae9ebbb96b7af267e2454bf802e7663021",
+    "apps/api/test/mobile-deletion-otp-verify-http.spec.ts": "246a57a9e346b530a5ab3356349ac61ac7f432e1e8958313a09883c018c25567"
+  },
+  "reviews": "Independent platform/security source and final2fixture-delta approvals",
+  "local_lint_typecheck_build": "PASS",
+  "staged_gitleaks": "PASS",
+  "limits": "Explicit dev-only mobile deletion OTPverify; no actualdelete/realprovider/defaultwiring/production/newauthority/UIchanges."
+}
