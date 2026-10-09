@@ -1,0 +1,6 @@
+{
+  "services/ml/app/clustering/review_artifact.py": "7e22033d85f63caf2de8b3c079ff02d0d7f6e73cd1979753da20f69127963b65",
+  "services/ml/app/clustering/__init__.py": "0dcaf57971c9d7ae99a1bbcd9a7b142d5f02655aef4e9ff6fead2ee44f3a1d0b",
+  "services/ml/tests/test_persona_review_artifact.py": "c9acd9e646c40ae0985dfac50f50a57d776e77ca22533cf9fb39c22199d24af4",
+  "services/ml/model_cards/persona-review-artifact.md": "8cc6f104d1136ce1b90d42a16c03c5f479cdb3f87b08c29a80d1e25948d87220"
+}
