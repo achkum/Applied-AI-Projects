@@ -198,4 +198,5 @@ items:
   - {id: ST-125e, title: "Offline schema-bound persona centroid review descriptions", owner: "dev-data", size: "M", status: DONE, deps: ["ST-125a", "ST-125b"]}
 
   - {id: ST-202, title: "CI-only public registry mirrors for Docker Hub pull quota", milestone: M0, owner: devops-release, size: S, status: DONE}
-  - {id: ST-125f, title: "Private offline persona review artifact", owner: "dev-data", size: "M", status: IN_REVIEW, deps: ["ST-125c", "ST-125e"]}
+  - {id: ST-125f, title: "Private offline persona review artifact", owner: "dev-data", size: "M", status: DONE, deps: ["ST-125c", "ST-125e"]}
+  - {id: ST-125g, title: "Private persona model snapshot and anonymous inference", owner: dev-data, size: M, status: REVIEW, deps: [ST-125f]}
