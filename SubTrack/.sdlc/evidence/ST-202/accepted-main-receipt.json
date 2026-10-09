@@ -1,0 +1,18 @@
+{
+  "task": "ST-202",
+  "pr": 206,
+  "source_head": "fd1c7809ad025ea75e7b7179837d6eed735807c4",
+  "accepted_main": "d201dc53e97a2b2a9dd30197d87a29acea36b501",
+  "source_main_tree": "11b9b77b2b90f52f8def3215db8edb69d8c715d7",
+  "ci_run": 37992425083,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "source_freeze": {
+    ".github/workflows/subtrack-ci.yml": "68dcbb5760e672634b8a65dbcb80df083c0c63c3d39bc4e4ed60d480aa975026",
+    "SubTrack/docker-compose.ci.yml": "935b54d634213082064188dd1ded597dedb2d4721560318b9eb1248d83972099",
+    "SubTrack/services/ml/Dockerfile": "46e115249631f1d9c2b463dfc40f91aed05e0fd2a7d87cdd311e8c783123e7e5"
+  },
+  "review": "Independent exact3hash review; hostedmanifest/docs/startup condition satisfied",
+  "staged_gitleaks": "PASS",
+  "default_stack_unchanged": true
+}
