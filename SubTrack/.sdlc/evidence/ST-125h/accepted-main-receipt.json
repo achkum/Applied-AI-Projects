@@ -1,0 +1,19 @@
+{
+  "task": "ST-125h",
+  "pr": 208,
+  "source_head": "b4072ff5a72e6ec8872d201121bf944f27c052c3",
+  "accepted_main": "70e64b72dcaf1de7953a58920f3bc5aabe66e8fb",
+  "source_main_tree": "ce9df6345d1dca8dfec4116739a3c288b3ffade2",
+  "ci_run": 37998806157,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "focused_tests": 85,
+  "source_freeze": {
+    "services/ml/app/clustering/training.py": "25bf4545b380e86f8949249951eb0bc42996f74c0b14fc08e183c5c5261d7bf1",
+    "services/ml/tests/test_persona_training.py": "0727c9207c664209ea3504cf831e673b08696c387c73a33d7f82a929b57ebbd3",
+    "services/ml/model_cards/persona-clustering-core.md": "9cc2121edbe869590ec04bced7a20549dbc93f78c588224019844574bb41f086"
+  },
+  "review": "Independent exact3hash APPROVE",
+  "staged_gitleaks": "PASS",
+  "limits": "Private bounded offline fit plus aggregate review and native weights; no fullMLOps/orchestration/labels/registry/integration."
+}
