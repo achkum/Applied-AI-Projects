@@ -1,0 +1,5 @@
+{
+  "reviewed_proposal_sha256": "1f3bba61e72924879f0b7576e7c4ec92d5ac59212185e43ce6906ea82e6d7050",
+  "adopted_adr_sha256": "156f33c05899830f5fdd0feed5c51648ba5e7474576d9a5319a537dc03680d0f",
+  "root_disposition": "Adopted reviewed normative body with status/header updated and explicit independent-review constraints. No runtime/schema/route/retention policy authorized."
+}

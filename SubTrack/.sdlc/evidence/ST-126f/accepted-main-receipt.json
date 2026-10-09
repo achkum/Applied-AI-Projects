@@ -1,0 +1,17 @@
+{
+  "task": "ST-126f",
+  "pr": 215,
+  "source_head": "d298b2dffe913b0bb3c28ea520c7771808bed8d3",
+  "accepted_main": "18c6ac9e2899d05ae3ffed0cecb7225c9bcef846",
+  "source_main_tree": "05079a71bcef8571181c6c10015e62952796c36e",
+  "ci_run": 38005004639,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "full_domain_tests": 166,
+  "focused_tests": 13,
+  "helper_branches": "33/33 (100%)",
+  "independent_source_review": "APPROVE (three frozen hashes)",
+  "staged_gitleaks": "PASS",
+  "lint_typecheck_build": "PASS",
+  "limits": "Private effective converted-cost ID findings only; no sourceflow/default/marketFX/confidence/fullST081ST126completion claim; existingUIunchanged."
+}
