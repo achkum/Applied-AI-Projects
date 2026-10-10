@@ -10,6 +10,7 @@
     "date": "transaction_date, value_date, next_charge_date and charged_at are date; booked_at is nullable timestamptz(6)"
   },
   "enums": {
+    "member_role": ["ADMIN", "MEMBER", "DEPENDANT"],
     "bank_provider": ["TINK_SANDBOX", "SYNTHETIC", "TINK_LIVE"],
     "bank_connection_status": ["ACTIVE", "EXPIRED", "REVOKED"],
     "account_type": ["CHECKING", "SAVINGS", "CREDIT", "OTHER"],
@@ -21,6 +22,14 @@
     "charge_matched_by": ["ENGINE", "USER"]
   },
   "tables": {
+    "household_member": {
+      "model": "HouseholdMember",
+      "columns": ["id uuid!", "household_id uuid!", "identity_id uuid?", "display_name varchar(120)?", "role member_role!", "joined_at timestamptz!", "left_at timestamptz?"],
+      "keys": ["PK(id)", "UNIQUE(household_id,identity_id)"],
+      "foreignKeys": ["household_id -> household(id)", "identity_id -> identity(id)"],
+      "checks": ["DEPENDANT has null identity_id and non-null display_name; ADMIN/MEMBER have non-null identity_id"],
+      "rls": "active household members read; active admins insert profile-only dependants; self-bound first admin; invitation service adds invited adults"
+    },
     "bank_connection": {
       "model": "BankConnection",
       "columns": ["id uuid!", "identity_id uuid!", "provider bank_provider!", "provider_connection_id varchar(255)?", "institution_id varchar(255)!", "institution_name varchar(120)!", "status bank_connection_status!", "consent_expires_at timestamptz?", "encrypted_credentials bytea?", "last_synced_at timestamptz?", "revoked_at timestamptz?", "created_at timestamptz!", "updated_at timestamptz!"],

@@ -179,7 +179,9 @@ export class PrivacyService {
       where: { householdId, leftAt: null },
     });
 
-    const memberIdentityIds = members.map(m => m.identityId);
+    // Profile-only dependants have no Identity, consent, or subscriptions.
+    const identityMembers = members.filter((m): m is typeof m & { identityId: string } => m.identityId !== null);
+    const memberIdentityIds = identityMembers.map(m => m.identityId);
 
     // Load consent for open_book per member (cached where possible, AC1)
     const openBookMap = new Map<string, boolean>();
@@ -204,7 +206,7 @@ export class PrivacyService {
     }
 
     // Build activeMemberships with resolved openBook
-    const activeMemberships: HouseholdMembership[] = members.map(m => ({
+    const activeMemberships: HouseholdMembership[] = identityMembers.map(m => ({
       identityId: m.identityId,
       householdId,
       openBook: openBookMap.get(m.identityId) ?? false,

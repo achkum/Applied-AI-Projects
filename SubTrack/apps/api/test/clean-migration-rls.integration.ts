@@ -68,7 +68,7 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
     assert.equal(rls.find(r => r.name === 'otp_challenge')?.rls, false);
     const checks = await owner.$queryRaw<{ name:string }[]>`
       SELECT conname AS name FROM pg_constraint WHERE connamespace='public'::regnamespace AND contype IN ('c','f')`;
-    for (const name of ['subscription_confidence_range','raw_transaction_original_pair','subscription_charge_match_pair',
+    for (const name of ['household_member_role_identity_pair','subscription_confidence_range','raw_transaction_original_pair','subscription_charge_match_pair',
       'bank_account_connection_id_identity_id_fkey','raw_transaction_account_id_identity_id_fkey',
       'subscription_charge_raw_transaction_id_identity_id_fkey'])
       assert(checks.some(c => c.name === name));
@@ -120,7 +120,7 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
     }
     phase = 'fixture';
     const a=randomUUID(), b=randomUUID(), c=randomUUID(), d=randomUUID(), h=randomUUID(), otherH=randomUUID();
-    const s1=randomUUID(), s2=randomUUID(), s3=randomUUID(), sh=randomUUID(), inv=randomUUID(), inv2=randomUUID();
+    const s1=randomUUID(), s2=randomUUID(), s3=randomUUID(), sh=randomUUID(), inv=randomUUID(), inv2=randomUUID(), inv3=randomUUID();
     const bank=randomUUID(), account=randomUUID(), txid=randomUUID(), charge=randomUUID();
     await owner.$executeRaw`INSERT INTO identity(id,auth_method,updated_at) VALUES
       (${a}::uuid,'MOCK',now()),(${b}::uuid,'MOCK',now()),(${c}::uuid,'MOCK',now())`;
@@ -181,6 +181,39 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
     assert.deepEqual(new Set((await rows(b,'subscription')).map(r => r.id)),new Set([s1,s2]));
     assert.equal((await rows(c,'subscription')).length,0);
     phase = 'mutation boundaries';
+    const dependantOne=randomUUID(), dependantTwo=randomUUID();
+    await app.$transaction(async t => {
+      await t.$queryRaw`SELECT set_config('app.user_id',${a},true), set_config('app.current_user_id',${a},true)`;
+      assert.equal(await t.$executeRaw`INSERT INTO household_member(id,household_id,identity_id,display_name,role)
+        VALUES (${dependantOne}::uuid,${h}::uuid,NULL,'synthetic child 1','DEPENDANT'),
+               (${dependantTwo}::uuid,${h}::uuid,NULL,'synthetic child 2','DEPENDANT')`,2);
+    });
+    const profiles=await owner.$queryRaw<{id:string;identity_id:string|null;display_name:string}[]>`
+      SELECT id::text,identity_id::text,display_name FROM household_member
+      WHERE id IN (${dependantOne}::uuid,${dependantTwo}::uuid) ORDER BY display_name`;
+    assert.deepEqual(profiles.map(p => [p.id,p.identity_id,p.display_name]),
+      [[dependantOne,null,'synthetic child 1'],[dependantTwo,null,'synthetic child 2']]);
+    assert.equal((await rows(dependantOne,'subscription')).length,0);
+    for (const principal of [b,c]) await assert.rejects(app.$transaction(async t => {
+      await t.$queryRaw`SELECT set_config('app.user_id',${principal},true), set_config('app.current_user_id',${principal},true)`;
+      await t.$executeRaw`INSERT INTO household_member(household_id,identity_id,display_name,role)
+        VALUES (${h}::uuid,NULL,'denied','DEPENDANT')`;
+    }));
+    await assert.rejects(owner.$executeRaw`INSERT INTO household_member(household_id,identity_id,role)
+      VALUES (${h}::uuid,NULL,'MEMBER')`);
+    await assert.rejects(owner.$executeRaw`INSERT INTO household_member(household_id,identity_id,role)
+      VALUES (${h}::uuid,NULL,'ADMIN')`);
+    await assert.rejects(owner.$executeRaw`INSERT INTO household_member(household_id,identity_id,display_name,role)
+      VALUES (${h}::uuid,${c}::uuid,'denied','DEPENDANT')`);
+    await assert.rejects(owner.$executeRaw`INSERT INTO household_member(household_id,identity_id,role)
+      VALUES (${h}::uuid,NULL,'DEPENDANT')`);
+    for (const role of ['MEMBER','ADMIN'] as const) {
+      await assert.rejects(app.$transaction(async t => {
+        await t.$queryRaw`SELECT set_config('app.user_id',${a},true), set_config('app.current_user_id',${a},true)`;
+        await t.$executeRaw`INSERT INTO household_member(household_id,identity_id,role)
+          VALUES (${h}::uuid,${c}::uuid,${role}::member_role)`;
+      }));
+    }
     await app.$transaction(async t => {
       await t.$queryRaw`SELECT set_config('app.user_id',${b},true), set_config('app.current_user_id',${b},true)`;
       assert.equal(await t.$executeRaw`UPDATE subscription SET custom_name='denied' WHERE id=${s1}::uuid`,0);
@@ -299,6 +332,8 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
     await owner.$executeRaw`INSERT INTO invitation(id,household_id,inviter_id,channel,token_hash,expires_at,updated_at)
       VALUES (${inv}::uuid,${h}::uuid,${a}::uuid,'LINK','synthetic1',now()+interval '1 day',now()),
              (${inv2}::uuid,${h}::uuid,${a}::uuid,'LINK','synthetic2',now()+interval '1 day',now())`;
+    await owner.$executeRaw`INSERT INTO invitation(id,household_id,inviter_id,invitee_id,channel,token_hash,expires_at,updated_at)
+      VALUES (${inv3}::uuid,${h}::uuid,${a}::uuid,${c}::uuid,'LINK','synthetic3',now()+interval '1 day',now())`;
     await assert.rejects(app.$transaction(async t => {
       await t.$queryRaw`SELECT set_config('app.user_id',${a},true), set_config('app.current_user_id',${a},true)`;
       await t.$executeRaw`UPDATE invitation SET status='ACCEPTED',invitee_id=${c}::uuid WHERE id=${inv}::uuid`;
@@ -311,6 +346,10 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
     await assert.rejects(service.$queryRaw`SELECT external_id FROM identity`);
     await assert.rejects(service.$executeRaw`INSERT INTO identity(id,auth_method,updated_at) VALUES (${randomUUID()}::uuid,'MOCK',now())`);
     await assert.rejects(identityService.$queryRaw`SELECT email FROM identity`);
+    await assert.rejects(service.$executeRaw`UPDATE invitation SET status='ACCEPTED',invitee_id=${d}::uuid,updated_at=now()
+      WHERE id=${inv3}::uuid`);
+    assert.equal(await service.$executeRaw`UPDATE invitation SET status='ACCEPTED',updated_at=now()
+      WHERE id=${inv3}::uuid`,1);
     assert.equal(await service.$executeRaw`UPDATE invitation SET status='DECLINED',invitee_id=${c}::uuid,updated_at=now()
       WHERE id=${inv2}::uuid`,1);
     assert.equal(await service.$executeRaw`UPDATE invitation SET status='ACCEPTED',invitee_id=${d}::uuid,updated_at=now()
@@ -358,8 +397,12 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
     assert.deepEqual(await app.$queryRaw`SELECT id FROM subscription`,[]);
     assert.equal((await rows(a,'subscription')).length,3);
     assert.deepEqual(await app.$queryRaw`SELECT id FROM subscription`,[]);
-  } catch {
-    failed = new Error(`BUG-008b disposable PostgreSQL proof failed: ${phase}`);
+  } catch (error) {
+    const detail = error && typeof error === 'object' ? error as { code?: unknown; meta?: { code?: unknown } } : {};
+    const candidate = detail.meta?.code ?? detail.code;
+    const code = typeof candidate === 'string' && /^(?:P[0-9]{4}|[0-9A-Z]{5})$/.test(candidate)
+      ? candidate : 'unavailable';
+    failed = new Error(`BUG-008b disposable PostgreSQL proof failed: ${phase}; code=${code}`);
   }
   const closed = await Promise.allSettled([owner.$disconnect(),app.$disconnect(),app2.$disconnect(),service.$disconnect(),
     identityService.$disconnect(),otpService.$disconnect(),catalogueService.$disconnect()]);

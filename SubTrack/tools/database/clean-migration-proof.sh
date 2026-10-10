@@ -94,8 +94,12 @@ for statement in statements:
     if not match or match.group(1) not in allowed:
         raise SystemExit('Modeled-schema drift outside SQL-only partial indexes')
 PY
+if ! (cd apps/api && corepack pnpm exec prisma generate --schema=prisma/schema.prisma) > "$tmp/generate.log" 2>&1; then
+  fail prisma-generate "$tmp/generate.log"
+fi
 if ! (cd apps/api && corepack pnpm exec vitest run --config vitest.clean-migration.config.ts) > "$tmp/test.log" 2>&1; then
   phase=$(grep -Eo 'BUG-008b disposable PostgreSQL proof failed: (endpoint|role and catalog invariants|fixture|principal isolation and visibility|concurrent source and admin guards|mutation boundaries|service invitation lifecycle|owner departure and revocation|context failure and rollback cleanup)' "$tmp/test.log" | head -1 || true)
+  [[ -n "$phase" ]] || phase=startup
   printf 'BUG-008b disposable proof: FAIL stage=policy phase=%s\n' "${phase##*: }" | tee "$receipt" >&2
   exit 1
 fi

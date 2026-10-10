@@ -11,6 +11,13 @@ status: IN_REVIEW
 depends_on: [BUG-008a]
 allowed_paths:
   - SubTrack/apps/api/prisma/migrations/**
+  - SubTrack/apps/api/prisma/schema.prisma
+  - SubTrack/apps/api/prisma/reconciliation-target.json
+  - SubTrack/apps/api/src/households/households.service.ts
+  - SubTrack/apps/api/src/households/households.service.spec.ts
+  - SubTrack/apps/api/src/privacy/privacy.service.ts
+  - SubTrack/apps/api/src/privacy/privacy.service.spec.ts
+  - SubTrack/docs/architecture/adr/0021-dependant-membership-profile.md
   - SubTrack/.sdlc/evidence/BUG-008/legacy-migrations/**
   - SubTrack/apps/api/test/clean-migration-rls.integration.ts
   - SubTrack/apps/api/vitest.clean-migration.config.ts
@@ -41,7 +48,7 @@ Make the complete canonical migration sequence clean-installable and prove its p
 - Independent platform/security source review, QA/devops proof review and all required exact-head CI precede merge. Parent BUG-008 is DONE only after the complete chain/proof passes. No endpoint/default/provider/delivery/key/production/public operation.
 
 ## Budget and execution
-Conductor grants <=1,200 nongenerated changed lines for this cohesive migration plus least-privilege proof; generated initial SQL and unchanged archived renames are excluded. Target handwritten SQL+tests/tool/workflow<=950; stop before exceeding1,200. Manual original attempt/failure/time counters stay intact; task_guard fcntl is unavailable on Windows. Checkpoint at20 calls/30min; no reset to evade loop limits.
+Conductor grants <=1,400 nongenerated changed lines for this cohesive migration plus least-privilege proof; generated initial SQL and unchanged archived renames are excluded. Target handwritten SQL+tests/tool/workflow<=950; stop before exceeding1,400. Manual original attempt/failure/time counters stay intact; task_guard fcntl is unavailable on Windows. Checkpoint at20 calls/30min; no reset to evade loop limits.
 
 Local Docker/psql are absent. Do not fake local DB evidence: generate/inspect artifacts and run lint/typecheck/static script checks, then obtain actual disposable proof on CI. One heavy local job at a time; ask Conductor before tests while other work owns it. CI on independent runners may run in parallel. Use registered task-label/container-id cleanup only; never target another database or resource.
 
@@ -50,3 +57,8 @@ Local Docker/psql are absent. Do not fake local DB evidence: generate/inspect ar
 
 ## Handoff
 Implementation and local static/API checks are ready for disposable PG16 CI; storage is not proven usable yet. See `.sdlc/evidence/BUG-008b/checkpoint-context-4.md` for exact hashes and bounded results. Required next gates: draft PR, owned PG16 migration/policy proof, exact-source security/platform reviews, QA/devops review, exact-head CI. Parent BUG-008 remains open.
+
+## Type 2a amendment 2026-10-10
+Architect dependant_schema_resolution confirmed existing DATA_MODEL/PRODUCT_SPEC/ST-046 require a dependant profile without login Identity. Conductor authorizes nullable member identity/relation, member display_name, exact role/identity CHECK, matching regenerated baseline and independently reviewed fixture, and narrow addDependant service/test correction. Preserve all other accepted Phase A semantics. Additional 200 nongenerated lines are reserved for this discovered prerequisite; total cap1,400. Fresh exact-source platform/security review and actual PG proof are required; no existing database is modified. Record ADR0021 with the source requirements and architect decision.
+
+Narrow Type2 compatibility scope: privacy household preview must filter identity-less dependants before identity-based consent/subscription visibility, with a regression assertion. It grants no dependant login, consent or owner authority.

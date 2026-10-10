@@ -17,7 +17,6 @@ const mkTx = (overrides: Record<string, unknown> = {}) => ({
     update: vi.fn(),
     count: vi.fn(),
   },
-  identity: { create: vi.fn() },
   auditLog: { create: vi.fn() },
   ...overrides,
 });
@@ -143,25 +142,19 @@ describe('removeMember', () => {
 // ─── addDependant ─────────────────────────────────────────────────────────────
 
 describe('addDependant', () => {
-  it('creates a synthetic MOCK identity and DEPENDANT member row (AC3)', async () => {
+  it('creates a named DEPENDANT profile without a login identity or name in audit (AC3)', async () => {
     // requireAdminRole path
     prisma.householdMember.findFirst.mockResolvedValue({ id: 'admin-m', role: 'ADMIN', leftAt: null });
-    const dependantId = 'dep-identity-id';
-    prisma._tx.identity.create.mockResolvedValue({ id: dependantId });
     prisma._tx.householdMember.create.mockResolvedValue({ id: 'dep-m', role: 'DEPENDANT' });
     prisma._tx.auditLog.create.mockResolvedValue({});
 
     const result = await svc.addDependant('hh-1', 'Child A', 'caller-id');
 
     expect(result.role).toBe('DEPENDANT');
-    const identityArgs = firstCallArgument<{ data: Record<string, unknown> }>(prisma._tx.identity.create.mock.calls, 'identity.create');
-    // No email, no phone — synthetic identity
-    expect(identityArgs.data.email).toBeUndefined();
-    expect(identityArgs.data.phone).toBeUndefined();
-    expect(identityArgs.data.authMethod).toBe('MOCK');
-    // Audit log carries the display name, not the member row
+    const memberArgs = firstCallArgument<{ data: Record<string, unknown> }>(prisma._tx.householdMember.create.mock.calls, 'householdMember.create');
+    expect(memberArgs.data).toMatchObject({ householdId: 'hh-1', identityId: null, displayName: 'Child A', role: 'DEPENDANT' });
     const auditArgs = firstCallArgument<{ data: Record<string, unknown> }>(prisma._tx.auditLog.create.mock.calls, 'auditLog.create');
-    expect((auditArgs.data.payload as Record<string, string>).displayName).toBe('Child A');
+    expect(auditArgs.data.payload).toEqual({ memberId: 'dep-m' });
   });
 
   it('throws ForbiddenException for non-admin caller', async () => {

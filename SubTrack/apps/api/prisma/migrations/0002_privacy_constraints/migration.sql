@@ -9,6 +9,10 @@ CREATE UNIQUE INDEX subscription_share_active_household_idx
   ON public.subscription_share(subscription_id, household_id) WHERE revoked_at IS NULL;
 CREATE INDEX invitation_token_hash_idx ON public.invitation(token_hash) WHERE token_hash IS NOT NULL;
 
+ALTER TABLE public.household_member ADD CONSTRAINT household_member_role_identity_pair
+  CHECK ((role = 'DEPENDANT' AND identity_id IS NULL AND display_name IS NOT NULL)
+    OR (role IN ('ADMIN', 'MEMBER') AND identity_id IS NOT NULL));
+
 ALTER TABLE public.subscription ADD CONSTRAINT subscription_confidence_range
   CHECK (confidence IS NULL OR confidence BETWEEN 0 AND 1);
 ALTER TABLE public.raw_transaction ADD CONSTRAINT raw_transaction_original_pair
@@ -126,6 +130,7 @@ BEGIN
            OLD.recipient, OLD.token_hash, OLD.expires_at, OLD.created_at)
        OR OLD.status <> 'PENDING'
        OR NEW.status NOT IN ('ACCEPTED', 'DECLINED', 'EXPIRED')
+       OR (OLD.invitee_id IS NOT NULL AND NEW.invitee_id IS DISTINCT FROM OLD.invitee_id)
        OR (NEW.status IN ('ACCEPTED', 'DECLINED') AND
            (NEW.invitee_id IS NULL OR OLD.expires_at <= now()))
        OR (NEW.status = 'EXPIRED' AND NEW.invitee_id IS NOT NULL) THEN
@@ -277,9 +282,10 @@ CREATE POLICY household_delete ON public.household FOR DELETE TO subtrack_runtim
 ALTER TABLE public.household_member ENABLE ROW LEVEL SECURITY;
 CREATE POLICY member_select ON public.household_member FOR SELECT TO subtrack_runtime USING (public.subtrack_active_member(household_id));
 CREATE POLICY member_insert ON public.household_member FOR INSERT TO subtrack_runtime WITH CHECK (
-  public.subtrack_active_admin(household_id)
-  OR (role = 'ADMIN' AND public.subtrack_principal_matches(identity_id)
-      AND public.subtrack_empty_household(household_id)));
+  (role = 'ADMIN' AND public.subtrack_principal_matches(identity_id)
+    AND public.subtrack_empty_household(household_id))
+  OR (role = 'DEPENDANT' AND identity_id IS NULL
+    AND public.subtrack_active_admin(household_id)));
 CREATE POLICY member_update ON public.household_member FOR UPDATE TO subtrack_runtime USING (
   public.subtrack_active_admin(household_id) OR public.subtrack_principal_matches(identity_id))
   WITH CHECK (public.subtrack_active_admin(household_id) OR public.subtrack_principal_matches(identity_id));

@@ -102,14 +102,7 @@ export class HouseholdsService {
 
   // ─── Add dependant ────────────────────────────────────────────────────────
 
-  /**
-   * Adds a dependant member — no login Identity required (AC3).
-   * The dependant row uses identityId = adminId as a placeholder owner reference;
-   * in practice a real product would have a separate dependant registry. For M1
-   * the dependant is represented as a HouseholdMember with role=DEPENDANT and no
-   * associated login capability. The name is stored as a JSON payload on a
-   * corresponding AuditLog entry since HouseholdMember has no display-name field.
-   */
+  /** Adds a profile-only dependant without login credentials (AC3). */
   async addDependant(
     householdId: string,
     dependantName: string,
@@ -118,26 +111,21 @@ export class HouseholdsService {
     await this.requireAdminRole(householdId, callerId);
 
     return this.prisma.$transaction(async (tx) => {
-      // Create a synthetic identity for the dependant (MOCK method, no email/phone)
-      const dependantIdentity = await tx.identity.create({
-        data: { authMethod: 'MOCK' },
-      });
-
       const member = await tx.householdMember.create({
         data: {
           householdId,
-          identityId: dependantIdentity.id,
+          identityId: null,
+          displayName: dependantName,
           role: 'DEPENDANT',
         },
       });
 
-      // Audit entry carries the display name (never in member row itself)
       await tx.auditLog.create({
         data: {
           actorId:     callerId,
           householdId,
           eventType:   'dependant_added',
-          payload:     { memberId: member.id, displayName: dependantName },
+          payload:     { memberId: member.id },
         },
       });
 

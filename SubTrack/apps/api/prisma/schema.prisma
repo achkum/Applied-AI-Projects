@@ -109,7 +109,7 @@ model Household {
 }
 
 // ---------------------------------------------------------------------------
-// HOUSEHOLD MEMBER  (junction between identity and household)
+// HOUSEHOLD MEMBER  (adult identity or profile-only dependant)
 //
 // Tracks membership role, join date, and the open-book switch per member.
 // A member belongs to at most one household at a time (enforced by unique
@@ -125,14 +125,15 @@ model Household {
 model HouseholdMember {
   id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   householdId String      @map("household_id") @db.Uuid
-  identityId  String      @map("identity_id") @db.Uuid
+  identityId  String?     @map("identity_id") @db.Uuid
+  displayName String?     @map("display_name") @db.VarChar(120)
   role        MemberRole  @default(MEMBER)
   joinedAt    DateTime    @default(now()) @map("joined_at") @db.Timestamptz(6)
   /// Set when a member leaves; kept for audit trail.
   leftAt      DateTime?   @map("left_at") @db.Timestamptz(6)
 
   household Household @relation(fields: [householdId], references: [id])
-  identity  Identity  @relation(fields: [identityId], references: [id])
+  identity  Identity? @relation(fields: [identityId], references: [id])
 
   /// At most one active membership per user (leftAt IS NULL = active).
   /// Enforced by partial unique index in migration SQL.

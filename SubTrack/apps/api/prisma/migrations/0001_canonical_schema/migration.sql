@@ -1,7 +1,7 @@
 -- BUG-008b generated baseline. Prisma 6.19.2:
 -- pnpm exec prisma migrate diff --from-empty --to-schema-datamodel=prisma/schema.prisma --script
--- Accepted Phase A schema SHA256 EE08405408AD04D5917263FEDE3FF09604EAFEFD40ED37DD1811669D92E20AEC.
--- Generated body SHA256 before this header 4A4849B4010C4E6FF55DFC5DB42958839C1A7D6471FBE56441BD1A644C57F50B.
+-- Source schema SHA256 884294A60387DED7F6940703E7BF4B8B359C28E220525129C925FAEE0CE82919.
+-- Generated body SHA256 before this header 0FEFB858837AF7D4483DAEA624081337582AD22655CAA3CC144C9DB1E7B676FA.
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
@@ -91,7 +91,8 @@ CREATE TABLE "household" (
 CREATE TABLE "household_member" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "household_id" UUID NOT NULL,
-    "identity_id" UUID NOT NULL,
+    "identity_id" UUID,
+    "display_name" VARCHAR(120),
     "role" "member_role" NOT NULL DEFAULT 'MEMBER',
     "joined_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "left_at" TIMESTAMPTZ(6),
@@ -393,7 +394,7 @@ ALTER TABLE "session" ADD CONSTRAINT "session_identity_fkey" FOREIGN KEY ("ident
 ALTER TABLE "household_member" ADD CONSTRAINT "household_member_household_id_fkey" FOREIGN KEY ("household_id") REFERENCES "household"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "household_member" ADD CONSTRAINT "household_member_identity_id_fkey" FOREIGN KEY ("identity_id") REFERENCES "identity"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "household_member" ADD CONSTRAINT "household_member_identity_id_fkey" FOREIGN KEY ("identity_id") REFERENCES "identity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "invitation" ADD CONSTRAINT "invitation_household_id_fkey" FOREIGN KEY ("household_id") REFERENCES "household"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
