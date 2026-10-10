@@ -75,6 +75,12 @@ docker create --name "$api" --network "$network" \
   "$API_IMAGE" >/dev/null
 api_created=true
 docker start "$api" >/dev/null
+docker exec --workdir /workspace/apps/api "$api" node -e '
+const helper = require("@subtrack/domain/subscription-lifecycle");
+const writer = require("./dist/subscriptions/subscription-lifecycle.repository.js");
+if (helper.getNextSubscriptionStatus("ACTIVE", "pause") !== "PAUSED" ||
+    typeof writer.SubscriptionLifecycleRepository !== "function") process.exit(1);
+'
 docker create --name "$web" --network "$network" \
   --network-alias web "$WEB_IMAGE" >/dev/null
 web_created=true

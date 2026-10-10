@@ -7,6 +7,7 @@ milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
   - {id: ST-213, title: 'Loopback-only development subscription read service composition', owner: dev-backend, size: L, status: IN_REVIEW, deps: [BUG-008b, ST-212]}
+  - {id: ST-081c, title: 'Private owner-only ordinary subscription lifecycle storage', owner: dev-backend, size: M, status: DONE, deps: [ST-081a, BUG-008b, ST-212]}
   - {id: ST-214, title: 'Scope SubTrack merge gates to applicable project checks', owner: product-owner, size: S, status: DONE, deps: []}
   - {id: ST-212, title: 'Scoped subscription list, detail and review inbox storage', owner: dev-backend, size: L, status: DONE, deps: [ST-205, BUG-008b, SEC-FU1e]}
   - {id: ST-211, title: 'Development mobile enrollment OTP routes and client', owner: dev-mobile, size: L, status: DONE, deps: [ST-051d, ST-210]}
