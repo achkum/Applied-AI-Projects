@@ -1,0 +1,15 @@
+# ST-225 author source freeze
+Plan59ce28d8dc89f2c7b52eeb7d3c454cbb27ef85f4 independently platform/client/security APPROVED and rootGO preceded edits; accepted basefed6a8397d2b5b435e0d41c5a29862f5b77df4ab.
+Frozen normalized runtimefa32eb00cab4d2854f1191b647d14fd6b352c052; spec529a859c5dd622c9f4f78980be2b32cfedae8b49, both browser-subscription-lifecycle.composition paths only.
+Runtime240+spec628+handoff15=883 own nongenerated lines<=900; root total<=1100 exception remains binding. No commit/status/backlog changes by author.
+Closed private explicitly enabled development factory returns only listen/close; fixed direct loopback HTTPS, copied TLS, production denial and descriptor-validated pre-await bound shared authority/config.
+Actual accepted READ/PATCH services/repositories share callerPrisma; same-pool exact browser_subscription_lifecycle_proof/st_browser_lifecycle_runtime ordinary-role/RLS/SELECT/merchant/UPDATE preflight precedes Nest.
+One256-byte inflatefalse raw parser preserves READ64 and PATCH256 adapters; operation-specific four-field no-store400 and masked500. UUIDcase/query parser classification selects PATCH denial code without authorizing query requests.
+Caller owns pool/auth/TLS; factory owns Nest only. Bounded preflight/create/init/listen/close, repeated/after-close listen denial, active socket closure, late startup/listen cleanup and idempotent close.
+Focused45PASS zero failed/skipped: corepack pnpm --filter @subtrack/api exec vitest run src/subscriptions/browser-subscription-lifecycle.composition.spec.ts --coverage --coverage.include=src/subscriptions/browser-subscription-lifecycle.composition.ts --coverage.reporter=json-summary --coverage.reportsDirectory=.coverage-st225.
+Changed runtime statements93.10%(135/145), branches95.41%(104/109), functions83.33%(30/36), lines97.19%(104/107); final focused ESLint two paths and tsc--noEmit-p tsconfig.json PASS.
+Tests exercise actual directHTTPS READ64/PATCH256/reread, READ65/128/256 and both257/parser/type/gzip/charset denial, uppercase/query error classification, absent auth route, scoped dualGUC/FORUPDATE writer and same-pool graph.
+Pre-await caller port mutation cannot change either adapter authority; getter denial invokes zero getters/storage. UPDATE denial, role/table negative matrix, timeout/rejection/late settlement/concurrent close and actual late HTTPS port reuse covered.
+Doubles establish composition behavior only, not actualPG/RLS/races/browser. Separate owned fixture/new launcher+ordinaryPG seven-pair/isolation/conflict/race/rollback/GUC/revocation/browser cleanup proof remains required; durable onboarding/account/session/ST217/UI/ST081/release NOT_READY.
+Original2026-10-10T21:37:21Z L240attempt1 preserved. One unused-import lint failure fixed once; one write command cwd mismatch corrected once; no repeated3-test/build or2-review reason threshold. Prior generatedCRLF/raw artifacts preserved.
+Source frozen and heavy token released to root; fresh independent source approvals/fullAPIQA/exact-head applicableCI remain pending. Private .coverage-st225 logs/coverage retained without raw API output.
