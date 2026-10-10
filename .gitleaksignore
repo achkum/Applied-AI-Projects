@@ -6,3 +6,5 @@ e753e98d5ac064cbeb93fd9a7cc81b15a6a7bb66:SubTrack/.sdlc/evidence/ST-170a/manifes
 
 # ST210: independently reviewed public deterministic Idempotency-Key fixture; exact historical finding only.
 f22f4f79546a920829df0f845c1a2757701012a4:SubTrack/apps/api/src/auth/otp-v2/mobile-enrollment-otp-http.spec.ts:generic-api-key:97
+# ST212: independently verified public Git source-object ID; exact historical finding only.
+0a1e86a6d759a0f20dd2f5a8a2bfe13933100be0:SubTrack/.sdlc/evidence/ST-212/final-contract-qa.md:generic-api-key:2

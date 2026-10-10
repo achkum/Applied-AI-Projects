@@ -14,10 +14,11 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const bin = (name) => join(packageRoot, 'node_modules', '.bin', name);
+const bin = (name) => join(packageRoot, 'node_modules',
+  name === 'redocly' ? '@redocly/cli/bin/cli.js' : '@hey-api/openapi-ts/bin/run.js');
 
 function run(name, args) {
-  return spawnSync(bin(name), args, { cwd: packageRoot, encoding: 'utf8' });
+  return spawnSync(process.execPath, [bin(name), ...args], { cwd: packageRoot, encoding: 'utf8' });
 }
 
 function artifacts(directory) {
@@ -103,20 +104,24 @@ test('production contract preserves approved operational and privacy routes', ()
         Object.keys(item).map((method) => `${method.toUpperCase()} ${path}`),
     );
     // Accepted deb58ea wire baseline plus reviewed ADR-0018 default availability exception.
-    // Preserve the complete legacy semantic snapshot, including its availability documentation.
+    // ST-212 adds only these three reviewed reads; keep every earlier v1/ops path frozen.
+    const subscriptionReadPaths = [
+      '/v1/subscriptions', '/v1/subscriptions/{id}', '/v1/review-inbox',
+    ];
     const legacyNames = ["HealthResponse", "ReadinessResponse", "VersionResponse", "SetOpenBookBody", "ConsentSetting", "SubscriptionSummary", "ExportJobResponse", "DeleteAccountBody", "Problem"];
     const canonical = (value) => Array.isArray(value) ? value.map(canonical)
       : value && typeof value === 'object'
         ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]))
         : value;
     const legacy = {
-      paths: Object.fromEntries(Object.entries(document.paths).filter(([path]) => !path.startsWith('/v2/'))),
+      paths: Object.fromEntries(Object.entries(document.paths).filter(([path]) =>
+        !path.startsWith('/v2/') && !subscriptionReadPaths.includes(path))),
       schemas: Object.fromEntries(legacyNames.map((name) => [name, document.components.schemas[name]])),
       responses: { Problem: document.components.responses.Problem },
     };
     assert.equal(createHash('sha256').update(JSON.stringify(canonical(legacy))).digest('hex'),
       '96279f7efc409e34fd221f072b1d8b342812ca455e1c9f5ad0b330ca3294adee',
-      'accepted v1 and operational contracts plus ADR-0018 availability must remain semantically unchanged');
+      'pre-ST-212 v1 and operational contracts plus ADR-0018 availability must remain semantically unchanged');
 
     assert.equal(document.info.version, '1.1.1');
     const availability = Object.entries(document.paths).flatMap(([path, item]) =>
@@ -129,6 +134,9 @@ test('production contract preserves approved operational and privacy routes', ()
       ['GET /v1/data-rights/export/{token}', 'unavailable-default'],
       ['GET /v1/privacy/preview-as/{householdId}', 'unavailable-default'],
       ['GET /v1/privacy/settings', 'unavailable-default'],
+      ['GET /v1/review-inbox', 'unavailable-default'],
+      ['GET /v1/subscriptions', 'unavailable-default'],
+      ['GET /v1/subscriptions/{id}', 'unavailable-default'],
       ['PATCH /v1/privacy/open-book', 'unavailable-default'],
       ['POST /v1/data-rights/export', 'unavailable-default'],
     ]);
@@ -140,6 +148,9 @@ test('production contract preserves approved operational and privacy routes', ()
       'GET /v1/data-rights/export/{token}',
       'GET /v1/privacy/preview-as/{householdId}',
       'GET /v1/privacy/settings',
+      'GET /v1/review-inbox',
+      'GET /v1/subscriptions',
+      'GET /v1/subscriptions/{id}',
       'GET /v1/version',
       'PATCH /v1/privacy/open-book',
       'POST /v1/data-rights/export',
@@ -156,6 +167,42 @@ test('production contract preserves approved operational and privacy routes', ()
       'VersionResponse',
     ]);
     assert.deepEqual(Object.keys(document.components?.responses ?? {}).filter((name) => name === 'Problem'), ['Problem']);
+    const readSchemas = [
+      'CanonicalMinorUnits', 'ReviewInboxItem', 'ReviewInboxPage',
+      'SubscriptionOwnerView', 'SubscriptionPage', 'SubscriptionPeerReadStatus',
+      'SubscriptionPeerView', 'SubscriptionReadCadence', 'SubscriptionReadProblem',
+      'SubscriptionReadStatus', 'VisibleSubscription',
+    ];
+    assert.deepEqual(readSchemas.filter((name) => !Object.hasOwn(document.components.schemas, name)), []);
+    assert.deepEqual(
+      Object.keys(document.components.parameters).filter((name) => name.startsWith('Subscription')).sort(),
+      ['SubscriptionCategoryFilter', 'SubscriptionCursor', 'SubscriptionLimit',
+        'SubscriptionScope', 'SubscriptionStatusFilter'],
+    );
+    assert.deepEqual(document.components.responses.SubscriptionProblem.content['application/problem+json'].schema,
+      { $ref: '#/components/schemas/SubscriptionReadProblem' });
+    for (const [path, operationId, responseSchema, parameterNames, responseCodes] of [
+      ['/v1/subscriptions', 'listSubscriptions', 'SubscriptionPage',
+        ['SubscriptionScope', 'SubscriptionStatusFilter', 'SubscriptionCategoryFilter',
+          'SubscriptionCursor', 'SubscriptionLimit'], ['200', '400', '401', 'default']],
+      ['/v1/subscriptions/{id}', 'getSubscription', 'VisibleSubscription',
+        ['id'], ['200', '400', '401', '404', 'default']],
+      ['/v1/review-inbox', 'listReviewInbox', 'ReviewInboxPage',
+        ['SubscriptionCursor', 'SubscriptionLimit'], ['200', '400', '401', 'default']],
+    ]) {
+      const operation = document.paths[path].get;
+      assert.equal(operation.operationId, operationId);
+      assert.deepEqual(operation.security, [{ V1AccessBearer: [] }]);
+      assert.equal(operation['x-runtime-availability'], 'unavailable-default');
+      assert.deepEqual(operation.parameters.map((parameter) =>
+        parameter.$ref?.split('/').at(-1) ?? parameter.name), parameterNames);
+      assert.deepEqual(Object.keys(operation.responses), responseCodes);
+      assert.deepEqual(operation.responses['200'].content['application/json'].schema,
+        { $ref: `#/components/schemas/${responseSchema}` });
+      for (const code of responseCodes.filter((code) => code !== '200'))
+        assert.deepEqual(operation.responses[code],
+          { $ref: '#/components/responses/SubscriptionProblem' });
+    }
     for (const [path, schema, status] of [
       ['/healthz', 'HealthResponse', 'ok'],
       ['/readyz', 'ReadinessResponse', 'ready'],
