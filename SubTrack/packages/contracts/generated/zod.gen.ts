@@ -49,6 +49,119 @@ export const zSubscriptionSummary = z.object({
     alwaysPrivate: z.boolean().optional()
 });
 
+export const zSubscriptionReadStatus = z.enum([
+    'DETECTED',
+    'TRIAL',
+    'ACTIVE',
+    'PAUSED',
+    'CANCELLED',
+    'ARCHIVED',
+    'REJECTED'
+]);
+
+export const zSubscriptionPeerReadStatus = z.enum([
+    'TRIAL',
+    'ACTIVE',
+    'PAUSED',
+    'CANCELLED',
+    'ARCHIVED',
+    'REJECTED'
+]);
+
+export const zSubscriptionReadCadence = z.enum([
+    'WEEKLY',
+    'MONTHLY',
+    'QUARTERLY',
+    'SEMIANNUAL',
+    'ANNUAL',
+    'CUSTOM'
+]);
+
+/**
+ * Signed base-10 integer minor units. No leading zero, negative zero, plus sign, exponent, decimal point or whitespace; field-specific Money validation still applies. PostgreSQL signed BIGINT storage bounds this read path to -9223372036854775808 through 9223372036854775807. A JSON number is never accepted.
+ *
+ */
+export const zCanonicalMinorUnits = z.string().regex(/^(0|-?[1-9][0-9]*)$/);
+
+export const zSubscriptionOwnerView = z.object({
+    visibility: z.literal('owner'),
+    id: z.uuid(),
+    customName: z.string().nullish(),
+    merchantId: z.uuid().nullish(),
+    merchantName: z.string().nullish(),
+    categoryCode: z.string(),
+    cadence: zSubscriptionReadCadence,
+    status: zSubscriptionReadStatus,
+    expectedAmountMinor: zCanonicalMinorUnits,
+    currency: z.string().regex(/^[A-Z]{3}$/),
+    nextChargeDate: z.iso.date().nullish(),
+    alwaysPrivate: z.boolean()
+}).strict();
+
+export const zSubscriptionPeerView = z.object({
+    visibility: z.literal('household'),
+    id: z.uuid(),
+    categoryCode: z.string(),
+    cadence: zSubscriptionReadCadence,
+    status: zSubscriptionPeerReadStatus,
+    expectedAmountMinor: zCanonicalMinorUnits,
+    currency: z.string().regex(/^[A-Z]{3}$/)
+}).strict();
+
+export const zVisibleSubscription = z.union([
+    zSubscriptionOwnerView,
+    zSubscriptionPeerView
+]);
+
+export const zSubscriptionPage = z.object({
+    items: z.array(zVisibleSubscription).max(50),
+    nextCursor: z.string().max(512).nullable()
+}).strict();
+
+export const zReviewInboxItem = z.object({
+    id: z.uuid(),
+    customName: z.string().nullish(),
+    merchantId: z.uuid().nullish(),
+    merchantName: z.string().nullish(),
+    categoryCode: z.string(),
+    cadence: zSubscriptionReadCadence,
+    status: z.literal('DETECTED'),
+    expectedAmountMinor: zCanonicalMinorUnits,
+    currency: z.string().regex(/^[A-Z]{3}$/),
+    confidence: z.number().gte(0).lte(1).nullable(),
+    reasonCodes: z.array(z.enum([
+        'MERCHANT_RESOLVED',
+        'CADENCE_MATCHED',
+        'MIN_OCCURRENCES_MET',
+        'DATE_PATTERN_STABLE',
+        'AMOUNT_WITHIN_BAND',
+        'SUBSCRIPTION_CATEGORY_PRIOR'
+    ])),
+    catalogPlanId: z.uuid().nullish()
+}).strict();
+
+export const zReviewInboxPage = z.object({
+    items: z.array(zReviewInboxItem).max(50),
+    nextCursor: z.string().max(512).nullable()
+}).strict();
+
+/**
+ * RFC 9457 error; detail never reveals hidden resource metadata.
+ */
+export const zSubscriptionReadProblem = z.object({
+    type: z.string(),
+    title: z.string(),
+    status: z.int(),
+    detail: z.string().optional(),
+    instance: z.string().optional(),
+    code: z.enum([
+        'INVALID_SUBSCRIPTION_QUERY',
+        'SUBSCRIPTION_NOT_FOUND',
+        'AUTHENTICATION_REQUIRED',
+        'INTERNAL_ERROR'
+    ])
+}).strict();
+
 export const zExportJobResponse = z.object({
     token: z.string(),
     downloadUrl: z.string(),
@@ -299,6 +412,52 @@ export const zV2Problem = zProblem.and(z.object({
 }));
 
 /**
+ * Defaults to me. Household means rows currently visible through any of the caller's active households; no owner selector.
+ */
+export const zSubscriptionScope = z.enum(['me', 'household']).default('me');
+
+export const zSubscriptionStatusFilter = zSubscriptionReadStatus;
+
+/**
+ * Exact stable code from CATEGORIES.md; unknown codes return generic 400, not an empty page.
+ */
+export const zSubscriptionCategoryFilter = z.enum([
+    'VIDEO_STREAMING',
+    'MUSIC_AUDIO',
+    'AUDIOBOOKS_EBOOKS',
+    'NEWS_MAGAZINES',
+    'GAMING',
+    'SOFTWARE_PRODUCTIVITY',
+    'CLOUD_STORAGE',
+    'AI_TOOLS',
+    'MOBILE_PLAN',
+    'BROADBAND_TV',
+    'FITNESS_WELLNESS',
+    'FOOD_MEALKITS',
+    'TRANSPORT_MOBILITY',
+    'HOME_SECURITY',
+    'EDUCATION_KIDS',
+    'PETS',
+    'SHOPPING_MEMBERSHIPS',
+    'VPN_SECURITY',
+    'DONATIONS',
+    'DATING_SOCIAL',
+    'APP_STORE_BILLING',
+    'OTHER_SUBSCRIPTION'
+]);
+
+/**
+ * Opaque base64url continuation, at most 512 characters and 384 decoded bytes. Decode only a versioned (endpoint,created_at,id,normalized scope/status/category filters) tuple; reject malformed, unknown-version, endpoint-mismatched or filter-mismatched cursors with 400 INVALID_SUBSCRIPTION_QUERY. The tuple is a position, never authority; current RLS and filters must be applied before keyset pagination.
+ *
+ */
+export const zSubscriptionCursor = z.string().min(1).max(512).regex(/^[A-Za-z0-9_-]+$/);
+
+/**
+ * Default 20; valid integer range 1 through 50, with no clamping.
+ */
+export const zSubscriptionLimit = z.int().gte(1).lte(50).default(20);
+
+/**
  * Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
  */
 export const zIdempotencyKey = z.string().min(16).max(255);
@@ -400,6 +559,61 @@ export const zDeleteAccountResponse = z.void();
  * API semantic version.
  */
 export const zGetVersionResponse = zVersionResponse;
+
+export const zListSubscriptionsQuery = z.object({
+    scope: z.enum(['me', 'household']).optional().default('me'),
+    status: zSubscriptionReadStatus.optional(),
+    category: z.enum([
+        'VIDEO_STREAMING',
+        'MUSIC_AUDIO',
+        'AUDIOBOOKS_EBOOKS',
+        'NEWS_MAGAZINES',
+        'GAMING',
+        'SOFTWARE_PRODUCTIVITY',
+        'CLOUD_STORAGE',
+        'AI_TOOLS',
+        'MOBILE_PLAN',
+        'BROADBAND_TV',
+        'FITNESS_WELLNESS',
+        'FOOD_MEALKITS',
+        'TRANSPORT_MOBILITY',
+        'HOME_SECURITY',
+        'EDUCATION_KIDS',
+        'PETS',
+        'SHOPPING_MEMBERSHIPS',
+        'VPN_SECURITY',
+        'DONATIONS',
+        'DATING_SOCIAL',
+        'APP_STORE_BILLING',
+        'OTHER_SUBSCRIPTION'
+    ]).optional(),
+    cursor: z.string().min(1).max(512).regex(/^[A-Za-z0-9_-]+$/).optional(),
+    limit: z.int().gte(1).lte(50).optional().default(20)
+});
+
+/**
+ * A bounded page of currently visible subscriptions.
+ */
+export const zListSubscriptionsResponse = zSubscriptionPage;
+
+export const zGetSubscriptionPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Owner or peer-safe subscription projection.
+ */
+export const zGetSubscriptionResponse = zVisibleSubscription;
+
+export const zListReviewInboxQuery = z.object({
+    cursor: z.string().min(1).max(512).regex(/^[A-Za-z0-9_-]+$/).optional(),
+    limit: z.int().gte(1).lte(50).optional().default(20)
+});
+
+/**
+ * A bounded owner-only review page.
+ */
+export const zListReviewInboxResponse = zReviewInboxPage;
 
 export const zCreateV2BrowserNonceBody = zBrowserNonceRequest;
 

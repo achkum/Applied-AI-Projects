@@ -45,6 +45,91 @@ export type SubscriptionSummary = {
     alwaysPrivate?: boolean;
 };
 
+export type SubscriptionReadStatus = 'DETECTED' | 'TRIAL' | 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'ARCHIVED' | 'REJECTED';
+
+export type SubscriptionPeerReadStatus = 'TRIAL' | 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'ARCHIVED' | 'REJECTED';
+
+export type SubscriptionReadCadence = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL' | 'CUSTOM';
+
+/**
+ * Signed base-10 integer minor units. No leading zero, negative zero, plus sign, exponent, decimal point or whitespace; field-specific Money validation still applies. PostgreSQL signed BIGINT storage bounds this read path to -9223372036854775808 through 9223372036854775807. A JSON number is never accepted.
+ *
+ */
+export type CanonicalMinorUnits = string;
+
+export type SubscriptionOwnerView = {
+    visibility: 'owner';
+    id: string;
+    customName?: string | null;
+    merchantId?: string | null;
+    /**
+     * Canonical merchant name, never raw transaction text.
+     */
+    merchantName?: string | null;
+    categoryCode: string;
+    cadence: SubscriptionReadCadence;
+    status: SubscriptionReadStatus;
+    expectedAmountMinor: CanonicalMinorUnits;
+    currency: string;
+    nextChargeDate?: string | null;
+    alwaysPrivate: boolean;
+};
+
+export type SubscriptionPeerView = {
+    visibility: 'household';
+    id: string;
+    categoryCode: string;
+    cadence: SubscriptionReadCadence;
+    status: SubscriptionPeerReadStatus;
+    expectedAmountMinor: CanonicalMinorUnits;
+    currency: string;
+};
+
+export type VisibleSubscription = SubscriptionOwnerView | SubscriptionPeerView;
+
+export type SubscriptionPage = {
+    items: Array<VisibleSubscription>;
+    /**
+     * Null at the end; never a count or owner/household selector.
+     */
+    nextCursor: string | null;
+};
+
+export type ReviewInboxItem = {
+    id: string;
+    customName?: string | null;
+    merchantId?: string | null;
+    /**
+     * Canonical merchant name, never raw transaction text.
+     */
+    merchantName?: string | null;
+    categoryCode: string;
+    cadence: SubscriptionReadCadence;
+    status: 'DETECTED';
+    expectedAmountMinor: CanonicalMinorUnits;
+    currency: string;
+    confidence: number | null;
+    reasonCodes: Array<'MERCHANT_RESOLVED' | 'CADENCE_MATCHED' | 'MIN_OCCURRENCES_MET' | 'DATE_PATTERN_STABLE' | 'AMOUNT_WITHIN_BAND' | 'SUBSCRIPTION_CATEGORY_PRIOR'>;
+    catalogPlanId?: string | null;
+};
+
+export type ReviewInboxPage = {
+    items: Array<ReviewInboxItem>;
+    nextCursor: string | null;
+};
+
+/**
+ * RFC 9457 error; detail never reveals hidden resource metadata.
+ */
+export type SubscriptionReadProblem = {
+    type: string;
+    title: string;
+    status: number;
+    detail?: string;
+    instance?: string;
+    code: 'INVALID_SUBSCRIPTION_QUERY' | 'SUBSCRIPTION_NOT_FOUND' | 'AUTHENTICATION_REQUIRED' | 'INTERNAL_ERROR';
+};
+
 export type ExportJobResponse = {
     /**
      * Single-use download token (64 hex chars).
@@ -371,6 +456,29 @@ export type V2Problem = Problem & {
 };
 
 /**
+ * Defaults to me. Household means rows currently visible through any of the caller's active households; no owner selector.
+ */
+export type SubscriptionScope = 'me' | 'household';
+
+export type SubscriptionStatusFilter = SubscriptionReadStatus;
+
+/**
+ * Exact stable code from CATEGORIES.md; unknown codes return generic 400, not an empty page.
+ */
+export type SubscriptionCategoryFilter = 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION';
+
+/**
+ * Opaque base64url continuation, at most 512 characters and 384 decoded bytes. Decode only a versioned (endpoint,created_at,id,normalized scope/status/category filters) tuple; reject malformed, unknown-version, endpoint-mismatched or filter-mismatched cursors with 400 INVALID_SUBSCRIPTION_QUERY. The tuple is a position, never authority; current RLS and filters must be applied before keyset pagination.
+ *
+ */
+export type SubscriptionCursor = string;
+
+/**
+ * Default 20; valid integer range 1 through 50, with no clamping.
+ */
+export type SubscriptionLimit = number;
+
+/**
  * Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
  */
 export type IdempotencyKey = string;
@@ -691,6 +799,140 @@ export type GetVersionResponses = {
 };
 
 export type GetVersionResponse = GetVersionResponses[keyof GetVersionResponses];
+
+export type ListSubscriptionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Defaults to me. Household means rows currently visible through any of the caller's active households; no owner selector.
+         */
+        scope?: 'me' | 'household';
+        status?: SubscriptionReadStatus;
+        /**
+         * Exact stable code from CATEGORIES.md; unknown codes return generic 400, not an empty page.
+         */
+        category?: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION';
+        /**
+         * Opaque base64url continuation, at most 512 characters and 384 decoded bytes. Decode only a versioned (endpoint,created_at,id,normalized scope/status/category filters) tuple; reject malformed, unknown-version, endpoint-mismatched or filter-mismatched cursors with 400 INVALID_SUBSCRIPTION_QUERY. The tuple is a position, never authority; current RLS and filters must be applied before keyset pagination.
+         *
+         */
+        cursor?: string;
+        /**
+         * Default 20; valid integer range 1 through 50, with no clamping.
+         */
+        limit?: number;
+    };
+    url: '/v1/subscriptions';
+};
+
+export type ListSubscriptionsErrors = {
+    /**
+     * Stable, generic RFC 9457 subscription read error.
+     */
+    400: SubscriptionReadProblem;
+    /**
+     * Stable, generic RFC 9457 subscription read error.
+     */
+    401: SubscriptionReadProblem;
+    /**
+     * Stable, generic RFC 9457 subscription read error.
+     */
+    default: SubscriptionReadProblem;
+};
+
+export type ListSubscriptionsError = ListSubscriptionsErrors[keyof ListSubscriptionsErrors];
+
+export type ListSubscriptionsResponses = {
+    /**
+     * A bounded page of currently visible subscriptions.
+     */
+    200: SubscriptionPage;
+};
+
+export type ListSubscriptionsResponse = ListSubscriptionsResponses[keyof ListSubscriptionsResponses];
+
+export type GetSubscriptionData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/v1/subscriptions/{id}';
+};
+
+export type GetSubscriptionErrors = {
+    /**
+     * Stable, generic RFC 9457 subscription read error.
+     */
+    400: SubscriptionReadProblem;
+    /**
+     * Stable, generic RFC 9457 subscription read error.
+     */
+    401: SubscriptionReadProblem;
+    /**
+     * Stable, generic RFC 9457 subscription read error.
+     */
+    404: SubscriptionReadProblem;
+    /**
+     * Stable, generic RFC 9457 subscription read error.
+     */
+    default: SubscriptionReadProblem;
+};
+
+export type GetSubscriptionError = GetSubscriptionErrors[keyof GetSubscriptionErrors];
+
+export type GetSubscriptionResponses = {
+    /**
+     * Owner or peer-safe subscription projection.
+     */
+    200: VisibleSubscription;
+};
+
+export type GetSubscriptionResponse = GetSubscriptionResponses[keyof GetSubscriptionResponses];
+
+export type ListReviewInboxData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Opaque base64url continuation, at most 512 characters and 384 decoded bytes. Decode only a versioned (endpoint,created_at,id,normalized scope/status/category filters) tuple; reject malformed, unknown-version, endpoint-mismatched or filter-mismatched cursors with 400 INVALID_SUBSCRIPTION_QUERY. The tuple is a position, never authority; current RLS and filters must be applied before keyset pagination.
+         *
+         */
+        cursor?: string;
+        /**
+         * Default 20; valid integer range 1 through 50, with no clamping.
+         */
+        limit?: number;
+    };
+    url: '/v1/review-inbox';
+};
+
+export type ListReviewInboxErrors = {
+    /**
+     * Stable, generic RFC 9457 subscription read error.
+     */
+    400: SubscriptionReadProblem;
+    /**
+     * Stable, generic RFC 9457 subscription read error.
+     */
+    401: SubscriptionReadProblem;
+    /**
+     * Stable, generic RFC 9457 subscription read error.
+     */
+    default: SubscriptionReadProblem;
+};
+
+export type ListReviewInboxError = ListReviewInboxErrors[keyof ListReviewInboxErrors];
+
+export type ListReviewInboxResponses = {
+    /**
+     * A bounded owner-only review page.
+     */
+    200: ReviewInboxPage;
+};
+
+export type ListReviewInboxResponse = ListReviewInboxResponses[keyof ListReviewInboxResponses];
 
 export type CreateV2BrowserNonceData = {
     body: BrowserNonceRequest;

@@ -245,6 +245,104 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /v1/subscriptions:
+    get:
+      operationId: listSubscriptions
+      summary: List subscriptions visible to the authenticated caller
+      x-runtime-availability: unavailable-default
+      description: >
+        Contract-only until the ST-212 test-only composition is reviewed. The
+        trusted current principal and transaction-scoped RLS determine visibility.
+        scope=me selects owned rows; scope=household selects rows routed through
+        one of the caller's active household memberships, including owned rows
+        only when they have such a route. Peers see an active explicit share even
+        when always_private=true; always_private blocks only the open_book route.
+        The household scope spans active memberships and de-duplicates a
+        subscription visible through several households. Neither
+        scope nor cursor grants authority. member:<memberId> is unsupported here
+        because it would select another person's rows. No totals are returned.
+        DETECTED rows are owner-only, including when a share or open_book would
+        otherwise make the subscription visible. The scoped SQL query applies
+        (identity_id=trusted caller OR status<>DETECTED) before keyset pagination
+        and limit+1; RLS alone permits peer DETECTED reads.
+        Results are ordered by immutable (created_at DESC, id DESC), including
+        an id tie-breaker. A nextCursor continues strictly after the last item;
+        every page re-evaluates current visibility, so revocation can shorten a page.
+      security:
+        - V1AccessBearer: []
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionScope'
+        - $ref: '#/components/parameters/SubscriptionStatusFilter'
+        - $ref: '#/components/parameters/SubscriptionCategoryFilter'
+        - $ref: '#/components/parameters/SubscriptionCursor'
+        - $ref: '#/components/parameters/SubscriptionLimit'
+      responses:
+        '200':
+          description: A bounded page of currently visible subscriptions.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubscriptionPage' }
+        '400': { $ref: '#/components/responses/SubscriptionProblem' }
+        '401': { $ref: '#/components/responses/SubscriptionProblem' }
+        default: { $ref: '#/components/responses/SubscriptionProblem' }
+
+  /v1/subscriptions/{id}:
+    get:
+      operationId: getSubscription
+      summary: Get one subscription visible to the authenticated caller
+      x-runtime-availability: unavailable-default
+      description: >
+        Apply the same current RLS visibility and the SQL predicate
+        (identity_id=trusted caller OR status<>DETECTED) as list. Missing and invisible IDs
+        return the identical 404 SUBSCRIPTION_NOT_FOUND problem, without owner or
+        share metadata. No charge, transaction, bank account or detection evidence
+        is included.
+      security:
+        - V1AccessBearer: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Owner or peer-safe subscription projection.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisibleSubscription' }
+        '400': { $ref: '#/components/responses/SubscriptionProblem' }
+        '401': { $ref: '#/components/responses/SubscriptionProblem' }
+        '404': { $ref: '#/components/responses/SubscriptionProblem' }
+        default: { $ref: '#/components/responses/SubscriptionProblem' }
+
+  /v1/review-inbox:
+    get:
+      operationId: listReviewInbox
+      summary: List the authenticated owner's DETECTED subscriptions
+      x-runtime-availability: unavailable-default
+      description: >
+        Owner-only actionable DETECTED rows; household shares and open_book never
+        grant access. No scope, owner or status selector is accepted. Results use
+        immutable (created_at DESC, id DESC) ordering and current owner/RLS checks
+        on every page. A nextCursor continues strictly after the last item.
+        The SQL query requires identity_id=trusted caller AND status=DETECTED
+        before pagination and limit+1. Detection reason codes exclude params
+        and raw evidence.
+      security:
+        - V1AccessBearer: []
+      parameters:
+        - $ref: '#/components/parameters/SubscriptionCursor'
+        - $ref: '#/components/parameters/SubscriptionLimit'
+      responses:
+        '200':
+          description: A bounded owner-only review page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewInboxPage' }
+        '400': { $ref: '#/components/responses/SubscriptionProblem' }
+        '401': { $ref: '#/components/responses/SubscriptionProblem' }
+        default: { $ref: '#/components/responses/SubscriptionProblem' }
+
   /v2/auth/browser-nonce:
     post:
       operationId: createV2BrowserNonce
@@ -693,6 +791,120 @@ components:
           type: boolean
           description: Only present for the subscription owner — never exposed to other members.
 
+    SubscriptionReadStatus:
+      type: string
+      enum: [DETECTED, TRIAL, ACTIVE, PAUSED, CANCELLED, ARCHIVED, REJECTED]
+    SubscriptionPeerReadStatus:
+      type: string
+      enum: [TRIAL, ACTIVE, PAUSED, CANCELLED, ARCHIVED, REJECTED]
+    SubscriptionReadCadence:
+      type: string
+      enum: [WEEKLY, MONTHLY, QUARTERLY, SEMIANNUAL, ANNUAL, CUSTOM]
+    CanonicalMinorUnits:
+      type: string
+      pattern: '^(0|-?[1-9][0-9]*)$'
+      description: >
+        Signed base-10 integer minor units. No leading zero, negative zero,
+        plus sign, exponent, decimal point or whitespace; field-specific Money
+        validation still applies. PostgreSQL signed BIGINT storage bounds this
+        read path to -9223372036854775808 through 9223372036854775807.
+        A JSON number is never accepted.
+      examples: ['0', '-9007199254740993']
+    SubscriptionOwnerView:
+      type: object
+      additionalProperties: false
+      required: [visibility, id, categoryCode, cadence, status, expectedAmountMinor, currency, alwaysPrivate]
+      properties:
+        visibility: { type: string, const: owner }
+        id: { type: string, format: uuid }
+        customName: { type: [string, 'null'] }
+        merchantId: { type: [string, 'null'], format: uuid }
+        merchantName: { type: [string, 'null'], description: 'Canonical merchant name, never raw transaction text.' }
+        categoryCode: { type: string }
+        cadence: { $ref: '#/components/schemas/SubscriptionReadCadence' }
+        status: { $ref: '#/components/schemas/SubscriptionReadStatus' }
+        expectedAmountMinor: { $ref: '#/components/schemas/CanonicalMinorUnits' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        nextChargeDate: { type: [string, 'null'], format: date }
+        alwaysPrivate: { type: boolean }
+    SubscriptionPeerView:
+      type: object
+      additionalProperties: false
+      required: [visibility, id, categoryCode, cadence, status, expectedAmountMinor, currency]
+      properties:
+        visibility: { type: string, const: household }
+        id: { type: string, format: uuid }
+        categoryCode: { type: string }
+        cadence: { $ref: '#/components/schemas/SubscriptionReadCadence' }
+        status: { $ref: '#/components/schemas/SubscriptionPeerReadStatus' }
+        expectedAmountMinor: { $ref: '#/components/schemas/CanonicalMinorUnits' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+    VisibleSubscription:
+      oneOf:
+        - $ref: '#/components/schemas/SubscriptionOwnerView'
+        - $ref: '#/components/schemas/SubscriptionPeerView'
+    SubscriptionPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/VisibleSubscription' }
+        nextCursor:
+          type: [string, 'null']
+          maxLength: 512
+          description: Null at the end; never a count or owner/household selector.
+    ReviewInboxItem:
+      type: object
+      additionalProperties: false
+      required: [id, categoryCode, cadence, status, expectedAmountMinor, currency, confidence, reasonCodes]
+      properties:
+        id: { type: string, format: uuid }
+        customName: { type: [string, 'null'] }
+        merchantId: { type: [string, 'null'], format: uuid }
+        merchantName: { type: [string, 'null'], description: 'Canonical merchant name, never raw transaction text.' }
+        categoryCode: { type: string }
+        cadence: { $ref: '#/components/schemas/SubscriptionReadCadence' }
+        status: { type: string, const: DETECTED }
+        expectedAmountMinor: { $ref: '#/components/schemas/CanonicalMinorUnits' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        confidence: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        reasonCodes:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [MERCHANT_RESOLVED, CADENCE_MATCHED, MIN_OCCURRENCES_MET, DATE_PATTERN_STABLE, AMOUNT_WITHIN_BAND, SUBSCRIPTION_CATEGORY_PRIOR]
+        catalogPlanId: { type: [string, 'null'], format: uuid }
+    ReviewInboxPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/ReviewInboxItem' }
+        nextCursor:
+          type: [string, 'null']
+          maxLength: 512
+    SubscriptionReadProblem:
+      type: object
+      additionalProperties: false
+      description: RFC 9457 error; detail never reveals hidden resource metadata.
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        code:
+          type: string
+          enum: [INVALID_SUBSCRIPTION_QUERY, SUBSCRIPTION_NOT_FOUND, AUTHENTICATION_REQUIRED, INTERNAL_ERROR]
+
     ExportJobResponse:
       type: object
       additionalProperties: false
@@ -1044,6 +1256,65 @@ components:
 
 
   parameters:
+    SubscriptionScope:
+      name: scope
+      in: query
+      required: false
+      description: Defaults to me. Household means rows currently visible through any of the caller's active households; no owner selector.
+      schema: { type: string, enum: [me, household], default: me }
+    SubscriptionStatusFilter:
+      name: status
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/SubscriptionReadStatus' }
+    SubscriptionCategoryFilter:
+      name: category
+      in: query
+      required: false
+      description: Exact stable code from CATEGORIES.md; unknown codes return generic 400, not an empty page.
+      schema:
+        type: string
+        enum:
+          - VIDEO_STREAMING
+          - MUSIC_AUDIO
+          - AUDIOBOOKS_EBOOKS
+          - NEWS_MAGAZINES
+          - GAMING
+          - SOFTWARE_PRODUCTIVITY
+          - CLOUD_STORAGE
+          - AI_TOOLS
+          - MOBILE_PLAN
+          - BROADBAND_TV
+          - FITNESS_WELLNESS
+          - FOOD_MEALKITS
+          - TRANSPORT_MOBILITY
+          - HOME_SECURITY
+          - EDUCATION_KIDS
+          - PETS
+          - SHOPPING_MEMBERSHIPS
+          - VPN_SECURITY
+          - DONATIONS
+          - DATING_SOCIAL
+          - APP_STORE_BILLING
+          - OTHER_SUBSCRIPTION
+    SubscriptionCursor:
+      name: cursor
+      in: query
+      required: false
+      description: >
+        Opaque base64url continuation, at most 512 characters and 384 decoded
+        bytes. Decode only a versioned (endpoint,created_at,id,normalized
+        scope/status/category filters) tuple; reject malformed, unknown-version,
+        endpoint-mismatched or filter-mismatched cursors with 400
+        INVALID_SUBSCRIPTION_QUERY. The tuple is a position, never authority;
+        current RLS and filters must be applied before keyset pagination.
+      schema: { type: string, minLength: 1, maxLength: 512, pattern: '^[A-Za-z0-9_-]+$' }
+    SubscriptionLimit:
+      name: limit
+      in: query
+      required: false
+      description: Default 20; valid integer range 1 through 50, with no clamping.
+      schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -1076,6 +1347,11 @@ components:
       schema: { type: string }
       description: Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
   securitySchemes:
+    V1AccessBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Existing accepted JWT validated by AuthenticatedPrincipalGuard and current-session owner reader; no caller identity header or v2 credential fallback.
     V2WebAccessCookie:
       type: apiKey
       in: cookie
@@ -1097,6 +1373,11 @@ components:
       name: Authorization
       description: Mobile only, exact form `Refresh <opaque-secret>`; custom auth scheme, never body/query.
   responses:
+    SubscriptionProblem:
+      description: Stable, generic RFC 9457 subscription read error.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/SubscriptionReadProblem' }
     Problem:
       description: An error response following RFC 9457.
       content:
