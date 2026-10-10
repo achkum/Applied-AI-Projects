@@ -38,10 +38,11 @@ done
 binding=$(docker port "$cid" 5432/tcp)
 [[ "$binding" =~ ^127\.0\.0\.1:([0-9]+)$ ]] || { echo 'Disposable loopback endpoint verification failed' >&2; exit 1; }
 export SEC_FU1D_PORT="${BASH_REMATCH[1]}"
-# Exact accepted source hashes prevent fixture drift. Boundaries are inclusive lines.
+# Exact archived legacy source hashes preserve the historical focused fixture;
+# this is not the canonical whole-chain migration proof. Boundaries are inclusive.
 python3 - "$task_tmp/fixture.sql" "$RUNNER_TEMP/sec-fu1d-fixture-evidence.txt" <<'PY'
 import hashlib, pathlib, re, sys
-base = pathlib.Path('apps/api/prisma/migrations')
+base = pathlib.Path('.sdlc/evidence/BUG-008/legacy-migrations')
 files = [('0001_identity_household_rls', '9c39d8a5aefafbe71ca9e7c218235bb87d74fee079816dcd01dd9a8c18afcb3c'),
          ('0003_session', 'ef1b08f98e9303ad0b3a50ff16e2db05101faba1ec5d25d5012b9e9903848bfe')]
 fixture, evidence = [], ['Exact extracted fixtures only; no migration sequence/history proof.']

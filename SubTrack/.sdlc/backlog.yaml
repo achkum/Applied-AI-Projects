@@ -6,8 +6,9 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: BUG-008a, title: 'Canonical clean-install Prisma schema target', owner: architect-platform, size: M, status: IN_REVIEW, deps: []}
-  - {id: ST-209, title: 'Trusted mobile enrollment producer and atomic metadata', owner: dev-backend, size: M, status: IN_REVIEW, deps: [ST-208, ST-170b2]}
+  - {id: BUG-008b, title: 'Clean migration chain and actual PostgreSQL privacy proof', owner: architect-platform, size: L, status: IN_REVIEW, deps: [BUG-008a]}
+  - {id: BUG-008a, title: 'Canonical clean-install Prisma schema target', owner: architect-platform, size: M, status: DONE, deps: []}
+  - {id: ST-209, title: 'Trusted mobile enrollment producer and atomic metadata', owner: dev-backend, size: M, status: DONE, deps: [ST-208, ST-170b2]}
   - {id: ST-208, title: 'Anonymous mobile enrollment reservation core and contract', owner: dev-backend, size: M, status: DONE, deps: [ST-207, ST-170c2]}
   - {id: ST-207, title: 'Anonymous mobile enrollment OTP authority decision', owner: architect-platform, size: S, status: DONE, deps: [ST-170a, ST-177]}
   # ST121a proposed DONE applies only after independent approvals, exact-head CI and Conductor squash merge into main. Parent ST121 remains incomplete; no live-source permission is inferred.

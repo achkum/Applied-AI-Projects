@@ -7,7 +7,7 @@ owner_role: architect-platform
 reviewers: [architect-platform, security-privacy, qa-engineer]
 size: M
 labels: [database, security]
-status: IN_REVIEW
+status: DONE
 depends_on: []
 allowed_paths:
   - SubTrack/apps/api/prisma/schema.prisma
@@ -27,4 +27,6 @@ Preserve identity/session/household/OTP/invitation and canonical subscription/sh
 Independent exact platform/security source reviews and QA must approve schema and fixture hashes. Prisma validate/generate/API typecheck and JSON parsing must pass, followed by required exact-head CI. No migration/SQL/DB/reset/DROP/force operation in this child. <=600 nongenerated changed lines including the parent's inventory/plan/amendment evidence.
 
 ## Handoff
+Accepted PR235/main2242f46, source41cc7c5; standard38060569470/container38060569532/session38060569409 PASS. Conductor acceptance receipt records CRLF/LF-equivalent fixture identity. BUG-008b owns the separate full-chain repair/proof.
+
 Schema EE08405408AD04D5917263FEDE3FF09604EAFEFD40ED37DD1811669D92E20AEC; fixture 3FB7C637EE7EFBC7AFF6422428EEA6338550FE153F14B11CFD4605F0F8911FC4. Independent platform/security approve exact Phase A target; QA confirms Prisma validation/client generation/API tsc/JSON parse/diff checks. Final CI remains open. Parent BUG-008 remains IN_PROGRESS until separate exact SQL review and real disposable PostgreSQL migration/RLS proof pass.

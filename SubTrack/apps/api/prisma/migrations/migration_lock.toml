@@ -1,0 +1,2 @@
+# Generated migration provider lock for BUG-008b clean chain.
+provider = "postgresql"
