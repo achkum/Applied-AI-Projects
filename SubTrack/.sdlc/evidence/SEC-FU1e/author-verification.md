@@ -1,0 +1,11 @@
+SEC-FU1e author verification, 2026-10-10
+
+Implemented only the test-only actual HTTP → accepted guard → accepted resolver → actual Prisma scoped reader composition. New test independently validates disposable loopback endpoints, effective authenticated nonowner/NOSUPERUSER/NOBYPASSRLS role with no memberships, minimal table grants and fixture ownership/RLS; IDs and keys are synthetic and remain in memory. No runtime class/module/route, SQL fixture, schema, dependency or production policy changes.
+
+Scoped ESLint, strict API `tsc --noEmit -p tsconfig.json`, harness `bash -n` and `git diff --check`: PASS. New integration is 387 lines; dedicated config preserves the existing RLS proof and adds the HTTP proof, workflow watches its path, and the unchanged fixture runner records both passing proofs only after Vitest succeeds.
+
+Dedicated config discovery/fail-closed check: with the disposable marker deliberately absent, both proof files were discovered, both tests FAILED at their sanitized independent endpoint precondition, no tests skipped. This is the expected negative check, not PostgreSQL acceptance; no database connection was attempted. Command: from apps/api, `corepack pnpm exec vitest run --config vitest.session-owner.config.ts`.
+
+HTTP assertions include boolean-only frozen principal/context results, spoofed caller/body/query resistance, actual raw equal/unequal duplicate header requests, zero storage on transport/invalid signature/signed malformed claims, identical generic401/no handler on every failure, actual current cross-owner/absent/revoked/deleted storage, delegated reader exceptions from signed opaque non-UUID sub/sid, same pooled backend/empty local GUCs after every request, later legitimate HTTP success and no console logs. Reader instrumentation only records calls/errors and delegates the actual adapter unchanged. Assertion and app/client cleanup failures are sanitized and fail the gate.
+
+Independent final source/QA review, exact-head standard/container CI and the actual two-file PostgreSQL proof remain required before merge. Desktop has no Docker. This establishes no production activation, v2 transport, key lifecycle, complete migration/history or BUG-008 acceptance.
