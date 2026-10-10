@@ -1,0 +1,17 @@
+# ST-216 QA readiness matrix (plan only)
+
+Status: design coverage proposal; no ST-216 runtime implementation or QA pass is asserted. Run only after PR244 is accepted on `main` and independent security readiness approves the exact boundary.
+
+| Layer | Meaningful cases and expected evidence |
+|---|---|
+| Domain/repository unit | Parameterize all seven accepted locked-status/action pairs; reject same-status and every other source/target pair. Verify action comes only from target; owner row is locked, both transaction-local GUCs match, and failed update/throw rolls back and releases pooled GUC state. |
+| HTTP/controller unit | Strict UUID, exact single-field JSON/status enum, raw query rejection (including Express-discarded keys), extra/mixed/prototype-key and empty bodies → bounded RFC9457 400; explicitly exercise malformed JSON and unsupported content type through actual Nest parser/filter ordering. |
+| Identity/visibility HTTP | No token, invalid, revoked, and valid token for another subject → 401; forged owner/action/scope headers/body/query do not alter guard context. Owner may update; real readable peer, shared/open-book peer, hidden-private peer, outsider, and absent ID prove owner-only write; absent and every invisible case return byte-equivalent 404 problem bodies. |
+| Conflict/storage HTTP | Stale/same/disallowed locked status and uncertain-response retry → 409 requiring re-read. Race competing actions through separate requests: one admissible commit, loser conflict. Inject DB fault: masked 500 with no SQL/driver detail, token, credential, or resource identifier in response or captured logs. |
+| Composition/preflight unit | Verify guard is global and real resolver/session reader, read surface, service and private writer share one graph/pool; test ordinary-role RLS and SELECT/UPDATE preflight. Reject wrong role/database, superuser/BYPASSRLS, membership count, privileges, and disabled/non-loopback configuration before listen. |
+| Provenance/direct-entry | Launch real Node entry with fresh private provenance and matching Docker-inspected PG16 fixture; prove HTTP positive request traverses bearer guard → current-session reader → writer → same ordinary-role pool. Four isolated negative cases: missing/unsafe provenance, wrong CID/label/image, wrong mount/port/binding, and runtime URL role/database/port mismatch; each fails before Prisma construction and listener bind. |
+| Lifecycle/cleanup proof | Send SIGTERM and SIGINT; assert bounded shutdown closes Nest listener, disconnects Prisma, removes the exact verified CID and private temp directory, and no listener remains. Emit sanitized PASS only after both cleanup assertions; cleanup failure is FAIL. |
+| Verification split | Unit tests use deterministic fakes only for branch/error mapping; actual PG16 HTTP proof owns RLS, locks/races, rollback and GUC-reset claims. Avoid duplicate no-op tests that merely mirror a helper's implementation. |
+| Release evidence | Capture fixed, sanitized receipts for exact commit: focused/unit and actual-PG HTTP results, changed-runtime coverage ≥80%, lint/typecheck/full API regression, frozen build/Node22 smoke, and platform/security/QA reviews. Preserve failure output without secrets; no evidence here represents execution. |
+
+Scope note: the default read-only launcher remains the accepted three GET routes. This matrix does not claim ST-081 completion, money behavior, production readiness, or implementation authorization while PR244 remains unaccepted.
