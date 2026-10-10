@@ -43,3 +43,16 @@ The preceding `9fd19a19e2870ba38ebebc4fce41defd58482b59` approval was premature 
 I independently verified all nine normalized `git hash-object` values against `source-manifest.md`: workflow `24259806a74090e505774375f6fb30f91d77a480`, wrapper `50c66cd43ad40f968367cf7d1428c4c78cec17d3`, negative check `73c735162e017b7375a566d9da4ef819d8b292dc`, and the six unchanged source blobs. The workflow runs the versioned missing-record negative check before Chromium installation and includes that check in the pull-request path filter. The remaining workflow, package, lock, case receipt, pending-record daemon check and exact-container cleanup findings remain resolved as reviewed above.
 
 I ran the frozen negative check independently under Git Bash; it exited 0 with `ST-222 missing-record PASS denial and standalone cleanup idempotency: PASS`. Git Bash syntax checks for the wrapper and check also exited 0. This is source readiness only. The actual owned PostgreSQL 16/compiled Node/Chromium integration, exact-head PASS receipt, independent required reviews and other blocking CI checks remain outstanding; no release or merge approval is implied.
+
+## CI failure-classifier correction review — 2026-10-10
+
+contract: REVIEW/v1
+task_id: ST-222
+reviewer: devops-release
+verdict: APPROVE_SOURCE (classifier correction only; owned browser proof still FAIL)
+
+CI run `38085690411` failed in `browser-integration` with sanitized `subphase=unavailable`. The private log was destroyed by cleanup, so that receipt does not establish the underlying failure. The preceding approval covered the prior freeze; it does not apply to the two corrected blobs reviewed here.
+
+I verified all nine normalized `git hash-object` values against the updated manifest. The wrapper is `4cf40d3cafa28d880219eec5979f0af1f6c92637`, the negative check is `204a65a75e0c6901a471fb5682bc598c29b59b94`, and the other seven blobs are unchanged. The classifier now finds fixed phase markers anywhere within a Vitest output line, including lines with ANSI suffixes, maps parent cleanup and collection failures to fixed categories, and falls back to `unavailable`. It writes only one allowlisted category to the receipt; it does not copy raw test output. The missing-record fail-closed behavior remains in the wrapper.
+
+I ran Git Bash syntax checks for both scripts and the updated rerunnable negative check. Both exited 0; the check printed `ST-222 missing-record cleanup and sanitized failure classification: PASS`, covering ANSI-decorated phase text, collection and unknown fallback, plus the missing-record denial. This approves the classifier source correction only. The underlying browser integration failure remains unresolved until a new exact-head owned PostgreSQL/compiled Node/Chromium CI run produces a passing sanitized receipt; other required reviews and checks remain blocking.

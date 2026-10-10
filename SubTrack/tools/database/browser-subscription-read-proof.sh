@@ -47,6 +47,22 @@ cleanup_container() {
   [[ -z "$remaining" ]] || return 1
   rm -- "$record"
 }
+classify_browser_failure() {
+  local line
+  while IFS= read -r line; do
+    case "${line%$'\r'}" in
+      *'ST-222 browser proof failed: fixture'*) printf 'fixture\n'; return ;;
+      *'ST-222 browser proof failed: compiled child'*) printf 'compiled_child\n'; return ;;
+      *'ST-222 browser proof failed: browser'*) printf 'browser\n'; return ;;
+      *'ST-222 browser proof failed: current authority'*) printf 'current_authority\n'; return ;;
+      *'ST-222 browser proof failed: SIGTERM listener and pool cleanup'*) printf 'sigterm_cleanup\n'; return ;;
+      *'ST-222 browser proof failed: SIGINT listener and pool cleanup'*) printf 'sigint_cleanup\n'; return ;;
+      *'ST-222 parent or child cleanup failed'*) printf 'parent_cleanup\n'; return ;;
+      *'Failed Suites'*|*'No test files found'*) printf 'collection\n'; return ;;
+    esac
+  done < "$1"
+  printf 'unavailable\n'
+}
 if [[ "${1:-}" == --cleanup ]]; then cleanup_container; exit; fi
 [[ ! -e "$record" && ! -L "$record" ]] || { echo 'ST-222 existing fixture requires verified cleanup' >&2; exit 1; }
 printf 'ST-222 proof: FAIL source_head=%s phase=starting code=unavailable\n' "$source_head" > "$receipt"
@@ -150,16 +166,7 @@ phase=browser-integration
 export ST222_OWNER_URL="$owner_url" ST222_RUNTIME_URL="$runtime_url" ST222_PROVENANCE_FILE="$tmp/provenance.json"
 export ST222_TLS_KEY_FILE="$tmp/tls.key" ST222_TLS_CERT_FILE="$tmp/tls.crt"
 if ! (cd apps/api && corepack pnpm exec vitest run --config vitest.browser-subscription-read.config.ts) >"$tmp/test.log" 2>&1; then
-  while IFS= read -r line; do
-    case "${line%$'\r'}" in
-      *'ST-222 browser proof failed: fixture') failure_subphase=fixture; break ;;
-      *'ST-222 browser proof failed: compiled child') failure_subphase=compiled_child; break ;;
-      *'ST-222 browser proof failed: browser') failure_subphase=browser; break ;;
-      *'ST-222 browser proof failed: current authority') failure_subphase=current_authority; break ;;
-      *'ST-222 browser proof failed: SIGTERM listener and pool cleanup') failure_subphase=sigterm_cleanup; break ;;
-      *'ST-222 browser proof failed: SIGINT listener and pool cleanup') failure_subphase=sigint_cleanup; break ;;
-    esac
-  done < "$tmp/test.log"
+  failure_subphase=$(classify_browser_failure "$tmp/test.log")
   exit 1
 fi
 passed=true

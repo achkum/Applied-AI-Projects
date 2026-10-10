@@ -10,6 +10,7 @@ receipt="$base/receipt.txt"
 source_head=$(git rev-parse HEAD)
 # Load the actual wrapper functions, without provisioning any resources.
 source <(sed -n '/^cleanup_container() {/,/^}/p' "$script")
+source <(sed -n '/^classify_browser_failure() {/,/^}/p' "$script")
 source <(sed -n '/^finish() {/,/^}/p' "$script")
 tmp="$base/st222.synthetic"
 mkdir -m 700 "$tmp"
@@ -26,4 +27,10 @@ if cleanup_container expected-cid expected-label expected-name expected-created;
   echo 'ST-222 missing-record regression: FAIL' >&2
   exit 1
 fi
-printf 'ST-222 missing-record PASS denial and standalone cleanup idempotency: PASS\n'
+printf '\033[31mError: ST-222 browser proof failed: fixture\033[39m\n' > "$base/failure.log"
+[[ "$(classify_browser_failure "$base/failure.log")" == fixture ]]
+printf 'Failed Suites 1\n' > "$base/failure.log"
+[[ "$(classify_browser_failure "$base/failure.log")" == collection ]]
+printf 'unrecognized diagnostic\n' > "$base/failure.log"
+[[ "$(classify_browser_failure "$base/failure.log")" == unavailable ]]
+printf 'ST-222 missing-record cleanup and sanitized failure classification: PASS\n'
