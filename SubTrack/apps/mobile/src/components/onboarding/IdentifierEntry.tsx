@@ -134,7 +134,13 @@ export function IdentifierEntry({ onValidIdentifier }: IdentifierEntryProps) {
 const styles = StyleSheet.create({
   container: { gap: 12 },
   channels: { flexDirection: 'row', gap: 8 },
-  channel: { paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1 },
+  channel: {
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+  },
   label: { fontWeight: '600' },
   input: { minHeight: 52, borderWidth: 1, paddingHorizontal: 16 },
   error: {},
