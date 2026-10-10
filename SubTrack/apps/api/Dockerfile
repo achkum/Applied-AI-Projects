@@ -1,13 +1,20 @@
 # Build from the repository root: docker build -f apps/api/Dockerfile .
+FROM node:22.18.0-bookworm AS ca-bundle
+
 FROM node:22.18.0-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="${PNPM_HOME}:${PATH}"
+COPY --from=ca-bundle /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 RUN --mount=type=secret,id=environment_ca,mode=0444 \
     sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources; \
     set --; \
     if [ -n "$HTTPS_PROXY" ]; then set -- "$@" -o "Acquire::https::Proxy=$HTTPS_PROXY"; fi; \
-    if [ -f /run/secrets/environment_ca ]; then set -- "$@" -o Acquire::https::CaInfo=/run/secrets/environment_ca; fi; \
-    apt-get "$@" update && apt-get "$@" install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+    if [ -f /run/secrets/environment_ca ]; then \
+      cat /etc/ssl/certs/ca-certificates.crt /run/secrets/environment_ca > /tmp/environment-ca-bundle.crt; \
+      set -- "$@" -o Acquire::https::CaInfo=/tmp/environment-ca-bundle.crt; \
+    fi; \
+    apt-get "$@" update && apt-get "$@" install -y --no-install-recommends openssl ca-certificates && \
+    rm -rf /var/lib/apt/lists/* /tmp/environment-ca-bundle.crt
 RUN --mount=type=secret,id=environment_ca,mode=0444 \
     if [ -f /run/secrets/environment_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/environment_ca; fi; \
     npm install --global pnpm@12.6.0
