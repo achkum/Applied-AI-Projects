@@ -139,7 +139,7 @@ phase=generate
 if ! (cd apps/api && corepack pnpm exec prisma generate --schema=prisma/schema.prisma) >"$tmp/generate.log" 2>&1; then fail "$tmp/generate.log"; fi
 if [[ "$mode" == serve ]]; then
   phase=compile
-  if ! (cd apps/api && corepack pnpm exec tsc -p tsconfig.build.json) >"$tmp/compile.log" 2>&1; then fail "$tmp/compile.log"; fi
+  if ! (cd apps/api && corepack pnpm build) >"$tmp/compile.log" 2>&1; then fail "$tmp/compile.log"; fi
   phase=local-listener
   export ST213_READER_URL="$ST212_READER_URL" ST213_BIND_PORT="$listen_port" ST213_TRUSTED_PUBLIC_KEY_FILE="$key_file"
   export ST213_PROVENANCE_FILE="$tmp/provenance.json"
