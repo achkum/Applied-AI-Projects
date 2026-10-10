@@ -1,0 +1,58 @@
+name: SubTrack container image proof
+
+on:
+  pull_request:
+    paths:
+      - "SubTrack/apps/api/**"
+      - "SubTrack/apps/web/**"
+      - "SubTrack/packages/**"
+      - "SubTrack/pnpm-lock.yaml"
+      - "SubTrack/pnpm-workspace.yaml"
+      - "SubTrack/package.json"
+      - "SubTrack/.npmrc"
+      - "SubTrack/.dockerignore"
+      - "SubTrack/tools/containers/smoke-images.sh"
+      - ".github/workflows/subtrack-container-proof.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: subtrack-container-proof-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  container-proof:
+    name: Build and smoke API and web images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build API image
+        working-directory: SubTrack
+        run: docker build --file apps/api/Dockerfile --tag subtrack-api:st206 .
+
+      - name: Build web image
+        working-directory: SubTrack
+        run: docker build --file apps/web/Dockerfile --tag subtrack-web:st206 .
+
+      - name: Smoke test images in isolated Docker network
+        shell: bash
+        env:
+          API_IMAGE: subtrack-api:st206
+          WEB_IMAGE: subtrack-web:st206
+          SMOKE_RECEIPT: ${{ runner.temp }}/st206-container-smoke.json
+          SMOKE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: bash SubTrack/tools/containers/smoke-images.sh
+
+      - name: Upload safe smoke receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: st206-container-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/st206-container-smoke.json
+          if-no-files-found: ignore
+          retention-days: 7
