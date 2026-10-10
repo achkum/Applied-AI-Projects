@@ -1,0 +1,1 @@
+Root records four underlying tools: three shells plus final apply_patch accounting correction, not just three shells. One unescaped-backtick command substitution failure retained, and +1 tool above dispatch ceiling. Review verdict/source unchanged. Original report retained. No provider telemetry; tokens null.
