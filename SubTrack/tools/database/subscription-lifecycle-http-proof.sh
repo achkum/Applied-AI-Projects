@@ -25,8 +25,14 @@ cleanup() {
   rm -- "$record"
 }
 finish() {
-  local code=$? safe=true runner_real='' tmp_real=''
+  local code=$? safe=true runner_real='' tmp_real='' recorded_cid='' recorded_label=''
   trap - EXIT
+  if [[ "$passed" == true ]]; then
+    if [[ -f "$record" && ! -L "$record" ]]; then
+      read -r recorded_cid recorded_label < "$record" || safe=false
+      [[ "$recorded_cid" == "$cid" && "$recorded_label" == "$label" ]] || safe=false
+    else safe=false; fi
+  fi
   cleanup || safe=false
   if [[ -n "$tmp" ]]; then
     runner_real=$(cd -P -- "$RUNNER_TEMP" && pwd -P) || safe=false

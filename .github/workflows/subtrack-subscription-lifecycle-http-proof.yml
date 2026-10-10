@@ -4,9 +4,15 @@ on:
   pull_request:
     paths:
       - "SubTrack/apps/api/prisma/**"
+      - "SubTrack/apps/api/src/auth/sessions/**"
+      - "SubTrack/apps/api/src/database/**"
       - "SubTrack/apps/api/src/subscriptions/subscription-lifecycle*"
       - "SubTrack/apps/api/test/subscription-lifecycle-http.integration.ts"
       - "SubTrack/apps/api/vitest.subscription-lifecycle-http.config.ts"
+      - "SubTrack/apps/api/package.json"
+      - "SubTrack/packages/domain/src/**"
+      - "SubTrack/packages/domain/package.json"
+      - "SubTrack/pnpm-lock.yaml"
       - "SubTrack/tools/database/subscription-lifecycle-http-proof.sh"
       - ".github/workflows/subtrack-subscription-lifecycle-http-proof.yml"
 permissions:
