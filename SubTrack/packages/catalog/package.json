@@ -13,14 +13,20 @@
     "build": "tsc --noEmit",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "catalogue:extract": "tsx src/scraping/cli.ts"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "@subtrack/money": "workspace:*"
   },
   "devDependencies": {
     "@subtrack/config": "workspace:*",
     "@types/js-yaml": "^4.0.9",
-    "vitest": "^3.0.0"
+    "vitest": "^3.0.0",
+    "@vitest/coverage-v8": "3.2.7",
+    "playwright": "1.63.0",
+    "tsx": "4.20.6"
   }
 }

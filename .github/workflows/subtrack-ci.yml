@@ -164,6 +164,10 @@ jobs:
             echo 'contrast checker not present; will run when ST-020 tokens are built'
           fi
 
+      - name: Install Playwright browsers (Storybook and catalogue extraction)
+        shell: bash
+        run: pnpm --filter @subtrack/ui exec playwright install chromium --with-deps
+
       - name: Tests
         run: pnpm test
 
@@ -172,10 +176,6 @@ jobs:
       # Baseline snapshots live in packages/ui/.storybook/__snapshots__; first run creates
       # them (non-failing). Reference: https://storybook.js.org/docs/writing-tests/test-runner
       # (accessed 2026-10-01).
-      - name: Install Playwright browsers (Storybook visual regression)
-        shell: bash
-        run: pnpm --filter @subtrack/ui exec playwright install chromium --with-deps
-
       - name: Visual regression — Storybook (ST-022)
         shell: bash
         run: |
