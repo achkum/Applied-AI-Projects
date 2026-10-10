@@ -1,0 +1,1 @@
+ST-222 browser subscription read proof: PASS source_head=28d049c01b036a174a41100b3434b45c79aa7619 coverage=statements:86.86,branches:83.33,functions:82.6,lines:94.4 cases=owner,peer,invisible404,malformed,query,selector,csrf,binding,mixed,origin,revoke,expire,pool,nowrite,SIGTERM,SIGINT,listener-reuse,pool-baseline fixture=removed child=stopped secrets=destroyed
