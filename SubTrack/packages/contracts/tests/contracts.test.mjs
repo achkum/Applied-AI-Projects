@@ -138,8 +138,24 @@ test('production contract preserves approved operational and privacy routes', ()
       ['GET /v1/subscriptions', 'unavailable-default'],
       ['GET /v1/subscriptions/{id}', 'unavailable-default'],
       ['PATCH /v1/privacy/open-book', 'unavailable-default'],
+      ['PATCH /v1/subscriptions/{id}', 'unavailable-default'],
       ['POST /v1/data-rights/export', 'unavailable-default'],
     ]);
+    const lifecyclePatch = document.paths['/v1/subscriptions/{id}'].patch;
+    assert.match(lifecyclePatch.description, /Reject every query parameter with 400, including unknown parameters/);
+    assert.deepEqual(lifecyclePatch.parameters.map(({ in: location, name }) => [location, name]), [['path', 'id']]);
+    assert.deepEqual(lifecyclePatch.security, [{ V1AccessBearer: [] }]);
+    assert.deepEqual(lifecyclePatch.requestBody.content['application/json'].schema,
+      { $ref: '#/components/schemas/SubscriptionLifecyclePatch' });
+    assert.deepEqual(Object.keys(lifecyclePatch.responses), ['200', '400', '401', '404', '409', '500']);
+    assert.deepEqual(lifecyclePatch.responses['200'].content['application/json'].schema,
+      { $ref: '#/components/schemas/SubscriptionLifecycleResult' });
+    for (const code of ['400', '401', '404', '409', '500'])
+      assert.deepEqual(lifecyclePatch.responses[code],
+        { $ref: '#/components/responses/SubscriptionLifecycleProblem' });
+    assert.deepEqual(document.components.responses.SubscriptionLifecycleProblem
+      .content['application/problem+json'].schema,
+      { $ref: '#/components/schemas/SubscriptionLifecycleError' });
 
     assert.deepEqual(routes.filter((route) => !route.includes('/v2/')).sort(), [
       'DELETE /v1/data-rights/account',
@@ -153,6 +169,7 @@ test('production contract preserves approved operational and privacy routes', ()
       'GET /v1/subscriptions/{id}',
       'GET /v1/version',
       'PATCH /v1/privacy/open-book',
+      'PATCH /v1/subscriptions/{id}',
       'POST /v1/data-rights/export',
     ]);
     assert.deepEqual(Object.keys(document.components?.schemas ?? {}).filter((name) => ['ConsentSetting', 'DeleteAccountBody', 'ExportJobResponse', 'HealthResponse', 'Problem', 'ReadinessResponse', 'SetOpenBookBody', 'SubscriptionSummary', 'VersionResponse'].includes(name)).sort(), [
