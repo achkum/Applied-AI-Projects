@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, Text } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react-native';
 import { EnrollmentProvider, useEnrollment } from './EnrollmentFlow';
 import {
   EnrollmentRequestError,
@@ -86,6 +86,11 @@ async function enterOtp() {
 }
 
 describe('in-memory enrollment flow', () => {
+  beforeAll(() => {
+    // Initialize the shared native renderer before Jest starts a test's timer.
+    mount();
+    cleanup();
+  });
   beforeEach(() => {
     mockPathname = '/register';
     latestAction = undefined;
