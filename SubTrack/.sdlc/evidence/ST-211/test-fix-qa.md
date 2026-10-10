@@ -12,3 +12,6 @@ This approves the test fix only; exact-head CI and remaining ST-211/native/provi
 Focused flow suite: 7/7 PASS (first test 19 ms); mobile lint and typecheck PASS; `git diff --check` found no whitespace errors.
 LF-normalized SHA-256 of `EnrollmentFlow.test.tsx`: `c1e8869ed6c55abd41e9e6029f830e84b38a11668c8f11cb76eb943647a2b6e6`.
 Exact-head CI must establish whether this resolves the first-test 5 s timeout under CI concurrency; third failure requires the task loop-breaker.
+**Third-fix CI closure: PASS** — PR 239 head, local HEAD, and successful run 38068825059 all match `25fc753ff7034f70bf1875ee8e6f4759972191d3`.
+CI mobile tests: 22/22 suites and 129/129 tests passed, including `EnrollmentFlow.test.tsx`; no skipped tests reported.
+PR project checks (quality, Compose, image smoke, session owner) all passed. Vercel breast-cancer-detector and cutok statuses fail due to deployment rate limiting; overall merge/task gate remains open.
