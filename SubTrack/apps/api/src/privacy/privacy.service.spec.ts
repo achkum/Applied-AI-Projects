@@ -160,6 +160,22 @@ describe('PrivacyService.setOpenBook', () => {
 // ─── previewAsHousehold ───────────────────────────────────────────────────────
 
 describe('PrivacyService.previewAsHousehold', () => {
+  it('excludes profile-only dependants from consent and subscription owner lookups', async () => {
+    const alice = 'identity-profile-only-test';
+    mockMemberFindFirst.mockResolvedValue(makeMember(alice));
+    mockMemberFindMany.mockResolvedValue([makeMember(alice), { ...makeMember('unused'), identityId: null, role: 'DEPENDANT' }]);
+    mockConsentFindUnique.mockResolvedValue(makeConsent(alice, false));
+    mockSubFindMany.mockResolvedValue([]);
+    mockShareFindMany.mockResolvedValue([]);
+
+    await makeService().previewAsHousehold(alice, 'hh-1');
+
+    expect(mockConsentFindUnique).toHaveBeenCalledOnce();
+    expect(mockConsentFindUnique).toHaveBeenCalledWith({ where: {
+      identityId_scopeId_scopeType: { identityId: alice, scopeId: 'hh-1', scopeType: 'HOUSEHOLD' },
+    } });
+    expect(mockSubFindMany).toHaveBeenCalledWith({ where: { identityId: { in: [alice] } } });
+  });
   it('returns subscriptions visible to caller via visibility policy (AC3)', async () => {
     const alice = 'identity-alice';
     const bob   = 'identity-bob';
