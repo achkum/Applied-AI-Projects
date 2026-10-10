@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses } from './types.gen.js';
+import type { CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -161,6 +161,26 @@ export const listReviewInbox = <ThrowOnError extends boolean = false>(options?: 
         }],
     url: '/v1/review-inbox',
     ...options
+});
+
+/**
+ * Read one subscription visible to the current browser session
+ *
+ * Contract only; this route is unavailable in the default application graph. Require direct HTTPS, exactly one Origin matching the configured allowlist, exactly one st_v2_access cookie and one distinct deployment-configured browser binding cookie, and exactly one session-bound X-Session-CSRF. Reject duplicate credentials or headers, Authorization (including Bearer and Refresh), st_v2_refresh, mixed modes, every query parameter and every body other than JSON {} before reading owner data. No caller identity, owner, scope or transport selector is accepted. Verify the v2 access token to derive sid/sub, hash the observed binding cookie, call webContextForCurrentSession(sid,{userId:sub},bindingCookieHash,exactOrigin,observedAt), then DevelopmentV2PrincipalResolver.resolve with the trusted browser chain and exact Origin. Compare its current owner/session with verified sub/sid; verify SessionCsrfGuard for that identity/session before creating the server-only subscription RequestContext. Apply the same current RLS and owner/household visibility predicate as V1 detail: owner or peer-safe projection only, with canonical string minor units; no transaction, charge, bank or detection evidence. Missing and foreign IDs have the identical 404 problem, with no owner or share metadata. This POST is a pure read: no nonce, session, CSRF or subscription mutation or rotation, and no idempotency reservation or Idempotency-Key. ADR-0010 requires idempotency only for mutating POSTs. Never fall back to V1 authority.
+ *
+ */
+export const readV2BrowserSubscription = <ThrowOnError extends boolean = false>(options: Options<ReadV2BrowserSubscriptionData, ThrowOnError>): RequestResult<ReadV2BrowserSubscriptionResponses, ReadV2BrowserSubscriptionErrors, ThrowOnError> => (options.client ?? client).post<ReadV2BrowserSubscriptionResponses, ReadV2BrowserSubscriptionErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'st_v2_access',
+            type: 'apiKey'
+        }],
+    url: '/v2/subscriptions/{id}/read',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**

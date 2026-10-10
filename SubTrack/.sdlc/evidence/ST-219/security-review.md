@@ -1,0 +1,17 @@
+# ST-219 security/privacy review — 2026-10-10
+Status: **PENDING CANDIDATE / NOT_READY**. Independent pre-review of accepted ST-218 and current source; no ST-219 contract diff existed at review time.
+
+1. Contract must add only `POST /v2/subscriptions/{id}/read`, `x-runtime-availability: unavailable-default`, strict UUID, required JSON object with exactly zero properties, and reject all query parameters.
+2. Require direct TLS, one `st_v2_access` plus one distinct observed browser-binding cookie, one exact allowlisted `Origin`, and one `X-Session-CSRF`; reject Bearer, refresh, duplicates, mixed modes and caller identity selectors.
+3. Authority order: verify access `sid/sub`; hash observed binding cookie; `webContextForCurrentSession(sid,{userId:sub},hash,origin,now)`; resolve access with returned chain; compare owner/session; verify same-session CSRF; then create server-only `RequestContext`. Resolver alone does not verify binding hash.
+4. Read must not write/rotate nonce, session, CSRF or subscription, or reserve idempotency. Reuse bounded `VisibleSubscription` projection and accepted owner/household policy, including owner-only DETECTED and identical missing/foreign 404.
+5. Existing `SubscriptionReadProblem` has no CSRF code. New v2 error schema/response must cover bounded 400/401/403/404/500 codes without expanding or changing v1 semantics; all responses need `no-store` and no credentials, raw errors or hidden metadata.
+6. Current v1 detail service uses `visible(row,userId)` and owner/peer projections with string minor units. ST-219 must remain contract-only; no runtime/browser/account readiness follows.
+
+## Exact-source review of frozen candidate
+Verdict: **APPROVE (contract-only source)**. No High/Critical security or privacy finding. This grants no runtime, browser, account, persistence or ST-217 readiness.
+Reviewed OpenAPI `d3ae9777`, config `9e0c5b3e`, three tests `86bb4475`/`fe57e73a`/`4bc9fda3`, and generated index/SDK/types/Zod `e1bfe36d`/`6d3dca0b`/`e580f7d1`/`5aaca43f` (Git blob prefixes; full hashes independently matched author checkpoint).
+The operation is the sole new route, disabled by default, cookie-only, direct-HTTPS and exact-Origin/CSRF constrained, with required closed `{}` JSON, no query, no caller selector and explicit verified-token → binding-hash/current-owner → resolver/chain → CSRF ordering. It reuses `VisibleSubscription`; no V1 route/security/schema change appears in the diff.
+The separate v2 problem schema adds `AUTH_CSRF_UNAVAILABLE` without changing V1 error codes; response references cover 400/401/403/404/500, require `no-store` and exclude detail/instance/metadata fields. Its description fixes code-to-status semantics and identical missing/invisible 404. Generated empty-body Zod record rejects added keys; config change is scoped to closed zero-property schemas.
+The new tests inspect the bundled route/error envelope, generated SDK/types/Zod behavior, negative body/projection cases and unchanged V1 security; existing enumerator tests exclude this pure read from mutating POST rules. Author reports focused 2/2 and generation PASS. I did not run tests or full QA/CI.
+Runtime must enforce the described header multiplicity, credential rejection, exact status/code mapping and indistinguishable 404; OpenAPI/Zod alone cannot prove those behaviors. Final merge remains gated on independent client/QA review and exact-head applicable CI.

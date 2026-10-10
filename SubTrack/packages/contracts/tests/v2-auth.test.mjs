@@ -59,7 +59,7 @@ test('v2 mutating POSTs require idempotency and browser state distinguishes nonc
     const operations = Object.entries(document.paths).flatMap(([path, item]) =>
       Object.entries(item).filter(([method]) => method.toLowerCase() === 'post')
         .map(([method, operation]) => [path, method, operation]),
-    ).filter(([path]) => path.startsWith('/v2/'));
+    ).filter(([path]) => path.startsWith('/v2/') && path !== '/v2/subscriptions/{id}/read');
     assert.equal(operations.length, 7);
     for (const [path, , operation] of operations) {
       assert.ok(operation.parameters.some((parameter) =>
@@ -101,7 +101,7 @@ test('v2 POST recovery contract stays generic and explains restart after referen
     const operations = Object.entries(document.paths).flatMap(([path, item]) =>
       Object.entries(item).filter(([method]) => method.toLowerCase() === 'post')
         .map(([method, operation]) => [path, method, operation]),
-    ).filter(([path]) => path.startsWith('/v2/'));
+    ).filter(([path]) => path.startsWith('/v2/') && path !== '/v2/subscriptions/{id}/read');
     assert.equal(operations.length, 7);
     for (const [path, , operation] of operations) {
       const response = operation.responses['409'];

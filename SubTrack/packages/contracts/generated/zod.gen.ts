@@ -200,6 +200,33 @@ export const zSubscriptionReadProblem = z.object({
     ])
 }).strict();
 
+/**
+ * Exactly an empty JSON object; no identity, scope or action fields.
+ */
+export const zBrowserSubscriptionReadRequest = z.record(z.string(), z.never());
+
+/**
+ * RFC 9457 problem with no credential, resource, owner, share or driver details.
+ */
+export const zBrowserSubscriptionReadProblem = z.object({
+    type: z.string(),
+    title: z.string(),
+    status: z.union([
+        z.literal(400),
+        z.literal(401),
+        z.literal(403),
+        z.literal(404),
+        z.literal(500)
+    ]),
+    code: z.enum([
+        'INVALID_SUBSCRIPTION_QUERY',
+        'AUTHENTICATION_REQUIRED',
+        'AUTH_CSRF_UNAVAILABLE',
+        'SUBSCRIPTION_NOT_FOUND',
+        'INTERNAL_ERROR'
+    ])
+}).strict();
+
 export const zExportJobResponse = z.object({
     token: z.string(),
     downloadUrl: z.string(),
@@ -663,6 +690,22 @@ export const zListReviewInboxQuery = z.object({
  * A bounded owner-only review page.
  */
 export const zListReviewInboxResponse = zReviewInboxPage;
+
+export const zReadV2BrowserSubscriptionBody = zBrowserSubscriptionReadRequest;
+
+export const zReadV2BrowserSubscriptionHeaders = z.object({
+    Origin: z.url(),
+    'X-Session-CSRF': z.string().min(1)
+});
+
+export const zReadV2BrowserSubscriptionPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Owner or peer-safe subscription projection.
+ */
+export const zReadV2BrowserSubscriptionResponse = zVisibleSubscription;
 
 export const zCreateV2BrowserNonceBody = zBrowserNonceRequest;
 
