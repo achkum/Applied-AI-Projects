@@ -3,3 +3,6 @@
 e753e98d5ac064cbeb93fd9a7cc81b15a6a7bb66:SubTrack/.sdlc/evidence/ST-170a/manifest.json:generic-api-key:4
 e753e98d5ac064cbeb93fd9a7cc81b15a6a7bb66:SubTrack/.sdlc/evidence/ST-170a/manifest.json:generic-api-key:5
 e753e98d5ac064cbeb93fd9a7cc81b15a6a7bb66:SubTrack/.sdlc/evidence/ST-170a/manifest.json:generic-api-key:7
+
+# ST210: independently reviewed public deterministic Idempotency-Key fixture; exact historical finding only.
+f22f4f79546a920829df0f845c1a2757701012a4:SubTrack/apps/api/src/auth/otp-v2/mobile-enrollment-otp-http.spec.ts:generic-api-key:97
