@@ -1,0 +1,29 @@
+{
+  "checks": {
+    "productionResolvedConfigExcludesDevelopmentProxy": true,
+    "productionBuildSucceeded": true,
+    "productionManifestExcludesDevelopmentProxy": true,
+    "browserAndServersStarted": true,
+    "bootstrap200NoStore": true,
+    "secureHttpOnlySameSitePathHostOnlyCookie": true,
+    "javascriptCannotReadBindingCookie": true,
+    "otpStart202NoStore": true,
+    "successorNonceRotatedAtStart": true,
+    "consumedNonceRejected409NoStore": true,
+    "processLocalOtpSinkHasCode": true,
+    "otpVerify200NoStore": true,
+    "successorNonceRotatedAtVerify": true,
+    "cookieNotSharedOutsidePath": true,
+    "badOriginWithForwardedSpoofsDenied": true,
+    "uiApiBootstrapAndStart": true,
+    "uiFlowCodeAvailableOnlyInProcess": true,
+    "uiApiVerify200NoStore": true,
+    "acceptedUiStillRequiresBankId": true,
+    "onlyThreeRelativeAuthRequests": true,
+    "allUiSensitiveValuesCaptured": true,
+    "sensitiveValuesAbsentFromDomUrlAndStorage": true,
+    "prismaNoAccess": true,
+    "directBrowserOriginAndPeerObserved": true,
+    "bindingCookieForwardedToOtp": true
+  }
+}

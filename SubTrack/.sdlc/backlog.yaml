@@ -6,8 +6,11 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
+  # Proposed acceptance: ST050c source1f25e04 reviewed/independently QA verified; standard38048697383 attempt2/container38048697364 PASS. DONE applies only after final metadata CI and Conductor merge of PR231 into main.
+  - {id: ST-050c, title: 'Development web auth proxy and real browser OTP proof', owner: dev-web, size: M, status: DONE, deps: [ST-177]}
+  # ST050b client slice accepted PR230@8f80aa6; full onboarding remains IN_PROGRESS. SEC-FU1f accepted PR229@23fcfb3, standard38048188511/container38048188552 PASS.
   - {id: ST-050b, title: 'Web registration route and contract-backed OTP step', owner: dev-web, size: M, status: IN_PROGRESS, deps: [ST-050a]}
-  - {id: SEC-FU1f, title: 'Quarantine unsafe legacy handlers from default API graph', owner: dev-backend, size: M, status: IN_REVIEW, deps: []}
+  - {id: SEC-FU1f, title: 'Quarantine unsafe legacy handlers from default API graph', owner: dev-backend, size: M, status: DONE, deps: []}
   # SEC-FU1e accepted PR228@f692b97; composed PostgreSQL proof38046880689, standard38046880677 and container38046880670 PASS.
   - {id: SEC-FU1e, title: 'Composed HTTP guard and actual storage proof', owner: dev-backend, size: M, status: DONE, deps: [SEC-FU1c, SEC-FU1d]}
   - {id: ST-051d, title: 'Mobile welcome and identifier registration routes', owner: dev-mobile, size: M, status: DONE, deps: []}
