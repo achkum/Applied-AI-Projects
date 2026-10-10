@@ -1,0 +1,9 @@
+# ST-228 independent secret-scan review
+APPROVE only the following four exact historical generic-api-key fingerprint exceptions from PR255 head `2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c`, failed run38095039379; none is a credential.
+`2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/docs/architecture/adr/0026-durable-development-enrollment.md:generic-api-key:38` — FALSE POSITIVE: committed durable-session slice table prose, paths and acceptance requirements.
+`2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/.sdlc/evidence/ST-228/client-review.md:generic-api-key:15` — FALSE POSITIVE: committed bilingual/theme/accessibility/browser acceptance prose.
+`2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/.sdlc/evidence/ST-228/source-pins.md:generic-api-key:20` — FALSE POSITIVE: public Git blob71f2b27c55cd110678fbe18f8e3abc8779dbf776, independently resolved to accepted-baseline OpenAPI source.
+`2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/.sdlc/evidence/ST-228/source-pins.md:generic-api-key:21` — FALSE POSITIVE: public Git blob1b61e8addb91e8214c0991003be8ebef8156294f, independently resolved to accepted-baseline registration-api source.
+Verified exact committed lines with git show and both object types/path-to-object mappings against accepted main ee9225c; frozen ADR5ce4945a and plan5ca879c unchanged. No Match/Secret/private-log content inspected or disclosed.
+Task allowed_paths explicitly permits Conductor-only exact historical exceptions after this verification; no rule/path blanket ignore, future finding exemption or failed-CI waiver approved. Root must rerun all relevant CI after its append.
+No blocker/major or real-secret finding in these four entries; evidence-only edit. Original2026-10-10T23:18:19Z attempt1 M120 and first-CI-failure accounting preserved; cumulative review tool calls14, below20.
