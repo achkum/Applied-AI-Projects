@@ -16,8 +16,9 @@
   - secret scan
   - licence check
   - bundle-size budget (web)
+- **Check applicability:** all SubTrack checks, shared-code/dependency/security checks relevant to changed paths, and repository/GitHub-required checks remain blocking. Required reviews and the security-privacy veto remain blocking. A named external deployment status for another project may be excluded only when changed-path, project and dependency mapping at the exact PR head demonstrates that it cannot validate affected SubTrack code. Record the status context, PR-head SHA, changed paths, mapping evidence and exclusion reason in the PR gate audit. Unknown relevance blocks; this is not a blanket red-check override.
 - [ ] Coverage: overall ≥ 80% on changed files; `packages/money` and `packages/domain/policy` at 100% branches.
-- [ ] Required reviews are APPROVE (OPERATING_MODEL §5) and there are no open `blocker` or `major` findings. The Conductor merges an eligible task PR directly to `main`; no red CI/check, unresolved blocker/major finding, or QA failure may be overridden by target branch or cadence.
+- [ ] Required reviews are APPROVE (OPERATING_MODEL §5) and there are no open `blocker` or `major` findings. The Conductor merges an eligible task PR directly to `main`; no red applicable CI/check, unresolved blocker/major finding, or QA failure may be overridden by target branch or cadence.
 - [ ] Security-sensitive PRs: the security-privacy checklist is attached.
 - [ ] Docs are updated (spec, ADR, runbook, or README) where behaviour or setup changed.
 - [ ] Accessibility: labels, focus order, contrast (axe on web; RN accessibility props on mobile).

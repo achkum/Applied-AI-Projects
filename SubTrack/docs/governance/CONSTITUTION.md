@@ -39,6 +39,7 @@ If two sources conflict, stop and escalate (DECISION_RULES §4). Never silently 
    - Agents never push to `main`; the Conductor is the only role that merges task PRs.
    - After a task passes required reviews, QA and CI, the Conductor merges its PR directly into `main`; routine task merges do not require a separate founder D-01 approval.
    - Before this governance amendment takes effect, the existing cadence remains in force. Existing open task PRs are transitioned as described in `OPERATING_MODEL.md` §4.
+   - Applicable SubTrack, shared-code and repository-required checks remain blocking, as do required reviews and the security veto. A named external deployment status for another project may be excluded only when changed-path, project and dependency evidence at the exact PR head shows it cannot validate affected SubTrack code; unknown relevance remains blocking. Record the status context, head SHA and evidence in the PR gate audit. This clarification takes effect only after founder approval and merge of its governance-labelled PR.
    - A proposed production/public release remains a separate founder approval gate, with milestone evidence and security sign-off; see `DECISION_RULES.md` and `QUALITY_GATES.md`.
 10. **Honesty.**
     - Never report a task as done when it isn't.
