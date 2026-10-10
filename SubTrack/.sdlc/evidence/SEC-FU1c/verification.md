@@ -1,0 +1,9 @@
+# Guard-only acceptance evidence
+
+2026-10-10 independent security/platform reviewer: APPROVE_SOURCE and APPROVE_QA_SOURCE, no findings. Accepted raw-header grammar, exact credential-cookie rejection, resolver-only authority, fresh frozen private own attachments, cleanup on failure and real loopback HTTP probe. Production wiring, storage reader and live RLS are outside this approval.
+
+Conductor verification: full API suite 55 files / 1,155 tests PASS after adding the existing Git-bundled OpenSSL directory to this process PATH. First run failed 11 HTTPS suites because OpenSSL was absent from PATH; no tests or code were altered to bypass it. API lint, generated-Prisma typecheck and build PASS. Focused guard/HTTP 50 tests PASS. Measured source coverage: branches 32/32, statements 53/53, functions 8/8, lines 47/47 (100%). Coverage summary is committed in coverage/coverage-summary.json. API runtime sources and package configuration are identical between the tested desktop branch and main; only the unaccepted Dockerfile differs.
+
+Security checklist: no production registration, endpoint/schema/policy change, live database, secrets, input logging or JWT-profile changes. In-memory ephemeral fixture keys; environment restored. Signed claims are verified before fixture reader access. Body/query/caller headers supply no authority. Generic 401 responses do not expose credentials or failures. Request attachments are omitted from ordinary serialization. Current revocation/deletion/mismatch/reader failures are checked over HTTP. Symbols are not a sandbox against trusted in-process code.
+
+Conductor grants the OPERATING_MODEL size exception for this single security boundary: 597 source/test lines remain together with the readiness/review evidence, totaling about 750 lines. No unrelated implementation is included. Windows task_guard remains unavailable because it imports fcntl; no workflow guard was modified. Required exact-head CI is pending.
