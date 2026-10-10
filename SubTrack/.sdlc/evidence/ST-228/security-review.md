@@ -1,0 +1,19 @@
+# ST-228 independent security architecture review
+Verdict: APPROVE planning only; no blocker/major or High/Critical finding; no implementation/access grant/activation approval.
+Freeze verified: ADR0026 Git blob `5ce4945a594e68b7aba47308f514d8bdfff040c7`; transaction plan `5ca879c949cbce10eae22fe61587c2161c575bc4` (20 lines).
+Read AGENTS/task, Constitution/DECISION_RULES/QUALITY_GATES/OPERATING_MODEL, ADR0010/0020/0025, recorded D12 A, UF01 and ST225 readiness; all24 baseline and working source blob pins match.
+Classification: Type2a for this reversible planning proposal, contracts, async transaction ports and storage direction under existing mandatory BankID and isolated v2 authority; no immediate new founder decision is evidenced.
+Restricted identifier proof is consumed only into a bounded pending enrollment; verified simulator completion creates a separate authoritative record, never OTP-to-login conversion or a client provider assertion.
+The future web enrollment-to-session nonce transition is server-owned, same-chain/cookie-bound and authoritative-record-bound; terminal nonce/enrollment consumption and session commit remain atomic.
+Actual existing provisioner is NOLOGIN/NOINHERIT/NOBYPASSRLS with only identity SELECT(id,external_id)/INSERT; runtime owner checks and both context settings follow provisioning on the same transaction/connection.
+Existing request-transaction helper sets owner settings but performs no role switch; qualified-role membership/switch/reset evidence is required before adapters, without widening provisioner grants.
+Identity/contact uniqueness, deleted-owner rejection, no relinking/profile overwrite and no session on existing-subject conflict preserve dedup/privacy boundaries; rollback and uncertain-commit behavior prohibit destructive compensation.
+Async immutable snapshots, current live owner checks under mutation locks, bounded state, persisted burns/epochs/watermark and startup failure on key/clock mismatch address restart and revocation races.
+Refresh must lock credential/family/live owner, validate web binding/Origin/CSRF, commit successor/tombstone/CSRF/settlement together and revoke only the reused family; tombstones survive through family expiry.
+Minor future contract/schema acceptance detail: specify CSRF comparison for consumed-refresh reuse after rotation; test predecessor refresh plus predecessor CSRF and current CSRF, proving intended family revocation without a CSRF bypass.
+Reload CSRF replacement remains a separately reviewed exact-Origin/current-session/binding-cookie operation; absent that contract, fresh verified login is required. No old plaintext reconstruction.
+Unresolved concrete access delta: before, ordinary runtime is owner-scoped and refresh-owner/proof lookup is process-local; after, durable preprincipal/credential-index operations must resolve matched secret-bound stored ownership without caller owner selection.
+ADR gate is adequate for planning: before schema implementation, freeze exact roles/membership/grants/function ownership/search_path/PUBLIC execute/RLS and compare-and-consume SQL, then obtain independent security classification; this review does not approve those absent permissions.
+If that exact proposal changes credential/owner acceptance or expands access beyond the accepted bounded authentication operation, record its specific before/after/reason and obtain founder Type1 approval before implementation; do not reopen adopted D12 A or infer a blanket grant.
+Later evidence must prove ordinary-role RLS, atomicity/faults/lost responses/no replay, refresh reuse/CSRF and revocation races, restart/key retirement, natural-browser cookies and disabled/production absence; no runtime tests run for this documentation review.
+Checkpoint: original2026-10-10T23:18:19Z attempt1 M120 preserved; task-only review, no source/status/backlog/commit edits.
