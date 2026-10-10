@@ -30,7 +30,7 @@ receipt="$RUNNER_TEMP/bug-008b-proof-receipt.txt"
 fail() {
   local stage="$1" logfile="${2:-}" code=""
   if [[ -n "$logfile" && -f "$logfile" ]]; then
-    code=$(grep -Eo 'P[0-9]{4}|SQLSTATE[ =:]+[A-Z0-9]{5}' "$logfile" | head -1 || true)
+    code=$(grep -Eo 'P[0-9]{4}|SQLSTATE[ =:]+[A-Z0-9]{5}|ERROR:[[:space:]]*[A-Z0-9]{5}' "$logfile" | head -1 || true)
   fi
   printf 'BUG-008b disposable proof: FAIL stage=%s code=%s\n' "$stage" "${code:-unavailable}" | tee "$receipt" >&2
   exit 1
@@ -44,7 +44,7 @@ cid=$(cat "$record")
 docker start "$cid" >/dev/null
 ready=false
 for attempt in {1..40}; do
-  if docker exec "$cid" pg_isready --username fixture_owner --dbname clean_migration_proof >/dev/null 2>&1; then ready=true; break; fi
+  if docker exec "$cid" pg_isready --host 127.0.0.1 --port 5432 --username fixture_owner --dbname clean_migration_proof >/dev/null 2>&1; then ready=true; break; fi
   sleep 1
 done
 [[ "$ready" == true ]] || fail readiness
@@ -74,7 +74,7 @@ actual=$(docker exec "$cid" psql --username fixture_owner --dbname clean_migrati
 printf "CREATE ROLE proof_runtime LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_runtime TO proof_runtime WITH INHERIT TRUE, SET FALSE;\nCREATE ROLE proof_service LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_invitation_service TO proof_service WITH INHERIT TRUE, SET FALSE;\nCREATE ROLE proof_identity LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_identity_provisioner TO proof_identity WITH INHERIT TRUE, SET FALSE;\nCREATE ROLE proof_otp LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_otp_service TO proof_otp WITH INHERIT TRUE, SET FALSE;\nCREATE ROLE proof_catalogue LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_catalogue_writer TO proof_catalogue WITH INHERIT TRUE, SET FALSE;\n" \
   "$runtime_pass" "$service_pass" "$identity_pass" "$otp_pass" "$catalogue_pass" > "$tmp/runtime.sql"
 if ! docker exec -i "$cid" psql --username fixture_owner --dbname clean_migration_proof \
-  --no-psqlrc --set ON_ERROR_STOP=1 --quiet < "$tmp/runtime.sql" > "$tmp/role.log" 2>&1; then
+  --no-psqlrc --set ON_ERROR_STOP=1 --set VERBOSITY=sqlstate --quiet < "$tmp/runtime.sql" > "$tmp/role.log" 2>&1; then
   fail roles "$tmp/role.log"
 fi
 if ! (cd apps/api && corepack pnpm exec prisma migrate diff --from-url "$BUG_008B_OWNER_URL" \

@@ -31,7 +31,7 @@ cid=$(cat "$record")
 docker start "$cid" >/dev/null
 ready=false
 for attempt in {1..40}; do
-  if docker exec "$cid" pg_isready --username fixture_owner --dbname session_owner_proof >/dev/null 2>&1; then ready=true; break; fi
+  if docker exec "$cid" pg_isready --host 127.0.0.1 --port 5432 --username fixture_owner --dbname session_owner_proof >/dev/null 2>&1; then ready=true; break; fi
   sleep 1
 done
 [[ "$ready" == true ]] || { echo 'Disposable PostgreSQL readiness failed' >&2; exit 1; }
@@ -79,8 +79,9 @@ GRANT USAGE ON SCHEMA public TO proof_reader;
 GRANT SELECT ON identity, session TO proof_reader;
 SQL
 if ! docker exec -i "$cid" psql --username fixture_owner --dbname session_owner_proof \
-  --no-psqlrc --set ON_ERROR_STOP=1 --quiet < "$task_tmp/fixture.sql" > "$task_tmp/sql.log" 2>&1; then
-  echo 'Disposable exact SQL fixture failed' >&2; exit 1
+  --no-psqlrc --set ON_ERROR_STOP=1 --set VERBOSITY=sqlstate --quiet < "$task_tmp/fixture.sql" > "$task_tmp/sql.log" 2>&1; then
+  code=$(grep -Eo 'ERROR:[[:space:]]*[A-Z0-9]{5}' "$task_tmp/sql.log" | head -1 | tr -d '[:space:]' | cut -d: -f2 || true)
+  echo "Disposable exact SQL fixture failed code=${code:-unavailable}" >&2; exit 1
 fi
 export SEC_FU1D_DISPOSABLE=new-container
 export SEC_FU1D_OWNER_URL="postgresql://fixture_owner:$owner_password@127.0.0.1:$SEC_FU1D_PORT/session_owner_proof?connection_limit=1"
