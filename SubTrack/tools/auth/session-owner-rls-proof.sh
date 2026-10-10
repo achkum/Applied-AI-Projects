@@ -91,3 +91,4 @@ if ! corepack pnpm exec prisma generate --schema=prisma/schema.prisma > "$task_t
 fi
 corepack pnpm exec vitest run --config vitest.session-owner.config.ts
 printf 'Actual Prisma, authenticated nonowner RLS, current JWT owner state and same-backend local-GUC cleanup: PASS\n' >> "$RUNNER_TEMP/sec-fu1d-fixture-evidence.txt"
+printf 'Test-only HTTP guard -> current resolver -> actual Prisma reader: generic401, zero-read transport/JWT rejection, verified context, same-backend cleanup and committed revocation/deletion: PASS\n' >> "$RUNNER_TEMP/sec-fu1d-fixture-evidence.txt"

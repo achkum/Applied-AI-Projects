@@ -1,0 +1,9 @@
+Exact extracted fixtures only; no migration sequence/history proof.
+apps/api/prisma/migrations/0001_identity_household_rls/migration.sql: SHA256 9c39d8a5aefafbe71ca9e7c218235bb87d74fee079816dcd01dd9a8c18afcb3c
+  lines 13-13: CREATE TYPE "auth_method" AS ENUM ('BANKID', 'OTP', 'MOCK');
+  lines 23-33: CREATE TABLE "identity" (
+  lines 35-35: ALTER TABLE "identity" ENABLE ROW LEVEL SECURITY;
+  lines 37-39: CREATE POLICY "identity_self"
+apps/api/prisma/migrations/0003_session/migration.sql: SHA256 ef1b08f98e9303ad0b3a50ff16e2db05101faba1ec5d25d5012b9e9903848bfe
+  unchanged entire accepted session fixture: lines 1-54
+Actual Prisma, authenticated nonowner RLS, current JWT owner state and same-backend local-GUC cleanup: PASS
