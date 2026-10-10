@@ -1,13 +1,10 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { OpsController } from './ops/ops.controller';
 import { PrismaService } from './database/prisma.service';
-import { PrivacyModule } from './privacy/privacy.module';
-import { DataRightsModule } from './data-rights/data-rights.module';
 import type { ApiConfig } from './config';
 import { BrowserNonceHttpModule } from './auth/browser-nonce/browser-nonce-http.module';
 
 @Module({
-  imports: [PrivacyModule, DataRightsModule],
   controllers: [OpsController],
   providers: [PrismaService],
   exports: [PrismaService],

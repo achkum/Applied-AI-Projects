@@ -1,0 +1,70 @@
+[
+  {
+    "path": "client.gen.ts",
+    "sha256": "5e28e207de72bb7e69d200fe63caf034ed26e441e6fddfb998215f57d68cc826"
+  },
+  {
+    "path": "index.ts",
+    "sha256": "23b3fde2e1f4a0c60e21553f44acfe01eaeacfdaea75648dc27afae7aede2864"
+  },
+  {
+    "path": "sdk.gen.ts",
+    "sha256": "b552e417c85a740e499971cfc91f5ce6a5bb87d122197729541624d0721af7fc"
+  },
+  {
+    "path": "types.gen.ts",
+    "sha256": "6b640ed809eecab21b3704ce394526c210f7a2a06da827c53feaf3de8a1f5838"
+  },
+  {
+    "path": "zod.gen.ts",
+    "sha256": "62dbb5d5f5b9f022e3521b02b13b017af416fa0e5e7e2004300168a82372cf45"
+  },
+  {
+    "path": "client\\client.gen.ts",
+    "sha256": "426ff1c11a0dee9bac79568e2b2093ef697cf3828dfe9dba5258a31d3e38568d"
+  },
+  {
+    "path": "client\\index.ts",
+    "sha256": "acd2b749181050a8297f24ac3db4f3941ca0a66c049e5b984f29f0e98c8329f8"
+  },
+  {
+    "path": "client\\types.gen.ts",
+    "sha256": "8a353b3ee2450c26415ec2816491cf4e82262a87597180f1b97dd989c9102f96"
+  },
+  {
+    "path": "client\\utils.gen.ts",
+    "sha256": "f21c22bd8f37a0d0fa4008c4d70bb7e7a4b74afa8c5b9d05dda9b39f1c89424c"
+  },
+  {
+    "path": "core\\auth.gen.ts",
+    "sha256": "4b4aca5bd9b2c43a112bb74617295278d84f86360ada71a8db57f09cd0c254f4"
+  },
+  {
+    "path": "core\\bodySerializer.gen.ts",
+    "sha256": "c9739bff031dce1781a56ab9072791d4bd52bd0896cc989d4ad1cd03f71b282b"
+  },
+  {
+    "path": "core\\params.gen.ts",
+    "sha256": "097c75f6e269c6c8680641091832a69b38e8828e8ee8465318d32a177593330f"
+  },
+  {
+    "path": "core\\pathSerializer.gen.ts",
+    "sha256": "6e80a19627d36fd2a9e8daee113713b2e047d107d42ead9b4a9ab344690b998c"
+  },
+  {
+    "path": "core\\queryKeySerializer.gen.ts",
+    "sha256": "adc570c9357a08624cce81dc503abd8d8ff60a76d25bd4d3a4afbe349d82d1f0"
+  },
+  {
+    "path": "core\\serverSentEvents.gen.ts",
+    "sha256": "09dc8417b03b92849cc7582d2c8e5a610cc002d447a93b0cef721dcdbd09ff12"
+  },
+  {
+    "path": "core\\types.gen.ts",
+    "sha256": "11742d13e9417ed7f71e78e6062873c83340beeae766666a04a3e56726bc3567"
+  },
+  {
+    "path": "core\\utils.gen.ts",
+    "sha256": "ef50364c77d213864515776ee4abaf2f3a1a309d106c2db000e2fc4b6080e78c"
+  }
+]

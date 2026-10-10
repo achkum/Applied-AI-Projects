@@ -10,6 +10,22 @@
 - **Scope parameter** on read endpoints: `scope=me|household|member:<memberId>`. The server enforces the visibility policy regardless of what the client asks for.
 
 ## Endpoints
+
+### Default runtime availability exception (ADR-0018 / SEC-FU1f)
+
+The default API graph and its configured v2 nonce/OTP graph do not register the six legacy operations below; they return route-not-found (404). Their OpenAPI paths and wire schemas remain preserved with `x-runtime-availability: unavailable-default`. The privacy, export and deletion feature requirements remain required. This narrowly supersedes ADR-0010's default availability preservation for these operations only. No caller header, Bearer credential, body or legacy enable flag activates them.
+
+OpenAPI metadata version is 1.1.1 (previously 1.1.0); URLs, schemas and credential versions remain unchanged. Default runtime availability is intentionally withdrawn; this does not certify backward runtime compatibility or rollout safety.
+
+- GET `/v1/privacy/settings`
+- PATCH `/v1/privacy/open-book`
+- GET `/v1/privacy/preview-as/{householdId}`
+- POST `/v1/data-rights/export`
+- GET `/v1/data-rights/export/{token}`
+- DELETE `/v1/data-rights/account`
+
+Future activation requires independently reviewed authenticated principal binding, owner/household data scope, export/download semantics and account deletion proof/lifecycle integration. Current internal tests and containment do not authorize production activation, deployment or a security all-clear. Operational endpoints and the accepted opt-in v2 graph retain their existing behavior.
+
 ```
 # Auth & identity
 POST   /v1/auth/otp/start            {channel, identifier}

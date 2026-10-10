@@ -1,0 +1,7 @@
+{
+  "baseline": "f692b97f008c4f8f010dd3ce77dcb511bdafe6ae",
+  "operation_annotations": 6,
+  "paths_schemas_parameters_responses_credentials_unchanged": true,
+  "generated_sdk_executable_code_unchanged": true,
+  "repeat_generation_drift": "PASS"
+}
