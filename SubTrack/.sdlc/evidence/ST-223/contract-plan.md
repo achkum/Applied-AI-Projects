@@ -1,0 +1,13 @@
+# ST-223 Type 2a contract plan
+1. Add only `PATCH /v2/subscriptions/{id}` to OpenAPI, marked `x-runtime-availability: unavailable-default`; no route or default graph activation.
+2. Path `id` is UUID; reject every query parameter; require exactly JSON `{status: target}` with `additionalProperties: false`, target `ACTIVE|PAUSED|CANCELLED|ARCHIVED`.
+3. Require direct HTTPS, exactly one allowlisted `Origin`, one `st_v2_access`, one distinct configured binding cookie, and one `X-Session-CSRF`; reject duplicate headers/cookies, `Authorization`, `st_v2_refresh`, `Idempotency-Key`, mixed credentials and caller identity/scope/action selectors.
+4. Verify access `sid/sub`, hash observed binding cookie, call `webContextForCurrentSession`, resolve the trusted chain through `DevelopmentV2PrincipalResolver.resolve`, compare owner/session, then verify `SessionCsrfGuard` before server-only `RequestContext`.
+5. The owner-scoped locked writer under ordinary-role transaction-local PostgreSQL RLS accepts exactly `ACTIVE→PAUSED/CANCELLED/ARCHIVED`, `PAUSED→ACTIVE/CANCELLED/ARCHIVED`, `CANCELLED→ARCHIVED`; all same/disallowed pairs conflict.
+6. Target selects pause/resume/cancel/archive without unlocked dispatch read; success is strict `{id,status}` with `Cache-Control: no-store`.
+7. Exact four-field RFC 9457 problems use 400 `INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST`, 401 `AUTHENTICATION_REQUIRED`, 403 `AUTH_CSRF_UNAVAILABLE`, identical missing/foreign 404 `SUBSCRIPTION_NOT_FOUND`, 409 `LIFECYCLE_CONFLICT`, masked 500 `INTERNAL_ERROR`; all are `no-store`.
+8. A 409 conflict or uncertain PATCH response requires an authenticated authoritative V2 read POST; never fall back to V1 or automatically retry PATCH. If re-read fails, clear the private view and disable lifecycle actions; no replay receipt, nonce mutation or mutating-POST idempotency reservation.
+9. Reuse existing V1 lifecycle target/result schemas where safe, but keep V1 operation/security/errors and V2 read operation/security/errors unchanged; no bearer fallback or v2-to-v1 token conversion.
+10. Contract tests inspect actual route, strict schema, authority/header prose, status/error/cache rules, seven pairs, generated SDK/types/Zod parity, and unchanged V1/read boundaries.
+11. After independent client/security readiness and root GO-AHEAD, generate from frozen OpenAPI and run contract tests, Redocly validation, typecheck and lint; root owns source review, fresh QA and exact-head applicable CI.
+12. Later adapter/composition proof requires a post-async current-session, binding and chain recheck before the locked writer, direct HTTPS browser plus owned ordinary-role PG across transitions/isolation/races/rollback; no onboarding, durable session, ST-217 UI or public-release claim follows.

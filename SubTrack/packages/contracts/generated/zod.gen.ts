@@ -97,6 +97,30 @@ export const zSubscriptionLifecycleError = z.object({
     ])
 }).strict();
 
+/**
+ * RFC 9457 problem; no resource, principal, credential, query or driver details.
+ */
+export const zBrowserSubscriptionLifecycleError = z.object({
+    type: z.string(),
+    title: z.string(),
+    status: z.union([
+        z.literal(400),
+        z.literal(401),
+        z.literal(403),
+        z.literal(404),
+        z.literal(409),
+        z.literal(500)
+    ]),
+    code: z.enum([
+        'INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST',
+        'AUTHENTICATION_REQUIRED',
+        'AUTH_CSRF_UNAVAILABLE',
+        'SUBSCRIPTION_NOT_FOUND',
+        'LIFECYCLE_CONFLICT',
+        'INTERNAL_ERROR'
+    ])
+}).strict();
+
 export const zSubscriptionPeerReadStatus = z.enum([
     'TRIAL',
     'ACTIVE',
@@ -690,6 +714,22 @@ export const zListReviewInboxQuery = z.object({
  * A bounded owner-only review page.
  */
 export const zListReviewInboxResponse = zReviewInboxPage;
+
+export const zPatchV2BrowserSubscriptionLifecycleBody = zSubscriptionLifecyclePatch;
+
+export const zPatchV2BrowserSubscriptionLifecycleHeaders = z.object({
+    Origin: z.url(),
+    'X-Session-CSRF': z.string().min(1)
+});
+
+export const zPatchV2BrowserSubscriptionLifecyclePath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Bounded status result after an accepted owner transition.
+ */
+export const zPatchV2BrowserSubscriptionLifecycleResponse = zSubscriptionLifecycleResult;
 
 export const zReadV2BrowserSubscriptionBody = zBrowserSubscriptionReadRequest;
 
