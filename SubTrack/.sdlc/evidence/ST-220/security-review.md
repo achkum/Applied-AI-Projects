@@ -1,0 +1,11 @@
+# ST-220 independent security review — C3 APPROVE
+
+Reviewed frozen runtime blob `3543b509978079fb433493d1ad34104d5bf112fb` and spec blob `259187f844f31dc623e4c28123f814a9b701ddd0` against ADR-0025 and the accepted ST-219 contract. Scope is the private, unregistered HTTP adapter only.
+
+- Request gate enforces exact path/POST, no query, bounded raw JSON `{}`, one content type and length, no transfer encoding, Authorization, refresh cookie, idempotency key or caller identity/transport selectors. Raw duplicate Origin, Cookie, credential and CSRF headers fail before the read.
+- Browser authority uses direct `TLSSocket` and accepted evidence extraction with loopback HTTP disabled; HTTPS Origin must match the explicit allowlist. Forwarded headers cannot waive TLS or Origin.
+- V2 access claims, expiry and `sid/sub` are checked; observed binding-cookie hash reaches `webContextForCurrentSession`. Resolver receives its returned chain and exact Origin; owner/session equality and session-bound CSRF are checked. After the resolver await, fresh clock and current session/web-binding checks precede the server-only `RequestContext`.
+- Adapter delegates to accepted `SubscriptionReadService.detail`; output is constrained to the owner or peer-safe projection with canonical string minor units. Missing and invisible IDs share the same 404. Problems have exact four-field masked bodies and `no-store`; hostile errors, storage failures and malformed output do not reflect secrets or metadata.
+- No session, CSRF, nonce or subscription write port is present. Controller is absent from default module registration. This approval does not claim an active route, enrolled account, persistent session, real HTTPS browser or owned ordinary-role PostgreSQL proof.
+
+Adversarial spec covers owner/peer/404, malformed input and multiplicity, direct TLS, claim/session/binding/chain/CSRF failures, async revocation/rebind, hostile error masking and output validation. Conductor reported focused 41/41 PASS, coverage 87.03% statements / 89.56% branches / 89.47% functions / 95.09% lines, ESLint and TypeScript PASS; full API QA and exact-head CI are separate gates. No High or Critical finding in this reviewed source.

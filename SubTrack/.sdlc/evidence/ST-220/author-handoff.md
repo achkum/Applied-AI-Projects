@@ -1,0 +1,6 @@
+# ST-220 final author handoff (Conductor records HANDOFF/v1)
+Original task start2026-10-10T19:33:25Z attempt1/L240; context1 stopped at20calls, context2 preserved tasktime/failure counters and completed source inspection/typecheck. Source frozen for review.
+Runtime browser-subscription-read.http.ts blob3543b509978079fb433493d1ad34104d5bf112fb; spec259187f844f31dc623e4c28123f814a9b701ddd0. 426 source/test lines reported; no defaultgraph/othercode touched.
+Finalfocused41/41PASS; changedruntimeV8coverage87.03%statements/89.56%branches/89.47%functions/95.09%lines; ESLint and tsc--noEmitPASS. Initialsole tsc narrowingerror patched andrerunPASS; preliminaryfocused39PASS beforedirectselector testimprovement, final41PASS preserved.
+Directidentity/household/transportheader tests now exercisevalidbody instead of onlybody rejection. Draft401/403status, hostileerrorgetter, pathUUIDcasing andcalendarvalidation corrected and tested.
+Independentplatform/security C3APPROVE exacttwofrozenblobs; QAfullAPI regression andexactheadCI stillpending. Allscope/read-only/default-unregistered invariants preserved. NoactualHTTPSbrowser/ownedPG/account/UI/runtimeactivation claim; nextseparatecompositionproof.
