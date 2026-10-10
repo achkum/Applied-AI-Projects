@@ -1,0 +1,9 @@
+# ST-213 context 7 checkpoint
+
+Original attempt start 2026-10-10 17:12:27 UTC; attempt 1. Zero failed fix attempts; initial source review rejection 1, repaired source accepted subject to the new actual-Linux proof gate. This context used its 12-call cap and stops here. Frozen source handoff; no commit, stage, push, or heavy validation.
+
+Final proof repair: the workflow's single runner step now names both HTTP and standalone cases; its redundant standalone Vitest step was removed. Integration test comment matches. Direct Node negative children are tracked through bounded TERM/KILL/await even on timeout or assertion failure. Final wrapper teardown now also awaits bounded KILL. Any unverified process/container/private-temp cleanup writes a sanitized FAIL receipt and fails Vitest with a generic error. Exact owned CID/label and private-temp checks remain.
+
+Lightweight check: `git diff --check` clean. Bash syntax check unavailable because Bash is not installed on this Windows host. No actual PG/Linux execution in this context.
+
+Next checks for root/validator: run API lint/typecheck and dedicated Linux PG proof against this frozen source; confirm both integration cases execute once and receipts reflect final verified cleanup. Root will measure changed-runtime coverage with its heavy token. If coverage falls below 80%, focused mocked success-path tests are feasible: `createSubscriptionReadApp` with a controlled NestFactory app and valid preflight query results can prove init/listen/close; `inspectOwnedFixture` can use a temporary mode-0600 record plus mocked Docker inspection; `main` can use controlled provenance, public key and startup composition mocks to test successful startup and shutdown errors. Avoid broad tests until coverage identifies the missing branches. Review cumulative own nongenerated line count against the granted 1200-line cohesive exception, including evidence; the current context did not certify that count.

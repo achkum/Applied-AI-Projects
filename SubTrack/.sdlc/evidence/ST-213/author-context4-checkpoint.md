@@ -1,0 +1,7 @@
+# ST-213 author context4 checkpoint
+
+Original start 17:12:27 UTC, attempt1, zero failed fix attempts, first source review rejected once. This context reached the 12-call checkpoint. No validation result claimed; do not mark ready.
+
+Read task, AGENTS, Constitution, context3 checkpoint, fix plan/security readiness and targeted source. Same uncommitted branch. Changed the local provenance check to reject symlinked record/parent and alternate decimal loopback URL spelling. Bounded Nest preflight/create/init/close in composition; late Nest creation gets close attempt. Removed outer entry creation deadline so composition owns its lifecycle. Replaced broken local spec import with exact container/URL/record/direct-entry negative tests. Added public-key capability parity/no-issuer/key rejection tests and enforced PEM public-key header.
+
+Remaining first: run focused Vitest, typecheck, lint, shell syntax; fix failures. Inspect lifecycle edge cases: timeout during app.init may leave late completion, Prisma disconnect bound, wrapper signal child bound. Add a meaningful bounded lifecycle test (fake timer) and wrapper cleanup timeout test if feasible. Check that a private PEM is rejected, that `assertOwnedFixture` test date remains fresh, and that URL parser rejects alternate endpoint spellings. Review own diff line cap <=900 including evidence and previously untracked files. Actual Docker PG unavailable on author host; parent must obtain independent actual-PG QA and exact-head gates. Do not merge.

@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
-import type { INestApplication } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { HttpException, type INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthenticatedPrincipalGuard } from '../auth/sessions/authenticated-principal.guard';
@@ -15,7 +16,7 @@ async function setup(realService = false) {
     if (token !== 'valid') throw new Error('invalid');
     return principal;
   });
-  const list = vi.fn(async (context: unknown, query: unknown) => { void context; void query; return { items: [], nextCursor: null }; });
+  const list = vi.fn(async (context: unknown, query: unknown, inbox?: boolean) => { void context; void query; void inbox; return { items: [], nextCursor: null }; });
   const detail = vi.fn(async (context: unknown, id: unknown) => { void context; void id; return { visibility: 'owner', id: 'row' }; });
   const module = await Test.createTestingModule({
     controllers: [SubscriptionReadController],
@@ -23,8 +24,9 @@ async function setup(realService = false) {
       { provide: SubscriptionReadService, useValue: realService
         ? new SubscriptionReadService({ list: vi.fn(async () => []), detail: vi.fn(async () => null) } as never)
         : { list, detail } },
+      { provide: APP_GUARD, useValue: new AuthenticatedPrincipalGuard({ resolve }) },
     ],
-  }).overrideGuard(AuthenticatedPrincipalGuard).useValue(new AuthenticatedPrincipalGuard({ resolve })).compile();
+  }).compile();
   app = module.createNestApplication();
   await app.init();
   return { server: app.getHttpServer() as Parameters<typeof request>[0], resolve, list, detail };
@@ -56,5 +58,28 @@ describe('test-only subscription HTTP controller', () => {
     expect(response.headers['content-type']).toContain('application/problem+json');
     expect(response.body).toEqual({ type: 'about:blank', title: 'Bad Request', status: 400, code: 'INVALID_SUBSCRIPTION_QUERY' });
     expect(detail).not.toHaveBeenCalled();
+  });
+
+  it('serves detail and inbox only with verified context', async () => {
+    const { server, list, detail } = await setup();
+    await request(server).get('/v1/subscriptions/33333333-3333-4333-8333-333333333333')
+      .set('Authorization', 'Bearer valid').expect(200);
+    await request(server).get('/v1/review-inbox')
+      .set('Authorization', 'Bearer valid').expect(200);
+    expect(detail.mock.calls[0]?.[0]).toEqual({ userId: principal.identityId });
+    expect(list.mock.calls[0]?.[2]).toBe(true);
+  });
+
+  it('maps missing rows and unexpected service failures to stable problem responses', async () => {
+    const { server, detail, list } = await setup();
+    detail.mockRejectedValueOnce(new HttpException('missing', 404));
+    await request(server).get('/v1/subscriptions/33333333-3333-4333-8333-333333333333')
+      .set('Authorization', 'Bearer valid').expect(404, {
+        type: 'about:blank', title: 'Not Found', status: 404, code: 'SUBSCRIPTION_NOT_FOUND',
+      });
+    list.mockRejectedValueOnce(new Error('synthetic failure'));
+    await request(server).get('/v1/subscriptions').set('Authorization', 'Bearer valid').expect(500, {
+      type: 'about:blank', title: 'Internal Server Error', status: 500, code: 'SUBSCRIPTION_READ_FAILED',
+    });
   });
 });
