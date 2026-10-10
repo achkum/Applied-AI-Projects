@@ -100,7 +100,7 @@ fi
 if ! (cd apps/api && corepack pnpm exec vitest run --config vitest.clean-migration.config.ts) > "$tmp/test.log" 2>&1; then
   phase=$(grep -Eo 'BUG-008b disposable PostgreSQL proof failed: (endpoint|role and catalog invariants|fixture|principal isolation and visibility|concurrent source and admin guards|mutation boundaries|service invitation lifecycle|owner departure and revocation|context failure and rollback cleanup)' "$tmp/test.log" | head -1 || true)
   [[ -n "$phase" ]] || phase=startup
-  step=$(grep -Eo 'step=(none|(rc|rr)-(source-seed|capture|source-await-block|source-edit-assert|admin-seed|admin-first|admin-await-block|admin-second-assert))' "$tmp/test.log" | head -1 || true)
+  step=$(grep -Eo 'step=(none|(rc|rr)-(source-seed|capture|source-await-block|source-edit-assert|admin-seed|admin-first|admin-await-block|admin-second-assert)|lifecycle-(identity|transitions|effects|replay))' "$tmp/test.log" | head -1 || true)
   code=$(grep -Eo 'code=(P[0-9]{4}|[0-9A-Z]{5}|unavailable)' "$tmp/test.log" | head -1 || true)
   printf 'BUG-008b disposable proof: FAIL stage=policy phase=%s %s %s\n' "${phase##*: }" "${step:-step=unavailable}" "${code:-code=unavailable}" | tee "$receipt" >&2
   exit 1

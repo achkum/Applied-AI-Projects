@@ -391,6 +391,7 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
       await t.$executeRaw`UPDATE invitation SET status='ACCEPTED',invitee_id=${c}::uuid WHERE id=${inv}::uuid`;
     }));
     phase = 'service invitation lifecycle';
+    step = 'lifecycle-identity';
     assert.equal((await service.$queryRaw<{id:string}[]>`SELECT id FROM invitation WHERE id=${inv}::uuid`).length,1);
     const provisioned = await identityService.$queryRaw<{id:string}[]>`INSERT INTO identity(id,auth_method,updated_at)
       VALUES (${d}::uuid,'MOCK',now()) RETURNING id::text`;
@@ -398,6 +399,7 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
     await assert.rejects(service.$queryRaw`SELECT external_id FROM identity`);
     await assert.rejects(service.$executeRaw`INSERT INTO identity(id,auth_method,updated_at) VALUES (${randomUUID()}::uuid,'MOCK',now())`);
     await assert.rejects(identityService.$queryRaw`SELECT email FROM identity`);
+    step = 'lifecycle-transitions';
     await assert.rejects(service.$executeRaw`UPDATE invitation SET status='ACCEPTED',invitee_id=${d}::uuid,updated_at=now()
       WHERE id=${inv3}::uuid`);
     assert.equal(await service.$executeRaw`UPDATE invitation SET status='ACCEPTED',updated_at=now()
@@ -406,11 +408,15 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
       WHERE id=${inv2}::uuid`,1);
     assert.equal(await service.$executeRaw`UPDATE invitation SET status='ACCEPTED',invitee_id=${d}::uuid,updated_at=now()
       WHERE id=${inv}::uuid`,1);
+    step = 'lifecycle-effects';
     assert.equal(await service.$executeRaw`INSERT INTO household_member(household_id,identity_id,role)
       VALUES (${h}::uuid,${d}::uuid,'MEMBER')`,1);
     assert.equal(await service.$executeRaw`INSERT INTO audit_log(actor_id,household_id,event_type,payload)
       VALUES (${d}::uuid,${h}::uuid,'INVITATION_ACCEPTED',jsonb_build_object('invitationId',${inv}::text))`,1);
-    await assert.rejects(service.$executeRaw`UPDATE invitation SET status='PENDING' WHERE id=${inv}::uuid`);
+    step = 'lifecycle-replay';
+    assert.equal(await service.$executeRaw`UPDATE invitation SET status='PENDING' WHERE id=${inv}::uuid`,0);
+    assert.deepEqual(await service.$queryRaw<{status:string}[]>`SELECT status FROM invitation WHERE id=${inv}::uuid`,
+      [{status:'ACCEPTED'}]);
     phase = 'owner departure and revocation';
     await assert.rejects(app.$transaction(async t => {
       await t.$queryRaw`SELECT set_config('app.user_id',${c},true), set_config('app.current_user_id',${c},true)`;
@@ -454,7 +460,7 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
     const candidate = detail.meta?.code ?? detail.code;
     const code = typeof candidate === 'string' && /^(?:P[0-9]{4}|[0-9A-Z]{5})$/.test(candidate)
       ? candidate : 'unavailable';
-    failed = new Error(`BUG-008b disposable PostgreSQL proof failed: ${phase}; step=${phase === 'concurrent source and admin guards' ? step : 'none'}; code=${code}`);
+    failed = new Error(`BUG-008b disposable PostgreSQL proof failed: ${phase}; step=${phase === 'concurrent source and admin guards' || phase === 'service invitation lifecycle' ? step : 'none'}; code=${code}`);
   }
   const closed = await Promise.allSettled([owner.$disconnect(),app.$disconnect(),app2.$disconnect(),service.$disconnect(),
     identityService.$disconnect(),otpService.$disconnect(),catalogueService.$disconnect()]);
