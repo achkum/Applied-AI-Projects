@@ -1,0 +1,14 @@
+{
+  "task": "ST-083b",
+  "pr": 218,
+  "source_head": "28fbf4f2fd04fe92dc7a89599c86ab4d4f1c726a",
+  "accepted_main": "dd573759ccd21b797a505ff598b4c013a311183f",
+  "source_main_tree": "0c288f3cba806ea482932670a3cf3de93255781d",
+  "ci_run": 38007989867,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "independent_source_review": "APPROVE (frozen three hashes)",
+  "staged_gitleaks": "PASS",
+  "local_qa": "180Domain/11files,14newcases;25/25newbranches allmetrics100%;lint/typecheck/buildPASS",
+  "limits": "Private caller-scoped ID-only signals; no authoritative provenance/current-owner/actual-next-cycle proof, persistence/index/API/default/DB/UI/fullST083 claim"
+}

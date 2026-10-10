@@ -1,0 +1,1 @@
+Originalreadiness4shellcalls inclreport; initialcommandtypo recorded in report but omitted in finalmessage. Original guardfinishedbefore rootread fullreport; cannotcheckpointfinishedguard and no counters reset; this correction preservesactualfailure. Approvedplanreview3shell/0fail, truncatedfirstST081readcompletedbyspecificsecondread.

@@ -1,0 +1,5 @@
+{
+  "packages/domain/detection/subscription-lifecycle.ts": "ed347b4e652bfe7f4a9cba0cab0771b7133ce053a2b7daa7e7aee5026d2ae687",
+  "packages/domain/detection/subscription-lifecycle.md": "6c552be5efa32b544bf5e723dab528366a7ba1cd0cb6f4fbde16fa94b90986fa",
+  "packages/domain/test/subscription-lifecycle.spec.ts": "b01bfb65b69e111cdb4a0bf356e075dce883728df573d5e98c54a8b522d0a74a"
+}
