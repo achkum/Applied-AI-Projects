@@ -5,6 +5,7 @@ import type {
   OtpStartResponse,
   OtpVerifyRequest,
   OtpVerifyResponse,
+  V2Problem,
 } from '@subtrack/contracts';
 
 export class RegistrationApiError extends Error {
@@ -14,11 +15,55 @@ export class RegistrationApiError extends Error {
   }
 }
 
-function idempotencyKey(): string {
-  return crypto.randomUUID();
+const MAX_RESPONSE_BYTES = 32 * 1024;
+
+function throwIfAborted(signal: AbortSignal) {
+  if (signal.aborted) throw new DOMException('Request aborted', 'AbortError');
 }
 
-async function post<T>(path: string, body: object, signal: AbortSignal, nonce?: string): Promise<T> {
+async function readPayload(response: Response, signal: AbortSignal): Promise<unknown> {
+  const mediaType = response.headers.get('Content-Type')?.split(';')[0]?.trim().toLowerCase();
+  if (!response.body || (mediaType !== 'application/json' && mediaType !== 'application/problem+json')) {
+    await response.body?.cancel();
+    throw new RegistrationApiError('unavailable');
+  }
+  const reader = response.body.getReader();
+  const cancel = () => { void reader.cancel().catch(() => undefined); };
+  signal.addEventListener('abort', cancel, { once: true });
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let bytes = 0;
+  let text = '';
+  try {
+    while (true) {
+      throwIfAborted(signal);
+      const chunk = await reader.read();
+      throwIfAborted(signal);
+      if (chunk.done) break;
+      bytes += chunk.value.byteLength;
+      if (bytes > MAX_RESPONSE_BYTES) throw new RegistrationApiError('unavailable');
+      text += decoder.decode(chunk.value, { stream: true });
+    }
+    text += decoder.decode();
+    return JSON.parse(text) as unknown;
+  } catch {
+    cancel();
+    throwIfAborted(signal);
+    throw new RegistrationApiError('unavailable');
+  } finally {
+    signal.removeEventListener('abort', cancel);
+    reader.releaseLock();
+  }
+}
+
+async function post<T>(
+  path: string,
+  body: object,
+  signal: AbortSignal,
+  status: number,
+  decode: (payload: unknown) => T,
+  nonce?: string,
+): Promise<T> {
+  throwIfAborted(signal);
   let response: Response;
   try {
     response = await fetch(`/api/v2/auth/${path}`, {
@@ -26,7 +71,7 @@ async function post<T>(path: string, body: object, signal: AbortSignal, nonce?: 
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        'Idempotency-Key': idempotencyKey(),
+        'Idempotency-Key': crypto.randomUUID(),
         ...(nonce ? { 'X-Browser-Nonce': nonce } : {}),
       },
       body: JSON.stringify(body),
@@ -37,38 +82,69 @@ async function post<T>(path: string, body: object, signal: AbortSignal, nonce?: 
     throw new RegistrationApiError('unavailable');
   }
 
-  if (signal.aborted) throw new DOMException('Request aborted', 'AbortError');
-
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
+  if (signal.aborted) {
+    await response.body?.cancel();
+    throwIfAborted(signal);
+  }
+  if (response.status !== status && response.status !== 409) {
+    await response.body?.cancel();
     throw new RegistrationApiError('unavailable');
   }
+  const payload = await readPayload(response, signal);
+  throwIfAborted(signal);
   if (response.status === 409 && isRestartProblem(payload)) {
     throw new RegistrationApiError('restart-required');
   }
-  if (!response.ok || typeof payload !== 'object' || payload === null) {
+  if (response.status !== status) {
     throw new RegistrationApiError('unavailable');
   }
-  return payload as T;
+  return decode(payload);
 }
 
 function isRestartProblem(payload: unknown): boolean {
-  if (typeof payload !== 'object' || payload === null || !('code' in payload)) return false;
-  return payload.code === 'AUTH_RESTART_REQUIRED';
+  if (!isRecord(payload) || typeof payload.type !== 'string' || typeof payload.title !== 'string' ||
+      payload.status !== 409 || payload.code !== 'AUTH_RESTART_REQUIRED' ||
+      (payload.detail !== undefined && typeof payload.detail !== 'string') ||
+      (payload.instance !== undefined && typeof payload.instance !== 'string')) return false;
+  const problem: V2Problem = { type: payload.type, title: payload.title, status: payload.status, code: payload.code };
+  return problem.code === 'AUTH_RESTART_REQUIRED';
 }
 
-function hasString<K extends string>(value: unknown, key: K): value is Record<K, string> {
-  if (typeof value !== 'object' || value === null || !Object.hasOwn(value, key)) return false;
-  const field = (value as Record<string, unknown>)[key];
-  return typeof field === 'string' && field.length > 0 && field.length <= 4096;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasExactKeys(value: unknown, keys: readonly string[]): value is Record<string, unknown> {
+  return isRecord(value) && Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+}
+
+function isBoundedString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 4096;
+}
+
+// Match the generated closed response schemas, then narrow to web enrollment.
+function decodeNonce(value: unknown): BrowserNonceResponse {
+  if (!hasExactKeys(value, ['nonce']) || !isBoundedString(value.nonce)) throw new RegistrationApiError('unavailable');
+  return { nonce: value.nonce };
+}
+
+function decodeStart(value: unknown): OtpStartResponse & StartedRegistration {
+  if (!hasExactKeys(value, ['challengeId', 'status', 'nextBrowserNonce']) ||
+      !isBoundedString(value.challengeId) || value.status !== 'accepted' || !isBoundedString(value.nextBrowserNonce)) {
+    throw new RegistrationApiError('unavailable');
+  }
+  return { challengeId: value.challengeId, status: 'accepted', nextBrowserNonce: value.nextBrowserNonce };
+}
+
+function decodeVerify(value: unknown): OtpVerifyResponse & VerifiedRegistration {
+  if (!hasExactKeys(value, ['purpose', 'proof', 'nextBrowserNonce']) || value.purpose !== 'enroll_identifier' ||
+      !isBoundedString(value.proof) || !isBoundedString(value.nextBrowserNonce)) throw new RegistrationApiError('unavailable');
+  return { purpose: 'enroll_identifier', proof: value.proof, nextBrowserNonce: value.nextBrowserNonce };
 }
 
 async function bootstrap(signal: AbortSignal): Promise<string> {
   const request: BrowserNonceRequest = { purpose: 'enroll_identifier' };
-  const response = await post<BrowserNonceResponse>('browser-nonce', request, signal);
-  if (!hasString(response, 'nonce') || response.nonce.length === 0) throw new RegistrationApiError('unavailable');
+  const response = await post('browser-nonce', request, signal, 200, decodeNonce);
   return response.nonce;
 }
 
@@ -99,12 +175,7 @@ export async function startRegistration(
     purpose: 'enroll_identifier',
     transport: 'web',
   };
-  const response = await post<OtpStartResponse>('otp/start', request, signal, nonce);
-  if (!hasString(response, 'challengeId') || response.challengeId.length === 0 ||
-      !hasString(response, 'status') || response.status !== 'accepted' ||
-      !hasString(response, 'nextBrowserNonce') || response.nextBrowserNonce.length === 0) {
-    throw new RegistrationApiError('unavailable');
-  }
+  const response = await post('otp/start', request, signal, 202, decodeStart, nonce);
   return { challengeId: response.challengeId, nextBrowserNonce: response.nextBrowserNonce };
 }
 
@@ -115,11 +186,6 @@ export async function verifyRegistration(
   signal: AbortSignal,
 ): Promise<VerifiedRegistration> {
   const request: OtpVerifyRequest = { challengeId, code, transport: 'web' };
-  const response = await post<OtpVerifyResponse>('otp/verify', request, signal, nonce);
-  if (!hasString(response, 'purpose') || response.purpose !== 'enroll_identifier' ||
-      !hasString(response, 'proof') || response.proof.length === 0 ||
-      !hasString(response, 'nextBrowserNonce') || response.nextBrowserNonce.length === 0) {
-    throw new RegistrationApiError('unavailable');
-  }
+  const response = await post('otp/verify', request, signal, 200, decodeVerify, nonce);
   return { purpose: 'enroll_identifier', proof: response.proof, nextBrowserNonce: response.nextBrowserNonce };
 }

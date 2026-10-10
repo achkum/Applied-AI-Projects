@@ -21,6 +21,7 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
   const [accepted, setAccepted] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const generation = useRef(0);
+  const requestPending = useRef(false);
 
   useEffect(() => () => {
     generation.current += 1;
@@ -28,6 +29,7 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
   }, []);
 
   function beginRequest(): { signal: AbortSignal; generation: number } {
+    requestPending.current = true;
     controller.current?.abort();
     const requestController = new AbortController();
     controller.current = requestController;
@@ -39,22 +41,23 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
     return generation.current === requestGeneration && !signal.aborted;
   }
 
-  function showError(caught: unknown, requestGeneration: number, signal: AbortSignal) {
+  function showError(caught: unknown, requestGeneration: number, signal: AbortSignal, verification = false) {
     if (!isCurrent(requestGeneration, signal)) return;
     setBusy(false);
-    if (caught instanceof RegistrationApiError && caught.code === 'restart-required') {
+    requestPending.current = false;
+    if (verification || (caught instanceof RegistrationApiError && caught.code === 'restart-required')) {
       setCode('');
       setNonce('');
       setChallengeId('');
       setStep('restart');
-      setError(copy.restartRequired);
+      setError(verification ? copy.unavailable : copy.restartRequired);
       return;
     }
     setError(copy.unavailable);
   }
 
   async function submitIdentifier(value: IdentifierEntryValue) {
-    if (busy) return;
+    if (requestPending.current) return;
     const requestValue = { channel: value.channel === 'phone' ? 'sms' as const : 'email' as const, identifier: value.identifier };
     const request = beginRequest();
     setBusy(true);
@@ -67,13 +70,14 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
       setNonce(result.nextBrowserNonce);
       setStep('otp');
       setBusy(false);
+      requestPending.current = false;
     } catch (caught) {
       showError(caught, request.generation, request.signal);
     }
   }
 
   async function restart() {
-    if (!identifier || busy) return;
+    if (!identifier || requestPending.current) return;
     const request = beginRequest();
     setBusy(true);
     setError('');
@@ -86,6 +90,7 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
       setNonce(result.nextBrowserNonce);
       setStep('otp');
       setBusy(false);
+      requestPending.current = false;
     } catch (caught) {
       showError(caught, request.generation, request.signal);
     }
@@ -93,10 +98,13 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
 
   async function submitOtp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !/^\d{6}$/.test(code)) return;
+    if (requestPending.current || !/^[0-9]{6}$/.test(code)) return;
     const request = beginRequest();
     setBusy(true);
     setError('');
+    setCode('');
+    setNonce('');
+    setChallengeId('');
     try {
       await verifyRegistration(challengeId, code, nonce, request.signal);
       if (!isCurrent(request.generation, request.signal)) return;
@@ -106,26 +114,29 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
       setCode('');
       setAccepted(true);
       setBusy(false);
+      requestPending.current = false;
       setStep('accepted');
     } catch (caught) {
-      showError(caught, request.generation, request.signal);
+      showError(caught, request.generation, request.signal, true);
     }
   }
 
   function goBack() {
     generation.current += 1;
     controller.current?.abort();
+    requestPending.current = false;
     setBusy(false);
     setCode('');
     setNonce('');
     setChallengeId('');
     setAccepted(false);
+    setIdentifier(null);
     setError('');
     setStep('identifier');
   }
 
   return (
-    <main className={styles.frame} lang={locale}>
+    <main className={styles.frame} lang={locale} aria-busy={busy}>
       <section className={styles.panel} aria-labelledby="registration-title">
         <h1 id="registration-title">{copy.title}</h1>
         <p>{copy.introduction}</p>
@@ -149,9 +160,9 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
         ) : null}
         {step === 'restart' ? <Button type="button" disabled={busy} onClick={restart}>{busy ? copy.loading : copy.restartRequired}</Button> : null}
         {step === 'accepted' && accepted ? <p role="status">{copy.acceptedMessage} {copy.bankIdRequired}</p> : null}
-        {error && step !== 'restart' ? <p id="registration-error" role="alert">{error}</p> : null}
+        {error ? <p id="registration-error" role="alert">{error}</p> : null}
         <div className={styles.actions}>
-          {step !== 'identifier' ? <Button variant="secondary" type="button" disabled={busy} onClick={goBack}>{copy.backLabel}</Button> : null}
+          {step !== 'identifier' ? <Button variant="secondary" type="button" onClick={goBack}>{copy.backLabel}</Button> : null}
           {step === 'identifier' ? <p className={styles.unavailable}>{copy.loginUnavailable}</p> : null}
         </div>
       </section>

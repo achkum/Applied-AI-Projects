@@ -278,15 +278,14 @@ desktop_handoff:
       and accessibility/visual QA.
     secret_scan: PASS; staged Gitleaks scan found no secrets
   known_remaining_work:
-  - 'ST-050b: strengthen successful/error response decoding against the generated contract and bound response
-    body consumption before parsing; current checks bound individual required string fields but do not cap the
-    complete response body.'
+  - 'ST-050b: response decoding and streamed 32 KiB body cap verified in the desktop continuation;
+    see .sdlc/evidence/ST-050b/desktop-continuation.md. Runtime routing and full onboarding remain pending.'
   - 'ST-050b: verify endpoint routing on the desktop/staging reverse proxy. Accepted v2 OTP routes are development
     opt-ins; production mode deliberately rejects their activation. Do not silently enable them or claim a complete
     production signup flow.'
-  - 'ST-050b: test invalid/malformed responses, server/network errors, back-navigation races, synchronous repeated
-    callbacks, Swedish rendering and accessibility using actual route/components; four focused tests are not
-    full UF coverage.'
+  - 'ST-050b: desktop tests cover malformed responses, server/network failures, back-navigation races,
+    synchronous submissions and bilingual accessibility. Built-route visual checks use mocked OTP;
+    backend acceptance and full UF coverage remain pending.'
   - 'ST-051d: identifier continuation currently displays an explicit unavailable state. Implement approved mobile
     OTP/BankID contract integration later; local validation is not completed onboarding.'
   - 'ST-206: build latest web image, request /sv and /en plus a referenced static asset, confirm nonroot startup
