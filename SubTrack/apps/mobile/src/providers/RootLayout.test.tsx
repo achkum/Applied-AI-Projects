@@ -44,7 +44,7 @@ jest.mock('expo-router', () => {
     },
     { Screen: () => null },
   );
-  return { Stack };
+  return { Stack, usePathname: () => '/' };
 });
 
 const mockStorage = jest.mocked(AsyncStorage);
