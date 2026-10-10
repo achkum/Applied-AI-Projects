@@ -1,0 +1,39 @@
+name: SubTrack clean migration PostgreSQL proof
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "SubTrack/apps/api/prisma/**"
+      - "SubTrack/apps/api/test/clean-migration-rls.integration.ts"
+      - "SubTrack/apps/api/vitest.clean-migration.config.ts"
+      - "SubTrack/tools/database/clean-migration-proof.sh"
+      - ".github/workflows/subtrack-clean-migration-proof.yml"
+permissions:
+  contents: read
+jobs:
+  disposable-full-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: SubTrack
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable && corepack prepare pnpm@12.6.0 --activate
+      - run: corepack pnpm install --frozen-lockfile
+      - name: Owned disposable PostgreSQL 16 migration and role proof
+        run: bash tools/database/clean-migration-proof.sh
+      - name: Cleanup only recorded BUG-008b container
+        if: always()
+        run: bash tools/database/clean-migration-proof.sh --cleanup
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bug-008b-proof-${{ github.sha }}
+          path: ${{ runner.temp }}/bug-008b-proof-receipt.txt
+          if-no-files-found: ignore
+          retention-days: 7

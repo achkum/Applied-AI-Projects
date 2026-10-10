@@ -1,0 +1,1 @@
+BUG-008b: PASS migrations=2 ledger_checksums=2 modeled_drift=0 vitest_tests=1 ordinary_login=1 service_logins=4
