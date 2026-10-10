@@ -6,6 +6,7 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
+  - {id: ST-050b, title: 'Web registration route and contract-backed OTP step', owner: dev-web, size: M, status: IN_PROGRESS, deps: [ST-050a]}
   - {id: SEC-FU1e, title: 'Composed HTTP guard and actual storage proof', owner: dev-backend, size: M, status: IN_REVIEW, deps: [SEC-FU1c, SEC-FU1d]}
   - {id: ST-051d, title: 'Mobile welcome and identifier registration routes', owner: dev-mobile, size: M, status: DONE, deps: []}
   - {id: SEC-FU1d, title: 'Internal Prisma session owner reader with disposable RLS proof', owner: dev-backend, size: M, status: DONE, deps: [SEC-FU1b, BUG-013]}

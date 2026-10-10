@@ -1,0 +1,37 @@
+{
+  "results": [
+    {
+      "locale": "sv",
+      "theme": "light",
+      "status": "PASS",
+      "mockedOtp": true,
+      "overflow": false,
+      "pageErrors": []
+    },
+    {
+      "locale": "sv",
+      "theme": "dark",
+      "status": "PASS",
+      "mockedOtp": true,
+      "overflow": false,
+      "pageErrors": []
+    },
+    {
+      "locale": "en",
+      "theme": "light",
+      "status": "PASS",
+      "mockedOtp": true,
+      "overflow": false,
+      "pageErrors": []
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "status": "PASS",
+      "mockedOtp": true,
+      "overflow": false,
+      "pageErrors": []
+    }
+  ],
+  "limitation": "Actual built registration routes; mocked OTP. Does not prove reverse proxy, backend, BankID, delivery or completed onboarding."
+}
