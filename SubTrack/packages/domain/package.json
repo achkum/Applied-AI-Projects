@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./subscription-lifecycle": {
+      "types": "./dist/detection/subscription-lifecycle.d.ts",
+      "import": "./dist/detection/subscription-lifecycle.js",
+      "require": "./dist/detection/subscription-lifecycle.js"
+    },
     "./policy": {
       "types": "./policy/index.ts",
       "import": "./policy/index.ts"
@@ -31,6 +36,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:lifecycle": "tsc -p tsconfig.lifecycle.json",
     "lint": "eslint \"policy/**/*.ts\" \"bank/**/*.ts\" \"ingestion/**/*.ts\" \"merchant/**/*.ts\" \"detection/**/*.ts\" \"clustering/**/*.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",

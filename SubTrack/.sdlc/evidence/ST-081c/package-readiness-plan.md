@@ -1,0 +1,9 @@
+# ST-081c package boundary plan (Type 2a)
+Current relative API import crosses into `packages/domain` source; API `tsc` can change its inferred root and emit layout, while the Dockerfile copies only contracts/config and expects `dist/main.js`.
+1. Extend this task's `allowed_paths` before source edits: API/domain manifests, `pnpm-lock.yaml`, domain lifecycle build config, domain package export, API Dockerfile, and the repository import.
+2. Export the accepted pure `detection/subscription-lifecycle.ts` as a dedicated `@subtrack/domain/subscription-lifecycle` subpath. A narrow `tsconfig.lifecycle.json` emits its JavaScript and declaration only; preserve the existing decision table unchanged.
+3. Point export `types`, `import`, and `require` to built files. Add `@subtrack/domain` as an API runtime workspace dependency and import through that public subpath; update the frozen lockfile.
+4. In both Docker install stages copy domain and its declared workspace dependency `packages/money`; build the lifecycle subpath before API `tsc`, then copy domain's built output and needed workspace package files into `/runtime`.
+5. Prove local API build still emits `apps/api/dist/main.js`; execute the compiled repository import under Node 22.18.0 and the final production image's `node apps/api/dist/main.js` path. Run API lint/typecheck and focused tests after wiring.
+Node 22.18.0 must load this synchronous ESM helper through the emitted CommonJS `require`; verify with the actual image/runtime. If that fails, use a narrow CommonJS artifact for this subpath, without copying or reimplementing the decision table.
+This is package/build plumbing only: no route, schema, provider, status, authority, decision, audit, or replay change. Preserve the private owner/RLS semantics and independent PG proof gates.

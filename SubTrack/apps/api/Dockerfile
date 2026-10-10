@@ -25,9 +25,12 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json .
 COPY apps/api ./apps/api
 COPY packages/contracts ./packages/contracts
 COPY packages/config ./packages/config
+COPY packages/domain ./packages/domain
+COPY packages/money ./packages/money
 RUN --mount=type=secret,id=environment_ca,mode=0444 \
     if [ -f /run/secrets/environment_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/environment_ca SSL_CERT_FILE=/run/secrets/environment_ca; fi; \
     pnpm install --filter @subtrack/api... --filter subtrack --frozen-lockfile && \
+    pnpm --filter @subtrack/domain build:lifecycle && \
     DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build" pnpm --filter @subtrack/api exec prisma generate --schema=prisma/schema.prisma && \
     pnpm --filter @subtrack/api exec tsc -p tsconfig.build.json && \
     test -f apps/api/dist/main.js && \
@@ -40,9 +43,12 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json .
 COPY apps/api ./apps/api
 COPY packages/contracts ./packages/contracts
 COPY packages/config ./packages/config
+COPY packages/domain ./packages/domain
+COPY packages/money ./packages/money
 RUN --mount=type=secret,id=environment_ca,mode=0444 \
     --mount=type=bind,from=build,source=/generated-prisma-client,target=/generated-prisma-client \
     --mount=type=bind,from=build,source=/workspace/apps/api/dist,target=/compiled-api \
+    --mount=type=bind,from=build,source=/workspace/packages/domain/dist,target=/compiled-domain \
     if [ -f /run/secrets/environment_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/environment_ca SSL_CERT_FILE=/run/secrets/environment_ca; fi; \
     pnpm install --prod --filter @subtrack/api... --frozen-lockfile && \
     pnpm --filter @subtrack/api exec node -e "const p = require('node:path'); require('node:fs').cpSync('/generated-prisma-client', p.resolve(p.dirname(require.resolve('@prisma/client')), '../../.prisma/client'), { recursive: true })" && \
@@ -50,6 +56,9 @@ RUN --mount=type=secret,id=environment_ca,mode=0444 \
     cp -a node_modules /runtime/node_modules && \
     cp -a apps/api/node_modules apps/api/package.json /runtime/apps/api/ && \
     cp -a packages/contracts /runtime/packages/ && \
+    cp -a packages/domain /runtime/packages/ && \
+    cp -a packages/money /runtime/packages/ && \
+    cp -a /compiled-domain /runtime/packages/domain/dist && \
     cp -a /compiled-api /runtime/apps/api/dist && \
     rm -rf /pnpm/store /workspace/node_modules
 
