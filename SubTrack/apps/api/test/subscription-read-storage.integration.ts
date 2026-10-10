@@ -238,6 +238,10 @@ test('ST-213 real standalone loopback launch and direct Node provenance proof', 
   let label: string | undefined;
   let stopped = false;
   let passed = false;
+  let verified = false;
+  let cleanupVerified = false;
+  let cleanupFailure = false;
+  let proofFailure: Error | undefined;
   const finalReceipt = join(privateBase, 'st213-standalone-proof-receipt.txt');
   const delay = (ms: number) => new Promise<void>(done => setTimeout(done, ms));
   const port = async (): Promise<number> => new Promise((done, reject) => {
@@ -338,13 +342,15 @@ test('ST-213 real standalone loopback launch and direct Node provenance proof', 
         cwd: join(root, 'apps/api'), stdio: 'ignore',
         env: { ...baseEnv, ...change, ST213_BIND_PORT: String(negativePort) },
       });
+      let directCleaned = false;
       try {
         if (await exit(direct, 8_000) !== 1 ||
             await status(`http://127.0.0.1:${negativePort}/v1/subscriptions`) !== undefined)
           throw new Error('direct entry accepted');
       } finally {
-        if (!await terminate(direct)) throw new Error('direct entry cleanup');
+        directCleaned = await terminate(direct);
       }
+      if (!directCleaned) throw new Error('direct entry cleanup');
     }
     phase = 'bounded shutdown and cleanup';
     child.kill('SIGTERM');
@@ -359,7 +365,7 @@ test('ST-213 real standalone loopback launch and direct Node provenance proof', 
         'ST-213 local listener: STOPPED cleanup=verified\n') throw new Error('receipt');
     passed = true;
   } catch {
-    throw new Error(`ST-213 standalone proof failed: ${phase}`);
+    proofFailure = new Error(`ST-213 standalone proof failed: ${phase}`);
   } finally {
     let cleanupSucceeded = true;
     if (child && !stopped && !await terminate(child)) cleanupSucceeded = false;
@@ -380,12 +386,16 @@ test('ST-213 real standalone loopback launch and direct Node provenance proof', 
       if (fixtureGone && dirname(realpathSync(privateRoot)) === privateBase)
         rmSync(privateRoot, { recursive: true, force: true });
     } catch { cleanupSucceeded = false; }
-    const verified = passed && cleanupSucceeded && fixtureGone && !existsSync(privateRoot);
+    cleanupVerified = cleanupSucceeded && fixtureGone && !existsSync(privateRoot);
+    verified = passed && cleanupVerified;
     try {
       writeFileSync(finalReceipt, verified
         ? 'ST-213 standalone proof: PASS listener=stopped cleanup=verified\n'
         : 'ST-213 standalone proof: FAIL code=unavailable\n', { mode: 0o600 });
-    } catch { throw new Error('ST-213 standalone proof failed: receipt cleanup'); }
-    if (!verified) throw new Error('ST-213 standalone proof failed: cleanup');
+    } catch { cleanupFailure = true; }
   }
+  if (cleanupFailure) throw new Error('ST-213 standalone proof failed: receipt cleanup');
+  if (!cleanupVerified) throw new Error('ST-213 standalone proof failed: cleanup');
+  if (proofFailure) throw proofFailure;
+  if (!verified) throw new Error('ST-213 standalone proof failed: incomplete');
 }, 180_000);

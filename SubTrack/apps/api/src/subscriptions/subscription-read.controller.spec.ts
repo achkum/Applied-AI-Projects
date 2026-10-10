@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { APP_GUARD } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -23,8 +24,9 @@ async function setup(realService = false) {
       { provide: SubscriptionReadService, useValue: realService
         ? new SubscriptionReadService({ list: vi.fn(async () => []), detail: vi.fn(async () => null) } as never)
         : { list, detail } },
+      { provide: APP_GUARD, useValue: new AuthenticatedPrincipalGuard({ resolve }) },
     ],
-  }).overrideGuard(AuthenticatedPrincipalGuard).useValue(new AuthenticatedPrincipalGuard({ resolve })).compile();
+  }).compile();
   app = module.createNestApplication();
   await app.init();
   return { server: app.getHttpServer() as Parameters<typeof request>[0], resolve, list, detail };

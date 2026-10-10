@@ -1,6 +1,6 @@
-import { ArgumentsHost, Catch, Controller, ExceptionFilter, Get, HttpException, Inject, Param, Query, Req, UseFilters, UseGuards } from '@nestjs/common';
+import { ArgumentsHost, Catch, Controller, ExceptionFilter, Get, HttpException, Inject, Param, Query, Req, UseFilters } from '@nestjs/common';
 import type { Response } from 'express';
-import { AuthenticatedPrincipalGuard, getVerifiedRequestContext } from '../auth/sessions/authenticated-principal.guard';
+import { getVerifiedRequestContext } from '../auth/sessions/authenticated-principal.guard';
 import { SubscriptionReadService } from './subscription-read.service';
 
 @Catch()
@@ -18,7 +18,6 @@ export class SubscriptionReadProblemFilter implements ExceptionFilter {
 
 /** Explicit test-only composition; this controller is absent from AppModule. */
 @Controller()
-@UseGuards(AuthenticatedPrincipalGuard)
 @UseFilters(SubscriptionReadProblemFilter)
 export class SubscriptionReadController {
   constructor(@Inject(SubscriptionReadService) private readonly service: SubscriptionReadService) {}

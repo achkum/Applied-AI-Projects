@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { type DynamicModule, type INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { APP_GUARD } from '@nestjs/core';
 import type { PrismaClient } from '@prisma/client';
 import type { JwtService } from '../auth/sessions/jwt.service';
 import { AuthenticatedPrincipalGuard } from '../auth/sessions/authenticated-principal.guard';
@@ -82,7 +83,7 @@ export async function createSubscriptionReadApp(options: SubscriptionReadComposi
     module: SubscriptionReadModule,
     controllers: [SubscriptionReadController],
     providers: [
-      { provide: AuthenticatedPrincipalGuard, useValue: guard },
+      { provide: APP_GUARD, useValue: guard },
       { provide: SubscriptionReadService, useValue: service },
     ],
   };

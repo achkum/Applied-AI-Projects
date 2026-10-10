@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { assertSubscriptionReadStorage, bounded, createSubscriptionReadApp,
   type SubscriptionReadCompositionOptions } from './subscription-read.composition';
@@ -21,6 +22,31 @@ function fixture(roles: unknown = [role], relations: unknown = tables) {
 }
 
 describe('subscription read startup boundary', () => {
+  it('binds the real guard and resolver to authenticated HTTP routes', async () => {
+    const identityId = '11111111-1111-4111-8111-111111111111';
+    const sessionId = '22222222-2222-4222-8222-222222222222';
+    const tx = { $executeRaw: vi.fn().mockResolvedValue(1), $queryRaw: vi.fn()
+      .mockResolvedValueOnce([{ sessionId, identityId, revokedAt: null, ownerId: identityId, deletedAt: null }])
+      .mockResolvedValueOnce([]) };
+    const { options } = fixture();
+    const verifier = { verify: vi.fn((token: string) => {
+      if (token !== 'valid') throw new Error('invalid');
+      return { sub: identityId, sid: sessionId, iat: 1, exp: 2 };
+    }) };
+    const prisma = { ...options.prisma, $transaction: vi.fn(async (operation: (client: typeof tx) => Promise<unknown>) => operation(tx)) } as unknown as PrismaClient;
+    const composition = await createSubscriptionReadApp({ ...options, prisma, verifier });
+    try {
+      const server = composition.app.getHttpServer() as Parameters<typeof request>[0];
+      await request(server).get('/v1/subscriptions').expect(401);
+      await request(server).get('/v1/subscriptions').set('Authorization', 'Bearer invalid').expect(401);
+      const response = await request(server).get('/v1/subscriptions')
+        .set('Authorization', 'Bearer valid').expect(200);
+      expect(response.body).toEqual({ items: [], nextCursor: null });
+      expect(verifier.verify).toHaveBeenCalledWith('valid');
+      await request(server).get('/v1/subscriptions').set('Authorization', 'Bearer valid').expect(401);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(3);
+    } finally { await composition.close(); }
+  });
   it('bounds an operation that never settles', async () => {
     vi.useFakeTimers();
     try {
