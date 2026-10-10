@@ -102,7 +102,8 @@ test('production contract preserves approved operational and privacy routes', ()
       ([path, item]) =>
         Object.keys(item).map((method) => `${method.toUpperCase()} ${path}`),
     );
-    // Accepted-main baseline deb58ea: preserve all v1/operational paths and legacy components.
+    // Accepted deb58ea wire baseline plus reviewed ADR-0018 default availability exception.
+    // Preserve the complete legacy semantic snapshot, including its availability documentation.
     const legacyNames = ["HealthResponse", "ReadinessResponse", "VersionResponse", "SetOpenBookBody", "ConsentSetting", "SubscriptionSummary", "ExportJobResponse", "DeleteAccountBody", "Problem"];
     const canonical = (value) => Array.isArray(value) ? value.map(canonical)
       : value && typeof value === 'object'
@@ -114,8 +115,23 @@ test('production contract preserves approved operational and privacy routes', ()
       responses: { Problem: document.components.responses.Problem },
     };
     assert.equal(createHash('sha256').update(JSON.stringify(canonical(legacy))).digest('hex'),
-      'b285db5679a2fe78f96823722d30b38eed1cc53b00db5c8040f4f533ae0f3146',
-      'accepted v1 and operational contracts must remain semantically unchanged');
+      '96279f7efc409e34fd221f072b1d8b342812ca455e1c9f5ad0b330ca3294adee',
+      'accepted v1 and operational contracts plus ADR-0018 availability must remain semantically unchanged');
+
+    assert.equal(document.info.version, '1.1.1');
+    const availability = Object.entries(document.paths).flatMap(([path, item]) =>
+      Object.entries(item).filter(([, operation]) => operation && typeof operation === 'object'
+        && Object.hasOwn(operation, 'x-runtime-availability'))
+        .map(([method, operation]) => [`${method.toUpperCase()} ${path}`, operation['x-runtime-availability']]),
+    );
+    assert.deepEqual(availability.sort(([left], [right]) => left.localeCompare(right)), [
+      ['DELETE /v1/data-rights/account', 'unavailable-default'],
+      ['GET /v1/data-rights/export/{token}', 'unavailable-default'],
+      ['GET /v1/privacy/preview-as/{householdId}', 'unavailable-default'],
+      ['GET /v1/privacy/settings', 'unavailable-default'],
+      ['PATCH /v1/privacy/open-book', 'unavailable-default'],
+      ['POST /v1/data-rights/export', 'unavailable-default'],
+    ]);
 
     assert.deepEqual(routes.filter((route) => !route.includes('/v2/')).sort(), [
       'DELETE /v1/data-rights/account',

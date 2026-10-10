@@ -23,3 +23,9 @@
 
 ## ST203 / D-12 — development mobile deletion OTP verification
 2026-10-09: Founder replied **Approved** to the concrete separately reviewed dev-only mobile OTPverify scope, after the Conductor explained ADR0012 START-onlyexclusion. Type1decision recorded in ADR0013. Existingcurrentaccessprincipal/contact/deletion-onlyproof andverified-principalidempotency; opt-inonly. No actualdelete, realdelivery/provider, default/public/production/newauthoritykind approval. ST198/ST204 decisions remain separate. Runtimeacceptance stillrequiresindependentplatform/securitysourcereviews, actualHTTPS/APIQA andallCI.
+
+## SEC-FU1f / ADR-0018 — default legacy handler containment
+
+2026-10-10: Independent architect-platform/security readiness approves the PO's narrow reversible Type2a proposal; the Conductor adopts it. ADR-0018 supersedes only ADR-0010's default runtime availability preservation for the six existing v1 privacy/export/account-delete operations. Contract annotations precede runtime removal of PrivacyModule/DataRightsModule; all paths, wire schemas, feature requirements and v2 credential boundaries remain. No legacy opt-in switch, replacement credential authority, production deployment, existing database operation, data deletion or High-risk acceptance. T1 remains open; independent final source/QA, contract drift, full API regressions and exact-head CI remain required.
+
+Conductor also adopts metadata-only OpenAPI version 1.1.0 → 1.1.1 under the contract's version-bump rule. The change intentionally withdraws default runtime availability without changing URLs, schemas or credential versions; no backward runtime compatibility or rollout approval is implied.

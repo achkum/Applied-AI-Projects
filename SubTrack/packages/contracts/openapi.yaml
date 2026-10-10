@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SubTrack API
-  version: 1.1.0
+  version: 1.1.1
   description: Contract metadata and approved operational endpoints.
 paths:
   /healthz:
@@ -33,6 +33,10 @@ paths:
   /v1/privacy/settings:
     get:
       operationId: getPrivacySettings
+      x-runtime-availability: unavailable-default
+      description: >
+        Unavailable in the default and configured v2 nonce/OTP application graphs (ADR-0018).
+        Retained contract; authenticated principal, data scope and lifecycle review are required before activation.
       summary: List open_book consent settings for all households (AC1)
       parameters:
         - in: header
@@ -56,8 +60,11 @@ paths:
   /v1/privacy/open-book:
     patch:
       operationId: setOpenBook
+      x-runtime-availability: unavailable-default
       summary: Toggle open_book for a household scope (AC1, AC4)
       description: >
+        Unavailable in the default and configured v2 nonce/OTP application graphs (ADR-0018).
+        Retained contract; authenticated principal, data scope and lifecycle review are required before activation.
         Sets the caller's open_book consent for the specified household.
         Default is OFF. Only the caller themselves can change their own setting —
         admins cannot alter other members' privacy (AC4).
@@ -93,8 +100,11 @@ paths:
   /v1/privacy/preview-as/{householdId}:
     get:
       operationId: previewAsHousehold
+      x-runtime-availability: unavailable-default
       summary: Preview subscriptions as a household member (AC3)
       description: >
+        Unavailable in the default and configured v2 nonce/OTP application graphs (ADR-0018).
+        Retained contract; authenticated principal, data scope and lifecycle review are required before activation.
         Evaluates subscription visibility using the exact policy from ST-048.
         Returns safe subscription summaries — no raw transactions, balances,
         account numbers, or PII. Always-private subscriptions are hidden from
@@ -127,8 +137,11 @@ paths:
   /v1/data-rights/export:
     post:
       operationId: requestDataExport
+      x-runtime-availability: unavailable-default
       summary: Request a full personal data export (AC1)
       description: >
+        Unavailable in the default and configured v2 nonce/OTP application graphs (ADR-0018).
+        Retained contract; authenticated principal, data scope and lifecycle review are required before activation.
         Assembles a ZIP archive containing export.json (all personal data) and
         subscriptions.csv. Returns a single-use download token valid for 24 hours.
         Scoped only to the caller's own data.
@@ -154,8 +167,11 @@ paths:
   /v1/data-rights/export/{token}:
     get:
       operationId: downloadDataExport
+      x-runtime-availability: unavailable-default
       summary: Download a previously requested data export (AC1, AC3)
       description: >
+        Unavailable in the default and configured v2 nonce/OTP application graphs (ADR-0018).
+        Retained contract; authenticated principal, data scope and lifecycle review are required before activation.
         Returns the ZIP file for a valid, non-expired export token.
         Returns 404 for unknown or expired tokens — the response does not
         distinguish between the two cases (AC3).
@@ -180,8 +196,11 @@ paths:
   /v1/data-rights/account:
     delete:
       operationId: deleteAccount
+      x-runtime-availability: unavailable-default
       summary: Permanently delete account and personal data (AC2)
       description: >
+        Unavailable in the default and configured v2 nonce/OTP application graphs (ADR-0018).
+        Retained contract; authenticated principal, data scope and lifecycle review are required before activation.
         Requires BankID or OTP re-authentication via `reAuthToken`.
         If the caller is the sole admin of a household with remaining members,
         returns 400 requiring role transfer first.
