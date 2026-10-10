@@ -31,17 +31,18 @@ cid=$(cat "$record")
 docker start "$cid" >/dev/null
 ready=false
 for attempt in {1..40}; do
-  if docker exec "$cid" pg_isready --username fixture_owner --dbname session_owner_proof >/dev/null 2>&1; then ready=true; break; fi
+  if docker exec "$cid" pg_isready --host 127.0.0.1 --port 5432 --username fixture_owner --dbname session_owner_proof >/dev/null 2>&1; then ready=true; break; fi
   sleep 1
 done
 [[ "$ready" == true ]] || { echo 'Disposable PostgreSQL readiness failed' >&2; exit 1; }
 binding=$(docker port "$cid" 5432/tcp)
 [[ "$binding" =~ ^127\.0\.0\.1:([0-9]+)$ ]] || { echo 'Disposable loopback endpoint verification failed' >&2; exit 1; }
 export SEC_FU1D_PORT="${BASH_REMATCH[1]}"
-# Exact accepted source hashes prevent fixture drift. Boundaries are inclusive lines.
+# Exact archived legacy source hashes preserve the historical focused fixture;
+# this is not the canonical whole-chain migration proof. Boundaries are inclusive.
 python3 - "$task_tmp/fixture.sql" "$RUNNER_TEMP/sec-fu1d-fixture-evidence.txt" <<'PY'
 import hashlib, pathlib, re, sys
-base = pathlib.Path('apps/api/prisma/migrations')
+base = pathlib.Path('.sdlc/evidence/BUG-008/legacy-migrations')
 files = [('0001_identity_household_rls', '9c39d8a5aefafbe71ca9e7c218235bb87d74fee079816dcd01dd9a8c18afcb3c'),
          ('0003_session', 'ef1b08f98e9303ad0b3a50ff16e2db05101faba1ec5d25d5012b9e9903848bfe')]
 fixture, evidence = [], ['Exact extracted fixtures only; no migration sequence/history proof.']
@@ -78,8 +79,9 @@ GRANT USAGE ON SCHEMA public TO proof_reader;
 GRANT SELECT ON identity, session TO proof_reader;
 SQL
 if ! docker exec -i "$cid" psql --username fixture_owner --dbname session_owner_proof \
-  --no-psqlrc --set ON_ERROR_STOP=1 --quiet < "$task_tmp/fixture.sql" > "$task_tmp/sql.log" 2>&1; then
-  echo 'Disposable exact SQL fixture failed' >&2; exit 1
+  --no-psqlrc --set ON_ERROR_STOP=1 --set VERBOSITY=sqlstate --quiet < "$task_tmp/fixture.sql" > "$task_tmp/sql.log" 2>&1; then
+  code=$(grep -Eo 'ERROR:[[:space:]]*[A-Z0-9]{5}' "$task_tmp/sql.log" | head -1 | tr -d '[:space:]' | cut -d: -f2 || true)
+  echo "Disposable exact SQL fixture failed code=${code:-unavailable}" >&2; exit 1
 fi
 export SEC_FU1D_DISPOSABLE=new-container
 export SEC_FU1D_OWNER_URL="postgresql://fixture_owner:$owner_password@127.0.0.1:$SEC_FU1D_PORT/session_owner_proof?connection_limit=1"

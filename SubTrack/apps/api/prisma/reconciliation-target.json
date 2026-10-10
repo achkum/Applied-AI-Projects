@@ -10,6 +10,7 @@
     "date": "transaction_date, value_date, next_charge_date and charged_at are date; booked_at is nullable timestamptz(6)"
   },
   "enums": {
+    "member_role": ["ADMIN", "MEMBER", "DEPENDANT"],
     "bank_provider": ["TINK_SANDBOX", "SYNTHETIC", "TINK_LIVE"],
     "bank_connection_status": ["ACTIVE", "EXPIRED", "REVOKED"],
     "account_type": ["CHECKING", "SAVINGS", "CREDIT", "OTHER"],
@@ -21,6 +22,14 @@
     "charge_matched_by": ["ENGINE", "USER"]
   },
   "tables": {
+    "household_member": {
+      "model": "HouseholdMember",
+      "columns": ["id uuid!", "household_id uuid!", "identity_id uuid?", "display_name varchar(120)?", "role member_role!", "joined_at timestamptz!", "left_at timestamptz?"],
+      "keys": ["PK(id)", "UNIQUE(household_id,identity_id)"],
+      "foreignKeys": ["household_id -> household(id)", "identity_id -> identity(id)"],
+      "checks": ["DEPENDANT has null identity_id and non-null display_name; ADMIN/MEMBER have non-null identity_id"],
+      "rls": "active household members read; active admins insert profile-only dependants; self-bound first admin; invitation service adds invited adults"
+    },
     "bank_connection": {
       "model": "BankConnection",
       "columns": ["id uuid!", "identity_id uuid!", "provider bank_provider!", "provider_connection_id varchar(255)?", "institution_id varchar(255)!", "institution_name varchar(120)!", "status bank_connection_status!", "consent_expires_at timestamptz?", "encrypted_credentials bytea?", "last_synced_at timestamptz?", "revoked_at timestamptz?", "created_at timestamptz!", "updated_at timestamptz!"],
@@ -80,6 +89,25 @@
       "checks": ["(raw_transaction_id IS NULL AND matched_by IS NULL) OR (raw_transaction_id IS NOT NULL AND matched_by IS NOT NULL)", "linked captured amount/currency/date agreement or independently reviewed write contract"],
       "rls": "owner-only SELECT/INSERT/UPDATE/DELETE; immutable identity_id; no inherited household subscription visibility"
     }
+  },
+  "sqlOnlyCatalog": {
+    "partialIndexes": [
+      ["household_member_active_membership_idx", "household_member", "identity_id", "left_at IS NULL", true],
+      ["subscription_share_active_household_idx", "subscription_share", "subscription_id,household_id", "revoked_at IS NULL", true],
+      ["invitation_token_hash_idx", "invitation", "token_hash", "token_hash IS NOT NULL", false]
+    ],
+    "checks": ["household_member_role_identity_pair", "subscription_confidence_range", "raw_transaction_original_pair", "subscription_charge_match_pair"],
+    "grants": [
+      ["subtrack_runtime", "merchant", "SELECT", true], ["subtrack_runtime", "merchant", "INSERT", false],
+      ["subtrack_runtime", "merchant", "UPDATE", false], ["subtrack_runtime", "merchant", "DELETE", false],
+      ["subtrack_runtime", "catalogue_plan", "SELECT", true], ["subtrack_runtime", "catalogue_plan", "INSERT", false],
+      ["subtrack_runtime", "catalogue_plan", "UPDATE", false], ["subtrack_runtime", "catalogue_plan", "DELETE", false],
+      ["subtrack_catalogue_writer", "merchant", "SELECT", true], ["subtrack_catalogue_writer", "merchant", "INSERT", true],
+      ["subtrack_catalogue_writer", "merchant", "UPDATE", true], ["subtrack_catalogue_writer", "merchant", "DELETE", true],
+      ["subtrack_catalogue_writer", "catalogue_plan", "SELECT", true], ["subtrack_catalogue_writer", "catalogue_plan", "INSERT", true],
+      ["subtrack_catalogue_writer", "catalogue_plan", "UPDATE", true], ["subtrack_catalogue_writer", "catalogue_plan", "DELETE", true],
+      ["subtrack_runtime", "otp_challenge", "SELECT", false], ["subtrack_otp_service", "otp_challenge", "INSERT", true]
+    ]
   },
   "sqlOnlyProof": ["command-specific RLS USING and WITH CHECK under non-superuser non-BYPASSRLS runtime role", "immutable ownership and share authority fields", "active-share partial unique index", "confidence and charge matching checks", "bounded Boolean visibility helper, grants and recursion avoidance", "migration order: referenced tables before policies", "missing/invalid context, rollback and pooled reuse fail closed"]
 }
