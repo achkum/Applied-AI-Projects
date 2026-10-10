@@ -15,6 +15,7 @@ export type IdempotencyTransport = 'web' | 'mobile';
 export type AuthorityKind = 'browser-chain' | 'verified-principal' | 'browser-bootstrap-origin';
 
 declare const trustedAuthorityDigestBrand: unique symbol;
+declare const anonymousRequestDigestBrand: unique symbol;
 
 /**
  * Internal adapter input. Only a separately reviewed trusted adapter may assert
@@ -27,15 +28,30 @@ export type TrustedAuthorityDigest<K extends AuthorityKind = AuthorityKind> = Re
   readonly [trustedAuthorityDigestBrand]: true;
 }>;
 
+/** Server-derived request isolation only; this digest does not establish identity. */
+export type AnonymousRequestDigest = Readonly<{
+  kind: 'anonymous-enrollment-otp';
+  digest: string;
+  readonly [anonymousRequestDigestBrand]: true;
+}>;
+
 type IdempotencyReservationFields = Readonly<{
   /** Strict lowercase or uppercase 64-character hex SHA-256 prepared by a trusted adapter. */
   canonicalRequestDigest: string;
   /** The caller's opaque Idempotency-Key; this value is never retained. */
   idempotencyKey: string;
 }>;
+export type AnonymousEnrollmentReservationInput = IdempotencyReservationFields & Readonly<{
+  operation: 'startV2Otp' | 'verifyV2Otp';
+  transport: 'mobile';
+  purpose: 'enroll_identifier';
+  authority: AnonymousRequestDigest;
+}>;
+
 export type IdempotencyReservationInput = IdempotencyReservationFields & (
-  | Readonly<{ operation: 'createV2BrowserNonce'; transport: 'web'; authority: TrustedAuthorityDigest }>
-  | Readonly<{ operation: V2IdempotentOperation; transport: IdempotencyTransport; authority: TrustedAuthorityDigest<Exclude<AuthorityKind, 'browser-bootstrap-origin'>> }>
+  | Readonly<{ operation: 'createV2BrowserNonce'; transport: 'web'; authority: TrustedAuthorityDigest; purpose?: never }>
+  | Readonly<{ operation: V2IdempotentOperation; transport: IdempotencyTransport; authority: TrustedAuthorityDigest<Exclude<AuthorityKind, 'browser-bootstrap-origin'>>; purpose?: never }>
+  | AnonymousEnrollmentReservationInput
 );
 
 export type IdempotencyOwner = Readonly<{
@@ -76,7 +92,7 @@ const HEX_256 = /^[0-9a-fA-F]{64}$/;
 const IDEMPOTENCY_KEY = /^[\x21-\x7e]{16,255}$/;
 const OPERATIONS: ReadonlySet<string> = new Set(V2_IDEMPOTENT_OPERATIONS);
 const TRANSPORTS: ReadonlySet<string> = new Set(['web', 'mobile']);
-const AUTHORITY_KINDS: ReadonlySet<string> = new Set(['browser-chain', 'verified-principal', 'browser-bootstrap-origin']);
+const AUTHORITY_KINDS: ReadonlySet<string> = new Set(['browser-chain', 'verified-principal', 'browser-bootstrap-origin', 'anonymous-enrollment-otp']);
 const domain = 'subtrack:v2:idempotency:core:v1';
 
 function fail(): never { throw new Error(GENERIC_ERROR); }
@@ -94,6 +110,10 @@ function validateInput(input: IdempotencyReservationInput): void {
     typeof input.authority.digest !== 'string' || !HEX_256.test(input.authority.digest)) fail();
   if (input.authority.kind === 'browser-bootstrap-origin' &&
       (input.operation !== 'createV2BrowserNonce' || input.transport !== 'web')) fail();
+  if (input.authority.kind === 'anonymous-enrollment-otp') {
+    if ((input.operation !== 'startV2Otp' && input.operation !== 'verifyV2Otp') ||
+      input.transport !== 'mobile' || input.purpose !== 'enroll_identifier') fail();
+  } else if ('purpose' in input) fail();
 }
 
 function frame(value: string): string {
@@ -180,6 +200,7 @@ export class InMemoryIdempotencyGuard implements IdempotencyReservationRepositor
   private bindingDigest(input: IdempotencyReservationInput): string {
     const authority = input.authority;
     const fields = [input.operation, input.transport, authority.kind, authority.digest.toLowerCase(), input.canonicalRequestDigest.toLowerCase()];
+    if (authority.kind === 'anonymous-enrollment-otp') fields.push(input.purpose as string);
     const framed = fields.map(frame).join('');
     return this.keyedDigest('binding', framed);
   }
