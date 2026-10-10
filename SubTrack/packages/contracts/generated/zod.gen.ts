@@ -59,6 +59,44 @@ export const zSubscriptionReadStatus = z.enum([
     'REJECTED'
 ]);
 
+export const zSubscriptionLifecycleTarget = z.enum([
+    'ACTIVE',
+    'PAUSED',
+    'CANCELLED',
+    'ARCHIVED'
+]);
+
+export const zSubscriptionLifecyclePatch = z.object({
+    status: zSubscriptionLifecycleTarget
+}).strict();
+
+export const zSubscriptionLifecycleResult = z.object({
+    id: z.uuid(),
+    status: zSubscriptionLifecycleTarget
+}).strict();
+
+/**
+ * RFC 9457 problem; no resource, principal, query or driver details.
+ */
+export const zSubscriptionLifecycleError = z.object({
+    type: z.string(),
+    title: z.string(),
+    status: z.union([
+        z.literal(400),
+        z.literal(401),
+        z.literal(404),
+        z.literal(409),
+        z.literal(500)
+    ]),
+    code: z.enum([
+        'INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST',
+        'AUTHENTICATION_REQUIRED',
+        'SUBSCRIPTION_NOT_FOUND',
+        'LIFECYCLE_CONFLICT',
+        'INTERNAL_ERROR'
+    ])
+}).strict();
+
 export const zSubscriptionPeerReadStatus = z.enum([
     'TRIAL',
     'ACTIVE',
@@ -604,6 +642,17 @@ export const zGetSubscriptionPath = z.object({
  * Owner or peer-safe subscription projection.
  */
 export const zGetSubscriptionResponse = zVisibleSubscription;
+
+export const zPatchSubscriptionLifecycleBody = zSubscriptionLifecyclePatch;
+
+export const zPatchSubscriptionLifecyclePath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Bounded status result after an accepted owner transition.
+ */
+export const zPatchSubscriptionLifecycleResponse = zSubscriptionLifecycleResult;
 
 export const zListReviewInboxQuery = z.object({
     cursor: z.string().min(1).max(512).regex(/^[A-Za-z0-9_-]+$/).optional(),

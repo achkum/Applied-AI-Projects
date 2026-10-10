@@ -38,6 +38,7 @@ test('v1 route and schema baseline remains present and unchanged in the candidat
       'GET /v1/subscriptions/{id}',
       'GET /v1/version',
       'PATCH /v1/privacy/open-book',
+      'PATCH /v1/subscriptions/{id}',
       'POST /v1/data-rights/export',
     ]);
     for (const name of [

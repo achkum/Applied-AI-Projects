@@ -314,6 +314,47 @@ paths:
         '401': { $ref: '#/components/responses/SubscriptionProblem' }
         '404': { $ref: '#/components/responses/SubscriptionProblem' }
         default: { $ref: '#/components/responses/SubscriptionProblem' }
+    patch:
+      operationId: patchSubscriptionLifecycle
+      summary: Request an owner-only ordinary lifecycle status transition
+      x-runtime-availability: unavailable-default
+      description: >
+        Contract-only ST-215 slice; no HTTP mutation route is enabled. The accepted
+        V1 current-session Bearer principal must own the subscription. Neither
+        the body nor any query parameter can nominate a principal, scope, action
+        or edit field. Reject every query parameter with 400, including unknown
+        parameters.
+        The private writer evaluates the locked current status atomically. Only
+        ACTIVE to PAUSED/CANCELLED/ARCHIVED, PAUSED to ACTIVE/CANCELLED/ARCHIVED,
+        and CANCELLED to ARCHIVED are accepted. All other pairs, including a
+        same-status request, conflict. The target determines the action:
+        ACTIVE=resume, PAUSED=pause, CANCELLED=cancel, ARCHIVED=archive; an
+        unlocked read is never used for dispatch. A lost success response may
+        make a retry return 409; re-read authoritative state after uncertainty.
+        This operation has no replay receipt or exactly-once guarantee.
+      security:
+        - V1AccessBearer: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SubscriptionLifecyclePatch' }
+      responses:
+        '200':
+          description: Bounded status result after an accepted owner transition.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubscriptionLifecycleResult' }
+        '400': { $ref: '#/components/responses/SubscriptionLifecycleProblem' }
+        '401': { $ref: '#/components/responses/SubscriptionLifecycleProblem' }
+        '404': { $ref: '#/components/responses/SubscriptionLifecycleProblem' }
+        '409': { $ref: '#/components/responses/SubscriptionLifecycleProblem' }
+        '500': { $ref: '#/components/responses/SubscriptionLifecycleProblem' }
 
   /v1/review-inbox:
     get:
@@ -794,6 +835,36 @@ components:
     SubscriptionReadStatus:
       type: string
       enum: [DETECTED, TRIAL, ACTIVE, PAUSED, CANCELLED, ARCHIVED, REJECTED]
+    SubscriptionLifecycleTarget:
+      type: string
+      enum: [ACTIVE, PAUSED, CANCELLED, ARCHIVED]
+    SubscriptionLifecyclePatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      maxProperties: 1
+      required: [status]
+      properties:
+        status: { $ref: '#/components/schemas/SubscriptionLifecycleTarget' }
+    SubscriptionLifecycleResult:
+      type: object
+      additionalProperties: false
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/SubscriptionLifecycleTarget' }
+    SubscriptionLifecycleError:
+      type: object
+      additionalProperties: false
+      description: RFC 9457 problem; no resource, principal, query or driver details.
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer, enum: [400, 401, 404, 409, 500] }
+        code:
+          type: string
+          enum: [INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST, AUTHENTICATION_REQUIRED, SUBSCRIPTION_NOT_FOUND, LIFECYCLE_CONFLICT, INTERNAL_ERROR]
     SubscriptionPeerReadStatus:
       type: string
       enum: [TRIAL, ACTIVE, PAUSED, CANCELLED, ARCHIVED, REJECTED]
@@ -1373,6 +1444,15 @@ components:
       name: Authorization
       description: Mobile only, exact form `Refresh <opaque-secret>`; custom auth scheme, never body/query.
   responses:
+    SubscriptionLifecycleProblem:
+      description: >
+        Stable RFC 9457 error. Malformed UUID/body/target/query is 400; absent or
+        invalid current principal is 401; missing and owner-invisible IDs return
+        identical 404 SUBSCRIPTION_NOT_FOUND; stale/disallowed pairs return 409
+        LIFECYCLE_CONFLICT; storage faults are masked as 500 INTERNAL_ERROR.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/SubscriptionLifecycleError' }
     SubscriptionProblem:
       description: Stable, generic RFC 9457 subscription read error.
       content:

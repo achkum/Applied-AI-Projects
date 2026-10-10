@@ -72,7 +72,7 @@ GET    /v1/transactions?accountId&from&to&cursor       (owner only, always)
 GET    /v1/subscriptions?scope&status&category
 GET    /v1/subscriptions/:id
 POST   /v1/subscriptions                               (manual)
-PATCH  /v1/subscriptions/:id                           {name, category, cadence, status, alwaysPrivate, catalogPlanId}
+PATCH  /v1/subscriptions/:id                           {status}  # contract-only ST-215 lifecycle slice
 POST   /v1/subscriptions/:id/review                    {action: confirm|reject|merge, mergeWith?}
 GET    /v1/subscriptions/:id/charges
 GET    /v1/subscriptions/:id/price-history
@@ -101,6 +101,10 @@ GET    /v1/catalog/categories
 # Ops
 GET    /healthz | /readyz | /v1/version
 ```
+
+The ST-215 PATCH contract is a **partial status-only slice**, with no enabled mutation route yet. It accepts an owner-only V1 current-session Bearer request with a UUID `:id`, no query parameters, and a JSON object containing exactly one `status` field: `ACTIVE`, `PAUSED`, `CANCELLED`, or `ARCHIVED`. The locked current status and requested target must form one of seven pairs: `ACTIVE→PAUSED/CANCELLED/ARCHIVED`, `PAUSED→ACTIVE/CANCELLED/ARCHIVED`, or `CANCELLED→ARCHIVED`. The private writer decides from locked state. Success returns only `{id,status}`. A repeated request after success can return 409; after an uncertain response, re-read authoritative state. No replay or exactly-once guarantee is offered.
+
+Unknown or mixed fields, including `name`, `category`, `cadence`, `alwaysPrivate`, and `catalogPlanId`, receive 400 in this slice. Those manual edits remain a **future broader PATCH roadmap** and are not yet contracted or implemented. Review, feedback, undo, sharing, automatic cancellation, and the rest of ST-081/UF-06 remain separate. Errors are RFC 9457 `application/problem+json`: invalid path/body/target/query 400, invalid current principal 401, identical missing/owner-invisible 404 `SUBSCRIPTION_NOT_FOUND`, disallowed or stale transition 409 `LIFECYCLE_CONFLICT`, and masked storage fault 500. See ADR-0023 for the contract decision and route readiness gates.
 
 ## Internal service contract (API → ML service; network-internal only)
 ```

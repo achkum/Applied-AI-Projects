@@ -47,6 +47,27 @@ export type SubscriptionSummary = {
 
 export type SubscriptionReadStatus = 'DETECTED' | 'TRIAL' | 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'ARCHIVED' | 'REJECTED';
 
+export type SubscriptionLifecycleTarget = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'ARCHIVED';
+
+export type SubscriptionLifecyclePatch = {
+    status: SubscriptionLifecycleTarget;
+};
+
+export type SubscriptionLifecycleResult = {
+    id: string;
+    status: SubscriptionLifecycleTarget;
+};
+
+/**
+ * RFC 9457 problem; no resource, principal, query or driver details.
+ */
+export type SubscriptionLifecycleError = {
+    type: string;
+    title: string;
+    status: 400 | 401 | 404 | 409 | 500;
+    code: 'INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'SUBSCRIPTION_NOT_FOUND' | 'LIFECYCLE_CONFLICT' | 'INTERNAL_ERROR';
+};
+
 export type SubscriptionPeerReadStatus = 'TRIAL' | 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'ARCHIVED' | 'REJECTED';
 
 export type SubscriptionReadCadence = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL' | 'CUSTOM';
@@ -890,6 +911,54 @@ export type GetSubscriptionResponses = {
 };
 
 export type GetSubscriptionResponse = GetSubscriptionResponses[keyof GetSubscriptionResponses];
+
+export type PatchSubscriptionLifecycleData = {
+    body: SubscriptionLifecyclePatch;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/v1/subscriptions/{id}';
+};
+
+export type PatchSubscriptionLifecycleErrors = {
+    /**
+     * Stable RFC 9457 error. Malformed UUID/body/target/query is 400; absent or invalid current principal is 401; missing and owner-invisible IDs return identical 404 SUBSCRIPTION_NOT_FOUND; stale/disallowed pairs return 409 LIFECYCLE_CONFLICT; storage faults are masked as 500 INTERNAL_ERROR.
+     *
+     */
+    400: SubscriptionLifecycleError;
+    /**
+     * Stable RFC 9457 error. Malformed UUID/body/target/query is 400; absent or invalid current principal is 401; missing and owner-invisible IDs return identical 404 SUBSCRIPTION_NOT_FOUND; stale/disallowed pairs return 409 LIFECYCLE_CONFLICT; storage faults are masked as 500 INTERNAL_ERROR.
+     *
+     */
+    401: SubscriptionLifecycleError;
+    /**
+     * Stable RFC 9457 error. Malformed UUID/body/target/query is 400; absent or invalid current principal is 401; missing and owner-invisible IDs return identical 404 SUBSCRIPTION_NOT_FOUND; stale/disallowed pairs return 409 LIFECYCLE_CONFLICT; storage faults are masked as 500 INTERNAL_ERROR.
+     *
+     */
+    404: SubscriptionLifecycleError;
+    /**
+     * Stable RFC 9457 error. Malformed UUID/body/target/query is 400; absent or invalid current principal is 401; missing and owner-invisible IDs return identical 404 SUBSCRIPTION_NOT_FOUND; stale/disallowed pairs return 409 LIFECYCLE_CONFLICT; storage faults are masked as 500 INTERNAL_ERROR.
+     *
+     */
+    409: SubscriptionLifecycleError;
+    /**
+     * Stable RFC 9457 error. Malformed UUID/body/target/query is 400; absent or invalid current principal is 401; missing and owner-invisible IDs return identical 404 SUBSCRIPTION_NOT_FOUND; stale/disallowed pairs return 409 LIFECYCLE_CONFLICT; storage faults are masked as 500 INTERNAL_ERROR.
+     *
+     */
+    500: SubscriptionLifecycleError;
+};
+
+export type PatchSubscriptionLifecycleError = PatchSubscriptionLifecycleErrors[keyof PatchSubscriptionLifecycleErrors];
+
+export type PatchSubscriptionLifecycleResponses = {
+    /**
+     * Bounded status result after an accepted owner transition.
+     */
+    200: SubscriptionLifecycleResult;
+};
+
+export type PatchSubscriptionLifecycleResponse = PatchSubscriptionLifecycleResponses[keyof PatchSubscriptionLifecycleResponses];
 
 export type ListReviewInboxData = {
     body?: never;

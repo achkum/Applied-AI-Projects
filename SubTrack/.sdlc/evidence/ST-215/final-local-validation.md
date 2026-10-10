@@ -1,0 +1,4 @@
+# ST-215 final local checks
+Conductor rerun after final source corrections: frozen generation PASS; 11 contract tests PASS, zero failures/skips; Zod fixture PASS; Redocly source validation PASS; contracts typecheck PASS. HostNode24.14, corepack pnpm12.6 and temporary pnpm shim for recursive package scripts. No route/defaultAppModule/schema/auth/provider changes.
+Tests assert current V1 bearer, path-only parameters, every query400 prose, strict request/response/path/generated SDK boundaries and exact400/401/404/409/500 problem refs. Existing v1/v2/read contracts and second-run generated stability remain passing. Actual runtime remains separately gated.
+Independent platform architecture APPROVE condition(noquery400) nowfulfilled; finalindependentsecurity manifest APPROVE at recorded normalized source/generated/test blobs. Exact-head CI/QA required before merge.
