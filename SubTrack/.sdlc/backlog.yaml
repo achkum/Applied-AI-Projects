@@ -6,7 +6,7 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-216, title: 'Current-principal owner lifecycle HTTP composition', owner: dev-backend, size: L, status: IN_PROGRESS, deps: [ST-215, ST-081c, ST-213]}
+  - {id: ST-216, title: 'Current-principal owner lifecycle HTTP composition', owner: dev-backend, size: L, status: IN_REVIEW, deps: [ST-215, ST-081c, ST-213]}
   - {id: ST-215, title: 'Contract-first owner lifecycle PATCH semantics', owner: architect-platform, size: M, status: DONE, deps: [ST-081a, ST-205]}
   - {id: ST-213, title: 'Loopback-only development subscription read service composition', owner: dev-backend, size: L, status: DONE, deps: [BUG-008b, ST-212]}
   - {id: ST-081c, title: 'Private owner-only ordinary subscription lifecycle storage', owner: dev-backend, size: M, status: DONE, deps: [ST-081a, BUG-008b, ST-212]}

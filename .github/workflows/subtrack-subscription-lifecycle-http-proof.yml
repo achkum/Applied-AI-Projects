@@ -1,0 +1,40 @@
+name: SubTrack subscription lifecycle HTTP PostgreSQL proof
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "SubTrack/apps/api/prisma/**"
+      - "SubTrack/apps/api/src/subscriptions/subscription-lifecycle*"
+      - "SubTrack/apps/api/test/subscription-lifecycle-http.integration.ts"
+      - "SubTrack/apps/api/vitest.subscription-lifecycle-http.config.ts"
+      - "SubTrack/tools/database/subscription-lifecycle-http-proof.sh"
+      - ".github/workflows/subtrack-subscription-lifecycle-http-proof.yml"
+permissions:
+  contents: read
+jobs:
+  disposable-http-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: SubTrack
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable && corepack prepare pnpm@12.6.0 --activate
+      - run: corepack pnpm install --frozen-lockfile
+      - name: Owned PostgreSQL 16 HTTP and standalone listener proofs
+        run: bash tools/database/subscription-lifecycle-http-proof.sh
+      - name: Cleanup only recorded ST-216 container
+        if: always()
+        run: bash tools/database/subscription-lifecycle-http-proof.sh --cleanup
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: st216-lifecycle-http-proof-${{ github.sha }}
+          path: ${{ runner.temp }}/st216-proof-receipt.txt
+          if-no-files-found: ignore
+          retention-days: 7

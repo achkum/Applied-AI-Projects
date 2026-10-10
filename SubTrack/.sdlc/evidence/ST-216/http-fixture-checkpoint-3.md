@@ -1,0 +1,8 @@
+# ST-216 HTTP fixture checkpoint 3 — 2026-10-10
+
+- The integration harness now calls `inspectOwnedFixture` with the exact runtime URL before constructing either Prisma client. The owner URL must use the same verified host, port, and database path as that runtime URL.
+- Static review found direct Node positive PATCH proof followed by both SIGTERM and SIGINT listener shutdown checks. Negative startup probes include missing, forged, stale, credential-mismatched, and database-mismatched provenance inputs.
+- The HTTP test covers seven owner transitions, visibility and owner denial, malformed requests, revoked/wrong-subject sessions, conflict, rollback, masked database failure, and a race across two ordinary runtime pools. The single-pool request pair only proves ordered conflict; the cross-pool pair is the contention proof.
+- Wrapper creates an owner-labelled PostgreSQL 16 container with tmpfs storage and loopback ephemeral port, writes a private exact-URL provenance record, and emits PASS only after recorded-container and private-temp cleanup verification. CI invokes cleanup again on all outcomes.
+- Local Bash syntax and integration-file ESLint PASS. Actual Docker/PostgreSQL HTTP execution, Node build, full quality checks, and exact-head CI remain pending; this checkpoint does not claim them.
+- Platform review cycle 1: direct Node SIGTERM and SIGINT assertions now also poll `pg_stat_activity` for the ordinary runtime role to return to the pre-launch connection count within three seconds. Listener absence alone no longer supplies the pool shutdown claim. Integration-file ESLint PASS after this edit; database execution remains pending.
