@@ -10,7 +10,7 @@ const principal = { identityId: '11111111-1111-4111-8111-111111111111', sessionI
 let app: INestApplication | undefined;
 afterEach(async () => { await app?.close(); app = undefined; });
 
-async function setup() {
+async function setup(realService = false) {
   const resolve = vi.fn(async (token: string) => {
     if (token !== 'valid') throw new Error('invalid');
     return principal;
@@ -20,7 +20,9 @@ async function setup() {
   const module = await Test.createTestingModule({
     controllers: [SubscriptionReadController],
     providers: [
-      { provide: SubscriptionReadService, useValue: { list, detail } },
+      { provide: SubscriptionReadService, useValue: realService
+        ? new SubscriptionReadService({ list: vi.fn(async () => []), detail: vi.fn(async () => null) } as never)
+        : { list, detail } },
     ],
   }).overrideGuard(AuthenticatedPrincipalGuard).useValue(new AuthenticatedPrincipalGuard({ resolve })).compile();
   app = module.createNestApplication();
@@ -29,6 +31,14 @@ async function setup() {
 }
 
 describe('test-only subscription HTTP controller', () => {
+  it('accepts Express null-prototype query records through the real service and rejects unknown keys', async () => {
+    const { server } = await setup(true);
+    await request(server).get('/v1/subscriptions?scope=household&limit=1')
+      .set('Authorization', 'Bearer valid').expect(200);
+    await request(server).get('/v1/subscriptions?scope=household&ownerId=spoof')
+      .set('Authorization', 'Bearer valid').expect(400);
+  });
+
   it('takes context only from the guard and denies spoofed or missing credentials', async () => {
     const { server, list, resolve } = await setup();
     await request(server).get('/v1/subscriptions').set('Authorization', 'Bearer valid').set('X-Caller-Id', 'spoof').expect(200);

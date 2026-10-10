@@ -13,3 +13,7 @@ boundary: This is source/proof-consistency review only; no actual PostgreSQL acc
 contract: REVIEW/v1; task_id: ST-212; reviewer: architect-platform; verdict: APPROVE_SOURCE; findings: []
 proof_blobs: integration ffd153206f4e25124b770cd35cabe53d34cd6835; config bfd37cf7c26a61105fd2c699f6121b7712689697. Four INSERTs now set updated_at; all other required nondefault columns in these six fixture tables are supplied. Prior major finding closed.
 boundary: Source/fixture consistency only; disposable PG16 execution, QA, exact-head CI and parent acceptance remain unproven.
+## Null-prototype query correction — APPROVE_SOURCE
+service_blob: 6b59822cc7ee148683c9b696207cf049cf7fec13; service_spec_blob: dbcf2ad3f5694476b37f0a6f85625cfe6d46139b.
+finding_closed: Express null-prototype query records now pass the same strict key/value validation; cursor JSON and reason items still require ordinary plain records. The focused spec covers acceptance plus unknown ownerId rejection.
+boundary: Source review only; the author's focused tests, independent PG16 proof, QA and exact-head CI remain separate gates.

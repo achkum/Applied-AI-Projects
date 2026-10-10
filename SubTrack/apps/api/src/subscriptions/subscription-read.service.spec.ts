@@ -21,6 +21,15 @@ function setup(rows: SubscriptionReadRow[] = [row]) {
 }
 
 describe('subscription read service', () => {
+  it('accepts Express query objects with a null prototype without relaxing filter validation', async () => {
+    const { service, list } = setup();
+    const query = Object.assign(Object.create(null) as Record<string, unknown>, { scope: 'household', limit: '1' });
+    await service.list(context, query);
+    expect(list.mock.calls[0]?.[1]).toMatchObject({ scope: 'household', limit: 1 });
+    query['ownerId'] = peerId;
+    await expect(service.list(context, query)).rejects.toMatchObject({ status: 400 });
+  });
+
   it('serializes bigint exactly and emits owner-only review reason codes', async () => {
     const { service, list } = setup();
     const page = await service.list(context, {}, true);

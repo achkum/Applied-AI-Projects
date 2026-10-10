@@ -14,6 +14,10 @@ function invalid(): never { throw new BadRequestException('INVALID_SUBSCRIPTION_
 function plain(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 }
+function queryRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) &&
+    (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
+}
 function timestamp(value: unknown): value is string {
   return typeof value === 'string' && TIMESTAMP.test(value) && Number.isFinite(Date.parse(value)) &&
     new Date(value).toISOString().slice(0, 19) === value.slice(0, 19);
@@ -32,7 +36,7 @@ function cursor(raw: unknown, endpoint: 'subscriptions' | 'review-inbox', scope:
   return { createdAt: parsed.createdAt, id: parsed.id };
 }
 function options(raw: unknown, inbox: boolean): ReadFilters {
-  if (!plain(raw)) invalid();
+  if (!queryRecord(raw)) invalid();
   const allowed = inbox ? new Set(['cursor', 'limit']) : new Set(['scope', 'status', 'category', 'cursor', 'limit']);
   if (Object.keys(raw).some(key => !allowed.has(key))) invalid();
   const scope = inbox ? 'me' : raw.scope === undefined ? 'me' : raw.scope;
