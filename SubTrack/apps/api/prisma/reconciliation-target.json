@@ -90,5 +90,19 @@
       "rls": "owner-only SELECT/INSERT/UPDATE/DELETE; immutable identity_id; no inherited household subscription visibility"
     }
   },
+  "sqlOnlyCatalog": {
+    "partialIndexes": [
+      ["household_member_active_membership_idx", "household_member", "identity_id", "left_at IS NULL", true],
+      ["subscription_share_active_household_idx", "subscription_share", "subscription_id,household_id", "revoked_at IS NULL", true],
+      ["invitation_token_hash_idx", "invitation", "token_hash", "token_hash IS NOT NULL", false]
+    ],
+    "checks": ["household_member_role_identity_pair", "subscription_confidence_range", "raw_transaction_original_pair", "subscription_charge_match_pair"],
+    "grants": [
+      ["subtrack_runtime", "merchant", "SELECT", true], ["subtrack_runtime", "merchant", "INSERT", false],
+      ["subtrack_runtime", "catalogue_plan", "SELECT", true], ["subtrack_runtime", "catalogue_plan", "INSERT", false],
+      ["subtrack_catalogue_writer", "merchant", "INSERT", true], ["subtrack_catalogue_writer", "catalogue_plan", "INSERT", true],
+      ["subtrack_runtime", "otp_challenge", "SELECT", false], ["subtrack_otp_service", "otp_challenge", "INSERT", true]
+    ]
+  },
   "sqlOnlyProof": ["command-specific RLS USING and WITH CHECK under non-superuser non-BYPASSRLS runtime role", "immutable ownership and share authority fields", "active-share partial unique index", "confidence and charge matching checks", "bounded Boolean visibility helper, grants and recursion avoidance", "migration order: referenced tables before policies", "missing/invalid context, rollback and pooled reuse fail closed"]
 }

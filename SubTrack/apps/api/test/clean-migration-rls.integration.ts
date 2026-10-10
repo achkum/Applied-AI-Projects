@@ -7,6 +7,7 @@ import { test } from 'vitest';
 // This entrypoint runs only against the script's newly created PostgreSQL 16.
 test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
   let phase = 'endpoint';
+  let step = 'none';
   function endpoint(key: string, user: string): string {
     const value = process.env[key];
     assert(value);
@@ -48,7 +49,12 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
         pg_has_role(current_user,'subtrack_invitation_service','MEMBER') AS service`;
     assert.deepEqual(privilege, [{ schema_create: false, otp: false, catalogue_write: false,
       helper_create: false, lookup: false, service: false }]);
-    const fixture = JSON.parse(readFileSync('prisma/reconciliation-target.json', 'utf8')) as { enums: Record<string,string[]>; tables: Record<string,{columns:string[];keys?:string[];foreignKeys?:string[]}> };
+    const fixture = JSON.parse(readFileSync('prisma/reconciliation-target.json', 'utf8')) as {
+      enums: Record<string,string[]>;
+      tables: Record<string,{columns:string[];keys?:string[];foreignKeys?:string[]}>;
+      sqlOnlyCatalog: { partialIndexes: [string,string,string,string,boolean][]; checks: string[];
+        grants: [string,string,string,boolean][] };
+    };
     const enumRows = await owner.$queryRaw<{ name:string; value:string }[]>`
       SELECT t.typname AS name, e.enumlabel AS value FROM pg_type t JOIN pg_enum e ON e.enumtypid=t.oid
       JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' ORDER BY t.typname,e.enumsortorder`;
@@ -68,15 +74,26 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
     assert.equal(rls.find(r => r.name === 'otp_challenge')?.rls, false);
     const checks = await owner.$queryRaw<{ name:string }[]>`
       SELECT conname AS name FROM pg_constraint WHERE connamespace='public'::regnamespace AND contype IN ('c','f')`;
-    for (const name of ['household_member_role_identity_pair','subscription_confidence_range','raw_transaction_original_pair','subscription_charge_match_pair',
+    for (const name of [...fixture.sqlOnlyCatalog.checks,
       'bank_account_connection_id_identity_id_fkey','raw_transaction_account_id_identity_id_fkey',
       'subscription_charge_raw_transaction_id_identity_id_fkey'])
       assert(checks.some(c => c.name === name));
     const indexes = await owner.$queryRaw<{ name:string; table_name:string; definition:string }[]>`
       SELECT indexname AS name, tablename AS table_name, indexdef AS definition
       FROM pg_indexes WHERE schemaname='public'`;
-    for (const name of ['household_member_active_membership_idx','subscription_share_active_household_idx'])
-      assert(indexes.some(i => i.name === name));
+    const compact = (value:string) => value.replace(/[()\s"]/g,'').toLowerCase();
+    for (const [name, table, columns, predicate, unique] of fixture.sqlOnlyCatalog.partialIndexes) {
+      const found=indexes.find(i => i.name===name && i.table_name===table);
+      assert(found);
+      assert.equal(found.definition.startsWith('CREATE UNIQUE INDEX'),unique);
+      assert(found.definition.replaceAll('"','').replaceAll(' ','').includes(`(${columns})`));
+      assert.equal(compact(found.definition.split(' WHERE ')[1] ?? ''),compact(predicate));
+    }
+    for (const [role, table, privilege, expected] of fixture.sqlOnlyCatalog.grants) {
+      const actual=await owner.$queryRaw<{allowed:boolean}[]>`
+        SELECT has_table_privilege(${role}, ${`public.${table}`}, ${privilege}) AS allowed`;
+      assert.equal(actual[0]?.allowed,expected);
+    }
     const foreignKeys = await owner.$queryRaw<{table_name:string;definition:string}[]>`
       SELECT c.relname AS table_name, pg_get_constraintdef(k.oid) AS definition
       FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid
@@ -138,6 +155,12 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
       VALUES (${a}::uuid,${h}::uuid,'HOUSEHOLD',false,now())`;
     await owner.$executeRaw`INSERT INTO bank_connection(id,identity_id,provider,institution_id,institution_name,status,updated_at)
       VALUES (${bank}::uuid,${a}::uuid,'SYNTHETIC','synthetic','synthetic','ACTIVE',now())`;
+    await owner.$executeRaw`INSERT INTO bank_connection(id,identity_id,provider,institution_id,institution_name,status,updated_at)
+      VALUES (${randomUUID()}::uuid,${a}::uuid,'SYNTHETIC','null-allowed','synthetic','ACTIVE',now())`;
+    await owner.$executeRaw`INSERT INTO bank_connection(id,identity_id,provider,provider_connection_id,institution_id,institution_name,status,updated_at)
+      VALUES (${randomUUID()}::uuid,${a}::uuid,'SYNTHETIC','unique-proof','named','synthetic','ACTIVE',now())`;
+    await assert.rejects(owner.$executeRaw`INSERT INTO bank_connection(id,identity_id,provider,provider_connection_id,institution_id,institution_name,status,updated_at)
+      VALUES (${randomUUID()}::uuid,${a}::uuid,'SYNTHETIC','unique-proof','duplicate','synthetic','ACTIVE',now())`);
     await owner.$executeRaw`INSERT INTO bank_account(id,connection_id,identity_id,provider_account_id,name,type,currency,updated_at)
       VALUES (${account}::uuid,${bank}::uuid,${a}::uuid,'synthetic','synthetic','CHECKING','SEK',now())`;
     await owner.$executeRaw`INSERT INTO raw_transaction(id,account_id,identity_id,provider_transaction_id,amount_minor,currency,transaction_date,status,raw_description,is_refund,dedupe_hash,updated_at)
@@ -241,7 +264,9 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
       throw new Error('Expected second LOGIN to block on the shared row');
     };
     for (const isolation of ['READ COMMITTED','REPEATABLE READ'] as const) {
+      const level = isolation === 'READ COMMITTED' ? 'rc' : 'rr';
       const raceTx=randomUUID(), raceCharge=randomUUID(), marker=randomUUID();
+      step = `${level}-source-seed`;
       await owner.$executeRaw`INSERT INTO raw_transaction(id,account_id,identity_id,provider_transaction_id,amount_minor,currency,transaction_date,status,raw_description,is_refund,dedupe_hash,updated_at)
         VALUES (${raceTx}::uuid,${account}::uuid,${a}::uuid,${raceTx},-50,'SEK','2026-01-02','BOOKED','synthetic',false,${raceTx},now())`;
       let acquired!: () => void, release!: () => void;
@@ -255,19 +280,23 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
         acquired();
         await hold;
       }, { timeout: 15_000 });
+      step = `${level}-capture`;
       await Promise.race([locked,capture]);
       const edit=app2.$transaction(async t => {
         await t.$executeRawUnsafe(`SET TRANSACTION ISOLATION LEVEL ${isolation}`);
         await t.$queryRaw`SELECT set_config('application_name',${marker},true), set_config('app.user_id',${a},true), set_config('app.current_user_id',${a},true)`;
         await t.$executeRaw`UPDATE raw_transaction SET amount_minor=-51 WHERE id=${raceTx}::uuid`;
       }, { timeout: 15_000 });
+      step = `${level}-source-await-block`;
       try { await awaitBlock(marker); } finally { release(); }
+      step = `${level}-source-edit-assert`;
       await capture;
       await assert.rejects(edit);
       const financial=await owner.$queryRaw<{amount_minor:bigint}[]>`SELECT amount_minor FROM raw_transaction WHERE id=${raceTx}::uuid`;
       assert.equal(financial[0]?.amount_minor,-50n);
 
       const e=randomUUID(), f=randomUUID(), raceHousehold=randomUUID(), adminMarker=randomUUID();
+      step = `${level}-admin-seed`;
       await owner.$executeRaw`INSERT INTO identity(id,auth_method,updated_at) VALUES
         (${e}::uuid,'MOCK',now()),(${f}::uuid,'MOCK',now())`;
       await owner.$transaction(async t => {
@@ -286,6 +315,7 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
         adminAcquired();
         await adminHold;
       }, { timeout: 15_000 });
+      step = `${level}-admin-first`;
       await Promise.race([adminLocked,first]);
       const second=app2.$transaction(async t => {
         await t.$executeRawUnsafe(`SET TRANSACTION ISOLATION LEVEL ${isolation}`);
@@ -293,7 +323,9 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
         await t.$executeRaw`UPDATE household_member SET left_at=now()
           WHERE household_id=${raceHousehold}::uuid AND identity_id=${f}::uuid`;
       }, { timeout: 15_000 });
+      step = `${level}-admin-await-block`;
       try { await awaitBlock(adminMarker); } finally { adminRelease(); }
+      step = `${level}-admin-second-assert`;
       await first;
       await assert.rejects(second);
       const admins=await owner.$queryRaw<{ count:bigint }[]>`SELECT count(*) AS count FROM household_member
@@ -402,7 +434,7 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
     const candidate = detail.meta?.code ?? detail.code;
     const code = typeof candidate === 'string' && /^(?:P[0-9]{4}|[0-9A-Z]{5})$/.test(candidate)
       ? candidate : 'unavailable';
-    failed = new Error(`BUG-008b disposable PostgreSQL proof failed: ${phase}; code=${code}`);
+    failed = new Error(`BUG-008b disposable PostgreSQL proof failed: ${phase}; step=${phase === 'concurrent source and admin guards' ? step : 'none'}; code=${code}`);
   }
   const closed = await Promise.allSettled([owner.$disconnect(),app.$disconnect(),app2.$disconnect(),service.$disconnect(),
     identityService.$disconnect(),otpService.$disconnect(),catalogueService.$disconnect()]);
