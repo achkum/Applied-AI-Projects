@@ -15,6 +15,7 @@ passed=true
 phase=launcher-integration
 coverage=unavailable
 failure_subphase=unavailable
+failure_cleanup=unavailable
 cid=$(printf '%064d' 0)
 label="ST-226:$(printf '%032d' 0)"
 name="st226-0-1-${label#ST-226:}"
@@ -41,10 +42,17 @@ for case_name in missing substituted docker_failure removal_failure network_publ
   status=0
   (trap finish EXIT; exit 0) || status=$?
   [[ "$status" == 1 && ! -e "$tmp" ]]
-  grep -qx "ST-226 browser subscription lifecycle launcher proof: FAIL source_head=$source_head phase=cleanup subphase=unavailable code=unavailable" "$receipt"
+  grep -qx "ST-226 browser subscription lifecycle launcher proof: FAIL source_head=$source_head phase=cleanup subphase=unavailable parent_cleanup=unavailable fixture_cleanup=true code=unavailable" "$receipt"
   if [[ "$case_name" != missing ]]; then [[ -e "$record" ]]; fi
  done
 rm -f -- "$record"
+tmp="$base/st226.primary"
+mkdir -m 700 "$tmp"
+failure_subphase=child_startup_exit failure_cleanup=child_exit
+status=0
+(trap finish EXIT; exit 1) || status=$?
+[[ "$status" == 1 && ! -e "$tmp" ]]
+grep -qx "ST-226 browser subscription lifecycle launcher proof: FAIL source_head=$source_head phase=cleanup subphase=child_startup_exit parent_cleanup=child_exit fixture_cleanup=true code=unavailable" "$receipt"
 cleanup_container
 if cleanup_container "$cid" "$label" "$name" "$created"; then exit 1; fi
 printf '%s %s %s %s\n' "$cid" "$label" "$name" "$created" > "$record"
@@ -56,10 +64,17 @@ docker() {
 }
 cleanup_container
 [[ ! -e "$record" ]]
-for code in fixture compiled_child smoke denials sigterm_cleanup sigint_cleanup; do
+for code in fixture compiled_child child_spawn child_bootstrap child_startup_exit child_startup_timeout child_pool smoke denials sigterm_cleanup sigint_cleanup parent_cleanup; do
   printf '\033[31mError: ST-226 launcher proof failed: %s\033[39m\n' "$code" > "$base/failure.log"
   [[ "$(classify_launcher_failure "$base/failure.log")" == "$code" ]]
 done
+for code in none child_exit child_timeout owner_disconnect; do
+  printf 'Failed Suites 1\nError: ST-226 launcher proof failed: child_startup_exit; cleanup: %s\n' "$code" > "$base/failure.log"
+  [[ "$(classify_launcher_failure "$base/failure.log")" == child_startup_exit ]]
+  [[ "$(classify_launcher_failure "$base/failure.log" cleanup)" == "$code" ]]
+done
+printf 'ST-226 launcher proof failed: smoke-secret; cleanup: child_exit-secret\n' > "$base/failure.log"
+[[ "$(classify_launcher_failure "$base/failure.log" cleanup)" == unavailable ]]
 for text in 'ST-226 launcher proof failed: unknown-sensitive' 'ST-226 launcher proof failed: smoke-secret' 'credentialURL header body'; do
   printf '%s\n' "$text" > "$base/failure.log"
   [[ "$(classify_launcher_failure "$base/failure.log")" == unavailable ]]

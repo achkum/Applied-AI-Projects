@@ -78,6 +78,8 @@ async function httpsPost(portNumber: number, headers: Record<string, string>, bo
         catch (error) { reject(error); }
       });
     });
+    const timer = setTimeout(() => request.destroy(new Error('HTTPS test request timed out')), 5_000);
+    request.once('close', () => clearTimeout(timer));
     request.on('error', reject);
     request.end(body);
   });
@@ -192,7 +194,7 @@ describe('private browser subscription read composition', () => {
     const probe = createServer();
     try { await new Promise<void>(done => probe.listen(actualPort, '127.0.0.1', done)); }
     finally { await new Promise<void>(done => probe.close(() => done())); }
-  });
+  }, 30_000); // Bounds startup, sequential HTTPS requests and teardown under CI load.
 
   it('checks the same ordinary pool including merchant SELECT before Nest creation', async () => {
     const { options, query } = fixture();

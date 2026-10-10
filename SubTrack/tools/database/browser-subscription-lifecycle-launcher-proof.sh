@@ -54,17 +54,23 @@ cleanup_container() {
   rm -- "$record"
 }
 classify_launcher_failure() {
-  local line code
+  local line code fallback=unavailable
   while IFS= read -r line; do
-    for code in fixture compiled_child smoke denials sigterm_cleanup sigint_cleanup; do
+    if [[ "${2:-phase}" == cleanup ]]; then
+      for code in none child_exit child_timeout owner_disconnect; do
+        if [[ "$line" =~ ST-226\ launcher\ proof\ failed:.*\;\ cleanup:\ ${code}($|[^a-zA-Z0-9_-]) ]]; then printf '%s\n' "$code"; return; fi
+      done
+      continue
+    fi
+    for code in fixture compiled_child child_spawn child_bootstrap child_startup_exit child_startup_timeout child_pool smoke denials sigterm_cleanup sigint_cleanup parent_cleanup; do
       if [[ "$line" =~ ST-226\ launcher\ proof\ failed:\ ${code}($|[^a-zA-Z0-9_-]) ]]; then printf '%s\n' "$code"; return; fi
     done
     case "$line" in
-      *'ST-226 parent cleanup failed'*) printf 'parent_cleanup\n'; return ;;
-      *'Failed Suites'*|*'No test files found'*) printf 'collection\n'; return ;;
+      *'ST-226 parent cleanup failed'*) fallback=parent_cleanup ;;
+      *'Failed Suites'*|*'No test files found'*) fallback=collection ;;
     esac
   done < "$1"
-  printf 'unavailable\n'
+  printf '%s\n' "$fallback"
 }
 
 if [[ "${1:-}" == --cleanup ]]; then cleanup_container; exit; fi
@@ -76,6 +82,7 @@ phase=starting
 passed=false
 coverage=unavailable
 failure_subphase=unavailable
+failure_cleanup=unavailable
 finish() {
   local status=$?
   trap - EXIT
@@ -93,12 +100,13 @@ finish() {
   else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; phase=cleanup; fi
   case "$phase" in starting|fixture|migration|role|tls|build|launcher-coverage|launcher-integration|cleanup) ;; *) phase=starting; status=1 ;; esac
-  case "$failure_subphase" in unavailable|fixture|compiled_child|smoke|denials|sigterm_cleanup|sigint_cleanup|parent_cleanup|collection) ;; *) failure_subphase=unavailable; status=1 ;; esac
+  case "$failure_subphase" in unavailable|fixture|compiled_child|child_spawn|child_bootstrap|child_startup_exit|child_startup_timeout|child_pool|smoke|denials|sigterm_cleanup|sigint_cleanup|parent_cleanup|collection) ;; *) failure_subphase=unavailable; status=1 ;; esac
+  case "$failure_cleanup" in unavailable|none|child_exit|child_timeout|owner_disconnect) ;; *) failure_cleanup=unavailable; status=1 ;; esac
   [[ "$coverage" == unavailable || "$coverage" =~ ^statements:[0-9]+([.][0-9]+)?,branches:[0-9]+([.][0-9]+)?,functions:[0-9]+([.][0-9]+)?,lines:[0-9]+([.][0-9]+)?$ ]] || { coverage=unavailable; status=1; }
   if [[ "$status" -eq 0 && "$passed" == true ]]; then
     printf 'ST-226 browser subscription lifecycle launcher proof: PASS source_head=%s coverage=%s cases=READ,PATCH,reread,persistence,peer404,missing404,conflict409,pool-PID,dual-GUC,SIGTERM,SIGINT,listener-reuse,pool-baseline fixture=removed child=stopped secrets=destroyed\n' "$source_head" "$coverage" > "$receipt"
   else
-    printf 'ST-226 browser subscription lifecycle launcher proof: FAIL source_head=%s phase=%s subphase=%s code=unavailable\n' "$source_head" "$phase" "$failure_subphase" > "$receipt"
+    printf 'ST-226 browser subscription lifecycle launcher proof: FAIL source_head=%s phase=%s subphase=%s parent_cleanup=%s fixture_cleanup=%s code=unavailable\n' "$source_head" "$phase" "$failure_subphase" "$failure_cleanup" "$bad" > "$receipt"
   fi
   exit "$status"
 }
@@ -188,6 +196,7 @@ export ST226_OWNER_PROVENANCE_FILE="$tmp/owner-provenance.json"
 export ST226_TLS_KEY_FILE="$tmp/tls.key" ST226_TLS_CERT_FILE="$tmp/tls.crt"
 if ! (cd apps/api && corepack pnpm exec vitest run --config test/vitest.browser-subscription-lifecycle-launcher.config.ts) >"$tmp/test.log" 2>&1; then
   failure_subphase=$(classify_launcher_failure "$tmp/test.log")
+  failure_cleanup=$(classify_launcher_failure "$tmp/test.log" cleanup)
   exit 1
 fi
 passed=true

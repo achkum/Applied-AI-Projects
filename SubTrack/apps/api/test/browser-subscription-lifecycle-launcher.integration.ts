@@ -11,6 +11,13 @@ import { inspectOwnedFixture, privateFile } from '../src/subscriptions/browser-s
 type Credential = { handle: 'owner' | 'peer'; access: string; binding: string; csrf: string };
 const root = resolve(__dirname, '../../..');
 const origin = 'https://127.0.0.1:35426';
+const phases = ['fixture', 'compiled_child', 'child_spawn', 'child_bootstrap', 'child_startup_exit',
+  'child_startup_timeout', 'child_pool', 'smoke', 'denials', 'sigterm_cleanup', 'sigint_cleanup', 'parent_cleanup'] as const;
+type Phase = typeof phases[number];
+type Cleanup = 'none' | 'child_exit' | 'child_timeout' | 'owner_disconnect';
+const failureReceipt = (phase: unknown, cleanup: unknown) =>
+  `ST-226 launcher proof failed: ${phases.includes(phase as Phase) ? phase : 'unavailable'}; cleanup: ${
+    ['none', 'child_exit', 'child_timeout', 'owner_disconnect'].includes(cleanup as string) ? cleanup : 'unavailable'}`;
 const childExit = (child: ChildProcess, ms: number): Promise<number | null> => new Promise((done, reject) => {
   if (child.exitCode !== null || child.signalCode !== null) return done(child.exitCode);
   const timer = setTimeout(() => { clear(); reject(new Error('timeout')); }, ms);
@@ -44,7 +51,9 @@ const listenerClosed = async (id: string) => {
 
 test('owned PG16 compiled HTTPS READ PATCH persistence and launcher cleanup', async () => {
   if (process.platform !== 'linux' || process.env['CI'] !== 'true') throw new Error('ST-226 requires Linux CI');
-  let phase = 'fixture';
+  let phase: Phase = 'fixture';
+  let failure: Phase | undefined;
+  let cleanup: Cleanup = 'none';
   let ownerDb: PrismaClient | undefined;
   let child: ChildProcess | undefined;
   let credentials: Credential[] = [];
@@ -103,32 +112,41 @@ test('owned PG16 compiled HTTPS READ PATCH persistence and launcher cleanup', as
     phase = 'compiled_child';
     const startChild = async () => {
       custody();
+      phase = 'child_spawn';
       child = spawn(process.execPath, [resolve(root, 'apps/api/dist/subscriptions/browser-subscription-lifecycle.local.js')], {
         cwd: resolve(root, 'apps/api'), stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
         env: { ...process.env, DATABASE_URL: '', NODE_ENV: 'development', ST226_ENABLED: '1', ST226_HOST: '127.0.0.1',
           ST226_PORT: '35426', ST226_OWNER_ID: owner, ST226_PEER_ID: peer, ST226_RUNTIME_URL: runtimeUrl,
           ST226_OWNER_URL: '', ST226_OWNER_PROVENANCE_FILE: '' },
       });
+      phase = 'child_bootstrap';
+      const current = child;
       credentials = await new Promise<Credential[]>((done, reject) => {
-        const timer = setTimeout(() => reject(new Error('timeout')), 20_000);
-        child!.once('message', (raw: unknown) => {
+        const finish = (error?: Error, result?: Credential[]) => {
+          clearTimeout(timer); current.off('message', ready); current.off('error', failed); current.off('exit', exited);
+          if (error) reject(error); else done(result!);
+        };
+        const failed = () => { phase = 'child_spawn'; finish(new Error('startup')); };
+        const exited = () => { phase = 'child_startup_exit'; finish(new Error('startup')); };
+        const timer = setTimeout(() => { phase = 'child_startup_timeout'; finish(new Error('timeout')); }, 20_000);
+        const ready = (raw: unknown) => {
           clearTimeout(timer);
           if (!raw || typeof raw !== 'object' || Array.isArray(raw) ||
               Object.keys(raw).sort().join(',') !== 'credentials,id,kind' ||
               (raw as { kind?: string }).kind !== 'ready' || (raw as { id?: number }).id !== 0)
-            return reject(new Error('bootstrap'));
+            return finish(new Error('bootstrap'));
           const result = (raw as { credentials?: Credential[] }).credentials;
           if (!Array.isArray(result) || result.length !== 2 || result[0]?.handle !== 'owner' || result[1]?.handle !== 'peer' ||
               !result.every(item => item && Object.keys(item).sort().join(',') === 'access,binding,csrf,handle' &&
                 typeof item.access === 'string' && item.access.length > 16 && item.access.length < 8192 &&
                 typeof item.binding === 'string' && /^[A-Za-z0-9_-]{43}$/.test(item.binding) &&
                 typeof item.csrf === 'string' && item.csrf.length > 16 && item.csrf.length < 512))
-            return reject(new Error('bootstrap'));
-          done(result);
-        });
-        child!.once('error', () => { clearTimeout(timer); reject(new Error('startup')); });
-        child!.once('exit', () => { clearTimeout(timer); reject(new Error('startup')); });
+            return finish(new Error('bootstrap'));
+          finish(undefined, result);
+        };
+        current.once('message', ready); current.once('error', failed); current.once('exit', exited);
       });
+      phase = 'child_pool';
       await waitForConnections(baseline + 1);
     };
     let nextId = 1;
@@ -185,17 +203,26 @@ test('owned PG16 compiled HTTPS READ PATCH persistence and launcher cleanup', as
     assert.deepEqual(await snapshot(), persisted);
     phase = 'sigterm_cleanup'; await stopChild('SIGTERM');
     phase = 'sigint_cleanup'; nextId = 1; startupPid = undefined;
-    await startChild(); await observe('peer'); await stopChild('SIGINT');
-  } catch { throw new Error(`ST-226 launcher proof failed: ${phase}`); }
+    await startChild(); phase = 'sigint_cleanup'; await observe('peer'); await stopChild('SIGINT');
+  } catch { failure = phase; }
   finally {
-    let failed = false;
     credentials.length = 0;
     if (child) {
       child.kill('SIGTERM');
-      try { assert.equal(await childExit(child, 15_000), 0); }
-      catch { child.kill('SIGKILL'); try { await childExit(child, 5_000); } catch { /* retain failure */ } failed = true; }
+      try { if (await childExit(child, 15_000) !== 0) cleanup = 'child_exit'; }
+      catch { child.kill('SIGKILL'); try { await childExit(child, 5_000); } catch { /* retain failure */ } cleanup = 'child_timeout'; }
     }
-    try { await ownerDb?.$disconnect(); } catch { failed = true; }
-    assert.equal(failed, false, 'ST-226 parent cleanup failed');
+    try { await ownerDb?.$disconnect(); } catch { cleanup = 'owner_disconnect'; }
   }
+  if (failure || cleanup !== 'none') throw new Error(failureReceipt(failure ?? 'parent_cleanup', cleanup));
 }, 180_000);
+
+test('parent diagnostic preserves primary failure and redacts unknown values', () => {
+  assert.equal(failureReceipt('child_startup_exit', 'child_exit'),
+    'ST-226 launcher proof failed: child_startup_exit; cleanup: child_exit');
+  assert.equal(failureReceipt('credentialURL header body', 'secret'),
+    'ST-226 launcher proof failed: unavailable; cleanup: unavailable');
+});
+test('parent detects a child already exited unsuccessfully without waiting', async () => {
+  assert.equal(await childExit({ exitCode: 1, signalCode: null } as ChildProcess, 10), 1);
+});
