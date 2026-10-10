@@ -68,6 +68,16 @@ export type SubscriptionLifecycleError = {
     code: 'INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'SUBSCRIPTION_NOT_FOUND' | 'LIFECYCLE_CONFLICT' | 'INTERNAL_ERROR';
 };
 
+/**
+ * RFC 9457 problem; no resource, principal, credential, query or driver details.
+ */
+export type BrowserSubscriptionLifecycleError = {
+    type: string;
+    title: string;
+    status: 400 | 401 | 403 | 404 | 409 | 500;
+    code: 'INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'AUTH_CSRF_UNAVAILABLE' | 'SUBSCRIPTION_NOT_FOUND' | 'LIFECYCLE_CONFLICT' | 'INTERNAL_ERROR';
+};
+
 export type SubscriptionPeerReadStatus = 'TRIAL' | 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'ARCHIVED' | 'REJECTED';
 
 export type SubscriptionReadCadence = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL' | 'CUSTOM';
@@ -1019,6 +1029,69 @@ export type ListReviewInboxResponses = {
 };
 
 export type ListReviewInboxResponse = ListReviewInboxResponses[keyof ListReviewInboxResponses];
+
+export type PatchV2BrowserSubscriptionLifecycleData = {
+    body: SubscriptionLifecyclePatch;
+    headers: {
+        /**
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+         */
+        Origin: string;
+        /**
+         * Exactly one token bound to the verified current browser identity and session.
+         */
+        'X-Session-CSRF': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/v2/subscriptions/{id}';
+};
+
+export type PatchV2BrowserSubscriptionLifecycleErrors = {
+    /**
+     * Generic bounded error. Malformed path/body/target/query, transport, origin or header multiplicity is 400 INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST; absent or invalid current access authority is 401 AUTHENTICATION_REQUIRED; invalid or missing session CSRF is 403 AUTH_CSRF_UNAVAILABLE; missing and foreign IDs share the identical 404 SUBSCRIPTION_NOT_FOUND; stale or disallowed pairs return 409 LIFECYCLE_CONFLICT; internal faults are masked as 500 INTERNAL_ERROR. Never disclose credentials or owner data.
+     *
+     */
+    400: BrowserSubscriptionLifecycleError;
+    /**
+     * Generic bounded error. Malformed path/body/target/query, transport, origin or header multiplicity is 400 INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST; absent or invalid current access authority is 401 AUTHENTICATION_REQUIRED; invalid or missing session CSRF is 403 AUTH_CSRF_UNAVAILABLE; missing and foreign IDs share the identical 404 SUBSCRIPTION_NOT_FOUND; stale or disallowed pairs return 409 LIFECYCLE_CONFLICT; internal faults are masked as 500 INTERNAL_ERROR. Never disclose credentials or owner data.
+     *
+     */
+    401: BrowserSubscriptionLifecycleError;
+    /**
+     * Generic bounded error. Malformed path/body/target/query, transport, origin or header multiplicity is 400 INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST; absent or invalid current access authority is 401 AUTHENTICATION_REQUIRED; invalid or missing session CSRF is 403 AUTH_CSRF_UNAVAILABLE; missing and foreign IDs share the identical 404 SUBSCRIPTION_NOT_FOUND; stale or disallowed pairs return 409 LIFECYCLE_CONFLICT; internal faults are masked as 500 INTERNAL_ERROR. Never disclose credentials or owner data.
+     *
+     */
+    403: BrowserSubscriptionLifecycleError;
+    /**
+     * Generic bounded error. Malformed path/body/target/query, transport, origin or header multiplicity is 400 INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST; absent or invalid current access authority is 401 AUTHENTICATION_REQUIRED; invalid or missing session CSRF is 403 AUTH_CSRF_UNAVAILABLE; missing and foreign IDs share the identical 404 SUBSCRIPTION_NOT_FOUND; stale or disallowed pairs return 409 LIFECYCLE_CONFLICT; internal faults are masked as 500 INTERNAL_ERROR. Never disclose credentials or owner data.
+     *
+     */
+    404: BrowserSubscriptionLifecycleError;
+    /**
+     * Generic bounded error. Malformed path/body/target/query, transport, origin or header multiplicity is 400 INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST; absent or invalid current access authority is 401 AUTHENTICATION_REQUIRED; invalid or missing session CSRF is 403 AUTH_CSRF_UNAVAILABLE; missing and foreign IDs share the identical 404 SUBSCRIPTION_NOT_FOUND; stale or disallowed pairs return 409 LIFECYCLE_CONFLICT; internal faults are masked as 500 INTERNAL_ERROR. Never disclose credentials or owner data.
+     *
+     */
+    409: BrowserSubscriptionLifecycleError;
+    /**
+     * Generic bounded error. Malformed path/body/target/query, transport, origin or header multiplicity is 400 INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST; absent or invalid current access authority is 401 AUTHENTICATION_REQUIRED; invalid or missing session CSRF is 403 AUTH_CSRF_UNAVAILABLE; missing and foreign IDs share the identical 404 SUBSCRIPTION_NOT_FOUND; stale or disallowed pairs return 409 LIFECYCLE_CONFLICT; internal faults are masked as 500 INTERNAL_ERROR. Never disclose credentials or owner data.
+     *
+     */
+    500: BrowserSubscriptionLifecycleError;
+};
+
+export type PatchV2BrowserSubscriptionLifecycleError = PatchV2BrowserSubscriptionLifecycleErrors[keyof PatchV2BrowserSubscriptionLifecycleErrors];
+
+export type PatchV2BrowserSubscriptionLifecycleResponses = {
+    /**
+     * Bounded status result after an accepted owner transition.
+     */
+    200: SubscriptionLifecycleResult;
+};
+
+export type PatchV2BrowserSubscriptionLifecycleResponse = PatchV2BrowserSubscriptionLifecycleResponses[keyof PatchV2BrowserSubscriptionLifecycleResponses];
 
 export type ReadV2BrowserSubscriptionData = {
     body: BrowserSubscriptionReadRequest;
