@@ -81,7 +81,16 @@
       "loading": "Please wait…",
       "error": "Something went wrong. Please try again.",
       "restartRequired": "Restart verification",
-      "invalidOtp": "Enter six digits."
+      "invalidOtp": "Enter six digits.",
+      "otpTitle": "Verify your contact detail",
+      "otpIntroduction": "Enter the six-digit code if you received one.",
+      "otpHint": "Enter six digits.",
+      "verifyPending": "Please wait…",
+      "wrongCode": "The code could not be verified. Check it and try again.",
+      "requestCode": "Request a new code",
+      "resendCountdown": "Request a new code in {seconds}s",
+      "bankIdUnavailable": "BankID is not available here yet.",
+      "requestUnavailable": "Could not continue. Restart verification."
     }
   },
   "hero": {

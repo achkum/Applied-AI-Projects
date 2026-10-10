@@ -1,0 +1,14 @@
+diff --git a/SubTrack/.sdlc/evidence/ST-051d/expo-web-smoke.cjs b/SubTrack/.sdlc/evidence/ST-211/expo-web-smoke.cjs
+index 478b54b..c769cfa 100644
+--- a/SubTrack/.sdlc/evidence/ST-051d/expo-web-smoke.cjs
++++ b/SubTrack/.sdlc/evidence/ST-211/expo-web-smoke.cjs
+@@ -37,0 +38 @@ async function screenshot(page, locale, theme, state) {
++  await page.getByText('Refreshing...', { exact: true }).waitFor({ state: 'hidden', timeout: 45000 });
+@@ -145 +146 @@ async function run() {
+-        await page.getByText(registration.unavailable).waitFor();
++        await page.getByText(registration.requestUnavailable).waitFor();
+@@ -148,3 +149 @@ async function run() {
+-        assert.ok(unavailableText.includes(registration.identifierValid));
+-        assert.ok(unavailableText.includes(registration.bankIdRequired));
+-        assert.ok(unavailableText.includes(registration.unavailable));
++        assert.ok(unavailableText.includes(registration.requestUnavailable));
