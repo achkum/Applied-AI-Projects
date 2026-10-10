@@ -78,7 +78,7 @@ BEGIN
   END IF;
   IF NOT public.subtrack_active_admin(OLD.household_id)
      AND (NEW.role IS DISTINCT FROM OLD.role OR NEW.left_at IS NULL
-       OR OLD.identity_id IS DISTINCT FROM public.subtrack_principal()) THEN
+       OR NOT public.subtrack_principal_matches(OLD.identity_id)) THEN
     RAISE EXCEPTION 'Member may only leave their own membership';
   END IF;
   RETURN NEW;

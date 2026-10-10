@@ -40,15 +40,17 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
       FROM pg_roles r WHERE r.rolname=current_user`;
     assert.deepEqual(roles, [{ current: 'proof_runtime', session: 'proof_runtime', superuser: false,
       bypass: false, owner: false, runtime: true, role_set: false, extra: 0n }]);
-    const privilege = await app.$queryRaw<{ schema_create: boolean; otp: boolean; catalogue_write: boolean; helper_create: boolean; lookup: boolean; service: boolean }[]>`
+    const privilege = await app.$queryRaw<{ schema_create: boolean; otp: boolean; catalogue_write: boolean; parser: boolean; admin_check: boolean; principal_match: boolean; lookup: boolean; service: boolean }[]>`
       SELECT has_schema_privilege(current_user,'public','CREATE') AS schema_create,
         has_table_privilege(current_user,'public.otp_challenge','SELECT') AS otp,
         has_table_privilege(current_user,'public.merchant','INSERT') AS catalogue_write,
-        has_function_privilege(current_user,'public.subtrack_principal()','EXECUTE') AS helper_create,
+        has_function_privilege(current_user,'public.subtrack_principal()','EXECUTE') AS parser,
+        has_function_privilege(current_user,'public.subtrack_active_admin(uuid)','EXECUTE') AS admin_check,
+        has_function_privilege(current_user,'public.subtrack_principal_matches(uuid)','EXECUTE') AS principal_match,
         pg_has_role(current_user,'subtrack_visibility_lookup','MEMBER') AS lookup,
         pg_has_role(current_user,'subtrack_invitation_service','MEMBER') AS service`;
     assert.deepEqual(privilege, [{ schema_create: false, otp: false, catalogue_write: false,
-      helper_create: false, lookup: false, service: false }]);
+      parser: false, admin_check: true, principal_match: true, lookup: false, service: false }]);
     const fixture = JSON.parse(readFileSync('prisma/reconciliation-target.json', 'utf8')) as {
       enums: Record<string,string[]>;
       tables: Record<string,{columns:string[];keys?:string[];foreignKeys?:string[]}>;
@@ -333,7 +335,7 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
       assert.equal(admins[0]?.count,1n);
     }
     phase = 'mutation boundaries';
-    const sessionId=randomUUID(), otpId=randomUUID(), merchantId=randomUUID();
+    const sessionId=randomUUID(), otpId=randomUUID(), merchantId=randomUUID(), planId=randomUUID();
     await app.$transaction(async t => {
       await t.$queryRaw`SELECT set_config('app.user_id',${a},true), set_config('app.current_user_id',${a},true)`;
       assert.equal(await t.$executeRaw`INSERT INTO session(id,identity_id,device_name,refresh_token_hash,family_id)
@@ -360,7 +362,25 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
     assert.equal(await catalogueService.$executeRaw`INSERT INTO merchant(id,canonical_name,slug,category_code,aliases,country,updated_at)
       VALUES (${merchantId}::uuid,'synthetic','proof-synthetic','TEST','[]'::jsonb,'SE',now())`,1);
     assert.equal((await app.$queryRaw<{id:string}[]>`SELECT id FROM merchant WHERE id=${merchantId}::uuid`).length,1);
+    assert.equal((await catalogueService.$queryRaw<{id:string}[]>`SELECT id FROM merchant WHERE id=${merchantId}::uuid`).length,1);
+    assert.equal(await catalogueService.$executeRaw`UPDATE merchant SET canonical_name='synthetic revised' WHERE id=${merchantId}::uuid`,1);
+    assert.equal(await catalogueService.$executeRaw`INSERT INTO catalogue_plan
+      (id,merchant_id,plan_name,cadence,price_minor,currency,market,source,updated_at)
+      VALUES (${planId}::uuid,${merchantId}::uuid,'synthetic','MONTHLY',100,'SEK','SE','MANUAL',now())`,1);
+    assert.equal((await app.$queryRaw<{id:string}[]>`SELECT id FROM catalogue_plan WHERE id=${planId}::uuid`).length,1);
+    assert.equal((await catalogueService.$queryRaw<{id:string}[]>`SELECT id FROM catalogue_plan WHERE id=${planId}::uuid`).length,1);
+    assert.equal(await catalogueService.$executeRaw`UPDATE catalogue_plan SET price_minor=101 WHERE id=${planId}::uuid`,1);
+    await assert.rejects(app.$executeRaw`INSERT INTO merchant(id,canonical_name,slug,category_code,aliases,country,updated_at)
+      VALUES (${randomUUID()}::uuid,'denied','proof-denied','TEST','[]'::jsonb,'SE',now())`);
+    await assert.rejects(app.$executeRaw`UPDATE merchant SET canonical_name='denied' WHERE id=${merchantId}::uuid`);
     await assert.rejects(app.$executeRaw`DELETE FROM merchant WHERE id=${merchantId}::uuid`);
+    await assert.rejects(app.$executeRaw`INSERT INTO catalogue_plan
+      (id,merchant_id,plan_name,cadence,price_minor,currency,market,source,updated_at)
+      VALUES (${randomUUID()}::uuid,${merchantId}::uuid,'denied','MONTHLY',100,'SEK','SE','MANUAL',now())`);
+    await assert.rejects(app.$executeRaw`UPDATE catalogue_plan SET price_minor=102 WHERE id=${planId}::uuid`);
+    await assert.rejects(app.$executeRaw`DELETE FROM catalogue_plan WHERE id=${planId}::uuid`);
+    assert.equal(await catalogueService.$executeRaw`DELETE FROM catalogue_plan WHERE id=${planId}::uuid`,1);
+    assert.equal(await catalogueService.$executeRaw`DELETE FROM merchant WHERE id=${merchantId}::uuid`,1);
     await owner.$executeRaw`INSERT INTO invitation(id,household_id,inviter_id,channel,token_hash,expires_at,updated_at)
       VALUES (${inv}::uuid,${h}::uuid,${a}::uuid,'LINK','synthetic1',now()+interval '1 day',now()),
              (${inv2}::uuid,${h}::uuid,${a}::uuid,'LINK','synthetic2',now()+interval '1 day',now())`;

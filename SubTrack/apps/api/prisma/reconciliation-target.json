@@ -99,8 +99,13 @@
     "checks": ["household_member_role_identity_pair", "subscription_confidence_range", "raw_transaction_original_pair", "subscription_charge_match_pair"],
     "grants": [
       ["subtrack_runtime", "merchant", "SELECT", true], ["subtrack_runtime", "merchant", "INSERT", false],
+      ["subtrack_runtime", "merchant", "UPDATE", false], ["subtrack_runtime", "merchant", "DELETE", false],
       ["subtrack_runtime", "catalogue_plan", "SELECT", true], ["subtrack_runtime", "catalogue_plan", "INSERT", false],
-      ["subtrack_catalogue_writer", "merchant", "INSERT", true], ["subtrack_catalogue_writer", "catalogue_plan", "INSERT", true],
+      ["subtrack_runtime", "catalogue_plan", "UPDATE", false], ["subtrack_runtime", "catalogue_plan", "DELETE", false],
+      ["subtrack_catalogue_writer", "merchant", "SELECT", true], ["subtrack_catalogue_writer", "merchant", "INSERT", true],
+      ["subtrack_catalogue_writer", "merchant", "UPDATE", true], ["subtrack_catalogue_writer", "merchant", "DELETE", true],
+      ["subtrack_catalogue_writer", "catalogue_plan", "SELECT", true], ["subtrack_catalogue_writer", "catalogue_plan", "INSERT", true],
+      ["subtrack_catalogue_writer", "catalogue_plan", "UPDATE", true], ["subtrack_catalogue_writer", "catalogue_plan", "DELETE", true],
       ["subtrack_runtime", "otp_challenge", "SELECT", false], ["subtrack_otp_service", "otp_challenge", "INSERT", true]
     ]
   },
