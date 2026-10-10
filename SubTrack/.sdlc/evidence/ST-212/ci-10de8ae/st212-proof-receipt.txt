@@ -1,0 +1,1 @@
+ST-212 disposable PostgreSQL proof: PASS receipt=integration-wrapper
