@@ -29,6 +29,56 @@ function fromBase64url(s: string): Buffer {
   return Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
 }
 
+/** Verification-only capability for a separately managed trusted issuer. */
+export function publicKeyJwtVerifier(pem: string): Pick<JwtService, 'verify'> {
+  if (!pem) throw new Error('Trusted Ed25519 public key required.');
+  if (!/^-----BEGIN PUBLIC KEY-----\r?\n/.test(pem))
+    throw new Error('Trusted Ed25519 public key denied.');
+  let key: KeyObject;
+  try {
+    key = createPublicKey(pem);
+  } catch {
+    throw new Error('Trusted Ed25519 public key denied.');
+  }
+  if (key.type !== 'public' || key.asymmetricKeyType !== 'ed25519')
+    throw new Error('Trusted Ed25519 public key denied.');
+  return Object.freeze({ verify: (token: string) => verifyJwt(token, key) });
+}
+
+function verifyJwt(token: string, publicKey: KeyObject): JwtClaims {
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    throw new Error('Malformed JWT: expected 3 dot-separated parts.');
+  }
+  const headerB64 = parts[0]!;
+  const payloadB64 = parts[1]!;
+  const sigB64 = parts[2]!;
+
+  const message = Buffer.from(`${headerB64}.${payloadB64}`);
+  const sig = fromBase64url(sigB64);
+  const valid = verify(null, message, publicKey, sig);
+  if (!valid) {
+    throw new Error('JWT signature verification failed.');
+  }
+
+  const payload: unknown = JSON.parse(fromBase64url(payloadB64).toString('utf8'));
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload) ||
+      Object.getPrototypeOf(payload) !== Object.prototype) {
+    throw new Error('JWT payload must be a plain object.');
+  }
+  const claims = payload as Record<string, unknown>;
+  if (typeof claims.sub !== 'string' || claims.sub.trim().length === 0 ||
+      typeof claims.sid !== 'string' || claims.sid.trim().length === 0 ||
+      typeof claims.iat !== 'number' || !Number.isFinite(claims.iat) || !Number.isInteger(claims.iat) ||
+      typeof claims.exp !== 'number' || !Number.isFinite(claims.exp) || !Number.isInteger(claims.exp) ||
+      claims.exp <= claims.iat) {
+    throw new Error('JWT payload has invalid claims.');
+  }
+  const now = Math.floor(Date.now() / 1_000);
+  if (claims.exp <= now) throw new Error('JWT has expired.');
+  return claims as unknown as JwtClaims;
+}
+
 /**
  * Issues and verifies EdDSA (Ed25519) JWTs.
  *
@@ -74,54 +124,6 @@ export class JwtService {
   }
 
   verify(token: string): JwtClaims {
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      throw new Error('Malformed JWT: expected 3 dot-separated parts.');
-    }
-    const headerB64 = parts[0]!;
-    const payloadB64 = parts[1]!;
-    const sigB64 = parts[2]!;
-
-    const message = Buffer.from(`${headerB64}.${payloadB64}`);
-    const sig = fromBase64url(sigB64);
-    const valid = verify(null, message, this.publicKey, sig);
-    if (!valid) {
-      throw new Error('JWT signature verification failed.');
-    }
-
-    const payload: unknown = JSON.parse(
-      fromBase64url(payloadB64).toString('utf8'),
-    );
-    if (
-      payload === null ||
-      typeof payload !== 'object' ||
-      Array.isArray(payload) ||
-      Object.getPrototypeOf(payload) !== Object.prototype
-    ) {
-      throw new Error('JWT payload must be a plain object.');
-    }
-
-    const claims = payload as Record<string, unknown>;
-    if (
-      typeof claims.sub !== 'string' ||
-      claims.sub.trim().length === 0 ||
-      typeof claims.sid !== 'string' ||
-      claims.sid.trim().length === 0 ||
-      typeof claims.iat !== 'number' ||
-      !Number.isFinite(claims.iat) ||
-      !Number.isInteger(claims.iat) ||
-      typeof claims.exp !== 'number' ||
-      !Number.isFinite(claims.exp) ||
-      !Number.isInteger(claims.exp) ||
-      claims.exp <= claims.iat
-    ) {
-      throw new Error('JWT payload has invalid claims.');
-    }
-
-    const now = Math.floor(Date.now() / 1_000);
-    if (claims.exp <= now) {
-      throw new Error('JWT has expired.');
-    }
-    return claims as unknown as JwtClaims;
+    return verifyJwt(token, this.publicKey);
   }
 }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateKeyPairSync, sign } from 'node:crypto';
-import { JwtService } from './jwt.service';
+import { JwtService, publicKeyJwtVerifier } from './jwt.service';
 
 describe('JwtService', () => {
   let svc: JwtService;
@@ -134,5 +134,24 @@ describe('JwtService', () => {
     vi.stubEnv('JWT_PRIVATE_KEY_PEM', fixturePrivateKey);
     const token = svc.issue('identity-1', 'session-1');
     expect(() => other.verify(token)).toThrow();
+  });
+
+  it('uses the same verification rules through a public-key-only capability', () => {
+    const publicPem = svc.publicKey.export({ type: 'spki', format: 'pem' }).toString();
+    const reader = publicKeyJwtVerifier(publicPem);
+    const token = svc.issue('identity-1', 'session-1');
+    expect(reader.verify(token)).toEqual(svc.verify(token));
+    expect('issue' in reader).toBe(false);
+    expect(() => reader.verify(signedPayload('null'))).toThrow('JWT payload must be a plain object.');
+    expect(() => reader.verify('invalid')).toThrow('Malformed JWT');
+  });
+
+  it('rejects missing, malformed, private and non-Ed25519 trusted keys', () => {
+    expect(() => publicKeyJwtVerifier('')).toThrow('Trusted Ed25519 public key required.');
+    expect(() => publicKeyJwtVerifier('not a key')).toThrow('Trusted Ed25519 public key denied.');
+    expect(() => publicKeyJwtVerifier(fixturePrivateKey)).toThrow('Trusted Ed25519 public key denied.');
+    const rsa = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    expect(() => publicKeyJwtVerifier(rsa.publicKey.export({ type: 'spki', format: 'pem' }).toString()))
+      .toThrow('Trusted Ed25519 public key denied.');
   });
 });
