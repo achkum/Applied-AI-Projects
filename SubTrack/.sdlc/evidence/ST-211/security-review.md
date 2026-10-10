@@ -1,0 +1,13 @@
+# ST-211 independent security/privacy source review — 2026-10-10
+
+Verdict: **PASS for the bounded desktop/source integration; native/device and release gates remain open.** No source edit, commit, push, or device claim in this review.
+
+Scope: ST-211 task, Constitution, ADR-0020, screen spec/checkpoint, mobile client/flow/routes/tests, and accepted mobile API verify adapter. Source hashes: `mobileEnrollmentOtp.ts` SHA-256 `24AEBB3714629A70DAD4BB2252E8B612DFB93443920C8C720C10E623E79ED6E2`; `EnrollmentFlow.tsx` `AC07950DA73306D6A2D60BEF7D09736ADE167A7BB2BF1EFB14C3DC5588B9F49F`.
+
+- Client gates native `__DEV__`, explicit opt-in, and a parsed HTTPS origin without userinfo/path/query/fragment; web and production fail before RNG or fetch (`mobileEnrollmentOtp.ts:20-47`). Public Expo configuration is a build-time endpoint choice, not an authentication secret; the target must be controlled in the development build.
+- Every explicit start/resend/verify obtains 32 async Expo random bytes; RNG failure closes the call, and no retry or `Math.random` fallback appears (`:51-63,77-99`). Exact bodies/statuses and canonical challenge/proof formats are checked; `credentials:'omit'` and `redirect:'error'` are requested, with no browser auth/nonce/CSRF fields (`:88-168`).
+- Identifier, challenge, code and proof stay in component/provider memory. Reset, route departure/back, login mode and unmount invalidate pending completions through a generation check; BankID is unavailable and no session/account route consumes the restricted proof (`EnrollmentFlow.tsx:47-159`, route components). No sensitive values appear in URL, storage, audit UI, or new logging.
+- **Native evidence gate:** React Native fetch handling of `credentials:'omit'` and `redirect:'error'`, direct TLS/certificate behavior, and device trust are not proved by Jest/desktop rendering. Verify on supported native devices against the ST-051 development endpoint before claiming native acceptance or deployment. The source contains no TLS bypass.
+- **Minor UX/security clarity:** API terminal verify outcomes and incorrect codes both return 401 (`mobile-enrollment-otp-http.ts:253-261`), while the client labels every verify 401 `incorrect` (`mobileEnrollmentOtp.ts:102-103`). A terminal challenge can therefore briefly show retry advice before the next 409 forces restart; a generic 401 message or server-distinguishable safe reason should be considered in a follow-up. No proof or authority is disclosed by this behavior.
+
+Author checkpoint reports 127 passing mobile tests and scoped coverage 87.75% statements/81.6% branches; this review independently inspected source/tests but did not rerun the heavy suite. Exact-head CI, independent QA/design and native ST-051 evidence remain separate gates.

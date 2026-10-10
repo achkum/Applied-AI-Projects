@@ -6,7 +6,8 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-210, title: 'Standalone mobile enrollment OTP HTTPS adapter', owner: dev-backend, size: L, status: IN_REVIEW, deps: [ST-209, ST-208]}
+  - {id: ST-211, title: 'Development mobile enrollment OTP routes and client', owner: dev-mobile, size: L, status: IN_REVIEW, deps: [ST-051d, ST-210]}
+  - {id: ST-210, title: 'Standalone mobile enrollment OTP HTTPS adapter', owner: dev-backend, size: L, status: DONE, deps: [ST-209, ST-208]}
   - {id: BUG-008a, title: 'Canonical clean-install Prisma schema target', owner: architect-platform, size: M, status: DONE, deps: []}
   - {id: ST-209, title: 'Trusted mobile enrollment producer and atomic metadata', owner: dev-backend, size: M, status: DONE, deps: [ST-208, ST-170b2]}
   - {id: ST-208, title: 'Anonymous mobile enrollment reservation core and contract', owner: dev-backend, size: M, status: DONE, deps: [ST-207, ST-170c2]}

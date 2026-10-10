@@ -1,0 +1,25 @@
+{
+  "outcome": "PASS",
+  "mode": "test-only React state injection; actual Expo Web routes/components; synthetic identifier/challenge/proof",
+  "viewport": {
+    "width": 375,
+    "height": 812
+  },
+  "contexts": 4,
+  "screenshots": [
+    "visual-fixture-en-light-otp.png",
+    "visual-fixture-en-light-bankid.png",
+    "visual-fixture-en-dark-otp.png",
+    "visual-fixture-en-dark-bankid.png",
+    "visual-fixture-sv-light-otp.png",
+    "visual-fixture-sv-light-bankid.png",
+    "visual-fixture-sv-dark-otp.png",
+    "visual-fixture-sv-dark-bankid.png"
+  ],
+  "requestCount": 16,
+  "externalRequestCount": 0,
+  "pageErrors": 0,
+  "limitations": [
+    "Synthetic in-memory fixture only; no provider/API interaction, native or accessibility evidence."
+  ]
+}
