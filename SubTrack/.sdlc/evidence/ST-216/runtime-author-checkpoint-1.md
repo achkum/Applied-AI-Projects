@@ -1,0 +1,11 @@
+# ST-216 runtime author checkpoint 1
+- Original attempt/time: attempt 1, 2026-10-10 18:26:27 UTC; no failure/review counters changed.
+- Accepted parent: PR244 merge 0bda404. Implementing in branch `st/ST-216-lifecycle-http`; root alone commits/pushes/merges.
+- Owned edits so far: new lifecycle service/controller/composition/local entry; `interface-plan.md` sent to root for fixture author.
+- Service validates strict UUID and one-field target then maps four targets to writer actions; repository remains accepted locked-status authority.
+- Controller rejects raw query and non-JSON content type; global problem filter maps 400/401/404/409/masked 500, including parser errors.
+- Dedicated composition includes read/lifecycle routes, global guard, real resolver/session reader, same-pool role/RLS/SELECT/UPDATE preflight; default app untouched.
+- Local entry copied accepted read verifier with ST-216 label/role/database/env, and added exact full runtime URL credential binding to private provenance.
+- No tests or typecheck run yet. Next: add service/controller/composition/local unit tests, run focused checks, fix issues, inspect direct-entry security details.
+- Watch: factory interface is in `interface-plan.md`; fixture author owns integration/config/wrapper/workflow. Do not edit those files.
+- Changed files are uncommitted. No secret or raw URL should appear in evidence/logs.

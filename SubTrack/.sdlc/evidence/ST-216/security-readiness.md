@@ -1,0 +1,11 @@
+# ST-216 independent security/privacy readiness — 2026-10-10
+
+Verdict: **CONDITIONAL APPROVAL** of the proposed ADR-0024 Type 2a boundary. This is architecture readiness only. Runtime source edits remain gated until ST-215 PR244 is accepted on `main`.
+
+- The ST-216 launcher must create a fresh owner-only provenance record and, before constructing Prisma or listening, verify its exact CID, unique `ST-216:<nonce>` label, creation time, running approved PostgreSQL 16 image, sole tmpfs data mount, and sole numeric `127.0.0.1` ephemeral port against Docker inspection.
+- Bind the wrapper-generated runtime URL **including its credential** to that private record and compare the exact supplied URL to the recorded value without logging either. A matching role, database, port, `DATABASE_URL`, or caller assertion alone is not provenance. Reject any mismatch before database access. The existing ST-213 verifier and read-only preflight cannot confer ST-216 write authority.
+- After provenance succeeds, reuse accepted read preflight where safe and check ordinary non-superuser, non-BYPASSRLS one-membership role, RLS, SELECT and UPDATE privileges on the same runtime pool before route activation.
+- Use the existing V1 public-key verifier, `AuthenticatedPrincipalGuard` as `APP_GUARD`, real current-session resolver/reader, and locked owner writer. Accept no caller-selected identity, scope, or action. Reject raw query strings and any non-exact one-field JSON body, including prototype keys. Project only the contracted 400/401/404/409/masked-500 RFC 9457 errors and bounded `{id,status}` success.
+- Actual HTTP/ordinary-role PostgreSQL proof must cover all seven pairs, owner and peer isolation, malformed and spoofed requests, revoked/wrong-subject sessions, races, rollback, and pooled RLS-setting cleanup. Report sanitized PASS only after exact container and private-temp removal are verified. Exact-head coverage, quality, CI, and independent reviews remain required.
+
+No additional source path is presently required. If a safe implementation needs an accepted helper outside ST-216 `allowed_paths`, obtain a minimal path extension and renewed readiness before editing it. No runtime source was reviewed or changed for this verdict.
