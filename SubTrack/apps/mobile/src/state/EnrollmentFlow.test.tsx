@@ -31,6 +31,7 @@ const challengeId = 'a'.repeat(43);
 const proof = `v2.${'b'.repeat(43)}`;
 const start = jest.mocked(startMobileEnrollment);
 const verify = jest.mocked(verifyMobileEnrollment);
+let latestAction: Promise<void> | undefined;
 
 function Controls() {
   const { flow, start: begin, resend, verify: check, reset } = useEnrollment();
@@ -41,9 +42,18 @@ function Controls() {
       {'pending' in flow && (
         <Text testID="pending">{String(flow.pending)}</Text>
       )}
-      <Pressable testID="start" onPress={() => void begin(identifier)} />
-      <Pressable testID="resend" onPress={() => void resend()} />
-      <Pressable testID="verify" onPress={() => void check('123456')} />
+      <Pressable
+        testID="start"
+        onPress={() => void (latestAction = begin(identifier))}
+      />
+      <Pressable
+        testID="resend"
+        onPress={() => void (latestAction = resend())}
+      />
+      <Pressable
+        testID="verify"
+        onPress={() => void (latestAction = check('123456'))}
+      />
       <Pressable testID="reset" onPress={reset} />
     </>
   );
@@ -59,6 +69,11 @@ function mount() {
 function phase() {
   return screen.getByTestId('phase').props.children;
 }
+async function settleAction() {
+  await act(async () => {
+    await latestAction;
+  });
+}
 async function enterOtp() {
   start.mockResolvedValueOnce({
     challengeId,
@@ -66,17 +81,17 @@ async function enterOtp() {
     nextBrowserNonce: null,
   });
   fireEvent.press(screen.getByTestId('start'));
-  await act(async () => {
-    await Promise.resolve();
-  });
+  await settleAction();
   expect(phase()).toBe('otp');
 }
 
 describe('in-memory enrollment flow', () => {
   beforeEach(() => {
     mockPathname = '/register';
+    latestAction = undefined;
     jest.clearAllMocks();
   });
+  afterEach(() => jest.restoreAllMocks());
 
   it('starts OTP, limits resend to the cooldown, and holds a restricted proof only in memory', async () => {
     jest.spyOn(Date, 'now').mockReturnValue(1000);
@@ -92,13 +107,10 @@ describe('in-memory enrollment flow', () => {
     });
     fireEvent.press(screen.getByTestId('verify'));
     expect(screen.getByTestId('pending').props.children).toBe('true');
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await settleAction();
     expect(phase()).toBe('bankid');
     fireEvent.press(screen.getByTestId('reset'));
     expect(phase()).toBe('identifier');
-    jest.restoreAllMocks();
   });
 
   it('resends only after the cooldown and resets the cooldown after acceptance', async () => {
@@ -113,14 +125,11 @@ describe('in-memory enrollment flow', () => {
     });
     fireEvent.press(screen.getByTestId('resend'));
     expect(screen.getByTestId('pending').props.children).toBe('true');
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await settleAction();
     expect(phase()).toBe('otp');
     expect(start).toHaveBeenCalledTimes(2);
     fireEvent.press(screen.getByTestId('resend'));
     expect(start).toHaveBeenCalledTimes(2);
-    jest.restoreAllMocks();
   });
 
   it('returns to a fresh identifier entry when resend fails', async () => {
@@ -130,12 +139,9 @@ describe('in-memory enrollment flow', () => {
     clock.mockReturnValue(31_001);
     start.mockRejectedValueOnce(new EnrollmentRequestError('limited'));
     fireEvent.press(screen.getByTestId('resend'));
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await settleAction();
     expect(phase()).toBe('identifier');
     expect(screen.getByTestId('error').props.children).toBe('limited');
-    jest.restoreAllMocks();
   });
 
   it('allows an incorrect code in the same challenge and resets other verification failures', async () => {
@@ -143,16 +149,12 @@ describe('in-memory enrollment flow', () => {
     await enterOtp();
     verify.mockRejectedValueOnce(new EnrollmentRequestError('incorrect'));
     fireEvent.press(screen.getByTestId('verify'));
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await settleAction();
     expect(phase()).toBe('otp');
     expect(screen.getByTestId('error').props.children).toBe('incorrect');
     verify.mockRejectedValueOnce(new EnrollmentRequestError('restart'));
     fireEvent.press(screen.getByTestId('verify'));
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await settleAction();
     expect(phase()).toBe('identifier');
   });
 
@@ -216,9 +218,7 @@ describe('in-memory enrollment flow', () => {
       nextBrowserNonce: null,
     });
     fireEvent.press(screen.getByTestId('verify'));
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await settleAction();
     expect(phase()).toBe('bankid');
     mockPathname = '/register-bankid';
     view.rerender(
