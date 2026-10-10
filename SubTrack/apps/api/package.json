@@ -3,10 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "prisma generate --schema=prisma/schema.prisma && tsc -p tsconfig.build.json",
+    "build": "corepack pnpm --filter @subtrack/domain build:lifecycle && prisma generate --schema=prisma/schema.prisma && tsc -p tsconfig.build.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-    "typecheck": "prisma generate --schema=prisma/schema.prisma && tsc --noEmit -p tsconfig.json",
-    "test": "prisma generate --schema=prisma/schema.prisma && vitest run"
+    "typecheck": "corepack pnpm --filter @subtrack/domain build:lifecycle && prisma generate --schema=prisma/schema.prisma && tsc --noEmit -p tsconfig.json",
+    "test": "corepack pnpm --filter @subtrack/domain build:lifecycle && prisma generate --schema=prisma/schema.prisma && vitest run"
   },
   "devDependencies": {
     "@subtrack/config": "workspace:*",
@@ -29,6 +29,7 @@
     "rxjs": "^7.8.2",
     "supertest": "^7.3.0",
     "zod": "^4.6.5",
-    "@subtrack/contracts": "workspace:*"
+    "@subtrack/contracts": "workspace:*",
+    "@subtrack/domain": "workspace:*"
   }
 }
