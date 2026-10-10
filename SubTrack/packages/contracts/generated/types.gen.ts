@@ -151,6 +151,23 @@ export type SubscriptionReadProblem = {
     code: 'INVALID_SUBSCRIPTION_QUERY' | 'SUBSCRIPTION_NOT_FOUND' | 'AUTHENTICATION_REQUIRED' | 'INTERNAL_ERROR';
 };
 
+/**
+ * Exactly an empty JSON object; no identity, scope or action fields.
+ */
+export type BrowserSubscriptionReadRequest = {
+    [key: string]: never;
+};
+
+/**
+ * RFC 9457 problem with no credential, resource, owner, share or driver details.
+ */
+export type BrowserSubscriptionReadProblem = {
+    type: string;
+    title: string;
+    status: 400 | 401 | 403 | 404 | 500;
+    code: 'INVALID_SUBSCRIPTION_QUERY' | 'AUTHENTICATION_REQUIRED' | 'AUTH_CSRF_UNAVAILABLE' | 'SUBSCRIPTION_NOT_FOUND' | 'INTERNAL_ERROR';
+};
+
 export type ExportJobResponse = {
     /**
      * Single-use download token (64 hex chars).
@@ -1002,6 +1019,64 @@ export type ListReviewInboxResponses = {
 };
 
 export type ListReviewInboxResponse = ListReviewInboxResponses[keyof ListReviewInboxResponses];
+
+export type ReadV2BrowserSubscriptionData = {
+    body: BrowserSubscriptionReadRequest;
+    headers: {
+        /**
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+         */
+        Origin: string;
+        /**
+         * Exactly one token bound to the verified current browser identity and session.
+         */
+        'X-Session-CSRF': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/v2/subscriptions/{id}/read';
+};
+
+export type ReadV2BrowserSubscriptionErrors = {
+    /**
+     * Generic bounded error. Malformed path/body/query, transport, origin or header multiplicity is 400 INVALID_SUBSCRIPTION_QUERY; absent or invalid current access authority is 401 AUTHENTICATION_REQUIRED; invalid or missing session CSRF is 403 AUTH_CSRF_UNAVAILABLE; missing and invisible IDs share the identical 404 SUBSCRIPTION_NOT_FOUND; internal faults are masked as 500 INTERNAL_ERROR. Never disclose credentials or owner data.
+     *
+     */
+    400: BrowserSubscriptionReadProblem;
+    /**
+     * Generic bounded error. Malformed path/body/query, transport, origin or header multiplicity is 400 INVALID_SUBSCRIPTION_QUERY; absent or invalid current access authority is 401 AUTHENTICATION_REQUIRED; invalid or missing session CSRF is 403 AUTH_CSRF_UNAVAILABLE; missing and invisible IDs share the identical 404 SUBSCRIPTION_NOT_FOUND; internal faults are masked as 500 INTERNAL_ERROR. Never disclose credentials or owner data.
+     *
+     */
+    401: BrowserSubscriptionReadProblem;
+    /**
+     * Generic bounded error. Malformed path/body/query, transport, origin or header multiplicity is 400 INVALID_SUBSCRIPTION_QUERY; absent or invalid current access authority is 401 AUTHENTICATION_REQUIRED; invalid or missing session CSRF is 403 AUTH_CSRF_UNAVAILABLE; missing and invisible IDs share the identical 404 SUBSCRIPTION_NOT_FOUND; internal faults are masked as 500 INTERNAL_ERROR. Never disclose credentials or owner data.
+     *
+     */
+    403: BrowserSubscriptionReadProblem;
+    /**
+     * Generic bounded error. Malformed path/body/query, transport, origin or header multiplicity is 400 INVALID_SUBSCRIPTION_QUERY; absent or invalid current access authority is 401 AUTHENTICATION_REQUIRED; invalid or missing session CSRF is 403 AUTH_CSRF_UNAVAILABLE; missing and invisible IDs share the identical 404 SUBSCRIPTION_NOT_FOUND; internal faults are masked as 500 INTERNAL_ERROR. Never disclose credentials or owner data.
+     *
+     */
+    404: BrowserSubscriptionReadProblem;
+    /**
+     * Generic bounded error. Malformed path/body/query, transport, origin or header multiplicity is 400 INVALID_SUBSCRIPTION_QUERY; absent or invalid current access authority is 401 AUTHENTICATION_REQUIRED; invalid or missing session CSRF is 403 AUTH_CSRF_UNAVAILABLE; missing and invisible IDs share the identical 404 SUBSCRIPTION_NOT_FOUND; internal faults are masked as 500 INTERNAL_ERROR. Never disclose credentials or owner data.
+     *
+     */
+    500: BrowserSubscriptionReadProblem;
+};
+
+export type ReadV2BrowserSubscriptionError = ReadV2BrowserSubscriptionErrors[keyof ReadV2BrowserSubscriptionErrors];
+
+export type ReadV2BrowserSubscriptionResponses = {
+    /**
+     * Owner or peer-safe subscription projection.
+     */
+    200: VisibleSubscription;
+};
+
+export type ReadV2BrowserSubscriptionResponse = ReadV2BrowserSubscriptionResponses[keyof ReadV2BrowserSubscriptionResponses];
 
 export type CreateV2BrowserNonceData = {
     body: BrowserNonceRequest;

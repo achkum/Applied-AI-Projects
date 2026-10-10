@@ -384,6 +384,65 @@ paths:
         '401': { $ref: '#/components/responses/SubscriptionProblem' }
         default: { $ref: '#/components/responses/SubscriptionProblem' }
 
+  /v2/subscriptions/{id}/read:
+    post:
+      operationId: readV2BrowserSubscription
+      summary: Read one subscription visible to the current browser session
+      x-runtime-availability: unavailable-default
+      description: >
+        Contract only; this route is unavailable in the default application graph.
+        Require direct HTTPS, exactly one Origin matching the configured allowlist,
+        exactly one st_v2_access cookie and one distinct deployment-configured
+        browser binding cookie, and exactly one session-bound X-Session-CSRF.
+        Reject duplicate credentials or headers, Authorization (including Bearer
+        and Refresh), st_v2_refresh, mixed modes, every query parameter and every
+        body other than JSON {} before reading owner data. No caller identity,
+        owner, scope or transport selector is accepted. Verify the v2 access token
+        to derive sid/sub, hash the observed binding cookie, call
+        webContextForCurrentSession(sid,{userId:sub},bindingCookieHash,exactOrigin,observedAt),
+        then DevelopmentV2PrincipalResolver.resolve with the trusted browser chain
+        and exact Origin. Compare its current owner/session with verified sub/sid;
+        verify SessionCsrfGuard for that identity/session before creating the
+        server-only subscription RequestContext. Apply the same current RLS and
+        owner/household visibility predicate as V1 detail: owner or peer-safe
+        projection only, with canonical string minor units; no transaction,
+        charge, bank or detection evidence. Missing and foreign IDs have the
+        identical 404 problem, with no owner or share metadata. This POST is a
+        pure read: no nonce, session, CSRF or subscription mutation or rotation,
+        and no idempotency reservation or Idempotency-Key. ADR-0010 requires
+        idempotency only for mutating POSTs. Never fall back to V1 authority.
+      security:
+        - V2WebAccessCookie: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/ExactOrigin'
+        - in: header
+          name: X-Session-CSRF
+          required: true
+          schema: { type: string, minLength: 1 }
+          description: Exactly one token bound to the verified current browser identity and session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BrowserSubscriptionReadRequest' }
+      responses:
+        '200':
+          description: Owner or peer-safe subscription projection.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisibleSubscription' }
+        '400': { $ref: '#/components/responses/BrowserSubscriptionReadProblem' }
+        '401': { $ref: '#/components/responses/BrowserSubscriptionReadProblem' }
+        '403': { $ref: '#/components/responses/BrowserSubscriptionReadProblem' }
+        '404': { $ref: '#/components/responses/BrowserSubscriptionReadProblem' }
+        '500': { $ref: '#/components/responses/BrowserSubscriptionReadProblem' }
+
   /v2/auth/browser-nonce:
     post:
       operationId: createV2BrowserNonce
@@ -975,6 +1034,24 @@ components:
         code:
           type: string
           enum: [INVALID_SUBSCRIPTION_QUERY, SUBSCRIPTION_NOT_FOUND, AUTHENTICATION_REQUIRED, INTERNAL_ERROR]
+    BrowserSubscriptionReadRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 0
+      maxProperties: 0
+      description: Exactly an empty JSON object; no identity, scope or action fields.
+    BrowserSubscriptionReadProblem:
+      type: object
+      additionalProperties: false
+      description: RFC 9457 problem with no credential, resource, owner, share or driver details.
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer, enum: [400, 401, 403, 404, 500] }
+        code:
+          type: string
+          enum: [INVALID_SUBSCRIPTION_QUERY, AUTHENTICATION_REQUIRED, AUTH_CSRF_UNAVAILABLE, SUBSCRIPTION_NOT_FOUND, INTERNAL_ERROR]
 
     ExportJobResponse:
       type: object
@@ -1444,6 +1521,19 @@ components:
       name: Authorization
       description: Mobile only, exact form `Refresh <opaque-secret>`; custom auth scheme, never body/query.
   responses:
+    BrowserSubscriptionReadProblem:
+      description: >
+        Generic bounded error. Malformed path/body/query, transport, origin or
+        header multiplicity is 400 INVALID_SUBSCRIPTION_QUERY; absent or invalid
+        current access authority is 401 AUTHENTICATION_REQUIRED; invalid or
+        missing session CSRF is 403 AUTH_CSRF_UNAVAILABLE; missing and invisible
+        IDs share the identical 404 SUBSCRIPTION_NOT_FOUND; internal faults are
+        masked as 500 INTERNAL_ERROR. Never disclose credentials or owner data.
+      headers:
+        Cache-Control: { schema: { type: string, const: no-store } }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/BrowserSubscriptionReadProblem' }
     SubscriptionLifecycleProblem:
       description: >
         Stable RFC 9457 error. Malformed UUID/body/target/query is 400; absent or

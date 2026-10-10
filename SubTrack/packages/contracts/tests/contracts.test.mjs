@@ -140,6 +140,7 @@ test('production contract preserves approved operational and privacy routes', ()
       ['PATCH /v1/privacy/open-book', 'unavailable-default'],
       ['PATCH /v1/subscriptions/{id}', 'unavailable-default'],
       ['POST /v1/data-rights/export', 'unavailable-default'],
+      ['POST /v2/subscriptions/{id}/read', 'unavailable-default'],
     ]);
     const lifecyclePatch = document.paths['/v1/subscriptions/{id}'].patch;
     assert.match(lifecyclePatch.description, /Reject every query parameter with 400, including unknown parameters/);

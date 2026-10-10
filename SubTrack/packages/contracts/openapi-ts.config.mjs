@@ -15,6 +15,9 @@ export default {
         return ctx.schema.additionalProperties?.type === 'never'
           && ref?.[0] === 'components' && ref?.[1] === 'schemas'
           && !legacySchemas.has(ref[2])
+          // A closed object with no properties generates a Zod record of never.
+          // Records reject all keys already and do not support .strict().
+          && Object.keys(ctx.schema.properties ?? {}).length > 0
           ? ctx.nodes.base(ctx).attr('strict').call()
           : undefined;
       },

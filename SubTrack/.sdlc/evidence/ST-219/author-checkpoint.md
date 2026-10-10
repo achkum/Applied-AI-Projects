@@ -1,0 +1,10 @@
+# ST-219 author checkpoint — 2026-10-10 19:25 UTC
+Original creation: 19:19:46 UTC, attempt 1, M120; context exceeded 20-call checkpoint, stop/rotate now. Heavy token granted but unused; root may reassign.
+Candidate: only POST `/v2/subscriptions/{id}/read`, unavailable-default, strict `{}` body, no query, required Origin/CSRF, cookie-only read, existing VisibleSubscription projection and bounded new problem schema. V1/v2 existing semantics untouched in source; two existing enumerator tests adjusted for the pure read.
+Generator empty-object fix: `openapi-ts.config.mjs` skips `.strict()` only for closed zero-property schema because `z.record(z.string(), z.never())` already rejects all keys; `.strict()` on a Zod record crashed import. Task allowed path extended by root before edit. No fake wire properties.
+Targeted `node --test packages/contracts/tests/browser-subscription-read.test.mjs`: 2/2 PASS after final generation. Earlier pre-fix failure diagnosed; not a repeated failure. `corepack pnpm --filter @subtrack/contracts generate`: PASS. Full lint/typecheck/contracts tests/frozen regeneration NOT YET RUN; heavy token remains available to next author context.
+Pending: run one full contracts check; inspect baseline V1/v2 semantic diff and generated churn; resolve any test failures; create <=20-line final handoff with exact source blobs and counts. Independent client/security/QA source reviews and exact-head CI remain root gates.
+Source blobs (order: OpenAPI, config, new test, v2-auth test, contracts test): `d3ae9777` `9e0c5b3e` `86bb4475` `fe57e73a` `4bc9fda3`.
+Generated blobs (index, SDK, types, Zod): `e1bfe36d` `6d3dca0b` `e580f7d1` `5aaca43f`.
+Preexisting fixture generated CRLF-only dirt and unrelated ST-081c/ST-216/ST-218 receipts/coverage remain untouched.
+Client pre-review notes generated required `Origin` cannot be set manually by browser JavaScript; browser must rely on ambient Origin and credentials with SDK auth callback disabled. This is a future client/runtime limitation, not a server contract waiver.
