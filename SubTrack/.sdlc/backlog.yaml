@@ -6,7 +6,8 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-214, title: 'Scope SubTrack merge gates to applicable project checks', owner: product-owner, size: S, status: IN_REVIEW, deps: []}
+  - {id: ST-081c, title: 'Private owner-only ordinary subscription lifecycle storage', owner: dev-backend, size: M, status: IN_REVIEW, deps: [ST-081a, BUG-008b, ST-212]}
+  - {id: ST-214, title: 'Scope SubTrack merge gates to applicable project checks', owner: product-owner, size: S, status: DONE, deps: []}
   - {id: ST-212, title: 'Scoped subscription list, detail and review inbox storage', owner: dev-backend, size: L, status: DONE, deps: [ST-205, BUG-008b, SEC-FU1e]}
   - {id: ST-211, title: 'Development mobile enrollment OTP routes and client', owner: dev-mobile, size: L, status: DONE, deps: [ST-051d, ST-210]}
   - {id: BUG-008b, title: 'Clean migration chain and actual PostgreSQL privacy proof', owner: architect-platform, size: L, status: DONE, deps: [BUG-008a]}

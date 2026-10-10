@@ -1,0 +1,12 @@
+# ST-081c package author checkpoint
+- Original start: 2026-10-10 17:39:10 UTC; attempt 1; no semantic fix failures yet.
+- Added public built `@subtrack/domain/subscription-lifecycle` export, narrow declarations/JS build, API workspace dependency/import, frozen lock update.
+- API scripts build the helper before typecheck/build/test; Docker build and runtime now include domain and money, with compiled helper output copied into runtime.
+- Container smoke checks compiled repository import and helper require without a database operation.
+- `corepack pnpm install --lockfile-only --ignore-scripts`: PASS.
+- `corepack pnpm install --frozen-lockfile`: PASS.
+- Initial API typecheck command failed because a bare `pnpm` shim is absent on Windows; API scripts were changed to `corepack pnpm`.
+- Second API typecheck reached source and failed at repository spec lines 32-33: `vi.fn(async () => ...)` inferred zero arguments, so `query.mock.calls[n][0]` is invalid TS2352/TS2493.
+- Next author: type query mock with `Prisma.Sql` argument, then run API typecheck, build, lint, focused unit tests, and compiled Node 22.18 check. Inspect Docker runtime copy and CI proof.
+- No actual Docker/PG proof has run locally; dedicated CI remains required.
+- Existing generated contracts CRLF and untracked coverage remain untouched; exclude from staging.
