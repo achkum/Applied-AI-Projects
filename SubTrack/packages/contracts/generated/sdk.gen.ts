@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses } from './types.gen.js';
+import type { CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -96,6 +96,54 @@ export const deleteAccount = <ThrowOnError extends boolean = false>(options: Opt
 export const getVersion = <ThrowOnError extends boolean = false>(options?: Options<GetVersionData, ThrowOnError>): RequestResult<GetVersionResponses, GetVersionErrors, ThrowOnError> => (options?.client ?? client).get<GetVersionResponses, GetVersionErrors, ThrowOnError>({ url: '/v1/version', ...options });
 
 /**
+ * List subscriptions visible to the authenticated caller
+ *
+ * Contract-only until the ST-212 test-only composition is reviewed. The trusted current principal and transaction-scoped RLS determine visibility. scope=me selects owned rows; scope=household selects rows routed through one of the caller's active household memberships, including owned rows only when they have such a route. Peers see an active explicit share even when always_private=true; always_private blocks only the open_book route. The household scope spans active memberships and de-duplicates a subscription visible through several households. Neither scope nor cursor grants authority. member:<memberId> is unsupported here because it would select another person's rows. No totals are returned. DETECTED rows are owner-only, including when a share or open_book would otherwise make the subscription visible. The scoped SQL query applies (identity_id=trusted caller OR status<>DETECTED) before keyset pagination and limit+1; RLS alone permits peer DETECTED reads. Results are ordered by immutable (created_at DESC, id DESC), including an id tie-breaker. A nextCursor continues strictly after the last item; every page re-evaluates current visibility, so revocation can shorten a page.
+ *
+ */
+export const listSubscriptions = <ThrowOnError extends boolean = false>(options?: Options<ListSubscriptionsData, ThrowOnError>): RequestResult<ListSubscriptionsResponses, ListSubscriptionsErrors, ThrowOnError> => (options?.client ?? client).get<ListSubscriptionsResponses, ListSubscriptionsErrors, ThrowOnError>({
+    security: [{
+            key: 'V1AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v1/subscriptions',
+    ...options
+});
+
+/**
+ * Get one subscription visible to the authenticated caller
+ *
+ * Apply the same current RLS visibility and the SQL predicate (identity_id=trusted caller OR status<>DETECTED) as list. Missing and invisible IDs return the identical 404 SUBSCRIPTION_NOT_FOUND problem, without owner or share metadata. No charge, transaction, bank account or detection evidence is included.
+ *
+ */
+export const getSubscription = <ThrowOnError extends boolean = false>(options: Options<GetSubscriptionData, ThrowOnError>): RequestResult<GetSubscriptionResponses, GetSubscriptionErrors, ThrowOnError> => (options.client ?? client).get<GetSubscriptionResponses, GetSubscriptionErrors, ThrowOnError>({
+    security: [{
+            key: 'V1AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v1/subscriptions/{id}',
+    ...options
+});
+
+/**
+ * List the authenticated owner's DETECTED subscriptions
+ *
+ * Owner-only actionable DETECTED rows; household shares and open_book never grant access. No scope, owner or status selector is accepted. Results use immutable (created_at DESC, id DESC) ordering and current owner/RLS checks on every page. A nextCursor continues strictly after the last item. The SQL query requires identity_id=trusted caller AND status=DETECTED before pagination and limit+1. Detection reason codes exclude params and raw evidence.
+ *
+ */
+export const listReviewInbox = <ThrowOnError extends boolean = false>(options?: Options<ListReviewInboxData, ThrowOnError>): RequestResult<ListReviewInboxResponses, ListReviewInboxErrors, ThrowOnError> => (options?.client ?? client).get<ListReviewInboxResponses, ListReviewInboxErrors, ThrowOnError>({
+    security: [{
+            key: 'V1AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v1/review-inbox',
+    ...options
+});
+
+/**
  * Issue a one-use browser nonce and binding cookie
  *
  * Browser-only bootstrap. Require HTTPS outside local development and an exact configured Origin allowlist match; reject Origin null, wildcard or reflected credentialed CORS. Set a distinct host-only Secure; HttpOnly; SameSite=Lax binding cookie (Domain omitted), and return the public nonce for a custom request header. The binding cookie is not the nonce. Every mutating POST requires Idempotency-Key; idempotent retries must never replay a code, proof, or bypass throttles. Nonces are purpose, origin, challenge-chain and cookie-pair bound, short-lived and single-use. A committed one-use operation whose response is lost cannot be replayed: return generic 409 AUTH_RESTART_REQUIRED without any code, token or proof. Bootstrap a fresh nonce with a unique key; it invalidates the prior browser chain.
@@ -182,7 +230,11 @@ export const listV2Sessions = <ThrowOnError extends boolean = false>(options?: O
             in: 'cookie',
             name: 'st_v2_access',
             type: 'apiKey'
-        }, { scheme: 'bearer', type: 'http' }],
+        }, {
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/v2/me/sessions',
     ...options
 });
@@ -198,7 +250,11 @@ export const revokeV2Session = <ThrowOnError extends boolean = false>(options: O
             in: 'cookie',
             name: 'st_v2_access',
             type: 'apiKey'
-        }, { scheme: 'bearer', type: 'http' }],
+        }, {
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/v2/me/sessions/{id}',
     ...options
 });
@@ -214,7 +270,11 @@ export const startV2DeleteOtpReauth = <ThrowOnError extends boolean = false>(opt
             in: 'cookie',
             name: 'st_v2_access',
             type: 'apiKey'
-        }, { scheme: 'bearer', type: 'http' }],
+        }, {
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/v2/me/reauth/otp/start',
     ...options,
     headers: {
@@ -234,7 +294,11 @@ export const verifyV2DeleteOtpReauth = <ThrowOnError extends boolean = false>(op
             in: 'cookie',
             name: 'st_v2_access',
             type: 'apiKey'
-        }, { scheme: 'bearer', type: 'http' }],
+        }, {
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/v2/me/reauth/otp/verify',
     ...options,
     headers: {
@@ -254,7 +318,11 @@ export const deleteV2Me = <ThrowOnError extends boolean = false>(options: Option
             in: 'cookie',
             name: 'st_v2_access',
             type: 'apiKey'
-        }, { scheme: 'bearer', type: 'http' }],
+        }, {
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
     url: '/v2/me',
     ...options,
     headers: {
