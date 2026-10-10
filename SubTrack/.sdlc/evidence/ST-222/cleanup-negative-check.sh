@@ -31,6 +31,12 @@ printf '\033[31mError: ST-222 browser proof failed: fixture\033[39m\n' > "$base/
 [[ "$(classify_browser_failure "$base/failure.log")" == fixture ]]
 printf 'Failed Suites 1\n' > "$base/failure.log"
 [[ "$(classify_browser_failure "$base/failure.log")" == collection ]]
+for browser_case in launch context cookie_properties navigation httponly unauthenticated owner_fetch ambient_headers owner_status owner_projection peer_fetch peer_status peer_projection invisible_missing malformed query csrf selector cross_session_csrf binding mixed origin; do
+  printf '\033[31mError: ST-222 browser proof failed: browser:%s\033[39m\n' "$browser_case" > "$base/failure.log"
+  [[ "$(classify_browser_failure "$base/failure.log")" == "browser_$browser_case" ]]
+done
+printf 'ST-222 browser proof failed: browser:unknown-sensitive-value\n' > "$base/failure.log"
+[[ "$(classify_browser_failure "$base/failure.log")" == browser ]]
 printf 'unrecognized diagnostic\n' > "$base/failure.log"
 [[ "$(classify_browser_failure "$base/failure.log")" == unavailable ]]
 printf 'ST-222 missing-record cleanup and sanitized failure classification: PASS\n'

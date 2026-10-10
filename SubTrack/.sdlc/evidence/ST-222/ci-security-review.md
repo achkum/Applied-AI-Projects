@@ -1,7 +1,7 @@
 # ST-222 CI diagnostic security review
 
-Contract: REVIEW/v1  
-Reviewer: security-privacy  
+Contract: REVIEW/v1
+Reviewer: security-privacy
 Basis: PR 251 head `90b9dad67e911fabca8a6da25c3bf3e0914aba26`; failed owned proof run `38085690411`; failed standard Gitleaks run `38085690283`; current nine-blob `source-manifest.md`.
 
 ## Bounded browser failure classifier
@@ -18,5 +18,5 @@ Recommend one exact historical fingerprint entry in root `.gitleaksignore`, with
 
 ## Exact historical ignore verification
 
-Contract: REVIEW/v1  
+Contract: REVIEW/v1
 Verdict: **APPROVE security/privacy source readiness** for the ten-entry manifest including `.gitleaksignore` blob `10e9e1368622ad1971ffb2fa4b3925ed8243344e`. I independently reproduced every manifest Git blob. Root extended the task's allowed paths to `.gitleaksignore` before its edit. The ignore diff adds only a comment and the single historical fingerprint above; existing entries are unchanged. The current task paragraph is shortened while retaining the record of prior plan corrections in review history. There is no path or rule exclusion, workflow bypass, secret waiver or history rewrite. The complete Gitleaks run at the new exact head, actual owned browser proof, required reviews and all other applicable CI remain blocking.

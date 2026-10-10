@@ -48,8 +48,13 @@ cleanup_container() {
   rm -- "$record"
 }
 classify_browser_failure() {
-  local line
+  local line browser_case
   while IFS= read -r line; do
+    for browser_case in launch context cookie_properties navigation httponly unauthenticated owner_fetch ambient_headers owner_status owner_projection peer_fetch peer_status peer_projection invisible_missing malformed query csrf selector cross_session_csrf binding mixed origin; do
+      case "$line" in
+        *"ST-222 browser proof failed: browser:${browser_case}"*) printf 'browser_%s\n' "$browser_case"; return ;;
+      esac
+    done
     case "${line%$'\r'}" in
       *'ST-222 browser proof failed: fixture'*) printf 'fixture\n'; return ;;
       *'ST-222 browser proof failed: compiled child'*) printf 'compiled_child\n'; return ;;

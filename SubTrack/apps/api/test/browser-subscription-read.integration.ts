@@ -72,6 +72,7 @@ const listenerClosed = async (url: string): Promise<void> => {
 test('owned PG16, compiled Node HTTPS and natural Chromium browser subscription read', async () => {
   if (process.platform !== 'linux' || process.env['CI'] !== 'true') throw new Error('ST-222 requires Linux CI');
   let phase = 'fixture';
+  let browserCase = 'launch'; // Fixed case labels only; caught error values never reach receipts.
   let ownerDb: PrismaClient | undefined;
   let readerDb: PrismaClient | undefined;
   let child: ChildProcess | undefined;
@@ -190,12 +191,14 @@ test('owned PG16, compiled Node HTTPS and natural Chromium browser subscription 
     phase = 'browser';
     browser = await chromium.launch();
     const pageFor = async (credential: Credential, binding = credential.binding) => {
+      browserCase = 'context';
       const context = await browser!.newContext({ ignoreHTTPSErrors: true });
       contexts.push(context);
       await context.addCookies(['st_v2_access', 'st_v2_binding'].map((name, index) => ({
         name, value: index === 0 ? credential.access : binding, domain: '127.0.0.1', path: '/v2',
         secure: true, httpOnly: true, sameSite: 'Lax',
       })));
+      browserCase = 'cookie_properties';
       const cookies = await context.cookies();
       assert.equal(cookies.length, 2);
       assert(cookies.every(cookie => cookie.httpOnly && cookie.secure && cookie.sameSite === 'Lax' && cookie.path === '/v2' && cookie.domain === '127.0.0.1'));
@@ -205,13 +208,16 @@ test('owned PG16, compiled Node HTTPS and natural Chromium browser subscription 
         assert.equal(route.request().url(), `${origin}/`);
         return route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>ST-222 synthetic fixture</title>' });
       });
+      browserCase = 'navigation';
       await page.goto(`${origin}/`);
+      browserCase = 'httponly';
       const jsCookies = await page.evaluate(async () => ({ cookie: (globalThis as unknown as { document: { cookie: string } }).document.cookie }), {});
       assert.equal(jsCookies.cookie, '');
       return page;
     };
     const ownerPage = await pageFor(credentials[0]!);
     const peerPage = await pageFor(credentials[1]!);
+    browserCase = 'unauthenticated';
     assert.equal(await directProbe(`${origin}/v2/subscriptions/${visible}/read`,
       { Origin: origin, 'X-Session-CSRF': credentials[0]!.csrf }), 401);
     let observeOwner!: (request: BrowserRequest) => void;
@@ -223,37 +229,53 @@ test('owned PG16, compiled Node HTTPS and natural Chromium browser subscription 
       };
     });
     ownerPage.on('request', observeOwner);
+    browserCase = 'owner_fetch';
     const ownerRead = await response(ownerPage, { origin, id: hidden, csrf: credentials[0]!.csrf });
+    browserCase = 'ambient_headers';
     const ownerHeaders = await (await ownerRequest).allHeaders();
     assert.equal(ownerHeaders.origin, origin);
     assert.deepEqual((ownerHeaders.cookie ?? '').split(';').map(part => part.trim().split('=')[0]!).sort(),
       ['st_v2_access', 'st_v2_binding']);
+    browserCase = 'owner_status';
     assert.equal(ownerRead.status, 200);
+    browserCase = 'owner_projection';
     assert.equal(ownerRead.body.visibility, 'owner');
     assert.equal(ownerRead.body.expectedAmountMinor, '-9007199254740993');
     assert.equal(ownerRead.body.customName, 'synthetic owner only');
+    browserCase = 'peer_fetch';
     const peerRead = await response(peerPage, { origin, id: visible, csrf: credentials[1]!.csrf });
+    browserCase = 'peer_status';
     assert.equal(peerRead.status, 200);
+    browserCase = 'peer_projection';
     assert.equal(peerRead.body.visibility, 'household');
     assert.equal(peerRead.body.expectedAmountMinor, '9007199254740993');
     assert.equal(peerRead.body.customName, undefined);
     assert.deepEqual(Object.keys(peerRead.body).sort(),
       ['cadence', 'categoryCode', 'currency', 'expectedAmountMinor', 'id', 'status', 'visibility']);
+    browserCase = 'invisible_missing';
     const invisible = await response(peerPage, { origin, id: hidden, csrf: credentials[1]!.csrf });
     const absent = await response(peerPage, { origin, id: missing, csrf: credentials[1]!.csrf });
     assert.equal(invisible.status, 404);
     assert.deepEqual(invisible.body, absent.body);
+    browserCase = 'malformed';
     assert.equal((await response(ownerPage, { origin, id: visible, csrf: credentials[0]!.csrf, body: '{' })).status, 400);
+    browserCase = 'query';
     assert.equal((await response(ownerPage, { origin, id: `${visible}?identityId=${peer}`, csrf: credentials[0]!.csrf })).status, 400);
+    browserCase = 'csrf';
     assert.equal((await response(ownerPage, { origin, id: visible, csrf: 'A'.repeat(43) })).status, 403);
+    browserCase = 'selector';
     assert.equal((await response(ownerPage, { origin, id: visible, csrf: credentials[0]!.csrf,
       headers: { 'X-Identity-Id': peer } })).status, 400);
+    browserCase = 'cross_session_csrf';
     assert.equal((await response(peerPage, { origin, id: visible, csrf: credentials[0]!.csrf })).status, 403);
     const wrongBinding = await pageFor(credentials[0]!, 'A'.repeat(43));
+    browserCase = 'binding';
     assert.equal((await response(wrongBinding, { origin, id: visible, csrf: credentials[0]!.csrf })).status, 401);
     const mixedCredentials = await pageFor(credentials[0]!, credentials[1]!.binding);
+    browserCase = 'mixed';
     assert.equal((await response(mixedCredentials, { origin, id: visible, csrf: credentials[0]!.csrf })).status, 401);
     // Node sends a forged Origin to the real HTTPS listener; browser assertions above use its ambient Origin.
+    browserCase = 'origin';
     assert.equal(await directProbe(`${origin}/v2/subscriptions/${visible}/read`, {
       Origin: 'https://127.0.0.1:1', Cookie: `st_v2_access=${credentials[0]!.access}; st_v2_binding=${credentials[0]!.binding}`,
       'X-Session-CSRF': credentials[0]!.csrf,
@@ -304,7 +326,7 @@ test('owned PG16, compiled Node HTTPS and natural Chromium browser subscription 
     await startChild();
     await stopChild('SIGINT');
   } catch {
-    throw new Error(`ST-222 browser proof failed: ${phase}`);
+    throw new Error(`ST-222 browser proof failed: ${phase === 'browser' ? `browser:${browserCase}` : phase}`);
   } finally {
     let cleanupFailed = false;
     for (const context of contexts) {
