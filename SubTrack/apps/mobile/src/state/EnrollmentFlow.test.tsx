@@ -94,7 +94,6 @@ describe('in-memory enrollment flow', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('starts OTP, limits resend to the cooldown, and holds a restricted proof only in memory', async () => {
-    jest.spyOn(Date, 'now').mockReturnValue(1000);
     mount();
     await enterOtp();
     expect(start).toHaveBeenCalledWith('email', 'person@example.test');
