@@ -6,7 +6,8 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-221, title: 'Isolated loopback HTTPS browser subscription read composition', owner: dev-backend, size: L, status: IN_REVIEW, deps: [ST-220, ST-212, ST-191]}
+  - {id: ST-222, title: 'Owned disposable browser subscription read runtime proof', owner: dev-backend, size: L, status: IN_PROGRESS, deps: [ST-221, ST-220, ST-191, ST-178]}
+  - {id: ST-221, title: 'Isolated loopback HTTPS browser subscription read composition', owner: dev-backend, size: L, status: DONE, deps: [ST-220, ST-212, ST-191]}
   - {id: ST-220, title: 'Private current-browser subscription detail HTTP adapter', owner: dev-backend, size: L, status: DONE, deps: [ST-219, ST-191, ST-194, ST-212]}
   - {id: ST-219, title: 'Contract-first v2 browser subscription detail read', owner: architect-platform, size: M, status: DONE, deps: [ST-218, ST-205, ST-191]}
   - {id: ST-218, title: 'Authenticated browser subscription runtime readiness', owner: architect-platform, size: M, status: DONE, deps: [ST-216, ST-192, ST-191]}
