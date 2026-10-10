@@ -6,7 +6,8 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-218, title: 'Authenticated browser subscription runtime readiness', owner: architect-platform, size: M, status: IN_REVIEW, deps: [ST-216, ST-192, ST-191]}
+  - {id: ST-219, title: 'Contract-first v2 browser subscription detail read', owner: architect-platform, size: M, status: IN_PROGRESS, deps: [ST-218, ST-205, ST-191]}
+  - {id: ST-218, title: 'Authenticated browser subscription runtime readiness', owner: architect-platform, size: M, status: DONE, deps: [ST-216, ST-192, ST-191]}
   - {id: ST-217, title: 'Web subscription detail read and owner lifecycle binding plan', owner: product-owner, size: M, status: DONE, deps: [ST-215, ST-058c]}
   - {id: ST-216, title: 'Current-principal owner lifecycle HTTP composition', owner: dev-backend, size: L, status: DONE, deps: [ST-215, ST-081c, ST-213]}
   - {id: ST-215, title: 'Contract-first owner lifecycle PATCH semantics', owner: architect-platform, size: M, status: DONE, deps: [ST-081a, ST-205]}
