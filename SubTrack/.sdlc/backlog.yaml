@@ -6,7 +6,8 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: SEC-FU1d, title: 'Internal Prisma session owner reader with disposable RLS proof', owner: dev-backend, size: M, status: IN_REVIEW, deps: [SEC-FU1b, BUG-013]}
+  - {id: ST-051d, title: 'Mobile welcome and identifier registration routes', owner: dev-mobile, size: M, status: IN_REVIEW, deps: []}
+  - {id: SEC-FU1d, title: 'Internal Prisma session owner reader with disposable RLS proof', owner: dev-backend, size: M, status: DONE, deps: [SEC-FU1b, BUG-013]}
   - {id: ST-206, title: 'API and web runtime container images', milestone: M7, owner: devops-release, size: M, status: DONE, deps: []}
   - {id: SEC-FU1c, title: 'Internal existing-JWT HTTP principal guard', owner: dev-backend, size: M, status: DONE, deps: [SEC-FU1b]}
   - {id: ST-170c, title: "V2 auth transport guards and HTTP integration", owner: "dev-backend", size: "L", status: IN_PROGRESS, deps: ["ST-170a"]}
