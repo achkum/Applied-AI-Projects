@@ -86,10 +86,12 @@ test('disposable PG16 authenticated subscription HTTP and RLS proof', async () =
     for (const [identity, session] of [[alice, aliceSession], [bob, bobSession], [outsider, outsiderSession]])
       await owner.$executeRaw`INSERT INTO session (id,identity_id,device_name,refresh_token_hash,family_id)
         VALUES (${session}::uuid,${identity}::uuid,'synthetic',${randomUUID()},${randomUUID()}::uuid)`;
-    await owner.$executeRaw`INSERT INTO household (id,name,updated_at)
-      VALUES (${household}::uuid,'synthetic',NOW())`;
-    await owner.$executeRaw`INSERT INTO household_member (household_id,identity_id,role)
-      VALUES (${household}::uuid,${alice}::uuid,'ADMIN'),(${household}::uuid,${bob}::uuid,'MEMBER')`;
+    await owner.$transaction(async tx => {
+      await tx.$executeRaw`INSERT INTO household (id,name,updated_at)
+        VALUES (${household}::uuid,'synthetic',NOW())`;
+      await tx.$executeRaw`INSERT INTO household_member (household_id,identity_id,role)
+        VALUES (${household}::uuid,${alice}::uuid,'ADMIN'),(${household}::uuid,${bob}::uuid,'MEMBER')`;
+    });
     await owner.$executeRaw`INSERT INTO consent (identity_id,scope_id,scope_type,open_book,updated_at)
       VALUES (${alice}::uuid,${household}::uuid,'HOUSEHOLD',true,NOW())`;
     const detected = randomUUID(), sharedPrivate = randomUUID(), open = randomUUID();
