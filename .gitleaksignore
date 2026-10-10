@@ -11,3 +11,9 @@ f22f4f79546a920829df0f845c1a2757701012a4:SubTrack/apps/api/src/auth/otp-v2/mobil
 
 # ST222: independently verified public planning prose; exact historical finding only.
 90b9dad67e911fabca8a6da25c3bf3e0914aba26:SubTrack/.sdlc/tasks/ST-222.md:generic-api-key:38
+
+# ST228: independently verified public planning prose and Git source IDs; exact historical findings only.
+2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/docs/architecture/adr/0026-durable-development-enrollment.md:generic-api-key:38
+2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/.sdlc/evidence/ST-228/client-review.md:generic-api-key:15
+2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/.sdlc/evidence/ST-228/source-pins.md:generic-api-key:20
+2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/.sdlc/evidence/ST-228/source-pins.md:generic-api-key:21
