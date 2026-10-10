@@ -1,0 +1,13 @@
+# Conductor checkpoint — 2026-10-10
+
+Accepted current main: `23fcfb3454ad1d41be60f4f0cf46b514e3614881`.
+
+- PR228 / SEC-FU1e: composed real HTTP guard/current resolver/Prisma/PostgreSQL proof accepted at f692b97. Dedicated proof38046880689, standard38046880677 and container38046880670 PASS. No production feature registration or migration-history acceptance.
+- PR230 / ST050b: clean seven-file client extraction accepted at8f80aa6 after exact status/media response hardening, independent client/security/design review,138 web tests, four bilingual/theme built-route browser cases, standard38047775543/container38047775437 PASS. PR220 closed as superseded; original branch preserved. Full ST050b/050 remain IN_PROGRESS.
+- PR229 / SEC-FU1f: default legacy handler quarantine accepted at23fcfb3, sourcehead2c58c79. Independent platform/security/QA approvals;72 actual legacy404 denials in three graphs;1180 API regressions. ADR0018 explicitly narrows ADR0010 availability preservation; version1.1.1, six vendor annotations, preserved wire/schema/feature implementations. Full contract snapshot guard retained, scanner false-positive checksum representation repaired without ignores. Final standard38048188511/container38048188552 PASS. T1 remains open for authenticated feature activation; no deployment.
+
+Active ST050c: development auth-only Next proxy and actual Chromium→Next→development Nest nonce/OTP proof. Existing sink is test-process-only; no public OTP retrieval, provider, credential authority, persistence or account/session creation. Task file carries readiness and retained two-failure fixture escalation. Author and independent reviewer are tightening Origin/peer and privacy assertions before final QA/CI.
+
+External readiness remains: BUG008 requires authoritative inventories of relevant databases and applied migration histories; user has a pending database-environment question. Never infer migrations unapplied or edit/reset existing histories. Native Android/iOS QA needs a device target; real BankID/provider/key provisioning and release remain separate gates. No other existing independently READY task was found in the bounded scan; ST125 visible cohorts still lack human-reviewed bilingual labels and exact spend-stat inputs. These prerequisites do not authorize another private helper or fake completion.
+
+Preserve holding/old task branches. Only task-owned source/evidence is extracted; task PRs squash into main after independent reviews, QA and exact-head CI. No direct main push, paid/public/production operation or shared-database action. Managed SEC1f repair checkout archive was requested after acceptance with recoverable Git snapshots.
