@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { InMemoryProofRepository, ProofStore, type ProofBinding, type StoredProof } from './proof-store';
-import { InMemoryOtpChallengeRepository, OtpProofProducer, type OtpChallengeRecord, type OtpChallengeRepository, type VerifiedTransportContext } from './otp-proof-producer';
+import { InMemoryOtpChallengeRepository, OtpProofProducer, type MobileEnrollmentIssuance, type OtpChallengeRecord, type OtpChallengeRepository, type VerifiedTransportContext } from './otp-proof-producer';
 
 const web: VerifiedTransportContext = Object.freeze({ transport: 'web', exactOrigin: 'https://app.example', browserChainId: 'chain-a' });
 const mobile: VerifiedTransportContext = Object.freeze({ transport: 'mobile' });
@@ -17,6 +17,93 @@ async function provision(f: ReturnType<typeof fixture>, purpose: 'enroll_identif
 }
 
 describe('OtpProofProducer', () => {
+  it('projects mobile issuance from the inserted record and consumes its exact tuple once', async () => {
+    const memory = new InMemoryOtpChallengeRepository(); const inserted: OtpChallengeRecord[] = [];
+    const repo: OtpChallengeRepository = { insert: record => { inserted.push(record); memory.insert(record); },
+      verifyAndConsume: input => memory.verifyAndConsume(input), verifyMobileEnrollment: input => memory.verifyMobileEnrollment(input) };
+    const f = fixture(repo); const { issuance, code } = await f.producer.provisionMobileEnrollment({ identifierHash: 'a'.repeat(64), channel: 'sms' });
+    expect(issuance).toEqual({ challengeId: inserted[0]?.challengeId, purpose: inserted[0]?.purpose, transport: 'mobile',
+      identifierHash: inserted[0]?.identifierHash, channel: inserted[0]?.channel, issuedAt: inserted[0]?.issuedAt, expiresAt: inserted[0]?.expiresAt });
+    expect(Object.isFrozen(issuance)).toBe(true);
+    const outcomes = await Promise.allSettled(Array.from({ length: 8 }, () => f.producer.verifyMobileEnrollment({ issuance, code })));
+    expect(outcomes.filter(x => x.status === 'fulfilled' && x.value.kind === 'consumed')).toHaveLength(1);
+    const proof = (outcomes.find(x => x.status === 'fulfilled' && x.value.kind === 'consumed') as PromiseFulfilledResult<{ kind: string; proof: string }>).value.proof;
+    expect(await f.proofStore.consume(proof, { purpose: 'login', challenge: issuance.challengeId, transport: 'mobile', identifierHash: issuance.identifierHash })).toEqual({ valid: false });
+    expect(await f.proofStore.consume(proof, { purpose: 'enrollment', challenge: issuance.challengeId, transport: 'mobile', identifierHash: issuance.identifierHash })).toEqual({ valid: true });
+  });
+
+  it('reports four retryable errors and a terminal fifth without another proof', async () => {
+    const f = fixture(); const { issuance, code } = await f.producer.provisionMobileEnrollment({ identifierHash: 'a'.repeat(64), channel: 'email' });
+    const wrong = code === '000000' ? '000001' : '000000';
+    for (const remainingAttempts of [4, 3, 2, 1]) expect(await f.producer.verifyMobileEnrollment({ issuance, code: wrong })).toEqual({ kind: 'incorrect', remainingAttempts });
+    expect(await f.producer.verifyMobileEnrollment({ issuance, code: wrong })).toEqual({ kind: 'terminal' });
+    expect(await f.producer.verifyMobileEnrollment({ issuance, code })).toEqual({ kind: 'terminal' });
+  });
+
+  it.each(['identifierHash', 'channel', 'issuedAt', 'expiresAt', 'purpose', 'transport', 'challengeId'] as const)(
+    'rejects a changed consumed %s before proof issuance', async field => {
+      let saved!: OtpChallengeRecord;
+      const repo: OtpChallengeRepository = { insert: row => { saved = row; }, verifyAndConsume: () => null,
+        verifyMobileEnrollment: () => ({ kind: 'consumed', record: { ...saved, [field === 'transport' ? 'transportContext' : field]:
+          field === 'transport' ? web : field === 'identifierHash' ? 'b'.repeat(64) : field === 'channel' ? 'email' :
+            field === 'purpose' ? 'otp_step_up' : field === 'challengeId' ? 'B'.repeat(43) : saved[field] + 1 } as OtpChallengeRecord }) };
+      const f = fixture(repo); const { issuance, code } = await f.producer.provisionMobileEnrollment({ identifierHash: 'a'.repeat(64), channel: 'sms' });
+      await expect(f.producer.verifyMobileEnrollment({ issuance, code })).rejects.toThrow('Verification unavailable');
+    });
+
+  it('fails closed without specialized atomic capability, on repository faults, and across awaits', async () => {
+    const f = fixture(); const { issuance, code } = await f.producer.provisionMobileEnrollment({ identifierHash: 'a'.repeat(64), channel: 'sms' });
+    const old = new OtpProofProducer(key, { insert: () => undefined, verifyAndConsume: () => null }, f.proofStore, () => 10_000);
+    await expect(old.verifyMobileEnrollment({ issuance, code })).rejects.toThrow('Verification unavailable');
+    const broken = new OtpProofProducer(key, { insert: () => undefined, verifyAndConsume: () => null,
+      verifyMobileEnrollment: () => { throw new Error('secret fault'); } }, f.proofStore, () => 10_000);
+    await expect(broken.verifyMobileEnrollment({ issuance, code })).rejects.toThrow('Verification unavailable');
+    for (const late of [9_999, issuance.expiresAt, Number.MAX_SAFE_INTEGER]) {
+      let now = 10_000;
+      const repo: OtpChallengeRepository = { insert: () => { now = late; }, verifyAndConsume: () => null,
+        verifyMobileEnrollment: () => { now = late; return { kind: 'terminal' }; } };
+      const p = new OtpProofProducer(key, repo, f.proofStore, () => now);
+      await expect(p.provisionMobileEnrollment({ identifierHash: 'a'.repeat(64), channel: 'sms' })).rejects.toThrow('OTP unavailable');
+      now = 10_000; await expect(p.verifyMobileEnrollment({ issuance, code })).rejects.toThrow('Verification unavailable');
+    }
+  });
+
+  it('discloses no proof when time regresses or expires during proof insertion', async () => {
+    for (const changedTime of [9_999, 310_000]) {
+      let now = 10_000;
+      const repo = new InMemoryOtpChallengeRepository();
+      const proofs = new ProofStore({ insert: () => { now = changedTime; }, compareAndConsume: () => false }, () => 10_000);
+      const producer = new OtpProofProducer(key, repo, proofs, () => now);
+      const { issuance, code } = await producer.provisionMobileEnrollment({ identifierHash: 'a'.repeat(64), channel: 'sms' });
+      await expect(producer.verifyMobileEnrollment({ issuance, code })).rejects.toThrow('Verification unavailable');
+      now = 10_000;
+      expect(await producer.verifyMobileEnrollment({ issuance, code })).toEqual({ kind: 'terminal' });
+    }
+  });
+
+  it('rejects 100 to 200 to 150 clock regression across both verification awaits', async () => {
+    let now = 100;
+    const memory = new InMemoryOtpChallengeRepository();
+    const repo: OtpChallengeRepository = { insert: row => memory.insert(row), verifyAndConsume: () => null,
+      verifyMobileEnrollment: input => { now = 200; return memory.verifyMobileEnrollment(input); } };
+    const proofStore = new ProofStore({ insert: () => { now = 150; }, compareAndConsume: () => false }, () => 100);
+    const producer = new OtpProofProducer(key, repo, proofStore, () => now);
+    const { issuance, code } = await producer.provisionMobileEnrollment({ identifierHash: 'a'.repeat(64), channel: 'sms' });
+    await expect(producer.verifyMobileEnrollment({ issuance, code })).rejects.toThrow('Verification unavailable');
+    expect(now).toBe(150);
+    await expect(producer.verifyMobileEnrollment({ issuance, code })).rejects.toThrow('Verification unavailable');
+  });
+
+  it('uses one issuance snapshot even if its caller-owned object changes during repository await', async () => {
+    const memory = new InMemoryOtpChallengeRepository();
+    const holder: { mutable?: { -readonly [K in keyof MobileEnrollmentIssuance]: MobileEnrollmentIssuance[K] } } = {};
+    const repo: OtpChallengeRepository = { insert: row => memory.insert(row), verifyAndConsume: () => null,
+      verifyMobileEnrollment: input => { holder.mutable!.identifierHash = 'b'.repeat(64); return memory.verifyMobileEnrollment(input); } };
+    const f = fixture(repo);
+    const result = await f.producer.provisionMobileEnrollment({ identifierHash: 'a'.repeat(64), channel: 'sms' });
+    holder.mutable = { ...result.issuance };
+    expect(await f.producer.verifyMobileEnrollment({ issuance: holder.mutable, code: result.code })).toMatchObject({ kind: 'consumed' });
+  });
   it('maps enrollment and step-up from stored metadata and retains transport bindings', async () => {
     for (const [purpose, expected] of [['enroll_identifier', 'enrollment'], ['otp_step_up', 'stepup']] as const) {
       const f = fixture(); const otp = await provision(f, purpose); const secret = await f.producer.verify({ challengeId: otp.challengeId, code: otp.code, transportContext: web });

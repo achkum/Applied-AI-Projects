@@ -35,8 +35,22 @@ export interface OtpChallengeRepository {
     readonly transportContext: VerifiedTransportContext;
     readonly now: number;
   }): OtpChallengeRecord | null | Promise<OtpChallengeRecord | null>;
+  /** Required only by mobile enrollment; one atomic attempt transition. */
+  verifyMobileEnrollment?(input: { readonly challengeId: string; readonly codeDigest: Buffer; readonly now: number }): MobileAttemptOutcome | Promise<MobileAttemptOutcome>;
 }
 export interface ProvisionedOtp { readonly challengeId: string; readonly code: string; readonly expiresAt: number }
+export interface MobileEnrollmentIssuance {
+  readonly challengeId: string; readonly purpose: 'enroll_identifier'; readonly transport: 'mobile';
+  readonly identifierHash: string; readonly channel: OtpChannel; readonly issuedAt: number; readonly expiresAt: number;
+}
+export type MobileAttemptOutcome =
+  | Readonly<{ kind: 'incorrect'; remainingAttempts: number }>
+  | Readonly<{ kind: 'terminal' }>
+  | Readonly<{ kind: 'consumed'; record: OtpChallengeRecord }>;
+export type MobileVerificationOutcome =
+  | Readonly<{ kind: 'incorrect'; remainingAttempts: number }>
+  | Readonly<{ kind: 'terminal' }>
+  | Readonly<{ kind: 'consumed'; proof: string }>;
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
@@ -88,11 +102,26 @@ export class InMemoryOtpChallengeRepository implements OtpChallengeRepository {
     this.records.delete(record.challengeId);
     return copyRecord(record);
   }
+  verifyMobileEnrollment(input: { challengeId: string; codeDigest: Buffer; now: number }): MobileAttemptOutcome {
+    this.prune(input.now);
+    const record = this.records.get(input.challengeId);
+    if (!record || record.purpose !== 'enroll_identifier' || record.transportContext.transport !== 'mobile' ||
+      !Number.isSafeInteger(input.now) || input.now < record.issuedAt || input.now >= record.expiresAt || record.attempts >= MAX_ATTEMPTS) return { kind: 'terminal' };
+    if (input.codeDigest.length !== record.codeDigest.length || !timingSafeEqual(record.codeDigest, input.codeDigest)) {
+      const attempts = record.attempts + 1;
+      if (attempts === MAX_ATTEMPTS) { this.records.delete(input.challengeId); return { kind: 'terminal' }; }
+      this.records.set(input.challengeId, copyRecord({ ...record, attempts }));
+      return { kind: 'incorrect', remainingAttempts: MAX_ATTEMPTS - attempts };
+    }
+    this.records.delete(input.challengeId);
+    return { kind: 'consumed', record: copyRecord(record) };
+  }
 }
 
 /** Internal trusted-server boundary; caller must supply a mandatory server secret. */
 export class OtpProofProducer {
   private readonly key: Buffer;
+  private mobileLastNow = -1;
   constructor(
     key: Uint8Array,
     private readonly repository: OtpChallengeRepository,
@@ -104,6 +133,65 @@ export class OtpProofProducer {
   }
   private digest(challengeId: string, code: string): Buffer {
     return createHmac('sha256', this.key).update(DIGEST_DOMAIN, 'utf8').update(challengeId, 'utf8').update('\0', 'utf8').update(code, 'utf8').digest();
+  }
+  private safeNow(issuedAt: number, expiresAt: number): number {
+    const now = this.clock();
+    if (!Number.isSafeInteger(now) || now < 0 || now < this.mobileLastNow || now < issuedAt || now >= expiresAt) throw new Error();
+    this.mobileLastNow = now;
+    return now;
+  }
+  async provisionMobileEnrollment(input: { readonly identifierHash: string; readonly channel: OtpChannel }): Promise<Readonly<{ issuance: MobileEnrollmentIssuance; code: string }>> {
+    try {
+      if (!input || Object.keys(input).length !== 2 || !Object.hasOwn(input, 'identifierHash') || !Object.hasOwn(input, 'channel') ||
+        !validHash(input.identifierHash) || !['sms', 'email'].includes(input.channel)) throw new Error();
+      const issuedAt = this.safeNow(0, Number.MAX_SAFE_INTEGER);
+      const expiresAt = issuedAt + CHALLENGE_TTL_MS;
+      if (!Number.isSafeInteger(issuedAt) || issuedAt < 0 || !Number.isSafeInteger(expiresAt)) throw new Error();
+      const challengeId = randomBytes(32).toString('base64url');
+      const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
+      const record = copyRecord({ challengeId, purpose: 'enroll_identifier', identifierHash: input.identifierHash,
+        channel: input.channel, transportContext: { transport: 'mobile' }, issuedAt, expiresAt, attempts: 0,
+        codeDigest: this.digest(challengeId, code) });
+      await this.repository.insert(record);
+      this.safeNow(issuedAt, expiresAt);
+      const issuance: MobileEnrollmentIssuance = Object.freeze({ challengeId: record.challengeId, purpose: 'enroll_identifier',
+        transport: 'mobile', identifierHash: record.identifierHash, channel: record.channel, issuedAt: record.issuedAt, expiresAt: record.expiresAt });
+      return Object.freeze({ issuance, code });
+    } catch { throw new Error('OTP unavailable'); }
+  }
+  async verifyMobileEnrollment(input: { readonly issuance: MobileEnrollmentIssuance; readonly code: string }): Promise<MobileVerificationOutcome> {
+    try {
+      const received = input?.issuance;
+      const expected = received && Object.freeze({ challengeId: received.challengeId, purpose: received.purpose,
+        transport: received.transport, identifierHash: received.identifierHash, channel: received.channel,
+        issuedAt: received.issuedAt, expiresAt: received.expiresAt });
+      if (!input || Object.keys(input).length !== 2 || !Object.hasOwn(input, 'issuance') || !Object.hasOwn(input, 'code') ||
+        !received || Object.keys(received).length !== 7 ||
+        !['challengeId', 'purpose', 'transport', 'identifierHash', 'channel', 'issuedAt', 'expiresAt'].every(k => Object.hasOwn(received, k)) ||
+        !expected ||
+        typeof expected.challengeId !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(expected.challengeId) ||
+        expected.purpose !== 'enroll_identifier' || expected.transport !== 'mobile' || !validHash(expected.identifierHash) ||
+        !['sms', 'email'].includes(expected.channel) || !Number.isSafeInteger(expected.issuedAt) || expected.issuedAt < 0 ||
+        !Number.isSafeInteger(expected.expiresAt) || expected.expiresAt !== expected.issuedAt + CHALLENGE_TTL_MS ||
+        typeof input.code !== 'string' || !/^\d{6}$/.test(input.code) || !this.repository.verifyMobileEnrollment) throw new Error();
+      const now = this.safeNow(expected.issuedAt, expected.expiresAt);
+      const outcome = await this.repository.verifyMobileEnrollment({ challengeId: expected.challengeId, codeDigest: this.digest(expected.challengeId, input.code), now });
+      this.safeNow(now, expected.expiresAt);
+      if (outcome?.kind === 'incorrect' && Number.isInteger(outcome.remainingAttempts) &&
+        outcome.remainingAttempts >= 1 && outcome.remainingAttempts <= 4) return Object.freeze({ kind: 'incorrect', remainingAttempts: outcome.remainingAttempts });
+      if (outcome?.kind === 'terminal') return Object.freeze({ kind: 'terminal' });
+      if (outcome?.kind !== 'consumed') throw new Error();
+      const record = outcome.record;
+      if (!record || Object.keys(record).length !== 9 || !['challengeId', 'purpose', 'identifierHash', 'channel', 'transportContext', 'issuedAt', 'expiresAt', 'attempts', 'codeDigest'].every(k => Object.hasOwn(record, k)) ||
+        record.challengeId !== expected.challengeId || record.purpose !== expected.purpose || record.identifierHash !== expected.identifierHash ||
+        record.channel !== expected.channel || record.issuedAt !== expected.issuedAt || record.expiresAt !== expected.expiresAt ||
+        !record.transportContext || Object.keys(record.transportContext).length !== 1 || record.transportContext.transport !== expected.transport ||
+        !Number.isInteger(record.attempts) || record.attempts < 0 || record.attempts >= MAX_ATTEMPTS || !Buffer.isBuffer(record.codeDigest) ||
+        record.codeDigest.length !== 32 || !timingSafeEqual(record.codeDigest, this.digest(expected.challengeId, input.code))) throw new Error();
+      const proof = await this.proofStore.issue({ purpose: 'enrollment', challenge: record.challengeId, transport: 'mobile', identifierHash: record.identifierHash });
+      this.safeNow(now, expected.expiresAt);
+      return Object.freeze({ kind: 'consumed', proof });
+    } catch { throw new Error(FAILURE); }
   }
   async provision(input: OtpProvisioning): Promise<ProvisionedOtp> {
     try {

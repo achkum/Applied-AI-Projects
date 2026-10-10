@@ -1,0 +1,21 @@
+{
+  "scope": "ST-209 producer and challenge-store focused QA",
+  "command": "corepack pnpm --filter @subtrack/api exec vitest run src/auth/proofs-v2/otp-proof-producer.spec.ts src/auth/proofs-v2/mobile-enrollment-challenge-store.spec.ts --coverage.enabled --coverage.provider=v8 --coverage.include=src/auth/proofs-v2/otp-proof-producer.ts --coverage.include=src/auth/proofs-v2/mobile-enrollment-challenge-store.ts",
+  "testFilesPassed": 2,
+  "testsPassed": 50,
+  "coverage": {
+    "statements": { "covered": 201, "total": 210, "percent": 95.71 },
+    "branches": { "covered": 254, "total": 262, "percent": 96.94 },
+    "functions": { "covered": 33, "total": 33, "percent": 100.0 },
+    "lines": { "covered": 163, "total": 164, "percent": 99.39 }
+  },
+  "lint": { "command": "corepack pnpm exec eslint \"apps/api/src/**/*.ts\" \"apps/api/test/**/*.ts\"", "exitCode": 0 },
+  "typecheck": { "command": "corepack pnpm exec tsc --noEmit -p apps/api/tsconfig.json", "exitCode": 0 },
+  "sourceSha256": {
+    "apps/api/src/auth/proofs-v2/otp-proof-producer.ts": "D7ABAA96E5393FBD36AE80A5ABAE67201DCA722015493B2B11B5ACB40AF56D08",
+    "apps/api/src/auth/proofs-v2/otp-proof-producer.spec.ts": "6DB6509129B23D4293BAC0351E66CF9D66357E8D08199E1D1F2A2183957B00E7",
+    "apps/api/src/auth/proofs-v2/mobile-enrollment-challenge-store.ts": "2D42D659B56F1EA318019448295A683F7D5A9E3F716710433C1B7FC7256A1511",
+    "apps/api/src/auth/proofs-v2/mobile-enrollment-challenge-store.spec.ts": "4DFC608D7AA2CF6D00D8C34DEFA4BD61FF69B4AC771F4C7BF765AF161A04ED1C"
+  },
+  "scopeLimit": "No full API suite or exact-head CI rerun; no adapter, DB, provider, or HTTP claims."
+}
