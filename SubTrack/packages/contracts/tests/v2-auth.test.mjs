@@ -7,13 +7,13 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const contractRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const redocly = join(contractRoot, 'node_modules/.bin/redocly');
+const redocly = join(contractRoot, 'node_modules/@redocly/cli/bin/cli.js');
 const source = join(contractRoot, 'openapi.yaml');
 
 function bundle() {
   const dir = mkdtempSync(join(tmpdir(), 'st170a-contract-'));
   const output = join(dir, 'openapi.json');
-  const result = spawnSync(redocly, ['bundle', source, '--output', output, '--dereferenced'], {
+  const result = spawnSync(process.execPath, [redocly, 'bundle', source, '--output', output, '--dereferenced'], {
     cwd: contractRoot,
     encoding: 'utf8',
   });
@@ -33,6 +33,9 @@ test('v1 route and schema baseline remains present and unchanged in the candidat
       'GET /v1/data-rights/export/{token}',
       'GET /v1/privacy/preview-as/{householdId}',
       'GET /v1/privacy/settings',
+      'GET /v1/review-inbox',
+      'GET /v1/subscriptions',
+      'GET /v1/subscriptions/{id}',
       'GET /v1/version',
       'PATCH /v1/privacy/open-book',
       'POST /v1/data-rights/export',
