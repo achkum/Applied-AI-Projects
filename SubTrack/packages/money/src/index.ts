@@ -36,3 +36,5 @@ export {
   isConvertedCostOutsideMedianBand,
   type ConvertedChargeCost,
 } from './converted-cost.js';
+
+export { isConfirmedSekPriceIncrease } from './price-increase.js';

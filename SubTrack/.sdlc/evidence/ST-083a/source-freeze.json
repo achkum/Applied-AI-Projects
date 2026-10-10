@@ -1,0 +1,6 @@
+{
+  "packages/money/src/price-increase.ts": "24f60ad4fa80419fb5bf4005ef60fada53f08597d2388714f1fdc304fcfa9160",
+  "packages/money/test/price-increase.spec.ts": "19f11892b8a2a2c8eeb3b8b24218e66799b352273a22a5454f12c2298c05437b",
+  "packages/money/src/price-increase.md": "3e098f90ac078c577f4ff70b0d77cf4f4461ffac00b5d9c4c9ed57fcf6655daa",
+  "packages/money/src/index.ts": "44e99f6e425fdbe19c54cfd0af4f5163901ed0ba502f281fc6b930d22100cb03"
+}
