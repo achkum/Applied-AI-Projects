@@ -1,0 +1,14 @@
+{
+  "task": "ST-206",
+  "result": "passed",
+  "checks": [
+    "api-healthz",
+    "web-sv",
+    "web-en",
+    "web-static-asset",
+    "nonroot-processes"
+  ],
+  "apiUid": 1000,
+  "webUid": 1001,
+  "timestamp": "2026-10-10T10:37:34.153Z"
+}
