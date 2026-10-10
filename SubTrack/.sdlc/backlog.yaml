@@ -6,7 +6,9 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  # Proposed acceptance: ST050c source1f25e04 reviewed/independently QA verified; standard38048697383 attempt2/container38048697364 PASS. DONE applies only after final metadata CI and Conductor merge of PR231 into main.
+  # ST121a proposed DONE applies only after independent approvals, exact-head CI and Conductor squash merge into main. Parent ST121 remains incomplete; no live-source permission is inferred.
+  - {id: ST-121a, title: 'Offline catalogue extraction command and candidate quarantine', owner: dev-data, size: M, status: DONE, deps: [ST-064, ST-120]}
+  # ST050c accepted PR231@e6f305a; final source6b3ab1d, standard38049105211/container38049105189 PASS. Full onboarding remains incomplete.
   - {id: ST-050c, title: 'Development web auth proxy and real browser OTP proof', owner: dev-web, size: M, status: DONE, deps: [ST-177]}
   # ST050b client slice accepted PR230@8f80aa6; full onboarding remains IN_PROGRESS. SEC-FU1f accepted PR229@23fcfb3, standard38048188511/container38048188552 PASS.
   - {id: ST-050b, title: 'Web registration route and contract-backed OTP step', owner: dev-web, size: M, status: IN_PROGRESS, deps: [ST-050a]}

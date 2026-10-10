@@ -1,0 +1,24 @@
+version: 1
+sources:
+  - id: storytel-se
+    name: Storytel Sweden
+    source_url: https://www.storytel.com/se/subscriptions
+    live_enabled: false
+    terms_decision: unresolved
+    extractor_version: storytel-text-v1
+    plans:
+      - name: Premium
+        anchor: '[data-plan="premium"]'
+      - name: Unlimited
+        anchor: '[data-plan="unlimited"]'
+  - id: bookbeat-se
+    name: BookBeat Sweden
+    source_url: https://www.bookbeat.com/se
+    live_enabled: false
+    terms_decision: unresolved
+    extractor_version: bookbeat-text-v1
+    plans:
+      - name: Basic
+        anchor: '[data-plan="basic"]'
+      - name: Premium
+        anchor: '[data-plan="premium"]'
