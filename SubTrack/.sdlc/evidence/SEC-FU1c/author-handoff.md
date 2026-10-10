@@ -1,0 +1,9 @@
+# Guard-only source handoff
+
+2026-10-10: Implemented only the unregistered guard, its adjacent unit suite and the test-only Nest HTTP probe. Private symbols hold copied, freshly frozen principal and one-field context. Raw headers require primitive pairs, one case-insensitive Authorization field and accepted Bearer grammar; exact known credential-cookie names reject across all Cookie fields. Helpers reject absent/inherited state. Both attachments clear before parsing/resolution and on failure, including partial attachment failure. No production wiring, storage/DB/schema/JWT policy changes or logging.
+
+Focused API-directory Vitest run: **50 tests / 2 files PASS**, no skips. Scoped ESLint for all three source/test files PASS. Corepack uses pnpm 12.6.0. Three new files total 597 formatted lines. Plain tsc checks report only existing implicit-any diagnostics in data-rights/households/privacy associated with the currently ungenerated Prisma client; normal generation/typecheck, full API/build, coverage, independent source/QA review and exact-head CI remain root-owned gates.
+
+The initial HTTP fixture used raw header arrays without Host and received Node 400 before Nest; added explicit Host. The probe now sends POST JSON spoofed identity/user inputs and accounts for Nest's default 201 success. All failure responses assert the exact generic 401 shape and boolean private-value absence without credential-bearing snapshots. Keys are generated in memory; the prior key environment value is preserved/restored only, never output.
+
+Read accepted task clarifications, AGENTS, Constitution, Decision Rules, SEC-FU1a/b, proposal, cores/request context and preserved backend-next-contract via origin/st/ST-206-deployment-images. The accepted guard-only contract supersedes the historical combined reader proposal. No live database/RLS/authenticated production-route claim.
