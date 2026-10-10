@@ -31,21 +31,16 @@ jest.mock('expo-router', () => {
 
 const mockStorage = jest.mocked(AsyncStorage);
 
-describe('root locale landing route', () => {
+describe('root onboarding landing route', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockStorage.getItem.mockResolvedValue(null);
   });
 
   // The first cold native/Babel provider mount measured 4.1–4.9s, so only this test gets headroom.
-  it.each([
-    ['sv', '/sv'],
-    ['en', '/en'],
-    [null, '/en'],
-    ['de', '/en'],
-  ])(
-    'redirects stored locale %s to %s',
-    async (storedLocale, target) => {
+  it.each(['sv', 'en', null, 'de'])(
+    'redirects stored locale %s to the welcome route',
+    async storedLocale => {
       let resolveStoredTheme: (value: string | null) => void = () => {};
       let resolveStoredLocale: (value: string | null) => void = () => {};
       mockStorage.getItem.mockImplementation(key => {
@@ -82,7 +77,7 @@ describe('root locale landing route', () => {
         resolveStoredLocale(storedLocale);
       });
 
-      expect(screen.getByTestId('redirect-target').props.children).toBe(target);
+      expect(screen.getByTestId('redirect-target').props.children).toBe('/welcome');
     },
     15_000,
   );

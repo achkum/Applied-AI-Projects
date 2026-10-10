@@ -35,13 +35,13 @@ export function RegistrationScreen({ mode = 'register' }: { mode?: RegistrationM
       </Text>
 
       {mode === 'login' ? (
-        <View accessibilityRole="alert" style={[styles.notice, { backgroundColor: color('bg.raised'), borderRadius: theme.radius.card }]}>
+        <View accessible accessibilityRole="alert" style={[styles.notice, { backgroundColor: color('bg.raised'), borderRadius: theme.radius.card }]}>
           <Text style={{ color: color('ink.primary'), fontFamily: theme.typography.fontFamily.ui }}>
             {t('onboarding.registration.loginUnavailable')}
           </Text>
         </View>
       ) : accepted ? (
-        <View accessibilityRole="alert" style={[styles.notice, { backgroundColor: color('bg.raised'), borderRadius: theme.radius.card }]}>
+        <View accessible accessibilityRole="alert" style={[styles.notice, { backgroundColor: color('bg.raised'), borderRadius: theme.radius.card }]}>
           <Text style={{ color: color('ink.primary'), fontFamily: theme.typography.fontFamily.ui }}>
             {t('onboarding.registration.identifierValid')}
           </Text>
