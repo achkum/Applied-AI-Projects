@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-10T10:51:22.056Z",
+  "baseUrl": "http://localhost:8091",
+  "viewport": {
+    "width": 375,
+    "height": 812
+  },
+  "results": [
+    {
+      "locale": "en",
+      "theme": "light",
+      "routes": [
+        "/",
+        "/welcome",
+        "/register",
+        "/register?mode=login",
+        "/en/demo"
+      ],
+      "welcomeBackground": "rgb(247, 244, 238)",
+      "screenshots": [
+        "expo-web-en-light-welcome.png",
+        "expo-web-en-light-register.png",
+        "expo-web-en-light-unavailable.png",
+        "expo-web-en-light-login-unavailable.png",
+        "expo-web-en-light-demo.png"
+      ]
+    },
+    {
+      "locale": "en",
+      "theme": "dark",
+      "routes": [
+        "/",
+        "/welcome",
+        "/register",
+        "/register?mode=login",
+        "/en/demo"
+      ],
+      "welcomeBackground": "rgb(10, 12, 20)",
+      "screenshots": [
+        "expo-web-en-dark-welcome.png",
+        "expo-web-en-dark-register.png",
+        "expo-web-en-dark-unavailable.png",
+        "expo-web-en-dark-login-unavailable.png",
+        "expo-web-en-dark-demo.png"
+      ]
+    },
+    {
+      "locale": "sv",
+      "theme": "light",
+      "routes": [
+        "/",
+        "/welcome",
+        "/register",
+        "/register?mode=login",
+        "/sv/demo"
+      ],
+      "welcomeBackground": "rgb(247, 244, 238)",
+      "screenshots": [
+        "expo-web-sv-light-welcome.png",
+        "expo-web-sv-light-register.png",
+        "expo-web-sv-light-unavailable.png",
+        "expo-web-sv-light-login-unavailable.png",
+        "expo-web-sv-light-demo.png"
+      ]
+    },
+    {
+      "locale": "sv",
+      "theme": "dark",
+      "routes": [
+        "/",
+        "/welcome",
+        "/register",
+        "/register?mode=login",
+        "/sv/demo"
+      ],
+      "welcomeBackground": "rgb(10, 12, 20)",
+      "screenshots": [
+        "expo-web-sv-dark-welcome.png",
+        "expo-web-sv-dark-register.png",
+        "expo-web-sv-dark-unavailable.png",
+        "expo-web-sv-dark-login-unavailable.png",
+        "expo-web-sv-dark-demo.png"
+      ]
+    }
+  ],
+  "requestCount": 48,
+  "externalRequestCount": 0,
+  "authRequestCount": 0,
+  "identifierRequestCount": 0,
+  "pageErrorCount": 0,
+  "outcome": "PASS",
+  "limitations": [
+    "Expo Web route smoke only; no native device, screen-reader, BankID, OTP, or signup-authority claim."
+  ]
+}

@@ -66,6 +66,22 @@
         "phone_format": "Enter a Swedish mobile number using digits and ordinary separators.",
         "phone_length": "Check the number of digits and try again."
       }
+    },
+    "registration": {
+      "title": "Create account",
+      "introduction": "Start with your email address or mobile number.",
+      "otpLabel": "Verification code",
+      "verifyLabel": "Verify",
+      "backLabel": "Back",
+      "acceptedMessage": "Your contact details have been verified.",
+      "identifierValid": "Your contact details have a valid format.",
+      "bankIdRequired": "Continue with BankID to finish creating your account.",
+      "unavailable": "Registration cannot continue right now. Please try again later.",
+      "loginUnavailable": "Log in is not available yet.",
+      "loading": "Please wait…",
+      "error": "Something went wrong. Please try again.",
+      "restartRequired": "Restart verification",
+      "invalidOtp": "Enter six digits."
     }
   },
   "hero": {
