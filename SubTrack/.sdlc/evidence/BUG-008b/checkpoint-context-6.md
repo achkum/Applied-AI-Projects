@@ -1,0 +1,11 @@
+# BUG-008b context-6 checkpoint (2026-10-10)
+
+Original attempt 1, elapsed/failure counters from contexts 1–5 retained. Draft PR 237; no new PostgreSQL/CI run, database mutation, commit, or push in this context. The earlier single CI startup failure remains unresolved until the next owned disposable run.
+
+Type 2a dependant resolution implemented in allowed paths: nullable `HouseholdMember.identityId` and optional `display_name`; SQL CHECK requires a null identity plus name for `DEPENDANT` and a non-null identity for adult roles. Runtime insertion allows profile-only dependants for active admins. `addDependant` no longer creates a synthetic Identity or puts the name in audit metadata. Privacy preview filters identityless profiles before consent and subscription owner queries. ADR-0021 records the decision. Generated `0001` baseline and independent fixture were updated; actual PG integration checks multiple dependants, admin success, non-admin denials, invalid role pairs, and no account visibility. CI receipt uploads on failure and failure output includes only a validated Prisma/SQLSTATE code.
+
+Local checks: Prisma 6.19.2 `migrate diff` and `generate` PASS; API `tsc --noEmit` PASS; focused ESLint PASS; household/privacy Vitest 20/20 PASS; `git diff --check` PASS. `bash -n` unavailable on this Windows host. No local PostgreSQL/Docker proof is claimed.
+
+Regenerated baseline header records binary source schema SHA-256 `884294a60387ded7f6940703e7bf4b8b359c28e220525129c925faee0ce82919` and generated body SHA-256 `0fefb858837af7d4483daea624081337582ad22655caa3cc144c9db1e7b676fa`. LF-normalized whole-file hashes: schema `ff76a5afc01a2cb3fdc0c6c051403d8b4061e40a89e2641c8617a4b864c24284`; `0001` `ac77ad96094f0dd6f2a832ab77277fdc7b930f7a8dbec7735e74108c9b403167`; `0002` `86f779542e62e0ba14669ab37c15e74d2cf9b07fa9b36547b8cb7a3fd0209d73`; PG test `892baadf9416b42aaa190c74ce4b07b4e93c289f393bb40946d9f6de35a74b32`. Current tracked diff: 120 additions/46 deletions including prior context/task edits, plus new ADR. Generated `0001` excluded from 1,400-line cap.
+
+Next gates: root review/commit/push, disposable PG16 CI, exact-source platform/security review, QA/devops review, exact-head CI. Parent BUG-008 remains open.
