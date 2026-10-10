@@ -1,0 +1,85 @@
+{
+  "task": "BUG-008 Phase A",
+  "status": "expected clean-install target; SQL and database proof pending",
+  "scope": "No provider persistence activation or raw_provider_payload table in Phase A",
+  "conventions": {
+    "newPrimaryKeys": "id uuid primary key default gen_random_uuid()",
+    "newTimestamps": "created_at and updated_at timestamptz(6) not null",
+    "money": "all minor-unit amounts bigint; currency char(3); no floating-point money",
+    "owner": "identity_id references identity(id); immutable after insert where present",
+    "date": "transaction_date, value_date, next_charge_date and charged_at are date; booked_at is nullable timestamptz(6)"
+  },
+  "enums": {
+    "bank_provider": ["TINK_SANDBOX", "SYNTHETIC", "TINK_LIVE"],
+    "bank_connection_status": ["ACTIVE", "EXPIRED", "REVOKED"],
+    "account_type": ["CHECKING", "SAVINGS", "CREDIT", "OTHER"],
+    "transaction_status": ["PENDING", "BOOKED"],
+    "subscription_cadence": ["WEEKLY", "MONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL", "CUSTOM"],
+    "subscription_status": ["DETECTED", "TRIAL", "ACTIVE", "PAUSED", "CANCELLED", "ARCHIVED", "REJECTED"],
+    "subscription_source": ["DETECTED", "MANUAL"],
+    "catalogue_plan_source": ["SEED", "SCRAPER", "MANUAL"],
+    "charge_matched_by": ["ENGINE", "USER"]
+  },
+  "tables": {
+    "bank_connection": {
+      "model": "BankConnection",
+      "columns": ["id uuid!", "identity_id uuid!", "provider bank_provider!", "provider_connection_id varchar(255)?", "institution_id varchar(255)!", "institution_name varchar(120)!", "status bank_connection_status!", "consent_expires_at timestamptz?", "encrypted_credentials bytea?", "last_synced_at timestamptz?", "revoked_at timestamptz?", "created_at timestamptz!", "updated_at timestamptz!"],
+      "keys": ["PK(id)", "UNIQUE(id,identity_id)", "UNIQUE(identity_id,provider,provider_connection_id) WHERE provider_connection_id IS NOT NULL"],
+      "foreignKeys": ["identity_id -> identity(id)"],
+      "rls": "owner-only SELECT/INSERT/UPDATE/DELETE; immutable identity_id; credentials never household-visible"
+    },
+    "bank_account": {
+      "model": "BankAccount",
+      "columns": ["id uuid!", "connection_id uuid!", "identity_id uuid!", "provider_account_id varchar(255)!", "name varchar(120)!", "type account_type!", "iban_last4 char(4)?", "currency char(3)!", "created_at timestamptz!", "updated_at timestamptz!"],
+      "keys": ["PK(id)", "UNIQUE(id,identity_id)", "UNIQUE(connection_id,provider_account_id)"],
+      "foreignKeys": ["identity_id -> identity(id)", "(connection_id,identity_id) -> bank_connection(id,identity_id)"],
+      "rls": "owner-only SELECT/INSERT/UPDATE/DELETE; immutable identity_id"
+    },
+    "raw_transaction": {
+      "model": "RawTransaction",
+      "columns": ["id uuid!", "account_id uuid!", "identity_id uuid!", "provider_transaction_id varchar(255)!", "amount_minor bigint!", "currency char(3)!", "original_amount_minor bigint?", "original_currency char(3)?", "transaction_date date!", "booked_at timestamptz?", "value_date date?", "status transaction_status!", "raw_description varchar(500)!", "merchant_id uuid?", "provider_category varchar(120)?", "is_refund boolean!", "dedupe_hash varchar(64)!", "created_at timestamptz!", "updated_at timestamptz!"],
+      "keys": ["PK(id)", "UNIQUE(id,identity_id)", "UNIQUE(account_id,provider_transaction_id)", "INDEX(account_id,transaction_date)"],
+      "foreignKeys": ["identity_id -> identity(id)", "(account_id,identity_id) -> bank_account(id,identity_id)", "merchant_id -> merchant(id)"],
+      "checks": ["original_amount_minor and original_currency are both null or both non-null", "no fabricated booked_at; PENDING may have booked_at NULL"],
+      "rls": "owner-only SELECT/INSERT/UPDATE/DELETE; immutable identity_id"
+    },
+    "merchant": {
+      "model": "Merchant",
+      "columns": ["id uuid!", "canonical_name varchar(120)!", "slug varchar(160)!", "category_code varchar(50)!", "aliases jsonb!", "logo_url varchar(255)?", "website varchar(255)?", "country char(2)!", "created_at timestamptz!", "updated_at timestamptz!"],
+      "keys": ["PK(id)", "UNIQUE(slug)"],
+      "foreignKeys": [],
+      "grants": "public SELECT; narrowly granted service/migration write; no RLS alone does not enforce read-only"
+    },
+    "catalogue_plan": {
+      "model": "CataloguePlan",
+      "columns": ["id uuid!", "merchant_id uuid!", "plan_name varchar(120)!", "cadence subscription_cadence!", "price_minor bigint!", "currency char(3)!", "market varchar(10)!", "features jsonb?", "source_url varchar(255)?", "verified_at timestamptz?", "source catalogue_plan_source!", "created_at timestamptz!", "updated_at timestamptz!"],
+      "keys": ["PK(id)"],
+      "foreignKeys": ["merchant_id -> merchant(id)"],
+      "grants": "public SELECT; narrowly granted service/migration write; SE is not a global market default"
+    },
+    "subscription": {
+      "model": "Subscription",
+      "columns": ["id uuid!", "identity_id uuid!", "merchant_id uuid?", "custom_name varchar(120)?", "category_code varchar(50)!", "cadence subscription_cadence!", "expected_amount_minor bigint!", "currency char(3)!", "status subscription_status! default DETECTED", "source subscription_source!", "confidence numeric(5,4)?", "detection_reasons jsonb?", "catalog_plan_id uuid?", "paying_account_id uuid?", "next_charge_date date?", "always_private boolean! default false", "created_at timestamptz!", "updated_at timestamptz!"],
+      "keys": ["PK(id)", "UNIQUE(id,identity_id)", "INDEX(identity_id)"],
+      "foreignKeys": ["existing identity_id -> identity(id)", "merchant_id -> merchant(id)", "catalog_plan_id -> catalogue_plan(id)", "(paying_account_id,identity_id) -> bank_account(id,identity_id)"],
+      "checks": ["confidence IS NULL OR confidence BETWEEN 0 AND 1"],
+      "rls": "owner SELECT/mutate; active explicit household share SELECT; owner open_book in common active household SELECT only if always_private=false; SQL helper review required"
+    },
+    "subscription_share": {
+      "model": "SubscriptionShare",
+      "columns": ["id uuid!", "subscription_id uuid!", "household_id uuid!", "shared_by uuid!", "shared_at timestamptz!", "revoked_at timestamptz?"],
+      "keys": ["PK(id)", "UNIQUE(subscription_id,household_id) WHERE revoked_at IS NULL"],
+      "foreignKeys": ["subscription_id -> subscription(id)", "household_id -> household(id)", "shared_by -> identity(id)"],
+      "rls": "owner creates grant only while active target-household member; owner can revoke after departure; no revival or authority-field retargeting; active members may view active share"
+    },
+    "subscription_charge": {
+      "model": "SubscriptionCharge",
+      "columns": ["id uuid!", "identity_id uuid!", "subscription_id uuid!", "raw_transaction_id uuid?", "amount_minor bigint!", "currency char(3)!", "charged_at date!", "matched_by charge_matched_by?", "created_at timestamptz!", "updated_at timestamptz!"],
+      "keys": ["PK(id)", "UNIQUE(raw_transaction_id) WHERE raw_transaction_id IS NOT NULL", "INDEX(subscription_id,charged_at)"],
+      "foreignKeys": ["identity_id -> identity(id)", "(subscription_id,identity_id) -> subscription(id,identity_id)", "(raw_transaction_id,identity_id) -> raw_transaction(id,identity_id)"],
+      "checks": ["(raw_transaction_id IS NULL AND matched_by IS NULL) OR (raw_transaction_id IS NOT NULL AND matched_by IS NOT NULL)", "linked captured amount/currency/date agreement or independently reviewed write contract"],
+      "rls": "owner-only SELECT/INSERT/UPDATE/DELETE; immutable identity_id; no inherited household subscription visibility"
+    }
+  },
+  "sqlOnlyProof": ["command-specific RLS USING and WITH CHECK under non-superuser non-BYPASSRLS runtime role", "immutable ownership and share authority fields", "active-share partial unique index", "confidence and charge matching checks", "bounded Boolean visibility helper, grants and recursion avoidance", "migration order: referenced tables before policies", "missing/invalid context, rollback and pooled reuse fail closed"]
+}

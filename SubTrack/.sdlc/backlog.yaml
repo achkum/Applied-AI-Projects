@@ -6,6 +6,7 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
+  - {id: BUG-008a, title: 'Canonical clean-install Prisma schema target', owner: architect-platform, size: M, status: IN_REVIEW, deps: []}
   - {id: ST-208, title: 'Anonymous mobile enrollment reservation core and contract', owner: dev-backend, size: M, status: IN_REVIEW, deps: [ST-207, ST-170c2]}
   - {id: ST-207, title: 'Anonymous mobile enrollment OTP authority decision', owner: architect-platform, size: S, status: DONE, deps: [ST-170a, ST-177]}
   # ST121a proposed DONE applies only after independent approvals, exact-head CI and Conductor squash merge into main. Parent ST121 remains incomplete; no live-source permission is inferred.
@@ -56,7 +57,7 @@ items:
   - {id: BUG-011, title: "Restore integration quality gates", owner: "conductor", size: "L", status: DONE, deps: []}
   - {id: BUG-010, title: "Unsigned ZIP external attributes", owner: "conductor", size: "M", status: DONE, deps: []}
   - {id: BUG-009, title: "API strict typing and accepted session schema parity", owner: "conductor", size: "M", status: DONE, deps: []}
-  - {id: BUG-008, title: "Duplicate subscription migration history audit", owner: "conductor", size: "M", status: BLOCKED, deps: []}
+  - {id: BUG-008, title: "Clean schema and subscription migration reconciliation", owner: "conductor", size: "M", status: IN_PROGRESS, deps: []}
   - {id: BUG-007, title: "Mobile strict typing and reduced-motion mock repairs", owner: "conductor", size: "M", status: DONE, deps: []}
   - {id: BUG-006, title: "UI and web integration gate repairs", owner: "conductor", size: "M", status: DONE, deps: []}
   - {id: BUG-005, title: "Backend and OpenAPI gate repairs", owner: "conductor", size: "M", status: DONE, deps: []}

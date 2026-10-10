@@ -40,6 +40,10 @@ model Identity {
   subscriptions         Subscription[]
   sharedSubscriptions   SubscriptionShare[] @relation("sharer")
   sessions              Session[]
+  bankConnections       BankConnection[]
+  bankAccounts          BankAccount[]
+  rawTransactions       RawTransaction[]
+  subscriptionCharges   SubscriptionCharge[]
 
   @@map("identity")
 }
@@ -340,13 +344,14 @@ model AuditLog {
 //   owner OR active explicit share in member's household OR
 //   (owner has open_book consent in shared household AND NOT always_private)
 //
-// Full USING clause is in migration 0002 and mirrored by
-// packages/domain/policy/subscription-visibility.ts.
+// Reconciled SQL policy and PostgreSQL parity proof are Phase B gates.
 // ---------------------------------------------------------------------------
 model Subscription {
   id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   identityId          String              @map("identity_id") @db.Uuid
   merchantId          String?             @map("merchant_id") @db.Uuid
+  catalogPlanId       String?             @map("catalog_plan_id") @db.Uuid
+  payingAccountId     String?             @map("paying_account_id") @db.Uuid
   customName          String?             @map("custom_name") @db.VarChar(120)
   /// Category code from the SubTrack taxonomy (CATEGORIES.md).
   categoryCode        String              @map("category_code") @db.VarChar(50)
@@ -355,6 +360,10 @@ model Subscription {
   expectedAmountMinor BigInt              @map("expected_amount_minor")
   currency            String              @db.Char(3)
   status              SubscriptionStatus  @default(DETECTED)
+  source              SubscriptionSource
+  confidence          Decimal?            @db.Decimal(5, 4)
+  detectionReasons    Json?               @map("detection_reasons")
+  nextChargeDate      DateTime?           @map("next_charge_date") @db.Date
   /// Per-subscription privacy override: blocks Rule 3 (open_book) regardless of household consent.
   alwaysPrivate       Boolean             @default(false) @map("always_private")
   createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -362,7 +371,12 @@ model Subscription {
 
   identity Identity           @relation(fields: [identityId], references: [id])
   shares   SubscriptionShare[]
+  merchant Merchant?          @relation(fields: [merchantId], references: [id])
+  catalogPlan CataloguePlan?  @relation(fields: [catalogPlanId], references: [id])
+  payingAccount BankAccount?  @relation(fields: [payingAccountId, identityId], references: [id, identityId])
+  charges SubscriptionCharge[]
 
+  @@unique([id, identityId])
   @@index([identityId])
   @@map("subscription")
 }
@@ -390,15 +404,22 @@ enum SubscriptionStatus {
   @@map("subscription_status")
 }
 
+enum SubscriptionSource {
+  DETECTED
+  MANUAL
+
+  @@map("subscription_source")
+}
+
 // ---------------------------------------------------------------------------
 // SUBSCRIPTION_SHARE
 //
 // Explicit share of a subscription into a household (Rule 2 of the visibility
 // model). revokedAt IS NULL means the share is active.
 //
-// RLS scope (SELECT): sharer, OR household members, OR subscription owner.
-// INSERT: subscription owner or household admin only.
-// UPDATE: sharer may update (for revocation).
+// SQL must restrict grant creation to the owner while an active member of the
+// target household; the owner must remain able to revoke after departure.
+// Authority fields are immutable and revoked grants cannot be revived.
 // ---------------------------------------------------------------------------
 model SubscriptionShare {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -415,4 +436,190 @@ model SubscriptionShare {
   @@index([subscriptionId])
   @@index([householdId])
   @@map("subscription_share")
+}
+
+// Banking and charge detail are owner-only. SQL must enforce immutable identity_id
+// and command-specific RLS; Prisma relations and indexes alone do not do so.
+model BankConnection {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identityId           String               @map("identity_id") @db.Uuid
+  provider             BankProvider
+  providerConnectionId String?              @map("provider_connection_id") @db.VarChar(255)
+  institutionId        String               @map("institution_id") @db.VarChar(255)
+  institutionName      String               @map("institution_name") @db.VarChar(120)
+  status               BankConnectionStatus
+  consentExpiresAt     DateTime?            @map("consent_expires_at") @db.Timestamptz(6)
+  encryptedCredentials Bytes?               @map("encrypted_credentials")
+  lastSyncedAt         DateTime?            @map("last_synced_at") @db.Timestamptz(6)
+  revokedAt            DateTime?            @map("revoked_at") @db.Timestamptz(6)
+  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  identity Identity @relation(fields: [identityId], references: [id])
+  accounts BankAccount[]
+
+  @@unique([id, identityId])
+  @@unique([identityId, provider, providerConnectionId])
+  @@map("bank_connection")
+}
+
+enum BankProvider {
+  TINK_SANDBOX
+  SYNTHETIC
+  TINK_LIVE
+
+  @@map("bank_provider")
+}
+
+enum BankConnectionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+
+  @@map("bank_connection_status")
+}
+
+model BankAccount {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  connectionId      String      @map("connection_id") @db.Uuid
+  identityId        String      @map("identity_id") @db.Uuid
+  providerAccountId String      @map("provider_account_id") @db.VarChar(255)
+  name              String      @db.VarChar(120)
+  type              AccountType
+  ibanLast4         String?     @map("iban_last4") @db.Char(4)
+  currency          String      @db.Char(3)
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  connection BankConnection @relation(fields: [connectionId, identityId], references: [id, identityId])
+  identity Identity @relation(fields: [identityId], references: [id])
+  transactions RawTransaction[]
+  payingSubscriptions Subscription[]
+
+  @@unique([id, identityId])
+  @@unique([connectionId, providerAccountId])
+  @@map("bank_account")
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CREDIT
+  OTHER
+
+  @@map("account_type")
+}
+
+model RawTransaction {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId             String            @map("account_id") @db.Uuid
+  identityId            String            @map("identity_id") @db.Uuid
+  providerTransactionId String            @map("provider_transaction_id") @db.VarChar(255)
+  amountMinor           BigInt            @map("amount_minor")
+  currency              String            @db.Char(3)
+  originalAmountMinor   BigInt?           @map("original_amount_minor")
+  originalCurrency      String?           @map("original_currency") @db.Char(3)
+  transactionDate       DateTime          @map("transaction_date") @db.Date
+  bookedAt              DateTime?         @map("booked_at") @db.Timestamptz(6)
+  valueDate             DateTime?         @map("value_date") @db.Date
+  status                TransactionStatus
+  rawDescription        String            @map("raw_description") @db.VarChar(500)
+  merchantId            String?           @map("merchant_id") @db.Uuid
+  providerCategory      String?           @map("provider_category") @db.VarChar(120)
+  isRefund              Boolean           @map("is_refund")
+  dedupeHash            String            @map("dedupe_hash") @db.VarChar(64)
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account BankAccount @relation(fields: [accountId, identityId], references: [id, identityId])
+  identity Identity @relation(fields: [identityId], references: [id])
+  merchant Merchant? @relation(fields: [merchantId], references: [id])
+  charges SubscriptionCharge[]
+
+  @@unique([id, identityId])
+  @@unique([accountId, providerTransactionId])
+  @@index([accountId, transactionDate])
+  @@map("raw_transaction")
+}
+
+enum TransactionStatus {
+  PENDING
+  BOOKED
+
+  @@map("transaction_status")
+}
+
+model Merchant {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  canonicalName String   @map("canonical_name") @db.VarChar(120)
+  slug          String   @unique @db.VarChar(160)
+  categoryCode  String   @map("category_code") @db.VarChar(50)
+  aliases       Json
+  logoUrl       String?  @map("logo_url") @db.VarChar(255)
+  website       String?  @db.VarChar(255)
+  country       String   @db.Char(2)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  plans CataloguePlan[]
+  subscriptions Subscription[]
+  transactions RawTransaction[]
+
+  @@map("merchant")
+}
+
+model CataloguePlan {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  merchantId  String              @map("merchant_id") @db.Uuid
+  planName    String              @map("plan_name") @db.VarChar(120)
+  cadence     SubscriptionCadence
+  priceMinor  BigInt              @map("price_minor")
+  currency    String              @db.Char(3)
+  market      String              @db.VarChar(10)
+  features    Json?
+  sourceUrl   String?             @map("source_url") @db.VarChar(255)
+  verifiedAt  DateTime?           @map("verified_at") @db.Timestamptz(6)
+  source      CataloguePlanSource
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+  subscriptions Subscription[]
+
+  @@map("catalogue_plan")
+}
+
+enum CataloguePlanSource {
+  SEED
+  SCRAPER
+  MANUAL
+
+  @@map("catalogue_plan_source")
+}
+
+model SubscriptionCharge {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identityId       String          @map("identity_id") @db.Uuid
+  subscriptionId   String          @map("subscription_id") @db.Uuid
+  rawTransactionId String?         @unique @map("raw_transaction_id") @db.Uuid
+  amountMinor      BigInt          @map("amount_minor")
+  currency         String          @db.Char(3)
+  chargedAt        DateTime        @map("charged_at") @db.Date
+  matchedBy        ChargeMatchedBy? @map("matched_by")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  identity Identity @relation(fields: [identityId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId, identityId], references: [id, identityId])
+  rawTransaction RawTransaction? @relation(fields: [rawTransactionId, identityId], references: [id, identityId])
+
+  @@index([subscriptionId, chargedAt])
+  @@map("subscription_charge")
+}
+
+enum ChargeMatchedBy {
+  ENGINE
+  USER
+
+  @@map("charge_matched_by")
 }
