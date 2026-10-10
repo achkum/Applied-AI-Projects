@@ -1,0 +1,46 @@
+name: SubTrack session owner RLS proof
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "SubTrack/apps/api/src/auth/sessions/**"
+      - "SubTrack/apps/api/src/database/request-transaction.ts"
+      - "SubTrack/apps/api/test/session-owner-rls.integration.ts"
+      - "SubTrack/apps/api/vitest.session-owner.config.ts"
+      - "SubTrack/apps/api/prisma/**"
+      - "SubTrack/tools/auth/session-owner-rls-proof.sh"
+      - "SubTrack/pnpm-lock.yaml"
+      - ".github/workflows/subtrack-session-owner-proof.yml"
+permissions:
+  contents: read
+jobs:
+  disposable-session-owner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: SubTrack
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Set up pinned pnpm
+        run: corepack enable && corepack prepare pnpm@12.6.0 --activate
+      - name: Install locked dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Actual disposable PostgreSQL proof
+        run: bash tools/auth/session-owner-rls-proof.sh
+      - name: Cleanup only recorded task container
+        if: always()
+        run: bash tools/auth/session-owner-rls-proof.sh --cleanup
+      - name: Upload sanitized source boundary and proof receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: sec-fu1d-proof-${{ github.sha }}
+          path: ${{ runner.temp }}/sec-fu1d-fixture-evidence.txt
+          if-no-files-found: error
+          retention-days: 7
