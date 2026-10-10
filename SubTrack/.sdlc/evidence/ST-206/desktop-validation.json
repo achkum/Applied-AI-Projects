@@ -1,0 +1,11 @@
+{
+  "task": "ST-206",
+  "status": "workflow-and-harness-added",
+  "containerExecution": "not-run",
+  "reason": "Docker is unavailable in this desktop environment; GitHub Actions must provide the real container proof.",
+  "scope": [
+    ".github/workflows/subtrack-container-proof.yml",
+    "SubTrack/tools/containers/smoke-images.sh"
+  ],
+  "readinessClaim": false
+}
