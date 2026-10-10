@@ -6,7 +6,7 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-207, title: 'Anonymous mobile enrollment OTP authority decision', owner: architect-platform, size: S, status: BLOCKED, deps: [ST-170a, ST-177]}
+  - {id: ST-207, title: 'Anonymous mobile enrollment OTP authority decision', owner: architect-platform, size: S, status: IN_REVIEW, deps: [ST-170a, ST-177]}
   # ST121a proposed DONE applies only after independent approvals, exact-head CI and Conductor squash merge into main. Parent ST121 remains incomplete; no live-source permission is inferred.
   - {id: ST-121a, title: 'Offline catalogue extraction command and candidate quarantine', owner: dev-data, size: M, status: DONE, deps: [ST-064, ST-120]}
   # ST050c accepted PR231@e6f305a; final source6b3ab1d, standard38049105211/container38049105189 PASS. Full onboarding remains incomplete.

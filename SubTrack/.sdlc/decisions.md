@@ -1,4 +1,8 @@
 # Decision Log
+
+## ST207 / D-12 — anonymous mobile enrollment reservation binding
+
+2026-10-10: Founder explicitly replied **A — Adopt reviewed proposal** to the concrete Option A/B decision in draft [PR233](https://github.com/achkum/Applied-AI-Projects/pull/233). Adopt ADR-0020's distinct anonymous enrollment-only request isolation model, never a verified principal. Permit a separate reviewed development-only implementation and narrow contract follow-up. Independent platform/security proposal-readiness reviews are recorded in ST-207 evidence. No runtime proof, production deployment, real delivery, mandatory BankID waiver or default graph activation is approved. Final consistency review and exact-head CI remain required for repository acceptance.
 | Date | ID | Class | Decision | By | Link |
 |---|---|---|---|---|---|
 | (kickoff) | ADR-0001..0008 | Type 1 (seed) | Seed architecture accepted pending founder veto | Founder via kit | docs/architecture/adr |
