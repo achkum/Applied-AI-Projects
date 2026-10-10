@@ -1,0 +1,11 @@
+# ST-215 security/privacy final source review — 2026-10-10
+
+Disposition: **APPROVE contract-only source**, subject to ordinary independent QA, exact-head CI and merge gates. This grants no HTTP route or production authority.
+Reviewed normalized blobs: OpenAPI `3265e4dcf69b79300c9af7067415bf0ae84fdecf`; API_CONTRACT `b4d4ffc21eb573300d078f5518d8cd13600012b0`; ADR-0023 `d5779ece0529deb564a18b1aa499bf2ca2d0bf64`; contract tests `7c11ef3dc11b6fa543b3000f72929eeec6a544d6` and `bc17a5b9d05912820c5dcfdcf2e7f3b1f53b90e3`; generated Zod/types/SDK `5733533e9f85294c6e390fd685c84cd3614d215e` / `8ce0cb1d68adb398304da1ae7a673d763e0e16f9` / `ca8252110e59e263abc2e2a132d8f890f4010ae6`.
+The PATCH uses accepted `V1AccessBearer` current-session ownership, UUID path, exactly one strict `status` target, and explicitly rejects every query parameter with 400; request fields cannot nominate principal, action, scope or edit authority.
+Only seven locked-current owner pairs are described. Target-to-action dispatch is deterministic through the private writer; same-status and DETECTED/TRIAL/REJECTED/ARCHIVED source states conflict.
+Response is bounded to `{id,status}`. RFC 9457 400/401/404/409/500 descriptions map malformed request, invalid principal, indistinguishable missing/invisible ID, stale/disallowed pair and masked storage fault; no private details are in the bounded error schema.
+Uncertain retry may produce 409 and requires authoritative re-read; no ordinary audit, replay receipt, idempotency or retention state is introduced. Broader edits, review, feedback and sharing remain separate.
+OpenAPI marks the operation `unavailable-default`; generated SDK exposure is a contract artifact, not evidence of an enabled server route. Source search found no API runtime route for this operation.
+Review limitation: no tests or CI were run for this independent source review. Current contract tests cover the strict generated shapes and query prohibition wording; QA should confirm the PATCH security/error references and status codes at the final head.
+Editorial follow-up: OpenAPI description says “Neither a the body”; correct this grammar before final generation. Runtime work remains gated by accepted ST-081c and exact-head current-principal/RLS/concurrency/rollback security proof.
