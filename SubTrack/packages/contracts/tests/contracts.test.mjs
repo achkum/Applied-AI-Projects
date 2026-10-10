@@ -139,6 +139,7 @@ test('production contract preserves approved operational and privacy routes', ()
       ['GET /v1/subscriptions/{id}', 'unavailable-default'],
       ['PATCH /v1/privacy/open-book', 'unavailable-default'],
       ['PATCH /v1/subscriptions/{id}', 'unavailable-default'],
+      ['PATCH /v2/subscriptions/{id}', 'unavailable-default'],
       ['POST /v1/data-rights/export', 'unavailable-default'],
       ['POST /v2/subscriptions/{id}/read', 'unavailable-default'],
     ]);

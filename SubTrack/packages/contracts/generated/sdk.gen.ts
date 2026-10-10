@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses } from './types.gen.js';
+import type { CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PatchV2BrowserSubscriptionLifecycleData, PatchV2BrowserSubscriptionLifecycleErrors, PatchV2BrowserSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -161,6 +161,26 @@ export const listReviewInbox = <ThrowOnError extends boolean = false>(options?: 
         }],
     url: '/v1/review-inbox',
     ...options
+});
+
+/**
+ * Request an owner-only lifecycle transition from the current browser session
+ *
+ * Contract only; this route is unavailable in the default application graph. Require direct HTTPS, exactly one Origin matching the configured allowlist, exactly one st_v2_access cookie and one distinct deployment-configured browser binding cookie, and exactly one session-bound X-Session-CSRF. Reject duplicate credentials or headers, Authorization (including Bearer and Refresh), st_v2_refresh, Idempotency-Key, mixed modes, and every query parameter with 400 before reading owner data. Reject any body other than JSON with exactly one status target; no caller identity, owner, household, scope, action, transport or edit selector is accepted. Verify the v2 access token to derive sid/sub, hash the observed binding cookie, call webContextForCurrentSession(sid,{userId:sub},bindingCookieHash,exactOrigin,observedAt), then DevelopmentV2PrincipalResolver.resolve with the trusted browser chain and exact Origin. Compare its current owner/session with verified sub/sid; recheck current session, binding and chain after asynchronous resolution, then verify SessionCsrfGuard for that identity/session before creating the server-only subscription RequestContext. The owner-scoped private writer uses a locked current row under transaction-local ordinary-role PostgreSQL RLS. Only ACTIVE to PAUSED/CANCELLED/ARCHIVED, PAUSED to ACTIVE/CANCELLED/ARCHIVED, and CANCELLED to ARCHIVED are accepted. All other pairs, including same-status, conflict. The target determines the action: ACTIVE=resume, PAUSED=pause, CANCELLED=cancel, ARCHIVED=archive; no unlocked read drives dispatch. Missing and foreign IDs return the identical 404 problem. After 409 or an uncertain PATCH response, perform an authenticated authoritative POST /v2/subscriptions/{id}/read; never infer success, optimistically mutate, automatically retry PATCH, fall back to V1 authority or convert tokens. If re-read fails, clear the private view and disable lifecycle actions until a fresh authenticated read. This PATCH has no replay receipt, nonce mutation, mutating-POST idempotency reservation or exactly-once guarantee.
+ *
+ */
+export const patchV2BrowserSubscriptionLifecycle = <ThrowOnError extends boolean = false>(options: Options<PatchV2BrowserSubscriptionLifecycleData, ThrowOnError>): RequestResult<PatchV2BrowserSubscriptionLifecycleResponses, PatchV2BrowserSubscriptionLifecycleErrors, ThrowOnError> => (options.client ?? client).patch<PatchV2BrowserSubscriptionLifecycleResponses, PatchV2BrowserSubscriptionLifecycleErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'st_v2_access',
+            type: 'apiKey'
+        }],
+    url: '/v2/subscriptions/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
