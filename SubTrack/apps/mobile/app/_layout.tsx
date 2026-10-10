@@ -17,9 +17,7 @@ export default function RootLayout() {
   const ready = fontsLoaded || fontError != null;
 
   React.useEffect(() => {
-    if (ready) {
-      void SplashScreen.hideAsync().catch(() => undefined);
-    }
+    if (ready) void SplashScreen.hideAsync().catch(() => undefined);
   }, [ready]);
 
   if (!ready) return null;
@@ -37,6 +35,9 @@ export default function RootLayout() {
       systemFontFamily={systemFontFamily}
     >
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="welcome" />
+        <Stack.Screen name="register" />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
     </RootProvider>

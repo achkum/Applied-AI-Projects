@@ -1,0 +1,16 @@
+{
+  "api_docker_build": "PASS; image sha256:c17a035178a4b888a46a5c4b4a5d03ed876d4a5f8d0a1814d2e78fcecda5873c (local image; not pushed to a registry)",
+  "api_container_smoke": "PASS; isolated fresh PostgreSQL connection, GET /healthz returns 200 with status ok, UID 1000, no host ports. Test containers/network removed. No schema migrations were applied.",
+  "web_typecheck": "PASS after final materialization",
+  "mobile_typecheck": "PASS",
+  "web_registration_tests": "PASS; 4 tests covering OTP validation/rotation, restart, pending submission, unmount/late bootstrap.",
+  "mobile_registration_tests": "PASS; 5 tests with NODE_PATH pointing to apps/mobile/node_modules. First plain invocation failed because shared i18n Babel transformation could not resolve @babel/runtime. The environment override fixed resolution; no test was skipped.",
+  "mobile_lint": "PASS",
+  "web_lint": "PASS",
+  "i18n_parity": "PASS",
+  "web_docker_build_and_http": "NOT RUN after latest UI materialization; run on desktop",
+  "full_ci": "NOT RUN on this WIP branch",
+  "native_android_ios": "DEFERRED by founder; not passed",
+  "independent_review": "Initial container review requested generated Prisma client transfer. Implementation corrected, but final source/runtime review remains pending. Registration candidates also require independent review and accessibility/visual QA.",
+  "secret_scan": "PASS; staged Gitleaks scan found no secrets"
+}

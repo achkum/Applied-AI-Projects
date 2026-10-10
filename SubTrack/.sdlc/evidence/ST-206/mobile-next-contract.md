@@ -1,0 +1,34 @@
+# ST-051 mobile onboarding next-slice contract
+
+Status: readiness proposal only. No repository files, tests, native builds, or authentication calls were changed or run. ST-051 remains `IN_PROGRESS`; native QA remains deferred and is not claimed passed.
+
+## Evidence reviewed
+
+Read the requested repository instructions, Constitution, Decision Rules, ST-051 and children ST-051a/b/c, and `docs/product/USER_FLOWS.md` UF-01/02. `apps/mobile/AGENTS.md` is absent. The mobile route inventory contains only `app/index.tsx`, root layout, and localized tab/demo routes. `app/index.tsx` redirects to `/{sv|en}`; root layout mounts only `(tabs)`. `WelcomeScreen.tsx` is a placeholder with hardcoded copy and direct demo routing; accepted `WelcomeActions.tsx` and `IdentifierEntry.tsx` already provide localized, themed, callback-only building blocks. Keep the placeholder untouched and compose the accepted components in route-level views.
+
+`packages/contracts/openapi.yaml` has `/v2/auth/otp/start`, `/v2/auth/otp/verify`, `/v2/auth/session`, and `/v2/auth/refresh`. OTP verify creates only a restricted enrollment/step-up proof; enrollment proof permits mandatory BankID continuation and cannot establish a login. Session creation requires a server-issued BankID or registered mobile passkey/biometric-plus-OTP login proof; mobile session credentials are returned once for OS secure storage. There is no household create operation in the OpenAPI path inventory. The mobile app has a `secureTokenStore.ts`, but this is not authority to mint or redeem a login proof. Backlog records ST-043 BankID test adapter as BACKLOG and ST-178 as a development simulator login-proof producer; validate actual backend and contract status before wiring either. The referenced `.sdlc/tasks/ST-198.md` was not present at that exact path during discovery.
+
+## Proposed next UI slice (requires conductor to record exact allowed paths/choice)
+
+Use Expo Router group `apps/mobile/app/(onboarding)/` with these route files:
+
+- `apps/mobile/app/(onboarding)/_layout.tsx`: headerless stack for the flow.
+- `apps/mobile/app/(onboarding)/index.tsx`: welcome route; compose existing `WelcomeActions`. `onCreateAccount` goes to `register`; `onLogIn` goes to a distinct login identifier route or an explicit login-purpose variant only after the server contract supports that flow; `onExploreDemo` continues to existing `/${locale}/demo`.
+- `apps/mobile/app/(onboarding)/register.tsx`: screen wrapper around `IdentifierEntry`, retain the normalized identifier only in transient flow state and send it to the OTP-start port after the API authority is confirmed.
+- `apps/mobile/app/(onboarding)/otp.tsx`: accessible six-digit OTP entry form. Use numeric keyboard, length/character validation, submit/resend controls, busy/error state, and a visible resend countdown; never display, log, or persist the code. The form submits through a required typed callback/port and cannot claim verification locally.
+- `apps/mobile/src/components/onboarding/OtpEntry.tsx` and colocated `OtpEntry.test.tsx`: reusable presentational OTP form with required callbacks (e.g. `onSubmit(code)`, `onResend()`), no API, routing, proof, or token behavior inside the component. Confirm API-safe callback signatures and idempotency ownership before implementation.
+
+Keep styling consistent with the accepted brand and `useTheme` tokens/fonts, `useI18n`, accessible labels/focus and 48+ logical-unit targets. Reuse `useReducedMotion` for any countdown/progress motion; countdown correctness must not depend on animation. Add matching `onboarding.otp.*` keys to both `packages/i18n/catalogs/en.json` and `sv.json` only if those catalog paths are explicitly authorized; ST-051 parent allows `apps/mobile/**`, while child ST-051c's catalog allowance is closed/accepted. Do not edit the old welcome screen or accepted components. Retain runtime-only flow state across native BankID app return; put no OTP, proof, access token, or refresh secret in route params or AsyncStorage. Do not persist identifier unless a reviewed privacy decision and lifecycle contract explicitly require it.
+
+Focused tests should cover actual localized strings, six-digit validation, callback count, busy suppression, accessible errors/focus, and reduced-motion behavior. These are proposed checks only; none were run. Later native device QA must separately verify keyboard/focus, app-switch return, and iOS/Android BankID handoff; no simulator screenshot or Jest result substitutes for that evidence.
+
+## Authority and integration blockers
+
+1. **OTP transport adapter:** OpenAPI defines concrete mobile wire envelopes, idempotency requirements, generic responses, and uncertain-outcome restart rules. Before adding a client call, trace the generated API client and server route implementation, validate the exact MobileOtpStartCallEnvelope/MobileOtpVerifyCallEnvelope fields, transport behavior and current backend support. Do not infer body fields from the UI or use test-only delivery assumptions.
+2. **BankID and login:** OTP enrollment proof is not login. ST-043 test integration and the server-side simulator proof producer are prerequisites for a truthful end-to-end registration. The client must accept only server-issued, transport-bound proofs and must not fabricate identity/personnummer/BankID completion. Session redemption and secure storage are a later explicit adapter slice; refresh rotation and uncertain outcomes need the documented one-use rules.
+3. **Household:** No household-create endpoint appears in the current OpenAPI path list. UF-02 therefore cannot create a household or report the creator as ADMIN until the API contract, implementation, scoped authorization, and persistence constraints exist and are reviewed. Do not implement a client-only success state. “Just me” navigation may be represented only when the destination route/API flow is defined.
+4. **Callbacks and return state:** define server-issued challenge/session identifiers and the BankID app-link/autostart return protocol from the actual adapter contract. Preserve only the required transient flow state across app switching. Do not invent secure-storage behavior or treat a deep-link return as proof of authentication.
+
+## Conductor handoff
+
+Record the next task's exact `allowed_paths`, callback/port boundary, chosen route names, and catalog ownership before implementation. Keep the existing Welcome/Identifier/Theme design. Close UI wiring with explicit “service unavailable/not connected” behavior where needed; do not present successful OTP, BankID, login, profile, or household outcomes until the relevant server authority is connected. Once authority tasks are ready, split the transport/proof integration and household creation into reviewed slices, then resume ST-051 acceptance. Current state is readiness documented; there is no implementation or native QA completion claim.

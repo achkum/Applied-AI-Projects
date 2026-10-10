@@ -211,4 +211,148 @@ items:
   - {id: ST-205, title: "Bounded subscription contract decisions and remaining gates", milestone: M2, owner: architect-platform, size: M, status: DONE, deps: [ST-080, BUG-013]}
   - {id: ST-083a, title: "Exact standalone SEK price increase confirmation", milestone: M2, owner: dev-backend, size: M, status: DONE, deps: []}
   - {id: ST-083b, title: "Private confirmed SEK price increase findings", milestone: M2, owner: dev-backend, size: M, status: DONE, deps: [ST-083a]}
-  - {id: ST-081a, title: "Private ordinary subscription lifecycle decision core", milestone: M2, owner: dev-backend, size: M, status: REVIEW, deps: [ST-205]}
+  - {id: ST-081a, title: "Private ordinary subscription lifecycle decision core", milestone: M2, owner: dev-backend, size: M, status: DONE, deps: [ST-205]}
+  - {id: ST-206, title: "API and web runtime container images", milestone: M7, owner: devops-release, size: M, status: IN_PROGRESS, deps: []}
+  - {id: ST-050b, title: "Web registration route and contract-backed OTP step", milestone: M1, owner: dev-web, size: M, status: IN_PROGRESS, deps: []}
+  - {id: ST-051d, title: "Mobile welcome and identifier registration routes", milestone: M1, owner: dev-mobile, size: M, status: IN_PROGRESS, deps: []}
+
+desktop_handoff:
+  updated_date: '2026-10-10'
+  branch: st/ST-206-deployment-images
+  base_main: 09bfbc9c8a677495f392040615fbdcbc3cda491a
+  disposition: WIP handoff for desktop continuation. Do not merge or deploy this branch until outstanding review,
+    QA and release gates pass.
+  user_instruction: Push all current work and detailed analysis into Git so development can continue from the
+    desktop.
+  cloud_findings:
+  - SSH root@198.44.116.159 works from the founder Windows PowerShell session and reaches password authentication
+    on default port 22.
+  - The same target refuses the cloud TCP connection before authentication, both inside and outside the sandbox.
+    A CONNECT attempt through the configured cloud proxy returns HTTP 403. This establishes cloud connection
+    failure, not a VPS SSH outage or bad password.
+  - No VPS login, service inspection, database inventory, migration, deployment or firewall change was performed.
+    Do not ask for or commit passwords/private keys.
+  - Docker uses vfs storage in this cloud environment. Repeated dependency layers exhausted its 32 GB disk. Only
+    task-created, unshared build cache was removed; older/shared images, user files and existing volumes were
+    retained.
+  - Container downloads need the cloud proxy and trusted CA. Proxy host resolution in BuildKit needed an explicit
+    host mapping. These are cloud build inputs, not desktop requirements. TLS verification remained enabled.
+  - Corepack in the selected Node image expects a pnpm.cjs entry point that pnpm 12.6.0 no longer supplies. Dockerfiles
+    now install the exact pinned native pnpm package through npm, keeping frozen-lockfile installs and pnpm supply-chain
+    checks.
+  implemented:
+    ST-206: API and web multi-stage Dockerfiles, nonroot runtimes, scoped installs, Docker ignore rules, generated
+      Prisma client handoff, OpenSSL-compatible Debian API runtime, Next standalone output and monorepo tracing
+      root. Builds consolidated to avoid vfs layer amplification. No automatic migrations or auth activation.
+    ST-050b: Localized web registration route and welcome action preserving existing styling; existing IdentifierEntry
+      composes nonce bootstrap, enrollment OTP start/verify and nonce restart. Fixed same-origin /api/v2/auth
+      paths, in-memory secrets, abort handling and generated request types. Enrollment verification ends at BankID
+      continuation; it does not log the user in.
+    ST-051d: Mobile /welcome and /register routes using accepted WelcomeActions and IdentifierEntry. Demo navigation
+      follows locale. Identifier format validation is local; continuation and login explicitly remain unavailable.
+      No invented mobile OTP/session API or credentials.
+    shared_catalogs: Swedish and English registration copy added. Separate identifierValid text prevents mobile
+      local validation from implying server verification.
+    ST-081a: Previously accepted main receipt carried into Git and task/backlog marked DONE for its private lifecycle
+      core only. Parent ST-081 remains incomplete.
+  checks:
+    api_docker_build: PASS; image sha256:c17a035178a4b888a46a5c4b4a5d03ed876d4a5f8d0a1814d2e78fcecda5873c (local
+      image; not pushed to a registry)
+    api_container_smoke: PASS; isolated fresh PostgreSQL connection, GET /healthz returns 200 with status ok,
+      UID 1000, no host ports. Test containers/network removed. No schema migrations were applied.
+    web_typecheck: PASS after final materialization
+    mobile_typecheck: PASS
+    web_registration_tests: PASS; 4 tests covering OTP validation/rotation, restart, pending submission, unmount/late
+      bootstrap.
+    mobile_registration_tests: PASS; 5 tests with NODE_PATH pointing to apps/mobile/node_modules. First plain
+      invocation failed because shared i18n Babel transformation could not resolve @babel/runtime. The environment
+      override fixed resolution; no test was skipped.
+    mobile_lint: PASS
+    web_lint: PASS
+    i18n_parity: PASS
+    web_docker_build_and_http: NOT RUN after latest UI materialization; run on desktop
+    full_ci: NOT RUN on this WIP branch
+    native_android_ios: DEFERRED by founder; not passed
+    independent_review: Initial container review requested generated Prisma client transfer. Implementation corrected,
+      but final source/runtime review remains pending. Registration candidates also require independent review
+      and accessibility/visual QA.
+    secret_scan: PASS; staged Gitleaks scan found no secrets
+  known_remaining_work:
+  - 'ST-050b: strengthen successful/error response decoding against the generated contract and bound response
+    body consumption before parsing; current checks bound individual required string fields but do not cap the
+    complete response body.'
+  - 'ST-050b: verify endpoint routing on the desktop/staging reverse proxy. Accepted v2 OTP routes are development
+    opt-ins; production mode deliberately rejects their activation. Do not silently enable them or claim a complete
+    production signup flow.'
+  - 'ST-050b: test invalid/malformed responses, server/network errors, back-navigation races, synchronous repeated
+    callbacks, Swedish rendering and accessibility using actual route/components; four focused tests are not
+    full UF coverage.'
+  - 'ST-051d: identifier continuation currently displays an explicit unavailable state. Implement approved mobile
+    OTP/BankID contract integration later; local validation is not completed onboarding.'
+  - 'ST-206: build latest web image, request /sv and /en plus a referenced static asset, confirm nonroot startup
+    and traced workspace dependencies. Verify both images after further auth changes.'
+  - 'SEC-FU1: accepted JWT validation and live owner-resolution cores still need trusted HTTP principal attachment,
+    a scoped storage reader and actual route integration. Active Privacy/DataRights legacy caller-ID trust is
+    a deployment-blocking security finding.'
+  - 'BUG-008: incompatible duplicate 0002 migrations remain unresolved. Inventory every existing relevant database
+    and its _prisma_migrations read-only, then approve the repair plan before modifying or applying migrations.
+    Fresh empty cloud test Postgres is not evidence that external databases are absent.'
+  - 'ST-081: private lifecycle decisions are implemented, but authenticated current-owner/current-status/version,
+    atomic persistence/replay, RLS, retention and feedback integration remain incomplete.'
+  - 'BankID sandbox: obtain/verify approved test credentials and current provider documentation; existing internal
+    simulator proof producer is not complete signup or a real sandbox integration.'
+  - Tink/banking integration, full onboarding/profile/household flows and end-to-end tests remain incomplete;
+    do not invent unavailable endpoints or provider delivery.
+  - Worker package scripts are scaffolding with no implemented worker runtime; containers alone do not complete
+    background jobs.
+  - Persona clustering uses synthetic data and recorded silhouette 0.134140945; accepted private artifacts do
+    not establish representative cohorts or a production product registry.
+  - Do not merge until independent reviews and required CI gates pass. Public release, public VPS exposure and
+    real provider delivery remain separate approval/security gates.
+  milestone_summary:
+    M0: Foundation implementation and review package exist; remaining environment/full-stack exit evidence must
+      be verified on desktop. No fresh complete M0 audit was performed for this handoff.
+    D1: Keep approved existing design. Native assets/validation and remaining design exit evidence are incomplete
+      or deferred.
+    M1: Onboarding/auth cores and new route candidates exist; complete signup/login, verified BankID, profile/household
+      flows and trusted HTTP authentication remain pending.
+    M2: Detection/subscription cores exist; banking UI/provider prerequisites, persistence/security integration
+      and E2E remain pending.
+    M3: Detection cores need remaining runtime/API/UI integration and acceptance evidence.
+    M4: Exact Money foundations exist; remaining split/settlement APIs and UI need implementation/verification.
+    M5: ML/private insight helpers exist; production forecasting, cohorts, registry/insight/scraper integrations
+      and acceptance evidence remain incomplete.
+    M6: Mobile route scaffolding/components exist; complete flows and deferred Android/iOS verification remain
+      pending.
+    M7: Not deployable. Auth security, migration repair, worker/runtime integration, full QA and release evidence
+      are outstanding.
+  desktop_steps_powershell: |-
+    git fetch origin
+    git switch --track origin/st/ST-206-deployment-images
+    cd SubTrack
+    npm install --global pnpm@12.6.0
+    pnpm install --frozen-lockfile
+    pnpm --filter @subtrack/web typecheck
+    pnpm --filter @subtrack/mobile typecheck
+    pnpm --filter @subtrack/web lint
+    pnpm --filter @subtrack/mobile lint
+    pnpm --filter @subtrack/web test
+    $env:NODE_PATH = Join-Path (Get-Location).Path 'apps/mobile/node_modules'
+    pnpm --filter @subtrack/mobile test
+    node packages/i18n/scripts/check-parity.mjs
+    docker build -f apps/api/Dockerfile -t subtrack-api:desktop .
+    docker build -f apps/web/Dockerfile -t subtrack-web:desktop .
+    ssh root@198.44.116.159
+  desktop_next_actions:
+  - Use Node >=22.18 for the workspace contracts; Dockerfiles pin their own Node versions. pnpm must remain 12.6.0;
+    do not regenerate or loosen the lockfile to bypass failures.
+  - If the branch already exists locally, use git switch st/ST-206-deployment-images and fast-forward it after
+    fetching. Preserve any desktop local changes.
+  - Check actual web routes and assets after container startup; run full CI-equivalent commands, review the WIP
+    changes, then create/merge reviewed task PRs. Do not start by applying migrations.
+  - SSH from the desktop for read-only VPS service/database inventory. Secure credentials on the VPS or in supported
+    environment settings, never in Git/chat.
+  - Resolve active caller-ID authorization and migration ownership/RLS before hosting the app. Use existing ops
+    runbooks for staging secret layout/basic-auth; do not expose databases, Redis, ML or worker ports publicly.
+  - Resume from the individual task contracts and product specifications. The item list remains the authoritative
+    task board; task/helper counts are not disjoint product requirements or a completion percentage.

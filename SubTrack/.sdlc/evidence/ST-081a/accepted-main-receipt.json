@@ -1,0 +1,14 @@
+{
+  "task": "ST-081a",
+  "pr": 219,
+  "source_head": "b5606afdad5771d5200f8ee567bf5f9c1ab6d672",
+  "accepted_main": "09bfbc9c8a677495f392040615fbdcbc3cda491a",
+  "source_main_tree": "a20f87df007157e8b6c47312fa3b8464c1e89814",
+  "ci_run": 38008404949,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "independent_source_review": "APPROVE (frozen three hashes)",
+  "staged_gitleaks": "PASS (initial plus final)",
+  "local_qa": "185Domain/12files,5newcases;49pair oracle14valid/35conflicts;42/42newbranches allmetrics100%;lint/typecheck/buildPASS",
+  "limits": "Pure private next-status decision only; no authoritative current-status/auth/owner/version/replay/atomicity/persistence/RLS proof. ParentST081 BLOCKED; no API/index/default/DB/schema/UI/provider/retention/newauthority/UF06 completion"
+}

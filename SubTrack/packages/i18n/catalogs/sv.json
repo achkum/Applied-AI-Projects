@@ -66,6 +66,22 @@
         "phone_format": "Ange ett svenskt mobilnummer med siffror och vanliga avgränsare.",
         "phone_length": "Kontrollera antalet siffror och försök igen."
       }
+    },
+    "registration": {
+      "title": "Skapa konto",
+      "introduction": "Börja med din e-postadress eller ditt mobilnummer.",
+      "otpLabel": "Verifieringskod",
+      "verifyLabel": "Verifiera",
+      "backLabel": "Tillbaka",
+      "acceptedMessage": "Dina kontaktuppgifter har verifierats.",
+      "identifierValid": "Dina kontaktuppgifter har ett giltigt format.",
+      "bankIdRequired": "Fortsätt med BankID för att slutföra registreringen.",
+      "unavailable": "Registreringen kan inte fortsätta just nu. Försök igen senare.",
+      "loginUnavailable": "Inloggning är inte tillgänglig ännu.",
+      "loading": "Vänta…",
+      "error": "Något gick fel. Försök igen.",
+      "restartRequired": "Starta om verifieringen",
+      "invalidOtp": "Ange sex siffror."
     }
   },
   "hero": {
