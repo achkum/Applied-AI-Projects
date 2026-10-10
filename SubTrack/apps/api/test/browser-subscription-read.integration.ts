@@ -7,7 +7,7 @@ import { request as httpsRequest } from 'node:https';
 import { resolve } from 'node:path';
 import { createServer } from 'node:net';
 import { PrismaClient } from '@prisma/client';
-import { test } from 'vitest';
+import { test, vi } from 'vitest';
 
 interface BrowserRequest { allHeaders(): Promise<Record<string, string>>; method(): string; url(): string }
 interface BrowserPage {
@@ -43,14 +43,23 @@ const childExit = (child: ChildProcess, ms: number): Promise<number | null> => n
   function clear() { clearTimeout(timer); child.off('exit', onExit); child.off('error', onError); }
   child.once('exit', onExit); child.once('error', onError);
 });
-const response = async (page: BrowserPage, input: { origin: string; id: string; csrf: string; body?: string; headers?: Record<string, string> }) =>
+const response = async (page: Pick<BrowserPage, 'evaluate'>, input: { origin: string; id: string; query?: string; csrf: string; body?: string; headers?: Record<string, string> }) =>
   page.evaluate(async value => {
-    const request = await fetch(`${value.origin}/v2/subscriptions/${value.id}/read`, {
+    const request = await fetch(`${value.origin}/v2/subscriptions/${value.id}/read${value.query ?? ''}`, {
       method: 'POST', credentials: 'include', body: value.body ?? '{}',
       headers: { 'Content-Type': 'application/json', 'X-Session-CSRF': value.csrf, ...value.headers },
     });
     return { status: request.status, body: await request.json() as Record<string, unknown> };
   }, input);
+test('browser response helper sends identity query to the read route', async () => {
+  const urls: string[] = [];
+  const page: Pick<BrowserPage, 'evaluate'> = { evaluate: async (fn, input) => fn(input) };
+  vi.stubGlobal('fetch', async (url: string) => { urls.push(url); return { status: 400, json: async () => ({}) }; });
+  try {
+    await response(page, { origin: 'https://127.0.0.1:1234', id: 'subscription', query: '?identityId=peer', csrf: 'synthetic' });
+    assert.deepEqual(urls, ['https://127.0.0.1:1234/v2/subscriptions/subscription/read?identityId=peer']);
+  } finally { vi.unstubAllGlobals(); }
+});
 const directProbe = (url: string, headers: Record<string, string> = {}): Promise<number> =>
   new Promise((done, reject) => {
     const request = httpsRequest(url, { method: 'POST', rejectUnauthorized: false,
@@ -260,7 +269,7 @@ test('owned PG16, compiled Node HTTPS and natural Chromium browser subscription 
     browserCase = 'malformed';
     assert.equal((await response(ownerPage, { origin, id: visible, csrf: credentials[0]!.csrf, body: '{' })).status, 400);
     browserCase = 'query';
-    assert.equal((await response(ownerPage, { origin, id: `${visible}?identityId=${peer}`, csrf: credentials[0]!.csrf })).status, 400);
+    assert.equal((await response(ownerPage, { origin, id: visible, query: `?identityId=${peer}`, csrf: credentials[0]!.csrf })).status, 400);
     browserCase = 'csrf';
     assert.equal((await response(ownerPage, { origin, id: visible, csrf: 'A'.repeat(43) })).status, 403);
     browserCase = 'selector';

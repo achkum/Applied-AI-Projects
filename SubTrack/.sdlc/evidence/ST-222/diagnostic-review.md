@@ -8,3 +8,8 @@ Harness covers every ANSI-decorated fixed browser case and unknown fallback, ret
 Independently ran Git Bash syntax on both scripts and the focused harness: PASS, exit 0. No heavy/API/browser/PG job rerun.
 No new security/DevOps source finding. Existing run `38086261370` at `712dc72` remains actual browser-proof FAIL (failure 2); standard/regression PASS cannot substitute for that proof.
 Underlying predicate remains unknown. New exact-head owned PG16/Chromium/compiled Node CI and its sanitized receipt, required reviews and applicable gates remain blocking; preserve original counters and loop-breaker.
+
+## C10 query construction correction — APPROVE_SOURCE (security/platform)
+Independently reproduced all ten manifest blobs: integration `960c8583c5c64ff24acee5fb93199936d63c8dee`; other nine unchanged. Query now follows `/read`, reaching the intended route with the original real ID and unchanged 400 assertion; runtime, authority, privacy, no-skip and cleanup behavior are unchanged.
+Captured-URL regression executes the actual evaluate callback with synthetic stubbed fetch restored in finally. Author reports focused 1-test/typecheck/lint PASS; independent diff check PASS. No heavy proof rerun or new source finding.
+Run `38086717839` remains actual failure 3 (`browser_query`); approve only this concrete test construction correction under the recorded one-cycle redispatch. Next exact-head owned proof and gates remain blocking; further same-proof blockage requires Conductor/founder escalation without resetting counters.
