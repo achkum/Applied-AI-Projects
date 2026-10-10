@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { Platform } from 'react-native';
 import { RootProvider } from '@/providers/RootProvider';
+import { EnrollmentProvider } from '@/state/EnrollmentFlow';
 import manropeFont from '../assets/fonts/Manrope-VF.ttf';
 import frauncesFont from '../assets/fonts/Fraunces-VF.ttf';
 
@@ -34,12 +35,14 @@ export default function RootLayout() {
       useSystemFonts={useSystemFonts}
       systemFontFamily={systemFontFamily}
     >
-      <Stack screenOptions={{ headerShown: false }}>
+      <EnrollmentProvider><Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="welcome" />
         <Stack.Screen name="register" />
+        <Stack.Screen name="register-otp" />
+        <Stack.Screen name="register-bankid" />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
+      </Stack></EnrollmentProvider>
     </RootProvider>
   );
 }

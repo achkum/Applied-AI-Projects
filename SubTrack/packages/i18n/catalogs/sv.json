@@ -81,7 +81,16 @@
       "loading": "Vänta…",
       "error": "Något gick fel. Försök igen.",
       "restartRequired": "Starta om verifieringen",
-      "invalidOtp": "Ange sex siffror."
+      "invalidOtp": "Ange sex siffror.",
+      "otpTitle": "Verifiera kontaktuppgift",
+      "otpIntroduction": "Ange den sexsiffriga koden om du har fått en.",
+      "otpHint": "Ange sex siffror.",
+      "verifyPending": "Vänta…",
+      "wrongCode": "Koden kunde inte verifieras. Kontrollera den och försök igen.",
+      "requestCode": "Skicka ny kod",
+      "resendCountdown": "Skicka en ny kod om {seconds} s",
+      "bankIdUnavailable": "BankID är inte tillgängligt här ännu.",
+      "requestUnavailable": "Det gick inte att fortsätta. Starta om verifieringen."
     }
   },
   "hero": {
