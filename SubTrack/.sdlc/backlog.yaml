@@ -212,3 +212,4 @@ items:
   - {id: ST-083a, title: "Exact standalone SEK price increase confirmation", milestone: M2, owner: dev-backend, size: M, status: DONE, deps: []}
   - {id: ST-083b, title: "Private confirmed SEK price increase findings", milestone: M2, owner: dev-backend, size: M, status: DONE, deps: [ST-083a]}
   - {id: ST-081a, title: "Private ordinary subscription lifecycle decision core", milestone: M2, owner: dev-backend, size: M, status: REVIEW, deps: [ST-205]}
+  - {id: ST-081b, title: "Private detection merge decision core", milestone: M2, owner: dev-backend, size: M, status: IN_REVIEW, deps: [ST-205]}
