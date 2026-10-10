@@ -1,0 +1,13 @@
+# ST-225 independent security/privacy plan readiness
+Contract: REVIEW/v1; task_id: ST-225; reviewer: security-privacy; verdict: APPROVE; findings: [].
+Verified normalized Git blob: 59ce28d8dc89f2c7b52eeb7d3c454cbb27ef85f4 (composition-plan.md).
+Basis: AGENTS, Constitution, DECISION_RULES/model routing, QUALITY_GATES, ADR0010/0023/0024/0025, ST225 task and accepted ST221 composition, ST224 adapter, ST223 contract, ST216 locked writer and ST222 custody/cleanup evidence.
+Approve this frozen Type2a plan only; no source, actual browser/PG, task-gate or release approval. No actionable blocking security finding.
+Before any await, both adapters must share the same descriptor-validated bound access/current-session/web-binding/principal/CSRF/clock snapshot, cookie and sole exact origin; preserve accepted constructor and post-await revocation/rebind/expiry defenses.
+Private listen/close-only graph, explicit development enablement/production rejection, copied TLS, fixed positive port and direct HTTPS numeric127.0.0.1 preserve the closed boundary; no proxy, default activation, extra auth route or caller identity bridge.
+The same injected pool constructs actual scoped read and locked lifecycle repositories; bounded preflight before Nest requires exact ordinary LOGIN/non-super/non-BYPASS role/database, sole runtime membership, fixture-owned RLS/SELECT tables, merchant SELECT and subscription UPDATE.
+Names/preflight cannot prove fixture custody. Later launcher must establish provenance before Prisma; caller retains pool/auth/TLS ownership and closes factory before disconnecting the owned pool on every outcome.
+Single256-byte non-inflating raw JSON parser must retain READ64/PATCH256 limits and map real malformed/oversized/encoding/charset failures to each exact operation's four-field no-store400; unexpected errors remain masked500.
+Preserve server-only sid/sub/binding/current-chain/session checks, synchronous exact-session CSRF and immediate locked seven-pair dispatch, identical missing/foreign404 and strict matching results; no automatic PATCH retry or atomic authority-to-commit claim.
+Factory owns Nest only: bound create/init/listen/close, reject repeated/after-close listen, close active connections and re-close late settled resources; actual late-bind/port reuse tests and preflight/UPDATE negatives remain mandatory source gates.
+Faithful implementation, independent source approvals, adversarial directHTTPS tests, coverage/fresh QA and exact-head applicable CI remain required; separate owned ordinaryPG mutation/race/rollback/GUC proof and durable account/session/UI/release readiness remain pending. Original attempt/time/counters preserved; no heavy job or source/status/backlog/commit edits.
