@@ -21,3 +21,5 @@ LF-normalized SHA-256 in order (adapter, module, unit spec, HTTPS spec):
 `0C2C68F060B2D24F32AFDED0C1F95CC9B8F10128D1B5E856674EEC568753ED43`
 
 Author evidence reports focused actual HTTPS/unit 21 PASS, lint/typecheck PASS, changed-source coverage 95.18%/83.33%; earlier independent QA reports API 1,227 and web 138 PASS. This approval is source-only and does not replace QA or exact-head CI.
+
+CI238 follow-up: `st210-one-global-key-0001` at the committed unit fixture line 97 is a public, fixed Idempotency-Key test input, not a credential or secret; its deterministic text has no source entropy. I approve only the exact historical Gitleaks fingerprint `f22f4f79546a920829df0f845c1a2757701012a4:SubTrack/apps/api/src/auth/otp-v2/mobile-enrollment-otp-http.spec.ts:generic-api-key:97` for an allowlist entry. No broader rule/path suppression or history rewrite is approved; the four reviewed source hashes remain unchanged.
