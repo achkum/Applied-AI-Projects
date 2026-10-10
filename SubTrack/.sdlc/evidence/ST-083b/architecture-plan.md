@@ -1,0 +1,1 @@
+Root architect-data adopts local Type2b contract in task/assumptions before author and unit dispatch; accepted MoneyADR0017 owns arithmetic, no public export/integration. Independent contract reviewer must approve before implementation.

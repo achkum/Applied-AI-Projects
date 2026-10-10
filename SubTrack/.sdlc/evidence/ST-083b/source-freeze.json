@@ -1,0 +1,5 @@
+{
+  "packages/domain/detection/price-increases.ts": "84344f2e5261ac35b27ecc3772024aeb23b77b6174e24deb83430a186c9e43fe",
+  "packages/domain/test/price-increases.spec.ts": "dd6753e9dc5b72658bcc892ab6df0ab1da00e1b0ccd94df87cddfa98dfa29a7f",
+  "packages/domain/detection/price-increases.md": "cfbf7a578c4a598a6dc97291bccabb59a1605546ba775de4cb316c3e581dd013"
+}

@@ -1,0 +1,14 @@
+{
+  "task": "ST-083a",
+  "pr": 217,
+  "source_head": "0a2e377af234ea6d8225a7d3a225011a3dcdae5d",
+  "accepted_main": "dce218566e6316b44a9ccd45643ad36889227661",
+  "source_main_tree": "4b8d78d6e9c5b5240fa0524594ad0a2817e4bcd3",
+  "ci_run": 38006970746,
+  "ci_actual_step_count": 35,
+  "all_actual_steps": "SUCCESS",
+  "independent_source_review": "APPROVE (frozen four hashes)",
+  "staged_gitleaks": "PASS",
+  "local_qa": "153 Money tests; 27/27 new branches, all helper metrics 100%; lint/typecheck/build PASS",
+  "limits": "Private standalone SEK primitive only; full ST083, persistence, caller/source/next-cycle authority, foreign thresholds, API/default/UI remain pending"
+}
