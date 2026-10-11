@@ -619,10 +619,80 @@ export const zWebEnrollmentPendingRequest = z.object({
     identifierProof: zWebEnrollmentIdentifierProof
 }).strict();
 
+/**
+ * Closed private server simulator fixture choice; never an identity assertion.
+ */
+export const zWebDevelopmentDemoIdentity = z.enum(['alice', 'bob']);
+
 export const zWebEnrollmentSimulatorRequest = z.object({
     transport: z.literal('web'),
-    continuation: zWebEnrollmentContinuation
+    continuation: zWebEnrollmentContinuation,
+    demoIdentity: zWebDevelopmentDemoIdentity.optional()
 }).strict();
+
+/**
+ * Server-issued one-use registered-login authority, memory only.
+ */
+export const zWebPrivateLoginProof = z.string().length(46).regex(/^v2\.[A-Za-z0-9_-]{43}$/);
+
+export const zWebPrivateLoginVerifyRequest = z.object({
+    transport: z.literal('web'),
+    demoIdentity: zWebDevelopmentDemoIdentity
+}).strict();
+
+export const zWebPrivateLoginVerifyResponse = z.object({
+    transport: z.literal('web'),
+    loginProof: zWebPrivateLoginProof,
+    status: z.literal('verified'),
+    nextBrowserNonce: zWebEnrollmentNonce
+}).strict();
+
+export const zWebPrivateLoginInvalidProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.literal('Authentication unavailable'),
+    status: z.literal(400),
+    code: z.literal('INVALID_LOGIN_REQUEST')
+}).strict();
+
+export const zWebPrivateLoginOriginProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.literal('Authentication unavailable'),
+    status: z.literal(403),
+    code: z.literal('AUTH_ORIGIN_REJECTED')
+}).strict();
+
+export const zWebPrivateLoginUnavailableProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.literal('Authentication unavailable'),
+    status: z.literal(404),
+    code: z.literal('LOGIN_UNAVAILABLE')
+}).strict();
+
+export const zWebPrivateLoginConflictProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.literal('Authentication unavailable'),
+    status: z.literal(409),
+    code: z.literal('AUTH_RESTART_REQUIRED')
+}).strict();
+
+export const zWebPrivateLoginInternalProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.literal('Authentication unavailable'),
+    status: z.literal(500),
+    code: z.literal('INTERNAL_ERROR')
+}).strict();
+
+/**
+ * Private login problem+json. Exact status/code pairs are 400 INVALID_LOGIN_REQUEST, 403 AUTH_ORIGIN_REJECTED, 404 LOGIN_UNAVAILABLE, 409 AUTH_RESTART_REQUIRED, and 500 INTERNAL_ERROR. Missing, deleted, foreign, expired and spent authority all use the same generic 409.
+ *
+ */
+export const zWebPrivateLoginProblem = z.union([
+    zWebPrivateLoginInvalidProblem,
+    zWebPrivateLoginOriginProblem,
+    zWebPrivateLoginUnavailableProblem,
+    zWebPrivateLoginConflictProblem,
+    zWebPrivateLoginInternalProblem
+]);
 
 export const zWebEnrollmentCompleteRequest = z.object({
     transport: z.literal('web'),
@@ -1150,6 +1220,19 @@ export const zVerifyV2WebSimulatorEnrollmentHeaders = z.object({
  * Separate verified enrollment authority; not a login proof.
  */
 export const zVerifyV2WebSimulatorEnrollmentResponse = zWebEnrollmentSimulatorResponse;
+
+export const zVerifyV2PrivateSimulatorLoginBody = zWebPrivateLoginVerifyRequest;
+
+export const zVerifyV2PrivateSimulatorLoginHeaders = z.object({
+    'Idempotency-Key': zWebEnrollmentKey,
+    Origin: z.url(),
+    'X-Browser-Nonce': zWebEnrollmentNonce
+});
+
+/**
+ * One-use proof and successor nonce; no identity data or session cookies.
+ */
+export const zVerifyV2PrivateSimulatorLoginResponse = zWebPrivateLoginVerifyResponse;
 
 export const zCompleteV2WebEnrollmentBody = zWebEnrollmentCompleteRequest;
 

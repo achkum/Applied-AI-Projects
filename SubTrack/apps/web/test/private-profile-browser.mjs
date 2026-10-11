@@ -19,7 +19,7 @@ const theme = process.env.ST237_BROWSER_THEME;
 const browserCase = process.env.ST237_BROWSER_CASE;
 assert(['sv', 'en'].includes(locale));
 assert(['light', 'dark'].includes(theme));
-assert(['profile', 'partial-terminal', 'subscriptions', 'empty', 'uncertainty'].includes(browserCase));
+assert(['profile', 'partial-terminal', 'subscriptions', 'empty', 'uncertainty', 'login'].includes(browserCase));
 assert(require('playwright/package.json').version === '1.63.0');
 const catalog = JSON.parse(fs.readFileSync(path.join(webDir, '../../packages/i18n/catalogs', `${locale}.json`), 'utf8'));
 const copy = catalog.onboarding;
@@ -72,6 +72,7 @@ function closedProblem(result, status, code) {
 let phase = 'LAUNCH';
 let context;
 let page;
+let screenshotDir;
 let profileWire = { patch: 'NONE', read: 'NONE' };
 let navigationStatus = 'NONE';
 let reloadNavigationType = 'NONE';
@@ -83,9 +84,9 @@ let negativeCase = 'NONE', negativeStatus = 'NONE', negativeNetwork = 'NONE';
 const safeStatus = value => [200, 400, 401, 403, 409, 421, 500].includes(value) ? String(value) : 'OTHER';
 try {
   context = await firefox.launchPersistentContext(process.env.ST237_TRUSTED_PROFILE, { headless: true });
-  const screenshotDir = path.resolve(process.env.ST237_SCREENSHOT_DIR);
+  screenshotDir = path.resolve(process.env.ST237_SCREENSHOT_DIR);
   fs.mkdirSync(screenshotDir, { mode: 0o700 });
-  if (browserCase === 'profile' || browserCase === 'subscriptions' || browserCase === 'empty' || browserCase === 'uncertainty') {
+  if (browserCase === 'profile' || browserCase === 'subscriptions' || browserCase === 'empty' || browserCase === 'uncertainty' || browserCase === 'login') {
   page = await context.newPage();
   page.setDefaultTimeout(45000);
   page.on('requestfailed', request => {
@@ -97,49 +98,68 @@ try {
   });
   const capture = async step => { await page.screenshot({ path: path.join(screenshotDir, `${step}.png`), fullPage: true }); };
   const wire = [];
+  let aliceReturnStart = 0;
   const credentialNames = new Set();
   let csrf = '';
   let safeWire = true;
+  const pendingWireChecks = new Set();
+  const checkPrivateHeaders = async (response, pathname) => {
+    const headers = typeof response.allHeaders === 'function' ? await response.allHeaders() : response.headers();
+    if (headers['cache-control'] !== 'no-store' || headers.pragma !== 'no-cache') safeWire = false;
+    const responseHeaders = await response.headersArray();
+    if (pathname === '/v2/auth/login/simulator/verify' && responseHeaders.some(header =>
+      header.name.toLowerCase() === 'set-cookie')) safeWire = false;
+    for (const header of responseHeaders) {
+      if (header.name.toLowerCase() !== 'set-cookie') continue;
+      const name = header.value.split('=')[0];
+      credentialNames.add(name);
+      if (!/;\s*Secure(?:;|$)/i.test(header.value) || !/;\s*HttpOnly(?:;|$)/i.test(header.value) ||
+          !/;\s*SameSite=Lax(?:;|$)/i.test(header.value) || /;\s*Domain=/i.test(header.value)) safeWire = false;
+    }
+  };
   // Keep the one volatile CSRF only in this private driver, never a receipt or storage artifact.
-  page.on('response', async response => {
+  const observePrivateResponse = async response => {
     const url = new URL(response.url());
     if (!url.pathname.startsWith('/v2/')) return;
     try {
-      const headers = await response.allHeaders();
-      if (headers['cache-control'] !== 'no-store' || headers.pragma !== 'no-cache') safeWire = false;
+      await checkPrivateHeaders(response, url.pathname);
       wire.push({ method: response.request().method(), path: url.pathname, status: response.status() });
       if (url.pathname === '/v2/me/profile' && response.request().method() === 'PATCH')
         profileWire.patch = [200, 400, 401, 403, 409, 500].includes(response.status()) ? String(response.status()) : 'OTHER';
       if (url.pathname === '/v2/me/profile/read' && response.request().method() === 'POST')
         profileWire.read = [200, 400, 401, 403, 409, 500].includes(response.status()) ? String(response.status()) : 'OTHER';
-      if (url.pathname === '/v2/auth/enrollment/complete' && response.status() === 201) {
+      if ((url.pathname === '/v2/auth/enrollment/complete' || url.pathname === '/v2/auth/session') &&
+          response.status() === 201) {
         const body = await response.json();
         if (Object.keys(body).sort().join(',') !== 'csrfToken,sessionId,transport') safeWire = false;
         csrf = body.csrfToken;
       }
-      for (const header of await response.headersArray()) {
-        if (header.name.toLowerCase() !== 'set-cookie') continue;
-        const name = header.value.split('=')[0];
-        credentialNames.add(name);
-        if (!/;\s*Secure(?:;|$)/i.test(header.value) || !/;\s*HttpOnly(?:;|$)/i.test(header.value) ||
-            !/;\s*SameSite=Lax(?:;|$)/i.test(header.value) || /;\s*Domain=/i.test(header.value)) safeWire = false;
-      }
     } catch { safeWire = false; }
+  };
+  const attachWireObserver = target => target.on('response', response => {
+    const check = observePrivateResponse(response);
+    pendingWireChecks.add(check);
+    void check.finally(() => pendingWireChecks.delete(check));
   });
+  const assertSafeWire = async () => { await Promise.all([...pendingWireChecks]); assert(safeWire); };
+  attachWireObserver(page);
   await page.addInitScript(selected => globalThis.localStorage.setItem('theme-preference', selected), theme);
   phase = 'NAVIGATE';
   const first = await page.goto(`${origin}/${locale}/register?st237_probe=${randomUUID()}`, { waitUntil: 'domcontentloaded' });
   navigationStatus = first && [200, 304, 400, 404, 500].includes(first.status()) ? String(first.status()) : 'OTHER';
   assert.equal(first?.status(), 200);
-  const themeButton = page.getByRole('navigation', { name: preferenceCopy.label, exact: true })
-    .getByRole('button', { name: preferenceCopy.themes[theme], exact: true });
-  await themeButton.waitFor({ state: 'visible' });
-  await page.waitForFunction(({ label, name }) => [...globalThis.document.querySelectorAll('nav[aria-label]')]
-    .some(nav => nav.getAttribute('aria-label') === label && [...nav.querySelectorAll('button')]
-      .some(button => button.textContent === name && button.getAttribute('aria-pressed') === 'true')),
-  { label: preferenceCopy.label, name: preferenceCopy.themes[theme] });
-  await themeButton.click();
-  await page.waitForFunction(selected => globalThis.localStorage.getItem('theme-preference') === selected, theme);
+  const awaitPreferenceInteraction = async () => {
+    const themeButton = page.getByRole('navigation', { name: preferenceCopy.label, exact: true })
+      .getByRole('button', { name: preferenceCopy.themes[theme], exact: true });
+    await themeButton.waitFor({ state: 'visible' });
+    await page.waitForFunction(({ label, name }) => [...globalThis.document.querySelectorAll('nav[aria-label]')]
+      .some(nav => nav.getAttribute('aria-label') === label && [...nav.querySelectorAll('button')]
+        .some(button => button.textContent === name && button.getAttribute('aria-pressed') === 'true')),
+    { label: preferenceCopy.label, name: preferenceCopy.themes[theme] });
+    await themeButton.click();
+    await page.waitForFunction(selected => globalThis.localStorage.getItem('theme-preference') === selected, theme);
+  };
+  await awaitPreferenceInteraction();
   phase = 'IDENTIFIER_READY';
   await page.getByRole('heading', { name: copy.registration.title, exact: true }).waitFor();
   await capture('identifier');
@@ -194,7 +214,7 @@ try {
     await capture('owner-empty');
     process.stdout.write('PASS ST238_BROWSER_NATURAL_OWNER_PERSISTED_EMPTY_LIST\n');
     process.stdout.write(`PASS ST237_BROWSER_CASE case=empty locale=${locale} theme=${theme}\n`);
-  } else if (browserCase === 'subscriptions' || browserCase === 'uncertainty') {
+  } else if (browserCase === 'subscriptions' || browserCase === 'uncertainty' || browserCase === 'login') {
     phase = 'SUBSCRIPTION_SEED_BARRIER';
     fs.writeFileSync(path.join(handshake, 'subscription-seed-ready'), '', { flag: 'wx', mode: 0o600 });
     await awaitMarker('subscription-seeded');
@@ -208,6 +228,238 @@ try {
       await route.abort('failed');
     });
     await page.getByRole('button', { name: copy.mode.choose, exact: true }).click();
+    if (browserCase === 'login') {
+      phase = 'LOGIN_PRIOR_LIST';
+      await page.getByRole('heading', { name: copy.ownerSubscriptions.title, exact: true }).waitFor();
+      assert.equal(await page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true }).getByRole('listitem').count(), 50);
+      const oldSession = (await context.cookies()).find(cookie => cookie.name === 'st_v2_access')?.value;
+      assert(oldSession);
+      const currentHeaders = async () => ({ Origin: origin, 'X-Session-CSRF': csrf,
+        Cookie: (await context.cookies()).filter(item => ['st_v2_access', 'st_v2_binding', 'st_v2_chain'].includes(item.name))
+          .map(item => `${item.name}=${item.value}`).join('; ') });
+      const aliceProfileBefore = await request(await currentHeaders());
+      assert.equal(aliceProfileBefore.status, 200);
+      assert.deepEqual(aliceProfileBefore.body, { displayName: 'Private Proof', avatarColourToken: null,
+        avatarEmoji: null, language: locale, theme, defaultCurrency: 'SEK', profileComplete: true });
+      const aliceModeBefore = await request(await currentHeaders(), '{}', '/v2/me/mode/read');
+      assert.deepEqual(aliceModeBefore.body, { mode: 'just-me' });
+      const openFreshPage = async () => {
+        page = await context.newPage();
+        page.setDefaultTimeout(45000);
+        await page.addInitScript(selected => globalThis.localStorage.setItem('theme-preference', selected), theme);
+        attachWireObserver(page);
+      };
+      const startFreshLogin = async (identity, prefix) => {
+        phase = `${prefix}_BOOTSTRAP`;
+        await page.goto(`${origin}/${locale}`, { waitUntil: 'domcontentloaded' });
+        await awaitPreferenceInteraction();
+        phase = `${prefix}_LINK`;
+        await page.getByRole('link', { name: copy.welcome.logIn, exact: true }).click();
+        await page.getByRole('heading', { name: copy.login.title, exact: true }).waitFor();
+        phase = `${prefix}_FIXTURE`;
+        await page.getByLabel(copy.login.fixtureLabel, { exact: true }).selectOption(identity);
+        const profileRead = page.waitForResponse(response => new URL(response.url()).pathname === '/v2/me/profile/read' &&
+          response.request().method() === 'POST' && response.status() === 200);
+        const modeRead = page.waitForResponse(response => new URL(response.url()).pathname === '/v2/me/mode/read' &&
+          response.request().method() === 'POST' && response.status() === 200);
+        phase = `${prefix}_SUBMIT`;
+        await page.getByRole('button', { name: copy.login.simulatorAction, exact: true }).click();
+        phase = `${prefix}_PROFILE_RESPONSE`;
+        const profileResponse = await profileRead;
+        phase = `${prefix}_MODE_RESPONSE`;
+        const modeResponse = await modeRead;
+        return { profile: await profileResponse.json(), mode: await modeResponse.json() };
+      };
+      phase = 'ALICE_EXISTING_SUBJECT_ENROLLMENT_STOP';
+      await context.clearCookies();
+      csrf = '';
+      await page.close();
+      await openFreshPage();
+      await page.goto(`${origin}/${locale}/register?st239_probe=${randomUUID()}`, { waitUntil: 'domcontentloaded' });
+      await page.getByRole('heading', { name: copy.registration.title, exact: true }).waitFor();
+      await capture('registered-subject-identifier');
+      await page.getByLabel(copy.identifier.emailLabel, { exact: true }).fill(`returning-${randomUUID()}@example.test`);
+      await page.getByRole('button', { name: copy.identifier.continueLabel, exact: true }).click();
+      await page.getByLabel(copy.registration.otpLabel, { exact: true }).fill('123456');
+      await page.getByRole('button', { name: copy.registration.verifyLabel, exact: true }).click();
+      await page.getByRole('button', { name: copy.registration.simulatorAction, exact: true }).waitFor();
+      const loginRequiredResponse = page.waitForResponse(response =>
+        new URL(response.url()).pathname === '/v2/auth/enrollment/complete' && response.status() === 409);
+      await page.getByRole('button', { name: copy.registration.simulatorAction, exact: true }).click();
+      const loginRequired = await loginRequiredResponse;
+      assert.deepEqual(await loginRequired.json(), { type: 'about:blank', title: 'Authentication unavailable',
+        status: 409, code: 'ENROLLMENT_LOGIN_REQUIRED' });
+      await page.getByText(copy.registration.verifiedLoginRequired, { exact: true }).waitFor();
+      await capture('registered-subject-login-required');
+      const alternateLogin = page.getByRole('link', { name: copy.login.freshLogin, exact: true });
+      await alternateLogin.click();
+      await page.getByRole('heading', { name: copy.login.title, exact: true }).waitFor();
+      assert.equal(new URL(page.url()).pathname, `/${locale}/login`);
+      await capture('registered-subject-login-entry');
+      phase = 'BOB_ENROLL_NAVIGATE';
+      await page.goto(`${origin}/${locale}/register?st239_probe=${randomUUID()}`, { waitUntil: 'domcontentloaded' });
+      phase = 'BOB_ENROLL_READY';
+      await awaitPreferenceInteraction();
+      phase = 'BOB_IDENTIFIER_FILL';
+      await page.getByLabel(copy.identifier.emailLabel, { exact: true }).fill(`second-owner-${randomUUID()}@example.test`);
+      phase = 'BOB_IDENTIFIER_SUBMIT';
+      await page.getByRole('button', { name: copy.identifier.continueLabel, exact: true }).click();
+      phase = 'BOB_OTP_FILL';
+      await page.getByLabel(copy.registration.otpLabel, { exact: true }).fill('123456');
+      phase = 'BOB_OTP_SUBMIT';
+      await page.getByRole('button', { name: copy.registration.verifyLabel, exact: true }).click();
+      phase = 'BOB_FIXTURE_SELECT';
+      await page.getByLabel(copy.login.fixtureLabel, { exact: true }).selectOption('bob');
+      phase = 'BOB_SIMULATOR_CLICK';
+      await page.getByRole('button', { name: copy.registration.simulatorAction, exact: true }).click();
+      const bobEditor = page.getByRole('region', { name: copy.profile.title, exact: true });
+      phase = 'BOB_EDITOR_WAIT';
+      await bobEditor.getByLabel(copy.profile.displayName, { exact: true }).waitFor();
+      phase = 'BOB_CSRF_WAIT';
+      for (let i = 0; i < 50 && !csrf; i++) await delay(100);
+      assert(csrf);
+      phase = 'BOB_PROFILE_FETCH';
+      const bobProfileBefore = await request(await currentHeaders());
+      phase = 'BOB_PROFILE_ASSERT';
+      assert.equal(bobProfileBefore.status, 200);
+      assert.deepEqual(bobProfileBefore.body, { displayName: null, avatarColourToken: null,
+        avatarEmoji: null, language: locale, theme: 'system', defaultCurrency: 'SEK', profileComplete: false });
+      phase = 'BOB_MODE_FETCH';
+      const bobModeBefore = await request(await currentHeaders(), '{}', '/v2/me/mode/read');
+      phase = 'BOB_MODE_ASSERT';
+      assert.equal(bobModeBefore.status, 200);
+      assert.deepEqual(bobModeBefore.body, { mode: null });
+      phase = 'CONTACT_SNAPSHOT_BARRIER';
+      fs.writeFileSync(path.join(handshake, 'CONTACT_SNAPSHOT_READY'), '', { flag: 'wx', mode: 0o600 });
+      await awaitMarker('CONTACT_SNAPSHOT_CAPTURED');
+      await page.close();
+      await openFreshPage();
+      phase = 'BOB_INCOMPLETE_LOGIN';
+      let loginWireStart = wire.length;
+      const bobIncompleteRead = await startFreshLogin('bob', 'BOB_INCOMPLETE_LOGIN');
+      phase = 'BOB_INCOMPLETE_BODY';
+      assert.deepEqual(bobIncompleteRead, { profile: bobProfileBefore.body, mode: bobModeBefore.body });
+      phase = 'BOB_INCOMPLETE_EDITOR';
+      await page.getByRole('region', { name: copy.profile.title, exact: true }).getByLabel(copy.profile.displayName, { exact: true }).waitFor();
+      assert.equal(await page.getByRole('region', { name: copy.profile.title, exact: true })
+        .getByLabel(copy.profile.displayName, { exact: true }).inputValue(), '');
+      assert.equal(await page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true }).count(), 0);
+      phase = 'BOB_INCOMPLETE_WIRE';
+      await Promise.all([...pendingWireChecks]);
+      assert.deepEqual(wire.slice(loginWireStart).filter(item => item.path === '/v2/me/profile/read' ||
+        item.path === '/v2/me/mode/read' || item.path === '/v2/subscriptions/owner/read').map(item => item.path),
+      ['/v2/me/profile/read', '/v2/me/mode/read']);
+      assert.equal(wire.slice(loginWireStart).filter(item => item.path === '/v2/me/profile' || item.path === '/v2/me/mode').length, 0);
+      phase = 'BOB_INCOMPLETE_CAPTURE';
+      await capture('login-incomplete-profile');
+      phase = 'BOB_INCOMPLETE_SAVE';
+      const resumedBobEditor = page.getByRole('region', { name: copy.profile.title, exact: true });
+      await resumedBobEditor.getByLabel(copy.profile.displayName, { exact: true }).fill('Second Owner');
+      await resumedBobEditor.getByRole('button', { name: copy.profile.save, exact: true }).click();
+      await resumedBobEditor.getByText(copy.profile.saved, { exact: true }).waitFor();
+      const bobProfileSaved = await request(await currentHeaders());
+      assert.equal(bobProfileSaved.status, 200);
+      assert.deepEqual(bobProfileSaved.body, { ...bobProfileBefore.body, displayName: 'Second Owner', profileComplete: true });
+      await page.close();
+      await openFreshPage();
+      phase = 'BOB_ABSENT_MODE_LOGIN';
+      loginWireStart = wire.length;
+      const bobModeRead = await startFreshLogin('bob', 'BOB_ABSENT_MODE_LOGIN');
+      phase = 'BOB_ABSENT_MODE_BODY';
+      assert.deepEqual(bobModeRead, { profile: bobProfileSaved.body, mode: bobModeBefore.body });
+      phase = 'BOB_ABSENT_MODE_EDITOR';
+      await page.getByRole('button', { name: copy.mode.choose, exact: true }).waitFor();
+      assert.equal(await page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true }).count(), 0);
+      phase = 'BOB_ABSENT_MODE_WIRE';
+      await Promise.all([...pendingWireChecks]);
+      assert.deepEqual(wire.slice(loginWireStart).filter(item => item.path === '/v2/me/profile/read' ||
+        item.path === '/v2/me/mode/read' || item.path === '/v2/subscriptions/owner/read').map(item => item.path),
+      ['/v2/me/profile/read', '/v2/me/mode/read']);
+      assert.equal(wire.slice(loginWireStart).filter(item => item.path === '/v2/me/profile' || item.path === '/v2/me/mode').length, 0);
+      await capture('login-absent-mode');
+      await page.getByRole('button', { name: copy.mode.choose, exact: true }).click();
+      const bobEmpty = page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true });
+      await bobEmpty.getByText(copy.ownerSubscriptions.empty, { exact: true }).waitFor();
+      assert.equal(await bobEmpty.getByRole('listitem').count(), 0);
+      const bobModeAfterChoice = await request(await currentHeaders(), '{}', '/v2/me/mode/read');
+      assert.equal(bobModeAfterChoice.status, 200);
+      assert.deepEqual(bobModeAfterChoice.body, { mode: 'just-me' });
+      await capture('login-second-owner-empty');
+      await page.close();
+      await openFreshPage();
+      aliceReturnStart = wire.length;
+      phase = 'LOGIN_WELCOME';
+      await page.goto(`${origin}/${locale}`, { waitUntil: 'domcontentloaded' });
+      await capture('login-welcome');
+      await page.getByRole('link', { name: copy.welcome.logIn, exact: true }).click();
+      await page.getByRole('heading', { name: copy.login.title, exact: true }).waitFor();
+      await capture('login-choice');
+      let observedAliceProfile = null;
+      let observedAliceMode = null;
+      const progressRoutes = [
+        ['**/v2/auth/login/simulator/verify', copy.login.verifying, 'login-verifying'],
+        ['**/v2/auth/session', copy.login.creatingSession, 'login-session-progress'],
+        ['**/v2/me/profile/read', copy.profileLoading, 'login-profile-loading'],
+        ['**/v2/me/mode/read', copy.login.loadingMode, 'login-profile-read-mode-loading'],
+        ['**/v2/subscriptions/owner/read', copy.ownerSubscriptions.loading, 'login-mode-read-list-loading'],
+      ];
+      const progressHandlers = [];
+      for (const [routePattern, statusText, screenshot] of progressRoutes) {
+        const handler = async route => {
+          await page.getByRole('status').getByText(statusText, { exact: true }).waitFor();
+          await capture(screenshot);
+          if (routePattern.includes('login/simulator/verify')) {
+            const verified = await route.fetch();
+            assert.equal(verified.status(), 200);
+            await checkPrivateHeaders(verified, '/v2/auth/login/simulator/verify');
+            assert.equal((await verified.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie').length, 0);
+            await route.fulfill({ response: verified });
+          } else if (routePattern.includes('/profile/read')) {
+            const read = await route.fetch();
+            assert.equal(read.status(), 200);
+            observedAliceProfile = await read.json();
+            assert.deepEqual(observedAliceProfile, aliceProfileBefore.body);
+            await route.fulfill({ response: read });
+          } else if (routePattern.includes('/mode/read')) {
+            assert.deepEqual(observedAliceProfile, aliceProfileBefore.body);
+            const read = await route.fetch();
+            assert.equal(read.status(), 200);
+            observedAliceMode = await read.json();
+            assert.deepEqual(observedAliceMode, aliceModeBefore.body);
+            await route.fulfill({ response: read });
+          } else {
+            assert.deepEqual(observedAliceMode, aliceModeBefore.body);
+            await route.continue();
+          }
+        };
+        await page.route(routePattern, handler);
+        progressHandlers.push([routePattern, handler]);
+      }
+      phase = 'LOGIN_VERIFY';
+      await page.getByRole('button', { name: copy.login.simulatorAction, exact: true }).click();
+      await page.getByRole('heading', { name: copy.ownerSubscriptions.title, exact: true }).waitFor();
+      for (const [routePattern, handler] of progressHandlers) await page.unroute(routePattern, handler);
+      const loginStart = wire.findIndex((item, index) => index >= aliceReturnStart && item.path === '/v2/auth/login/simulator/verify' && item.status === 200);
+      assert(loginStart > 0);
+      const sessionAt = wire.findIndex((item, index) => index > loginStart && item.path === '/v2/auth/session' && item.status === 201);
+      const profileAt = wire.findIndex((item, index) => index > sessionAt && item.path === '/v2/me/profile/read' && item.status === 200);
+      const modeAt = wire.findIndex((item, index) => index > profileAt && item.path === '/v2/me/mode/read' && item.status === 200);
+      const listAt = wire.findIndex((item, index) => index > modeAt && item.path === '/v2/subscriptions/owner/read' && item.status === 200);
+      assert(sessionAt > loginStart && profileAt > sessionAt && modeAt > profileAt && listAt > modeAt);
+      assert.deepEqual(observedAliceProfile, aliceProfileBefore.body);
+      assert.deepEqual(observedAliceMode, aliceModeBefore.body);
+      const aliceProfileAfter = await request(await currentHeaders());
+      const aliceModeAfter = await request(await currentHeaders(), '{}', '/v2/me/mode/read');
+      assert.equal(aliceProfileAfter.status, 200);
+      assert.equal(aliceModeAfter.status, 200);
+      assert.deepEqual(aliceProfileAfter.body, aliceProfileBefore.body);
+      assert.deepEqual(aliceModeAfter.body, aliceModeBefore.body);
+      assert.equal(wire.filter((item, index) => index > loginStart &&
+        (item.path === '/v2/me/profile' || item.path === '/v2/me/mode')).length, 0);
+      const newSession = (await context.cookies()).find(cookie => cookie.name === 'st_v2_access')?.value;
+      assert(newSession && newSession !== oldSession);
+      await capture('login-returned-list');
+    }
     if (browserCase === 'uncertainty') {
       await page.getByRole('heading', { name: copy.ownerSubscriptions.title, exact: true }).waitFor();
       assert.equal(modeWrites, 1);
@@ -235,6 +487,7 @@ try {
     await firstRow.press('Enter');
     phase = 'SUBSCRIPTION_DETAIL';
     await page.getByRole('heading', { name: copy.ownerSubscriptions.detail, exact: true }).waitFor();
+    await capture('subscription-detail');
     let statusWrites = 0;
     let selectedId = '';
     if (browserCase === 'uncertainty') await page.route('**/v2/subscriptions/*', async route => {
@@ -270,12 +523,12 @@ try {
       const detail = await request(headers, '{}', `/v2/subscriptions/${selectedId}/read`);
       assert.equal(detail.status, 200);
       assert.equal(detail.body.status, 'PAUSED');
-      assert(safeWire);
+      await assertSafeWire();
       await capture('uncertain-status');
       process.stdout.write('PASS ST238_BROWSER_NATURAL_COMMITTED_MODE_STATUS_LOST_RESPONSE_NO_RETRY_RESTART\n');
       process.stdout.write(`PASS ST237_BROWSER_CASE case=uncertainty locale=${locale} theme=${theme}\n`);
     } else await page.getByText(copy.ownerSubscriptions.confirmed, { exact: true }).waitFor();
-    if (browserCase === 'subscriptions') {
+    if (browserCase === 'subscriptions' || browserCase === 'login') {
     phase = 'SUBSCRIPTION_NEGATIVES';
     const cookies = await context.cookies();
     const cookieHeader = cookies.filter(item => ['st_v2_access', 'st_v2_binding', 'st_v2_chain'].includes(item.name))
@@ -308,17 +561,55 @@ try {
     process.stdout.write('PASS ST238_BROWSER_OWNER_HTTPS_MODE_LIST_DETAIL_STATUS_NEGATIVES\n');
     assert(wire.some(x => x.method === 'POST' && x.path === '/v2/me/mode' && x.status === 200));
     assert(wire.some(x => x.method === 'POST' && x.path === '/v2/me/mode/read' && x.status === 200));
-    assert.equal(wire.filter(x => x.method === 'POST' && x.path === '/v2/subscriptions/owner/read' && x.status === 200).length, 2);
+    assert.equal(wire.filter((x, index) => index >= (browserCase === 'login' ? aliceReturnStart : 0) &&
+      x.method === 'POST' && x.path === '/v2/subscriptions/owner/read' && x.status === 200).length, 2);
     assert(wire.some(x => x.method === 'PATCH' && /^\/v2\/subscriptions\/[0-9a-f-]+$/.test(x.path) && x.status === 200));
     assert(wire.filter(x => x.method === 'POST' && /^\/v2\/subscriptions\/[0-9a-f-]+\/read$/.test(x.path) && x.status === 200).length >= 2);
-    assert(safeWire);
+    await assertSafeWire();
     await capture('subscription-status');
-    process.stdout.write(`PASS ST238_BROWSER_NATURAL_OWNER_MODE_LIST_51_DETAIL_STATUS locale=${locale} theme=${theme}\n`);
-    process.stdout.write(`PASS ST237_BROWSER_CASE case=subscriptions locale=${locale} theme=${theme}\n`);
+    if (browserCase === 'login') {
+      phase = 'LOGIN_RELOAD';
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.getByRole('link', { name: copy.login.freshLogin, exact: true }).waitFor();
+      assert.equal(await page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true }).count(), 0);
+      await capture('login-reload-stop');
+      phase = 'LOGIN_UNCERTAIN_RETURN';
+      await page.getByRole('link', { name: copy.login.freshLogin, exact: true }).click();
+      await page.getByRole('heading', { name: copy.login.title, exact: true }).waitFor();
+      await capture('login-fresh-after-reload');
+      let uncertainSessions = 0;
+      const loseSession = async route => {
+        uncertainSessions++;
+        const committed = await route.fetch();
+        assert.equal(committed.status(), 201);
+        await checkPrivateHeaders(committed, '/v2/auth/session');
+        await route.abort('failed');
+      };
+      await page.route('**/v2/auth/session', loseSession);
+      await page.getByRole('button', { name: copy.login.simulatorAction, exact: true }).click();
+      await page.getByText(copy.login.unavailable, { exact: true }).waitFor();
+      assert.equal(uncertainSessions, 1);
+      assert.equal(await page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true }).count(), 0);
+      await capture('login-unavailable-stop');
+      await page.unroute('**/v2/auth/session', loseSession);
+      phase = 'LOGIN_FRESH_RECOVERY';
+      await page.getByRole('button', { name: copy.login.freshLogin, exact: true }).click();
+      await page.getByRole('heading', { name: copy.ownerSubscriptions.title, exact: true }).waitFor();
+      assert.equal(await page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true }).getByRole('listitem').count(), 50);
+      await capture('login-fresh-recovered-list');
+      await assertSafeWire();
+      process.stdout.write(`PASS ST239_BROWSER_RETURNING_LOGIN locale=${locale} theme=${theme}\n`);
+      process.stdout.write(`PASS ST239_BROWSER_NATURAL_SECOND_OWNER_INCOMPLETE_ABSENT_MODE_ISOLATION locale=${locale} theme=${theme}\n`);
+      process.stdout.write(`PASS ST239_BROWSER_LOST_SESSION_RESPONSE_FRESH_RECOVERY locale=${locale} theme=${theme}\n`);
+      process.stdout.write(`PASS ST237_BROWSER_CASE case=login locale=${locale} theme=${theme}\n`);
+    } else {
+      process.stdout.write(`PASS ST238_BROWSER_NATURAL_OWNER_MODE_LIST_51_DETAIL_STATUS locale=${locale} theme=${theme}\n`);
+      process.stdout.write(`PASS ST237_BROWSER_CASE case=subscriptions locale=${locale} theme=${theme}\n`);
+    }
     }
   } else {
   phase = 'PROFILE_WIRE';
-  assert(safeWire);
+  await assertSafeWire();
   const paths = ['/v2/auth/browser-nonce', '/v2/auth/otp/start', '/v2/auth/otp/verify',
     '/v2/auth/enrollment/pending', '/v2/auth/enrollment/simulator/verify', '/v2/auth/enrollment/complete'];
   for (const target of paths) assert.equal(wire.filter(item => item.path === target).length, 1);
@@ -568,6 +859,11 @@ try {
   process.stdout.write(`PASS ST237_BROWSER_CASE case=partial-terminal locale=${locale} theme=${theme}\n`);
   }
 } catch (caught) {
+  if (browserCase === 'login' && screenshotDir && page && !page.isClosed()) {
+    try { await page.screenshot({ path: path.join(screenshotDir, 'login-failure.png'), fullPage: true,
+      mask: [page.locator('#registration-otp'), page.locator('input[type="password"]')] }); }
+    catch { /* Preserve the original closed failure receipt. */ }
+  }
   if (phase === 'RELOAD_NAVIGATE') {
     reloadError = reloadFailureClass(caught);
     reloadPageClosed = page?.isClosed() ? 'YES' : 'NO';

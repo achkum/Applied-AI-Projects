@@ -117,7 +117,10 @@ export function createPrivateEnrollmentHttp(deps: Readonly<{ bootstrap: () => Bo
       const key = rawHeader(request, 'idempotency-key');
       if (!key || !KEY.test(key) || rawHeader(request, 'x-session-csrf') !== null) throw new Error('wire');
       const cookies = privateCookies(request);
-      if (Object.keys(cookies).some(name => name !== 'st_v2_binding')) throw new Error('wire');
+      const returningBootstrap = path === '/v2/auth/browser-nonce' && request.method === 'POST' &&
+        Object.keys(body).length === 1 && body.purpose === 'session';
+      const allowed = returningBootstrap ? ['st_v2_binding', 'st_v2_access', 'st_v2_refresh', 'st_v2_chain'] : ['st_v2_binding'];
+      if (Object.keys(cookies).some(name => !allowed.includes(name))) throw new Error('wire');
       if (path === '/v2/auth/browser-nonce' && request.method === 'POST') {
         exactBody(body, ['purpose']);
         if (!['enroll_identifier', 'otp_step_up', 'session'].includes(body.purpose as string)) throw new Error('wire');
@@ -152,9 +155,11 @@ export function createPrivateEnrollmentHttp(deps: Readonly<{ bootstrap: () => Bo
         privateJson(response, 201, { transport: 'web', continuation: `wep.${result.pending}`, status: 'pending', nextBrowserNonce: result.nextBrowserNonce }); return;
       }
       if (path === '/v2/auth/enrollment/simulator/verify' && request.method === 'POST') {
-        exactBody(body, ['transport', 'continuation']);
+        exactBody(body, Object.hasOwn(body, 'demoIdentity') ? ['transport', 'continuation', 'demoIdentity'] : ['transport', 'continuation']);
         if (body.transport !== 'web' || typeof body.continuation !== 'string' || !/^wep\.[A-Za-z0-9_-]{43}$/.test(body.continuation)) throw new Error('wire');
-        const result = await deps.enrollment.verifyPerson(web, { pending: body.continuation.slice(4) }, key);
+        if (body.demoIdentity !== undefined && body.demoIdentity !== 'alice' && body.demoIdentity !== 'bob') throw new Error('wire');
+        const result = await deps.enrollment.verifyPerson(web,
+          { pending: body.continuation.slice(4), ...(body.demoIdentity === undefined ? {} : { demoIdentity: body.demoIdentity as 'alice' | 'bob' }) }, key);
         privateJson(response, 200, { transport: 'web', verifiedEnrollment: `wev.${result.verified}`, status: 'verified', nextBrowserNonce: result.nextBrowserNonce }); return;
       }
       if (path === '/v2/auth/enrollment/complete' && request.method === 'POST') {

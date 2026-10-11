@@ -233,9 +233,11 @@ export function admitPendingRegistration(identifierProof: string, nonce: string,
   return post('enrollment/pending', { transport: 'web', identifierProof }, signal, 201, decodePending, nonce);
 }
 
-export function verifySimulatorRegistration(continuation: string, nonce: string, signal: AbortSignal) {
+export function verifySimulatorRegistration(continuation: string, nonce: string, signal: AbortSignal, demoIdentity: 'alice' | 'bob' = 'alice') {
   if (!PENDING.test(continuation) || !TOKEN.test(nonce)) throw new RegistrationApiError('unavailable');
-  return post('enrollment/simulator/verify', { transport: 'web', continuation }, signal, 200, decodeSimulator, nonce);
+  if (demoIdentity !== 'alice' && demoIdentity !== 'bob') throw new RegistrationApiError('unavailable');
+  return post('enrollment/simulator/verify', { transport: 'web', continuation,
+    ...(demoIdentity === 'alice' ? {} : { demoIdentity }) }, signal, 200, decodeSimulator, nonce);
 }
 
 export function completeRegistration(verifiedEnrollment: string, nonce: string, signal: AbortSignal) {

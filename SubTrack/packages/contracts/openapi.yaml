@@ -783,6 +783,48 @@ paths:
         '429': { $ref: '#/components/responses/WebEnrollmentProblem' }
         '500': { $ref: '#/components/responses/WebEnrollmentProblem' }
 
+  /v2/auth/login/simulator/verify:
+    post:
+      operationId: verifyV2PrivateSimulatorLogin
+      summary: Verify a registered owner with the trusted private development simulator
+      x-runtime-availability: unavailable-default
+      description: >
+        Available only in opted-in private development HTTPS. The closed Alice/Bob
+        choice selects a trusted server fixture, never a client-asserted subject or
+        identity. Require exact Origin, a fresh session-purpose browser nonce,
+        its distinct binding cookie, and a new globally burned Idempotency-Key.
+        Old access, refresh and chain cookies are inert on this route. Verify the
+        trusted result outside database locks, resolve and check a live registered
+        owner server-side, then atomically consume the nonce and issue a one-use
+        login proof plus a successor session-purpose nonce on the same chain.
+        Proof expiry is at most five minutes and no later than verified time.
+        Never replay a proof after a lost or duplicate response; return generic
+        409 AUTH_RESTART_REQUIRED and begin fresh verification.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/WebEnrollmentIdempotencyKey'
+        - $ref: '#/components/parameters/ExactOrigin'
+        - $ref: '#/components/parameters/WebEnrollmentBrowserNonce'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WebPrivateLoginVerifyRequest' }
+      responses:
+        '200':
+          description: One-use proof and successor nonce; no identity data or session cookies.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebPrivateLoginVerifyResponse' }
+        '400': { $ref: '#/components/responses/WebPrivateLoginProblem' }
+        '403': { $ref: '#/components/responses/WebPrivateLoginProblem' }
+        '404': { $ref: '#/components/responses/WebPrivateLoginProblem' }
+        '409': { $ref: '#/components/responses/WebPrivateLoginProblem' }
+        '500': { $ref: '#/components/responses/WebPrivateLoginProblem' }
+
   /v2/auth/enrollment/complete:
     post:
       operationId: completeV2WebEnrollment
@@ -858,6 +900,14 @@ paths:
       operationId: createV2Session
       summary: Redeem a server-issued login proof for a session
       description: >
+        In opted-in private development HTTPS, web loginProof is issued only by
+        /v2/auth/login/simulator/verify from a trusted fresh Alice/Bob result.
+        Redeem with its successor session-purpose nonce, the same new binding
+        cookie, exact Origin and a fresh Idempotency-Key. Old session cookies are
+        inert here. Return the current web session only after one known durable
+        commit; uncertain outcome requires a new verification chain. The private
+        route uses 400 INVALID_LOGIN_REQUEST, 403 AUTH_ORIGIN_REJECTED,
+        404 LOGIN_UNAVAILABLE, 409 AUTH_RESTART_REQUIRED and 500 INTERNAL_ERROR.
         Login proof must come from server-verified BankID, or a server-verified
         registered mobile passkey/biometric assertion plus OTP. ST170b proof
         producer integration is a prerequisite; this contract does not claim
@@ -1878,6 +1928,90 @@ components:
       properties:
         transport: { type: string, const: web }
         continuation: { $ref: '#/components/schemas/WebEnrollmentContinuation' }
+        demoIdentity: { $ref: '#/components/schemas/WebDevelopmentDemoIdentity' }
+    WebDevelopmentDemoIdentity:
+      type: string
+      enum: [alice, bob]
+      description: Closed private server simulator fixture choice; never an identity assertion.
+    WebPrivateLoginProof:
+      type: string
+      pattern: '^v2\.[A-Za-z0-9_-]{43}$'
+      minLength: 46
+      maxLength: 46
+      description: Server-issued one-use registered-login authority, memory only.
+    WebPrivateLoginVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [transport, demoIdentity]
+      properties:
+        transport: { type: string, const: web }
+        demoIdentity: { $ref: '#/components/schemas/WebDevelopmentDemoIdentity' }
+    WebPrivateLoginVerifyResponse:
+      type: object
+      additionalProperties: false
+      required: [transport, loginProof, status, nextBrowserNonce]
+      properties:
+        transport: { type: string, const: web }
+        loginProof: { $ref: '#/components/schemas/WebPrivateLoginProof' }
+        status: { type: string, const: verified }
+        nextBrowserNonce: { $ref: '#/components/schemas/WebEnrollmentNonce' }
+    WebPrivateLoginProblem:
+      description: >
+        Private login problem+json. Exact status/code pairs are 400
+        INVALID_LOGIN_REQUEST, 403 AUTH_ORIGIN_REJECTED, 404 LOGIN_UNAVAILABLE,
+        409 AUTH_RESTART_REQUIRED, and 500 INTERNAL_ERROR. Missing, deleted,
+        foreign, expired and spent authority all use the same generic 409.
+      oneOf:
+        - { $ref: '#/components/schemas/WebPrivateLoginInvalidProblem' }
+        - { $ref: '#/components/schemas/WebPrivateLoginOriginProblem' }
+        - { $ref: '#/components/schemas/WebPrivateLoginUnavailableProblem' }
+        - { $ref: '#/components/schemas/WebPrivateLoginConflictProblem' }
+        - { $ref: '#/components/schemas/WebPrivateLoginInternalProblem' }
+    WebPrivateLoginInvalidProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: 'Authentication unavailable' }
+        status: { type: integer, const: 400 }
+        code: { type: string, const: INVALID_LOGIN_REQUEST }
+    WebPrivateLoginOriginProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: 'Authentication unavailable' }
+        status: { type: integer, const: 403 }
+        code: { type: string, const: AUTH_ORIGIN_REJECTED }
+    WebPrivateLoginUnavailableProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: 'Authentication unavailable' }
+        status: { type: integer, const: 404 }
+        code: { type: string, const: LOGIN_UNAVAILABLE }
+    WebPrivateLoginConflictProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: 'Authentication unavailable' }
+        status: { type: integer, const: 409 }
+        code: { type: string, const: AUTH_RESTART_REQUIRED }
+    WebPrivateLoginInternalProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: 'Authentication unavailable' }
+        status: { type: integer, const: 500 }
+        code: { type: string, const: INTERNAL_ERROR }
     WebEnrollmentCompleteRequest:
       type: object
       additionalProperties: false
@@ -2386,6 +2520,14 @@ components:
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/WebEnrollmentProblem' }
+    WebPrivateLoginProblem:
+      description: Generic closed private login problem, without owner or subject detail.
+      headers:
+        Cache-Control: { required: true, schema: { type: string, const: no-store } }
+        Pragma: { required: true, schema: { type: string, const: no-cache } }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/WebPrivateLoginProblem' }
     V2Problem:
       description: Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
       headers:

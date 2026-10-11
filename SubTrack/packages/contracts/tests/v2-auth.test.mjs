@@ -24,7 +24,8 @@ function bundle() {
 const idempotentPostPaths = [
   '/v2/auth/browser-nonce', '/v2/auth/otp/start', '/v2/auth/otp/verify',
   '/v2/auth/enrollment/pending', '/v2/auth/enrollment/simulator/verify',
-  '/v2/auth/enrollment/complete', '/v2/auth/session', '/v2/auth/refresh',
+  '/v2/auth/enrollment/complete', '/v2/auth/login/simulator/verify',
+  '/v2/auth/session', '/v2/auth/refresh',
   '/v2/me/reauth/otp/start', '/v2/me/reauth/otp/verify',
 ];
 const privatePostPaths = [
@@ -85,7 +86,7 @@ test('v2 mutating POSTs require idempotency and browser state distinguishes nonc
   const { dir, document } = bundle();
   try {
     const operations = classifiedPosts(document);
-    assert.equal(operations.length, 10);
+    assert.equal(operations.length, 11);
     for (const path of privatePostPaths) {
       const operation = document.paths[path].post;
       assert.equal(operation.parameters.some((parameter) => parameter.name === 'Idempotency-Key'), false,
@@ -143,7 +144,7 @@ test('v2 POST recovery contract stays generic and explains restart after referen
   const { dir, document } = bundle();
   try {
     const operations = classifiedPosts(document);
-    assert.equal(operations.length, 10);
+    assert.equal(operations.length, 11);
     for (const [path, operation] of operations) {
       const response = operation.responses['409'];
       assert.ok(response, `${path} documents generic duplicate handling`);
@@ -251,4 +252,43 @@ test('web and mobile credentials are disjoint and deletion proof cannot replace 
     assert.match(refresh.description, /reject mixed cookie and Authorization/i);
     assert.match(refresh.description, /consumed-token reuse revokes the family/i);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('private login has closed fixture, proof and error schemas', () => {
+  const {dir, document: doc} = bundle();
+  try {
+  const op = doc.paths['/v2/auth/login/simulator/verify'].post;
+  assert.equal(op.operationId, 'verifyV2PrivateSimulatorLogin');
+  assert.equal(op['x-runtime-availability'], 'unavailable-default');
+  assert.deepEqual(op.security, []);
+  assert.deepEqual(op.parameters.map(p => [p.name, p.in, p.required]), [
+    ['Idempotency-Key', 'header', true], ['Origin', 'header', true], ['X-Browser-Nonce', 'header', true],
+  ]);
+  const request = op.requestBody.content['application/json'].schema;
+  assert.equal(request.additionalProperties, false);
+  assert.deepEqual(request.required, ['transport', 'demoIdentity']);
+  assert.deepEqual(request.properties.demoIdentity.enum, ['alice', 'bob']);
+  for (const key of ['identityId', 'subject', 'personnummerHmac', 'providerResult', 'verifiedAt'])
+    assert.equal(request.properties[key], undefined);
+  const success = op.responses['200'];
+  assert.deepEqual(success.content['application/json'].schema.required,
+    ['transport', 'loginProof', 'status', 'nextBrowserNonce']);
+  assert.equal(success.content['application/json'].schema.properties.loginProof.pattern, '^v2\\.[A-Za-z0-9_-]{43}$');
+  assert.equal(success.headers['Cache-Control'].schema.const, 'no-store');
+  assert.equal(success.headers['Set-Cookie'], undefined);
+  const errors = new Map([[400,'INVALID_LOGIN_REQUEST'],[403,'AUTH_ORIGIN_REJECTED'],
+    [404,'LOGIN_UNAVAILABLE'],[409,'AUTH_RESTART_REQUIRED'],[500,'INTERNAL_ERROR']]);
+  for (const [status, code] of errors) {
+    const response = op.responses[String(status)];
+    assert.equal(response.headers['Cache-Control'].schema.const, 'no-store');
+    const choices = response.content['application/problem+json'].schema.oneOf;
+    assert.deepEqual(choices.map(choice => [choice.properties.status.const, choice.properties.code.const]), [...errors]);
+    for (const choice of choices) {
+      assert.equal(choice.additionalProperties, false);
+      assert.deepEqual(choice.required, ['type','title','status','code']);
+    }
+    assert.equal(response.headers['Set-Cookie'], undefined);
+  }
+  assert.match(doc.paths['/v2/auth/session'].post.description, /uncertain outcome requires a new verification chain/);
+  } finally { rmSync(dir, {recursive: true, force: true}); }
 });

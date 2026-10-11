@@ -22,6 +22,14 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(NOW); });
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe('private trusted enrollment person', () => {
+  it('selects only the fixed Bob simulator fixture without accepting a subject assertion', async () => {
+    const verifier = create(options());
+    const person = await verifier.verify('bob');
+    const expected = createHmac('sha256', Buffer.from(key()).toString('hex')).update('198505054512').digest('hex');
+    expect(person).toEqual({ method: 'BANKID', personnummerHmac: expected,
+      verifiedAt: new Date(NOW).toISOString(), givenName: 'Bob', surname: 'Bergström' });
+    await expect(Reflect.apply(verifier.verify, verifier, [{ subject: expected }])).rejects.toThrow(FAILURE);
+  });
   it('uses independent copied key, trusted names and immutable scalar output', async () => {
     const input = { ...options() };
     Object.defineProperty(input.simulatorHmacKey, 'byteLength', { value: 32 });

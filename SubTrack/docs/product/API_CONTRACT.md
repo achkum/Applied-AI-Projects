@@ -150,8 +150,10 @@ Existing login and anonymous mobile enrollment OTP operations remain unchanged.
    `{transport:'web',identifierProof}`. `201` returns exactly
    `{transport:'web',continuation,status:'pending',nextBrowserNonce}`. Consume
    proof, admit pending state, rotate enrollment nonce and settle atomically.
-3. `POST /v2/auth/enrollment/simulator/verify` accepts exactly
-   `{transport:'web',continuation}`. Mandatory trusted server simulator
+3. `POST /v2/auth/enrollment/simulator/verify` accepts
+   `{transport:'web',continuation}` with an optional closed
+   `demoIdentity:'alice'|'bob'` private fixture choice (Alice by default).
+   Mandatory trusted server simulator
    verification happens outside account locks. `200` returns exactly
    `{transport:'web',verifiedEnrollment,status:'verified',nextBrowserNonce}`.
    Revalidate after awaits, consume pending, store separate authoritative
@@ -200,6 +202,37 @@ After commit only, set host-only Secure/HttpOnly/SameSite=Lax `st_v2_access`
 Path=/v2 and `st_v2_refresh` Path=/v2/auth, omit Domain and preserve binding cookie.
 Access15min/session24h unchanged; CSRF/proof/handles in memory, credentials never
 in body, URL, local storage or logs.
+
+### Private returning-owner login (ST-239)
+
+In opted-in private development HTTPS, a returning browser bootstraps a fresh
+`session`-purpose nonce and binding cookie. Only this bootstrap and the two
+login POSTs accept syntactically valid old access, refresh and chain cookies;
+those cookies are inert and cannot select an owner or authorize login.
+`POST /v2/auth/login/simulator/verify` accepts exactly
+`{transport:'web',demoIdentity:'alice'|'bob'}` with a fresh Idempotency-Key,
+exact Origin and nonce. The closed choice selects a trusted server fixture.
+The server resolves a live registered owner from verified evidence, consumes
+the original nonce and returns `200` with exactly
+`{transport:'web',loginProof:'v2.<secret>',status:'verified',nextBrowserNonce}`.
+No session cookie is issued at this stage. The one-use proof and successor
+session nonce expire within five minutes and cannot outlive verified evidence.
+
+`POST /v2/auth/session` then accepts exactly `{transport:'web',loginProof}`
+with the successor nonce, same fresh binding and chain, exact Origin and a
+new Idempotency-Key. It locks the live owner, consumes proof and nonce, and
+creates session, refresh credential and CSRF in one durable transaction.
+Only after known commit and clean connection reset does it return the existing
+`201 WebSessionResponse {transport:'web',sessionId,csrfToken}` and the host-only
+access, refresh and chain cookies. No identity, profile or mode data is included.
+Unknown commit, failed reset, lost response, duplicate or expired authority
+requires a new bootstrap and verification; the server never replays mutation.
+The private login problem matrix is closed: 400 `INVALID_LOGIN_REQUEST`,
+403 `AUTH_ORIGIN_REJECTED`, 404 `LOGIN_UNAVAILABLE`, 409
+`AUTH_RESTART_REQUIRED` and 500 `INTERNAL_ERROR`. Missing, deleted and foreign
+subjects use the same generic 409. Every response is no-store, and errors
+never include credentials or owner details. The client separately reads current
+profile and explicit mode under the new session before any subscription list.
 
 Future prerequisites are explicit: coherent private normalized contact issuance
 metadata and secret-bound restricted-proof resolution (current OTP has hashes;

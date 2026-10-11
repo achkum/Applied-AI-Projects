@@ -53,6 +53,21 @@
       "logIn": "Log in",
       "exploreDemo": "Explore demo household"
     },
+    "login": {
+      "title": "Log in",
+      "introduction": "Use the trusted simulator to verify a registered account in private development.",
+      "fixtureLabel": "Development account",
+      "alice": "Alice",
+      "bob": "Bob",
+      "simulatorAction": "Verify with development simulator",
+      "verifying": "Verifying your account…",
+      "creatingSession": "Creating your private session…",
+      "loadingMode": "Loading your saved mode…",
+      "restart": "Verification must start again.",
+      "unavailable": "Login is unavailable right now. Start a fresh verification to try again.",
+      "freshLogin": "Start fresh login",
+      "logInInstead": "Log in instead"
+    },
     "identifier": {
       "channelLabel": "Choose contact method",
       "emailChannel": "Email",

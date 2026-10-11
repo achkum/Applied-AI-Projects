@@ -11,6 +11,9 @@ export function WelcomeScreen({ locale, tagline }: { locale: 'sv' | 'en'; taglin
         <Link className={styles.demoLink} href={`/${locale}/register`}>
           {catalogs[locale].onboarding.welcome.createAccount}
         </Link>
+        <Link className={styles.demoLink} href={`/${locale}/login`}>
+          {catalogs[locale].onboarding.welcome.logIn}
+        </Link>
         <Link className={styles.demoLink} href={`/${locale}/demo`}>
           {catalogs[locale].onboarding.welcome.exploreDemo}
         </Link>

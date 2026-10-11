@@ -48,23 +48,27 @@ export class DevelopmentEnrollmentPersonVerifier {
     return now;
   }
 
-  async verify(): Promise<Readonly<DevelopmentEnrollmentPersonResult>> {
+  async verify(demoIdentity?: 'alice' | 'bob'): Promise<Readonly<DevelopmentEnrollmentPersonResult>> {
     try {
-      if (arguments.length !== 0) throw new Error(FAILURE);
+      if (arguments.length > 1 || (arguments.length === 1 && demoIdentity === undefined)) throw new Error(FAILURE);
+      const choice = arguments.length === 0 ? 'alice' : demoIdentity;
+      if (choice !== 'alice' && choice !== 'bob') throw new Error(FAILURE);
       const started = this.readTime();
-      const raw = await new BankIdSimulator(this.keyHex).verify(DEVELOPMENT_ENROLLMENT_PERSON.token);
+      const expected = choice === 'alice' ? DEVELOPMENT_ENROLLMENT_PERSON :
+        { token: 'bob', givenName: 'Bob', surname: 'Bergström' };
+      const raw = await new BankIdSimulator(this.keyHex).verify(expected.token);
       const now = this.readTime();
       if (now - started > MAX_AGE) throw new Error(FAILURE);
       const result = snapshot(raw);
       if (Object.keys(result).length !== 4 || result.method !== 'BANKID' ||
-        result.name !== `${DEVELOPMENT_ENROLLMENT_PERSON.givenName} ${DEVELOPMENT_ENROLLMENT_PERSON.surname}` ||
+        result.name !== `${expected.givenName} ${expected.surname}` ||
         typeof result.personnummerHmac !== 'string' || !/^[a-f0-9]{64}$/.test(result.personnummerHmac) ||
         typeof result.verifiedAt !== 'string') throw new Error(FAILURE);
       const verified = new Date(result.verifiedAt);
       const at = verified.getTime();
       if (!Number.isSafeInteger(at) || at < 0 || at > now || now - at > MAX_AGE || verified.toISOString() !== result.verifiedAt) throw new Error(FAILURE);
       return Object.freeze({ method: 'BANKID', personnummerHmac: result.personnummerHmac, verifiedAt: result.verifiedAt,
-        givenName: DEVELOPMENT_ENROLLMENT_PERSON.givenName, surname: DEVELOPMENT_ENROLLMENT_PERSON.surname });
+        givenName: expected.givenName, surname: expected.surname });
     } catch { throw new Error(FAILURE); }
   }
 }

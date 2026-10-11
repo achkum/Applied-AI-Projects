@@ -512,6 +512,70 @@ export type WebEnrollmentPendingRequest = {
 export type WebEnrollmentSimulatorRequest = {
     transport: 'web';
     continuation: WebEnrollmentContinuation;
+    demoIdentity?: WebDevelopmentDemoIdentity;
+};
+
+/**
+ * Closed private server simulator fixture choice; never an identity assertion.
+ */
+export type WebDevelopmentDemoIdentity = 'alice' | 'bob';
+
+/**
+ * Server-issued one-use registered-login authority, memory only.
+ */
+export type WebPrivateLoginProof = string;
+
+export type WebPrivateLoginVerifyRequest = {
+    transport: 'web';
+    demoIdentity: WebDevelopmentDemoIdentity;
+};
+
+export type WebPrivateLoginVerifyResponse = {
+    transport: 'web';
+    loginProof: WebPrivateLoginProof;
+    status: 'verified';
+    nextBrowserNonce: WebEnrollmentNonce;
+};
+
+/**
+ * Private login problem+json. Exact status/code pairs are 400 INVALID_LOGIN_REQUEST, 403 AUTH_ORIGIN_REJECTED, 404 LOGIN_UNAVAILABLE, 409 AUTH_RESTART_REQUIRED, and 500 INTERNAL_ERROR. Missing, deleted, foreign, expired and spent authority all use the same generic 409.
+ *
+ */
+export type WebPrivateLoginProblem = WebPrivateLoginInvalidProblem | WebPrivateLoginOriginProblem | WebPrivateLoginUnavailableProblem | WebPrivateLoginConflictProblem | WebPrivateLoginInternalProblem;
+
+export type WebPrivateLoginInvalidProblem = {
+    type: 'about:blank';
+    title: 'Authentication unavailable';
+    status: 400;
+    code: 'INVALID_LOGIN_REQUEST';
+};
+
+export type WebPrivateLoginOriginProblem = {
+    type: 'about:blank';
+    title: 'Authentication unavailable';
+    status: 403;
+    code: 'AUTH_ORIGIN_REJECTED';
+};
+
+export type WebPrivateLoginUnavailableProblem = {
+    type: 'about:blank';
+    title: 'Authentication unavailable';
+    status: 404;
+    code: 'LOGIN_UNAVAILABLE';
+};
+
+export type WebPrivateLoginConflictProblem = {
+    type: 'about:blank';
+    title: 'Authentication unavailable';
+    status: 409;
+    code: 'AUTH_RESTART_REQUIRED';
+};
+
+export type WebPrivateLoginInternalProblem = {
+    type: 'about:blank';
+    title: 'Authentication unavailable';
+    status: 500;
+    code: 'INTERNAL_ERROR';
 };
 
 export type WebEnrollmentCompleteRequest = {
@@ -1691,6 +1755,61 @@ export type VerifyV2WebSimulatorEnrollmentResponses = {
 };
 
 export type VerifyV2WebSimulatorEnrollmentResponse = VerifyV2WebSimulatorEnrollmentResponses[keyof VerifyV2WebSimulatorEnrollmentResponses];
+
+export type VerifyV2PrivateSimulatorLoginData = {
+    body: WebPrivateLoginVerifyRequest;
+    headers: {
+        /**
+         * Exactly one nonspace printable ASCII key; global burn retained at most24h, duplicates never replay.
+         */
+        'Idempotency-Key': WebEnrollmentKey;
+        /**
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+         */
+        Origin: string;
+        /**
+         * Exactly one public nonce matched to Origin/chain/binding cookie and operation purpose.
+         */
+        'X-Browser-Nonce': WebEnrollmentNonce;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/auth/login/simulator/verify';
+};
+
+export type VerifyV2PrivateSimulatorLoginErrors = {
+    /**
+     * Generic closed private login problem, without owner or subject detail.
+     */
+    400: WebPrivateLoginProblem;
+    /**
+     * Generic closed private login problem, without owner or subject detail.
+     */
+    403: WebPrivateLoginProblem;
+    /**
+     * Generic closed private login problem, without owner or subject detail.
+     */
+    404: WebPrivateLoginProblem;
+    /**
+     * Generic closed private login problem, without owner or subject detail.
+     */
+    409: WebPrivateLoginProblem;
+    /**
+     * Generic closed private login problem, without owner or subject detail.
+     */
+    500: WebPrivateLoginProblem;
+};
+
+export type VerifyV2PrivateSimulatorLoginError = VerifyV2PrivateSimulatorLoginErrors[keyof VerifyV2PrivateSimulatorLoginErrors];
+
+export type VerifyV2PrivateSimulatorLoginResponses = {
+    /**
+     * One-use proof and successor nonce; no identity data or session cookies.
+     */
+    200: WebPrivateLoginVerifyResponse;
+};
+
+export type VerifyV2PrivateSimulatorLoginResponse = VerifyV2PrivateSimulatorLoginResponses[keyof VerifyV2PrivateSimulatorLoginResponses];
 
 export type CompleteV2WebEnrollmentData = {
     body: WebEnrollmentCompleteRequest;
