@@ -1,0 +1,12 @@
+# ST-229 independent platform plan review
+Verdict: APPROVE planning readiness; contract edits remain gated on client/security readiness and root GO; no runtime acceptance.
+Reviewed frozen plan b75a2a22bfba110963afe8e465757c5f4fd9ba28 and six-line pins ea043f2577964e6797e284e85b080a85733b9379; all28 referenced source blobs match accepted243a0d3 and working source; ADR0026 5ce4945/transaction plan5ca879c match.
+Three additive private-web operations coherently separate restricted OTP admission, mandatory trusted simulator authoritative enrollment, and terminal atomic account/session completion; no identity/provider-result/contact selector or login-proof conversion.
+Actual browser-nonce.ts exposes same-purpose consumeAndRotate and terminal consumeForSession only; plan explicitly requires later same-chain cross-purpose transition bound to authoritative record and existing binding cookie.
+Actual otp-http.ts provisions identifier hash, proof-store.ts consumes enrollment against caller-supplied internal binding and returns boolean, and simulator producer resolves registered login owners only; contact metadata/secret-bound proof resolution/new authoritative producer are correctly future prerequisites.
+Global key burn/no replay, owner-handle settlement, expiry/capacity and uncertain-commit recovery align ADR0010/0026; idempotency allowlist/async transaction extensions are future core changes, not existing guarantees.
+Contract-author precision: plan line8 printable ASCII must preserve current idempotency-guard.ts/otp-http.ts pattern ^[\x21-\x7e]{16,255}$ (spaces excluded), rather than broaden accepted keys.
+Single transaction and server-derived owner context preserve insert-only provisioner dedup; registered subjects require explicit verified login, deleted/contact conflicts and insertion losers receive generic restart without relink/session/replay.
+Strict WebSessionResponse, cookie-only credentials, no-store four-field errors and disabled default fit the additive slice; tests must express exact envelopes and preserve existing operations.
+Profile/names extension/schema/grants/native/provider/refresh-CSRF policy remain separate; next-access proposal supplies no current permission or recovery authority.
+Checkpoint: ST229-platform-plan-c1, original2026-10-10T23:42:10Z attempt1 L240 preserved; eight read/light calls plus this evidence write; no heavy/source/status/backlog/commit change.

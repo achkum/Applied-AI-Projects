@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PatchV2BrowserSubscriptionLifecycleData, PatchV2BrowserSubscriptionLifecycleErrors, PatchV2BrowserSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses } from './types.gen.js';
+import type { AdmitV2WebEnrollmentData, AdmitV2WebEnrollmentErrors, AdmitV2WebEnrollmentResponses, CompleteV2WebEnrollmentData, CompleteV2WebEnrollmentErrors, CompleteV2WebEnrollmentResponses, CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PatchV2BrowserSubscriptionLifecycleData, PatchV2BrowserSubscriptionLifecycleErrors, PatchV2BrowserSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses, VerifyV2WebSimulatorEnrollmentData, VerifyV2WebSimulatorEnrollmentErrors, VerifyV2WebSimulatorEnrollmentResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -241,6 +241,51 @@ export const startV2Otp = <ThrowOnError extends boolean = false>(options: Option
  */
 export const verifyV2Otp = <ThrowOnError extends boolean = false>(options: Options<VerifyV2OtpData, ThrowOnError>): RequestResult<VerifyV2OtpResponses, VerifyV2OtpErrors, ThrowOnError> => (options.client ?? client).post<VerifyV2OtpResponses, VerifyV2OtpErrors, ThrowOnError>({
     url: '/v2/auth/otp/verify',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Admit restricted identifier proof to pending private web enrollment
+ *
+ * Contract only, disabled by default and unavailable outside explicitly opted-in private development HTTPS web. Apply WebEnrollmentHeaders and WebEnrollmentCookies authority rules. Require enroll_identifier nonce; resolve coherent challenge/hash/channel/private normalized contact only from server issuance metadata and secret-bound enrollment/enroll-credential proof. No client identity/contact/challenge/provider/name/role selector. Atomically consume restricted proof once, create bounded pending record, rotate enroll_identifier nonce on the same Origin/chain/binding cookie and settle owned reservation. OTP never establishes login or an account. Pending expiry is at most five minutes and cannot outlive source proof or contact metadata; at most 10000 pending records, no renewal/revival. Independently commit global Idempotency-Key burn before mutation, bound to this operation/web/trusted browser-chain/keyed strict request digest; pending/completed/failed duplicates are generic 409 AUTH_RESTART_REQUIRED, never replay. Lost or uncertain responses require fresh verified login and nonce, no automatic retry or compensation; unknown orphans expire. Existing OTP stores only hash/channel and proof consumption returns a boolean; coherent contact/proof metadata resolution and transaction-bound consumption are future prerequisites, not existing capabilities.
+ *
+ */
+export const admitV2WebEnrollment = <ThrowOnError extends boolean = false>(options: Options<AdmitV2WebEnrollmentData, ThrowOnError>): RequestResult<AdmitV2WebEnrollmentResponses, AdmitV2WebEnrollmentErrors, ThrowOnError> => (options.client ?? client).post<AdmitV2WebEnrollmentResponses, AdmitV2WebEnrollmentErrors, ThrowOnError>({
+    url: '/v2/auth/enrollment/pending',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Verify mandatory server simulator authority for private web enrollment
+ *
+ * Contract only, disabled by default and unavailable outside explicitly opted-in private development HTTPS web. Apply WebEnrollmentHeaders and WebEnrollmentCookies authority rules. Require enroll_identifier nonce and matched live pending continuation. Mandatory trusted server simulator verification occurs outside account locks; never accept provider tokens, results, subject, contact, names or identity selectors from the client. Recheck immutable bindings/clock/expiry after awaits. Atomically consume pending continuation, create separate authoritative one-use enrollment record (subject-HMAC/verified-at/trusted names), settle owned reservation and consume enrollment nonce into fresh session-purpose nonce on the SAME Origin/chain/binding cookie. Bind authoritative record to terminal nonce digest; restricted OTP proof is never converted to login. Authoritative expiry is at most five minutes and cannot outlive pending expiry; at most 10000 authoritative records, no renewal/revival. Session nonce retains exact five-minute TTL; authoritative expiry remains the tighter bound. Independently commit global Idempotency-Key burn before provider work, bound to operation/web/trusted browser-chain/keyed strict request digest. Pending/completed/failed duplicates are generic 409 AUTH_RESTART_REQUIRED, never replay. Lost/uncertain response requires fresh verified login/nonce, no automatic retry or compensation; unknown orphans expire. Current nonce consumeAndRotate preserves purpose: this cross-purpose transition is a future reviewed core prerequisite. Existing registered-login simulator producer cannot supply authoritative enrollment; trusted given/surname extension is separately reviewed, never split full name or invent fields.
+ *
+ */
+export const verifyV2WebSimulatorEnrollment = <ThrowOnError extends boolean = false>(options: Options<VerifyV2WebSimulatorEnrollmentData, ThrowOnError>): RequestResult<VerifyV2WebSimulatorEnrollmentResponses, VerifyV2WebSimulatorEnrollmentErrors, ThrowOnError> => (options.client ?? client).post<VerifyV2WebSimulatorEnrollmentResponses, VerifyV2WebSimulatorEnrollmentErrors, ThrowOnError>({
+    url: '/v2/auth/enrollment/simulator/verify',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Terminally complete private web account and cookie session atomically
+ *
+ * Contract only, disabled by default and unavailable outside explicitly opted-in private development HTTPS web. Apply WebEnrollmentHeaders and WebEnrollmentCookies authority rules. Require session-purpose nonce bound to matched live authoritative enrollment and same Origin/chain/cookie. Independently commit global Idempotency-Key burn before mutation, bound to operation/web/trusted browser-chain/keyed strict request digest. Single connection/transaction locks owned reservation, authoritative record and nonce; rechecks bindings/clock/expiry; uses existing provisioner identity SELECT(id,external_id)/INSERT, then ordinary owner RequestContext. Atomically write new account/private verified fields/contact/defaults, session/family/CSRF, terminally consume nonce and authoritative record, and settle completed. No successor nonce. Registered active subject gives 409 ENROLLMENT_LOGIN_REQUIRED only after trusted verification; explicit later verified login, no enrollment session/relink/contact/profile overwrite. Deleted subject/contact conflict/insertion-race loser gives generic 409 AUTH_RESTART_REQUIRED. Expired/consumed/mismatched authority fails closed. Rollback leaves independently committed burn; crash pending expires. Pending/completed/failed duplicate 409 never replays credentials. Lost or uncertain response requires fresh verified login/nonce, no automatic retry or destructive compensation; unknown orphan sessions expire. Only after commit set exclusive secure access/refresh cookies, CSRF in memory; no credentials in body/URL/local storage/logs. Access15min/session24h unchanged. New idempotency operation allowlist and async reserve/settle transaction ports remain future core prerequisites. Profile/Just me, SQL objects/grants and current-versus-predecessor consumed-refresh CSRF policy remain separate security-reviewed gates; this contract authorizes or selects none of them.
+ *
+ */
+export const completeV2WebEnrollment = <ThrowOnError extends boolean = false>(options: Options<CompleteV2WebEnrollmentData, ThrowOnError>): RequestResult<CompleteV2WebEnrollmentResponses, CompleteV2WebEnrollmentErrors, ThrowOnError> => (options.client ?? client).post<CompleteV2WebEnrollmentResponses, CompleteV2WebEnrollmentErrors, ThrowOnError>({
+    url: '/v2/auth/enrollment/complete',
     ...options,
     headers: {
         'Content-Type': 'application/json',

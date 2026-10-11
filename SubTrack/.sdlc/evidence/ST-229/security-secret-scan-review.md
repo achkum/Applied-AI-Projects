@@ -1,0 +1,11 @@
+# ST-229 independent secret-scan investigation
+Exact head f0eeac6433df5c105359cf83734910f842813704; failed standard run38097475228; six redacted findings, four strict historical fingerprints.
+2374f5561c491ca65f80d809c49ce27a81ca48a0:SubTrack/.sdlc/evidence/ST-229/security-plan-review.md:generic-api-key:8 — FALSE POSITIVE: public idempotency-key burn, chain binding and request replay planning prose; no credential assignment or digest.
+2374f5561c491ca65f80d809c49ce27a81ca48a0:SubTrack/.sdlc/evidence/ST-229/source-pins.md:generic-api-key:4 — FALSE POSITIVE: public accepted-baseline Git blob fe57e73ab6a8d2ea124e5d88ee153016ef11afd8, contracts/tests/v2-auth.test.mjs.
+2374f5561c491ca65f80d809c49ce27a81ca48a0:SubTrack/.sdlc/evidence/ST-229/source-pins.md:generic-api-key:5 — FALSE POSITIVE: public accepted-baseline Git blob b4d4ffc21eb573300d078f5518d8cd13600012b0, docs/product/API_CONTRACT.md.
+2374f5561c491ca65f80d809c49ce27a81ca48a0:SubTrack/.sdlc/evidence/ST-229/author-c3-checkpoint.md:generic-api-key:10 — FALSE POSITIVE: public source-pin metadata; three findings on one line; seventeen IDs resolve to candidate-tree blobs and one explicit ST-229 task-source pin is pre-root metadata with no available matching object.
+Baseline243a0d376a23e5fa409fda23592ed8ee402affde resolves both source-pins mappings; candidate2374f5561c491ca65f80d809c49ce27a81ca48a0 is ancestor of exact head and all four committed lines are unchanged.
+C3 candidate API_CONTRACT blob fda9a1530d11d540355e34680442aeccf8929e6d and generated Zod blobs fcd852438c55ed9b0d3066154a2452f32a60ca89 / 41812b1aeb20b07f36123e10557a916c6fa6dac7 independently resolve by git ls-tree/cat-file.
+APPROVE only these four exact historical fingerprints. C3 task pin is contextual nonsecret metadata, not independently validated object provenance; no real credential or private log hash identified. Redacted finding spans remain unavailable.
+No broad rule/path exclusion or scan bypass approved; .gitleaksignore/source/status/commit unchanged by this reviewer. Failed scan remains blocking until fresh full scan PASS at new exact head.
+Original2026-10-10T23:42:10Z attempt1 L240; prior base-timeout failure and new Gitleaks failure preserved; no rollout. Review20 calls; STOP for task-only rotation.
