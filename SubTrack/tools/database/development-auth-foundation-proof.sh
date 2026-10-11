@@ -202,7 +202,7 @@ finish() {
   if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
   if cleanup_container; then cleanup_temp || bad=true; else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; cleanup_result=failed; fi
-  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|prune|settle|nonce-prune|atomic-issue|atomic-issue-0[1-9]|atomic-issue-1[0-9]|driver|pins|cleanup) ;; *) status=1; phase=starting ;; esac
+  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|prune|settle|nonce-prune|atomic-issue|atomic-issue-0[1-9]|atomic-issue-1[0-9]|driver|driver-cleanup|port-durable-state|pins|cleanup) ;; *) status=1; phase=starting ;; esac
   [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" || exit 1
   if [[ "$status" == 0 && "$passed" == true && "$bad" == false ]]; then
     printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,private-atomic-issue,postlock-clock,rollback,reconnect,bounded-clients fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
@@ -237,7 +237,9 @@ trap 'interrupted=true; [[ "$registering" == true ]] || exit 1' INT TERM
 inputs=(apps/api/prisma/migrations/0001_canonical_schema/migration.sql apps/api/prisma/migrations/0002_privacy_constraints/migration.sql
   apps/api/prisma/development-auth/001-epoch-nonce-reservation.sql tools/database/development-auth-foundation-proof.sh
   tools/database/test-development-auth-foundation-proof.sh ../.github/workflows/subtrack-development-auth-foundation-proof.yml
-  apps/api/prisma/development-auth/002-epoch-fence.sql apps/api/prisma/development-auth/003-nonce-binding-lookup.sql apps/api/prisma/development-auth/004-bootstrap-reservation.sql apps/api/prisma/development-auth/005-expired-reservation-prune.sql apps/api/prisma/development-auth/006-owned-bootstrap-settlement.sql apps/api/prisma/development-auth/007-expired-nonce-prune.sql apps/api/prisma/development-auth/008-atomic-bootstrap-nonce-issue.sql apps/api/package.json pnpm-lock.yaml docs/architecture/adr/0031-isolated-node-postgres-driver-fixture.md)
+  apps/api/prisma/development-auth/002-epoch-fence.sql apps/api/prisma/development-auth/003-nonce-binding-lookup.sql apps/api/prisma/development-auth/004-bootstrap-reservation.sql apps/api/prisma/development-auth/005-expired-reservation-prune.sql apps/api/prisma/development-auth/006-owned-bootstrap-settlement.sql apps/api/prisma/development-auth/007-expired-nonce-prune.sql apps/api/prisma/development-auth/008-atomic-bootstrap-nonce-issue.sql apps/api/package.json pnpm-lock.yaml docs/architecture/adr/0031-isolated-node-postgres-driver-fixture.md
+  apps/api/src/auth/browser-nonce/development-bootstrap-postgres-port.ts apps/api/src/auth/browser-nonce/development-bootstrap-postgres-port.spec.ts docs/architecture/adr/0032-private-development-bootstrap-postgres-port.md
+  apps/api/src/auth/browser-nonce/development-bootstrap-transaction.ts apps/api/src/auth/browser-nonce/development-bootstrap-material.ts apps/api/src/auth/idempotency/development-bootstrap-burn-material.ts)
 : > "$receipt"
 for path in "${inputs[@]}"; do
   blob=$(git hash-object "$path")
@@ -1343,6 +1345,7 @@ for role in subtrack_dev_auth_login subtrack_runtime subtrack_identity_provision
 done
 printf "SET ROLE subtrack_auth_executor; DELETE FROM subtrack_auth.nonce; DELETE FROM subtrack_auth.reservation; RESET ROLE; RESET app.user_id; RESET app.current_user_id; RESET search_path; SELECT 1/(CURRENT_USER=SESSION_USER)::integer;\n" | owner
 phase=driver
+printf "INSERT INTO subtrack_auth.nonce VALUES (repeat('b',64),'web','https://st233a.invalid','duplicate',repeat('5',64),'retired',0,300000,'session',NULL);\n" | owner
 cat > "$tmp/driver.js" <<'JS'
 const fs = require('node:fs');
 const { Client } = require('pg');
@@ -1402,18 +1405,120 @@ async function reset() {
     if (!Object.values(r.rows[0]).every(v => v === true)) throw Error('reset');
   } finally { await close(c); }
 }
+async function actualPort() {
+  process.env.NODE_ENV = 'development';
+  const originalQuery = Client.prototype.query, originalEnd = Client.prototype.end;
+  let fault = '', hooks = 0, reserve = 0, operation = 0, settle = 0;
+  const burns = new Map(), issues = new Map(), failures = new Map();
+  Client.prototype.query = function (...args) {
+    const sql = args[0];
+    if (typeof sql === 'string') {
+      if (sql.includes('subtrack_auth.reserve_bootstrap(')) { reserve++; burns.set(args[1][0],args[1].slice()); }
+      if (sql.includes('subtrack_auth.issue_bootstrap_nonce(')) { operation++; issues.set(args[1][0],args[1].slice()); }
+      if (sql.includes('subtrack_auth.settle_bootstrap(')) { settle++; failures.set(args[1][0],args[1].slice()); }
+      if ((fault === 'commit' || fault === 'operation-commit' && operation === 2) && sql === 'COMMIT') { fault = ''; hooks++; return originalQuery.apply(this,args).then(() => { throw Error('withheld-commit-ack'); }); }
+    }
+    return originalQuery.apply(this,args);
+  };
+  Client.prototype.end = function (...args) {
+    if (fault === 'end') { fault = ''; hooks++; return originalEnd.apply(this,args).then(() => { throw Error('withheld-close-ack'); }); }
+    return originalEnd.apply(this,args);
+  };
+  const { createDevelopmentBootstrapPostgresPort: port } = require('@st233m/port');
+  const { createDevelopmentBootstrapTransaction: lifecycle } = require('@st233m/j');
+  const { createDevelopmentBootstrapBurnMaterialProducer: burnProducer } = require('@st233m/h');
+  const { createDevelopmentBootstrapMaterialProducer: nonceProducer } = require('@st233m/i');
+  const origin='https://st233a.invalid', epoch='fixture', manifestHash='a'.repeat(64);
+  const pc = Object.freeze({enabled:true,origin,epoch,manifestHash,database:config.database,password:config.password});
+  const jc = Object.freeze({enabled:true,origin,epoch,manifestHash,retentionMs:60000,idempotencyKey:new Uint8Array(32).fill(7),originKey:new Uint8Array(32).fill(8)});
+  const run = (key) => lifecycle(jc,port(pc)).issue(key,'session');
+  const reject = async (p) => { try { await p; throw Error('unexpected-disclosure'); } catch(e) { if (e.message !== 'AUTH_RESTART_REQUIRED') throw e; } };
+  const count = () => [reserve,operation,settle].join(',');
+  const keyHash = key => require('node:crypto').createHmac('sha256',Buffer.alloc(32,7)).update('subtrack:v2:idempotency:core:v1:key:'+key).digest('hex');
+  async function caseProof(key, state, disclosed) {
+    const h=keyHash(key), b=burns.get(h), n=issues.get(h), f=failures.get(h);
+    if (!b || b.length!==9 || b[0]!==h || b[5]!==origin || b[6]!==epoch || b[7]!==manifestHash ||
+      typeof b[4]!=='number' || b[4]!== (key==='fixture-expiry-key-001'?1:60000) ||
+      (state==='unissued')!==!n || (state==='failed')!==!!f) throw Error('burn-case');
+    if (f && (f.length!==9 || f.slice(0,4).some((v,i)=>v!==b[i]) || f[4]!==origin || f[5]!==epoch || f[6]!==manifestHash || f[8]!=='failed')) throw Error('fail-burn-binding');
+    if (!n) return;
+    if (n.length!==12 || n.slice(0,4).some((v,i)=>v!==b[i]) || n[7]!=='session' || n[8]!==origin || n[9]!==epoch || n[10]!==manifestHash) throw Error('issue-burn-binding');
+    if (disclosed) {
+      const c=require('node:crypto');
+      if (n[4]!==c.createHash('sha256').update('subtrack:browser-nonce:v2:nonce:').update(disclosed.nonce).digest('hex') ||
+        n[5]!==c.createHash('sha256').update('subtrack:browser-nonce:v2:cookie:').update(disclosed.cookieSecret).digest('hex')) throw Error('disclosure-binding');
+    }
+    const client=new Client(input);
+    try { await client.connect(); idle(client); const r=await client.query('SET ROLE subtrack_runtime'); exact(r,'SET',0);
+      const scope=await client.query("SELECT current_user='subtrack_runtime' AS role_ok, coalesce(current_setting('app.user_id',true),'')='' AS user_ok, coalesce(current_setting('app.current_user_id',true),'')='' AS current_ok");
+      exact(scope,'SELECT',1); if (Object.values(scope.rows[0]).some(v=>v!==true)) throw Error('peek-scope');
+      const found=await client.query('SELECT subtrack_auth.peek($1,$2,$3,$4,$5,$6,$7) AS chain',[n[4],n[5],origin,epoch,manifestHash,0,'session']);
+      exact(found,'SELECT',1); if (found.rows[0].chain!==(state==='issued'?n[6]:null)) throw Error('durable-nonce-case');
+    } finally { await close(client); }
+  }
+  await reject(run('fixture-lock-timeout-01'));
+  if (count() !== '1,0,0') throw Error('lock-no-compensation');
+  process.stdout.write('ST-233m lock-timeout: observed\n');
+  // The shell releases the independently owned advisory lock after seeing this marker.
+  for (let i=0;i<100;i++) { const c=new Client(input); let acquired=false; try { await c.connect(); const r=await c.query('SELECT pg_try_advisory_lock(233,4) AS acquired'); acquired=r.rows[0].acquired===true; if(acquired) await c.query('SELECT pg_advisory_unlock(233,4)'); } finally {await close(c);} if(acquired) break; await new Promise(r=>setTimeout(r,100)); if(i===99) throw Error('lock-release'); }
+  const issued=await run('fixture-success-key-001');
+  if (!issued || typeof issued.nonce!=='string' || typeof issued.cookieSecret!=='string' || count()!=='2,1,0') throw Error('actual-issue');
+  await caseProof('fixture-success-key-001','issued',issued);
+  await reject(run('fixture-success-key-001'));
+  if(count()!=='3,1,0') throw Error('duplicate-no-operation');
+  fault='commit'; await reject(run('fixture-commit-fault-01'));
+  if(hooks!==1 || count()!=='4,1,0') throw Error('commit-ack-no-retry');
+  await caseProof('fixture-commit-fault-01','unissued');
+  fault='end'; await reject(run('fixture-close-fault-01'));
+  if(hooks!==2 || count()!=='5,1,0') throw Error('close-ack-no-retry');
+  await caseProof('fixture-close-fault-01','unissued');
+  fault='operation-commit'; await reject(run('fixture-operation-ack-01'));
+  if(hooks!==3 || count()!=='6,2,0') throw Error('operation-ack-no-fail');
+  await caseProof('fixture-operation-ack-01','issued');
+  const b=burnProducer(jc).produce('fixture-failed-key-001','session').sql;
+  const raw=nonceProducer({enabled:true,origin,epoch,manifestHash}).produce('session').sql;
+  const n=Object.freeze({...raw,nonceHash:'b'.repeat(64)}), p=port(pc);
+  if(await p.reserve(b)!=='knownCommitted' || await p.operation(b,n)!=='knownRollback' || await p.fail(b)!=='knownCommitted') throw Error('explicit-rollback-fail');
+  await reject(p.fail(b));
+  if(count()!=='7,3,1') throw Error('fail-once');
+  await caseProof('fixture-failed-key-001','failed');
+  const shortConfig={...jc,retentionMs:1}, shortBurn=burnProducer(shortConfig).produce('fixture-expiry-key-001','session').sql;
+  const expiring=port(pc);
+  if(await expiring.reserve(shortBurn)!=='knownCommitted') throw Error('expiry-reserve');
+  await new Promise(r=>setTimeout(r,50));
+  if(await expiring.operation(shortBurn,raw)!=='knownRollback' || count()!=='8,4,1') throw Error('expiry-refusal');
+  await caseProof('fixture-expiry-key-001','absent');
+  const fullBurn=burnProducer(jc).produce('fixture-capacity-key-01','session').sql, full=port(pc);
+  if(await full.reserve(fullBurn)!=='knownCommitted') throw Error('capacity-reserve');
+  process.stdout.write('ST-233m capacity: ready\n');
+  for(let i=0;i<100;i++){const c=new Client(input);let acquired=false;try{await c.connect();const r=await c.query('SELECT pg_try_advisory_lock(233,5) AS acquired');acquired=r.rows[0].acquired===true;if(acquired)await c.query('SELECT pg_advisory_unlock(233,5)');}finally{await close(c);}if(acquired)break;await new Promise(r=>setTimeout(r,100));if(i===99)throw Error('capacity-release');}
+  if(await full.operation(fullBurn,raw)!=='knownRollback' || await full.fail(fullBurn)!=='knownCommitted' || count()!=='9,5,2') throw Error('capacity-refusal');
+  await caseProof('fixture-capacity-key-01','failed');
+  await reset();
+  process.stdout.write('ST-233m port: PASS cases=actual-J,independent-burn,atomic-issue,duplicate,expiry,capacity,commit-ack,operation-ack,close-ack,lock-timeout,explicit-rollback,conditional-fail,close\n');
+}
 (async () => {
   const result = [];
   for (const mode of ['commit','aborted','rollback','timeout','lost-reply','failed-end']) { result.push(await fresh(mode)); await reset(); }
   if (result.join(',') !== 'committed,aborted,rollback,unknown,unknown,unknown') throw Error('outcome');
   process.stdout.write('ST-233l driver: PASS cases=SCRAM,commit-tag,aborted-commit-tag,rollback-tag,timeout,unknown-reply,failed-end,fresh-reset,close\n');
+  await actualPort();
 })().catch(() => { process.stderr.write('ST-233l driver: FAIL\n'); process.exitCode=1; });
 JS
 private_file "$tmp/driver.js" || exit 1
-node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],logLevel:"silent"})' "$tmp/driver.js" "$tmp/driver.cjs" || exit 1
+node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],alias:{"@st233m/port":p.resolve("apps/api/src/auth/browser-nonce/development-bootstrap-postgres-port.ts"),"@st233m/j":p.resolve("apps/api/src/auth/browser-nonce/development-bootstrap-transaction.ts"),"@st233m/h":p.resolve("apps/api/src/auth/idempotency/development-bootstrap-burn-material.ts"),"@st233m/i":p.resolve("apps/api/src/auth/browser-nonce/development-bootstrap-material.ts")},logLevel:"silent"})' "$tmp/driver.js" "$tmp/driver.cjs" || exit 1
 private_file "$tmp/driver.cjs" || exit 1
 driver_bundle_hash=$(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1)
 driver_name="st233l-$marker"
+fifo=$(mktemp -u "$tmp/holder.XXXXXX"); mkfifo -m 600 "$fifo"; exec {writer}<>"$fifo"; writers[holder]=$writer
+launch_client st233a_fixture_owner "$fifo" st233b-holder; holder_pid=$client_pid
+printf 'BEGIN; SELECT pg_advisory_xact_lock(233,4);\n' >&"$writer"
+observer=$(mktemp "$tmp/observer.XXXXXX"); waiter_pid=''
+observe_clients "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND application_name='st233b-holder' AND state='idle in transaction';" '^[ ]*[0-9]+[ ]*$' || exit 1
+capacity_fifo=$(mktemp -u "$tmp/capacity.XXXXXX"); mkfifo -m 600 "$capacity_fifo"; exec {capacity_writer}<>"$capacity_fifo"; writers[capacity]=$capacity_writer
+launch_client st233a_fixture_owner "$capacity_fifo" st233b-waiter; capacity_pid=$client_pid; waiter_pid=$capacity_pid
+printf 'BEGIN; SELECT pg_advisory_xact_lock(233,5);\n' >&"$capacity_writer"
+observe_clients "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND application_name='st233b-waiter' AND state='idle in transaction';" '^[ ]*[0-9]+[ ]*$' || exit 1
 docker create --name "$driver_name" --label "subtrack.task=ST-233l:$marker" --label "subtrack.head=$source_head" \
   --network "container:$cid" --user "$UID" --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 128m \
   --mount "type=bind,src=$tmp/driver.cjs,dst=/fixture.cjs,readonly" --mount "type=bind,src=$tmp/driver.json,dst=/fixture.json,readonly" \
@@ -1424,6 +1529,31 @@ driver_custody created || exit 1
 docker start "$driver_cid" >/dev/null 2>&1 || exit 1
 driver_custody running || exit 1
 [[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
+lock_deadline=$(( $(monotonic) + 25000 ))
+until docker logs "$driver_cid" 2>/dev/null | grep -qx 'ST-233m lock-timeout: observed'; do
+  [[ $(monotonic) -lt "$lock_deadline" && $(docker inspect --format '{{.State.Status}}' "$driver_cid") == running ]] || exit 1
+  sleep .1
+done
+printf 'COMMIT;\n\\q\n' >&"$writer"; exec {writer}>&-; unset 'writers[holder]'; join_client "$holder_pid" 5000 || exit 1
+capacity_deadline=$(( $(monotonic) + 25000 ))
+until docker logs "$driver_cid" 2>/dev/null | grep -qx 'ST-233m capacity: ready'; do
+  [[ $(monotonic) -lt "$capacity_deadline" && $(docker inspect --format '{{.State.Status}}' "$driver_cid") == running ]] || exit 1
+  sleep .1
+done
+st233m_key() { node -e 'const c=require("node:crypto");process.stdout.write(c.createHmac("sha256",Buffer.alloc(32,7)).update("subtrack:v2:idempotency:core:v1:key:"+process.argv[1]).digest("hex"))' "$1"; }
+st233m_authority=$(node -e 'const c=require("node:crypto");process.stdout.write(c.createHmac("sha256",Buffer.alloc(32,8)).update("subtrack:v2:browser-bootstrap-origin:v1:https://st233a.invalid").digest("hex"))')
+st233m_rows() {
+  local key state retention hash
+  assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.reservation WHERE key_h='$(st233m_key fixture-lock-timeout-01)')"
+  for item in 'fixture-success-key-001:completed:60000' 'fixture-commit-fault-01:pending:60000' 'fixture-close-fault-01:pending:60000' 'fixture-operation-ack-01:completed:60000' 'fixture-failed-key-001:failed:60000' 'fixture-expiry-key-001:pending:1' "fixture-capacity-key-01:$1:60000"; do
+    IFS=: read -r key state retention <<< "$item"; hash=$(st233m_key "$key")
+    assert_owner "(SELECT count(*)=1 AND bool_and(state='$state' AND operation='createV2BrowserNonce' AND authority_kind='browser-bootstrap-origin' AND authority_h='$st233m_authority' AND request_h='8766d4fdf971ce1370633b940d0276dfc88a8641f8731fd527c0516c632d1f19' AND owner_h ~ '^[a-f0-9]{64}$' AND transport='web' AND epoch='fixture' AND expires_ms-issued_ms=$retention) FROM subtrack_auth.reservation WHERE key_h='$hash')"
+  done
+}
+st233m_rows pending
+assert_owner "(SELECT count(*)=7 FROM subtrack_auth.reservation) AND (SELECT count(*)=3 FROM subtrack_auth.nonce)"
+printf "INSERT INTO subtrack_auth.nonce SELECT md5('st233m-cap-'||i)||md5('st233m-cap-'||i),'web','https://st233a.invalid','private-cap',repeat('5',64),'retired',0,300000,'session',NULL FROM generate_series(1,9997) i;\n" | owner
+printf 'COMMIT;\n\\q\n' >&"$capacity_writer"; close_writers; join_client "$capacity_pid" 5000 || exit 1
 driver_deadline=$(( $(monotonic) + 30000 ))
 while [[ $(monotonic) -lt "$driver_deadline" ]]; do
   driver_state=$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}}' "$driver_cid" 2>/dev/null) || exit 1
@@ -1434,9 +1564,13 @@ done
 driver_custody exited || exit 1
 [[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
 driver_result=$(docker logs "$driver_cid" 2>/dev/null) || exit 1
-[[ "$driver_result" == 'ST-233l driver: PASS cases=SCRAM,commit-tag,aborted-commit-tag,rollback-tag,timeout,unknown-reply,failed-end,fresh-reset,close' ]] || exit 1
+[[ "$driver_result" == $'ST-233l driver: PASS cases=SCRAM,commit-tag,aborted-commit-tag,rollback-tag,timeout,unknown-reply,failed-end,fresh-reset,close\nST-233m lock-timeout: observed\nST-233m capacity: ready\nST-233m port: PASS cases=actual-J,independent-burn,atomic-issue,duplicate,expiry,capacity,commit-ack,operation-ack,close-ack,lock-timeout,explicit-rollback,conditional-fail,close' ]] || exit 1
 printf '%s\n' "$driver_result" >> "$receipt"
+phase=driver-cleanup
 driver_cleanup || exit 1
+phase=port-durable-state
+st233m_rows failed
+assert_owner "(SELECT count(*)=7 FROM subtrack_auth.reservation) AND (SELECT count(*)=10000 FROM subtrack_auth.nonce)"
 phase=pins
 [[ $(git rev-parse HEAD) == "$source_head" ]] || exit 1
 while read -r path blob bytes; do [[ $(git hash-object "$path") == "$blob" && $(sha256sum "$path" | cut -d ' ' -f1) == "$bytes" ]] || exit 1; done < "$tmp/pins"

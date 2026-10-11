@@ -1,0 +1,5 @@
+ST-233m C2 PREEDIT security classification: exact Gitleaks generic-api-key fingerprint 1ea7931d64c55c6909280dadeb851ee5875bbde2:SubTrack/tools/database/development-auth-foundation-proof.sh:generic-api-key:1441.
+Frozen line 1441 compares key to public deterministic synthetic fixture identifier fixture-expiry-key-001 to assert 1ms versus 60000ms retention; no credential or real PII. Scanner log reports one redacted finding at this line.
+Type 2b local scanner false-positive treatment; no Type 1 trigger or High/Critical security veto indicated by this evidence.
+Recommend root first amend ST-233m allowed_paths for root .gitleaksignore, then add only exact historical fingerprint plus explanatory comment, as established precedent; no path/rule blanket, scan skip, or history rewrite.
+C2 quality failure remains a real failed gate pending fresh C3 exact-head all-nine rerun with source unchanged plus root ignore; retain original 06:52:54 L240 attempt1/sourceattempt1, C1 foundation failure1 and C2 secret gate failure1, no flake claim.

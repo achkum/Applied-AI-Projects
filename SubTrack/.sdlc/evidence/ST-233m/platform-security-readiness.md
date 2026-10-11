@@ -1,0 +1,8 @@
+# ST-233m independent platform/security readiness — frozen 2b61e568ce8c3b6af292644e8fa8bc59da15afed; LF blob 0a3c42261bc7ee6885133614bd9075e8288e70dd.
+Type 2a private development adapter; no concrete Type 1 security-model delta or High/Critical veto in this proposal. Readiness GO for root decision only, not source/QA acceptance.
+The fixed restricted SCRAM login, same-client local runtime role, empty anonymous owner GUCs, fixed SQL004/008/006 calls, internal bounded time, and strict commit/rollback/close outcomes preserve H/I/J/K and accepted L/ADR0031 custody.
+The one-slot copied complete witness and one-use rollback latch close direct `fail` authority: only this adapter's acknowledged operation rollback can authorize same-object conditional failed settlement; unknown poisons the instance.
+The test-only PG shim withholds the resolved real `COMMIT` acknowledgement after the server call; it proves adapter ambiguity behavior, not actual network loss. The real lock timeout and retained L disconnect case cover other failures.
+Before source, root must record the exact Type 2a GO and enforce the reviewed 500-author/750-PR caps; the proposal has zero author headroom, so any excess needs a coherent split before code rather than silent scope loss.
+Required actual PG proof must execute the unchanged adapter and J lifecycle and show independent burn, atomic nonce/completion, explicit rollback/fail, complete tuple refusal, role/GUC reset, unknown non-disclosure and no compensation; mocks or driver-only proof cannot complete ST-233m.
+No SQL/grant/dependency/registration/HTTP/production authority is approved. This review asserts only that the pinned proposal is sufficiently bounded to start source after root GO.
