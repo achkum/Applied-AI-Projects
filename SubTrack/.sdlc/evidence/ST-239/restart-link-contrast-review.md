@@ -1,0 +1,7 @@
+# ST-239 independent restart-link contrast source review — APPROVE source
+
+2026-10-11. The C3 Swedish-dark synthetic screenshot directly showed `Starta ny inloggning` in Firefox default `#0000ee` on `--bg-canvas:#0a0c14`, about 2.08:1. `registration-flow.tsx:331-332` rendered that bare link; the panel CSS had no anchor color rule. This was a material dark-theme readability defect.
+
+I independently inspected the proposed **CSS-only +5/−0** diff at `apps/web/components/onboarding/registration-flow.module.css` and verified SHA-256 `7233d8bc6127b4ef95ca1038ee326cbc6543659ae043a3435460c8734e796d68`. `.panel a` now uses `var(--ink-primary)` and keeps a visible underline; `.panel a:focus-visible` adds a `var(--aurora-violet)` outline. Against the generated theme canvas tokens, text contrast is **16.44:1 light** and **17.00:1 dark**. Focus outline contrast is **4.48:1 light** and **7.06:1 dark**, above the 3:1 nontext threshold. This also covers the panel's `Log in instead` link. No flow, auth, driver, API or SQL source changed in this diff.
+
+**Source verdict: APPROVE the bounded correction.** The author's focused registration flow tests passed 9/9 and diff check passed, as reported in `restart-link-contrast-correction-checkpoint.md`; I did not rerun them. The CSS is uncommitted at this review point. Fresh exact-head four-variant direct pixels and the full actual proof remain mandatory; source calculations do not approve the C4 run at its older head.

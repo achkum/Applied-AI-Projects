@@ -81,6 +81,15 @@ let reloadError = 'NONE', reloadPageClosed = 'NONE', reloadRequestFailure = 'NON
 let partialNavigation = 'NONE', partialCompletion = 'NONE', partialRead = 'NONE';
 let partialCompletionCount = 'ZERO', partialRoute = 'NONE';
 let negativeCase = 'NONE', negativeStatus = 'NONE', negativeNetwork = 'NONE';
+let loginDiagnostic = null;
+const loginDiagnosticPaths = Object.freeze({
+  '/v2/auth/browser-nonce': 'nonce',
+  '/v2/auth/login/simulator/verify': 'verify',
+  '/v2/auth/session': 'session',
+  '/v2/me/profile/read': 'profile',
+  '/v2/me/mode/read': 'mode',
+});
+const loginDiagnosticStatus = value => [200, 201, 400, 401, 403, 404, 409, 500].includes(value) ? String(value) : 'OTHER';
 const safeStatus = value => [200, 400, 401, 403, 409, 421, 500].includes(value) ? String(value) : 'OTHER';
 try {
   context = await firefox.launchPersistentContext(process.env.ST237_TRUSTED_PROFILE,
@@ -122,6 +131,10 @@ try {
   const observePrivateResponse = async response => {
     const url = new URL(response.url());
     if (!url.pathname.startsWith('/v2/')) return;
+    if (loginDiagnostic?.active && response.request().method() === 'POST') {
+      const field = loginDiagnosticPaths[url.pathname];
+      if (field) loginDiagnostic[field] = loginDiagnosticStatus(response.status());
+    }
     try {
       await checkPrivateHeaders(response, url.pathname);
       wire.push({ method: response.request().method(), path: url.pathname, status: response.status() });
@@ -251,6 +264,7 @@ try {
         attachWireObserver(page);
       };
       const startFreshLogin = async (identity, prefix) => {
+        loginDiagnostic = { active: true, nonce: 'NONE', verify: 'NONE', session: 'NONE', profile: 'NONE', mode: 'NONE' };
         phase = `${prefix}_BOOTSTRAP`;
         await page.goto(`${origin}/${locale}`, { waitUntil: 'domcontentloaded' });
         await awaitPreferenceInteraction();
@@ -273,7 +287,9 @@ try {
         phase = `${prefix}_MODE_RESPONSE`;
         const modeResult = await modeRead;
         if ('error' in modeResult) throw modeResult.error;
-        return { profile: await profileResult.response.json(), mode: await modeResult.response.json() };
+        const result = { profile: await profileResult.response.json(), mode: await modeResult.response.json() };
+        loginDiagnostic.active = false;
+        return result;
       };
       phase = 'ALICE_EXISTING_SUBJECT_ENROLLMENT_STOP';
       await context.clearCookies();
@@ -874,6 +890,11 @@ try {
     reloadPageClosed = page?.isClosed() ? 'YES' : 'NO';
   }
   if (phase === 'AUTHORITY_NEGATIVES') process.stderr.write(`ST237_NEGATIVE_GATE case=${negativeCase} status=${negativeStatus} network=${negativeNetwork}\n`);
+  if (browserCase === 'login') {
+    const diagnostic = loginDiagnostic?.active ? loginDiagnostic :
+      { nonce: 'NONE', verify: 'NONE', session: 'NONE', profile: 'NONE', mode: 'NONE' };
+    process.stderr.write(`ST239_LOGIN_AUTH_DIAGNOSTIC nonce=${diagnostic.nonce} verify=${diagnostic.verify} session=${diagnostic.session} profile=${diagnostic.profile} mode=${diagnostic.mode}\n`);
+  }
   process.stderr.write(`FAIL ST237_BROWSER_CASE case=${browserCase} phase=${phase} navigation=${navigationStatus} patch=${profileWire.patch} read=${profileWire.read} reloadNavigation=${reloadNavigationType} reloadStatus=${reloadStatus} reloadError=${reloadError} reloadPageClosed=${reloadPageClosed} reloadRequestFailure=${reloadRequestFailure} partialNavigation=${partialNavigation} partialCompletion=${partialCompletion} partialRead=${partialRead} partialCompletionCount=${partialCompletionCount} partialRoute=${partialRoute}\n`);
   process.exitCode = 1;
 } finally {
