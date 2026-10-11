@@ -11,6 +11,25 @@ const repoDir = path.resolve(webDir, '../..');
 const webRequire = createRequire(path.join(webDir, 'package.json'));
 const apiRequire = createRequire(path.join(repoDir, 'apps/api/package.json'));
 const origin = 'https://localhost:3443';
+let browserPhase = 'LAUNCH';
+let browserObserved = 'NONE';
+
+function browserErrorClass(error) {
+  const detail = String(error);
+  for (const code of [
+    'SSL_ERROR_BAD_CERT_DOMAIN',
+    'SEC_ERROR_UNKNOWN_ISSUER',
+    'MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT',
+    'SEC_ERROR_EXPIRED_CERTIFICATE',
+  ]) {
+    if (new RegExp(`(?:^|[^A-Z0-9_])${code}(?:$|[^A-Z0-9_])`).test(detail)) return code;
+  }
+  if (/(?:ERR_CONNECTION_REFUSED|NS_ERROR_CONNECTION_REFUSED|ECONNREFUSED)/.test(detail)) return 'CONNECTION_REFUSED';
+  if (/(?:Timeout|timed out)/.test(detail)) return 'TIMEOUT';
+  if (browserPhase === 'LAUNCH' || browserPhase === 'UNTRUSTED_LAUNCH' ||
+      /(?:Failed to launch|browserType\.launchPersistentContext)/.test(detail)) return 'LAUNCH_FAILED';
+  return 'OTHER';
+}
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -72,6 +91,7 @@ async function server() {
 }
 
 async function browser() {
+  browserPhase = 'LAUNCH';
   const { firefox } = webRequire('playwright');
   assert(webRequire('playwright/package.json').version === '1.63.0', 'unexpected Playwright version');
   const profile = process.env.ST237_TRUSTED_PROFILE;
@@ -80,10 +100,13 @@ async function browser() {
   const trusted = await firefox.launchPersistentContext(profile, { headless: true });
   try {
     async function healthy() {
+      browserPhase = 'TRUSTED_NAVIGATE';
+      browserObserved = 'NONE';
       const page = await trusted.newPage();
       try {
         const response = await page.goto(`${origin}/sv/register`, { waitUntil: 'domcontentloaded' });
         assert(response?.status() === 200, 'real Next register page did not load');
+        browserPhase = 'TRUSTED_POST';
         const result = await page.evaluate(async () => {
           const response = await fetch('/v2/tls-preflight', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
@@ -97,24 +120,29 @@ async function browser() {
     }
     await healthy();
     console.log('PASS ST237_TRUSTED_LOCALHOST_NEXT_NEST_TLS');
-    async function expectTlsFailure(context, url, code) {
+    async function expectTlsFailure(context, url, code, phase) {
+      browserPhase = phase;
+      browserObserved = 'NONE';
       const page = await context.newPage();
       try {
         let rejected = false;
         try { await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 }); }
         catch (error) {
           // Inspect only the expected Firefox TLS code. Never export raw browser errors.
+          browserObserved = browserErrorClass(error);
           rejected = new RegExp(`(?:^|[^A-Z0-9_])${code}(?:$|[^A-Z0-9_])`).test(String(error));
         }
         assert(rejected, 'expected Firefox TLS rejection was not observed');
+        browserObserved = 'NONE';
       } finally { await page.close(); }
     }
-    await expectTlsFailure(trusted, 'https://127.0.0.1:3443/sv/register', 'SSL_ERROR_BAD_CERT_DOMAIN');
+    await expectTlsFailure(trusted, 'https://127.0.0.1:3443/sv/register', 'SSL_ERROR_BAD_CERT_DOMAIN', 'WRONG_HOST');
     await healthy();
     console.log('PASS ST237_WRONG_HOSTNAME_REJECTED');
+    browserPhase = 'UNTRUSTED_LAUNCH';
     const untrusted = await firefox.launchPersistentContext(cleanProfile, { headless: true });
     try {
-      await expectTlsFailure(untrusted, `${origin}/sv/register`, 'SEC_ERROR_UNKNOWN_ISSUER');
+      await expectTlsFailure(untrusted, `${origin}/sv/register`, 'SEC_ERROR_UNKNOWN_ISSUER', 'UNTRUSTED_NAVIGATE');
     } finally { await untrusted.close(); }
     await healthy();
     console.log('PASS ST237_UNTRUSTED_CA_REJECTED');
@@ -123,5 +151,12 @@ async function browser() {
 
 const mode = process.argv[2];
 if (mode === 'server') await server();
-else if (mode === 'browser') await browser();
+else if (mode === 'browser') {
+  try { await browser(); }
+  catch (error) {
+    const classification = browserObserved === 'NONE' ? browserErrorClass(error) : browserObserved;
+    console.log(`DIAG ST237_BROWSER phase=${browserPhase} class=${classification}`);
+    process.exitCode = 1;
+  }
+}
 else throw new Error('expected server or browser mode');

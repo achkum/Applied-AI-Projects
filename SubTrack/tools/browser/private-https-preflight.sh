@@ -135,7 +135,11 @@ for ((i=0; i<1800; i++)); do
   sleep 0.1
 done
 if kill -0 "$browser_pid" 2>/dev/null; then exit 1; fi
-wait "$browser_pid"
+if ! wait "$browser_pid"; then
+  diagnostic="$(grep -E '^DIAG ST237_BROWSER phase=(LAUNCH|TRUSTED_NAVIGATE|TRUSTED_POST|WRONG_HOST|UNTRUSTED_LAUNCH|UNTRUSTED_NAVIGATE) class=(SSL_ERROR_BAD_CERT_DOMAIN|SEC_ERROR_UNKNOWN_ISSUER|MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT|SEC_ERROR_EXPIRED_CERTIFICATE|CONNECTION_REFUSED|TIMEOUT|LAUNCH_FAILED|OTHER)$' "$work/browser.log" | tail -n 1 || true)"
+  if [[ -n "$diagnostic" ]]; then printf '%s\n' "$diagnostic" >&3; fi
+  exit 1
+fi
 for marker in ST237_TRUSTED_LOCALHOST_NEXT_NEST_TLS ST237_WRONG_HOSTNAME_REJECTED ST237_UNTRUSTED_CA_REJECTED; do
   grep -qx "PASS $marker" "$work/browser.log"
   printf 'PASS %s\n' "$marker" >&3
