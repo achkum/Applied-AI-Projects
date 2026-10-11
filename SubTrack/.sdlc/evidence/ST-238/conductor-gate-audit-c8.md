@@ -1,0 +1,9 @@
+# ST-238 C8 Conductor gate — APPROVE
+
+Frozen PR283 d3e102c473822f9fcf68c3009c840b3bce2d267d against main2f55e95. Final snapshot: all16 applicable jobs SUCCESS, including foundation38162526375, quality/Compose38162526379, private38162526438, migrations/container/sessionRLS/read/lifecycleHTTP/browser. No pending applicable check. Exactheadunchanged/MERGEABLE. Main protection404/emptybranchrules/inheritedrulesets do not waive repository gates.
+
+Independent platform/security/source QA chain APPROVE, exact C8 driver70d3415 matches independent reviewed blob. ActualQA APPROVE all20freshcases/7620sourcepins0mismatch/cleanup; client/design actual APPROVE four keyboard-focused frames, with earlier12list+24other-state pixel approvals carried by exact unchanged client/product bytes. No blocker/major/security veto remains. Conductor devops source/final gate APPROVE. Source1954/full2823nongenerated plus397generated/lock in reviewed3500/4200caps; allpathsrostered/diffcheckPASS. No default/public/provider release or changed security model.
+
+Exclude ONLY named external contexts Vercel – cutok and Vercel – breast-cancer-detector FAILURE at this SHA, both unrelated deployment rate limits. Exactdiff scopedSubTrack/privateproofworkflow, no TokenOptimizer/BreastCancer/sharedrootdependency input; standaloneprojectmanifest/ignoreCommand/mapping unchanged and no SubTrack/workspace/parentdependency. Exactheadmapping/pins/reason in conductor-check-inputs-c8.md carrying unchangedC6projectblob evidence. Every affected/shared/GitHub-required gate remains blocking; unknownstatusnotexcluded.
+
+Routine squash merge to main authorized by Constitution/OperatingModel after these gates; no new founder prompt and no production/public release. Final accepted evidence may be carried in next task metadata without changing/retesting this frozen accepted source head. OriginalL240start16:41deadline20:41/source1/counters/failurehistory retained.

@@ -6,7 +6,8 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-238, title: 'Private explicit Just me through persisted owner subscription list and lifecycle', owner: architect-platform, size: L, status: IN_PROGRESS, deps: [ST-237]}
+  - {id: ST-239, title: 'Private returning-account verified login to persisted owner subscriptions', milestone: M1, owner: architect-platform, size: L, status: IN_PROGRESS, deps: [ST-238]}
+  - {id: ST-238, title: 'Private explicit Just me through persisted owner subscription list and lifecycle', owner: architect-platform, size: L, status: DONE, deps: [ST-237]}
   - {id: ST-237, title: 'Executable private HTTPS enrollment through persisted owner profile', owner: architect-platform, size: L, status: DONE, deps: [ST-236]}
   - {id: ST-236, title: 'Executable private durable enrollment to account transaction', owner: architect-platform, size: L, status: DONE, deps: [ST-229, ST-232, ST-233m, ST-234, ST-235]}
   - {id: ST-235, title: 'Durable current web session and CSRF authority transaction', owner: architect-platform, size: L, status: DONE, deps: [ST-228, ST-230, ST-231, ST-233m, ST-234]}
