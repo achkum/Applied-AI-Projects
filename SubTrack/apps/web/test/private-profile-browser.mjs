@@ -1,9 +1,12 @@
 // Actual natural browser driver; no credential bodies, console messages or traces leave task custody.
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
+import { setTimeout } from 'node:timers';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { randomUUID } from 'node:crypto';
+import https from 'node:https';
 import { createRequire } from 'node:module';
 import { fileURLToPath, URL } from 'node:url';
 
@@ -17,13 +20,42 @@ assert(['sv', 'en'].includes(locale));
 assert(['light', 'dark'].includes(theme));
 assert(require('playwright/package.json').version === '1.63.0');
 const copy = JSON.parse(fs.readFileSync(path.join(webDir, '../../packages/i18n/catalogs', `${locale}.json`), 'utf8')).onboarding;
+const handshake = process.env.ST237_HANDSHAKE_DIR;
+assert(handshake && fs.statSync(handshake).isDirectory());
+const ca = fs.readFileSync(path.join(handshake, 'ca.crt'));
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function awaitMarker(name) {
+  for (let i = 0; i < 600; i++) { if (fs.existsSync(path.join(handshake, name))) return; await delay(100); }
+  throw new Error('handshake');
+}
+function request(headers, body = '{}', pathname = '/v2/me/profile/read') {
+  return new Promise((resolve, reject) => {
+    const req = https.request(`${origin}${pathname}`, { method: 'POST', ca, headers: {
+      'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...headers } }, res => {
+      const parts = []; res.on('data', part => parts.push(part)); res.on('end', () => {
+        try { const text = Buffer.concat(parts).toString('utf8');
+          resolve({ status: res.statusCode, headers: res.headers, body: text ? JSON.parse(text) : null });
+        } catch (error) { reject(error); }
+      });
+    });
+    req.on('error', reject); req.end(body);
+  });
+}
+function closedProblem(result, status, code) {
+  assert.equal(result.status, status);
+  assert.equal(result.headers['content-type'], 'application/problem+json');
+  assert.equal(result.headers['cache-control'], 'no-store');
+  assert.equal(result.headers.pragma, 'no-cache');
+  assert.deepEqual(Object.keys(result.body).sort(), ['code', 'status', 'title', 'type']);
+  assert.equal(result.body.status, status); assert.equal(result.body.code, code);
+}
 let phase = 'LAUNCH';
 let context;
 try {
   context = await firefox.launchPersistentContext(process.env.ST237_TRUSTED_PROFILE, { headless: true });
   const page = await context.newPage();
   page.setDefaultTimeout(45000);
-  const screenshotDir = path.resolve(process.env.RUNNER_TEMP, 'st237-profile-screenshots');
+  const screenshotDir = path.resolve(process.env.ST237_SCREENSHOT_DIR);
   fs.mkdirSync(screenshotDir, { mode: 0o700 });
   const capture = async step => { await page.screenshot({ path: path.join(screenshotDir, `${step}.png`), fullPage: true }); };
   const wire = [];
@@ -105,9 +137,60 @@ try {
       await call('{"owner":"foreign"}', token), await call('{"x":1,"x":2}', token), await call('{}', token)];
   }, csrf);
   assert.deepEqual(statuses, [401, 400, 400, 200]);
-  csrf = '';
+  const cookieHeader = cookies.filter(item => ['st_v2_access', 'st_v2_binding', 'st_v2_chain'].includes(item.name))
+    .map(item => `${item.name}=${item.value}`).join('; ');
+  const names = Object.fromEntries(cookies.map(item => [item.name, item.value]));
+  assert.equal(Object.keys(names).filter(name => name.startsWith('st_v2_')).length, 4);
+  const baseHeaders = { Origin: origin, Cookie: cookieHeader, 'X-Session-CSRF': csrf };
+  const negativeCases = [
+    [{ ...baseHeaders, Origin: 'https://other.invalid' }, 403, 'PROFILE_REQUEST_REJECTED'],
+    [{ ...baseHeaders, Cookie: cookieHeader.split('; ').filter(item => !item.startsWith('st_v2_chain=')).join('; ') }, 403, 'PROFILE_REQUEST_REJECTED'],
+    [{ ...baseHeaders, Cookie: cookieHeader.replace(names.st_v2_chain, `${names.st_v2_chain.startsWith('A') ? 'B' : 'A'}${names.st_v2_chain.slice(1)}`) }, 401, 'AUTHENTICATION_REQUIRED'],
+    [{ ...baseHeaders, Cookie: `${cookieHeader}; st_v2_chain=${names.st_v2_chain}` }, 400, 'INVALID_PROFILE_REQUEST'],
+    [{ ...baseHeaders, Cookie: cookieHeader.split('; ').filter(item => !item.startsWith('st_v2_binding=')).join('; ') }, 403, 'PROFILE_REQUEST_REJECTED'],
+    [{ ...baseHeaders, Cookie: cookieHeader.replace(names.st_v2_binding, `${names.st_v2_binding.startsWith('A') ? 'B' : 'A'}${names.st_v2_binding.slice(1)}`) }, 401, 'AUTHENTICATION_REQUIRED'],
+    [{ ...baseHeaders, Cookie: `${cookieHeader}; st_v2_refresh=${names.st_v2_refresh}` }, 403, 'PROFILE_REQUEST_REJECTED'],
+    [{ ...baseHeaders, 'X-Session-CSRF': undefined }, 403, 'PROFILE_REQUEST_REJECTED'],
+  ];
+  for (const [headers, status, code] of negativeCases) {
+    const supplied = Object.fromEntries(Object.entries(headers).filter(([, value]) => value !== undefined));
+    closedProblem(await request(supplied), status, code);
+  }
+  const wrongHost = await request({ ...baseHeaders, Host: 'other.invalid' });
+  assert.equal(wrongHost.status, 421);
+  assert.equal(wrongHost.headers['cache-control'], 'no-store');
+  assert.equal(wrongHost.headers.pragma, 'no-cache');
+  closedProblem(await request(baseHeaders, '{"x":1,"x":2}'), 400, 'INVALID_PROFILE_REQUEST');
+  const visibleCookie = await page.evaluate(() => globalThis.document.cookie);
+  assert(!visibleCookie.includes('st_v2_'));
   const storage = await page.evaluate(() => ({ local: Object.keys(globalThis.localStorage), session: Object.keys(globalThis.sessionStorage) }));
   assert(storage.local.every(key => /theme|locale/i.test(key)) && storage.session.length === 0);
+  phase = 'RESTART';
+  fs.writeFileSync(path.join(handshake, 'ready'), '', { flag: 'wx', mode: 0o600 });
+  await awaitMarker('resume');
+  const restored = await request(baseHeaders);
+  assert.equal(restored.status, 200);
+  assert.equal(restored.body.displayName, 'Private Proof');
+  assert.equal(restored.body.profileComplete, true);
+  process.stdout.write('PASS ST237_BROWSER_SAME_KEY_FRESH_PROCESS_RESTART\n');
+  phase = 'LOST_RESPONSE';
+  let committedPatchCount = 0;
+  await page.route('**/v2/me/profile', async route => {
+    if (route.request().method() !== 'PATCH') { await route.continue(); return; }
+    committedPatchCount++;
+    const committed = await route.fetch();
+    assert.equal(committed.status(), 200);
+    await route.abort('failed');
+  });
+  await page.getByLabel(copy.profile.displayName, { exact: true }).fill('Private Proof Updated');
+  await page.getByRole('button', { name: copy.profile.save, exact: true }).dblclick();
+  await page.getByText(copy.profile.uncertain, { exact: true }).waitFor();
+  assert.equal(committedPatchCount, 1);
+  const afterLostResponse = await request(baseHeaders);
+  assert.equal(afterLostResponse.status, 200);
+  assert.equal(afterLostResponse.body.displayName, 'Private Proof Updated');
+  process.stdout.write('PASS ST237_BROWSER_COMMITTED_PATCH_LOST_RESPONSE_SINGLE_SUBMISSION\n');
+  csrf = '';
   phase = 'RELOAD';
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByText(copy.registration.verifiedLoginRequired, { exact: true }).waitFor();

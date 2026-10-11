@@ -25,6 +25,7 @@ async function reachOtp(locale: 'en' | 'sv' = 'en') {
   fireEvent.change(screen.getByLabelText(identifier.emailLabel), { target: { value: 'synthetic@example.test' } });
   fireEvent.click(screen.getByRole('button', { name: identifier.continueLabel }));
   await screen.findByLabelText(catalogs[locale].onboarding.registration.otpLabel);
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: catalogs[locale].onboarding.registration.otpTitle }));
 }
 async function reachProfile(locale: 'en' | 'sv' = 'en') {
   await reachOtp(locale);
@@ -32,8 +33,10 @@ async function reachProfile(locale: 'en' | 'sv' = 'en') {
   fireEvent.change(screen.getByLabelText(copy.otpLabel), { target: { value: '123456' } });
   fireEvent.click(screen.getByRole('button', { name: copy.verifyLabel }));
   await screen.findByRole('button', { name: copy.simulatorAction });
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: copy.simulatorTitle }));
   fireEvent.click(screen.getByRole('button', { name: copy.simulatorAction }));
   await screen.findByLabelText(catalogs[locale].onboarding.profile.displayName);
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: catalogs[locale].onboarding.profile.title }));
 }
 afterEach(() => vi.restoreAllMocks());
 
@@ -49,6 +52,7 @@ describe('mounted private enrollment and profile', () => {
     fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Synthetic Owner' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
     await screen.findByText('Profile saved and confirmed.');
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Profile saved and confirmed.' }));
     expect(fetchMock.mock.calls.map(([url]) => url).slice(-3)).toEqual(['/v2/me/profile/read', '/v2/me/profile', '/v2/me/profile/read']);
     expect(JSON.parse(fetchMock.mock.calls[7]?.[1]?.body as string)).toEqual({ displayName: 'Synthetic Owner' });
     expect(document.body.textContent).not.toContain('private-csrf');
@@ -60,6 +64,7 @@ describe('mounted private enrollment and profile', () => {
     fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Synthetic Owner' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
     await screen.findByText(catalogs.en.onboarding.profile.uncertain);
+    expect(document.activeElement).toBe(screen.getByText(catalogs.en.onboarding.profile.uncertain));
     expect(screen.queryByText(catalogs.en.onboarding.profile.saved)).toBeNull();
   });
 
@@ -85,5 +90,10 @@ describe('mounted private enrollment and profile', () => {
     expect((await axe(container)).violations).toEqual([]);
     await reachOtp(locale);
     expect((await axe(container)).violations).toEqual([]);
+    fireEvent.click(screen.getByRole('button', { name: catalogs[locale].onboarding.registration.verifyLabel }));
+    const otp = screen.getByLabelText(catalogs[locale].onboarding.registration.otpLabel);
+    expect(document.activeElement).toBe(otp);
+    expect(otp.getAttribute('aria-invalid')).toBe('true');
+    expect(otp.getAttribute('aria-describedby')).toBe('registration-otp-error');
   });
 });

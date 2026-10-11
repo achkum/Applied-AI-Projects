@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import https from 'node:https';
 import path from 'node:path';
 import process from 'node:process';
-import { X509Certificate } from 'node:crypto';
+import { createHash, X509Certificate } from 'node:crypto';
 import { TLSSocket } from 'node:tls';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +13,9 @@ const apiDir = path.resolve(webDir, '../api');
 const webRequire = createRequire(path.join(webDir, 'package.json'));
 const apiRequire = createRequire(path.join(apiDir, 'package.json'));
 const fail = () => { throw new Error('Private HTTPS unavailable'); };
+const gate = name => process.stderr.write(`ST237_STARTUP_GATE ${name}\n`);
 const env = process.env;
+gate('ENV');
 if (env.NODE_ENV !== 'development' || !env.ST237_PRIVATE_CONFIG ||
   !/^[a-f0-9]{48}$/.test(env.ST237_PG_PASSWORD ?? '') ||
   !/^[1-9][0-9]{0,4}$/.test(env.ST237_PG_PORT ?? '') ||
@@ -50,6 +52,392 @@ const pool = new Pool({ host: '127.0.0.1', port, database: epoch.database, user:
   idle_in_transaction_session_timeout: 4000, application_name: 'st237-private' });
 pool.on('error', () => {});
 
+// These are reviewed installation inputs, not values learned from the database being
+// qualified. Keep the file pins in this launcher when changing any qualified SQL.
+const qualifiedSqlPins = Object.freeze({
+  '001-epoch-nonce-reservation.sql': 'c26de56902f24589672202012172e294f75f55a5367d7a1c2bb5744b8536d596',
+  '002-epoch-fence.sql': 'a53177d8f72d73d68221f7e6b5166787051fdf936a862487939b53a624485571',
+  '003-nonce-binding-lookup.sql': '6960f25d239961e1083fa7961a529c5718841002e0ce50e3eed3a36314fb416b',
+  '004-bootstrap-reservation.sql': 'eda3b86bd75161c2c617c1c2e02ee293e00077c31eb60b473e0d7a1062bcf0bf',
+  '005-expired-reservation-prune.sql': 'd76d2297e4f146603f9cbcf3732e497746214aa2c8e5936afeebaa6d4ce68354',
+  '006-owned-bootstrap-settlement.sql': '8c6313958d52a91f883d9a875840fbc7656adcad8b3326fa1e24da11e6692d85',
+  '007-expired-nonce-prune.sql': '6ff9c97d3c8ed80735ca59cb41a581eb894b16ac33a704ddae9db262d5ed4baa',
+  '008-atomic-bootstrap-nonce-issue.sql': 'd49635b5303fc9405f8ab1b5609859a9dca7129b8a7f36f41a29453cf2ea4d62',
+  '009-current-web-session-csrf.sql': 'f7c026ee9dac458bbfbbea13e1774d3bd392fdab8e5c4659185dc769ecab2c9b',
+  '010-enrollment-account.sql': '954be5c4ae1c018aac161a5ec7e59d2bd1bc478df5310a7a15f968f8bfd90a4a',
+});
+const privacyMigrationPin = '451ed57de9610f22fd458548b45ad81b86161846aa4d2e7c47c0301e788305fd';
+const digest = value => createHash('sha256').update(value).digest('hex');
+
+function approvedFunctions() {
+  gate('SOURCE');
+  const expected = new Map();
+  const policies = [];
+  const migrationDir = path.resolve(apiDir, 'prisma/development-auth');
+  for (const [file, hash] of Object.entries(qualifiedSqlPins)) {
+    const source = fs.readFileSync(path.join(migrationDir, file));
+    if (digest(source) !== hash) fail();
+    const sql = source.toString('utf8');
+    const bodies = [...sql.matchAll(/CREATE FUNCTION\s+(subtrack_auth\.[a-z_]+)\([\s\S]*?\)\s+RETURNS\s+[\s\S]*?\s+AS\s+(\$[a-z_]+\$)([\s\S]*?)\2;/g)];
+    const signatures = [...sql.matchAll(/ALTER FUNCTION\s+(subtrack_auth\.[a-z_]+\([^;]*?\))\s+OWNER TO subtrack_auth_executor;/g)];
+    const grants = [...sql.matchAll(/GRANT EXECUTE ON FUNCTION\s+(subtrack_auth\.[a-z_]+\([^;]*?\))\s+TO\s+([a-z_,]+);/g)];
+    for (const match of sql.matchAll(/CREATE POLICY\s+([a-z_]+)\s+ON subtrack_auth\.([a-z_]+)\s+FOR (SELECT|INSERT|UPDATE|DELETE)\s+TO subtrack_auth_executor(?:\s+USING \((true)\))?(?:\s+WITH CHECK \((true|false)\))?;/g)) {
+      policies.push([match[2],match[1],{SELECT:'r',INSERT:'a',UPDATE:'w',DELETE:'d'}[match[3]],
+        true,['subtrack_auth_executor'],match[4] ?? null,match[5] ?? null]);
+    }
+    if (bodies.length !== signatures.length) fail();
+    for (let i = 0; i < bodies.length; i++) {
+      const name = bodies[i][1];
+      const signature = signatures[i][1].replace(/\s+/g, '');
+      if (!signature.startsWith(`${name}(`) || expected.has(name)) fail();
+      const granted = grants.find(g => g[1].replace(/\s+/g, '') === signature);
+      const declaredResult = /\bRETURNS\s+(pg_catalog\.[a-z0-9_]+|TABLE\s*\()/i.exec(bodies[i][0])?.[1];
+      if (!declaredResult) fail();
+      expected.set(name, { signature, body: bodies[i][3],
+        result: declaredResult.startsWith('TABLE') ? 'pg_catalog.record' : declaredResult,
+        returnsSet: declaredResult.startsWith('TABLE'),
+        grants: granted ? granted[2].split(',').sort() : [] });
+    }
+  }
+  if (expected.size !== 25 || policies.length !== 43) fail();
+  return { functions: expected, policies };
+}
+
+async function assertQualifiedCatalog(client) {
+  const approved = approvedFunctions();
+  const expected = approved.functions;
+  gate('FUNCTIONS');
+  const functions = await client.query(`SELECT p.proname::text AS name,p.oid::text AS oid,
+      p.prosrc::text AS body,p.prosecdef AS security_definer,p.provolatile::text AS volatility,
+      p.proparallel::text AS parallel,p.proisstrict AS strict,p.proretset AS returns_set,
+      p.prorettype::pg_catalog.oid::text AS result_oid,
+      p.proargmodes::text[] AS arg_modes,p.proargnames::text[] AS arg_names,
+      p.proconfig::text[] AS config,l.lanname::text AS language,r.rolname::text AS owner,
+      ARRAY(SELECT pg_catalog.pg_get_userbyid(a.grantee)::text
+        FROM pg_catalog.aclexplode(p.proacl) a WHERE a.grantee<>p.proowner
+          AND a.privilege_type='EXECUTE' AND NOT a.is_grantable
+        ORDER BY pg_catalog.pg_get_userbyid(a.grantee)) AS execute_grantees,
+      EXISTS (SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+        WHERE a.grantee<>p.proowner AND (a.privilege_type<>'EXECUTE' OR a.is_grantable)) AS bad_grant
+    FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+    JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+    JOIN pg_catalog.pg_language l ON l.oid=p.prolang
+    WHERE n.nspname='subtrack_auth' ORDER BY p.proname`);
+  if (functions.rows.length !== expected.size) fail();
+  for (const row of functions.rows) {
+    const entry = expected.get(row.name);
+    if (!entry || row.body !== entry.body || !row.security_definer ||
+      row.owner !== 'subtrack_auth_executor' || row.language !== 'plpgsql' ||
+      row.volatility !== 'v' || row.parallel !== 'u' || row.strict !== false ||
+      row.returns_set !== entry.returnsSet ||
+      JSON.stringify(row.config) !== '["search_path=pg_catalog"]' ||
+      row.bad_grant || JSON.stringify(row.execute_grantees) !== JSON.stringify(entry.grants)) fail();
+    const identity = await client.query(`SELECT pg_catalog.to_regprocedure($1::text)::pg_catalog.oid::text AS oid,
+      pg_catalog.to_regtype($2::text)::pg_catalog.oid::text AS result_oid`,
+      [entry.signature, entry.result]);
+    if (identity.rows[0]?.oid !== row.oid || identity.rows[0]?.result_oid !== row.result_oid) fail();
+    if (row.name === 'terminal_enrollment' &&
+      (JSON.stringify(row.arg_modes) !== '["i","i","i","t","t","t","t","t","t"]' ||
+        JSON.stringify(row.arg_names) !== '["scope","verified_h","terminal_nonce_h","subject_h","channel","contact","verified_at","given_name","surname"]')) fail();
+  }
+  return approved.policies;
+}
+
+async function assertProfileCatalog(client) {
+  gate('PRINCIPALS');
+  const privacySource = fs.readFileSync(path.resolve(apiDir,
+    'prisma/migrations/0002_privacy_constraints/migration.sql'));
+  if (digest(privacySource) !== privacyMigrationPin) fail();
+  const privacySql = privacySource.toString('utf8');
+  const principalBodies = ['subtrack_principal', 'subtrack_principal_matches'].map(name => {
+    const match = new RegExp(`CREATE FUNCTION public\\.${name}\\([^;]*?AS \\$\\$([\\s\\S]*?)\\$\\$;`).exec(privacySql);
+    if (!match) fail();
+    return match[1];
+  });
+  const principals = await client.query(`SELECT p.proname::text AS name,p.oid::text AS oid,
+      p.prorettype::pg_catalog.oid::text AS result_oid,p.prosrc::text AS body,
+      p.prosecdef AS security_definer,p.provolatile::text AS volatility,
+      p.proconfig::text[] AS config,l.lanname::text AS language,r.rolname::text AS owner,
+      ARRAY(SELECT pg_catalog.pg_get_userbyid(a.grantee)::text
+        FROM pg_catalog.aclexplode(p.proacl) a WHERE a.grantee<>p.proowner
+        ORDER BY pg_catalog.pg_get_userbyid(a.grantee)) AS grantees
+    FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+    JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+    JOIN pg_catalog.pg_language l ON l.oid=p.prolang
+    WHERE n.nspname='public' AND p.proname IN ('subtrack_principal','subtrack_principal_matches')
+    ORDER BY p.proname`);
+  if (principals.rows.length !== 2 || principals.rows.some((row, i) =>
+    row.name !== ['subtrack_principal','subtrack_principal_matches'][i] ||
+    row.body !== principalBodies[i] || row.security_definer !== true ||
+    row.volatility !== 's' || row.language !== 'sql' ||
+    row.owner !== 'subtrack_visibility_lookup' ||
+    JSON.stringify(row.config) !== '["search_path=pg_catalog"]' ||
+    JSON.stringify(row.grantees) !== JSON.stringify(i === 0 ? [] : ['subtrack_runtime']))) fail();
+  const principalIdentity = await client.query(`SELECT
+      pg_catalog.to_regprocedure('public.subtrack_principal()')::pg_catalog.oid::text AS principal_oid,
+      pg_catalog.to_regprocedure('public.subtrack_principal_matches(pg_catalog.uuid)')::pg_catalog.oid::text AS matches_oid,
+      'pg_catalog.uuid'::pg_catalog.regtype::pg_catalog.oid::text AS uuid_oid,
+      'pg_catalog.bool'::pg_catalog.regtype::pg_catalog.oid::text AS bool_oid`);
+  if (principalIdentity.rows[0]?.principal_oid !== principals.rows[0].oid ||
+    principalIdentity.rows[0]?.matches_oid !== principals.rows[1].oid ||
+    principalIdentity.rows[0]?.uuid_oid !== principals.rows[0].result_oid ||
+    principalIdentity.rows[0]?.bool_oid !== principals.rows[1].result_oid) fail();
+  const birthTrigger = await client.query(`SELECT t.tgenabled::text AS enabled,t.tgtype AS type,
+      t.tgfoid::text AS function_oid
+    FROM pg_catalog.pg_trigger t WHERE t.tgrelid='public.identity'::pg_catalog.regclass
+      AND t.tgname='identity_enrollment_birth' AND NOT t.tgisinternal`);
+  const birthFunction = await client.query(`SELECT
+    pg_catalog.to_regprocedure('subtrack_auth.attest_enrollment_birth()')::pg_catalog.oid::text AS oid`);
+  if (birthTrigger.rows.length !== 1 || birthTrigger.rows[0].enabled !== 'O' ||
+    birthTrigger.rows[0].type !== 5 || birthTrigger.rows[0].function_oid !== birthFunction.rows[0]?.oid) fail();
+  gate('PROFILE_COLUMNS');
+  const columns = await client.query(`SELECT c.relname::text AS table_name,a.attname::text AS name,
+      a.attnum AS position,pg_catalog.format_type(a.atttypid,a.atttypmod) AS type,
+      NOT a.attnotnull AS nullable,pg_catalog.pg_get_expr(d.adbin,d.adrelid) AS default_value
+    FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+    LEFT JOIN pg_catalog.pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum
+    WHERE n.nspname='public' AND
+      (c.relname='identity_profile' OR (c.relname='identity' AND a.attname IN ('verified_at','given_name','surname')))
+    ORDER BY c.relname,a.attnum`);
+  const expectedColumns = [
+    ['identity','verified_at','timestamp with time zone',true,null],
+    ['identity','given_name','character varying(120)',true,null],
+    ['identity','surname','character varying(120)',true,null],
+    ['identity_profile','identity_id','uuid',false,null],
+    ['identity_profile','display_name','character varying(120)',true,null],
+    ['identity_profile','avatar_color','character varying(32)',true,null],
+    ['identity_profile','avatar_emoji','character varying(32)',true,null],
+    ['identity_profile','language','character varying(2)',false,"'en'::character varying"],
+    ['identity_profile','theme','character varying(16)',false,"'system'::character varying"],
+    ['identity_profile','default_currency','character(3)',false,"'SEK'::bpchar"],
+    ['identity_profile','profile_complete','boolean',false,'false'],
+    ['identity_profile','created_at','timestamp with time zone',false,'now()'],
+    ['identity_profile','updated_at','timestamp with time zone',false,'now()'],
+  ];
+  if (columns.rows.length !== expectedColumns.length ||
+    columns.rows.some((row, i) => JSON.stringify([row.table_name,row.name,row.type,row.nullable,row.default_value]) !==
+      JSON.stringify(expectedColumns[i]) ||
+      (row.table_name === 'identity_profile' && row.position !== i - 2))) fail();
+
+  const catalog = await client.query(`SELECT c.relkind::text AS kind,c.relrowsecurity AS rls,
+      c.relforcerowsecurity AS force_rls,r.rolname::text AS owner
+    FROM pg_catalog.pg_class c JOIN pg_catalog.pg_roles r ON r.oid=c.relowner
+    WHERE c.oid='public.identity_profile'::pg_catalog.regclass`);
+  if (catalog.rows.length !== 1 || catalog.rows[0].kind !== 'r' ||
+    !catalog.rows[0].rls || !catalog.rows[0].force_rls ||
+    catalog.rows[0].owner !== 'st233a_fixture_owner') fail();
+  gate('PROFILE_POLICIES');
+  const policies = await client.query(`SELECT p.polname::text AS name,p.polcmd::text AS command,
+      p.polpermissive AS permissive,
+      ARRAY(SELECT r.rolname::text FROM pg_catalog.pg_roles r WHERE r.oid=ANY(p.polroles) ORDER BY r.rolname) AS roles,
+      pg_catalog.pg_get_expr(p.polqual,p.polrelid) AS using_expr,
+      pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid) AS check_expr
+    FROM pg_catalog.pg_policy p WHERE p.polrelid='public.identity_profile'::pg_catalog.regclass
+    ORDER BY p.polname`);
+  const principal = 'subtrack_principal_matches(identity_id)';
+  const expectedPolicies = [
+    ['identity_profile_insert','a',true,['subtrack_runtime'],null,principal],
+    ['identity_profile_select','r',true,['subtrack_runtime'],principal,null],
+    ['identity_profile_update','w',true,['subtrack_runtime'],principal,principal],
+  ];
+  if (JSON.stringify(policies.rows.map(p => [p.name,p.command,p.permissive,p.roles,p.using_expr,p.check_expr])) !==
+    JSON.stringify(expectedPolicies)) fail();
+  gate('PROFILE_GRANTS');
+  const grants = await client.query(`SELECT 'table' AS scope,NULL::text AS column_name,
+      CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE pg_catalog.pg_get_userbyid(x.grantee) END AS grantee,
+      x.privilege_type AS privilege,x.is_grantable AS grantable
+    FROM pg_catalog.pg_class c CROSS JOIN LATERAL pg_catalog.aclexplode(c.relacl) x
+    WHERE c.oid='public.identity_profile'::pg_catalog.regclass AND x.grantee<>c.relowner
+    UNION ALL
+    SELECT 'column' AS scope,a.attname::text AS column_name,
+      CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE pg_catalog.pg_get_userbyid(x.grantee) END AS grantee,
+      x.privilege_type AS privilege,x.is_grantable AS grantable
+    FROM pg_catalog.pg_class c JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid
+      AND a.attnum>0 AND NOT a.attisdropped
+    CROSS JOIN LATERAL pg_catalog.aclexplode(a.attacl) x
+    WHERE c.oid='public.identity_profile'::pg_catalog.regclass AND x.grantee<>c.relowner`);
+  const expectedGrants = [
+    ['table',null,'subtrack_runtime','SELECT',false],
+    ['table',null,'subtrack_runtime','INSERT',false],
+    ...['display_name','avatar_color','avatar_emoji','language','theme','default_currency',
+      'profile_complete','updated_at'].map(name => ['column',name,'subtrack_runtime','UPDATE',false]),
+  ];
+  const grantKey = item => JSON.stringify(item);
+  const actualGrants = grants.rows.map(g => [g.scope,g.column_name,g.grantee,g.privilege,g.grantable]);
+  if (JSON.stringify(actualGrants.map(grantKey).sort()) !== JSON.stringify(expectedGrants.map(grantKey).sort())) fail();
+
+  gate('PROFILE_CONSTRAINTS');
+  const constraints = await client.query(`SELECT k.conname::text AS name,k.contype::text AS kind,
+      pg_catalog.pg_get_constraintdef(k.oid,false) AS definition,k.convalidated AS validated,
+      k.condeferrable AS deferrable,k.condeferred AS deferred
+    FROM pg_catalog.pg_constraint k
+    WHERE k.conrelid='public.identity_profile'::pg_catalog.regclass ORDER BY k.conname`);
+  if (constraints.rows.length !== 5 || constraints.rows.some(c => !c.validated || c.deferrable || c.deferred)) fail();
+  const byName = new Map(constraints.rows.map(c => [c.name,c]));
+  if (byName.size !== 5 ||
+    byName.get('identity_profile_pkey')?.definition !== 'PRIMARY KEY (identity_id)' ||
+    byName.get('identity_profile_pkey')?.kind !== 'p' ||
+    byName.get('identity_profile_identity_id_fkey')?.definition !==
+      'FOREIGN KEY (identity_id) REFERENCES identity(id) ON UPDATE RESTRICT ON DELETE RESTRICT' ||
+    byName.get('identity_profile_identity_id_fkey')?.kind !== 'f' ||
+    !/^CHECK \(\(\(language\)::text = ANY \(\(ARRAY\['sv'::character varying, 'en'::character varying\]\)::text\[\]\)\)\)$/.test(
+      byName.get('identity_profile_language_check')?.definition ?? '') ||
+    !/^CHECK \(\(\(theme\)::text = ANY \(\(ARRAY\['system'::character varying, 'light'::character varying, 'dark'::character varying\]\)::text\[\]\)\)\)$/.test(
+      byName.get('identity_profile_theme_check')?.definition ?? '') ||
+    byName.get('identity_profile_default_currency_check')?.definition !==
+      "CHECK ((default_currency = 'SEK'::bpchar))") fail();
+}
+
+async function assertAuthCatalog(client, approvedPolicies) {
+  gate('AUTH_TABLES');
+  const authTables = ['credential','csrf','enrollment_intent','epoch','family','identity_birth',
+    'nonce','otp','pending_enrollment','reservation','restricted_proof','session','verified_enrollment'];
+  const tables = await client.query(`SELECT c.relname::text AS name,c.relkind::text AS kind,
+      c.relrowsecurity AS rls,c.relforcerowsecurity AS force_rls,r.rolname::text AS owner
+    FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    JOIN pg_catalog.pg_roles r ON r.oid=c.relowner
+    WHERE n.nspname='subtrack_auth' AND c.relkind IN ('r','p') ORDER BY c.relname`);
+  if (JSON.stringify(tables.rows.map(t => t.name)) !== JSON.stringify(authTables) ||
+    tables.rows.some(t => t.kind !== 'r' || !t.rls || !t.force_rls ||
+      t.owner !== 'subtrack_auth_owner')) fail();
+  const roles = await client.query(`SELECT rolname::text AS name,rolcanlogin AS login,
+      rolsuper AS super,rolcreatedb AS create_db,rolcreaterole AS create_role,
+      rolbypassrls AS bypass_rls,rolinherit AS inherit
+    FROM pg_catalog.pg_roles WHERE rolname IN
+      ('subtrack_auth_owner','subtrack_auth_executor','subtrack_auth_producer','subtrack_dev_auth_login')
+    ORDER BY rolname`);
+  if (roles.rows.length !== 4 || roles.rows.some(r =>
+    r.super || r.create_db || r.create_role || r.bypass_rls || r.inherit ||
+    r.login !== (r.name === 'subtrack_dev_auth_login'))) fail();
+  const membership = await client.query(`WITH RECURSIVE membership(roleid) AS (
+      SELECT roleid FROM pg_catalog.pg_auth_members WHERE member='subtrack_dev_auth_login'::pg_catalog.regrole
+      UNION SELECT m.roleid FROM pg_catalog.pg_auth_members m JOIN membership p ON m.member=p.roleid
+    ) SELECT pg_catalog.pg_get_userbyid(m.roleid)::text AS role,
+      m.admin_option AS admin,m.inherit_option AS inherit,m.set_option AS can_set
+    FROM pg_catalog.pg_auth_members m
+    WHERE m.member='subtrack_dev_auth_login'::pg_catalog.regrole
+    UNION ALL SELECT pg_catalog.pg_get_userbyid(roleid)::text,NULL,NULL,NULL FROM membership
+      WHERE roleid NOT IN ('subtrack_runtime'::pg_catalog.regrole,
+        'subtrack_identity_provisioner'::pg_catalog.regrole,'subtrack_auth_producer'::pg_catalog.regrole)
+    ORDER BY role`);
+  if (JSON.stringify(membership.rows) !== JSON.stringify([
+    {role:'subtrack_auth_producer',admin:false,inherit:false,can_set:true},
+    {role:'subtrack_identity_provisioner',admin:false,inherit:false,can_set:true},
+    {role:'subtrack_runtime',admin:false,inherit:false,can_set:true},
+  ])) fail();
+  const privilegedMembership = await client.query(`SELECT pg_catalog.count(*)::pg_catalog.int4 AS total
+    FROM pg_catalog.pg_auth_members WHERE member IN
+      ('subtrack_auth_owner'::pg_catalog.regrole,'subtrack_auth_executor'::pg_catalog.regrole,
+       'subtrack_auth_producer'::pg_catalog.regrole)`);
+  if (privilegedMembership.rows[0]?.total !== 0) fail();
+  const authSchema = await client.query(`SELECT r.rolname::text AS owner,
+      ARRAY(SELECT pg_catalog.pg_get_userbyid(a.grantee)::text || ':' || a.privilege_type ||
+        ':' || a.is_grantable::text FROM pg_catalog.aclexplode(n.nspacl) a
+        WHERE a.grantee<>n.nspowner ORDER BY pg_catalog.pg_get_userbyid(a.grantee)) AS grants
+    FROM pg_catalog.pg_namespace n JOIN pg_catalog.pg_roles r ON r.oid=n.nspowner
+    WHERE n.nspname='subtrack_auth'`);
+  if (authSchema.rows.length !== 1 || authSchema.rows[0].owner !== 'subtrack_auth_owner' ||
+    JSON.stringify(authSchema.rows[0].grants) !== JSON.stringify([
+      'subtrack_auth_executor:USAGE:false','subtrack_auth_producer:USAGE:false',
+      'subtrack_runtime:USAGE:false'])) fail();
+  const domains = await client.query(`SELECT t.typname::text AS name,
+      t.typbasetype::pg_catalog.regtype::text AS base,
+      r.rolname::text AS owner,t.typnotnull AS not_null,
+      ARRAY(SELECT pg_catalog.pg_get_userbyid(a.grantee)::text
+        FROM pg_catalog.aclexplode(t.typacl) a WHERE a.grantee<>t.typowner
+        ORDER BY pg_catalog.pg_get_userbyid(a.grantee)) AS grantees,
+      (SELECT pg_catalog.count(*)::pg_catalog.int4 FROM pg_catalog.pg_constraint c
+        WHERE c.contypid=t.oid AND c.contype='c' AND c.convalidated) AS checks
+    FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid=t.typnamespace
+    JOIN pg_catalog.pg_roles r ON r.oid=t.typowner
+    WHERE n.nspname='subtrack_auth' AND t.typtype='d' ORDER BY t.typname`);
+  if (domains.rows.length !== 2 || domains.rows.some((d, i) =>
+    d.name !== ['h','ms'][i] || d.base !== ['text','bigint'][i] ||
+    d.owner !== 'subtrack_auth_owner' || d.not_null || d.checks !== 1 ||
+    JSON.stringify(d.grantees) !==
+      '["subtrack_auth_executor","subtrack_auth_producer","subtrack_runtime"]')) fail();
+  const scopeType = await client.query(`SELECT r.rolname::text AS owner,
+      ARRAY(SELECT pg_catalog.pg_get_userbyid(a.grantee)::text || ':' || a.privilege_type ||
+        ':' || a.is_grantable::text FROM pg_catalog.aclexplode(t.typacl) a
+        WHERE a.grantee<>t.typowner ORDER BY pg_catalog.pg_get_userbyid(a.grantee)) AS grants
+    FROM pg_catalog.pg_type t JOIN pg_catalog.pg_roles r ON r.oid=t.typowner
+    WHERE t.oid='subtrack_auth.enrollment_scope'::pg_catalog.regtype`);
+  if (scopeType.rows.length !== 1 || scopeType.rows[0].owner !== 'subtrack_auth_owner' ||
+    JSON.stringify(scopeType.rows[0].grants) !== JSON.stringify([
+      'subtrack_auth_executor:USAGE:false','subtrack_auth_producer:USAGE:false',
+      'subtrack_runtime:USAGE:false'])) fail();
+
+  gate('AUTH_POLICIES');
+  const policies = await client.query(`SELECT c.relname::text AS table_name,p.polname::text AS name,
+      p.polcmd::text AS command,p.polpermissive AS permissive,
+      ARRAY(SELECT r.rolname::text FROM pg_catalog.pg_roles r
+        WHERE r.oid=ANY(p.polroles) ORDER BY r.rolname) AS roles,
+      pg_catalog.pg_get_expr(p.polqual,p.polrelid) AS using_expr,
+      pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid) AS check_expr
+    FROM pg_catalog.pg_policy p JOIN pg_catalog.pg_class c ON c.oid=p.polrelid
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='subtrack_auth' ORDER BY c.relname,p.polname`);
+  const actualPolicies = policies.rows.map(p =>
+    [p.table_name,p.name,p.command,p.permissive,p.roles,p.using_expr,p.check_expr]);
+  const sortRows = rows => rows.map(r => JSON.stringify(r)).sort();
+  if (JSON.stringify(sortRows(actualPolicies)) !== JSON.stringify(sortRows(approvedPolicies))) fail();
+
+  gate('AUTH_GRANTS');
+  const acl = await client.query(`SELECT c.relname::text AS table_name,'table' AS scope,
+      NULL::text AS column_name,pg_catalog.pg_get_userbyid(x.grantee)::text AS grantee,
+      x.privilege_type AS privilege,x.is_grantable AS grantable
+    FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    CROSS JOIN LATERAL pg_catalog.aclexplode(c.relacl) x
+    WHERE n.nspname='subtrack_auth' AND c.relkind='r' AND x.grantee<>c.relowner
+    UNION ALL
+    SELECT c.relname::text,'column',a.attname::text,
+      pg_catalog.pg_get_userbyid(x.grantee)::text,x.privilege_type,x.is_grantable
+    FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+    CROSS JOIN LATERAL pg_catalog.aclexplode(a.attacl) x
+    WHERE n.nspname='subtrack_auth' AND c.relkind='r' AND x.grantee<>c.relowner`);
+  const tableGrant = (tables, privileges) => tables.flatMap(table =>
+    privileges.map(privilege => [table,'table',null,'subtrack_auth_executor',privilege,false]));
+  const columnGrant = (table, columns) => columns.map(name =>
+    [table,'column',name,'subtrack_auth_executor','UPDATE',false]);
+  const expectedAcl = [
+    ...tableGrant(['epoch'],['SELECT']),
+    ...tableGrant(['reservation','nonce'],['SELECT','INSERT','DELETE']),
+    ...tableGrant(['family','session','credential'],['SELECT','INSERT']),
+    ...tableGrant(['csrf'],['SELECT','INSERT','DELETE']),
+    ...tableGrant(['otp','restricted_proof','pending_enrollment','verified_enrollment',
+      'enrollment_intent','identity_birth'],['SELECT','INSERT','DELETE']),
+    ...columnGrant('epoch',['watermark_ms']),...columnGrant('reservation',['state']),
+    ...columnGrant('family',['revoked_ms']),...columnGrant('session',['revoked_ms']),
+    ...columnGrant('csrf',['token_h','issued_ms','expires_ms']),
+    ...columnGrant('otp',['attempts']),...columnGrant('restricted_proof',['proof_h']),
+    ...columnGrant('pending_enrollment',['pending_h']),
+    ...columnGrant('verified_enrollment',['identity_id']),
+  ];
+  const actualAcl = acl.rows.map(a =>
+    [a.table_name,a.scope,a.column_name,a.grantee,a.privilege,a.grantable]);
+  if (JSON.stringify(sortRows(actualAcl)) !== JSON.stringify(sortRows(expectedAcl))) fail();
+
+  const constraintCounts = await client.query(`SELECT c.relname::text AS table_name,
+      pg_catalog.count(*)::pg_catalog.int4 AS total,
+      pg_catalog.bool_and(k.convalidated AND
+        (k.condeferrable=k.condeferred) AND
+        (NOT k.condeferrable OR
+          (c.relname='verified_enrollment' AND
+           k.conname='verified_enrollment_terminal_nonce_h_fkey'))) AS strict
+    FROM pg_catalog.pg_constraint k JOIN pg_catalog.pg_class c ON c.oid=k.conrelid
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='subtrack_auth' GROUP BY c.relname ORDER BY c.relname`);
+  const expectedCounts = new Map([
+    ['credential',5],['csrf',3],['enrollment_intent',1],['epoch',5],['family',5],
+    ['identity_birth',1],['nonce',8],['otp',8],['pending_enrollment',7],
+    ['reservation',8],['restricted_proof',7],['session',9],['verified_enrollment',12],
+  ]);
+  if (constraintCounts.rows.length !== expectedCounts.size || constraintCounts.rows.some(c =>
+    c.total !== expectedCounts.get(c.table_name) || c.strict !== true)) fail();
+}
+
 async function assertStartup() {
   const client = await pool.connect();
   try {
@@ -64,19 +452,9 @@ async function assertStartup() {
       row.current_user !== epoch.login || ![null, ''].includes(row.user_id) || ![null, ''].includes(row.current_user_id) ||
       row.profile_table !== 'identity_profile' && row.profile_table !== 'public.identity_profile' ||
       row.epoch_table !== 'subtrack_auth.epoch') fail();
-    const requiredFunctions = ['fence','peek','reserve_bootstrap','settle_bootstrap','issue_bootstrap_nonce',
-      'check_current_web','reserve_enrollment','issue_enrollment_otp','verify_enrollment_otp',
-      'admit_enrollment','pending_enrollment','verify_enrollment_person','terminal_enrollment',
-      'bind_enrollment_identity','issue_enrollment_session','consume_enrollment','fail_enrollment_burn'];
-    const functionCatalog = await client.query(`SELECT p.proname::text AS name,
-      p.prosecdef AS security_definer, r.rolname::text AS owner
-      FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
-      JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
-      WHERE n.nspname='subtrack_auth' AND p.proname=ANY($1::text[])`, [requiredFunctions]);
-    if (functionCatalog.rows.length !== requiredFunctions.length ||
-      functionCatalog.rows.some(item => !requiredFunctions.includes(item.name) ||
-        item.security_definer !== true || item.owner !== 'subtrack_auth_executor') ||
-      new Set(functionCatalog.rows.map(item => item.name)).size !== requiredFunctions.length) fail();
+    const approvedPolicies = await assertQualifiedCatalog(client);
+    await assertProfileCatalog(client);
+    await assertAuthCatalog(client, approvedPolicies);
     const rls = await client.query(`SELECT n.nspname::text AS schema_name,c.relname::text AS table_name,
       c.relrowsecurity AS enabled,c.relforcerowsecurity AS forced
       FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
@@ -85,6 +463,7 @@ async function assertStartup() {
       [['epoch','reservation','nonce','family','session','credential','csrf','otp','restricted_proof',
         'pending_enrollment','verified_enrollment','enrollment_intent','identity_birth']]);
     if (rls.rows.length !== 14 || rls.rows.some(item => item.enabled !== true || item.forced !== true)) fail();
+    gate('EPOCH');
     await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
     await client.query('SET LOCAL ROLE subtrack_runtime');
     const fence = await client.query('SELECT subtrack_auth.fence($1::text,$2::subtrack_auth.h,$3::subtrack_auth.ms) AS ok',

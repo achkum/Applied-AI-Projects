@@ -9,13 +9,24 @@ work="$(mktemp -d "$base/st237-profile.XXXXXXXX")"
 [[ "$work" == "$base"/st237-profile.* && ! -L "$work" ]] || exit 1
 exec 3>&1 4>&2
 exec >"$work/internal.log" 2>&1
-phase=SOURCE
+phase=SOURCE step=unavailable
 cid='' network='' server_pid='' browser_pid='' complete=0
 marker="$(openssl rand -hex 16)"
 name="st237-profile-$marker"
-image=mirror.gcr.io/library/postgres:16-alpine
+image=mirror.gcr.io/library/postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
 head="${ST237_EXPECTED_HEAD:-}"
 db=st237_private_https_profile
+source_inputs="$work/source-inputs"
+source_digest() {
+  while IFS= read -r rel; do
+    [[ -f "$rel" && ! -L "$rel" ]] || return 1
+    full="$(git ls-files --full-name "$rel")"
+    blob="$(git rev-parse "$head:$full")"
+    [[ "$(git hash-object "$rel")" == "$blob" ]] || return 1
+    digest="$(sha256sum "$rel")"; digest="${digest%% *}"
+    printf '%s %s %s\n' "$full" "$blob" "$digest"
+  done < <(git ls-files apps/api/src/auth apps/api/src/profile apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/tsconfig.build.json apps/api/test/private-profile.integration.ts apps/api/test/profile-business-catalog.ts apps/api/test/profile-business-schema.integration.ts apps/api/test/clean-migration-rls.integration.ts apps/web/private-https-server.mjs apps/web/app apps/web/lib apps/web/components apps/web/middleware.ts apps/web/next.config.ts apps/web/package.json apps/web/tsconfig.json apps/web/test/private-profile-browser.mjs packages/contracts packages/i18n packages/ui packages/ui-tokens pnpm-lock.yaml tools/database/private-profile-proof.sh tools/database/clean-migration-proof.sh ../.github/workflows/subtrack-private-https-profile-proof.yml)
+}
 stop_group() {
   local pid="$1" i
   [[ -n "$pid" ]] || return 0
@@ -49,8 +60,14 @@ assert set(x["Containers"]).issubset({cid})
 ' "$network" "$marker" "$head" "$cid"
 }
 cleanup() {
-  local code=$? ok=1
+  local code=$? ok=1 sqlstate=unavailable observed
+  if [[ -f "$work/browser.log" ]]; then grep -E '^FAIL ST237_BROWSER_PROFILE phase=(LAUNCH|IDENTIFIER|OTP|SIMULATOR|PROFILE|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD)$' "$work/browser.log" >&3 || true; fi
+  if [[ -f "$work/server.log" ]]; then grep -E '^ST237_STARTUP_GATE (ENV|SOURCE|FUNCTIONS|PRINCIPALS|PROFILE_COLUMNS|PROFILE_POLICIES|PROFILE_GRANTS|PROFILE_CONSTRAINTS|AUTH_TABLES|AUTH_POLICIES|AUTH_GRANTS|AUTH_ROLES|AUTH_DOMAINS|AUTH_CONSTRAINTS|EPOCH)$' "$work/server.log" | tail -1 >&3 || true; fi
   trap - EXIT INT TERM
+  if [[ "$phase" == INSTALL && -f "$work/internal.log" ]]; then
+    observed="$(sed -nE 's/^ERROR:[[:space:]]+([A-Z0-9]{5}).*/\1/p' "$work/internal.log" | tail -n 1)"
+    [[ "$observed" =~ ^[A-Z0-9]{5}$ ]] && sqlstate="$observed"
+  fi
   stop_group "$browser_pid" || ok=0
   stop_group "$server_pid" || ok=0
   if [[ -n "$cid" ]]; then
@@ -69,7 +86,7 @@ cleanup() {
     printf 'PASS ST237_PRIVATE_PG_TLS_SECRET_CUSTODY\nPROOF PASS head=%s cleanup=removed\n' "$head" >&3
     exit 0
   fi
-  printf 'FAIL ST237_PRIVATE_PROFILE phase=%s cleanup=%s\n' "$phase" "$([[ "$ok" == 1 ]] && printf removed || printf failed)" >&4
+  printf 'FAIL ST237_PRIVATE_PROFILE phase=%s step=%s sqlstate=%s cleanup=%s\n' "$phase" "$step" "$sqlstate" "$([[ "$ok" == 1 ]] && printf removed || printf failed)" >&4
   exit 1
 }
 trap cleanup EXIT
@@ -78,14 +95,10 @@ trap 'exit 143' TERM
 [[ "$head" =~ ^[a-f0-9]{40}$ && "$(git rev-parse HEAD)" == "$head" ]]
 [[ "${ST237_BROWSER_LOCALE:-}" =~ ^(sv|en)$ && "${ST237_BROWSER_THEME:-}" =~ ^(light|dark)$ ]]
 printf 'INPUT head=%s\n' "$head" >&3
-while IFS= read -r rel; do
-  [[ -f "$rel" && ! -L "$rel" ]]
-  full="$(git ls-files --full-name "$rel")"
-  blob="$(git rev-parse "$head:$full")"
-  [[ "$(git hash-object "$rel")" == "$blob" ]]
-  digest="$(sha256sum "$rel")"; digest="${digest%% *}"
-  printf 'INPUT file=%s blob=%s sha256=%s\n' "$full" "$blob" "$digest" >&3
-done < <(git ls-files apps/api/src/auth apps/api/src/profile apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/tsconfig.build.json apps/api/test/private-profile.integration.ts apps/api/test/profile-business-catalog.ts apps/api/test/profile-business-schema.integration.ts apps/api/test/clean-migration-rls.integration.ts apps/web/private-https-server.mjs apps/web/app apps/web/lib apps/web/components apps/web/middleware.ts apps/web/next.config.ts apps/web/package.json apps/web/tsconfig.json apps/web/test/private-profile-browser.mjs packages/contracts packages/i18n packages/ui packages/ui-tokens pnpm-lock.yaml tools/database/private-profile-proof.sh tools/database/clean-migration-proof.sh ../.github/workflows/subtrack-private-https-profile-proof.yml)
+source_digest > "$source_inputs"
+while read -r full blob digest; do printf 'INPUT file=%s blob=%s sha256=%s\n' "$full" "$blob" "$digest" >&3; done < "$source_inputs"
+find apps/api/dist -type f -print0 | sort -z | xargs -0 sha256sum > "$work/build-inputs"
+[[ -s "$work/build-inputs" ]]
 phase=FIXTURE
 owner_pass="$(openssl rand -hex 24)" actor_pass="$(openssl rand -hex 24)"
 printf 'POSTGRES_USER=st233a_fixture_owner\nPOSTGRES_DB=%s\nPOSTGRES_PASSWORD=%s\nPOSTGRES_HOST_AUTH_METHOD=scram-sha-256\nPOSTGRES_INITDB_ARGS=--auth-host=scram-sha-256\n' "$db" "$owner_pass" > "$work/pg.env"
@@ -103,15 +116,25 @@ custody
 docker cp "$work/pgpass" "$cid:/tmp/st237.pgpass" >/dev/null
 owner() { timeout 25s docker exec -i -e PGPASSFILE=/tmp/st237.pgpass "$cid" psql -X -q -A -t -h 127.0.0.1 -U st233a_fixture_owner -d "$db" -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate; }
 phase=INSTALL
+step=ORDINARY_0001
 owner < apps/api/prisma/migrations/0001_canonical_schema/migration.sql
+step=ORDINARY_0002
 owner < apps/api/prisma/migrations/0002_privacy_constraints/migration.sql
+step=FIXTURE_CONTROL
 printf "REVOKE TEMPORARY,CREATE ON DATABASE %s FROM PUBLIC; CREATE TABLE public.st233a_fixture_control(task text,head text,marker text); REVOKE ALL ON public.st233a_fixture_control FROM PUBLIC; INSERT INTO public.st233a_fixture_control VALUES ('ST-233a','%s','%s');\n" "$db" "$head" "$marker" | owner
+step=QUALIFIED_001
 { printf "SET st233a.head='%s'; SET st233a.marker='%s';\n" "$head" "$marker"; cat apps/api/prisma/development-auth/001-epoch-nonce-reservation.sql; } | owner
 constraints_pin="$(printf "SELECT md5(string_agg(format('%%s:%%s:%%s:%%s:%%s',c.conname,c.contype,c.convalidated,c.condeferrable,pg_get_constraintdef(c.oid)),E'\\n' ORDER BY c.conname,c.oid)) FROM pg_catalog.pg_constraint c WHERE c.connamespace='subtrack_auth'::regnamespace;\n" | owner)"
 [[ "$constraints_pin" =~ ^[a-f0-9]{32}$ ]]
 for sql in apps/api/prisma/development-auth/{002,003,004,005,006,007,008,009,010}-*.sql; do
+  step="QUALIFIED_$(basename "$sql" | cut -d- -f1)"
   { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$head" "$marker" "$constraints_pin"; cat "$sql"; } | owner
 done
+step=AUTH_CATALOG_PIN
+catalog_pin="$(printf "SELECT md5(string_agg(format('%%s:%%s:%%s:%%s:%%s',c.conname,c.contype,c.convalidated,c.condeferrable,pg_get_constraintdef(c.oid)),E'\\n' ORDER BY c.conname,c.oid)) FROM pg_catalog.pg_constraint c WHERE c.connamespace='subtrack_auth'::regnamespace;\n" | owner)"
+[[ "$catalog_pin" =~ ^[a-f0-9]{32}$ ]]
+printf 'ST237_INSTALLED_AUTH_CONSTRAINTS_MD5 %s\n' "$catalog_pin" >&3
+step=LOGIN_PASSWORD
 printf "ALTER ROLE subtrack_dev_auth_login PASSWORD '%s';\n" "$actor_pass" | owner
 export NODE_ENV=development ST237_PRIVATE_CONFIG="$work/auth.json"
 node - "$ST237_PRIVATE_CONFIG" "$work/seed.sql" <<'NODE'
@@ -120,6 +143,7 @@ const epoch=require('./apps/api/dist/auth/private-auth-epoch.js').provisionPriva
 if(!/^[a-f0-9]{64}$/.test(epoch.manifestHash)) process.exit(1);
 fs.writeFileSync(process.argv[3],`INSERT INTO subtrack_auth.epoch VALUES ('st237_private_https_v1','${epoch.manifestHash}','https://localhost:3443',0,'active');\n`,{mode:0o600});
 NODE
+step=EPOCH_SEED
 owner < "$work/seed.sql"
 port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "5432/tcp") 0).HostPort}}' "$cid")"
 [[ "$port" =~ ^[0-9]+$ && "$port" -gt 0 && "$port" -lt 65536 ]]
@@ -135,39 +159,117 @@ openssl verify -CAfile "$work/ca.crt" -verify_hostname localhost "$work/leaf.crt
 certutil -N --empty-password -d "sql:$work/trusted" >/dev/null
 certutil -A -d "sql:$work/trusted" -n ST237-task-CA -t 'C,,' -i "$work/ca.crt" >/dev/null
 export ST237_LEAF_KEY="$work/leaf.key" ST237_LEAF_CHAIN="$work/chain.crt" ST237_TRUSTED_PROFILE="$work/trusted"
-phase=SERVER
-setsid node apps/web/private-https-server.mjs > "$work/server.log" 2>&1 & server_pid=$!
-for _ in {1..150}; do
-  grep -qx 'ST237_PRIVATE_HTTPS_READY' "$work/server.log" && break
-  kill -0 "$server_pid" 2>/dev/null || exit 1
-  sleep .2
+export ST237_HANDSHAKE_DIR="$work/handshake" ST237_SCREENSHOT_DIR="$base/st237-profile-screenshots"
+mkdir -m 700 "$ST237_HANDSHAKE_DIR"
+cp "$work/ca.crt" "$ST237_HANDSHAKE_DIR/ca.crt"
+start_server() {
+  setsid node apps/web/private-https-server.mjs > "$work/server.log" 2>&1 & server_pid=$!
+  for _ in {1..150}; do
+    grep -qx 'ST237_PRIVATE_HTTPS_READY' "$work/server.log" && break
+    kill -0 "$server_pid" 2>/dev/null || return 1
+    sleep .2
+  done
+  grep -qx 'ST237_PRIVATE_HTTPS_READY' "$work/server.log"
+}
+refuses_startup() {
+  local label="$1" code=0
+  timeout 20s node apps/web/private-https-server.mjs > "$work/refusal.log" 2>&1 || code=$?
+  [[ "$code" -ne 0 && "$code" -ne 124 ]] || return 1
+  ! grep -q 'ST237_PRIVATE_HTTPS_READY' "$work/refusal.log" || return 1
+  printf 'PASS ST237_STARTUP_REFUSES_%s\n' "$label" >&3
+}
+phase=BUNDLE_REFUSAL
+cp "$ST237_PRIVATE_CONFIG" "$work/auth.saved"
+mv "$ST237_PRIVATE_CONFIG" "$work/auth.absent"
+refuses_startup MISSING_BUNDLE
+mv "$work/auth.absent" "$ST237_PRIVATE_CONFIG"
+for change in key pair hash tuple; do
+  node - "$ST237_PRIVATE_CONFIG" "$change" <<'NODE'
+const fs=require('node:fs');
+const file=process.argv[2], change=process.argv[3], b=JSON.parse(fs.readFileSync(file,'utf8'));
+const flip=v=>`${v[0]==='A'?'B':'A'}${v.slice(1)}`;
+if(change==='key') b.keys['enrollment.session']=flip(b.keys['enrollment.session']);
+else if(change==='pair') b.accessPublicSpkiDer=require('node:crypto').generateKeyPairSync('ed25519').publicKey.export({format:'der',type:'spki'}).toString('base64url');
+else if(change==='hash') b.manifestHash=`${b.manifestHash[0]==='0'?'1':'0'}${b.manifestHash.slice(1)}`;
+else if(change==='tuple') b.origin='https://st233a.invalid';
+fs.writeFileSync(file,JSON.stringify(b),{mode:0o600});
+NODE
+  refuses_startup "${change^^}"
+  cp "$work/auth.saved" "$ST237_PRIVATE_CONFIG"
 done
-grep -qx 'ST237_PRIVATE_HTTPS_READY' "$work/server.log"
+[[ "$(sha256sum "$ST237_PRIVATE_CONFIG" | cut -d' ' -f1)" == "$(sha256sum "$work/auth.saved" | cut -d' ' -f1)" ]]
+phase=ROW_REFUSAL
+printf "UPDATE subtrack_auth.epoch SET manifest_h=repeat('0',64) WHERE id='st237_private_https_v1';\n" | owner
+refuses_startup ALTERED_ACTIVE_ROW
+printf "UPDATE subtrack_auth.epoch SET manifest_h=(SELECT manifest_h FROM subtrack_auth.epoch LIMIT 1),state='retired' WHERE id='st237_private_https_v1';\n" | owner
+# Restore M from the trusted bundle, without sending its contents to a log.
+manifest="$(node -e 'const b=require(process.argv[1]);process.stdout.write(b.manifestHash)' "$ST237_PRIVATE_CONFIG")"
+printf "UPDATE subtrack_auth.epoch SET manifest_h='%s',state='retired' WHERE id='st237_private_https_v1';\n" "$manifest" | owner
+refuses_startup RETIRED_ACTIVE_ROW
+printf "UPDATE subtrack_auth.epoch SET state='active';\n" | owner
+# Referential rows from the natural browser do not yet exist, so absence is reversible here.
+printf "DELETE FROM subtrack_auth.epoch WHERE id='st237_private_https_v1';\n" | owner
+refuses_startup MISSING_ACTIVE_ROW
+owner < "$work/seed.sql"
+phase=SERVER
+start_server
 phase=BROWSER
 setsid env -u ST237_PG_PASSWORD -u ST237_PRIVATE_CONFIG -u ST237_LEAF_KEY -u ST237_LEAF_CHAIN \
-  node apps/web/test/private-profile-browser.mjs > "$work/browser.log" 2>&1 & browser_pid=$!
+  NODE_EXTRA_CA_CERTS="$work/ca.crt" node apps/web/test/private-profile-browser.mjs > "$work/browser.log" 2>&1 & browser_pid=$!
+phase=RESTART
+for ((i=0;i<1200;i++)); do
+  [[ -f "$ST237_HANDSHAKE_DIR/ready" ]] && break
+  kill -0 "$browser_pid" 2>/dev/null || break
+  sleep .1
+done
+[[ -f "$ST237_HANDSHAKE_DIR/ready" ]]
+stop_group "$server_pid"; server_pid=''
+start_server
+: > "$ST237_HANDSHAKE_DIR/resume"
+phase=BROWSER
 for ((i=0;i<2400;i++)); do kill -0 "$browser_pid" 2>/dev/null || break; sleep .1; done
 kill -0 "$browser_pid" 2>/dev/null && exit 1
 if ! wait "$browser_pid"; then
-  grep -E '^FAIL ST237_BROWSER_PROFILE phase=(LAUNCH|IDENTIFIER|OTP|SIMULATOR|PROFILE|AUTHORITY_NEGATIVES|RELOAD)$' "$work/browser.log" >&3 || true
+  grep -E '^FAIL ST237_BROWSER_PROFILE phase=(LAUNCH|IDENTIFIER|OTP|SIMULATOR|PROFILE|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD)$' "$work/browser.log" >&3 || true
   exit 1
 fi
 grep -qx "PASS ST237_BROWSER_ENROLLMENT_PROFILE locale=$ST237_BROWSER_LOCALE theme=$ST237_BROWSER_THEME" "$work/browser.log"
-for line in ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES ST237_BROWSER_RELOAD_STOP; do grep -qx "PASS $line" "$work/browser.log"; done
+for line in ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES ST237_BROWSER_SAME_KEY_FRESH_PROCESS_RESTART ST237_BROWSER_COMMITTED_PATCH_LOST_RESPONSE_SINGLE_SUBMISSION ST237_BROWSER_RELOAD_STOP; do grep -qx "PASS $line" "$work/browser.log"; done
 grep '^PASS ST237_BROWSER_' "$work/browser.log" >&3
 phase=DATABASE
-printf "SELECT 1/(count(*)=1 AND bool_and(display_name='Private Proof' AND profile_complete AND default_currency='SEK' AND language='%s' AND theme='%s'))::integer FROM public.identity_profile;\n" "$ST237_BROWSER_LOCALE" "$ST237_BROWSER_THEME" | owner
+printf "SELECT 1/(count(*)=1 AND bool_and(display_name='Private Proof Updated' AND profile_complete AND default_currency='SEK' AND language='%s' AND theme='%s'))::integer FROM public.identity_profile;\n" "$ST237_BROWSER_LOCALE" "$ST237_BROWSER_THEME" | owner
 printf 'PASS ST237_BROWSER_PROFILE_ACTUAL_PERSISTENCE\n' >&3
 phase=CATALOG_RLS
 node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,packages:"external",platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],logLevel:"silent"})' apps/api/test/private-profile.integration.ts "$work/pg-proof.cjs"
 if ! NODE_PATH="$root/apps/api/node_modules" ST237_OWNER_PASSWORD="$owner_pass" timeout 45s node "$work/pg-proof.cjs" > "$work/pg-proof.log" 2>&1; then
-  grep -E '^FAIL ST237_PRIVATE_PG phase=(CONFIG|CATALOG|OWNER_RLS)$' "$work/pg-proof.log" >&3 || true
+  grep -E '^FAIL ST237_PRIVATE_PG phase=(CONFIG|CATALOG|TUPLE|OWNER_RLS|EXPIRED_OWNER|UNKNOWN_COMMIT)$' "$work/pg-proof.log" >&3 || true
   exit 1
 fi
-for line in ST237_ACTUAL_ORDINARY_QUALIFIED_CATALOG_EQUIVALENCE ST237_PRIVATE_PROFILE_SECOND_OWNER_DUAL_GUC_ROLLBACK_POOL_RESET; do
+for line in ST237_ACTUAL_ORDINARY_QUALIFIED_CATALOG_EQUIVALENCE ST237_ACTUAL_PG_AND_CONSTRUCTOR_CROSS_PAIRED_TUPLE_REFUSAL ST237_PRIVATE_PROFILE_SECOND_OWNER_DUAL_GUC_ROLLBACK_POOL_RESET ST237_PRIVATE_ACTUAL_PG_DELETED_OWNER_EXPIRED_CSRF_REFUSAL ST237_PRIVATE_ACTUAL_PG_UNKNOWN_COMMIT_DISCARD_NO_RETRY; do
   grep -qx "PASS $line" "$work/pg-proof.log"
   printf 'PASS %s\n' "$line" >&3
 done
+phase=SCHEMA_REFUSAL
+stop_group "$server_pid"; server_pid=''
+printf "ALTER FUNCTION subtrack_auth.fence(pg_catalog.text,subtrack_auth.h,subtrack_auth.ms) SET search_path=public;\n" | owner
+refuses_startup CHANGED_FUNCTION_CONFIG
+printf "ALTER FUNCTION subtrack_auth.fence(pg_catalog.text,subtrack_auth.h,subtrack_auth.ms) SET search_path=pg_catalog;\n" | owner
+printf "ALTER POLICY identity_profile_select ON public.identity_profile USING (true);\n" | owner
+refuses_startup BROAD_PROFILE_POLICY
+printf "ALTER POLICY identity_profile_select ON public.identity_profile USING (public.subtrack_principal_matches(identity_id));\n" | owner
+printf "GRANT UPDATE(display_name) ON public.identity_profile TO PUBLIC;\n" | owner
+refuses_startup BROAD_PROFILE_GRANT
+printf "REVOKE UPDATE(display_name) ON public.identity_profile FROM PUBLIC;\n" | owner
+printf "ALTER TABLE public.identity_profile ADD COLUMN st237_drift pg_catalog.text;\n" | owner
+refuses_startup CHANGED_PROFILE_SHAPE
+printf "ALTER TABLE public.identity_profile DROP COLUMN st237_drift;\n" | owner
+start_server
+phase=FINISH_SOURCE
+source_digest > "$work/source-finish"
+cmp "$source_inputs" "$work/source-finish"
+find apps/api/dist -type f -print0 | sort -z | xargs -0 sha256sum > "$work/build-finish"
+cmp "$work/build-inputs" "$work/build-finish"
+printf 'PASS ST237_SOURCE_AND_EXECUTED_BUNDLE_RECHECK\n' >&3
 phase=CUSTODY
 custody
 complete=1

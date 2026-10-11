@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '@subtrack/ui';
 import { catalogs, type Locale } from '@subtrack/i18n';
 import type { ProfilePatch, ProfileView } from '@subtrack/contracts';
@@ -21,6 +21,7 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
   const [challengeId, setChallengeId] = useState('');
   const [nonce, setNonce] = useState('');
   const [code, setCode] = useState('');
+  const [otpError, setOtpError] = useState('');
   const [error, setError] = useState('');
   const [identifier, setIdentifier] = useState<RegistrationIdentifier | null>(null);
   const [profile, setProfile] = useState<ProfileView | null>(null);
@@ -31,6 +32,20 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
   const continuation = useRef('');
   const rotatedNonce = useRef('');
   const csrf = useRef('');
+  const panel = useRef<HTMLElement>(null);
+  const previousStep = useRef<Step>('identifier');
+  const otpInput = useRef<HTMLInputElement>(null);
+  const errorMessage = useRef<HTMLParagraphElement>(null);
+
+  useLayoutEffect(() => {
+    if (previousStep.current === step) return;
+    previousStep.current = step;
+    if (step === 'profile-saved' || step === 'profile-editing' && uncertain) return;
+    const selector = step === 'identifier' ? '#registration-title' : step === 'restart-required' ? 'button' :
+      step === 'profile-editing' || step === 'profile-saving' ? '#profile-title' : '[data-step-focus]';
+    panel.current?.querySelector<HTMLElement>(selector)?.focus();
+  }, [step, uncertain]);
+  useEffect(() => { if (error) errorMessage.current?.focus(); }, [error]);
 
   useEffect(() => {
     if (performance.getEntriesByType('navigation').some((entry) => (entry as PerformanceNavigationTiming).type === 'reload')) {
@@ -53,7 +68,7 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
   }
   function finish() { requestPending.current = false; setBusy(false); }
   function stop(next: Step, message = '') {
-    clearPrivate(); setChallengeId(''); setNonce(''); setCode(''); setProfile(null);
+    clearPrivate(); setChallengeId(''); setNonce(''); setCode(''); setOtpError(''); setProfile(null);
     setStep(next); setError(message); finish();
   }
   function fail(caught: unknown, request: { signal: AbortSignal; generation: number }, terminal = false) {
@@ -76,7 +91,7 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
   }
   async function restart() {
     if (!identifier || requestPending.current) return;
-    const request = beginRequest(); setError(''); setCode('');
+    const request = beginRequest(); setError(''); setCode(''); setOtpError('');
     try {
       const result = await startRegistration(identifier, request.signal);
       if (!current(request)) return;
@@ -85,10 +100,11 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
   }
   async function submitOtp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (requestPending.current || !/^[0-9]{6}$/.test(code)) return;
+    if (requestPending.current) return;
+    if (!/^[0-9]{6}$/.test(code)) { setOtpError(copy.invalidOtp); otpInput.current?.focus(); return; }
     const request = beginRequest();
     const sentCode = code; const sentNonce = nonce; const sentChallenge = challengeId;
-    setCode(''); setNonce(''); setChallengeId(''); setError('');
+    setCode(''); setNonce(''); setChallengeId(''); setError(''); setOtpError('');
     try {
       const verified = await verifyRegistration(sentChallenge, sentCode, sentNonce, request.signal);
       if (!current(request)) return;
@@ -139,34 +155,37 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
   }
   function goBack() {
     generation.current += 1; controller.current?.abort(); clearPrivate(); requestPending.current = false;
-    setBusy(false); setCode(''); setNonce(''); setChallengeId(''); setProfile(null); setError('');
+    setBusy(false); setCode(''); setOtpError(''); setNonce(''); setChallengeId(''); setProfile(null); setError('');
     setIdentifier(null); setUncertain(false);
     setStep(step === 'otp' || step === 'restart-required' ? 'identifier' : 'verified-login-required');
   }
 
   return <main className={styles.frame} lang={locale} aria-busy={busy}>
-    <section className={styles.panel} aria-labelledby="registration-title">
-      <h1 id="registration-title">{copy.title}</h1>
+    <section ref={panel} className={styles.panel} aria-labelledby="registration-title">
+      <h1 id="registration-title" tabIndex={-1}>{copy.title}</h1>
       {step === 'identifier' ? <><p>{copy.introduction}</p><IdentifierEntry locale={locale} onContinue={submitIdentifier} /></> : null}
       {step === 'otp' ? <form className={styles.form} onSubmit={submitOtp}>
+        <h2 data-step-focus tabIndex={-1}>{copy.otpTitle}</h2>
         <label htmlFor="registration-otp">{copy.otpLabel}</label>
-        <input id="registration-otp" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6}
-          value={code} onChange={(event) => setCode(event.currentTarget.value.replace(/[^0-9]/g, '').slice(0, 6))} />
-        <Button type="submit" disabled={busy || code.length !== 6}>{busy ? copy.loading : copy.verifyLabel}</Button>
+        <input ref={otpInput} id="registration-otp" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6}
+          aria-invalid={otpError ? 'true' : undefined} aria-describedby={otpError ? 'registration-otp-error' : undefined}
+          value={code} onChange={(event) => { setCode(event.currentTarget.value.replace(/[^0-9]/g, '').slice(0, 6)); setOtpError(''); }} />
+        {otpError ? <p id="registration-otp-error" role="alert">{otpError}</p> : null}
+        <Button type="submit" disabled={busy}>{busy ? copy.loading : copy.verifyLabel}</Button>
       </form> : null}
       {step === 'simulator-verification' ? <section aria-labelledby="simulator-title">
-        <h2 id="simulator-title">{copy.simulatorTitle}</h2><p>{copy.simulatorIntroduction}</p>
+        <h2 id="simulator-title" data-step-focus tabIndex={-1}>{copy.simulatorTitle}</h2><p>{copy.simulatorIntroduction}</p>
         <Button type="button" disabled={busy} onClick={runSimulator}>{copy.simulatorAction}</Button>
       </section> : null}
       {step === 'restart-required' ? <Button type="button" disabled={busy} onClick={restart}>{copy.restartRequired}</Button> : null}
-      {step === 'pending-admission' || step === 'terminal-completion' ? <p role="status">{copy.enrollmentProgress}</p> : null}
-      {step === 'profile-loading' ? <p role="status">{copy.profileLoading}</p> : null}
-      {step === 'profile-confirming' ? <p role="status">{copy.profileConfirming}</p> : null}
+      {step === 'pending-admission' || step === 'terminal-completion' ? <p data-step-focus tabIndex={-1} role="status">{copy.enrollmentProgress}</p> : null}
+      {step === 'profile-loading' ? <p data-step-focus tabIndex={-1} role="status">{copy.profileLoading}</p> : null}
+      {step === 'profile-confirming' ? <p data-step-focus tabIndex={-1} role="status">{copy.profileConfirming}</p> : null}
       {profile && ['profile-editing', 'profile-saving', 'profile-confirming', 'profile-saved'].includes(step) ?
         <ProfileEditor key={profile.displayName ?? 'new'} locale={locale} view={profile} busy={busy} saved={step === 'profile-saved'}
           uncertain={uncertain} onSave={saveProfile} /> : null}
-      {step === 'verified-login-required' ? <p role="alert">{copy.verifiedLoginRequired}</p> : null}
-      {error && step !== 'restart-required' ? <p role="alert">{error}</p> : null}
+      {step === 'verified-login-required' ? <p data-step-focus tabIndex={-1} role="alert">{copy.verifiedLoginRequired}</p> : null}
+      {error && step !== 'restart-required' ? <p ref={errorMessage} tabIndex={-1} role="alert">{error}</p> : null}
       <div className={styles.actions}>
         {step !== 'identifier' && step !== 'verified-login-required' && step !== 'profile-saved' ?
           <Button variant="secondary" type="button" onClick={goBack}>{copy.backLabel}</Button> : null}

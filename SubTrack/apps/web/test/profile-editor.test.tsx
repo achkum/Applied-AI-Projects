@@ -10,7 +10,10 @@ describe('profile editor', () => {
   it('sends only changed allowed fields and keeps SEK read-only', () => {
     const onSave = vi.fn();
     render(<ProfileEditor locale="en" view={view} busy={false} saved={false} uncertain={false} onSave={onSave} />);
-    expect((screen.getByRole('button', { name: 'Save profile' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Save profile' }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+    expect(document.activeElement).toBe(screen.getByRole('alert'));
+    expect(screen.getByRole('alert').textContent).toContain('Change a field');
     fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Synthetic Owner' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
     expect(onSave).toHaveBeenCalledWith({ displayName: 'Synthetic Owner' });
@@ -23,7 +26,10 @@ describe('profile editor', () => {
     const input = screen.getByLabelText('Display name');
     fireEvent.change(input, { target: { value: name } }); fireEvent.blur(input);
     expect(screen.getByRole('alert').textContent).toContain('Check your profile details');
-    expect((screen.getByRole('button', { name: 'Save profile' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(input.getAttribute('aria-describedby')).toBe('profile-name-validation');
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+    expect(document.activeElement).toBe(input);
     expect(onSave).not.toHaveBeenCalled();
   });
 

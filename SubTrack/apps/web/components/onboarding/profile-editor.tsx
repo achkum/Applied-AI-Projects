@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '@subtrack/ui';
 import { catalogs, type Locale } from '@subtrack/i18n';
 import { type ProfilePatch, type ProfileView } from '@subtrack/contracts';
@@ -21,7 +21,18 @@ export function ProfileEditor({ locale, view, busy, saved, uncertain, onSave }: 
   const [emoji, setEmoji] = useState(view.avatarEmoji ?? '');
   const [language, setLanguage] = useState(view.language);
   const [theme, setTheme] = useState(view.theme);
-  const [error, setError] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [formError, setFormError] = useState('');
+  const nameInput = useRef<HTMLInputElement>(null);
+  const formMessage = useRef<HTMLParagraphElement>(null);
+  const uncertainMessage = useRef<HTMLParagraphElement>(null);
+  const savedHeading = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (saved) savedHeading.current?.focus();
+    else if (uncertain) uncertainMessage.current?.focus();
+  }, [saved, uncertain]);
+  useEffect(() => { if (formError) formMessage.current?.focus(); }, [formError]);
 
   function candidate(): Record<string, unknown> {
     const changes: Record<string, unknown> = {};
@@ -33,30 +44,35 @@ export function ProfileEditor({ locale, view, busy, saved, uncertain, onSave }: 
     return changes;
   }
   const changes = candidate();
-  let valid = false;
-  try { parseProfilePatch(changes); valid = true; } catch { /* disabled until valid */ }
+
+  function clearError() { setNameError(''); setFormError(''); }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
       const patch = parseProfilePatch(changes);
-      setError('');
+      clearError();
       onSave(patch);
     } catch {
-      setError(Object.keys(changes).length ? copy.invalid : copy.unchanged);
+      if (!Object.keys(changes).length) setFormError(copy.unchanged);
+      else {
+        setNameError(copy.invalid);
+        nameInput.current?.focus();
+      }
     }
   }
 
   return <section className={styles.root} aria-labelledby="profile-title">
-    <h2 id="profile-title">{copy.title}</h2>
+    <h2 id="profile-title" tabIndex={-1}>{copy.title}</h2>
     <p>{copy.introduction}</p>
     <form className={styles.form} onSubmit={submit} noValidate>
       <label htmlFor="profile-name">{copy.displayName}</label>
-      <input id="profile-name" autoComplete="name" value={name} onChange={(event) => { setName(event.currentTarget.value); setError(''); }}
-        onBlur={() => { if (name !== (view.displayName ?? '')) { try { parseProfilePatch({ displayName: name }); } catch { setError(copy.invalid); } } }}
-        aria-invalid={Boolean(error)} aria-describedby={error ? 'profile-validation' : undefined} />
+      <input ref={nameInput} id="profile-name" autoComplete="name" value={name} onChange={(event) => { setName(event.currentTarget.value); clearError(); }}
+        onBlur={() => { if (name !== (view.displayName ?? '')) { try { parseProfilePatch({ displayName: name }); } catch { setNameError(copy.invalid); } } }}
+        aria-invalid={nameError ? 'true' : undefined} aria-describedby={nameError ? 'profile-name-validation' : undefined} />
+      {nameError ? <p id="profile-name-validation" className={styles.error} role="alert">{nameError}</p> : null}
       <label htmlFor="profile-colour">{copy.avatarColour}</label>
-      <select id="profile-colour" value={colour} onChange={(event) => setColour(event.currentTarget.value)}>
+      <select id="profile-colour" value={colour} onChange={(event) => { setColour(event.currentTarget.value); clearError(); }}>
         <option value="">{copy.none}</option>
         {Array.from({ length: 8 }, (_, index) => {
           const token = `member.accent.0${index + 1}`;
@@ -64,23 +80,23 @@ export function ProfileEditor({ locale, view, busy, saved, uncertain, onSave }: 
         })}
       </select>
       <label htmlFor="profile-emoji">{copy.avatarEmoji}</label>
-      <select id="profile-emoji" value={emoji} onChange={(event) => setEmoji(event.currentTarget.value)}>
+      <select id="profile-emoji" value={emoji} onChange={(event) => { setEmoji(event.currentTarget.value); clearError(); }}>
         <option value="">{copy.none}</option>
         {['🙂', '😀', '😎', '🌟', '🌿', '🐱', '🦊', '🦉'].map((value) => <option key={value} value={value}>{value}</option>)}
       </select>
       <label htmlFor="profile-language">{copy.language}</label>
-      <select id="profile-language" value={language} onChange={(event) => setLanguage(event.currentTarget.value as 'sv' | 'en')}>
+      <select id="profile-language" value={language} onChange={(event) => { setLanguage(event.currentTarget.value as 'sv' | 'en'); clearError(); }}>
         <option value="sv">{copy.swedish}</option><option value="en">{copy.english}</option>
       </select>
       <label htmlFor="profile-theme">{copy.theme}</label>
-      <select id="profile-theme" value={theme} onChange={(event) => setTheme(event.currentTarget.value as 'system' | 'light' | 'dark')}>
+      <select id="profile-theme" value={theme} onChange={(event) => { setTheme(event.currentTarget.value as 'system' | 'light' | 'dark'); clearError(); }}>
         <option value="system">{copy.system}</option><option value="light">{copy.light}</option><option value="dark">{copy.dark}</option>
       </select>
       <p className={styles.readOnly}>{copy.currency}: {view.defaultCurrency}</p>
-      <Button type="submit" disabled={busy || !valid}>{busy ? copy.saving : copy.save}</Button>
+      <Button type="submit" disabled={busy}>{busy ? copy.saving : copy.save}</Button>
     </form>
-    {error ? <p id="profile-validation" role="alert">{error}</p> : null}
-    {uncertain ? <p role="alert">{copy.uncertain}</p> : null}
-    {saved ? <p role="status">{copy.saved}</p> : null}
+    {formError ? <p ref={formMessage} tabIndex={-1} className={styles.focusTarget} role="alert">{formError}</p> : null}
+    {uncertain ? <p ref={uncertainMessage} tabIndex={-1} className={styles.focusTarget} role="alert">{copy.uncertain}</p> : null}
+    {saved ? <h3 ref={savedHeading} tabIndex={-1} className={styles.focusTarget}>{copy.saved}</h3> : null}
   </section>;
 }
