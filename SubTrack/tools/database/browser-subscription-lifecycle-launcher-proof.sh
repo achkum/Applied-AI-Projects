@@ -58,7 +58,7 @@ classify_launcher_failure() {
   while IFS= read -r line; do
     if [[ "${3:-}" == ST227a ]]; then
       line=$(printf '%s\n' "$line" | sed -E 's/\x1B\[[0-9;]*m//g')
-      if [[ "$line" =~ ^[[:space:]]*(Error:\ )?ST-227a\ browser\ proof\ failed:\ (fixture|compiled_child|child_spawn|child_bootstrap|child_startup_exit|child_startup_timeout|child_pool|smoke|denials|browser|matrix|visibility|authority|malformed|sigterm_cleanup|sigint_cleanup|parent_cleanup)\;\ cleanup:\ (none|child_exit|child_timeout|owner_disconnect)[[:space:]]*$ ]]; then
+      if [[ "$line" =~ ^[[:space:]]*(Error:\ )?ST-227a\ browser\ proof\ failed:\ (fixture|compiled_child|child_spawn|child_bootstrap|child_startup_exit|child_startup_timeout|child_pool|smoke|denials|browser|writer_rollback|writer_negative|fixture_reset|matrix|visibility|authority|malformed|sigterm_cleanup|sigint_cleanup|parent_cleanup)\;\ cleanup:\ (none|child_exit|child_timeout|owner_disconnect)[[:space:]]*$ ]]; then
         if [[ "${2:-phase}" == cleanup ]]; then code=${BASH_REMATCH[3]}; else code=${BASH_REMATCH[2]}; fi
         printf '%s\n' "$code"; return
       fi
@@ -118,11 +118,11 @@ finish() {
   else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; phase=cleanup; fi
   case "$phase" in starting|fixture|migration|role|tls|build|launcher-coverage|launcher-integration|browser-integration|cleanup) ;; *) phase=starting; status=1 ;; esac
-  case "$failure_subphase" in unavailable|fixture|compiled_child|child_spawn|child_bootstrap|child_startup_exit|child_startup_timeout|child_pool|smoke|denials|browser|matrix|visibility|authority|malformed|sigterm_cleanup|sigint_cleanup|parent_cleanup|collection) ;; *) failure_subphase=unavailable; status=1 ;; esac
+  case "$failure_subphase" in unavailable|fixture|compiled_child|child_spawn|child_bootstrap|child_startup_exit|child_startup_timeout|child_pool|smoke|denials|browser|writer_rollback|writer_negative|fixture_reset|matrix|visibility|authority|malformed|sigterm_cleanup|sigint_cleanup|parent_cleanup|collection) ;; *) failure_subphase=unavailable; status=1 ;; esac
   case "$failure_cleanup" in unavailable|none|child_exit|child_timeout|owner_disconnect) ;; *) failure_cleanup=unavailable; status=1 ;; esac
   [[ "$coverage" == unavailable || "$coverage" =~ ^statements:[0-9]+([.][0-9]+)?,branches:[0-9]+([.][0-9]+)?,functions:[0-9]+([.][0-9]+)?,lines:[0-9]+([.][0-9]+)?$ ]] || { coverage=unavailable; status=1; }
   if [[ "$status" -eq 0 && "$passed" == true && "${browser_passed:-false}" == true ]]; then
-    printf 'ST-226 browser subscription lifecycle launcher proof: PASS source_head=%s coverage=%s cases=READ,PATCH,reread,persistence,peer404,missing404,conflict409,pool-PID,dual-GUC,SIGTERM,SIGINT,listener-reuse,pool-baseline browser=natural-Chromium allowed=7 denied=21 total=28 fixture=removed child=stopped secrets=destroyed\n' "$source_head" "$coverage" > "$receipt"
+    printf 'ST-226 browser subscription lifecycle launcher proof: PASS source_head=%s coverage=%s cases=READ,PATCH,reread,persistence,peer404,missing404,conflict409,pool-PID,dual-GUC,SIGTERM,SIGINT,listener-reuse,pool-baseline writer=actual-rollback wrong-result=denied reset=strict browser=natural-Chromium allowed=7 denied=21 total=28 fixture=removed child=stopped secrets=destroyed\n' "$source_head" "$coverage" > "$receipt"
   else
     status=1
     printf 'ST-226 browser subscription lifecycle launcher proof: FAIL source_head=%s phase=%s subphase=%s parent_cleanup=%s fixture_cleanup=%s code=unavailable\n' "$source_head" "$phase" "$failure_subphase" "$failure_cleanup" "$bad" > "$receipt"

@@ -7,7 +7,8 @@ import { request as httpsRequest } from 'node:https';
 import { resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { test } from 'vitest';
-import { inspectOwnedFixture, privateFile } from '../src/subscriptions/browser-subscription-lifecycle.local';
+import { createWriterRollbackDelegate, inspectOwnedFixture, privateFile, ROLLBACK_BASELINE, ROLLBACK_FIXTURE } from '../src/subscriptions/browser-subscription-lifecycle.local';
+import { SubscriptionLifecycleRepository } from '../src/subscriptions/subscription-lifecycle.repository';
 
 type Credential = { handle: 'owner' | 'peer'; access: string; binding: string; csrf: string };
 const root = resolve(__dirname, '../../..');
@@ -32,7 +33,7 @@ const targets = ['ACTIVE', 'PAUSED', 'CANCELLED', 'ARCHIVED'] as const;
 const allowed = new Set(['ACTIVE:PAUSED', 'ACTIVE:CANCELLED', 'ACTIVE:ARCHIVED',
   'PAUSED:ACTIVE', 'PAUSED:CANCELLED', 'PAUSED:ARCHIVED', 'CANCELLED:ARCHIVED']);
 const phases = ['fixture', 'compiled_child', 'child_spawn', 'child_bootstrap', 'child_startup_exit',
-  'child_startup_timeout', 'child_pool', 'smoke', 'denials', 'browser', 'matrix', 'visibility', 'authority', 'malformed', 'sigterm_cleanup', 'sigint_cleanup', 'parent_cleanup'] as const;
+  'child_startup_timeout', 'child_pool', 'smoke', 'denials', 'browser', 'writer_rollback', 'writer_negative', 'fixture_reset', 'matrix', 'visibility', 'authority', 'malformed', 'sigterm_cleanup', 'sigint_cleanup', 'parent_cleanup'] as const;
 type Phase = typeof phases[number];
 type Cleanup = 'none' | 'child_exit' | 'child_timeout' | 'owner_disconnect';
 const failureReceipt = (phase: unknown, cleanup: unknown) =>
@@ -125,6 +126,10 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
         (id,identity_id,merchant_id,custom_name,category_code,cadence,expected_amount_minor,currency,status,source,always_private,updated_at)
         VALUES (${fixture.id}::uuid,${owner}::uuid,${merchant}::uuid,'synthetic','VIDEO_STREAMING','MONTHLY',1,'SEK',
           ${fixture.current}::subscription_status,'DETECTED',true,NOW())`);
+    await settled(ownerDb.$executeRaw`INSERT INTO subscription
+      (id,identity_id,merchant_id,custom_name,category_code,cadence,expected_amount_minor,currency,status,source,always_private,updated_at)
+      VALUES (${ROLLBACK_FIXTURE}::uuid,${owner}::uuid,${merchant}::uuid,'synthetic','VIDEO_STREAMING','MONTHLY',1,'SEK',
+        'ACTIVE'::subscription_status,'DETECTED',true,${new Date(ROLLBACK_BASELINE)})`);
     await settled(ownerDb.$transaction(async tx => {
       await tx.$executeRaw`INSERT INTO household (id,name,updated_at) VALUES (${household}::uuid,'synthetic',NOW())`;
       await tx.$executeRaw`INSERT INTO household_member (household_id,identity_id,role)
@@ -162,6 +167,24 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
       audit: await ownerDb!.$queryRaw`SELECT * FROM audit_log ORDER BY id`,
     });
     await settled(snapshot());
+    phase = 'writer_negative';
+    // Actual accepted UPDATE to another owned row must abort on the armed wrong-id result.
+    custody();
+    const negativeDb = new PrismaClient({ datasources: { db: { url: runtimeUrl! } }, log: [] });
+    let negativeProof: Awaited<ReturnType<typeof createWriterRollbackDelegate>> | undefined;
+    try {
+      const before = await settled(snapshot()); let stopped = false;
+      negativeProof = await settled(createWriterRollbackDelegate(negativeDb, owner, () => { stopped = true; }));
+      assert(negativeProof.arm());
+      await assert.rejects(settled(new SubscriptionLifecycleRepository(negativeProof.prisma).apply({ userId: owner }, smoke, 'pause')),
+        { message: 'SUBSCRIPTION_STORAGE_ERROR' });
+      assert(stopped); assert.equal(negativeProof.verified, false); assert.equal(negativeProof.failed, true);
+      assert.deepEqual(await settled(snapshot()), before);
+    } finally {
+      if (negativeProof) await settled(negativeProof.settle(), 10_000);
+      assert.equal(pending.size, 0); await settled(negativeDb.$disconnect(), 10_000);
+    }
+    await waitForConnections(baseline);
     phase = 'compiled_child';
     const startChild = async () => {
       custody();
@@ -170,7 +193,7 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
         cwd: resolve(root, 'apps/api'), stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
         env: { ...process.env, DATABASE_URL: '', NODE_ENV: 'development', ST226_ENABLED: '1', ST226_HOST: '127.0.0.1',
           ST226_PORT: '35426', ST226_OWNER_ID: owner, ST226_PEER_ID: peer, ST226_RUNTIME_URL: runtimeUrl,
-          ST226_OWNER_URL: '', ST226_OWNER_PROVENANCE_FILE: '' },
+          ST226_OWNER_URL: '', ST226_OWNER_PROVENANCE_FILE: '', ST227B_ENABLED: '1' },
       });
       phase = 'child_bootstrap';
       const current = child;
@@ -228,6 +251,23 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
       assert.equal(await childExit(child, 15_000), 0); child = undefined; credentials.length = 0;
       await listenerClosed(smoke); await waitForConnections(baseline);
     };
+    const rollbackControl = (action: 'arm-writer-rollback' | 'writer-rollback-observe', verified: boolean) =>
+      new Promise<void>((done, reject) => {
+        const current = child!, id = nextId++;
+        const finish = (error?: Error) => { clearTimeout(timer); current.off('message', listener); if (error) reject(error); else done(); };
+        const timer = setTimeout(() => finish(new Error('control deadline')), 5_000);
+        const listener = (raw: unknown) => {
+          if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+          const ack = raw as { kind: string; id: number; action: string; verified: boolean };
+          if (ack.kind !== 'controlled' || ack.id !== id) return;
+          if (Object.keys(raw).sort().join(',') !== 'action,id,kind,verified' || ack.action !== action || ack.verified !== verified)
+            return finish(new Error('writer evidence'));
+          finish();
+        };
+        current.on('message', listener);
+        try { current.send({ kind: 'control', id, action }, error => { if (error) finish(new Error('control send')); }); }
+        catch { finish(new Error('control send')); }
+      });
     await startChild();
     phase = 'browser';
     browser = await settled(chromium.launch(), 10_000);
@@ -310,6 +350,27 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
         : expectedProblems[status]);
     };
     await settled(observe('owner'));
+    phase = 'writer_rollback';
+    const beforeRollback = await settled(snapshot());
+    await settled(rollbackControl('arm-writer-rollback', false));
+    const rollbackResponse = await fetchCase(ownerClient, credentials[0]!, ROLLBACK_FIXTURE);
+    assert.equal(rollbackResponse.status, 500);
+    assert.deepEqual(rollbackResponse.body, { type: 'about:blank', title: 'Internal Server Error', status: 500, code: 'INTERNAL_ERROR' });
+    assert.match(rollbackResponse.contentType ?? '', /^application\/problem\+json/);
+    await settled(rollbackControl('writer-rollback-observe', true));
+    assert.deepEqual(await settled(snapshot()), beforeRollback);
+    const rolledBackRead = await fetchCase(ownerClient, credentials[0]!, ROLLBACK_FIXTURE, { read: true });
+    assert.equal(rolledBackRead.status, 200); assert.equal(rolledBackRead.body.status, 'ACTIVE');
+    const afterRollback = await fetchCase(ownerClient, credentials[0]!, ROLLBACK_FIXTURE);
+    assert.equal(afterRollback.status, 200); assert.deepEqual(afterRollback.body, { id: ROLLBACK_FIXTURE, status: 'PAUSED' });
+    const committedRollback = await settled(snapshot());
+    const changed = committedRollback.subscriptions.find(row => row.id === ROLLBACK_FIXTURE)!;
+    assert.equal(changed.status, 'PAUSED'); assert.notDeepEqual(changed.updated_at,
+      beforeRollback.subscriptions.find(row => row.id === ROLLBACK_FIXTURE)!.updated_at);
+    assert.deepEqual({ ...committedRollback, subscriptions: committedRollback.subscriptions.map(row => row.id === ROLLBACK_FIXTURE
+      ? beforeRollback.subscriptions.find(original => original.id === ROLLBACK_FIXTURE)! : row) }, beforeRollback);
+    problem(await fetchCase(peerClient, credentials[1]!, ROLLBACK_FIXTURE), 404);
+    assert.deepEqual(await settled(snapshot()), committedRollback);
     phase = 'matrix';
     let successes = 0, denials = 0;
     for (const fixture of fixtures) {
@@ -389,6 +450,17 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
     contexts.length = 0; await settled(browser.close(), 10_000); browser = undefined;
     assert.equal(pending.size, 0);
     phase = 'sigterm_cleanup'; await stopChild('SIGTERM');
+    phase = 'fixture_reset';
+    assert.equal(pending.size, 0); const beforeReset = await settled(snapshot());
+    assert.equal(beforeReset.subscriptions.find(row => row.id === ROLLBACK_FIXTURE)?.status, 'PAUSED');
+    assert.equal(await settled(ownerDb.$executeRaw`UPDATE subscription SET status='ACTIVE'::subscription_status,
+      updated_at=${new Date(ROLLBACK_BASELINE)} WHERE id=${ROLLBACK_FIXTURE}::uuid AND identity_id=${owner}::uuid
+      AND status='PAUSED'::subscription_status AND always_private=true`), 1);
+    const reset = await settled(snapshot()), resetRow = reset.subscriptions.find(row => row.id === ROLLBACK_FIXTURE)!;
+    assert.equal(resetRow.status, 'ACTIVE'); assert.deepEqual(resetRow.updated_at, new Date(ROLLBACK_BASELINE));
+    assert.deepEqual({ ...reset, subscriptions: reset.subscriptions.map(row => row.id === ROLLBACK_FIXTURE
+      ? beforeReset.subscriptions.find(original => original.id === ROLLBACK_FIXTURE)! : row) }, beforeReset);
+    assert.equal(pending.size, 0);
     phase = 'sigint_cleanup'; nextId = 1; startupPid = undefined;
     await startChild(); phase = 'sigint_cleanup'; await observe('peer'); await stopChild('SIGINT');
   } catch { failure = phase; }

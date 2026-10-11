@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { generateKeyPairSync, randomBytes } from 'node:crypto';
 import { lstatSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type Prisma } from '@prisma/client';
 import { BankIdSimulator } from '../auth/identity-provider/bankid-simulator.js';
 import { DevelopmentSimulatorLoginProofProducer } from '../auth/proofs-v2/bankid-simulator-proof-producer.js';
 import { InMemoryProofRepository, ProofStore } from '../auth/proofs-v2/proof-store.js';
@@ -17,6 +17,76 @@ import { createBrowserSubscriptionLifecycleApp } from './browser-subscription-li
 const DENIED = 'ST-226 local proof denied';
 const IMAGE = 'mirror.gcr.io/library/postgres:16-alpine';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+export const ROLLBACK_FIXTURE = '00000000-0000-4000-8000-000000000227';
+export const ROLLBACK_BASELINE = '2000-01-01T00:00:00.000Z';
+const ROLLBACK_FAULT = 'ST-227b verified writer rollback';
+type WriterRow = { id: string; owner: string; status: string; private: boolean; updated: Date;
+  pid: number; canonical: string | null; historical: string | null };
+const writerRow = (tx: Prisma.TransactionClient, owner: string) => tx.$queryRaw<WriterRow[]>`
+  SELECT id::text, identity_id::text AS owner, status::text, always_private AS private,
+    updated_at AS updated, pg_backend_pid() AS pid, current_setting('app.user_id',true) AS canonical,
+    current_setting('app.current_user_id',true) AS historical
+  FROM subscription WHERE id=${ROLLBACK_FIXTURE}::uuid AND identity_id=${owner}::uuid`;
+
+/** Private local proof seam; the callback and transaction are the accepted repository's own. */
+export async function createWriterRollbackDelegate(original: PrismaClient, owner: string, stop: () => void) {
+  const baseline = await original.$transaction(async tx => {
+    await tx.$executeRaw`SELECT set_config('app.user_id',${owner},true)`;
+    await tx.$executeRaw`SELECT set_config('app.current_user_id',${owner},true)`;
+    const rows = await writerRow(tx, owner), row = rows[0];
+    if (rows.length !== 1 || !row || row.id !== ROLLBACK_FIXTURE || row.owner !== owner || !row.private ||
+        row.status !== 'ACTIVE' || !(row.updated instanceof Date) || row.updated.toISOString() !== ROLLBACK_BASELINE ||
+        !Number.isSafeInteger(row.pid) || row.pid < 1 || row.pid > 2147483647 || row.canonical !== owner || row.historical !== owner)
+      throw new Error(DENIED);
+    return row;
+  }, { maxWait: 5_000, timeout: 5_000 });
+  let armed = false, spent = false, verified = false, failed = false, stopping = false;
+  let expiry: NodeJS.Timeout | undefined;
+  const pending = new Set<Promise<unknown>>();
+  const deny = (): never => { failed = true; verified = false; stop(); throw new Error(DENIED); };
+  const transaction = (operation: unknown, ...options: unknown[]): unknown => {
+    if (stopping) throw new Error(DENIED);
+    const consume = armed; armed = false;
+    if (consume) { clearTimeout(expiry); expiry = undefined; }
+    const callback = consume ? async (tx: Prisma.TransactionClient) => {
+      if (typeof operation !== 'function') return deny();
+      let result: unknown;
+      try { result = await operation(tx); } catch { return deny(); }
+      if (!result || typeof result !== 'object' || Array.isArray(result) ||
+          Reflect.ownKeys(result).length !== 2 || Object.keys(result).sort().join(',') !== 'id,status' ||
+          !Object.prototype.hasOwnProperty.call(result, 'id') || !Object.prototype.hasOwnProperty.call(result, 'status') ||
+          (result as { id: unknown }).id !== ROLLBACK_FIXTURE || (result as { status: unknown }).status !== 'PAUSED') return deny();
+      const rows = await writerRow(tx, owner).catch(() => deny()), row = rows[0];
+      if (rows.length !== 1 || !row || row.id !== ROLLBACK_FIXTURE || row.owner !== owner || !row.private ||
+          row.status !== 'PAUSED' || !(row.updated instanceof Date) || row.updated.getTime() === baseline.updated.getTime() ||
+          row.pid !== baseline.pid || row.canonical !== owner || row.historical !== owner) return deny();
+      verified = true;
+      throw new Error(ROLLBACK_FAULT);
+    } : operation;
+    const underlying = Reflect.apply(original.$transaction, original, [callback, ...options]) as Promise<unknown>;
+    pending.add(underlying);
+    void underlying.then(() => pending.delete(underlying), () => pending.delete(underlying));
+    return underlying;
+  };
+  const prisma = new Proxy(original, { get(target, property) {
+    if (property === '$transaction') return transaction;
+    const value: unknown = Reflect.get(target, property, target);
+    return typeof value === 'function' ? value.bind(target) : value;
+  } });
+  return { prisma, get verified() { return verified; }, get failed() { return failed; },
+    arm(): boolean {
+      if (stopping || spent || pending.size) return false;
+      spent = true; armed = true;
+      expiry = setTimeout(() => { armed = false; failed = true; stop(); }, 5_000);
+      return true;
+    },
+    async settle(): Promise<void> {
+      stopping = true; clearTimeout(expiry); expiry = undefined;
+      if (armed) { armed = false; failed = true; }
+      await Promise.allSettled([...pending]);
+    },
+  };
+}
 export interface Provenance { cid: string; label: string; created: string; runtimeUrl: string; name: string }
 
 export function privateFile(path: string | undefined, mode: number): Buffer {
@@ -75,7 +145,7 @@ export function inspectOwnedFixture(recordPath: string | undefined, runtimeUrl: 
 }
 
 type Case = 'owner' | 'peer';
-type Control = { kind: 'control'; id: number; action: 'pool-observe'; handle: Case };
+type Control = { kind: 'control'; id: number; action: string; handle?: Case };
 const send = (message: object): Promise<void> => new Promise((resolve, reject) => {
   if (!process.send || !process.connected) return reject(new Error(DENIED));
   const timer = setTimeout(() => reject(new Error(DENIED)), 5_000);
@@ -90,6 +160,8 @@ async function bounded(operation: Promise<void>): Promise<void> {
 }
 
 export async function main(): Promise<void> {
+  const rollbackEnabled = process.env['ST227B_ENABLED'];
+  if (rollbackEnabled && rollbackEnabled !== '1') throw new Error(DENIED);
   if (process.env['NODE_ENV'] !== 'development' || Boolean(process.env['DATABASE_URL']) || process.env['ST226_ENABLED'] !== '1' ||
       process.env['ST226_HOST'] !== '127.0.0.1' || (!process.send || !process.connected)) throw new Error(DENIED);
   const port = Number(process.env['ST226_PORT']);
@@ -109,6 +181,7 @@ export async function main(): Promise<void> {
   let stopWaiting: (() => void) | undefined;
   let controlling: Promise<void> | undefined;
   let controlFailed = false;
+  let rollback: Awaited<ReturnType<typeof createWriterRollbackDelegate>> | undefined;
   const credentials = [] as { handle: Case; access: string; binding: string; csrf: string }[];
   const signal = () => { stopRequested = true; stopWaiting?.(); };
   process.once('SIGTERM', signal);
@@ -118,6 +191,8 @@ export async function main(): Promise<void> {
   const shutdown = async () => {
     process.off('SIGTERM', signal); process.off('SIGINT', signal); process.off('disconnect', signal);
     process.off('message', control);
+    // A timeout cannot certify settlement or permit pool disconnect to race a writer.
+    if (rollback) await bounded(rollback.settle());
     try {
       if (controlling) await controlling;
       if (app) await bounded(app.close());
@@ -126,17 +201,26 @@ export async function main(): Promise<void> {
       try { await bounded(prisma.$disconnect()); }
       finally { key.fill(0); cert?.fill(0); credentials.length = 0; if (process.connected) process.disconnect?.(); }
     }
-    if (controlFailed) throw new Error(DENIED);
+    if (controlFailed || rollback?.failed) throw new Error(DENIED);
   };
   let nextId = 1;
   const control = (value: unknown) => {
     if (stopRequested || controlling || !value || typeof value !== 'object' || Array.isArray(value)) return;
     const command = value as Control;
-    if (Object.keys(command).sort().join(',') !== 'action,handle,id,kind' || command.kind !== 'control' ||
-        command.id !== nextId || !Number.isSafeInteger(command.id) ||
-        !['owner', 'peer'].includes(command.handle) || command.action !== 'pool-observe') return;
+    if (command.kind !== 'control' || command.id !== nextId || !Number.isSafeInteger(command.id)) return;
+    const arm = command.action === 'arm-writer-rollback';
+    const evidence = command.action === 'writer-rollback-observe';
+    if (arm || evidence) {
+      if (Object.keys(command).sort().join(',') !== 'action,id,kind' || !rollback ||
+          (arm ? !rollback.arm() : !rollback.verified)) return;
+    } else if (Object.keys(command).sort().join(',') !== 'action,handle,id,kind' ||
+        !['owner', 'peer'].includes(command.handle ?? '') || command.action !== 'pool-observe') return;
     nextId++;
     controlling = (async () => {
+      if (arm || evidence) {
+        await send({ kind: 'controlled', id: command.id, action: command.action, verified: rollback!.verified });
+        return;
+      }
       const rows = await prisma.$transaction(tx => tx.$queryRaw<{
         pid: number; canonical: string | null; historical: string | null
       }[]>`SELECT pg_backend_pid() AS pid, current_setting('app.user_id',true) AS canonical,
@@ -179,7 +263,8 @@ export async function main(): Promise<void> {
       simulatorKey.fill(0);
     }
     inspectOwnedFixture(process.env['ST226_PROVENANCE_FILE'], process.env['ST226_RUNTIME_URL']);
-    app = await createBrowserSubscriptionLifecycleApp({ prisma, accessTokens, principal, repository: sessions, csrf,
+    if (rollbackEnabled === '1') rollback = await createWriterRollbackDelegate(prisma, owner!, signal);
+    app = await createBrowserSubscriptionLifecycleApp({ prisma: rollback?.prisma ?? prisma, accessTokens, principal, repository: sessions, csrf,
       clock, bindingCookieName: 'st_v2_binding', developmentEnabled: true, host: '127.0.0.1', port,
       exactOrigin: origin, tls: { key, cert: cert! }, expectedDatabase: 'browser_subscription_lifecycle_proof', expectedRole: 'st_browser_lifecycle_runtime' });
     active();
