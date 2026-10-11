@@ -32,7 +32,7 @@ async function awaitMarker(name) {
 }
 function request(headers, body = '{}', pathname = '/v2/me/profile/read') {
   return new Promise((resolve, reject) => {
-    const req = https.request(`${origin}${pathname}`, { method: 'POST', ca, headers: {
+    const req = https.request(`${origin}${pathname}`, { method: 'POST', family: 4, ca, headers: {
       'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...headers } }, res => {
       const parts = []; res.on('data', part => parts.push(part)); res.on('end', () => {
         try { const text = Buffer.concat(parts).toString('utf8');
@@ -40,7 +40,11 @@ function request(headers, body = '{}', pathname = '/v2/me/profile/read') {
         } catch (error) { reject(error); }
       });
     });
-    req.on('error', reject); req.end(body);
+    req.on('error', error => {
+      negativeNetwork = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT'].includes(error.code) ? error.code :
+        ['CERT_HAS_EXPIRED', 'DEPTH_ZERO_SELF_SIGNED_CERT', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'ERR_TLS_CERT_ALTNAME_INVALID'].includes(error.code) ? 'TLS' : 'OTHER';
+      reject(error);
+    }); req.end(body);
   });
 }
 function closedProblem(result, status, code) {
@@ -55,6 +59,8 @@ let phase = 'LAUNCH';
 let context;
 let profileWire = { patch: 'NONE', read: 'NONE' };
 let navigationStatus = 'NONE';
+let negativeCase = 'NONE', negativeStatus = 'NONE', negativeNetwork = 'NONE';
+const safeStatus = value => [200, 400, 401, 403, 409, 421, 500].includes(value) ? String(value) : 'OTHER';
 try {
   context = await firefox.launchPersistentContext(process.env.ST237_TRUSTED_PROFILE, { headless: true });
   const page = await context.newPage();
@@ -92,12 +98,18 @@ try {
       }
     } catch { safeWire = false; }
   });
+  await page.addInitScript(selected => globalThis.localStorage.setItem('theme-preference', selected), theme);
   phase = 'NAVIGATE';
   const first = await page.goto(`${origin}/${locale}/register?st237_probe=${randomUUID()}`, { waitUntil: 'domcontentloaded' });
   navigationStatus = first && [200, 304, 400, 404, 500].includes(first.status()) ? String(first.status()) : 'OTHER';
   assert.equal(first?.status(), 200);
   const themeButton = page.getByRole('navigation', { name: preferenceCopy.label, exact: true })
     .getByRole('button', { name: preferenceCopy.themes[theme], exact: true });
+  await themeButton.waitFor({ state: 'visible' });
+  await page.waitForFunction(({ label, name }) => [...globalThis.document.querySelectorAll('nav[aria-label]')]
+    .some(nav => nav.getAttribute('aria-label') === label && [...nav.querySelectorAll('button')]
+      .some(button => button.textContent === name && button.getAttribute('aria-pressed') === 'true')),
+  { label: preferenceCopy.label, name: preferenceCopy.themes[theme] });
   await themeButton.click();
   await page.waitForFunction(selected => globalThis.localStorage.getItem('theme-preference') === selected, theme);
   phase = 'IDENTIFIER_READY';
@@ -146,6 +158,7 @@ try {
     assert.equal(cookie.path, name === 'st_v2_refresh' ? '/v2/auth' : '/v2');
   }
   phase = 'AUTHORITY_NEGATIVES';
+  negativeCase = 'BROWSER_MATRIX';
   assert.equal(typeof csrf, 'string');
   const statuses = await page.evaluate(async token => {
     const call = async (body, csrfToken) => {
@@ -156,31 +169,41 @@ try {
     return [await call('{}', `${token.startsWith('A') ? 'B' : 'A'}${token.slice(1)}`),
       await call('{"owner":"foreign"}', token), await call('{"x":1,"x":2}', token), await call('{}', token)];
   }, csrf);
+  const browserCases = ['BROWSER_CSRF', 'BROWSER_FOREIGN_BODY', 'BROWSER_DUPLICATE_BODY', 'BROWSER_VALID'];
+  for (let index = 0; index < browserCases.length; index++)
+    process.stdout.write(`ST237_NEGATIVE_GATE case=${browserCases[index]} status=${safeStatus(statuses[index])} network=NONE\n`);
   assert.deepEqual(statuses, [401, 400, 400, 200]);
+  negativeCase = 'COOKIE_ROSTER';
   const cookieHeader = cookies.filter(item => ['st_v2_access', 'st_v2_binding', 'st_v2_chain'].includes(item.name))
     .map(item => `${item.name}=${item.value}`).join('; ');
   const names = Object.fromEntries(cookies.map(item => [item.name, item.value]));
   assert.equal(Object.keys(names).filter(name => name.startsWith('st_v2_')).length, 4);
   const baseHeaders = { Origin: origin, Cookie: cookieHeader, 'X-Session-CSRF': csrf };
   const negativeCases = [
-    [{ ...baseHeaders, Origin: 'https://other.invalid' }, 403, 'PROFILE_REQUEST_REJECTED'],
-    [{ ...baseHeaders, Cookie: cookieHeader.split('; ').filter(item => !item.startsWith('st_v2_chain=')).join('; ') }, 403, 'PROFILE_REQUEST_REJECTED'],
-    [{ ...baseHeaders, Cookie: cookieHeader.replace(names.st_v2_chain, `${names.st_v2_chain.startsWith('A') ? 'B' : 'A'}${names.st_v2_chain.slice(1)}`) }, 401, 'AUTHENTICATION_REQUIRED'],
-    [{ ...baseHeaders, Cookie: `${cookieHeader}; st_v2_chain=${names.st_v2_chain}` }, 400, 'INVALID_PROFILE_REQUEST'],
-    [{ ...baseHeaders, Cookie: cookieHeader.split('; ').filter(item => !item.startsWith('st_v2_binding=')).join('; ') }, 403, 'PROFILE_REQUEST_REJECTED'],
-    [{ ...baseHeaders, Cookie: cookieHeader.replace(names.st_v2_binding, `${names.st_v2_binding.startsWith('A') ? 'B' : 'A'}${names.st_v2_binding.slice(1)}`) }, 401, 'AUTHENTICATION_REQUIRED'],
-    [{ ...baseHeaders, Cookie: `${cookieHeader}; st_v2_refresh=${names.st_v2_refresh}` }, 403, 'PROFILE_REQUEST_REJECTED'],
-    [{ ...baseHeaders, 'X-Session-CSRF': undefined }, 403, 'PROFILE_REQUEST_REJECTED'],
-  ];
-  for (const [headers, status, code] of negativeCases) {
+    ['ORIGIN', { ...baseHeaders, Origin: 'https://other.invalid' }, 403, 'PROFILE_REQUEST_REJECTED'],
+    ['CHAIN_MISSING', { ...baseHeaders, Cookie: cookieHeader.split('; ').filter(item => !item.startsWith('st_v2_chain=')).join('; ') }, 403, 'PROFILE_REQUEST_REJECTED'],
+    ['CHAIN_FOREIGN', { ...baseHeaders, Cookie: cookieHeader.replace(names.st_v2_chain, `${names.st_v2_chain.startsWith('A') ? 'B' : 'A'}${names.st_v2_chain.slice(1)}`) }, 401, 'AUTHENTICATION_REQUIRED'],
+    ['CHAIN_DUPLICATE', { ...baseHeaders, Cookie: `${cookieHeader}; st_v2_chain=${names.st_v2_chain}` }, 400, 'INVALID_PROFILE_REQUEST'],
+    ['BINDING_MISSING', { ...baseHeaders, Cookie: cookieHeader.split('; ').filter(item => !item.startsWith('st_v2_binding=')).join('; ') }, 403, 'PROFILE_REQUEST_REJECTED'],
+    ['BINDING_FOREIGN', { ...baseHeaders, Cookie: cookieHeader.replace(names.st_v2_binding, `${names.st_v2_binding.startsWith('A') ? 'B' : 'A'}${names.st_v2_binding.slice(1)}`) }, 401, 'AUTHENTICATION_REQUIRED'],
+    ['REFRESH_EXTRA', { ...baseHeaders, Cookie: `${cookieHeader}; st_v2_refresh=${names.st_v2_refresh}` }, 403, 'PROFILE_REQUEST_REJECTED'],
+    ['CSRF_MISSING', { ...baseHeaders, 'X-Session-CSRF': undefined }, 403, 'PROFILE_REQUEST_REJECTED'],  ];
+  for (const [caseName, headers, status, code] of negativeCases) {
     const supplied = Object.fromEntries(Object.entries(headers).filter(([, value]) => value !== undefined));
-    closedProblem(await request(supplied), status, code);
+    negativeCase = caseName; negativeStatus = 'NONE'; negativeNetwork = 'NONE';
+    const observed = await request(supplied); negativeStatus = safeStatus(observed.status);
+    closedProblem(observed, status, code);
   }
+  negativeCase = 'WRONG_HOST'; negativeStatus = 'NONE'; negativeNetwork = 'NONE';
   const wrongHost = await request({ ...baseHeaders, Host: 'other.invalid' });
+  negativeStatus = safeStatus(wrongHost.status);
   assert.equal(wrongHost.status, 421);
   assert.equal(wrongHost.headers['cache-control'], 'no-store');
   assert.equal(wrongHost.headers.pragma, 'no-cache');
-  closedProblem(await request(baseHeaders, '{"x":1,"x":2}'), 400, 'INVALID_PROFILE_REQUEST');
+  negativeCase = 'NATIVE_DUPLICATE_BODY'; negativeStatus = 'NONE';
+  const malformed = await request(baseHeaders, '{"x":1,"x":2}'); negativeStatus = safeStatus(malformed.status);
+  closedProblem(malformed, 400, 'INVALID_PROFILE_REQUEST');
+  negativeCase = 'STORAGE'; negativeStatus = 'NONE';
   const visibleCookie = await page.evaluate(() => globalThis.document.cookie);
   assert(!visibleCookie.includes('st_v2_'));
   const storage = await page.evaluate(() => ({ local: Object.keys(globalThis.localStorage), session: Object.keys(globalThis.sessionStorage) }));
@@ -270,6 +293,7 @@ try {
   process.stdout.write('PASS ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES\nPASS ST237_BROWSER_RELOAD_STOP\n');
   process.stdout.write('PASS ST237_BROWSER_COMMITTED_PARTIAL_TERMINAL_COOKIE_STOP\n');
 } catch {
+  if (phase === 'AUTHORITY_NEGATIVES') process.stderr.write(`ST237_NEGATIVE_GATE case=${negativeCase} status=${negativeStatus} network=${negativeNetwork}\n`);
   process.stderr.write(`FAIL ST237_BROWSER_PROFILE phase=${phase} navigation=${navigationStatus} patch=${profileWire.patch} read=${profileWire.read}\n`);
   process.exitCode = 1;
 } finally {

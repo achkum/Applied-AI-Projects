@@ -239,10 +239,11 @@ done
 # Every timed phase uses the real finish writer. Values from private clients and
 # unapproved labels must never reach the public receipt.
 for timed_phase in peek settle nonce-prune atomic-issue-16; do
-  for diagnostic_case in valid invalid_step invalid_case invalid_release invalid_kind invalid_state invalid_exit; do
+  for diagnostic_case in valid invalid_step invalid_case invalid_release invalid_kind invalid_state invalid_exit physical_drift invalid_drift; do
     tmp=$(mktemp -d "$base/st233a.XXXXXX")
     phase=$timed_phase passed=false client_log="$tmp/client.log" client_exit_status=1
     timed_step=blocked-edge timed_case=epoch timed_release=ROLLBACK timed_failure_kind=assertion
+    nonce_catalog_drift=unavailable expected_drift=unavailable
     expected_step=blocked-edge expected_case=epoch expected_release=ROLLBACK expected_kind=assertion expected_state=42P01 expected_exit=1
     printf 'ERROR:  42P01: private-sentinel raw-SQL row=secret time=123 id=secret\n' > "$client_log"
     case "$diagnostic_case" in
@@ -253,11 +254,14 @@ for timed_phase in peek settle nonce-prune atomic-issue-16; do
       invalid_kind) timed_failure_kind=private-sentinel; expected_kind=unavailable ;;
       invalid_state) printf 'ERROR:  42P01X: private-sentinel\n' > "$client_log"; expected_state=unavailable ;;
       invalid_exit) client_exit_status=256; expected_exit=unavailable ;;
+      physical_drift) nonce_catalog_drift=physical-only; expected_drift=physical-only ;;
+      invalid_drift) nonce_catalog_drift=private-sentinel ;;
     esac
     : > "$receipt"
     status=0; (trap finish EXIT; false) || status=$?
     [[ "$status" != 0 && ! -e "$tmp" ]]
-    grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=$timed_phase cleanup=removed step=$expected_step case=$expected_case release=$expected_release failure_kind=$expected_kind last_client_sqlstate=$expected_state last_client_exit=$expected_exit$" "$receipt"
+    expected_suffix=''; [[ "$timed_phase" != nonce-prune ]] || expected_suffix=" drift=$expected_drift"
+    grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=$timed_phase cleanup=removed step=$expected_step case=$expected_case release=$expected_release failure_kind=$expected_kind last_client_sqlstate=$expected_state last_client_exit=$expected_exit$expected_suffix$" "$receipt"
     ! grep -Eq 'private-sentinel|raw-SQL|row=|time=|id=' "$receipt"
   done
 done
