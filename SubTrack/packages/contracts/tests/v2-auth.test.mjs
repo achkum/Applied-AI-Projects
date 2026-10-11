@@ -32,6 +32,14 @@ const privatePostPaths = [
   '/v2/subscriptions/owner/read', '/v2/subscriptions/{id}/read',
 ];
 
+function assertRequiredBrowserHeaders(operation, label) {
+  const origin = operation.parameters.find((parameter) => parameter.name === 'Origin');
+  const csrf = operation.parameters.find((parameter) => parameter.name === 'X-Session-CSRF');
+  assert.equal(origin?.required, true, `${label} requires exact Origin`);
+  assert.equal(csrf?.required, true, `${label} requires current session CSRF`);
+  assert.equal(csrf.schema.minLength, 1, `${label} rejects empty session CSRF`);
+}
+
 function classifiedPosts(document) {
   const paths = Object.entries(document.paths)
     .filter(([path, item]) => path.startsWith('/v2/') && item.post)
@@ -82,11 +90,9 @@ test('v2 mutating POSTs require idempotency and browser state distinguishes nonc
       const operation = document.paths[path].post;
       assert.equal(operation.parameters.some((parameter) => parameter.name === 'Idempotency-Key'), false,
         `${path} rejects Idempotency-Key`);
-      assert.ok(operation.parameters.some((parameter) => parameter.name === 'X-Session-CSRF'),
-        `${path} declares current session CSRF`);
-      assert.ok(operation.parameters.some((parameter) => parameter.name === 'Origin'),
-        `${path} declares exact Origin`);
+      assertRequiredBrowserHeaders(operation, `POST ${path}`);
     }
+    assertRequiredBrowserHeaders(document.paths['/v2/me/profile'].patch, 'PATCH /v2/me/profile');
     const profileRead = document.paths['/v2/me/profile/read'].post;
     assert.equal(profileRead.requestBody.content['application/json'].schema.type, 'object');
     assert.equal(profileRead.requestBody.content['application/json'].schema.maxProperties, 0);
@@ -120,7 +126,11 @@ test('v2 mutating POSTs require idempotency and browser state distinguishes nonc
     assert.match(session.description, /session-bound CSRF/i);
     assert.match(session.description, /AUTH_RESTART_REQUIRED/i);
     assert.ok(document.components.parameters.SessionCsrf);
+    assert.equal(document.components.parameters.SessionCsrf.required, false);
     assert.match(document.components.parameters.SessionCsrf.description, /separate from browser nonce/i);
+    assert.equal(document.components.parameters.OriginForWeb.required, false);
+    assert.equal(document.components.parameters.BrowserSessionCsrf.required, true);
+    assert.equal(document.components.parameters.BrowserSessionCsrf.schema.minLength, 1);
     for (const path of ['/v2/auth/otp/start', '/v2/auth/otp/verify']) {
       assert.ok(document.paths[path].post.responses['200'] || document.paths[path].post.responses['202']);
     }

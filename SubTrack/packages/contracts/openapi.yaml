@@ -1088,8 +1088,8 @@ paths:
         binding and X-Session-CSRF. Reject queries, extra fields, alternate
         credentials and Idempotency-Key. An uncertain result is never retried.
       parameters:
-        - $ref: '#/components/parameters/OriginForWeb'
-        - $ref: '#/components/parameters/SessionCsrf'
+        - $ref: '#/components/parameters/ExactOrigin'
+        - $ref: '#/components/parameters/BrowserSessionCsrf'
       security:
         - V2WebAccessCookie: []
       requestBody:
@@ -1114,8 +1114,8 @@ paths:
         the same current session envelope as mode choice. Null means no explicit
         choice. This read has no mode or session write side effect.
       parameters:
-        - $ref: '#/components/parameters/OriginForWeb'
-        - $ref: '#/components/parameters/SessionCsrf'
+        - $ref: '#/components/parameters/ExactOrigin'
+        - $ref: '#/components/parameters/BrowserSessionCsrf'
       security:
         - V2WebAccessCookie: []
       requestBody:
@@ -1145,8 +1145,8 @@ paths:
         Re-evaluation on each page is not snapshot pagination. The exact current
         Origin, three-cookie roster, chain, binding and X-Session-CSRF apply.
       parameters:
-        - $ref: '#/components/parameters/OriginForWeb'
-        - $ref: '#/components/parameters/SessionCsrf'
+        - $ref: '#/components/parameters/ExactOrigin'
+        - $ref: '#/components/parameters/BrowserSessionCsrf'
       security:
         - V2WebAccessCookie: []
       requestBody:
@@ -1174,8 +1174,8 @@ paths:
         owner-scoped read does not rotate session, nonce or CSRF. Every response
         is no-store and no-cache.
       parameters:
-        - $ref: '#/components/parameters/OriginForWeb'
-        - $ref: '#/components/parameters/SessionCsrf'
+        - $ref: '#/components/parameters/ExactOrigin'
+        - $ref: '#/components/parameters/BrowserSessionCsrf'
       security:
         - V2WebAccessCookie: []
       requestBody:
@@ -1202,8 +1202,8 @@ paths:
         result must not be replayed automatically. Every response is no-store
         and no-cache.
       parameters:
-        - $ref: '#/components/parameters/OriginForWeb'
-        - $ref: '#/components/parameters/SessionCsrf'
+        - $ref: '#/components/parameters/ExactOrigin'
+        - $ref: '#/components/parameters/BrowserSessionCsrf'
       security:
         - V2WebAccessCookie: []
       requestBody:
@@ -2230,6 +2230,12 @@ components:
       required: false
       schema: { type: string }
       description: Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+    BrowserSessionCsrf:
+      name: X-Session-CSRF
+      in: header
+      required: true
+      schema: { type: string, minLength: 1 }
+      description: Required current session CSRF for the verified browser identity and session; separate from browser nonce.
   securitySchemes:
     V1AccessBearer:
       type: http

@@ -908,6 +908,11 @@ export const zBrowserNonce = z.string();
 export const zSessionCsrf = z.string();
 
 /**
+ * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
+ */
+export const zBrowserSessionCsrf = z.string().min(1);
+
+/**
  * API process is healthy.
  */
 export const zGetHealthzResponse = zHealthResponse;
@@ -1237,8 +1242,8 @@ export const zVerifyV2DeleteOtpReauthResponse = zDeleteOtpVerifyResponse;
 export const zChooseV2BrowserJustMeBody = zJustMeChoice;
 
 export const zChooseV2BrowserJustMeHeaders = z.object({
-    Origin: z.url().optional(),
-    'X-Session-CSRF': z.string().optional()
+    Origin: z.url(),
+    'X-Session-CSRF': z.string().min(1)
 });
 
 /**
@@ -1249,8 +1254,8 @@ export const zChooseV2BrowserJustMeResponse = zModeView;
 export const zReadV2BrowserModeBody = zProfileReadRequest;
 
 export const zReadV2BrowserModeHeaders = z.object({
-    Origin: z.url().optional(),
-    'X-Session-CSRF': z.string().optional()
+    Origin: z.url(),
+    'X-Session-CSRF': z.string().min(1)
 });
 
 /**
@@ -1261,8 +1266,8 @@ export const zReadV2BrowserModeResponse = zModeView;
 export const zReadV2PrivateOwnerSubscriptionsBody = zPrivateOwnerPageRequest;
 
 export const zReadV2PrivateOwnerSubscriptionsHeaders = z.object({
-    Origin: z.url().optional(),
-    'X-Session-CSRF': z.string().optional()
+    Origin: z.url(),
+    'X-Session-CSRF': z.string().min(1)
 });
 
 /**
@@ -1273,8 +1278,8 @@ export const zReadV2PrivateOwnerSubscriptionsResponse = zPrivateOwnerPage;
 export const zReadV2BrowserProfileBody = zProfileReadRequest;
 
 export const zReadV2BrowserProfileHeaders = z.object({
-    Origin: z.url().optional(),
-    'X-Session-CSRF': z.string().optional()
+    Origin: z.url(),
+    'X-Session-CSRF': z.string().min(1)
 });
 
 /**
@@ -1285,8 +1290,8 @@ export const zReadV2BrowserProfileResponse = zProfileView;
 export const zPatchV2BrowserProfileBody = zProfilePatch;
 
 export const zPatchV2BrowserProfileHeaders = z.object({
-    Origin: z.url().optional(),
-    'X-Session-CSRF': z.string().optional()
+    Origin: z.url(),
+    'X-Session-CSRF': z.string().min(1)
 });
 
 /**

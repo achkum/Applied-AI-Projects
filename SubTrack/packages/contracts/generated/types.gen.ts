@@ -785,6 +785,11 @@ export type BrowserNonce = string;
  */
 export type SessionCsrf = string;
 
+/**
+ * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
+ */
+export type BrowserSessionCsrf = string;
+
 export type GetHealthzData = {
     body?: never;
     path?: never;
@@ -2050,15 +2055,15 @@ export type VerifyV2DeleteOtpReauthResponse = VerifyV2DeleteOtpReauthResponses[k
 
 export type ChooseV2BrowserJustMeData = {
     body: JustMeChoice;
-    headers?: {
+    headers: {
         /**
-         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
          */
-        Origin?: string;
+        Origin: string;
         /**
-         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
          */
-        'X-Session-CSRF'?: string;
+        'X-Session-CSRF': string;
     };
     path?: never;
     query?: never;
@@ -2101,15 +2106,15 @@ export type ChooseV2BrowserJustMeResponse = ChooseV2BrowserJustMeResponses[keyof
 
 export type ReadV2BrowserModeData = {
     body: ProfileReadRequest;
-    headers?: {
+    headers: {
         /**
-         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
          */
-        Origin?: string;
+        Origin: string;
         /**
-         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
          */
-        'X-Session-CSRF'?: string;
+        'X-Session-CSRF': string;
     };
     path?: never;
     query?: never;
@@ -2152,15 +2157,15 @@ export type ReadV2BrowserModeResponse = ReadV2BrowserModeResponses[keyof ReadV2B
 
 export type ReadV2PrivateOwnerSubscriptionsData = {
     body: PrivateOwnerPageRequest;
-    headers?: {
+    headers: {
         /**
-         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
          */
-        Origin?: string;
+        Origin: string;
         /**
-         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
          */
-        'X-Session-CSRF'?: string;
+        'X-Session-CSRF': string;
     };
     path?: never;
     query?: never;
@@ -2203,15 +2208,15 @@ export type ReadV2PrivateOwnerSubscriptionsResponse = ReadV2PrivateOwnerSubscrip
 
 export type ReadV2BrowserProfileData = {
     body: ProfileReadRequest;
-    headers?: {
+    headers: {
         /**
-         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
          */
-        Origin?: string;
+        Origin: string;
         /**
-         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
          */
-        'X-Session-CSRF'?: string;
+        'X-Session-CSRF': string;
     };
     path?: never;
     query?: never;
@@ -2259,15 +2264,15 @@ export type ReadV2BrowserProfileResponse = ReadV2BrowserProfileResponses[keyof R
 
 export type PatchV2BrowserProfileData = {
     body: ProfilePatch;
-    headers?: {
+    headers: {
         /**
-         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
          */
-        Origin?: string;
+        Origin: string;
         /**
-         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
          */
-        'X-Session-CSRF'?: string;
+        'X-Session-CSRF': string;
     };
     path?: never;
     query?: never;

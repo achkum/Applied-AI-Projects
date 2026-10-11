@@ -286,10 +286,22 @@ async function assertProfileCatalog(client) {
     ['identity_profile','updated_at','timestamp with time zone',false,'now()'],
     ['identity_profile','onboarding_mode','character varying(16)',true,null],
   ];
-  if (columns.rows.length !== expectedColumns.length ||
-    columns.rows.some((row, i) => JSON.stringify([row.table_name,row.name,row.type,row.nullable,row.default_value]) !==
-      JSON.stringify(expectedColumns[i]) ||
-      (row.table_name === 'identity_profile' && row.position !== i - 2))) fail();
+  const columnMatches = columns.rows.map((row, i) =>
+    JSON.stringify([row.table_name,row.name,row.type,row.nullable,row.default_value]) ===
+      JSON.stringify(expectedColumns[i]) &&
+      (row.table_name !== 'identity_profile' || row.position === i - 2));
+  if (columns.rows.length !== expectedColumns.length || columnMatches.some(match => !match)) {
+    const modeRows = columns.rows.filter(row =>
+      row.table_name === 'identity_profile' && row.name === 'onboarding_mode');
+    const modeDefault = modeRows.length !== 1 ? 'missing_or_duplicate' :
+      modeRows[0].default_value === null ? 'implicit_null' :
+      modeRows[0].default_value === 'NULL::character varying' ? 'explicit_varchar_null' : 'other';
+    const otherMatches = columnMatches.filter((match, i) =>
+      columns.rows[i]?.table_name !== 'identity_profile' || columns.rows[i]?.name !== 'onboarding_mode')
+      .filter(Boolean).length;
+    process.stderr.write(`ST238_PROFILE_COLUMNS_DIAGNOSTIC mode_default=${modeDefault} other_matches=${otherMatches}/${expectedColumns.length - 1}\n`);
+    fail();
+  }
 
   const catalog = await client.query(`SELECT c.relkind::text AS kind,c.relrowsecurity AS rls,
       c.relforcerowsecurity AS force_rls,r.rolname::text AS owner
