@@ -225,7 +225,12 @@ try {
     await capture('owner-list-loaded');
     const firstRow = ownerRegion.getByRole('listitem').first().getByRole('button');
     await firstRow.focus();
+    await page.keyboard.press('Tab');
+    const secondRow = ownerRegion.getByRole('listitem').nth(1).getByRole('button');
+    assert.equal(await secondRow.evaluate(element => globalThis.document.activeElement === element), true);
+    await page.keyboard.press('Shift+Tab');
     assert.equal(await firstRow.evaluate(element => globalThis.document.activeElement === element), true);
+    assert.equal(await firstRow.evaluate(element => element.matches(':focus-visible')), true);
     await capture('focused-owner-row');
     await firstRow.press('Enter');
     phase = 'SUBSCRIPTION_DETAIL';

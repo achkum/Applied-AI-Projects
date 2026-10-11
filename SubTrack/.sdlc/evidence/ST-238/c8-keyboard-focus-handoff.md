@@ -1,0 +1,7 @@
+# ST-238 C8 keyboard focus proof author handoff
+
+2026-10-11. Narrow proof-only proposal for independent exact-blob source review. Base C7 PR #283 HEAD: `8b25577ebc66242ba742dfcdff2bf58cc93792a4`. Proposed browser-driver Git blob: `70d3415eba9a25ed409e5cafb412f1076a64af24` (`SubTrack/apps/web/test/private-profile-browser.mjs`). No commit or push.
+
+After the existing `firstRow.focus()`, the driver now presses a real keyboard Tab, asserts that the second row button is the active element, presses Shift+Tab, then retains the existing first-row active-element assertion. It additionally requires `firstRow.matches(':focus-visible') === true` before the existing awaited `focused-owner-row` capture. The existing Enter interaction follows the capture unchanged. Both subscriptions and uncertainty cases use this shared path. The populated 50/51 list assertions and captures, fixture, headers, runtime, CSS, timeout, and cleanup remain unchanged.
+
+`node --check apps/web/test/private-profile-browser.mjs` passed. Git diff inspection shows only those five added lines in the browser driver. No heavy tests or actual browser run were performed here. C7's 20 fresh cases and twelve inspected populated-list images carry as prior evidence only; four keyboard-visible screenshots require fresh C8 execution and independent inspection. Independent source review must compare the proposed Git blob with the exact candidate before push. Original source1 started 2026-10-11T16:41:13.258Z; deadline 20:41:13.258Z remains unchanged.
