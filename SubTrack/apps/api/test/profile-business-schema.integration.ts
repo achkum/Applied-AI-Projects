@@ -15,7 +15,7 @@ test('ordinary profile business catalog and owner RLS', async () => {
   const runtime = new PrismaClient({ datasources: { db: { url: runtimeUrl } }, log: [] });
   try {
     const columns = await owner.$queryRaw<{ name: string; type: string; nullable: string; default_value: string | null }[]>`
-      SELECT column_name AS name, format_type(a.atttypid,a.atttypmod) AS type,
+      SELECT a.attname AS name, format_type(a.atttypid,a.atttypmod) AS type,
         CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS nullable,
         pg_get_expr(d.adbin,d.adrelid) AS default_value
       FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid
