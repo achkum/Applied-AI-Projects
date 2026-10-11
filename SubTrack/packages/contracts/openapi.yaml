@@ -1065,6 +1065,37 @@ paths:
 
 components:
   schemas:
+    ProfilePatch:
+      description: Private profile data patch; no identity, owner, contact, provider, session or household authority. A later writer must scope it from trusted context.
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 80, description: 'Already NFC and trim-stable; 1-80 Unicode scalar values, no Cc/Cf or unpaired surrogate.' }
+        avatarColourToken: { type: [string, 'null'], enum: [member.accent.01, member.accent.02, member.accent.03, member.accent.04, member.accent.05, member.accent.06, member.accent.07, member.accent.08, null] }
+        avatarEmoji: { type: [string, 'null'], enum: [🙂, 😀, 😎, 🌟, 🌿, 🐱, 🦊, 🦉, null] }
+        language: { type: string, enum: [sv, en] }
+        theme: { type: string, enum: [system, light, dark] }
+    ProfileView:
+      description: Closed private profile projection. A complete profile requires a valid nonnull displayName; incomplete may have null or a valid name.
+      type: object
+      additionalProperties: false
+      required: [displayName, avatarColourToken, avatarEmoji, language, theme, defaultCurrency, profileComplete]
+      properties:
+        displayName: { type: [string, 'null'], minLength: 1, maxLength: 80, description: Nonnull when profileComplete; already NFC and trim-stable with 1-80 Unicode scalar values and no Cc/Cf or unpaired surrogate. }
+        avatarColourToken: { type: [string, 'null'], enum: [member.accent.01, member.accent.02, member.accent.03, member.accent.04, member.accent.05, member.accent.06, member.accent.07, member.accent.08, null] }
+        avatarEmoji: { type: [string, 'null'], enum: [🙂, 😀, 😎, 🌟, 🌿, 🐱, 🦊, 🦉, null] }
+        language: { type: string, enum: [sv, en] }
+        theme: { type: string, enum: [system, light, dark] }
+        defaultCurrency: { type: string, const: SEK }
+        profileComplete: { type: boolean }
+    JustMeChoice:
+      description: Explicit data choice after a persisted completed profile. A future trusted caller enforces that prerequisite; this component creates no household, membership or consent.
+      type: object
+      additionalProperties: false
+      required: [mode]
+      properties:
+        mode: { type: string, const: just-me }
     HealthResponse:
       type: object
       additionalProperties: false

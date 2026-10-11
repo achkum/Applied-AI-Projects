@@ -214,6 +214,16 @@ gate; this task neither chooses it nor adds a recovery operation. Without review
 CSRF recovery, reload requires fresh verified login. Existing access-readiness
 sketch authorizes no permissions.
 
+## Private profile and Just me components (ST-234)
+
+`ProfilePatch`, `ProfileView`, and `JustMeChoice` are closed OpenAPI components with generated types/Zod and an exported strict profile decoder. They add no endpoint, authentication, storage, household, membership, consent, or runtime mode transition. The `/v1/me` listing above does not become available through these components.
+
+Patch accepts at least one of displayName, avatarColourToken, avatarEmoji, language, or theme. Unknown fields, including owner/contact/provider/verified-name/session/household authority and currency, are rejected. Only the two avatar fields accept null to clear. Display names must already be NFC and ECMAScript-trim-stable, contain 1–80 Unicode scalar values, and contain no Cc/Cf character or unpaired surrogate; the decoder rejects invalid text without silently changing it. Avatar colour is one of `member.accent.01`–`08`; emoji is exactly one of 🙂 😀 😎 🌟 🌿 🐱 🦊 🦉. Language is `sv|en`, theme is `system|light|dark`.
+
+View has nullable displayName only while incomplete, nullable avatar fields, `profileComplete`, language, theme, and literal `defaultCurrency: SEK`. A completed view requires a valid nonnull displayName. Without an explicit language choice, the private locale hint yields `sv` only for `sv` or `sv-*` (ASCII case-insensitive), otherwise `en`; the raw hint is never persisted or logged. Theme defaults to `system`, currency to `SEK`, and avatar fields to null until chosen. Trusted server-reviewed given/surname may suggest an editable displayName for user confirmation; those source fields convey no client authority and are absent from patch/view.
+
+`JustMeChoice` is exactly `{mode:'just-me'}`. A future trusted caller must accept it only after a persisted completed profile and a later explicit user choice. The component itself creates no household, member, consent, or implicit Just me selection; My household remains a separate future flow. Raw generated Zod does not enforce the patch's nonempty requirement, canonical-name rules, or completed-view cross-field rule; use the exported strict decoder at this private boundary.
+
 ## Session management and deletion (existing operations)
 
 Session listing and revocation are scoped to the active authenticated caller; no identity selector is accepted. Derive `{identityId, sessionId}` only from an active server-validated v2 credential. Unknown, expired, or revoked credentials reveal no ownership. Missing/invalid auth uses a stable generic RFC 9457 `401`; CSRF failure is `403`; use `application/problem+json` and redact credentials and PII from errors and logs.

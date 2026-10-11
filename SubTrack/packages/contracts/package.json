@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./generated/index.ts",
-    "./identifiers": "./identifiers.ts"
+    "./identifiers": "./identifiers.ts",
+    "./profile": "./profile.ts"
   },
   "engines": {
     "node": ">=22.18.0"
