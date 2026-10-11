@@ -1,0 +1,9 @@
+# ST230 independent platform proposal review C1
+Verdict: REQUEST CHANGES; documentation/proposal only, no storage/runtime/grant/account-readiness acceptance.
+Reviewed frozen ADR0027 f5b5b8b1e413196b3145375ba0fc8c4bddff4262, accepted ST228 ADR0026/transaction plan and actual auth/transaction/privacy/deletion sources.
+P1 feasibility: ADR0027:24 directly calls public.subtrack_principal() in runtime owner RLS, but migration0002:183-193 makes that parser private and :396-399 grants runtime only the public wrappers. The proposed unchanged baseline permissions therefore deny ordinary auth-table access.
+Required fix: use public.subtrack_principal_matches(identity_id) for all proposed runtime owner policies (including profile and conditional retirement INSERT), matching existing granted policies and preserving both GUC/live-owner checks; do not silently add parser EXECUTE.
+Otherwise the complete private graph, per-operation grants, producer trust boundary, one-connection role transitions, atomic proof/nonce/account/settlement, secret-bound owner lookup plus ordinary revalidation, expiry/capacity/epoch/restart and no-replay direction are coherent planning proposals.
+Source review confirms missing transaction-bound/async ports and simulator contact/name extensions are accurately additive; provisioner rights remain SELECT(id,external_id)/INSERT and no provider work occurs under account locks.
+Consumed-refresh CSRF A/B and post-erasure signup A/B/C remain unselected; only selecting optional erased-digest retention adds the stated concrete proposed Type1 delta. No permanent signup ban or new founder blocker is inferred.
+OpenAPI26c1de72cca1fd0da1ff93a25e41016e8db83577/API_CONTRACTfda9a1530d11d540355e34680442aeccf8929e6d verified; C3 a12276 is historical author freeze, not current checkpoint hash. No heavy job/SQL proof; security classification and fresh planning QA remain required before later implementation dispatch.

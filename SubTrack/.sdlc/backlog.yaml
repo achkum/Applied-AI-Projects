@@ -7,8 +7,9 @@ milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
   - {id: ST-227a, title: 'Natural-browser subscription lifecycle transitions and denials', owner: dev-backend, size: L, status: IN_REVIEW, deps: [ST-227, ST-226, ST-222, ST-224]}
+  - {id: ST-230, title: 'Exact durable development auth-state SQL access proposal', owner: architect-platform, size: M, status: IN_REVIEW, deps: [ST-228, ST-229]}
   - {id: ST-227, title: 'Natural-browser lifecycle proof decomposition', owner: architect-platform, size: M, status: DONE, deps: [ST-226, ST-225, ST-224, ST-081c]}
-  - {id: ST-229, title: 'Contract-first private web enrollment and account completion', owner: architect-platform, size: L, status: IN_REVIEW, deps: [ST-228, ST-207, ST-210, ST-170a]}
+  - {id: ST-229, title: 'Contract-first private web enrollment and account completion', owner: architect-platform, size: L, status: DONE, deps: [ST-228, ST-207, ST-210, ST-170a]}
   - {id: ST-226, title: 'Owned disposable browser lifecycle fixture and compiled launcher', owner: dev-backend, size: L, status: DONE, deps: [ST-225, ST-222, ST-224, ST-223, ST-081c]}
   - {id: ST-228, title: 'Durable development enrollment account and session architecture', owner: architect-platform, size: M, status: DONE, deps: [ST-218, ST-207, ST-210, ST-225]}
   - {id: ST-225, title: 'Isolated current-browser subscription read and lifecycle HTTPS composition', owner: dev-backend, size: L, status: DONE, deps: [ST-224, ST-221, ST-220, ST-216, ST-081c, ST-223]}
