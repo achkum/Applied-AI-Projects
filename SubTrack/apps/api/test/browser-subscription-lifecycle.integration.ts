@@ -347,7 +347,8 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
     for (const options of [{ access: null }, { access: 'invalid' }, { binding: null }, { binding: 'invalid' },
       { binding: 'A'.repeat(43) }, { binding: credentials[1]!.binding }]) {
       const client = await pageFor(credentials[0]!, options);
-      for (const read of [false, true]) problem(await fetchCase(client, credentials[0]!, smoke, { read }), 401);
+      for (const read of [false, true])
+        problem(await fetchCase(client, credentials[0]!, smoke, { read }), read && options.binding === 'invalid' ? 400 : 401, read);
       assert.deepEqual(await settled(snapshot()), unchanged);
     }
     for (const csrf of [null, 'A'.repeat(43), credentials[1]!.csrf])
