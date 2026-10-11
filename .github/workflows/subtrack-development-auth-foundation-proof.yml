@@ -1,4 +1,4 @@
-name: SubTrack development auth SQL foundation, fence, lookup and reservation proof
+name: SubTrack development auth SQL foundation, fence, lookup, reservation and expiry prune proof
 on:
   workflow_dispatch:
   pull_request:
@@ -22,7 +22,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Actual custody and bounded client lifecycle negatives
         run: bash tools/database/test-development-auth-foundation-proof.sh
-      - name: Actual owned PG16 SCRAM role, constraint, epoch fence, lookup and reservation proof
+      - name: Actual owned PG16 SCRAM role, constraint, epoch fence, lookup, reservation and expiry prune proof
         run: bash tools/database/development-auth-foundation-proof.sh
       - name: Remove exact recorded fixture
         if: always()
