@@ -51,6 +51,8 @@ function closedProblem(result, status, code) {
 }
 let phase = 'LAUNCH';
 let context;
+let profileWire = { patch: 'NONE', read: 'NONE' };
+let navigationStatus = 'NONE';
 try {
   context = await firefox.launchPersistentContext(process.env.ST237_TRUSTED_PROFILE, { headless: true });
   const page = await context.newPage();
@@ -70,6 +72,10 @@ try {
       const headers = await response.allHeaders();
       if (headers['cache-control'] !== 'no-store' || headers.pragma !== 'no-cache') safeWire = false;
       wire.push({ method: response.request().method(), path: url.pathname, status: response.status() });
+      if (url.pathname === '/v2/me/profile' && response.request().method() === 'PATCH')
+        profileWire.patch = [200, 400, 401, 403, 409, 500].includes(response.status()) ? String(response.status()) : 'OTHER';
+      if (url.pathname === '/v2/me/profile/read' && response.request().method() === 'POST')
+        profileWire.read = [200, 400, 401, 403, 409, 500].includes(response.status()) ? String(response.status()) : 'OTHER';
       if (url.pathname === '/v2/auth/enrollment/complete' && response.status() === 201) {
         const body = await response.json();
         if (Object.keys(body).sort().join(',') !== 'csrfToken,sessionId,transport') safeWire = false;
@@ -84,13 +90,16 @@ try {
       }
     } catch { safeWire = false; }
   });
-  phase = 'IDENTIFIER';
+  phase = 'NAVIGATE';
   const first = await page.goto(`${origin}/${locale}/register?st237_probe=${randomUUID()}`, { waitUntil: 'domcontentloaded' });
+  navigationStatus = first && [200, 304, 400, 404, 500].includes(first.status()) ? String(first.status()) : 'OTHER';
   assert.equal(first?.status(), 200);
   await page.evaluate(selected => { globalThis.document.documentElement.setAttribute('data-theme', selected); }, theme);
+  phase = 'IDENTIFIER_READY';
   await page.getByRole('heading', { name: copy.registration.title, exact: true }).waitFor();
   await capture('identifier');
   await page.getByLabel(copy.identifier.emailLabel, { exact: true }).fill('private-proof@example.test');
+  phase = 'IDENTIFIER_SUBMIT';
   await page.getByRole('button', { name: copy.identifier.continueLabel, exact: true }).click();
   phase = 'OTP';
   await page.getByLabel(copy.registration.otpLabel, { exact: true }).waitFor();
@@ -104,13 +113,17 @@ try {
   phase = 'PROFILE';
   await page.getByLabel(copy.profile.displayName, { exact: true }).waitFor();
   await capture('profile');
+  phase = 'PROFILE_EDIT';
   await page.getByLabel(copy.profile.displayName, { exact: true }).fill('Private Proof');
   await page.getByLabel(copy.profile.language, { exact: true }).selectOption(locale);
   await page.getByLabel(copy.profile.theme, { exact: true }).selectOption(theme);
+  phase = 'PROFILE_SAVE';
   await page.getByRole('button', { name: copy.profile.save, exact: true }).click();
   await page.getByText(copy.profile.saved, { exact: true }).waitFor();
+  phase = 'PROFILE_SAVED';
   await capture('saved');
   assert.equal(await page.getByLabel(copy.profile.displayName, { exact: true }).inputValue(), 'Private Proof');
+  phase = 'PROFILE_WIRE';
   assert(safeWire);
   const paths = ['/v2/auth/browser-nonce', '/v2/auth/otp/start', '/v2/auth/otp/verify',
     '/v2/auth/enrollment/pending', '/v2/auth/enrollment/simulator/verify', '/v2/auth/enrollment/complete'];
@@ -118,6 +131,7 @@ try {
   const patchAt = wire.findIndex(item => item.method === 'PATCH' && item.path === '/v2/me/profile' && item.status === 200);
   assert(patchAt > 0);
   assert(wire.slice(patchAt + 1).some(item => item.method === 'POST' && item.path === '/v2/me/profile/read' && item.status === 200));
+  phase = 'PROFILE_COOKIES';
   assert(credentialNames.has('st_v2_access') && credentialNames.has('st_v2_refresh') && credentialNames.has('st_v2_chain'));
   const cookies = await context.cookies();
   for (const name of ['st_v2_access', 'st_v2_refresh', 'st_v2_chain']) {
@@ -249,7 +263,7 @@ try {
   process.stdout.write('PASS ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES\nPASS ST237_BROWSER_RELOAD_STOP\n');
   process.stdout.write('PASS ST237_BROWSER_COMMITTED_PARTIAL_TERMINAL_COOKIE_STOP\n');
 } catch {
-  process.stderr.write(`FAIL ST237_BROWSER_PROFILE phase=${phase}\n`);
+  process.stderr.write(`FAIL ST237_BROWSER_PROFILE phase=${phase} navigation=${navigationStatus} patch=${profileWire.patch} read=${profileWire.read}\n`);
   process.exitCode = 1;
 } finally {
   if (context) await context.close();
