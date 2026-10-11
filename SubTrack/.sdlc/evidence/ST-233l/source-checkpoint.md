@@ -1,0 +1,7 @@
+ST-233l source WIP checkpoint 2026-10-11 06:38Z: original06:14 L240 attempt1/sourceattempt1 and rootGO dafd4954 preserved; no Git/CI/selfapproval.
+Custody fixed for all State tuples; created before start, running PID positive, exited before logs; exact pinned-image Env/Cmd/Entrypoint, network/mount/label/UID/port checked; negatives extended.
+Pinned Docker Hub index c610fcdf linux/amd64 config independently fetched from registry: Node22.23.2, Yarn1.22.22, exact Env/Entrypoint/Cmd. Vite7.3.6 resolves esbuild0.28.2; frozen install/bundle passed with pg8.23.1.
+Driver same-client READ COMMITTED/SET LOCAL ROLE, dual local GUCs, exact commit/aborted rollback/explicit rollback; timeout/lostreply/failed-end become unknown, fresh login/GUC reset. No durable-write claim under root narrowGO.
+First architect/security review reason1 rejected disposable-table grants; table/grants and dependent code removed; no SQL001-008/product/adapter changes.
+Git Bash -n shells and git diff --check pass; extracted JS node --check and bundle passed before final two-line failed-end addition; Linux Docker/PG16 and CI not run here.
+QA extras cancellation/lock/idle/malformed omitted under narrowed fixture contract; root owns freeze/independent review/actual CI. Original source context exceeded requested20-call checkpoint boundary; preserve full history, no reset.

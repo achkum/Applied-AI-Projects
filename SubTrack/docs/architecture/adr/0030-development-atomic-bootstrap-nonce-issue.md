@@ -1,6 +1,6 @@
 # ADR-0030: Private atomic development bootstrap nonce issue
 
-- Status: Proposed Type 2a via ST-233k; private SQL operation only.
+- Status: Accepted Type 2a via ST-233k PR276; private SQL operation only, no adapter/HTTP activation.
 - Date: 2026-10-11.
 
 The awaited development bootstrap lifecycle needs one operation that inserts a nonce and completes its owned burn in the same transaction. Separate calls can leave a completed burn without a nonce or a nonce without durable completion.
