@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Disposable private browser/PG integration. All diagnostics and secret material remain in owned TEMP.
 set -euo pipefail
+[[ "$#" == 2 && "$1" == --case && "$2" =~ ^(profile|partial-terminal)$ ]] || exit 1
+proof_case="$2"
+export ST237_BROWSER_CASE="$proof_case"
 umask 077
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 cd "$root"
@@ -76,7 +79,7 @@ assert set(x["Containers"]).issubset({cid})
 }
 cleanup() {
   local code=$? ok=1 sqlstate=unavailable observed
-  if [[ -f "$work/browser.log" ]]; then grep -E '^FAIL ST237_BROWSER_PROFILE phase=(LAUNCH|NAVIGATE|IDENTIFIER|IDENTIFIER_READY|IDENTIFIER_SUBMIT|OTP|SIMULATOR|PROFILE|PROFILE_EDIT|PROFILE_SAVE|PROFILE_SAVED|PROFILE_WIRE|PROFILE_COOKIES|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|RELOAD_NAVIGATE|RELOAD_STOP|RELOAD_ABSENT|PARTIAL_TERMINAL|PARTIAL_SETUP|PARTIAL_NAVIGATE|PARTIAL_READY|PARTIAL_FILL|PARTIAL_SUBMIT|PARTIAL_OTP|PARTIAL_SIMULATOR|PARTIAL_COMPLETE|PARTIAL_READ|PARTIAL_STOP|PARTIAL_COOKIES) navigation=(200|304|400|404|500|NONE|OTHER) patch=(200|400|401|403|409|500|NONE|OTHER) read=(200|400|401|403|409|500|NONE|OTHER) reloadNavigation=(reload|navigate|back_forward|prerender|NONE|OTHER) reloadStatus=(200|304|400|404|500|NONE|OTHER) reloadError=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) reloadPageClosed=(NONE|YES|NO) reloadRequestFailure=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) partialNavigation=(200|304|400|404|500|NONE|OTHER) partialCompletion=(201|400|401|403|409|500|NONE|OTHER) partialRead=(200|400|401|403|409|500|NONE|OTHER) partialCompletionCount=(ZERO|ONE|MANY) partialRoute=(NONE|OK|FAILED)$|^ST237_NEGATIVE_GATE case=(NONE|BROWSER_MATRIX|BROWSER_CSRF|BROWSER_FOREIGN_BODY|BROWSER_DUPLICATE_BODY|BROWSER_VALID|COOKIE_ROSTER|ORIGIN|CHAIN_MISSING|CHAIN_FOREIGN|CHAIN_DUPLICATE|BINDING_MISSING|BINDING_FOREIGN|REFRESH_EXTRA|CSRF_MISSING|WRONG_HOST|NATIVE_DUPLICATE_BODY|STORAGE) status=(200|400|401|403|409|421|500|NONE|OTHER) network=(NONE|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|TLS|OTHER)$' "$work/browser.log" >&3 || true; fi
+  if [[ -f "$work/browser.log" ]]; then grep -E '^FAIL ST237_BROWSER_CASE case=(profile|partial-terminal) phase=(LAUNCH|NAVIGATE|IDENTIFIER|IDENTIFIER_READY|IDENTIFIER_SUBMIT|OTP|SIMULATOR|PROFILE|PROFILE_EDIT|PROFILE_SAVE|PROFILE_SAVED|PROFILE_WIRE|PROFILE_COOKIES|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|RELOAD_NAVIGATE|RELOAD_STOP|RELOAD_ABSENT|PARTIAL_TERMINAL|PARTIAL_SETUP|PARTIAL_NAVIGATE|PARTIAL_READY|PARTIAL_FILL|PARTIAL_SUBMIT|PARTIAL_OTP|PARTIAL_SIMULATOR|PARTIAL_COMPLETE|PARTIAL_READ|PARTIAL_STOP|PARTIAL_COOKIES) navigation=(200|304|400|404|500|NONE|OTHER) patch=(200|400|401|403|409|500|NONE|OTHER) read=(200|400|401|403|409|500|NONE|OTHER) reloadNavigation=(reload|navigate|back_forward|prerender|NONE|OTHER) reloadStatus=(200|304|400|404|500|NONE|OTHER) reloadError=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) reloadPageClosed=(NONE|YES|NO) reloadRequestFailure=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) partialNavigation=(200|304|400|404|500|NONE|OTHER) partialCompletion=(201|400|401|403|409|500|NONE|OTHER) partialRead=(200|400|401|403|409|500|NONE|OTHER) partialCompletionCount=(ZERO|ONE|MANY) partialRoute=(NONE|OK|FAILED)$|^ST237_NEGATIVE_GATE case=(NONE|BROWSER_MATRIX|BROWSER_CSRF|BROWSER_FOREIGN_BODY|BROWSER_DUPLICATE_BODY|BROWSER_VALID|COOKIE_ROSTER|ORIGIN|CHAIN_MISSING|CHAIN_FOREIGN|CHAIN_DUPLICATE|BINDING_MISSING|BINDING_FOREIGN|REFRESH_EXTRA|CSRF_MISSING|WRONG_HOST|NATIVE_DUPLICATE_BODY|STORAGE) status=(200|400|401|403|409|421|500|NONE|OTHER) network=(NONE|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|TLS|OTHER)$' "$work/browser.log" >&3 || true; fi
   if [[ -f "$work/server.log" ]]; then
     grep -E '^ST237_STARTUP_GATE (ENV|CONNECT|IDENTITY|SOURCE|FUNCTIONS|FUNCTION_COUNT|FUNCTION_NAME|PRINCIPALS|PROFILE_COLUMNS|PROFILE_POLICIES|PROFILE_GRANTS|PROFILE_CONSTRAINTS|AUTH_TABLES|AUTH_POLICIES|AUTH_GRANTS|AUTH_ROLES|AUTH_DOMAINS|AUTH_CONSTRAINTS|EPOCH|FENCE_QUERY_FAILED|FENCE_REJECTED|FENCE_ACCEPTED|COMMIT_FAILED|COMMIT_CLEAN|RESET_REJECTED|RESET_CLEAN|COMPOSITION|COMPOSITION_READY|FRAMEWORK|FRAMEWORK_READY|NEXT|NEXT_FAILED_(PORT|PERMISSION|MISSING_FILE|LOCK|COMPILER|CONFIG|TYPE|SYNTAX|OTHER)|NEXT_READY|LISTEN)$' "$work/server.log" | tail -1 >&3 || true
     grep -E '^ST237_FUNCTION_GATE [a-z_]+ (BODY|SECURITY|OWNER|LANGUAGE|VOLATILITY|PARALLEL|STRICT|SET|CONFIG|GRANT_KIND|GRANTEES|SIGNATURE|TERMINAL_ARGS)$|^ST237_STARTUP_SQLSTATE [A-Z0-9]{5}$' "$work/server.log" >&3 || true
@@ -101,7 +104,7 @@ cleanup() {
   if [[ "$work" == "$base"/st237-profile.* && -d "$work" && ! -L "$work" ]]; then rm -rf -- "$work" || ok=0; else ok=0; fi
   [[ ! -e "$work" && ! -L "$work" ]] || ok=0
   if (( code==0 && complete==1 && ok==1 )); then
-    printf 'PASS ST237_PRIVATE_PG_TLS_SECRET_CUSTODY\nPROOF PASS head=%s cleanup=removed\n' "$head" >&3
+    printf 'PASS ST237_PRIVATE_PG_TLS_SECRET_CUSTODY\nPASS ST237_PRIVATE_CASE case=%s\nPROOF PASS head=%s cleanup=removed\n' "$proof_case" "$head" >&3
     exit 0
   fi
   printf 'FAIL ST237_PRIVATE_PROFILE phase=%s step=%s sqlstate=%s cleanup=%s\n' "$phase" "$step" "$sqlstate" "$([[ "$ok" == 1 ]] && printf removed || printf failed)" >&4
@@ -112,7 +115,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 [[ "$head" =~ ^[a-f0-9]{40}$ && "$(git rev-parse HEAD)" == "$head" ]]
 [[ "${ST237_BROWSER_LOCALE:-}" =~ ^(sv|en)$ && "${ST237_BROWSER_THEME:-}" =~ ^(light|dark)$ ]]
-printf 'INPUT head=%s\n' "$head" >&3
+printf 'INPUT case=%s head=%s\n' "$proof_case" "$head" >&3
 source_digest > "$source_inputs"
 while read -r full blob digest; do printf 'INPUT file=%s blob=%s sha256=%s\n' "$full" "$blob" "$digest" >&3; done < "$source_inputs"
 find apps/api/dist -type f -print0 | sort -z | xargs -0 sha256sum > "$work/build-inputs"
@@ -193,8 +196,10 @@ openssl verify -CAfile "$work/ca.crt" -verify_hostname localhost "$work/leaf.crt
 certutil -N --empty-password -d "sql:$work/trusted" >/dev/null
 certutil -A -d "sql:$work/trusted" -n ST237-task-CA -t 'C,,' -i "$work/ca.crt" >/dev/null
 export ST237_LEAF_KEY="$work/leaf.key" ST237_LEAF_CHAIN="$work/chain.crt" ST237_TRUSTED_PROFILE="$work/trusted"
-export ST237_HANDSHAKE_DIR="$work/handshake" ST237_SCREENSHOT_DIR="$base/st237-profile-screenshots"
+export ST237_HANDSHAKE_DIR="$work/handshake" ST237_SCREENSHOT_DIR="$base/st237-profile-screenshots/$proof_case"
 mkdir -m 700 "$ST237_HANDSHAKE_DIR"
+mkdir -p -m 700 "$base/st237-profile-screenshots"
+[[ ! -e "$ST237_SCREENSHOT_DIR" && ! -L "$ST237_SCREENSHOT_DIR" ]]
 cp "$work/ca.crt" "$ST237_HANDSHAKE_DIR/ca.crt"
 start_server() {
   setsid node apps/web/private-https-server.mjs > "$work/server.log" 2>&1 & server_pid=$!
@@ -251,6 +256,7 @@ start_server
 phase=BROWSER
 setsid env -u ST237_PG_PASSWORD -u ST237_PRIVATE_CONFIG -u ST237_LEAF_KEY -u ST237_LEAF_CHAIN \
   NODE_EXTRA_CA_CERTS="$work/ca.crt" node apps/web/test/private-profile-browser.mjs > "$work/browser.log" 2>&1 & browser_pid=$!
+if [[ "$proof_case" == profile ]]; then
 phase=RESTART
 for ((i=0;i<1200;i++)); do
   [[ -f "$ST237_HANDSHAKE_DIR/ready" ]] && break
@@ -261,19 +267,53 @@ done
 stop_group "$server_pid"; server_pid=''
 start_server
 : > "$ST237_HANDSHAKE_DIR/resume"
+fi
 phase=BROWSER
 for ((i=0;i<2400;i++)); do kill -0 "$browser_pid" 2>/dev/null || break; sleep .1; done
 kill -0 "$browser_pid" 2>/dev/null && exit 1
 if ! wait "$browser_pid"; then
-  grep -E '^FAIL ST237_BROWSER_PROFILE phase=(LAUNCH|NAVIGATE|IDENTIFIER|IDENTIFIER_READY|IDENTIFIER_SUBMIT|OTP|SIMULATOR|PROFILE|PROFILE_EDIT|PROFILE_SAVE|PROFILE_SAVED|PROFILE_WIRE|PROFILE_COOKIES|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|RELOAD_NAVIGATE|RELOAD_STOP|RELOAD_ABSENT|PARTIAL_TERMINAL|PARTIAL_SETUP|PARTIAL_NAVIGATE|PARTIAL_READY|PARTIAL_FILL|PARTIAL_SUBMIT|PARTIAL_OTP|PARTIAL_SIMULATOR|PARTIAL_COMPLETE|PARTIAL_READ|PARTIAL_STOP|PARTIAL_COOKIES) navigation=(200|304|400|404|500|NONE|OTHER) patch=(200|400|401|403|409|500|NONE|OTHER) read=(200|400|401|403|409|500|NONE|OTHER) reloadNavigation=(reload|navigate|back_forward|prerender|NONE|OTHER) reloadStatus=(200|304|400|404|500|NONE|OTHER) reloadError=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) reloadPageClosed=(NONE|YES|NO) reloadRequestFailure=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) partialNavigation=(200|304|400|404|500|NONE|OTHER) partialCompletion=(201|400|401|403|409|500|NONE|OTHER) partialRead=(200|400|401|403|409|500|NONE|OTHER) partialCompletionCount=(ZERO|ONE|MANY) partialRoute=(NONE|OK|FAILED)$|^ST237_NEGATIVE_GATE case=(NONE|BROWSER_MATRIX|BROWSER_CSRF|BROWSER_FOREIGN_BODY|BROWSER_DUPLICATE_BODY|BROWSER_VALID|COOKIE_ROSTER|ORIGIN|CHAIN_MISSING|CHAIN_FOREIGN|CHAIN_DUPLICATE|BINDING_MISSING|BINDING_FOREIGN|REFRESH_EXTRA|CSRF_MISSING|WRONG_HOST|NATIVE_DUPLICATE_BODY|STORAGE) status=(200|400|401|403|409|421|500|NONE|OTHER) network=(NONE|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|TLS|OTHER)$' "$work/browser.log" >&3 || true
+  grep -E '^FAIL ST237_BROWSER_CASE case=(profile|partial-terminal) phase=(LAUNCH|NAVIGATE|IDENTIFIER|IDENTIFIER_READY|IDENTIFIER_SUBMIT|OTP|SIMULATOR|PROFILE|PROFILE_EDIT|PROFILE_SAVE|PROFILE_SAVED|PROFILE_WIRE|PROFILE_COOKIES|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|RELOAD_NAVIGATE|RELOAD_STOP|RELOAD_ABSENT|PARTIAL_TERMINAL|PARTIAL_SETUP|PARTIAL_NAVIGATE|PARTIAL_READY|PARTIAL_FILL|PARTIAL_SUBMIT|PARTIAL_OTP|PARTIAL_SIMULATOR|PARTIAL_COMPLETE|PARTIAL_READ|PARTIAL_STOP|PARTIAL_COOKIES) navigation=(200|304|400|404|500|NONE|OTHER) patch=(200|400|401|403|409|500|NONE|OTHER) read=(200|400|401|403|409|500|NONE|OTHER) reloadNavigation=(reload|navigate|back_forward|prerender|NONE|OTHER) reloadStatus=(200|304|400|404|500|NONE|OTHER) reloadError=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) reloadPageClosed=(NONE|YES|NO) reloadRequestFailure=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) partialNavigation=(200|304|400|404|500|NONE|OTHER) partialCompletion=(201|400|401|403|409|500|NONE|OTHER) partialRead=(200|400|401|403|409|500|NONE|OTHER) partialCompletionCount=(ZERO|ONE|MANY) partialRoute=(NONE|OK|FAILED)$|^ST237_NEGATIVE_GATE case=(NONE|BROWSER_MATRIX|BROWSER_CSRF|BROWSER_FOREIGN_BODY|BROWSER_DUPLICATE_BODY|BROWSER_VALID|COOKIE_ROSTER|ORIGIN|CHAIN_MISSING|CHAIN_FOREIGN|CHAIN_DUPLICATE|BINDING_MISSING|BINDING_FOREIGN|REFRESH_EXTRA|CSRF_MISSING|WRONG_HOST|NATIVE_DUPLICATE_BODY|STORAGE) status=(200|400|401|403|409|421|500|NONE|OTHER) network=(NONE|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|TLS|OTHER)$' "$work/browser.log" >&3 || true
   exit 1
 fi
-grep -qx "PASS ST237_BROWSER_ENROLLMENT_PROFILE locale=$ST237_BROWSER_LOCALE theme=$ST237_BROWSER_THEME" "$work/browser.log"
-for line in ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES ST237_BROWSER_SAME_KEY_FRESH_PROCESS_RESTART ST237_BROWSER_COMMITTED_PATCH_LOST_RESPONSE_SINGLE_SUBMISSION ST237_BROWSER_RELOAD_STOP ST237_BROWSER_COMMITTED_PARTIAL_TERMINAL_COOKIE_STOP; do grep -qx "PASS $line" "$work/browser.log"; done
+grep -qx "PASS ST237_BROWSER_CASE case=$proof_case locale=$ST237_BROWSER_LOCALE theme=$ST237_BROWSER_THEME" "$work/browser.log"
+if [[ "$proof_case" == profile ]]; then
+  grep -qx "PASS ST237_BROWSER_ENROLLMENT_PROFILE locale=$ST237_BROWSER_LOCALE theme=$ST237_BROWSER_THEME" "$work/browser.log"
+  for line in ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES ST237_BROWSER_SAME_KEY_FRESH_PROCESS_RESTART ST237_BROWSER_COMMITTED_PATCH_LOST_RESPONSE_SINGLE_SUBMISSION ST237_BROWSER_RELOAD_STOP; do grep -qx "PASS $line" "$work/browser.log"; done
+else
+  grep -qx 'PASS ST237_BROWSER_COMMITTED_PARTIAL_TERMINAL_COOKIE_STOP' "$work/browser.log"
+fi
 grep '^PASS ST237_BROWSER_' "$work/browser.log" >&3
 phase=DATABASE
-printf "SELECT 1/(count(*)=1 AND bool_and(profile_complete AND default_currency='SEK' AND language='%s' AND theme='%s'))::integer FROM public.identity_profile WHERE display_name='Private Proof Updated'; SELECT 1/(count(*)=2)::integer FROM public.identity_profile;\n" "$ST237_BROWSER_LOCALE" "$ST237_BROWSER_THEME" | owner
+if [[ "$proof_case" == profile ]]; then
+printf "SELECT 1/(count(*)=1 AND bool_and(profile_complete AND default_currency='SEK' AND language='%s' AND theme='%s'))::integer FROM public.identity_profile WHERE display_name='Private Proof Updated'; SELECT 1/(count(*)=1)::integer FROM public.identity_profile;\n" "$ST237_BROWSER_LOCALE" "$ST237_BROWSER_THEME" | owner
 printf 'PASS ST237_BROWSER_PROFILE_ACTUAL_PERSISTENCE\n' >&3
+else
+  owner <<'SQL'
+SELECT 1/((SELECT count(*)=1 FROM public.identity)
+  AND (SELECT count(*)=1 FROM public.identity_profile)
+  AND (SELECT count(*)=1 FROM subtrack_auth.family)
+  AND (SELECT count(*)=1 FROM subtrack_auth.session)
+  AND (SELECT count(*)=1 FROM subtrack_auth.credential)
+  AND (SELECT count(*)=1 FROM subtrack_auth.csrf)
+  AND (SELECT count(*)=0 FROM subtrack_auth.verified_enrollment)
+  AND (SELECT count(*)=0 FROM subtrack_auth.identity_birth)
+  AND (SELECT count(*)=0 FROM subtrack_auth.enrollment_intent)
+  AND (SELECT count(*)=0 FROM subtrack_auth.nonce WHERE purpose='session')
+  AND (SELECT count(*)=1 FROM subtrack_auth.reservation WHERE operation='completeEnrollment' AND state='completed'))::integer;
+SELECT 1/(count(*)=1)::integer FROM public.identity i
+JOIN public.identity_profile p ON p.identity_id=i.id
+JOIN subtrack_auth.family f ON f.identity_id=i.id
+JOIN subtrack_auth.session s ON s.identity_id=i.id AND s.family_id=f.family_id AND s.epoch=f.epoch
+JOIN subtrack_auth.credential c ON c.identity_id=i.id AND c.session_id=s.session_id AND c.family_id=f.family_id AND c.epoch=s.epoch
+JOIN subtrack_auth.csrf x ON x.identity_id=i.id AND x.session_id=s.session_id AND x.family_id=f.family_id AND x.epoch=s.epoch
+WHERE i.deleted_at IS NULL AND i.auth_method='BANKID'
+  AND NOT p.profile_complete AND p.default_currency='SEK' AND p.display_name IS NULL
+  AND p.avatar_color IS NULL AND p.avatar_emoji IS NULL
+  AND f.revoked_ms IS NULL AND s.revoked_ms IS NULL AND c.state='current'
+  AND s.transport='web' AND s.origin='https://localhost:3443' AND s.epoch='st237_private_https_v1';
+SQL
+  printf 'PASS ST237_BROWSER_PARTIAL_TERMINAL_ACTUAL_SINGLE_COMMIT\n' >&3
+fi
 phase=CATALOG_RLS
 node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,packages:"external",platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],logLevel:"silent"})' apps/api/test/private-profile.integration.ts "$work/pg-proof.cjs"
 if ! NODE_PATH="$root/apps/api/node_modules" ST237_OWNER_PASSWORD="$owner_pass" timeout 45s node "$work/pg-proof.cjs" > "$work/pg-proof.log" 2>&1; then

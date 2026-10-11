@@ -16,8 +16,10 @@ const { firefox } = require('playwright');
 const origin = 'https://localhost:3443';
 const locale = process.env.ST237_BROWSER_LOCALE;
 const theme = process.env.ST237_BROWSER_THEME;
+const browserCase = process.env.ST237_BROWSER_CASE;
 assert(['sv', 'en'].includes(locale));
 assert(['light', 'dark'].includes(theme));
+assert(['profile', 'partial-terminal'].includes(browserCase));
 assert(require('playwright/package.json').version === '1.63.0');
 const catalog = JSON.parse(fs.readFileSync(path.join(webDir, '../../packages/i18n/catalogs', `${locale}.json`), 'utf8'));
 const copy = catalog.onboarding;
@@ -81,6 +83,9 @@ let negativeCase = 'NONE', negativeStatus = 'NONE', negativeNetwork = 'NONE';
 const safeStatus = value => [200, 400, 401, 403, 409, 421, 500].includes(value) ? String(value) : 'OTHER';
 try {
   context = await firefox.launchPersistentContext(process.env.ST237_TRUSTED_PROFILE, { headless: true });
+  const screenshotDir = path.resolve(process.env.ST237_SCREENSHOT_DIR);
+  fs.mkdirSync(screenshotDir, { mode: 0o700 });
+  if (browserCase === 'profile') {
   page = await context.newPage();
   page.setDefaultTimeout(45000);
   page.on('requestfailed', request => {
@@ -90,8 +95,6 @@ try {
       reloadRequestFailure = reloadFailureClass(request.failure()?.errorText);
     } catch { reloadRequestFailure = 'OTHER'; }
   });
-  const screenshotDir = path.resolve(process.env.ST237_SCREENSHOT_DIR);
-  fs.mkdirSync(screenshotDir, { mode: 0o700 });
   const capture = async step => { await page.screenshot({ path: path.join(screenshotDir, `${step}.png`), fullPage: true }); };
   const wire = [];
   const credentialNames = new Set();
@@ -309,10 +312,16 @@ try {
   phase = 'RELOAD_ABSENT';
   assert.equal(await profileRegion.getByLabel(copy.profile.displayName, { exact: true }).count(), 0);
   await capture('reload-stop');
+  process.stdout.write(`PASS ST237_BROWSER_ENROLLMENT_PROFILE locale=${locale} theme=${theme}\n`);
+  process.stdout.write('PASS ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES\nPASS ST237_BROWSER_RELOAD_STOP\n');
+  process.stdout.write(`PASS ST237_BROWSER_CASE case=profile locale=${locale} theme=${theme}\n`);
+  }
+  if (browserCase === 'partial-terminal') {
   phase = 'PARTIAL_SETUP';
   await context.clearCookies();
   const partialPage = await context.newPage();
   partialPage.setDefaultTimeout(45000);
+  await partialPage.addInitScript(selected => globalThis.localStorage.setItem('theme-preference', selected), theme);
   let completionRequests = 0;
   let committedCompletion = false;
   let resolveRouteSettled;
@@ -406,16 +415,16 @@ try {
   assert.equal(completionRequests, 1);
   await partialPage.screenshot({ path: path.join(screenshotDir, 'partial-terminal-stop.png'), fullPage: true });
   await partialPage.close();
-  process.stdout.write(`PASS ST237_BROWSER_ENROLLMENT_PROFILE locale=${locale} theme=${theme}\n`);
-  process.stdout.write('PASS ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES\nPASS ST237_BROWSER_RELOAD_STOP\n');
   process.stdout.write('PASS ST237_BROWSER_COMMITTED_PARTIAL_TERMINAL_COOKIE_STOP\n');
+  process.stdout.write(`PASS ST237_BROWSER_CASE case=partial-terminal locale=${locale} theme=${theme}\n`);
+  }
 } catch (caught) {
   if (phase === 'RELOAD_NAVIGATE') {
     reloadError = reloadFailureClass(caught);
     reloadPageClosed = page?.isClosed() ? 'YES' : 'NO';
   }
   if (phase === 'AUTHORITY_NEGATIVES') process.stderr.write(`ST237_NEGATIVE_GATE case=${negativeCase} status=${negativeStatus} network=${negativeNetwork}\n`);
-  process.stderr.write(`FAIL ST237_BROWSER_PROFILE phase=${phase} navigation=${navigationStatus} patch=${profileWire.patch} read=${profileWire.read} reloadNavigation=${reloadNavigationType} reloadStatus=${reloadStatus} reloadError=${reloadError} reloadPageClosed=${reloadPageClosed} reloadRequestFailure=${reloadRequestFailure} partialNavigation=${partialNavigation} partialCompletion=${partialCompletion} partialRead=${partialRead} partialCompletionCount=${partialCompletionCount} partialRoute=${partialRoute}\n`);
+  process.stderr.write(`FAIL ST237_BROWSER_CASE case=${browserCase} phase=${phase} navigation=${navigationStatus} patch=${profileWire.patch} read=${profileWire.read} reloadNavigation=${reloadNavigationType} reloadStatus=${reloadStatus} reloadError=${reloadError} reloadPageClosed=${reloadPageClosed} reloadRequestFailure=${reloadRequestFailure} partialNavigation=${partialNavigation} partialCompletion=${partialCompletion} partialRead=${partialRead} partialCompletionCount=${partialCompletionCount} partialRoute=${partialRoute}\n`);
   process.exitCode = 1;
 } finally {
   if (context) await context.close();
