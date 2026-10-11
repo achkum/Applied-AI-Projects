@@ -1,0 +1,12 @@
+# ST226 independent platform source review
+REVIEW/v1; task_id ST-226; reviewer architect-platform; session ST226-platform-source-c1; verdict APPROVE; findings [].
+Independently reproduced all seven normalized source hashes in implementation-c3-checkpoint.md; every actual file matches the freeze, including runtime2160895, integratione9f7210, wrapper215c50c and workflow05d874d.
+Reviewed task/AGENTS/governance, approved v2plan/readiness/rootGO, ADR0010/0023/0024/0025, accepted ST225/ST222 custody receipts, canonical runtime grants/RLS and locked writer/request transaction.
+Parent compiled preflight validates private full owner URL against verified fixture endpoint before migrations; parent/child nonsymlink owner-only provenance/TLS and exact fresh CID/name/nonce/image/running/tmpfs/sole-loopback/full-runtime-URL checks precede Prisma/listen.
+Accepted closed factory shares one ordinary injected connection_limit1 pool across preflight, READ, locked owner writer and fixed pool-observe; monotonic exact-key handles, stable backend PID and both clean transaction-local GUCs are substantively asserted.
+Child owns accepted synthetic registered-identity authority instances; one-use bounded private IPC carries credentials only in memory. No default graph/auth/schema/contract/dependency/public-control shortcut found.
+In-flight fixed observations settle before bounded factory close then pool disconnect; query/listen/startup/disconnect/synchronous or callback send failures and both signals have ordered teardown tests.
+Actual compiled HTTPS smoke asserts legal PATCH, authoritative reread, persistence, identical peer/missing404, conflict409 and unrelated snapshots; two launches reuse35426 and require ECONNREFUSED/runtime-pool baseline.
+Exact cleanup requires normal-finish custody and confirmed removal before PASS, retains uncertain recovery records, bounds private-temp destruction and preserves actual-finish negatives/idempotent noarg cleanup; fixed diagnostics redact unknown text.
+Inspected retained author26PASS and coverage92.94/89.65/86.95/97.52; build/lint/type and shell negatives reportedPASS. No heavy run performed; fresh full API QA, independent reviews and actual exact-head Linux PG16/TLS CI remain blocking.
+Approval is source-only for this freeze; ST227 natural-browser/seven-pair/race/rollback matrix and durable enrollment remain deferred. Original2026-10-10T23:17:14Z attempt1/L240/counters preserved; evidence-only, no source/status/backlog/commit edits.

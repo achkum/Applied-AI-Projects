@@ -1,0 +1,1 @@
+ST-226 browser subscription lifecycle launcher proof: FAIL source_head=7847c963ab71a117e7a4adaf7d0fc0b4891c36a9 phase=launcher-integration subphase=child_startup_exit parent_cleanup=child_exit fixture_cleanup=false code=unavailable

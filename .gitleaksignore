@@ -17,3 +17,9 @@ f22f4f79546a920829df0f845c1a2757701012a4:SubTrack/apps/api/src/auth/otp-v2/mobil
 2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/.sdlc/evidence/ST-228/client-review.md:generic-api-key:15
 2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/.sdlc/evidence/ST-228/source-pins.md:generic-api-key:20
 2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/.sdlc/evidence/ST-228/source-pins.md:generic-api-key:21
+
+# ST229: independently reviewed public source-pin metadata and planning prose; exact historical findings only.
+2374f5561c491ca65f80d809c49ce27a81ca48a0:SubTrack/.sdlc/evidence/ST-229/security-plan-review.md:generic-api-key:8
+2374f5561c491ca65f80d809c49ce27a81ca48a0:SubTrack/.sdlc/evidence/ST-229/source-pins.md:generic-api-key:4
+2374f5561c491ca65f80d809c49ce27a81ca48a0:SubTrack/.sdlc/evidence/ST-229/source-pins.md:generic-api-key:5
+2374f5561c491ca65f80d809c49ce27a81ca48a0:SubTrack/.sdlc/evidence/ST-229/author-c3-checkpoint.md:generic-api-key:10
