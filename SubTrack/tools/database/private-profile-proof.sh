@@ -46,9 +46,12 @@ assert x["Id"]==cid and x["Name"]=="/"+name
 assert c["Image"]==image and c["Labels"]["subtrack.task"]=="ST-237:"+marker and c["Labels"]["subtrack.head"]==head
 assert h["NetworkMode"]==net and not h["Privileged"] and not h["CapAdd"] and not h["Devices"]
 assert h["PidsLimit"]==128 and h["Memory"]==536870912
+attached=x["NetworkSettings"]["Networks"]
+assert set(attached)=={name} and attached[name]["NetworkID"] in ("",net)
 assert set(h["PortBindings"])=={"5432/tcp"}
 assert all(p["HostIp"]=="127.0.0.1" for p in h["PortBindings"]["5432/tcp"])
 if x["State"]["Running"]:
+  assert attached[name]["NetworkID"]==net and len(attached[name]["EndpointID"])==64
   bindings=x["NetworkSettings"]["Ports"]
   assert set(bindings)=={"5432/tcp"} and len(bindings["5432/tcp"])==1
   mapped=bindings["5432/tcp"][0]
@@ -63,12 +66,18 @@ assert x["Id"]==ident and x["Internal"] is False and x["Driver"]=="bridge"
 assert x["Options"]=={"com.docker.network.bridge.host_binding_ipv4":"127.0.0.1","com.docker.network.bridge.gateway_mode_ipv4":"nat"}
 assert x["Labels"]["subtrack.task"]=="ST-237:"+marker and x["Labels"]["subtrack.head"]==head
 assert set(x["Containers"]).issubset({cid})
-' "$network" "$marker" "$head" "$cid"
+' "$network" "$marker" "$head" "$cid" || return 1
+  if [[ "$(docker inspect --format '{{.State.Running}}' "$cid")" == true ]]; then
+    endpoint="$(docker inspect --format "{{(index .NetworkSettings.Networks \"$name\").EndpointID}}" "$cid")"
+    [[ "$endpoint" =~ ^[a-f0-9]{64}$ ]] || return 1
+    docker network inspect "$network" | python3 -c 'import json,sys;x=json.load(sys.stdin)[0];assert set(x["Containers"])=={sys.argv[1]} and x["Containers"][sys.argv[1]]["EndpointID"]==sys.argv[2]' "$cid" "$endpoint" || return 1
+  fi
+  return 0
 }
 cleanup() {
   local code=$? ok=1 sqlstate=unavailable observed
   if [[ -f "$work/browser.log" ]]; then grep -E '^FAIL ST237_BROWSER_PROFILE phase=(LAUNCH|IDENTIFIER|OTP|SIMULATOR|PROFILE|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|PARTIAL_TERMINAL)$' "$work/browser.log" >&3 || true; fi
-  if [[ -f "$work/server.log" ]]; then grep -E '^ST237_STARTUP_GATE (ENV|SOURCE|FUNCTIONS|PRINCIPALS|PROFILE_COLUMNS|PROFILE_POLICIES|PROFILE_GRANTS|PROFILE_CONSTRAINTS|AUTH_TABLES|AUTH_POLICIES|AUTH_GRANTS|AUTH_ROLES|AUTH_DOMAINS|AUTH_CONSTRAINTS|EPOCH)$' "$work/server.log" | tail -1 >&3 || true; fi
+  if [[ -f "$work/server.log" ]]; then grep -E '^ST237_STARTUP_GATE (ENV|CONNECT|IDENTITY|SOURCE|FUNCTIONS|PRINCIPALS|PROFILE_COLUMNS|PROFILE_POLICIES|PROFILE_GRANTS|PROFILE_CONSTRAINTS|AUTH_TABLES|AUTH_POLICIES|AUTH_GRANTS|AUTH_ROLES|AUTH_DOMAINS|AUTH_CONSTRAINTS|EPOCH)$' "$work/server.log" | tail -1 >&3 || true; fi
   trap - EXIT INT TERM
   if [[ "$phase" == INSTALL && -f "$work/internal.log" ]]; then
     observed="$(sed -nE 's/^ERROR:[[:space:]]+([A-Z0-9]{5}).*/\1/p' "$work/internal.log" | tail -n 1)"
@@ -234,6 +243,7 @@ printf "DELETE FROM subtrack_auth.epoch WHERE id='st237_private_https_v1';\n" | 
 refuses_startup MISSING_ACTIVE_ROW
 owner < "$work/seed.sql"
 phase=SERVER
+step=STARTUP
 start_server
 phase=BROWSER
 setsid env -u ST237_PG_PASSWORD -u ST237_PRIVATE_CONFIG -u ST237_LEAF_KEY -u ST237_LEAF_CHAIN \

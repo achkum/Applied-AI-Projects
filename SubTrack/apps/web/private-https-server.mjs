@@ -494,19 +494,35 @@ async function assertAuthCatalog(client, approved) {
 }
 
 async function assertStartup() {
+  gate('CONNECT');
   const client = await pool.connect();
+  let complete = false;
   try {
+    gate('IDENTITY');
     const state = await client.query(`SELECT pg_catalog.current_database()::text AS database_name,
       session_user::text AS session_user, current_user::text AS current_user,
       pg_catalog.current_setting('app.user_id',true) AS user_id,
       pg_catalog.current_setting('app.current_user_id',true) AS current_user_id,
-      pg_catalog.to_regclass('public.identity_profile')::text AS profile_table,
-      pg_catalog.to_regclass('subtrack_auth.epoch')::text AS epoch_table`);
+      EXISTS (SELECT 1 FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname='public' AND c.relname='identity_profile' AND c.relkind='r') AS profile_table,
+      EXISTS (SELECT 1 FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname='subtrack_auth' AND c.relname='epoch' AND c.relkind='r') AS epoch_table`);
     const row = state.rows[0];
     if (state.rowCount !== 1 || row.database_name !== epoch.database || row.session_user !== epoch.login ||
       row.current_user !== epoch.login || ![null, ''].includes(row.user_id) || ![null, ''].includes(row.current_user_id) ||
-      row.profile_table !== 'identity_profile' && row.profile_table !== 'public.identity_profile' ||
-      row.epoch_table !== 'subtrack_auth.epoch') fail();
+      row.profile_table !== true || row.epoch_table !== true) fail();
+    await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+    await client.query('SET LOCAL ROLE subtrack_runtime');
+    const qualified = await client.query(`SELECT pg_catalog.current_database()::text AS database_name,
+      session_user::text AS session_user,current_user::text AS current_user,
+      pg_catalog.current_setting('app.user_id',true) AS user_id,
+      pg_catalog.current_setting('app.current_user_id',true) AS current_user_id`);
+    if (qualified.rows.length !== 1 || qualified.rows[0].database_name !== epoch.database ||
+      qualified.rows[0].session_user !== epoch.login || qualified.rows[0].current_user !== 'subtrack_runtime' ||
+      ![null, ''].includes(qualified.rows[0].user_id) ||
+      ![null, ''].includes(qualified.rows[0].current_user_id)) fail();
     const approved = await assertQualifiedCatalog(client);
     await assertProfileCatalog(client);
     await assertAuthCatalog(client, approved);
@@ -519,8 +535,6 @@ async function assertStartup() {
         'pending_enrollment','verified_enrollment','enrollment_intent','identity_birth']]);
     if (rls.rows.length !== 14 || rls.rows.some(item => item.enabled !== true || item.forced !== true)) fail();
     gate('EPOCH');
-    await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
-    await client.query('SET LOCAL ROLE subtrack_runtime');
     const fence = await client.query('SELECT subtrack_auth.fence($1::text,$2::subtrack_auth.h,$3::subtrack_auth.ms) AS ok',
       [epoch.epoch, epoch.manifestHash, Date.now()]);
     if (fence.rows.length !== 1 || fence.rows[0].ok !== true) fail();
@@ -532,7 +546,11 @@ async function assertStartup() {
     if (after.rows.length !== 1 || after.rows[0].database_name !== epoch.database ||
       after.rows[0].session_user !== epoch.login || after.rows[0].current_user !== epoch.login ||
       ![null, ''].includes(after.rows[0].user_id) || ![null, ''].includes(after.rows[0].current_user_id)) fail();
-  } finally { client.release(); }
+    complete = true;
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch { /* Discard the unclean connection below. */ }
+    throw error;
+  } finally { client.release(!complete); }
 }
 
 async function main() {
