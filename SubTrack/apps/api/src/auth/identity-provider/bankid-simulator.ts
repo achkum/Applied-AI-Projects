@@ -1,6 +1,18 @@
 import { createHmac } from 'node:crypto';
 import type { IdentityProvider, IdentityResult } from './identity-provider.interface';
 
+/** Private synthetic enrollment fields; never infer them from provider display text. */
+export interface DevelopmentEnrollmentPersonResult {
+  readonly method: 'BANKID';
+  readonly personnummerHmac: string;
+  readonly verifiedAt: string;
+  readonly givenName: string;
+  readonly surname: string;
+}
+export const DEVELOPMENT_ENROLLMENT_PERSON = Object.freeze({
+  token: 'alice', givenName: 'Alice', surname: 'Andersson',
+});
+
 /**
  * Fixed demo identities for the BankID simulator.
  * Token = demo ID string (e.g. "alice", "bob").
