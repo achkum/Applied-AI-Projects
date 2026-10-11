@@ -10,7 +10,7 @@ source_head=$(git rev-parse HEAD)
 image=mirror.gcr.io/library/postgres:16-alpine
 cid=$(printf '%064d' 0) marker=$(printf '%032d' 0) name="st233a-$(printf '%032d' 0)" created=''
 declare -A clients=() writers=()
-driver_cid='' driver_name='' driver_image='node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
+driver_cid='' driver_name='' driver_env='' driver_image='node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
 for function in private_file custody custody_diagnostic terminate_container cleanup_container cleanup_temp finish monotonic registry launch_client observe_clients live_client poll_client join_client close_writers terminate_clients driver_custody driver_cleanup; do
   source <(sed -n "/^$function() {/,/^}/p" "$script")
 done
@@ -257,8 +257,10 @@ printf 'ST-233a actual custody and finish negatives: PASS\n'
 tmp=$(mktemp -d "$base/st233a.XXXXXX")
 : > "$tmp/driver.cjs"; : > "$tmp/driver.json"
 driver_cid=$(printf '%064d' 1); driver_name="st233l-$marker"
-for driver_case in valid image network mount label uid pid port pids-limit memory-limit env created-pid exited-running; do
+for driver_case in valid valid-development image network mount label uid pid port pids-limit memory-limit env env-production created-pid exited-running; do
   driver_removed=false
+  driver_env=''
+  [[ "$driver_case" != valid-development && "$driver_case" != env-production ]] || driver_env='NODE_ENV=development'
   docker() {
     case "$1" in
       inspect)
@@ -279,6 +281,8 @@ if case=='port': x['HostConfig']['PortBindings']={'5432/tcp':[{}]}
 if case=='pids-limit': x['HostConfig']['PidsLimit']=65
 if case=='memory-limit': x['HostConfig']['Memory']=134217729
 if case=='env': x['Config']['Env'].append('PGPASSWORD=foreign')
+if case=='valid-development': x['Config']['Env'].append('NODE_ENV=development')
+if case=='env-production': x['Config']['Env'].append('NODE_ENV=production')
 if case=='created-pid': x['State'].update(Status='created',Running=False,Pid=1234)
 if case=='exited-running': x['State'].update(Status='exited',Running=True,Pid=1234)
 print(json.dumps(x))
@@ -289,7 +293,7 @@ PY
       *) return 1 ;;
     esac
   }
-  if [[ "$driver_case" == valid ]]; then driver_custody running; driver_cleanup; [[ "$driver_removed" == true ]]; driver_cid=$(printf '%064d' 1)
+  if [[ "$driver_case" == valid || "$driver_case" == valid-development ]]; then driver_custody running; driver_cleanup; [[ "$driver_removed" == true ]]; driver_cid=$(printf '%064d' 1)
   else ! driver_custody running; ! driver_cleanup; [[ "$driver_removed" == false ]]; fi
   printf 'ST-233l sidecar custody case=%s: expected result verified\n' "$driver_case"
 done

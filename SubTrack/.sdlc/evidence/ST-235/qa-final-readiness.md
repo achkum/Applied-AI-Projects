@@ -1,0 +1,7 @@
+# ST-235 final QA readiness — APPROVE for source GO
+Reviewed ST-235, Constitution, execution proposal, prior QA conditions, revised author candidate `4c6be16d2f87c20d0b30caf35794ff92fee5fd58`, and independent security APPROVE Type 2a.
+The SQL 009 four-table grant/RLS roster, exact function signatures and complete `sub/sid` plus Origin/chain/binding/CSRF/epoch predicates satisfy the requested precode freeze; runtime has only three current-authority EXECUTEs, no private table access, and PUBLIC/default EXECUTE stays revoked.
+Fixture issuance is confined to the disposable PG16 harness, seeded synthetic owner captured in a closure with verified nonce/chain/cookie, and `issue_fixture` EXECUTE belongs only to the fixture owner. No application owner selector or real simulator producer is required for this harness-only slice.
+The proposed callback holds one PG transaction and identity-first locks through owner write and known commit/rollback; the pinned-key restart, serial revoke/CSRF races, denial matrix, unknown-commit nondisclosure, role/GUC reset, default/production absence, and qualified PG16 harness remain mandatory source/proof acceptance criteria.
+This is QA precode readiness, not source/PG/merge acceptance. Conductor must also retain independent platform readiness and exact-scope freeze before source GO; no blanket founder approval attaches to this Type 2a proposal.
+Preserve original `2026-10-11T08:04:01Z` L240 attempt 1/source attempt 1, checkpoints and hard 2,000-author/2,250-complete nongenerated-line caps under the recorded §4 exception.
