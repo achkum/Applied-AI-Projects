@@ -1,0 +1,8 @@
+# ST-236 frozen SECURITY source review C2
+Decision: **APPROVE source security predicates** at PR281 HEAD `7118c1fd6a85276c51090427cfa045d98c580e14`; actual PG16 and exact-head CI remain separate required gates.
+C1 blocker corrected: catalog expects `identity_birth(identity_id,xid)` and the stale birth seed uses those two columns; expiry is carried by the linked `enrollment_intent`, and prune requires no residue.
+The integration now executes scoped runtime and executor identity reads: own row exactly one, foreign row zero, and mismatched dual-owner GUC row zero. Login direct reads and executor role assumption remain denied.
+SQL010 and enrollment service are byte-unchanged from C1: executor retains only the three identity SELECT columns and dual-GUC RLS; fixed current-xid intent/qualified birth trigger/bind/consume remain private, with no new public grant, raw log, default activation, or production path.
+TCP readiness now matches the TCP psql client. Migration receipt fields are bounded to fixed step, SQLSTATE token or `unavailable`, and numeric exit or `unavailable`; real-function negative cases assert private sentinel non-disclosure.
+Harness reliability caveat sent to conductor: `psql -v VERBOSITY=sqlstate` emits `ERROR:  42P01` without a trailing colon, while the parser/fixtures require `ERROR:  42P01:`; this may leave real migration SQLSTATE `unavailable` and needs harness correction/review.
+C1 actual PG16 failure at early migration remains a failure of unknown cause, not a flake or enrollment validation. Source approval does not certify actual PG16 role/denial, full signed current-authority callback, rollback/restart/race, or exact-head CI.

@@ -17,15 +17,19 @@ done
 # Run the production parser and receipt writer against private client-log fixtures.
 # Raw psql text must never become a receipt field, even when it resembles SQLSTATE.
 diagnostic_cid=$cid; cid=''
-for diagnostic_case in undefined_table insufficient_privilege embedded_error malformed_code invalid_exit timeout missing_log; do
+for diagnostic_case in undefined_table insufficient_privilege no_colon end_of_line embedded_error malformed_code long_code lowercase_code invalid_exit timeout missing_log; do
   tmp=$(mktemp -d "$base/st233a.XXXXXX")
   client_log="$tmp/client.log"; migration_step=parent-0001 phase=migration passed=false
   client_exit_status=1; expected_state=unavailable; expected_exit=1
   case "$diagnostic_case" in
     undefined_table) printf 'ERROR:  42P01: private-sentinel\n' > "$client_log"; expected_state=42P01 ;;
     insufficient_privilege) printf 'ERROR:  42501: private-sentinel\n' > "$client_log"; expected_state=42501 ;;
+    no_colon) printf 'ERROR:  42P01 private-sentinel\n' > "$client_log"; expected_state=42P01 ;;
+    end_of_line) printf 'ERROR:  42P01\n' > "$client_log"; expected_state=42P01 ;;
     embedded_error) printf 'NOTICE: prefix ERROR:  42P01: private-sentinel\n' > "$client_log" ;;
-    malformed_code) printf 'ERROR:  42P01 private-sentinel\n' > "$client_log" ;;
+    malformed_code) printf 'ERROR:  42P0 private-sentinel\n' > "$client_log" ;;
+    long_code) printf 'ERROR:  42P01X private-sentinel\n' > "$client_log" ;;
+    lowercase_code) printf 'ERROR:  42p01 private-sentinel\n' > "$client_log" ;;
     invalid_exit) printf 'ERROR:  42P01: private-sentinel\n' > "$client_log"; client_exit_status=999; expected_state=42P01; expected_exit=unavailable ;;
     timeout) printf 'private-sentinel timeout\n' > "$client_log"; client_exit_status=unavailable; expected_exit=unavailable ;;
     missing_log) client_log="$tmp/missing" ;;
@@ -38,6 +42,28 @@ for diagnostic_case in undefined_table insufficient_privilege embedded_error mal
   grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=migration cleanup=removed step=parent-0001 sqlstate=$expected_state client_exit=$expected_exit$" "$receipt"
   ! grep -q 'private-sentinel' "$receipt"
   printf 'ST-236 migration diagnostic case=%s: expected result verified\n' "$diagnostic_case"
+done
+
+# The enrollment diagnostic passes through the same real finish writer.
+for diagnostic_case in sql010 driver_exit invalid_step invalid_fields; do
+  tmp=$(mktemp -d "$base/st233a.XXXXXX")
+  phase=durable-enrollment passed=false
+  enrollment_step=sql010 enrollment_failure_kind=operation enrollment_sqlstate=unavailable enrollment_driver_exit=unavailable
+  expected_step=sql010 expected_kind=operation expected_state=unavailable expected_exit=unavailable
+  case "$diagnostic_case" in
+    sql010) enrollment_sqlstate=42P01; expected_state=42P01 ;;
+    driver_exit) enrollment_step=driver-exit; enrollment_failure_kind=nonzero-exit; enrollment_driver_exit=255
+      expected_step=driver-exit expected_kind=nonzero-exit expected_exit=255 ;;
+    invalid_step) enrollment_step='private-sentinel'; expected_step=unavailable ;;
+    invalid_fields) enrollment_failure_kind='private-sentinel'; enrollment_sqlstate='42P01X'; enrollment_driver_exit='256'
+      expected_kind=unavailable ;;
+  esac
+  : > "$receipt"
+  status=0; (trap finish EXIT; false) || status=$?
+  [[ "$status" != 0 && ! -e "$tmp" ]]
+  grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=durable-enrollment cleanup=removed step=$expected_step failure_kind=$expected_kind sqlstate=$expected_state driver_exit=$expected_exit$" "$receipt"
+  ! grep -q 'private-sentinel' "$receipt"
+  printf 'ST-236 enrollment diagnostic case=%s: expected result verified\n' "$diagnostic_case"
 done
 cid=$diagnostic_cid
 custody_cases() {

@@ -193,16 +193,22 @@ cleanup_temp() {
   [[ ! -e "$target" && ! -L "$target" ]]
 }
 finish() {
-  local status=$? bad=false cleanup_result=removed migration_detail=''
+  local status=$? bad=false cleanup_result=removed migration_detail='' enrollment_detail=''
   trap - EXIT
   if [[ "$phase" == migration ]]; then
     migration_detail=" step=${migration_step:-unavailable} sqlstate=${migration_sqlstate:-unavailable} client_exit=${migration_exit:-unavailable}"
+  elif [[ "$phase" == durable-enrollment ]]; then
+    case "${enrollment_step:-}" in sql010|writer-acl|bundle|driver-create|driver-start|driver-wait|driver-exit|driver-custody|driver-result) ;; *) enrollment_step=unavailable ;; esac
+    case "${enrollment_failure_kind:-}" in operation|invalid-custody|timeout|nonzero-exit|unexpected-state|result-mismatch) ;; *) enrollment_failure_kind=unavailable ;; esac
+    [[ "${enrollment_sqlstate:-}" =~ ^[0-9A-Z]{5}$ ]] || enrollment_sqlstate=unavailable
+    [[ "${enrollment_driver_exit:-}" =~ ^([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])$ ]] || enrollment_driver_exit=unavailable
+    enrollment_detail=" step=$enrollment_step failure_kind=$enrollment_failure_kind sqlstate=$enrollment_sqlstate driver_exit=$enrollment_driver_exit"
   fi
   if [[ ${#clients[@]} != 0 ]]; then status=1; terminate_clients || bad=true; fi
   if [[ -n "${driver_cid:-}" ]]; then driver_cleanup || bad=true; fi
   if [[ "$bad" == true || ${#clients[@]} != 0 ]]; then
     printf 'ST-233b lifecycle: FAIL recovery=retained\n' >&2
-    [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" && printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=failed%s\n' "$source_head" "$phase" "$migration_detail" >> "$receipt"
+    [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" && printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=failed%s%s\n' "$source_head" "$phase" "$migration_detail" "$enrollment_detail" >> "$receipt"
     exit 1
   fi
   if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
@@ -214,7 +220,7 @@ finish() {
     printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,private-atomic-issue,postlock-clock,rollback,reconnect,bounded-clients,durable-current-web,durable-enrollment fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
   else
     status=1
-    printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s%s\n' "$source_head" "$phase" "$cleanup_result" "$migration_detail" >> "$receipt"
+    printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s%s%s\n' "$source_head" "$phase" "$cleanup_result" "$migration_detail" "$enrollment_detail" >> "$receipt"
   fi
   exit "$status"
 }
@@ -301,8 +307,8 @@ record_migration_failure() {
   migration_sqlstate=unavailable
   if [[ -n "$client_log" ]] && private_file "$client_log"; then
     local match
-    match=$(grep -Eom1 '^ERROR:[[:space:]]+[0-9A-Z]{5}:' "$client_log" 2>/dev/null || true)
-    [[ "$match" =~ ^ERROR:[[:space:]]+([0-9A-Z]{5}):$ ]] && migration_sqlstate=${BASH_REMATCH[1]}
+    match=$(grep -Eom1 '^ERROR:[[:space:]]+[0-9A-Z]{5}(:|[[:space:]]|$)' "$client_log" 2>/dev/null || true)
+    [[ "$match" =~ ^ERROR:[[:space:]]+([0-9A-Z]{5})(:|[[:space:]]|$) ]] && migration_sqlstate=${BASH_REMATCH[1]}
   fi
   return 0
 }
@@ -1627,37 +1633,61 @@ driver_result=$(docker logs "$driver_cid" 2>/dev/null) || exit 1
 [[ "$driver_result" == 'ST-235 durable current web: PASS' ]] || exit 1
 printf '%s\n' "$driver_result" >> "$receipt"
 driver_cleanup || exit 1
-phase=durable-enrollment
+phase=durable-enrollment enrollment_step=sql010 enrollment_failure_kind=operation enrollment_sqlstate=unavailable enrollment_driver_exit=unavailable
 # Prior fixture cases deliberately fill nonce capacity. Retire only this owned,
 # disposable database's completed test state before the next isolated proof.
 printf 'DELETE FROM subtrack_auth.nonce; DELETE FROM subtrack_auth.reservation;\n' | owner
-{ printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat apps/api/prisma/development-auth/010-enrollment-account.sql; } | owner
+if { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat apps/api/prisma/development-auth/010-enrollment-account.sql; } | owner; then :; else
+  record_migration_failure
+  enrollment_sqlstate=$migration_sqlstate
+  exit 1
+fi
 # SQL010 must not open an unrelated legacy/session/deletion writer in the fixture.
-assert_owner "NOT pg_catalog.has_table_privilege('subtrack_dev_auth_login','public.identity','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_dev_auth_login','subtrack_auth.session','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_auth_producer','public.identity','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_identity_provisioner','public.identity','UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_runtime','public.identity','DELETE')"
-node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],logLevel:"silent"})' apps/api/test/durable-development-enrollment.integration.ts "$tmp/driver.cjs" || exit 1
+enrollment_step=writer-acl
+assert_owner "NOT pg_catalog.has_table_privilege('subtrack_dev_auth_login','public.identity','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_dev_auth_login','subtrack_auth.session','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_auth_producer','public.identity','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_identity_provisioner','public.identity','UPDATE,DELETE') AND pg_catalog.has_table_privilege('subtrack_runtime','public.identity','DELETE')"
+enrollment_step=bundle
+: > "$tmp/driver-bundle.log"
+private_file "$tmp/driver-bundle.log" || exit 1
+node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],logLevel:"silent"})' apps/api/test/durable-development-enrollment.integration.ts "$tmp/driver.cjs" > "$tmp/driver-bundle.log" 2>&1 || exit 1
 driver_bundle_hash=$(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1)
+enrollment_step=driver-create
 docker create --name "$driver_name" --label "subtrack.task=ST-233l:$marker" --label "subtrack.head=$source_head" \
   --network "container:$cid" --user "$UID" --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 128m -e NODE_ENV=development \
   --mount "type=bind,src=$tmp/driver.cjs,dst=/fixture.cjs,readonly" --mount "type=bind,src=$tmp/driver.json,dst=/fixture.json,readonly" \
   "$driver_image" node /fixture.cjs > "$tmp/driver-cid" 2> "$tmp/driver-create.log" || exit 1
 driver_cid=$(cat "$tmp/driver-cid")
 [[ "$driver_cid" =~ ^[a-f0-9]{64}$ ]] || exit 1
+enrollment_step=driver-custody enrollment_failure_kind=invalid-custody
 driver_custody created || exit 1
+enrollment_step=driver-start enrollment_failure_kind=operation
 docker start "$driver_cid" >/dev/null 2>&1 || exit 1
+enrollment_step=driver-custody enrollment_failure_kind=invalid-custody
 driver_custody running || exit 1
 [[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
+enrollment_step=driver-wait enrollment_failure_kind=operation
 driver_deadline=$(( $(monotonic) + 90000 ))
 while [[ $(monotonic) -lt "$driver_deadline" ]]; do
   driver_state=$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}}' "$driver_cid" 2>/dev/null) || exit 1
   [[ "$driver_state" != 'running 0' ]] && break
   sleep .1
 done
+if [[ "$driver_state" == 'running 0' ]]; then enrollment_failure_kind=timeout; exit 1; fi
+enrollment_step=driver-exit enrollment_failure_kind=unexpected-state
+if [[ "$driver_state" =~ ^exited\ ([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])$ ]]; then
+  enrollment_driver_exit=${BASH_REMATCH[1]}
+  enrollment_failure_kind=nonzero-exit
+  exit 1
+fi
 [[ "$driver_state" == 'exited 0' ]] || exit 1
+enrollment_step=driver-custody enrollment_failure_kind=invalid-custody
 driver_custody exited || exit 1
 [[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
+enrollment_step=driver-result enrollment_failure_kind=operation
 driver_result=$(docker logs "$driver_cid" 2>/dev/null) || exit 1
+enrollment_failure_kind=result-mismatch
 [[ "$driver_result" == 'ST-236 durable enrollment: PASS' ]] || exit 1
 printf '%s\n' "$driver_result" >> "$receipt"
+enrollment_step=driver-custody enrollment_failure_kind=invalid-custody
 driver_cleanup || exit 1
 phase=pins
 [[ $(git rev-parse HEAD) == "$source_head" ]] || exit 1
