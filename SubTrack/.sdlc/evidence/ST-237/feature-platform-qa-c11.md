@@ -1,0 +1,17 @@
+# ST-237 independent platform/devops/source QA — C11
+
+**Verdict: conditional source approval; actual feature acceptance HOLD.** Reviewed frozen PR #282 head `fb5d6a98f78fff2a9769577391868402cef16250` against ST-237, the Constitution, C9/C10 platform and security reviews, the loopback topology readiness, the direct HTTPS launcher and disposable PG/browser proof. I did not author application or proof source, change Git, run Docker/PostgreSQL/Firefox, or treat the pending C11 CI as a pass. The original L240 deadline remains `2026-10-11T16:53:20.061Z`.
+
+## C11 startup correction
+
+The C10 run `38147264429` passed pre-seed loopback and private installation/refusal phases but failed before the browser at the server startup gate. The C11 launcher first obtains only database/session/GUC and table-presence metadata from `pg_catalog` under the `NOINHERIT` login. It then begins one transaction and uses `SET LOCAL ROLE subtrack_runtime` before all qualified function, profile, auth table, 43 policy, 115 column, ten-role and incident-membership, grant/type/constraint, FORCE RLS and epoch-fence checks. `COMMIT` resets the local role, followed by a clean login/GUC identity check. Any error attempts `ROLLBACK` and releases the connection with discard; a failed post-commit check also discards it. This closes the source-level C10 pre-role schema-resolution problem without adding login grants or changing SQL pins. The listener opens only after this gate.
+
+The 25-function/43-policy/115-column cardinalities and fixed source/constraint pins remain in the reviewed launcher. Its ten-role check still rejects elevated `subtrack_runtime` privileges and unexpected incident membership edges. I found no C11 change to profile statements, current-web authority, cookie/Origin/Host roster, enrollment error contract, ordinary migration, qualified SQL, or default/public entry point.
+
+## C11 network custody correction
+
+The proof now requires the container's complete `NetworkSettings.Networks` key set to be exactly the owned network name. In the running state, its `NetworkID` must equal the created network ID, its endpoint must be a 64-character ID, the owned network's container set must equal the sole CID, and that network's endpoint ID must equal the live container endpoint. The pre-start check tolerates an unallocated network ID, while preserving the exact owned network, pinned image, sole `127.0.0.1` port binding, IPv4 NAT bridge, resource limits and task labels. The cleanup path runs custody before removal and reports failure if identity drifts. This addresses the C10 extra-network and empty-owned-network acceptance gap in source.
+
+## Verification and remaining gates
+
+`node --check apps/web/private-https-server.mjs`, Git Bash `bash -n tools/database/private-profile-proof.sh`, and `git diff --check` from C10 to C11 passed locally. These are syntax/whitespace checks only. Require a fresh exact-head C11 run with all four sv/en × light/dark natural Firefox cases, including server startup, actual 25/43/115 catalog qualification, role/epoch/schema refusal, network endpoint and pre-seed host reachability, ordinary/qualified business catalog equivalence, same-bundle restart, partial terminal-cookie stop, lost PATCH response, source/dist finish pins, and owned cleanup. The separate historical ST-233a qualified foundation gate and applicable CI, independent security/client/actual QA, and Conductor audit remain blocking. C10's pre-browser failure supplies no browser acceptance.

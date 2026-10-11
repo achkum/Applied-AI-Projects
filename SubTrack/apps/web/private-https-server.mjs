@@ -55,9 +55,9 @@ pool.on('error', () => {});
 // These are reviewed installation inputs, not values learned from the database being
 // qualified. Keep the file pins in this launcher when changing any qualified SQL.
 const qualifiedSqlPins = Object.freeze({
-  '001-epoch-nonce-reservation.sql': 'c26de56902f24589672202012172e294f75f55a5367d7a1c2bb5744b8536d596',
-  '002-epoch-fence.sql': 'a53177d8f72d73d68221f7e6b5166787051fdf936a862487939b53a624485571',
-  '003-nonce-binding-lookup.sql': '6960f25d239961e1083fa7961a529c5718841002e0ce50e3eed3a36314fb416b',
+  '001-epoch-nonce-reservation.sql': '7ada99f0863aca74e8f6e25e3e990e796e619c2118f138b8f1c2daa867c82bd2',
+  '002-epoch-fence.sql': '1fa14fd1e0e487806550b74280d94f94de245fe231d7e34c4a5f7c70ddf104d9',
+  '003-nonce-binding-lookup.sql': '94239213cefab43db0fd2b339361331c1de6ac6d94aa6e4885d532c2cc3076b9',
   '004-bootstrap-reservation.sql': 'eda3b86bd75161c2c617c1c2e02ee293e00077c31eb60b473e0d7a1062bcf0bf',
   '005-expired-reservation-prune.sql': 'd76d2297e4f146603f9cbcf3732e497746214aa2c8e5936afeebaa6d4ce68354',
   '006-owned-bootstrap-settlement.sql': '8c6313958d52a91f883d9a875840fbc7656adcad8b3326fa1e24da11e6692d85',
@@ -66,7 +66,7 @@ const qualifiedSqlPins = Object.freeze({
   '009-current-web-session-csrf.sql': 'f7c026ee9dac458bbfbbea13e1774d3bd392fdab8e5c4659185dc769ecab2c9b',
   '010-enrollment-account.sql': '954be5c4ae1c018aac161a5ec7e59d2bd1bc478df5310a7a15f968f8bfd90a4a',
 });
-const privacyMigrationPin = '451ed57de9610f22fd458548b45ad81b86161846aa4d2e7c47c0301e788305fd';
+const privacyMigrationPin = 'b2ef9ebbdce9f9dddff9f43b6679e0fdac58324c2a6ef060af33662ec89a2f9a';
 const digest = value => createHash('sha256').update(value).digest('hex');
 
 function commaSeparatedDefinitions(source) {
