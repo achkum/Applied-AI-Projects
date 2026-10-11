@@ -30,9 +30,12 @@ async function awaitMarker(name) {
   for (let i = 0; i < 600; i++) { if (fs.existsSync(path.join(handshake, name))) return; await delay(100); }
   throw new Error('handshake');
 }
-function request(headers, body = '{}', pathname = '/v2/me/profile/read') {
+function request(headers, body = '{}', pathname = '/v2/me/profile/read', wrongHostProbe = false) {
+  if (wrongHostProbe) assert(headers.Host === 'other.invalid' && body === '{}' && pathname === '/v2/me/profile/read');
   return new Promise((resolve, reject) => {
-    const req = https.request(`${origin}${pathname}`, { method: 'POST', family: 4, ca, headers: {
+    const req = https.request(`${origin}${pathname}`, { method: 'POST', family: 4, ca,
+      // Deliberate HTTP Host denial still verifies TLS against the actual localhost destination.
+      ...(wrongHostProbe ? { servername: 'localhost' } : {}), headers: {
       'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...headers } }, res => {
       const parts = []; res.on('data', part => parts.push(part)); res.on('end', () => {
         try { const text = Buffer.concat(parts).toString('utf8');
@@ -195,7 +198,7 @@ try {
     closedProblem(observed, status, code);
   }
   negativeCase = 'WRONG_HOST'; negativeStatus = 'NONE'; negativeNetwork = 'NONE';
-  const wrongHost = await request({ ...baseHeaders, Host: 'other.invalid' });
+  const wrongHost = await request({ ...baseHeaders, Host: 'other.invalid' }, '{}', '/v2/me/profile/read', true);
   negativeStatus = safeStatus(wrongHost.status);
   assert.equal(wrongHost.status, 421);
   assert.equal(wrongHost.headers['cache-control'], 'no-store');
