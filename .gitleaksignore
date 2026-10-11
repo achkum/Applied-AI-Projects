@@ -32,3 +32,6 @@ b115f3bbaaf25f1eb489325e8fcac694851edbf0:SubTrack/.sdlc/evidence/ST-233a/ci-qa.m
 
 # ST227c1: independently verified public SQL Git source pin; exact historical finding only.
 be13f1367de1802aee83144e9309233682569a72:SubTrack/.sdlc/evidence/ST-227c1/accepted-parent-import-qa.md:generic-api-key:4
+
+# ST233m: independently verified public deterministic expiry fixture identifier; exact historical finding only.
+1ea7931d64c55c6909280dadeb851ee5875bbde2:SubTrack/tools/database/development-auth-foundation-proof.sh:generic-api-key:1441

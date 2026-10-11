@@ -1,0 +1,9 @@
+# ST-233m independent platform/security source review — exact HEAD `1ea7931d64c55c6909280dadeb851ee5875bbde2` (PR 278)
+APPROVE Type 2a corrected source; no concrete Type 1 authority delta or High/Critical security veto found. This is source approval, not an actual PG16/SCRAM execution or final acceptance.
+C2 changes only the proof and phase breadcrumbs: adapter/spec, SQL004/006/008, grants, dependencies, mounts, credential channels and registration remain unchanged from reviewed C1 `d686be5`.
+The proof binds each deterministic H key to owner-visible reservation state, authority/request, operation, transport, epoch and retention; the seven named rows replace aggregate-only success evidence, while in-memory SQL004/008/006 tuples bind complete witnesses.
+Fresh restricted SQL003 peek checks attempted nonce hash, binding, purpose and chain; disclosed success secrets reproduce the submitted hashes. Random ownerHash is checked for valid shape, not reconstructed or claimed equal to a host value.
+The independent burn, atomic issue/completed, explicit rollback/conditional fail, expiry/capacity and uncertain acknowledgement paths remain distinct; ACK hooks are simulations, and L's real disconnect and 39/16/11 plus 13 sidecar cases, F/G/K checks, custody and source pins remain required.
+C2 records `driver-cleanup` and `port-durable-state` failures, corrects final count to seven reservations while retaining the pre-capacity seven, and does not reclassify C1 foundation failure as a proven flake.
+History remains original 06:52:54 L240 attempt1/sourceattempt1, C1 QA reason1 and foundation failure1; corrected source measures author 448/500, combined proof 150/180, PR 558/750.
+Require fresh exact-head actual PG16/SCRAM proof, independent QA and applicable CI before merge; no new credential, grant, SQL, HTTP or production authority is approved.
