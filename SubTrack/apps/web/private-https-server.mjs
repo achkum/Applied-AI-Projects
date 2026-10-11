@@ -69,10 +69,30 @@ const qualifiedSqlPins = Object.freeze({
 const privacyMigrationPin = '451ed57de9610f22fd458548b45ad81b86161846aa4d2e7c47c0301e788305fd';
 const digest = value => createHash('sha256').update(value).digest('hex');
 
+function commaSeparatedDefinitions(source) {
+  const parts = [];
+  let depth = 0, quoted = false, start = 0;
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i];
+    if (char === "'") {
+      if (quoted && source[i + 1] === "'") { i++; continue; }
+      quoted = !quoted;
+    } else if (!quoted && char === '(') depth++;
+    else if (!quoted && char === ')') depth--;
+    else if (!quoted && depth === 0 && char === ',') {
+      parts.push(source.slice(start, i).trim()); start = i + 1;
+    }
+  }
+  if (quoted || depth !== 0) fail();
+  parts.push(source.slice(start).trim());
+  return parts;
+}
+
 function approvedFunctions() {
   gate('SOURCE');
   const expected = new Map();
   const policies = [];
+  const columns = [];
   const migrationDir = path.resolve(apiDir, 'prisma/development-auth');
   for (const [file, hash] of Object.entries(qualifiedSqlPins)) {
     const source = fs.readFileSync(path.join(migrationDir, file));
@@ -84,6 +104,19 @@ function approvedFunctions() {
     for (const match of sql.matchAll(/CREATE POLICY\s+([a-z_]+)\s+ON subtrack_auth\.([a-z_]+)\s+FOR (SELECT|INSERT|UPDATE|DELETE)\s+TO subtrack_auth_executor(?:\s+USING \((true)\))?(?:\s+WITH CHECK \((true|false)\))?;/g)) {
       policies.push([match[2],match[1],{SELECT:'r',INSERT:'a',UPDATE:'w',DELETE:'d'}[match[3]],
         true,['subtrack_auth_executor'],match[4] ?? null,match[5] ?? null]);
+    }
+    for (const table of sql.matchAll(/CREATE TABLE subtrack_auth\.([a-z_]+)\s*\(([\s\S]*?)\);/g)) {
+      let position = 0;
+      for (const definition of commaSeparatedDefinitions(table[2])) {
+        if (/^(?:PRIMARY KEY|UNIQUE|FOREIGN KEY|CHECK)\s*\(/.test(definition)) continue;
+        const column = /^([a-z_]+)\s+(pg_catalog\.[a-z0-9_]+|subtrack_auth\.[a-z_]+)/.exec(definition);
+        if (!column) fail();
+        const type = { 'pg_catalog.uuid':'uuid','pg_catalog.text':'text',
+          'pg_catalog.int2':'smallint','pg_catalog.int8':'bigint',
+          'pg_catalog.xid8':'xid8' }[column[2]] ?? column[2];
+        columns.push([table[1],++position,column[1],type,
+          /\bNOT NULL\b|\bPRIMARY KEY\b/.test(definition),/\bDEFAULT\b/.test(definition)]);
+      }
     }
     if (bodies.length !== signatures.length) fail();
     for (let i = 0; i < bodies.length; i++) {
@@ -99,8 +132,8 @@ function approvedFunctions() {
         grants: granted ? granted[2].split(',').sort() : [] });
     }
   }
-  if (expected.size !== 25 || policies.length !== 43) fail();
-  return { functions: expected, policies };
+  if (expected.size !== 25 || policies.length !== 43 || columns.length !== 115) fail();
+  return { functions: expected, policies, columns };
 }
 
 async function assertQualifiedCatalog(client) {
@@ -140,7 +173,7 @@ async function assertQualifiedCatalog(client) {
       (JSON.stringify(row.arg_modes) !== '["i","i","i","t","t","t","t","t","t"]' ||
         JSON.stringify(row.arg_names) !== '["scope","verified_h","terminal_nonce_h","subject_h","channel","contact","verified_at","given_name","surname"]')) fail();
   }
-  return approved.policies;
+  return { policies: approved.policies, columns: approved.columns };
 }
 
 async function assertProfileCatalog(client) {
@@ -289,7 +322,7 @@ async function assertProfileCatalog(client) {
       "CHECK ((default_currency = 'SEK'::bpchar))") fail();
 }
 
-async function assertAuthCatalog(client, approvedPolicies) {
+async function assertAuthCatalog(client, approved) {
   gate('AUTH_TABLES');
   const authTables = ['credential','csrf','enrollment_intent','epoch','family','identity_birth',
     'nonce','otp','pending_enrollment','reservation','restricted_proof','session','verified_enrollment'];
@@ -301,6 +334,16 @@ async function assertAuthCatalog(client, approvedPolicies) {
   if (JSON.stringify(tables.rows.map(t => t.name)) !== JSON.stringify(authTables) ||
     tables.rows.some(t => t.kind !== 'r' || !t.rls || !t.force_rls ||
       t.owner !== 'subtrack_auth_owner')) fail();
+  const columns = await client.query(`SELECT c.relname::text AS table_name,a.attnum AS position,
+      a.attname::text AS name,pg_catalog.format_type(a.atttypid,a.atttypmod) AS type,
+      a.attnotnull AS not_null,a.atthasdef AS has_default
+    FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+    WHERE n.nspname='subtrack_auth' AND c.relkind='r' ORDER BY c.relname,a.attnum`);
+  const sortRows = rows => rows.map(r => JSON.stringify(r)).sort();
+  const actualColumns = columns.rows.map(c =>
+    [c.table_name,c.position,c.name,c.type,c.not_null,c.has_default]);
+  if (JSON.stringify(sortRows(actualColumns)) !== JSON.stringify(sortRows(approved.columns))) fail();
   const roles = await client.query(`SELECT rolname::text AS name,rolcanlogin AS login,
       rolsuper AS super,rolcreatedb AS create_db,rolcreaterole AS create_role,
       rolbypassrls AS bypass_rls,rolinherit AS inherit
@@ -380,8 +423,7 @@ async function assertAuthCatalog(client, approvedPolicies) {
     WHERE n.nspname='subtrack_auth' ORDER BY c.relname,p.polname`);
   const actualPolicies = policies.rows.map(p =>
     [p.table_name,p.name,p.command,p.permissive,p.roles,p.using_expr,p.check_expr]);
-  const sortRows = rows => rows.map(r => JSON.stringify(r)).sort();
-  if (JSON.stringify(sortRows(actualPolicies)) !== JSON.stringify(sortRows(approvedPolicies))) fail();
+  if (JSON.stringify(sortRows(actualPolicies)) !== JSON.stringify(sortRows(approved.policies))) fail();
 
   gate('AUTH_GRANTS');
   const acl = await client.query(`SELECT c.relname::text AS table_name,'table' AS scope,
@@ -419,6 +461,14 @@ async function assertAuthCatalog(client, approvedPolicies) {
     [a.table_name,a.scope,a.column_name,a.grantee,a.privilege,a.grantable]);
   if (JSON.stringify(sortRows(actualAcl)) !== JSON.stringify(sortRows(expectedAcl))) fail();
 
+  gate('AUTH_CONSTRAINTS');
+  // Four independent C8 private PG16 installs from pinned SQL001-010 produced
+  // this exact definition projection before key/row/schema mutation.
+  const constraints = await client.query(`SELECT pg_catalog.md5(pg_catalog.string_agg(
+      pg_catalog.format('%s:%s:%s:%s:%s',c.conname,c.contype,c.convalidated,c.condeferrable,
+        pg_catalog.pg_get_constraintdef(c.oid)),E'\\n' ORDER BY c.conname,c.oid)) AS pin
+    FROM pg_catalog.pg_constraint c WHERE c.connamespace='subtrack_auth'::pg_catalog.regnamespace`);
+  if (constraints.rows.length !== 1 || constraints.rows[0].pin !== '20d5868b5252c03b0d54b691938e860c') fail();
   const constraintCounts = await client.query(`SELECT c.relname::text AS table_name,
       pg_catalog.count(*)::pg_catalog.int4 AS total,
       pg_catalog.bool_and(k.convalidated AND
@@ -452,9 +502,9 @@ async function assertStartup() {
       row.current_user !== epoch.login || ![null, ''].includes(row.user_id) || ![null, ''].includes(row.current_user_id) ||
       row.profile_table !== 'identity_profile' && row.profile_table !== 'public.identity_profile' ||
       row.epoch_table !== 'subtrack_auth.epoch') fail();
-    const approvedPolicies = await assertQualifiedCatalog(client);
+    const approved = await assertQualifiedCatalog(client);
     await assertProfileCatalog(client);
-    await assertAuthCatalog(client, approvedPolicies);
+    await assertAuthCatalog(client, approved);
     const rls = await client.query(`SELECT n.nspname::text AS schema_name,c.relname::text AS table_name,
       c.relrowsecurity AS enabled,c.relforcerowsecurity AS forced
       FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace

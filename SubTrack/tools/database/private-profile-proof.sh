@@ -48,13 +48,19 @@ assert h["NetworkMode"]==net and not h["Privileged"] and not h["CapAdd"] and not
 assert h["PidsLimit"]==128 and h["Memory"]==536870912
 assert set(h["PortBindings"])=={"5432/tcp"}
 assert all(p["HostIp"]=="127.0.0.1" for p in h["PortBindings"]["5432/tcp"])
+if x['State']['Running']:
+  bindings=x['NetworkSettings']['Ports']
+  assert set(bindings)=={'5432/tcp'} and len(bindings['5432/tcp'])==1
+  mapped=bindings['5432/tcp'][0]
+  assert mapped['HostIp']=='127.0.0.1' and mapped['HostPort'].isdigit() and 0<int(mapped['HostPort'])<65536
 assert set(h["Tmpfs"])=={"/var/lib/postgresql/data"}
 assert all(m["Type"]=="tmpfs" and m["Destination"]=="/var/lib/postgresql/data" and m["RW"] is True for m in x["Mounts"])
 ' "$cid" "$name" "$marker" "$head" "$image" "$network" || return 1
   docker network inspect "$network" | python3 -c '
 import json,sys
 x=json.load(sys.stdin)[0]; ident,marker,head,cid=sys.argv[1:]
-assert x["Id"]==ident and x["Internal"] is True and x["Driver"]=="bridge"
+assert x["Id"]==ident and x["Internal"] is False and x["Driver"]=="bridge"
+assert x["Options"]=={"com.docker.network.bridge.host_binding_ipv4":"127.0.0.1"}
 assert x["Labels"]["subtrack.task"]=="ST-237:"+marker and x["Labels"]["subtrack.head"]==head
 assert set(x["Containers"]).issubset({cid})
 ' "$network" "$marker" "$head" "$cid"
@@ -75,7 +81,7 @@ cleanup() {
     docker inspect "$cid" >/dev/null 2>&1 && ok=0 || true
   fi
   if [[ -n "$network" ]]; then
-    if docker network inspect "$network" | python3 -c 'import json,sys;x=json.load(sys.stdin)[0];assert x["Id"]==sys.argv[1] and x["Internal"] is True and x["Labels"]["subtrack.task"]=="ST-237:"+sys.argv[2] and x["Labels"]["subtrack.head"]==sys.argv[3] and not x["Containers"]' "$network" "$marker" "$head"; then
+    if docker network inspect "$network" | python3 -c 'import json,sys;x=json.load(sys.stdin)[0];assert x["Id"]==sys.argv[1] and x["Internal"] is False and x["Labels"]["subtrack.task"]=="ST-237:"+sys.argv[2] and x["Labels"]["subtrack.head"]==sys.argv[3] and not x["Containers"]' "$network" "$marker" "$head"; then
       docker network rm "$network" >/dev/null 2>&1 || ok=0
     else ok=0; fi
     docker network inspect "$network" >/dev/null 2>&1 && ok=0 || true
@@ -100,10 +106,13 @@ while read -r full blob digest; do printf 'INPUT file=%s blob=%s sha256=%s\n' "$
 find apps/api/dist -type f -print0 | sort -z | xargs -0 sha256sum > "$work/build-inputs"
 [[ -s "$work/build-inputs" ]]
 phase=FIXTURE
+engine="$(docker version --format '{{.Server.Version}}')"
+[[ "$engine" =~ ^([0-9]+)\.[0-9]+\.[0-9]+ ]] && (( BASH_REMATCH[1]>=28 ))
+printf 'RUNTIME docker_server=%s\n' "$engine" >&3
 owner_pass="$(openssl rand -hex 24)" actor_pass="$(openssl rand -hex 24)"
 printf 'POSTGRES_USER=st233a_fixture_owner\nPOSTGRES_DB=%s\nPOSTGRES_PASSWORD=%s\nPOSTGRES_HOST_AUTH_METHOD=scram-sha-256\nPOSTGRES_INITDB_ARGS=--auth-host=scram-sha-256\n' "$db" "$owner_pass" > "$work/pg.env"
 printf '127.0.0.1:5432:%s:st233a_fixture_owner:%s\n' "$db" "$owner_pass" > "$work/pgpass"
-network="$(docker network create --internal --label "subtrack.task=ST-237:$marker" --label "subtrack.head=$head" "$name")"
+network="$(docker network create --driver bridge --opt com.docker.network.bridge.host_binding_ipv4=127.0.0.1 --label "subtrack.task=ST-237:$marker" --label "subtrack.head=$head" "$name")"
 [[ "$network" =~ ^[a-f0-9]{64}$ ]]
 docker create --name "$name" --label "subtrack.task=ST-237:$marker" --label "subtrack.head=$head" \
   --network "$network" -p 127.0.0.1::5432 --pids-limit 128 --memory 512m --cpus 2 \
@@ -145,6 +154,7 @@ fs.writeFileSync(process.argv[3],`INSERT INTO subtrack_auth.epoch VALUES ('st237
 NODE
 step=EPOCH_SEED
 owner < "$work/seed.sql"
+phase=FIXTURE_PORT step=PORT_BINDING
 port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "5432/tcp") 0).HostPort}}' "$cid")"
 [[ "$port" =~ ^[0-9]+$ && "$port" -gt 0 && "$port" -lt 65536 ]]
 export ST237_PG_PORT="$port" ST237_PG_PASSWORD="$actor_pass"

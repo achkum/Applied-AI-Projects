@@ -658,6 +658,8 @@ paths:
         Existing OTP stores only hash/channel and proof consumption returns a
         boolean; coherent contact/proof metadata resolution and transaction-bound
         consumption are future prerequisites, not existing capabilities.
+        The qualified private durable composition uses WebEnrollmentProblem's
+        collapsed 409 boundary; 401/429 require separately trusted classification.
       security: []
       parameters:
         - $ref: '#/components/parameters/WebEnrollmentIdempotencyKey'
@@ -716,6 +718,8 @@ paths:
         future reviewed core prerequisite. Existing registered-login simulator
         producer cannot supply authoritative enrollment; trusted given/surname
         extension is separately reviewed, never split full name or invent fields.
+        The qualified private durable composition uses WebEnrollmentProblem's
+        collapsed 409 boundary; 401/429 require separately trusted classification.
       security: []
       parameters:
         - $ref: '#/components/parameters/WebEnrollmentIdempotencyKey'
@@ -776,6 +780,8 @@ paths:
         ports remain future core prerequisites. Profile/Just me, SQL objects/grants
         and current-versus-predecessor consumed-refresh CSRF policy remain separate
         security-reviewed gates; this contract authorizes or selects none of them.
+        The qualified private durable composition uses WebEnrollmentProblem's
+        collapsed 409 boundary; 401/429 require separately trusted classification.
       security: []
       parameters:
         - $ref: '#/components/parameters/WebEnrollmentIdempotencyKey'
@@ -2168,7 +2174,13 @@ components:
         pending/expired/consumed/mismatch/conflict or duplicate, except verified
         registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only;
         429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR
-        for unavailable dependencies. No replay or credential Set-Cookie on error.
+        for unavailable dependencies when independently trusted classification is
+        available. The ST-237 qualified private development composition preserves
+        the accepted durable core's masked 409 AUTH_RESTART_REQUIRED for collapsed
+        invalid, spent, capacity, dependency and uncertain outcomes; it does not
+        infer 401 or 429 from SQLSTATE, error text or a second query. Unexpected
+        adapter or token-issuer faults outside that core return generic 500.
+        No replay or credential Set-Cookie on error.
       headers:
         Cache-Control: { required: true, schema: { type: string, const: no-store } }
         Pragma: { required: true, schema: { type: string, const: no-cache } }
