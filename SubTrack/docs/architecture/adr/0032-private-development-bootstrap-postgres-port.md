@@ -1,0 +1,11 @@
+# ADR 0032: Private development PostgreSQL bootstrap port
+- Status: Proposed Type 2a for ST-233m; unregistered pending independent source, actual PostgreSQL proof, and QA.
+- The exact development fixture config supplies origin, epoch, manifest, database and restricted SCRAM password without ambient connection defaults.
+- A fresh restricted client and local runtime role execute only fixed parameterized SQL 004, 008 and 006 under read committed isolation with empty anonymous owner GUCs.
+- The port captures one frozen complete burn witness, commits reserve independently, and attempts atomic nonce issue and completion once.
+- Only exact commit acknowledgement, idle transaction status and successful bounded close establish known commitment.
+- Only exact explicit rollback acknowledgement, idle status and close establish operation rollback and one conditional failed settlement for the same burn object.
+- Uncertain response, aborted commit, timeout, disconnect or close uncertainty poisons the instance without replay, compensation or disclosure.
+- SQL remains authoritative for time, capacity, expiry and tuple rematch; the adapter supplies its own bounded observation.
+- Actual PG16/SCRAM proof must run this adapter through the J lifecycle with L custody and verify durable state, failure boundaries, role reset and cleanup.
+- No SQL, grants, dependencies, registration, HTTP, storage, production or public authority changes.

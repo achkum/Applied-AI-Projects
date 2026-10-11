@@ -5,8 +5,14 @@ on:
     paths:
       - 'SubTrack/apps/api/prisma/**'
       - 'SubTrack/apps/api/package.json'
+      - 'SubTrack/apps/api/src/auth/browser-nonce/development-bootstrap-postgres-port.ts'
+      - 'SubTrack/apps/api/src/auth/browser-nonce/development-bootstrap-postgres-port.spec.ts'
+      - 'SubTrack/apps/api/src/auth/browser-nonce/development-bootstrap-transaction.ts'
+      - 'SubTrack/apps/api/src/auth/browser-nonce/development-bootstrap-material.ts'
+      - 'SubTrack/apps/api/src/auth/idempotency/development-bootstrap-burn-material.ts'
       - 'SubTrack/pnpm-lock.yaml'
       - 'SubTrack/docs/architecture/adr/0031-isolated-node-postgres-driver-fixture.md'
+      - 'SubTrack/docs/architecture/adr/0032-private-development-bootstrap-postgres-port.md'
       - 'SubTrack/tools/database/*development-auth-foundation-proof.sh'
       - '.github/workflows/subtrack-development-auth-foundation-proof.yml'
 permissions:
@@ -30,7 +36,7 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
       - name: Actual custody and bounded client lifecycle negatives
         run: bash tools/database/test-development-auth-foundation-proof.sh
-      - name: Actual owned PG16 SCRAM foundation, nonce, reservation and atomic issue proof
+      - name: Actual owned PG16 SCRAM foundation and private bootstrap port proof
         run: bash tools/database/development-auth-foundation-proof.sh
       - name: Remove exact recorded fixture
         if: always()
