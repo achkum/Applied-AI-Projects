@@ -100,7 +100,7 @@ function approvedFunctions() {
     const sql = source.toString('utf8');
     const bodies = [...sql.matchAll(/CREATE FUNCTION\s+(subtrack_auth\.[a-z_]+)\([\s\S]*?\)\s+RETURNS\s+[\s\S]*?\s+AS\s+(\$[a-z_]+\$)([\s\S]*?)\2;/g)];
     const signatures = [...sql.matchAll(/ALTER FUNCTION\s+(subtrack_auth\.[a-z_]+\([^;]*?\))\s+OWNER TO subtrack_auth_executor;/g)];
-    const grants = [...sql.matchAll(/GRANT EXECUTE ON FUNCTION\s+(subtrack_auth\.[a-z_]+\([^;]*?\))\s+TO\s+([a-z_,]+);/g)];
+    const grants = [...sql.matchAll(/GRANT EXECUTE ON FUNCTION\s+(subtrack_auth\.[a-z_]+\([^;]*?\))\s+TO\s+([a-z0-9_,]+);/g)];
     for (const match of sql.matchAll(/CREATE POLICY\s+([a-z_]+)\s+ON subtrack_auth\.([a-z_]+)\s+FOR (SELECT|INSERT|UPDATE|DELETE)\s+TO subtrack_auth_executor(?:\s+USING \((true)\))?(?:\s+WITH CHECK \((true|false)\))?;/g)) {
       policies.push([match[2],match[1],{SELECT:'r',INSERT:'a',UPDATE:'w',DELETE:'d'}[match[3]],
         true,['subtrack_auth_executor'],match[4] ?? null,match[5] ?? null]);
