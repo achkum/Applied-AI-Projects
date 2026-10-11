@@ -26,3 +26,6 @@ fb0b0a96faf37d56aae8478162b867aed65a0e44:SubTrack/.sdlc/evidence/ST-227/source-p
 2374f5561c491ca65f80d809c49ce27a81ca48a0:SubTrack/.sdlc/evidence/ST-229/source-pins.md:generic-api-key:4
 2374f5561c491ca65f80d809c49ce27a81ca48a0:SubTrack/.sdlc/evidence/ST-229/source-pins.md:generic-api-key:5
 2374f5561c491ca65f80d809c49ce27a81ca48a0:SubTrack/.sdlc/evidence/ST-229/author-c3-checkpoint.md:generic-api-key:10
+
+# ST233a: independently verified public CI aggregate prose; exact historical finding only.
+b115f3bbaaf25f1eb489325e8fcac694851edbf0:SubTrack/.sdlc/evidence/ST-233a/ci-qa.md:generic-api-key:8
