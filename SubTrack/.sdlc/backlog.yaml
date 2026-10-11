@@ -6,7 +6,8 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-236, title: 'Executable private durable enrollment to account transaction', owner: architect-platform, size: L, status: IN_PROGRESS, deps: [ST-229, ST-232, ST-233m, ST-234, ST-235]}
+  - {id: ST-237, title: 'Executable private HTTPS enrollment through persisted owner profile', owner: architect-platform, size: L, status: IN_PROGRESS, deps: [ST-236]}
+  - {id: ST-236, title: 'Executable private durable enrollment to account transaction', owner: architect-platform, size: L, status: DONE, deps: [ST-229, ST-232, ST-233m, ST-234, ST-235]}
   - {id: ST-235, title: 'Durable current web session and CSRF authority transaction', owner: architect-platform, size: L, status: DONE, deps: [ST-228, ST-230, ST-231, ST-233m, ST-234]}
   - {id: ST-234, title: 'Private profile and explicit Just me data contract', owner: architect-platform, size: M, status: DONE, deps: [ST-228, ST-229, ST-230, ST-231]}
   - {id: ST-233m, title: 'Private fixed PostgreSQL bootstrap transaction port', owner: architect-platform, size: L, status: DONE, deps: [ST-233l, ST-233j, ST-233k]}
@@ -276,5 +277,3 @@ items:
   - {id: ST-083b, title: "Private confirmed SEK price increase findings", milestone: M2, owner: dev-backend, size: M, status: DONE, deps: [ST-083a]}
   - {id: ST-081a, title: "Private ordinary subscription lifecycle decision core", milestone: M2, owner: dev-backend, size: M, status: DONE, deps: [ST-205]}
   - {id: ST-081b, title: "Private detection merge decision core", milestone: M2, owner: dev-backend, size: M, status: DONE, deps: [ST-205]}
-
-
