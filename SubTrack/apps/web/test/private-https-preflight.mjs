@@ -1,6 +1,8 @@
 // ST-237 feasibility only: a real Nest/Express route and a real Next page share one TLS listener.
 import fs from 'node:fs';
 import https from 'node:https';
+import console from 'node:console';
+import process from 'node:process';
 import { TLSSocket } from 'node:tls';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -21,13 +23,24 @@ function browserErrorClass(error) {
     'SEC_ERROR_UNKNOWN_ISSUER',
     'MOZILLA_PKIX_ERROR_SELF_SIGNED_CERT',
     'SEC_ERROR_EXPIRED_CERTIFICATE',
+    'NS_ERROR_FAILURE',
+    'NS_ERROR_NET_RESET',
+    'NS_ERROR_NET_INTERRUPT',
+    'NS_ERROR_UNKNOWN_HOST',
+    'SEC_ERROR_CA_CERT_INVALID',
+    'SSL_ERROR_RX_RECORD_TOO_LONG',
   ]) {
     if (new RegExp(`(?:^|[^A-Z0-9_])${code}(?:$|[^A-Z0-9_])`).test(detail)) return code;
   }
   if (/(?:ERR_CONNECTION_REFUSED|NS_ERROR_CONNECTION_REFUSED|ECONNREFUSED)/.test(detail)) return 'CONNECTION_REFUSED';
   if (/(?:Timeout|timed out)/.test(detail)) return 'TIMEOUT';
+  if (/(?:Target page, context or browser has been closed|BrowserContext\.newPage: Target closed|Page\.goto: Target closed)/.test(detail)) return 'BROWSER_CONTEXT_CLOSED';
   if (browserPhase === 'LAUNCH' || browserPhase === 'UNTRUSTED_LAUNCH' ||
       /(?:Failed to launch|browserType\.launchPersistentContext)/.test(detail)) return 'LAUNCH_FAILED';
+  if (detail === 'Error: real Next register page did not load') return 'NEXT_PAGE_ASSERT';
+  if (detail === 'Error: real Nest POST failed') return 'NEST_POST_ASSERT';
+  if (detail === 'Error: Nest did not see direct browser TLS/Origin') return 'NEST_AUTHORITY_ASSERT';
+  if (detail === 'Error: expected Firefox TLS rejection was not observed') return 'TLS_NEGATIVE_ASSERT';
   return 'OTHER';
 }
 
@@ -100,15 +113,21 @@ async function browser() {
   const trusted = await firefox.launchPersistentContext(profile, { headless: true });
   try {
     async function healthy() {
-      browserPhase = 'TRUSTED_NAVIGATE';
+      browserPhase = 'TRUSTED_PAGE';
       browserObserved = 'NONE';
       const page = await trusted.newPage();
       try {
+        browserPhase = 'TRUSTED_NAVIGATE';
         const response = await page.goto(`${origin}/sv/register`, { waitUntil: 'domcontentloaded' });
+        browserPhase = 'TRUSTED_RESPONSE';
+        const status = response?.status();
+        browserObserved = Number.isInteger(status) && status >= 100 && status <= 599
+          ? `HTTP_${status}` : 'NO_RESPONSE';
         assert(response?.status() === 200, 'real Next register page did not load');
+        browserObserved = 'NONE';
         browserPhase = 'TRUSTED_POST';
         const result = await page.evaluate(async () => {
-          const response = await fetch('/v2/tls-preflight', {
+          const response = await globalThis.fetch('/v2/tls-preflight', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
           });
           return { status: response.status, body: await response.json() };
