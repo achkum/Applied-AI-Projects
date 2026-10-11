@@ -1,0 +1,11 @@
+# ST-238 short architecture decision record
+
+Status: accepted for private implementation; actual acceptance pending. Deciders: independent platform/security/client readiness and Conductor. Dependency: accepted ST-237 PR282 at 2f55e95. References: task ST-238 and platform-readiness.md, security-readiness.md, client-qa-readiness.md.
+
+Keep one durable current-web authority and volatile browser CSRF for explicit Just me and owner-only subscription list/detail/lifecycle. Persist nullable mode with a forward ordinary migration and separately pinned qualified successor; require current complete profile and persisted choice for every subscription operation. Repeat identical choice returns existing state without a second row update. Page 50 with 51st-row sentinel and canonical endpoint/version/microsecond keyset position; cursor never supplies authority. Owner is rederived on every request. Domain outcomes are returned through the callback and disclosed only after known commit; failures and uncertain commit remain collapsed authority failures.
+
+Add subscription FORCE RLS without changing existing peer policy semantics or baseline grants. Preserve old auth SQL, keys, epoch, tuple and credential model. Actual catalog equivalence, peer behavior before/after FORCE and owner isolation block acceptance. Keep default routes unavailable; reused detail/status operations publish an explicit private response matrix in OpenAPI extensions without altering their default legacy contract. Strict private decoders and actual TLS wire checks validate that matrix.
+
+Preserve client package boundaries. Expose only the existing pure formatMinorUnits function through approved UI public entry, with UI runtime workspace dependency; no direct client money import, arithmetic outside money, or server/data dependency is added. The independent platform/security and client source reviews cover this amendment.
+
+Consequence: usable private enrollment-to-subscription journey can be validated in one session. Reload stops at fresh verified login; household/peer activation, providers, recovery, public/production exposure and real delivery remain outside this task. Source approvals do not substitute for actual PostgreSQL/browser QA and all applicable CI.

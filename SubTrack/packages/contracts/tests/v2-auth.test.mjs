@@ -21,6 +21,34 @@ function bundle() {
   return { dir, document: JSON.parse(readFileSync(output, 'utf8')) };
 }
 
+const idempotentPostPaths = [
+  '/v2/auth/browser-nonce', '/v2/auth/otp/start', '/v2/auth/otp/verify',
+  '/v2/auth/enrollment/pending', '/v2/auth/enrollment/simulator/verify',
+  '/v2/auth/enrollment/complete', '/v2/auth/session', '/v2/auth/refresh',
+  '/v2/me/reauth/otp/start', '/v2/me/reauth/otp/verify',
+];
+const privatePostPaths = [
+  '/v2/me/profile/read', '/v2/me/mode', '/v2/me/mode/read',
+  '/v2/subscriptions/owner/read', '/v2/subscriptions/{id}/read',
+];
+
+function assertRequiredBrowserHeaders(operation, label) {
+  const origin = operation.parameters.find((parameter) => parameter.name === 'Origin');
+  const csrf = operation.parameters.find((parameter) => parameter.name === 'X-Session-CSRF');
+  assert.equal(origin?.required, true, `${label} requires exact Origin`);
+  assert.equal(csrf?.required, true, `${label} requires current session CSRF`);
+  assert.equal(csrf.schema.minLength, 1, `${label} rejects empty session CSRF`);
+}
+
+function classifiedPosts(document) {
+  const paths = Object.entries(document.paths)
+    .filter(([path, item]) => path.startsWith('/v2/') && item.post)
+    .map(([path]) => path);
+  assert.deepEqual(paths.sort(), [...idempotentPostPaths, ...privatePostPaths].sort(),
+    'every v2 POST must have an explicit reviewed idempotency classification');
+  return idempotentPostPaths.map((path) => [path, document.paths[path].post]);
+}
+
 test('v1 route and schema baseline remains present and unchanged in the candidate', () => {
   const { dir, document } = bundle();
   try {
@@ -56,20 +84,24 @@ test('v1 route and schema baseline remains present and unchanged in the candidat
 test('v2 mutating POSTs require idempotency and browser state distinguishes nonce from CSRF', () => {
   const { dir, document } = bundle();
   try {
-    const operations = Object.entries(document.paths).flatMap(([path, item]) =>
-      Object.entries(item).filter(([method]) => method.toLowerCase() === 'post')
-        .map(([method, operation]) => [path, method, operation]),
-    ).filter(([path]) => path.startsWith('/v2/') &&
-      path !== '/v2/subscriptions/{id}/read' && path !== '/v2/me/profile/read');
+    const operations = classifiedPosts(document);
     assert.equal(operations.length, 10);
+    for (const path of privatePostPaths) {
+      const operation = document.paths[path].post;
+      assert.equal(operation.parameters.some((parameter) => parameter.name === 'Idempotency-Key'), false,
+        `${path} rejects Idempotency-Key`);
+      assertRequiredBrowserHeaders(operation, `POST ${path}`);
+    }
+    assertRequiredBrowserHeaders(document.paths['/v2/me/profile'].patch, 'PATCH /v2/me/profile');
     const profileRead = document.paths['/v2/me/profile/read'].post;
-    assert.ok(profileRead);
-    assert.equal(profileRead.parameters.some((parameter) => parameter.name === 'Idempotency-Key'), false);
-    assert.ok(profileRead.parameters.some((parameter) => parameter.name === 'X-Session-CSRF'));
-    assert.ok(profileRead.parameters.some((parameter) => parameter.name === 'Origin'));
     assert.equal(profileRead.requestBody.content['application/json'].schema.type, 'object');
     assert.equal(profileRead.requestBody.content['application/json'].schema.maxProperties, 0);
-    for (const [path, , operation] of operations) {
+    for (const path of ['/v2/me/mode/read', '/v2/subscriptions/owner/read'])
+      assert.equal(document.paths[path].post.requestBody.content['application/json'].schema.additionalProperties,
+        false, `${path} accepts only its reviewed closed body`);
+    assert.match(document.paths['/v2/me/mode'].post.description, /side-effect-free committed readback/i);
+    assert.match(document.paths['/v2/me/mode'].post.description, /uncertain result is never retried/i);
+    for (const [path, operation] of operations) {
       assert.ok(operation.parameters.some((parameter) =>
         parameter.name === 'Idempotency-Key' && parameter.required === true),
       `${path} requires Idempotency-Key`);
@@ -94,7 +126,11 @@ test('v2 mutating POSTs require idempotency and browser state distinguishes nonc
     assert.match(session.description, /session-bound CSRF/i);
     assert.match(session.description, /AUTH_RESTART_REQUIRED/i);
     assert.ok(document.components.parameters.SessionCsrf);
+    assert.equal(document.components.parameters.SessionCsrf.required, false);
     assert.match(document.components.parameters.SessionCsrf.description, /separate from browser nonce/i);
+    assert.equal(document.components.parameters.OriginForWeb.required, false);
+    assert.equal(document.components.parameters.BrowserSessionCsrf.required, true);
+    assert.equal(document.components.parameters.BrowserSessionCsrf.schema.minLength, 1);
     for (const path of ['/v2/auth/otp/start', '/v2/auth/otp/verify']) {
       assert.ok(document.paths[path].post.responses['200'] || document.paths[path].post.responses['202']);
     }
@@ -106,13 +142,9 @@ test('v2 mutating POSTs require idempotency and browser state distinguishes nonc
 test('v2 POST recovery contract stays generic and explains restart after reference resolution', () => {
   const { dir, document } = bundle();
   try {
-    const operations = Object.entries(document.paths).flatMap(([path, item]) =>
-      Object.entries(item).filter(([method]) => method.toLowerCase() === 'post')
-        .map(([method, operation]) => [path, method, operation]),
-    ).filter(([path]) => path.startsWith('/v2/') &&
-      path !== '/v2/subscriptions/{id}/read' && path !== '/v2/me/profile/read');
+    const operations = classifiedPosts(document);
     assert.equal(operations.length, 10);
-    for (const [path, , operation] of operations) {
+    for (const [path, operation] of operations) {
       const response = operation.responses['409'];
       assert.ok(response, `${path} documents generic duplicate handling`);
       assert.match(response.description, /generic/i, `${path} keeps the conflict generic`);

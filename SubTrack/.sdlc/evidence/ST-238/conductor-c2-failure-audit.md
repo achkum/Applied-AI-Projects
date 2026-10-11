@@ -1,0 +1,7 @@
+# ST-238 C2 failure audit
+
+Frozen C2 `2f1677ee494280d3d2ba0326217b9a04c035ba39` remains unaccepted. Private run38159061074 passed builds, direct TLS preflight and ordinary schema checks, then all four actual jobs failed the strict PROFILE_COLUMNS startup gate before browser cases. Independent actual QA confirms no case PASS or frames. New mode-column explicit NULL default versus expected absent default is a bounded hypothesis until exact catalog differential is observed.
+
+Quality run38159061031 job114527965369 failed the Tests step: `src/subscriptions/browser-subscription-lifecycle.composition.spec.ts` / `maps real HTTPS parser and content-type failures to fixed no-store problems` exceeded its 5000ms deadline. API reported 1 failed and 1892 passed; the contracts suite passed. This older composition test was not changed by this slice. The failure does not justify skipping the test or increasing its deadline. A fresh required run at the corrected source head must pass; repeated failure requires targeted diagnosis rather than an assumed transient classification. No duplicate C2 rerun is scheduled while C3 source correction is pending.
+
+Exact C2 source review separately withheld approval because final contract assertions differed from reviewed candidate. Independent readiness approves five browser-only header contract corrections; original L240 clock, source attempt and failure history remain unchanged. No acceptance, production or release claim.

@@ -98,7 +98,7 @@
       "simulatorAction": "Fortsätt med simulatorn",
       "profileLoading": "Läser in din profil…",
       "profileConfirming": "Bekräftar din sparade profil…",
-      "verifiedLoginRequired": "En ny verifierad inloggning krävs för att fortsätta. Det här utvecklingsflödet kan inte återställa en session efter omladdning.",
+      "verifiedLoginRequired": "En ny verifierad inloggning krävs för att fortsätta.",
       "enrollmentProgress": "Slutför privat registrering…",
       "title": "Skapa konto",
       "introduction": "Börja med din e-postadress eller ditt mobilnummer.",
@@ -123,6 +123,33 @@
       "resendCountdown": "Skicka en ny kod om {seconds} s",
       "bankIdUnavailable": "BankID är inte tillgängligt här ännu.",
       "requestUnavailable": "Det gick inte att fortsätta. Starta om verifieringen."
+    },
+    "mode": {
+      "title": "Välj hur du vill börja",
+      "description": "Behåll dina prenumerationer privata.",
+      "choose": "Bara jag",
+      "saving": "Sparar ditt val…",
+      "confirming": "Bekräftar ditt val…",
+      "incomplete": "Slutför din profil innan du väljer Bara jag.",
+      "uncertain": "Ditt val kunde inte bekräftas. Försök igen efter en ny verifierad inloggning."
+    },
+    "ownerSubscriptions": {
+      "title": "Dina prenumerationer",
+      "loading": "Läser in dina prenumerationer…",
+      "empty": "Du har inga prenumerationer än.",
+      "loadMore": "Visa fler prenumerationer",
+      "detail": "Prenumerationsdetaljer",
+      "back": "Tillbaka till prenumerationer",
+      "unavailable": "Dina prenumerationer kunde inte bekräftas. En ny verifierad inloggning krävs.",
+      "rechecking": "Kontrollerar sparad status…",
+      "rechecked": "Ändringen kunde inte bekräftas. Den aktuella sparade statusen har lästs in igen.",
+      "conflict": "Den sparade statusen skiljer sig från den begärda. Granska den innan du ändrar igen.",
+      "confirmed": "Sparad status bekräftad.",
+      "categoryFallback": "Prenumeration",
+      "category": { "VIDEO_STREAMING": "Videoströmning", "MUSIC_AUDIO": "Musik och ljud", "AUDIOBOOKS_EBOOKS": "Böcker och ljudböcker", "NEWS_MAGAZINES": "Nyheter och tidskrifter", "GAMING": "Spel", "SOFTWARE_PRODUCTIVITY": "Programvara och produktivitet", "CLOUD_STORAGE": "Molnlagring", "AI_TOOLS": "AI-verktyg", "MOBILE_PLAN": "Mobilabonnemang", "BROADBAND_TV": "Bredband och TV", "FITNESS_WELLNESS": "Träning och hälsa", "FOOD_MEALKITS": "Mat och matkassar", "TRANSPORT_MOBILITY": "Transport", "HOME_SECURITY": "Hemsäkerhet", "EDUCATION_KIDS": "Utbildning och barn", "PETS": "Husdjur", "SHOPPING_MEMBERSHIPS": "Medlemskap för shopping", "VPN_SECURITY": "VPN och säkerhet", "DONATIONS": "Donationer", "DATING_SOCIAL": "Dejting och socialt", "APP_STORE_BILLING": "Appbutik", "OTHER_SUBSCRIPTION": "Annan prenumeration" },
+      "status": { "DETECTED": "Upptäckt", "TRIAL": "Provperiod", "ACTIVE": "Aktiv", "PAUSED": "Pausad", "CANCELLED": "Avslutad", "ARCHIVED": "Arkiverad", "REJECTED": "Avvisad" },
+      "cadence": { "WEEKLY": "Varje vecka", "MONTHLY": "Varje månad", "QUARTERLY": "Varje kvartal", "SEMIANNUAL": "Var sjätte månad", "ANNUAL": "Varje år", "CUSTOM": "Anpassat intervall" },
+      "actions": { "ACTIVE": "Aktivera", "PAUSED": "Pausa", "CANCELLED": "Avsluta", "ARCHIVED": "Arkivera" }
     }
   },
   "hero": {

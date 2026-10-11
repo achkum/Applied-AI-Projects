@@ -98,7 +98,7 @@
       "simulatorAction": "Continue with simulator",
       "profileLoading": "Loading your profile…",
       "profileConfirming": "Confirming your saved profile…",
-      "verifiedLoginRequired": "A fresh verified login is required to continue. This development flow cannot restore a session after reload.",
+      "verifiedLoginRequired": "A fresh verified login is required to continue.",
       "enrollmentProgress": "Completing private enrollment…",
       "title": "Create account",
       "introduction": "Start with your email address or mobile number.",
@@ -123,6 +123,33 @@
       "resendCountdown": "Request a new code in {seconds}s",
       "bankIdUnavailable": "BankID is not available here yet.",
       "requestUnavailable": "Could not continue. Restart verification."
+    },
+    "mode": {
+      "title": "Choose how to start",
+      "description": "Keep your subscriptions private to you.",
+      "choose": "Just me",
+      "saving": "Saving your choice…",
+      "confirming": "Confirming your choice…",
+      "incomplete": "Complete your profile before choosing Just me.",
+      "uncertain": "Your choice could not be confirmed. Please try again after a fresh verified login."
+    },
+    "ownerSubscriptions": {
+      "title": "Your subscriptions",
+      "loading": "Loading your subscriptions…",
+      "empty": "You have no subscriptions yet.",
+      "loadMore": "Load more subscriptions",
+      "detail": "Subscription details",
+      "back": "Back to subscriptions",
+      "unavailable": "Your subscriptions could not be confirmed. A fresh verified login is required.",
+      "rechecking": "Checking the saved status…",
+      "rechecked": "The update could not be confirmed. The current saved status was loaded again.",
+      "conflict": "The saved status differs from the requested status. Review it before another change.",
+      "confirmed": "Saved status confirmed.",
+      "categoryFallback": "Subscription",
+      "category": { "VIDEO_STREAMING": "Video streaming", "MUSIC_AUDIO": "Music and audio", "AUDIOBOOKS_EBOOKS": "Books and audiobooks", "NEWS_MAGAZINES": "News and magazines", "GAMING": "Gaming", "SOFTWARE_PRODUCTIVITY": "Software and productivity", "CLOUD_STORAGE": "Cloud storage", "AI_TOOLS": "AI tools", "MOBILE_PLAN": "Mobile plan", "BROADBAND_TV": "Broadband and TV", "FITNESS_WELLNESS": "Fitness and wellness", "FOOD_MEALKITS": "Food and meal kits", "TRANSPORT_MOBILITY": "Transport", "HOME_SECURITY": "Home security", "EDUCATION_KIDS": "Education and children", "PETS": "Pets", "SHOPPING_MEMBERSHIPS": "Shopping memberships", "VPN_SECURITY": "VPN and security", "DONATIONS": "Donations", "DATING_SOCIAL": "Dating and social", "APP_STORE_BILLING": "App store", "OTHER_SUBSCRIPTION": "Other subscription" },
+      "status": { "DETECTED": "Detected", "TRIAL": "Trial", "ACTIVE": "Active", "PAUSED": "Paused", "CANCELLED": "Cancelled", "ARCHIVED": "Archived", "REJECTED": "Rejected" },
+      "cadence": { "WEEKLY": "Weekly", "MONTHLY": "Monthly", "QUARTERLY": "Quarterly", "SEMIANNUAL": "Every six months", "ANNUAL": "Yearly", "CUSTOM": "Custom schedule" },
+      "actions": { "ACTIVE": "Activate", "PAUSED": "Pause", "CANCELLED": "Cancel", "ARCHIVED": "Archive" }
     }
   },
   "hero": {

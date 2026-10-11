@@ -66,7 +66,28 @@ export async function readProfileBusinessCatalog(db: PrismaClient) {
     CROSS JOIN LATERAL pg_catalog.aclexplode(a.attacl) x
     WHERE c.oid='public.identity_profile'::pg_catalog.regclass
     ORDER BY name,grantee,grantor,privilege,grantable`;
-  return {columns,constraints,relation,policies,tableAcl,columnAcl};
+  const subscription = await db.$queryRaw<{
+    kind:string;rls:boolean;force_rls:boolean;runtime_not_owner:boolean;runtime_bypass_rls:boolean;
+    runtime_select:boolean;runtime_update:boolean;merchant_select:boolean;
+  }[]>`
+    SELECT c.relkind::text AS kind,c.relrowsecurity AS rls,c.relforcerowsecurity AS force_rls,
+      c.relowner<>r.oid AS runtime_not_owner,r.rolbypassrls AS runtime_bypass_rls,
+      has_table_privilege('subtrack_runtime','public.subscription','SELECT') AS runtime_select,
+      has_table_privilege('subtrack_runtime','public.subscription','UPDATE') AS runtime_update,
+      has_table_privilege('subtrack_runtime','public.merchant','SELECT') AS merchant_select
+    FROM pg_catalog.pg_class c JOIN pg_catalog.pg_roles o ON o.oid=c.relowner
+    CROSS JOIN pg_catalog.pg_roles r
+    WHERE c.oid='public.subscription'::pg_catalog.regclass AND r.rolname='subtrack_runtime'`;
+  const subscriptionPolicies = await db.$queryRaw<{
+    name:string;command:string;permissive:boolean;roles:string[];using_expr:string|null;check_expr:string|null;
+  }[]>`
+    SELECT p.polname AS name,p.polcmd::text AS command,p.polpermissive AS permissive,
+      ARRAY(SELECT r.rolname FROM pg_catalog.pg_roles r WHERE r.oid=ANY(p.polroles) ORDER BY r.rolname) AS roles,
+      pg_catalog.pg_get_expr(p.polqual,p.polrelid) AS using_expr,
+      pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid) AS check_expr
+    FROM pg_catalog.pg_policy p WHERE p.polrelid='public.subscription'::pg_catalog.regclass
+    ORDER BY p.polname`;
+  return {columns,constraints,relation,policies,tableAcl,columnAcl,subscription,subscriptionPolicies};
 }
 
 export type ProfileBusinessCatalog = Awaited<ReturnType<typeof readProfileBusinessCatalog>>;

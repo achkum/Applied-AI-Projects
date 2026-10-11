@@ -1,0 +1,7 @@
+# ST-238 C3 diagnostic actual QA — HOLD
+
+2026-10-11. Frozen diagnostic head `42ae0f255ee0c97d56962b36044ea0ce4b641d31`, [private run 38159607351](https://github.com/achkum/Applied-AI-Projects/actions/runs/38159607351). I inspected the published sanitized `st237-profile-en-light` receipt only; no private logs, fixture rerun, source edit, or browser frame inspection.
+
+The receipt pins `INPUT case=profile head=42ae0f255ee0c97d56962b36044ea0ce4b641d31` and reports `ST237_STARTUP_GATE PROFILE_COLUMNS`, then `ST238_PROFILE_COLUMNS_DIAGNOSTIC mode_default=explicit_varchar_null other_matches=13/13`, followed by `FAIL ST237_PRIVATE_PROFILE phase=SERVER step=STARTUP sqlstate=unavailable cleanup=removed`. This confirms the specific catalog discrepancy suggested by C2: the new onboarding-mode column has an explicit varchar NULL default while the strict startup roster expects no default. All other 13 checked profile-column entries matched. The strict gate correctly remained closed for this diagnostic run.
+
+**Actual QA: HOLD.** This diagnostic receipt does not establish any natural browser case, screenshots, mode/list/detail/status persistence, or final source/bundle custody. Correct the precise mismatch under independent source review, then assess a fresh exact-head actual matrix. The original L240 attempt 1/source attempt 1 deadline remains 2026-10-11T20:41:13.258Z. No product completion or release claim follows.

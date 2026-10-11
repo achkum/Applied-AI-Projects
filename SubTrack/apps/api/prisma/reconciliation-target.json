@@ -24,10 +24,10 @@
   "tables": {
     "identity_profile": {
       "model": "IdentityProfile",
-      "columns": ["identity_id uuid!", "display_name varchar(120)?", "avatar_color varchar(32)?", "avatar_emoji varchar(32)?", "language varchar(2)!", "theme varchar(16)!", "default_currency char(3)!", "profile_complete boolean!", "created_at timestamptz!", "updated_at timestamptz!"],
+      "columns": ["identity_id uuid!", "display_name varchar(120)?", "avatar_color varchar(32)?", "avatar_emoji varchar(32)?", "language varchar(2)!", "theme varchar(16)!", "default_currency char(3)!", "profile_complete boolean!", "created_at timestamptz!", "updated_at timestamptz!", "onboarding_mode varchar(16)?"],
       "keys": ["PK(identity_id)"],
       "foreignKeys": ["identity_id -> identity(id)"],
-      "checks": ["language in ('sv','en')", "theme in ('system','light','dark')", "default_currency = 'SEK'"],
+      "checks": ["language in ('sv','en')", "theme in ('system','light','dark')", "default_currency = 'SEK'", "onboarding_mode is null or = 'just-me'"],
       "rls": "FORCE RLS; subtrack_runtime owner-only SELECT, INSERT and UPDATE through equal dual principal GUCs",
       "grants": "PUBLIC none; runtime SELECT, INSERT and exact column UPDATE; no profile rights for provisioner or executor"
     },
@@ -81,7 +81,7 @@
       "keys": ["PK(id)", "UNIQUE(id,identity_id)", "INDEX(identity_id)"],
       "foreignKeys": ["existing identity_id -> identity(id)", "merchant_id -> merchant(id)", "catalog_plan_id -> catalogue_plan(id)", "(paying_account_id,identity_id) -> bank_account(id,identity_id)"],
       "checks": ["confidence IS NULL OR confidence BETWEEN 0 AND 1"],
-      "rls": "owner SELECT/mutate; active explicit household share SELECT; owner open_book in common active household SELECT only if always_private=false; SQL helper review required"
+      "rls": "FORCE RLS; owner SELECT/mutate; active explicit household share SELECT; owner open_book in common active household SELECT only if always_private=false; SQL helper review required"
     },
     "subscription_share": {
       "model": "SubscriptionShare",

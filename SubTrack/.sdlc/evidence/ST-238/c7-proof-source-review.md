@@ -1,0 +1,9 @@
+# ST-238 C7 independent platform/security/source QA review
+
+2026-10-11. **SOURCE APPROVE, limited to the proof-only C7 delta.** The frozen C6 base is `60b7fd3707cf4e1a2d8ef172907dd020d1461ec8`. I reviewed working-tree Git blob `cbf511ed6e8bc303e295abd7c70d9524c91b7935` for `SubTrack/apps/web/test/private-profile-browser.mjs`; the Conductor must compare that exact blob with the committed candidate before push. This is not a C7 actual execution, screenshot pixel review, CI approval, or merge approval.
+
+The entire source diff against C6 in that file is three added, awaited calls to the existing `capture` helper. `owner-list-first-page` follows the 50-item assertion and precedes Load more. `owner-list-loaded` follows the wait for 51 row buttons and the assertion that Load more is absent. `focused-owner-row` follows the active-element assertion and precedes Enter. Both `subscriptions` and `uncertainty` traverse this shared branch. The helper still uses `page.screenshot` with `fullPage: true` into the case screenshot directory; an unsuccessful awaited screenshot rejects the case. The workflow's existing `subscriptions/*.png` upload includes all three filenames for each locale/theme variant, with `if-no-files-found: error`. The labels contain no credentials or row identifiers.
+
+The diff leaves runtime/product code, fixtures, assertions, credential handling, private receipt sanitizer, timeouts, and cleanup unchanged. `node --check SubTrack/apps/web/test/private-profile-browser.mjs` and `git diff --check` passed. The only change to this driver is 3 insertions and 0 deletions. No heavy browser/PG run was performed for this source review.
+
+The C6 visual HOLD remains until fresh exact-head C7 CI/actual execution publishes the required nonempty list frames in all four variants and independent client/design inspection approves their pixels. Preserve the original source1 deadline `2026-10-11T20:41:13.258Z`.

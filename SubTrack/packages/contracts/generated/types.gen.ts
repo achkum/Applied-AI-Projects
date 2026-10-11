@@ -58,6 +58,33 @@ export type JustMeChoice = {
     mode: 'just-me';
 };
 
+export type ModeView = {
+    mode: 'just-me' | null;
+};
+
+export type BrowserModeError = {
+    type: 'about:blank';
+    title: 'Bad Request' | 'Unauthorized' | 'Forbidden' | 'Conflict' | 'Internal Server Error';
+    status: 400 | 401 | 403 | 409 | 500;
+    code: 'INVALID_MODE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MODE_REQUEST_REJECTED' | 'MODE_CONFLICT' | 'INTERNAL_ERROR';
+};
+
+export type PrivateOwnerPageRequest = {
+    cursor?: string;
+};
+
+export type PrivateOwnerPage = {
+    items: Array<SubscriptionOwnerView>;
+    nextCursor: string | null;
+};
+
+export type PrivateSubscriptionError = {
+    type: 'about:blank';
+    title: 'Bad Request' | 'Unauthorized' | 'Forbidden' | 'Not Found' | 'Conflict' | 'Internal Server Error';
+    status: 400 | 401 | 403 | 404 | 409 | 500;
+    code: 'INVALID_SUBSCRIPTION_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'SUBSCRIPTION_REQUEST_REJECTED' | 'SUBSCRIPTION_NOT_FOUND' | 'LIFECYCLE_CONFLICT' | 'MODE_CONFLICT' | 'INTERNAL_ERROR';
+};
+
 export type HealthResponse = {
     status: 'ok';
 };
@@ -757,6 +784,11 @@ export type BrowserNonce = string;
  * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
  */
 export type SessionCsrf = string;
+
+/**
+ * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
+ */
+export type BrowserSessionCsrf = string;
 
 export type GetHealthzData = {
     body?: never;
@@ -2021,17 +2053,170 @@ export type VerifyV2DeleteOtpReauthResponses = {
 
 export type VerifyV2DeleteOtpReauthResponse = VerifyV2DeleteOtpReauthResponses[keyof VerifyV2DeleteOtpReauthResponses];
 
+export type ChooseV2BrowserJustMeData = {
+    body: JustMeChoice;
+    headers: {
+        /**
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+         */
+        Origin: string;
+        /**
+         * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
+         */
+        'X-Session-CSRF': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/me/mode';
+};
+
+export type ChooseV2BrowserJustMeErrors = {
+    /**
+     * Closed generic mode problem with status-specific code and no private data.
+     */
+    400: BrowserModeError;
+    /**
+     * Closed generic mode problem with status-specific code and no private data.
+     */
+    401: BrowserModeError;
+    /**
+     * Closed generic mode problem with status-specific code and no private data.
+     */
+    403: BrowserModeError;
+    /**
+     * Closed generic mode problem with status-specific code and no private data.
+     */
+    409: BrowserModeError;
+    /**
+     * Closed generic mode problem with status-specific code and no private data.
+     */
+    500: BrowserModeError;
+};
+
+export type ChooseV2BrowserJustMeError = ChooseV2BrowserJustMeErrors[keyof ChooseV2BrowserJustMeErrors];
+
+export type ChooseV2BrowserJustMeResponses = {
+    /**
+     * Known committed closed persisted mode view.
+     */
+    200: ModeView;
+};
+
+export type ChooseV2BrowserJustMeResponse = ChooseV2BrowserJustMeResponses[keyof ChooseV2BrowserJustMeResponses];
+
+export type ReadV2BrowserModeData = {
+    body: ProfileReadRequest;
+    headers: {
+        /**
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+         */
+        Origin: string;
+        /**
+         * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
+         */
+        'X-Session-CSRF': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/me/mode/read';
+};
+
+export type ReadV2BrowserModeErrors = {
+    /**
+     * Closed generic mode problem with status-specific code and no private data.
+     */
+    400: BrowserModeError;
+    /**
+     * Closed generic mode problem with status-specific code and no private data.
+     */
+    401: BrowserModeError;
+    /**
+     * Closed generic mode problem with status-specific code and no private data.
+     */
+    403: BrowserModeError;
+    /**
+     * Closed generic mode problem with status-specific code and no private data.
+     */
+    409: BrowserModeError;
+    /**
+     * Closed generic mode problem with status-specific code and no private data.
+     */
+    500: BrowserModeError;
+};
+
+export type ReadV2BrowserModeError = ReadV2BrowserModeErrors[keyof ReadV2BrowserModeErrors];
+
+export type ReadV2BrowserModeResponses = {
+    /**
+     * Known committed closed persisted mode view.
+     */
+    200: ModeView;
+};
+
+export type ReadV2BrowserModeResponse = ReadV2BrowserModeResponses[keyof ReadV2BrowserModeResponses];
+
+export type ReadV2PrivateOwnerSubscriptionsData = {
+    body: PrivateOwnerPageRequest;
+    headers: {
+        /**
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+         */
+        Origin: string;
+        /**
+         * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
+         */
+        'X-Session-CSRF': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/subscriptions/owner/read';
+};
+
+export type ReadV2PrivateOwnerSubscriptionsErrors = {
+    /**
+     * Closed generic subscription problem with no owner or row data.
+     */
+    400: PrivateSubscriptionError;
+    /**
+     * Closed generic subscription problem with no owner or row data.
+     */
+    401: PrivateSubscriptionError;
+    /**
+     * Closed generic subscription problem with no owner or row data.
+     */
+    403: PrivateSubscriptionError;
+    /**
+     * Closed generic subscription problem with no owner or row data.
+     */
+    409: PrivateSubscriptionError;
+    /**
+     * Closed generic subscription problem with no owner or row data.
+     */
+    500: PrivateSubscriptionError;
+};
+
+export type ReadV2PrivateOwnerSubscriptionsError = ReadV2PrivateOwnerSubscriptionsErrors[keyof ReadV2PrivateOwnerSubscriptionsErrors];
+
+export type ReadV2PrivateOwnerSubscriptionsResponses = {
+    /**
+     * Known committed bounded owner-only page.
+     */
+    200: PrivateOwnerPage;
+};
+
+export type ReadV2PrivateOwnerSubscriptionsResponse = ReadV2PrivateOwnerSubscriptionsResponses[keyof ReadV2PrivateOwnerSubscriptionsResponses];
+
 export type ReadV2BrowserProfileData = {
     body: ProfileReadRequest;
-    headers?: {
+    headers: {
         /**
-         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
          */
-        Origin?: string;
+        Origin: string;
         /**
-         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
          */
-        'X-Session-CSRF'?: string;
+        'X-Session-CSRF': string;
     };
     path?: never;
     query?: never;
@@ -2079,15 +2264,15 @@ export type ReadV2BrowserProfileResponse = ReadV2BrowserProfileResponses[keyof R
 
 export type PatchV2BrowserProfileData = {
     body: ProfilePatch;
-    headers?: {
+    headers: {
         /**
-         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
          */
-        Origin?: string;
+        Origin: string;
         /**
-         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
          */
-        'X-Session-CSRF'?: string;
+        'X-Session-CSRF': string;
     };
     path?: never;
     query?: never;

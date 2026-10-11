@@ -6,7 +6,8 @@
   "exports": {
     ".": "./generated/index.ts",
     "./identifiers": "./identifiers.ts",
-    "./profile": "./profile.ts"
+    "./profile": "./profile.ts",
+    "./private-onboarding": "./private-onboarding.ts"
   },
   "engines": {
     "node": ">=22.18.0"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Disposable private browser/PG integration. All diagnostics and secret material remain in owned TEMP.
 set -euo pipefail
-[[ "$#" == 2 && "$1" == --case && "$2" =~ ^(profile|partial-terminal)$ ]] || exit 1
+[[ "$#" == 2 && "$1" == --case && "$2" =~ ^(profile|partial-terminal|subscriptions|empty|uncertainty)$ ]] || exit 1
 proof_case="$2"
 export ST237_BROWSER_CASE="$proof_case"
 umask 077
@@ -28,7 +28,7 @@ source_digest() {
     [[ "$(git hash-object "$rel")" == "$blob" ]] || return 1
     digest="$(sha256sum "$rel")"; digest="${digest%% *}"
     printf '%s %s %s\n' "$full" "$blob" "$digest"
-  done < <(git ls-files apps/api/src/auth apps/api/src/profile apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/tsconfig.build.json apps/api/test/private-profile.integration.ts apps/api/test/profile-business-catalog.ts apps/api/test/profile-business-schema.integration.ts apps/api/test/clean-migration-rls.integration.ts apps/web/private-https-server.mjs apps/web/app apps/web/lib apps/web/components apps/web/middleware.ts apps/web/next.config.ts apps/web/package.json apps/web/tsconfig.json apps/web/test/private-profile-browser.mjs packages/contracts packages/i18n packages/ui packages/ui-tokens pnpm-lock.yaml tools/database/private-profile-proof.sh tools/database/clean-migration-proof.sh ../.github/workflows/subtrack-private-https-profile-proof.yml)
+  done < <(git ls-files apps/api/src/auth apps/api/src/profile apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/tsconfig.build.json apps/api/test/private-profile.integration.ts apps/api/test/profile-business-catalog.ts apps/api/test/profile-business-schema.integration.ts apps/api/test/clean-migration-rls.integration.ts apps/web/private-https-server.mjs apps/web/app apps/web/lib apps/web/components apps/web/middleware.ts apps/web/next.config.ts apps/web/package.json apps/web/tsconfig.json apps/web/test/private-profile-browser.mjs packages/contracts packages/i18n packages/money packages/ui packages/ui-tokens pnpm-lock.yaml tools/database/private-profile-proof.sh tools/database/clean-migration-proof.sh ../.github/workflows/subtrack-private-https-profile-proof.yml)
 }
 stop_group() {
   local pid="$1" i
@@ -79,10 +79,11 @@ assert set(x["Containers"]).issubset({cid})
 }
 cleanup() {
   local code=$? ok=1 sqlstate=unavailable observed
-  if [[ -f "$work/browser.log" ]]; then grep -E '^FAIL ST237_BROWSER_CASE case=(profile|partial-terminal) phase=(LAUNCH|NAVIGATE|IDENTIFIER|IDENTIFIER_READY|IDENTIFIER_SUBMIT|OTP|SIMULATOR|PROFILE|PROFILE_EDIT|PROFILE_SAVE|PROFILE_SAVED|PROFILE_WIRE|PROFILE_COOKIES|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|RELOAD_NAVIGATE|RELOAD_STOP|RELOAD_ABSENT|PARTIAL_TERMINAL|PARTIAL_SETUP|PARTIAL_NAVIGATE|PARTIAL_READY|PARTIAL_FILL|PARTIAL_SUBMIT|PARTIAL_OTP|PARTIAL_SIMULATOR|PARTIAL_COMPLETE|PARTIAL_READ|PARTIAL_STOP|PARTIAL_COOKIES) navigation=(200|304|400|404|500|NONE|OTHER) patch=(200|400|401|403|409|500|NONE|OTHER) read=(200|400|401|403|409|500|NONE|OTHER) reloadNavigation=(reload|navigate|back_forward|prerender|NONE|OTHER) reloadStatus=(200|304|400|404|500|NONE|OTHER) reloadError=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) reloadPageClosed=(NONE|YES|NO) reloadRequestFailure=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) partialNavigation=(200|304|400|404|500|NONE|OTHER) partialCompletion=(201|400|401|403|409|500|NONE|OTHER) partialRead=(200|400|401|403|409|500|NONE|OTHER) partialCompletionCount=(ZERO|ONE|MANY) partialRoute=(NONE|OK|FAILED)$|^ST237_NEGATIVE_GATE case=(NONE|BROWSER_MATRIX|BROWSER_CSRF|BROWSER_FOREIGN_BODY|BROWSER_DUPLICATE_BODY|BROWSER_VALID|COOKIE_ROSTER|ORIGIN|CHAIN_MISSING|CHAIN_FOREIGN|CHAIN_DUPLICATE|BINDING_MISSING|BINDING_FOREIGN|REFRESH_EXTRA|CSRF_MISSING|WRONG_HOST|NATIVE_DUPLICATE_BODY|STORAGE) status=(200|400|401|403|409|421|500|NONE|OTHER) network=(NONE|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|TLS|OTHER)$' "$work/browser.log" >&3 || true; fi
+  if [[ -f "$work/browser.log" ]]; then grep -E '^FAIL ST237_BROWSER_CASE case=(profile|partial-terminal|subscriptions|empty|uncertainty) phase=(LAUNCH|NAVIGATE|IDENTIFIER|IDENTIFIER_READY|IDENTIFIER_SUBMIT|OTP|SIMULATOR|PROFILE|PROFILE_EDIT|PROFILE_SAVE|PROFILE_SAVED|PROFILE_WIRE|PROFILE_COOKIES|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|RELOAD_NAVIGATE|RELOAD_STOP|RELOAD_ABSENT|PARTIAL_TERMINAL|PARTIAL_SETUP|PARTIAL_NAVIGATE|PARTIAL_READY|PARTIAL_FILL|PARTIAL_SUBMIT|PARTIAL_OTP|PARTIAL_SIMULATOR|PARTIAL_COMPLETE|PARTIAL_READ|PARTIAL_STOP|PARTIAL_COOKIES|SUBSCRIPTION_SEED_BARRIER|MODE_CHOICE|SUBSCRIPTION_LIST|SUBSCRIPTION_DETAIL|SUBSCRIPTION_STATUS|SUBSCRIPTION_NEGATIVES|SUBSCRIPTION_INCOMPLETE|SUBSCRIPTION_RESTART|EMPTY_LIST) navigation=(200|304|400|404|500|NONE|OTHER) patch=(200|400|401|403|409|500|NONE|OTHER) read=(200|400|401|403|409|500|NONE|OTHER) reloadNavigation=(reload|navigate|back_forward|prerender|NONE|OTHER) reloadStatus=(200|304|400|404|500|NONE|OTHER) reloadError=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) reloadPageClosed=(NONE|YES|NO) reloadRequestFailure=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) partialNavigation=(200|304|400|404|500|NONE|OTHER) partialCompletion=(201|400|401|403|409|500|NONE|OTHER) partialRead=(200|400|401|403|409|500|NONE|OTHER) partialCompletionCount=(ZERO|ONE|MANY) partialRoute=(NONE|OK|FAILED)$|^ST237_NEGATIVE_GATE case=(NONE|BROWSER_MATRIX|BROWSER_CSRF|BROWSER_FOREIGN_BODY|BROWSER_DUPLICATE_BODY|BROWSER_VALID|COOKIE_ROSTER|ORIGIN|CHAIN_MISSING|CHAIN_FOREIGN|CHAIN_DUPLICATE|BINDING_MISSING|BINDING_FOREIGN|REFRESH_EXTRA|CSRF_MISSING|WRONG_HOST|NATIVE_DUPLICATE_BODY|STORAGE) status=(200|400|401|403|409|421|500|NONE|OTHER) network=(NONE|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|TLS|OTHER)$' "$work/browser.log" >&3 || true; fi
   if [[ -f "$work/server.log" ]]; then
     grep -E '^ST237_STARTUP_GATE (ENV|CONNECT|IDENTITY|SOURCE|FUNCTIONS|FUNCTION_COUNT|FUNCTION_NAME|PRINCIPALS|PROFILE_COLUMNS|PROFILE_POLICIES|PROFILE_GRANTS|PROFILE_CONSTRAINTS|AUTH_TABLES|AUTH_POLICIES|AUTH_GRANTS|AUTH_ROLES|AUTH_DOMAINS|AUTH_CONSTRAINTS|EPOCH|FENCE_QUERY_FAILED|FENCE_REJECTED|FENCE_ACCEPTED|COMMIT_FAILED|COMMIT_CLEAN|RESET_REJECTED|RESET_CLEAN|COMPOSITION|COMPOSITION_READY|FRAMEWORK|FRAMEWORK_READY|NEXT|NEXT_FAILED_(PORT|PERMISSION|MISSING_FILE|LOCK|COMPILER|CONFIG|TYPE|SYNTAX|OTHER)|NEXT_READY|LISTEN)$' "$work/server.log" | tail -1 >&3 || true
     grep -E '^ST237_FUNCTION_GATE [a-z_]+ (BODY|SECURITY|OWNER|LANGUAGE|VOLATILITY|PARALLEL|STRICT|SET|CONFIG|GRANT_KIND|GRANTEES|SIGNATURE|TERMINAL_ARGS)$|^ST237_STARTUP_SQLSTATE [A-Z0-9]{5}$' "$work/server.log" >&3 || true
+    grep -E '^ST238_PROFILE_COLUMNS_DIAGNOSTIC mode_default=(implicit_null|explicit_varchar_null|other|missing_or_duplicate) other_matches=([0-9]|1[0-3])/13$' "$work/server.log" >&3 || true
   fi
   trap - EXIT INT TERM
   if [[ "$phase" == INSTALL && -f "$work/internal.log" ]]; then
@@ -165,7 +166,7 @@ step=QUALIFIED_001
 { printf "SET st233a.head='%s'; SET st233a.marker='%s';\n" "$head" "$marker"; cat apps/api/prisma/development-auth/001-epoch-nonce-reservation.sql; } | owner
 constraints_pin="$(printf "SELECT md5(string_agg(format('%%s:%%s:%%s:%%s:%%s',c.conname,c.contype,c.convalidated,c.condeferrable,pg_get_constraintdef(c.oid)),E'\\n' ORDER BY c.conname,c.oid)) FROM pg_catalog.pg_constraint c WHERE c.connamespace='subtrack_auth'::regnamespace;\n" | owner)"
 [[ "$constraints_pin" =~ ^[a-f0-9]{32}$ ]]
-for sql in apps/api/prisma/development-auth/{002,003,004,005,006,007,008,009,010}-*.sql; do
+for sql in apps/api/prisma/development-auth/{002,003,004,005,006,007,008,009,010,011}-*.sql; do
   step="QUALIFIED_$(basename "$sql" | cut -d- -f1)"
   { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$head" "$marker" "$constraints_pin"; cat "$sql"; } | owner
 done
@@ -268,17 +269,67 @@ stop_group "$server_pid"; server_pid=''
 start_server
 : > "$ST237_HANDSHAKE_DIR/resume"
 fi
+if [[ "$proof_case" == subscriptions || "$proof_case" == uncertainty ]]; then
+  phase=SUBSCRIPTION_FIXTURE
+  for ((i=0;i<1200;i++)); do
+    [[ -f "$ST237_HANDSHAKE_DIR/subscription-seed-ready" ]] && break
+    kill -0 "$browser_pid" 2>/dev/null || break
+    sleep .1
+  done
+  [[ -f "$ST237_HANDSHAKE_DIR/subscription-seed-ready" ]]
+  owner <<'SQL'
+SELECT 1/(count(*)=1 AND bool_and(profile_complete AND onboarding_mode IS NULL))::integer
+  FROM public.identity_profile WHERE display_name='Private Proof';
+SELECT 1/(count(*)=0)::integer FROM public.subscription;
+INSERT INTO public.subscription(identity_id,custom_name,category_code,cadence,
+  expected_amount_minor,currency,status,source,always_private,created_at,updated_at)
+SELECT p.identity_id,'Proof Subscription '||pg_catalog.lpad(g.i::text,3,'0'),
+  'OTHER_SUBSCRIPTION','MONTHLY',100+g.i,'SEK','ACTIVE','MANUAL',true,
+  '2026-01-01 00:00:00.123456+00'::timestamptz,
+  '2026-01-01 00:00:00.123456+00'::timestamptz
+FROM public.identity_profile p CROSS JOIN pg_catalog.generate_series(1,51) AS g(i)
+WHERE p.display_name='Private Proof' AND p.profile_complete;
+SELECT 1/(count(*)=51)::integer FROM public.subscription;
+SQL
+  foreign_id="$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')"
+  foreign_subscription="$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')"
+  [[ "$foreign_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]
+  [[ "$foreign_subscription" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]
+  printf '%s' "$foreign_subscription" > "$ST237_HANDSHAKE_DIR/foreign-id"
+  printf "INSERT INTO public.identity(id,auth_method,updated_at) VALUES ('%s'::uuid,'MOCK',now()); INSERT INTO public.identity_profile(identity_id,profile_complete,onboarding_mode) VALUES ('%s'::uuid,true,'just-me'); INSERT INTO public.subscription(id,identity_id,custom_name,category_code,cadence,expected_amount_minor,currency,status,source,always_private,updated_at) VALUES ('%s'::uuid,'%s'::uuid,'Foreign proof','OTHER_SUBSCRIPTION','MONTHLY',100,'SEK','ACTIVE','MANUAL',true,now());\n" "$foreign_id" "$foreign_id" "$foreign_subscription" "$foreign_id" | owner
+  : > "$ST237_HANDSHAKE_DIR/subscription-seeded"
+fi
+if [[ "$proof_case" == uncertainty ]]; then
+  phase=SUBSCRIPTION_RESTART
+  for ((i=0;i<1200;i++)); do
+    [[ -f "$ST237_HANDSHAKE_DIR/ready" ]] && break
+    kill -0 "$browser_pid" 2>/dev/null || break
+    sleep .1
+  done
+  [[ -f "$ST237_HANDSHAKE_DIR/ready" ]]
+  stop_group "$server_pid"; server_pid=''
+  start_server
+  : > "$ST237_HANDSHAKE_DIR/resume"
+fi
 phase=BROWSER
 for ((i=0;i<2400;i++)); do kill -0 "$browser_pid" 2>/dev/null || break; sleep .1; done
 kill -0 "$browser_pid" 2>/dev/null && exit 1
 if ! wait "$browser_pid"; then
-  grep -E '^FAIL ST237_BROWSER_CASE case=(profile|partial-terminal) phase=(LAUNCH|NAVIGATE|IDENTIFIER|IDENTIFIER_READY|IDENTIFIER_SUBMIT|OTP|SIMULATOR|PROFILE|PROFILE_EDIT|PROFILE_SAVE|PROFILE_SAVED|PROFILE_WIRE|PROFILE_COOKIES|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|RELOAD_NAVIGATE|RELOAD_STOP|RELOAD_ABSENT|PARTIAL_TERMINAL|PARTIAL_SETUP|PARTIAL_NAVIGATE|PARTIAL_READY|PARTIAL_FILL|PARTIAL_SUBMIT|PARTIAL_OTP|PARTIAL_SIMULATOR|PARTIAL_COMPLETE|PARTIAL_READ|PARTIAL_STOP|PARTIAL_COOKIES) navigation=(200|304|400|404|500|NONE|OTHER) patch=(200|400|401|403|409|500|NONE|OTHER) read=(200|400|401|403|409|500|NONE|OTHER) reloadNavigation=(reload|navigate|back_forward|prerender|NONE|OTHER) reloadStatus=(200|304|400|404|500|NONE|OTHER) reloadError=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) reloadPageClosed=(NONE|YES|NO) reloadRequestFailure=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) partialNavigation=(200|304|400|404|500|NONE|OTHER) partialCompletion=(201|400|401|403|409|500|NONE|OTHER) partialRead=(200|400|401|403|409|500|NONE|OTHER) partialCompletionCount=(ZERO|ONE|MANY) partialRoute=(NONE|OK|FAILED)$|^ST237_NEGATIVE_GATE case=(NONE|BROWSER_MATRIX|BROWSER_CSRF|BROWSER_FOREIGN_BODY|BROWSER_DUPLICATE_BODY|BROWSER_VALID|COOKIE_ROSTER|ORIGIN|CHAIN_MISSING|CHAIN_FOREIGN|CHAIN_DUPLICATE|BINDING_MISSING|BINDING_FOREIGN|REFRESH_EXTRA|CSRF_MISSING|WRONG_HOST|NATIVE_DUPLICATE_BODY|STORAGE) status=(200|400|401|403|409|421|500|NONE|OTHER) network=(NONE|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|TLS|OTHER)$' "$work/browser.log" >&3 || true
+  grep -E '^FAIL ST237_BROWSER_CASE case=(profile|partial-terminal|subscriptions|empty|uncertainty) phase=(LAUNCH|NAVIGATE|IDENTIFIER|IDENTIFIER_READY|IDENTIFIER_SUBMIT|OTP|SIMULATOR|PROFILE|PROFILE_EDIT|PROFILE_SAVE|PROFILE_SAVED|PROFILE_WIRE|PROFILE_COOKIES|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|RELOAD_NAVIGATE|RELOAD_STOP|RELOAD_ABSENT|PARTIAL_TERMINAL|PARTIAL_SETUP|PARTIAL_NAVIGATE|PARTIAL_READY|PARTIAL_FILL|PARTIAL_SUBMIT|PARTIAL_OTP|PARTIAL_SIMULATOR|PARTIAL_COMPLETE|PARTIAL_READ|PARTIAL_STOP|PARTIAL_COOKIES|SUBSCRIPTION_SEED_BARRIER|MODE_CHOICE|SUBSCRIPTION_LIST|SUBSCRIPTION_DETAIL|SUBSCRIPTION_STATUS|SUBSCRIPTION_NEGATIVES|SUBSCRIPTION_INCOMPLETE|SUBSCRIPTION_RESTART|EMPTY_LIST) navigation=(200|304|400|404|500|NONE|OTHER) patch=(200|400|401|403|409|500|NONE|OTHER) read=(200|400|401|403|409|500|NONE|OTHER) reloadNavigation=(reload|navigate|back_forward|prerender|NONE|OTHER) reloadStatus=(200|304|400|404|500|NONE|OTHER) reloadError=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) reloadPageClosed=(NONE|YES|NO) reloadRequestFailure=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) partialNavigation=(200|304|400|404|500|NONE|OTHER) partialCompletion=(201|400|401|403|409|500|NONE|OTHER) partialRead=(200|400|401|403|409|500|NONE|OTHER) partialCompletionCount=(ZERO|ONE|MANY) partialRoute=(NONE|OK|FAILED)$|^ST237_NEGATIVE_GATE case=(NONE|BROWSER_MATRIX|BROWSER_CSRF|BROWSER_FOREIGN_BODY|BROWSER_DUPLICATE_BODY|BROWSER_VALID|COOKIE_ROSTER|ORIGIN|CHAIN_MISSING|CHAIN_FOREIGN|CHAIN_DUPLICATE|BINDING_MISSING|BINDING_FOREIGN|REFRESH_EXTRA|CSRF_MISSING|WRONG_HOST|NATIVE_DUPLICATE_BODY|STORAGE) status=(200|400|401|403|409|421|500|NONE|OTHER) network=(NONE|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|TLS|OTHER)$' "$work/browser.log" >&3 || true
   exit 1
 fi
 grep -qx "PASS ST237_BROWSER_CASE case=$proof_case locale=$ST237_BROWSER_LOCALE theme=$ST237_BROWSER_THEME" "$work/browser.log"
 if [[ "$proof_case" == profile ]]; then
   grep -qx "PASS ST237_BROWSER_ENROLLMENT_PROFILE locale=$ST237_BROWSER_LOCALE theme=$ST237_BROWSER_THEME" "$work/browser.log"
   for line in ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES ST237_BROWSER_SAME_KEY_FRESH_PROCESS_RESTART ST237_BROWSER_COMMITTED_PATCH_LOST_RESPONSE_SINGLE_SUBMISSION ST237_BROWSER_RELOAD_STOP; do grep -qx "PASS $line" "$work/browser.log"; done
+elif [[ "$proof_case" == subscriptions ]]; then
+  grep -qx "PASS ST238_BROWSER_NATURAL_OWNER_MODE_LIST_51_DETAIL_STATUS locale=$ST237_BROWSER_LOCALE theme=$ST237_BROWSER_THEME" "$work/browser.log"
+  grep -qx 'PASS ST238_BROWSER_NATURAL_INCOMPLETE_CHOICE_AND_LIST_DENIED' "$work/browser.log"
+  grep -qx 'PASS ST238_BROWSER_OWNER_HTTPS_MODE_LIST_DETAIL_STATUS_NEGATIVES' "$work/browser.log"
+elif [[ "$proof_case" == uncertainty ]]; then
+  grep -qx 'PASS ST238_BROWSER_NATURAL_COMMITTED_MODE_STATUS_LOST_RESPONSE_NO_RETRY_RESTART' "$work/browser.log"
+elif [[ "$proof_case" == empty ]]; then
+  grep -qx 'PASS ST238_BROWSER_NATURAL_OWNER_PERSISTED_EMPTY_LIST' "$work/browser.log"
 else
   grep -qx 'PASS ST237_BROWSER_COMMITTED_PARTIAL_TERMINAL_COOKIE_STOP' "$work/browser.log"
 fi
@@ -287,6 +338,22 @@ phase=DATABASE
 if [[ "$proof_case" == profile ]]; then
 printf "SELECT 1/(count(*)=1 AND bool_and(profile_complete AND default_currency='SEK' AND language='%s' AND theme='%s'))::integer FROM public.identity_profile WHERE display_name='Private Proof Updated'; SELECT 1/(count(*)=1)::integer FROM public.identity_profile;\n" "$ST237_BROWSER_LOCALE" "$ST237_BROWSER_THEME" | owner
 printf 'PASS ST237_BROWSER_PROFILE_ACTUAL_PERSISTENCE\n' >&3
+elif [[ "$proof_case" == subscriptions || "$proof_case" == uncertainty ]]; then
+owner <<'SQL'
+SELECT 1/(count(*)=1 AND bool_and(profile_complete AND onboarding_mode='just-me'))::integer
+  FROM public.identity_profile WHERE display_name='Private Proof';
+SELECT 1/((SELECT count(*)=51 FROM public.subscription s JOIN public.identity_profile p ON p.identity_id=s.identity_id WHERE p.display_name='Private Proof')
+  AND (SELECT count(*)=52 FROM public.subscription)
+  AND (SELECT count(*)=1 FROM public.subscription WHERE status='PAUSED'))::integer;
+SQL
+printf 'PASS ST238_BROWSER_OWNER_MODE_AND_STATUS_ACTUAL_PERSISTENCE\n' >&3
+elif [[ "$proof_case" == empty ]]; then
+owner <<'SQL'
+SELECT 1/(count(*)=1 AND bool_and(profile_complete AND onboarding_mode='just-me'))::integer
+  FROM public.identity_profile WHERE display_name='Private Proof';
+SELECT 1/(count(*)=0)::integer FROM public.subscription;
+SQL
+printf 'PASS ST238_BROWSER_OWNER_EMPTY_ACTUAL_PERSISTENCE\n' >&3
 else
   owner <<'SQL'
 SELECT 1/((SELECT count(*)=1 FROM public.identity)
@@ -317,10 +384,14 @@ fi
 phase=CATALOG_RLS
 node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,packages:"external",platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],logLevel:"silent"})' apps/api/test/private-profile.integration.ts "$work/pg-proof.cjs"
 if ! NODE_PATH="$root/apps/api/node_modules" ST237_OWNER_PASSWORD="$owner_pass" timeout 45s node "$work/pg-proof.cjs" > "$work/pg-proof.log" 2>&1; then
-  grep -E '^FAIL ST237_PRIVATE_PG phase=(CONFIG|CATALOG|TUPLE|OWNER_RLS|EXPIRED_OWNER|UNKNOWN_COMMIT)$' "$work/pg-proof.log" >&3 || true
+  grep -E '^FAIL ST237_PRIVATE_PG phase=(CONFIG|CATALOG|TUPLE|OWNER_RLS|EXPIRED_OWNER|UNKNOWN_COMMIT|SUBSCRIPTION_OWNER|SUBSCRIPTION_MODE|SUBSCRIPTION_CURSOR|SUBSCRIPTION_STATUS)$' "$work/pg-proof.log" >&3 || true
+  grep -E '^FAIL ST237_PRIVATE_PG phase=SUBSCRIPTION_OWNER substep=(household|member|subscription|share|peer_before|force|peer_after|detail_foreign|detail_missing|lock_foreign|lock_missing) class=(ASSERTION|SQL) sqlstate=([A-Z0-9]{5}|unavailable)$' "$work/pg-proof.log" >&3 || true
+  grep -E '^FAIL ST237_PRIVATE_PG phase=SUBSCRIPTION_MODE substep=(mode_incomplete|mode_choose|mode_reread) class=(ASSERTION|SQL) sqlstate=([A-Z0-9]{5}|unavailable)$' "$work/pg-proof.log" >&3 || true
+  grep -E '^FAIL ST237_PRIVATE_PG phase=SUBSCRIPTION_CURSOR substep=(cursor_insert|cursor_page|cursor_ties) class=(ASSERTION|SQL) sqlstate=([A-Z0-9]{5}|unavailable)$' "$work/pg-proof.log" >&3 || true
+  grep -E '^FAIL ST237_PRIVATE_PG phase=SUBSCRIPTION_STATUS substep=(status_lock|status_compare|status_readback) class=(ASSERTION|SQL) sqlstate=([A-Z0-9]{5}|unavailable)$' "$work/pg-proof.log" >&3 || true
   exit 1
 fi
-for line in ST237_ACTUAL_ORDINARY_QUALIFIED_CATALOG_EQUIVALENCE ST237_ACTUAL_PG_AND_CONSTRUCTOR_CROSS_PAIRED_TUPLE_REFUSAL ST237_PRIVATE_PROFILE_SECOND_OWNER_DUAL_GUC_ROLLBACK_POOL_RESET ST237_PRIVATE_ACTUAL_PG_DELETED_OWNER_EXPIRED_CSRF_REFUSAL ST237_PRIVATE_ACTUAL_PG_UNKNOWN_COMMIT_DISCARD_NO_RETRY; do
+for line in ST237_ACTUAL_ORDINARY_QUALIFIED_CATALOG_EQUIVALENCE ST237_ACTUAL_PG_AND_CONSTRUCTOR_CROSS_PAIRED_TUPLE_REFUSAL ST237_PRIVATE_PROFILE_SECOND_OWNER_DUAL_GUC_ROLLBACK_POOL_RESET ST237_PRIVATE_ACTUAL_PG_DELETED_OWNER_EXPIRED_CSRF_REFUSAL ST237_PRIVATE_ACTUAL_PG_UNKNOWN_COMMIT_DISCARD_NO_RETRY ST238_ACTUAL_PG_PEER_POLICY_FORCE_BEFORE_AFTER_OWNER_PREDICATE ST238_ACTUAL_PG_INCOMPLETE_MODE_AND_REPEAT_NO_UPDATE ST238_ACTUAL_PG_OWNER_CURSOR_50_51_103_TIED_MICROSECONDS ST238_ACTUAL_PG_LOCKED_STATUS_STALE_COMPARE_AND_READBACK; do
   grep -qx "PASS $line" "$work/pg-proof.log"
   printf 'PASS %s\n' "$line" >&3
 done
