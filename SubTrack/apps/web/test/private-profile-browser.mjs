@@ -26,6 +26,15 @@ const handshake = process.env.ST237_HANDSHAKE_DIR;
 assert(handshake && fs.statSync(handshake).isDirectory());
 const ca = fs.readFileSync(path.join(handshake, 'ca.crt'));
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+function reloadFailureClass(value) {
+  const name = typeof value?.name === 'string' ? value.name : '';
+  const message = typeof value === 'string' ? value : typeof value?.message === 'string' ? value.message : '';
+  if (name === 'TimeoutError' || /\btimed?\s*out\b|\btimeout\b/i.test(message)) return 'TIMEOUT';
+  if (/\bTLS\b|\bSSL\b|\bCERT(?:IFICATE)?\b|SEC_ERROR_/i.test(message)) return 'TLS';
+  if (/ECONN|ENOTFOUND|EAI_AGAIN|NS_ERROR_NET|ERR_(?:CONNECTION|NAME_NOT_RESOLVED|INTERNET_DISCONNECTED)/i.test(message)) return 'CONNECTION';
+  if (/\bABORT(?:ED)?\b|\bCANCEL(?:LED|ED)?\b|NS_BINDING_ABORTED|ERR_ABORTED/i.test(message)) return 'ABORT';
+  return 'OTHER';
+}
 async function awaitMarker(name) {
   for (let i = 0; i < 600; i++) { if (fs.existsSync(path.join(handshake, name))) return; await delay(100); }
   throw new Error('handshake');
@@ -60,16 +69,25 @@ function closedProblem(result, status, code) {
 }
 let phase = 'LAUNCH';
 let context;
+let page;
 let profileWire = { patch: 'NONE', read: 'NONE' };
 let navigationStatus = 'NONE';
 let reloadNavigationType = 'NONE';
 let reloadStatus = 'NONE';
+let reloadError = 'NONE', reloadPageClosed = 'NONE', reloadRequestFailure = 'NONE';
 let negativeCase = 'NONE', negativeStatus = 'NONE', negativeNetwork = 'NONE';
 const safeStatus = value => [200, 400, 401, 403, 409, 421, 500].includes(value) ? String(value) : 'OTHER';
 try {
   context = await firefox.launchPersistentContext(process.env.ST237_TRUSTED_PROFILE, { headless: true });
-  const page = await context.newPage();
+  page = await context.newPage();
   page.setDefaultTimeout(45000);
+  page.on('requestfailed', request => {
+    if (phase !== 'RELOAD_NAVIGATE' || !request.isNavigationRequest() || request.resourceType() !== 'document') return;
+    try {
+      if (request.frame() !== page.mainFrame()) return;
+      reloadRequestFailure = reloadFailureClass(request.failure()?.errorText);
+    } catch { reloadRequestFailure = 'OTHER'; }
+  });
   const screenshotDir = path.resolve(process.env.ST237_SCREENSHOT_DIR);
   fs.mkdirSync(screenshotDir, { mode: 0o700 });
   const capture = async step => { await page.screenshot({ path: path.join(screenshotDir, `${step}.png`), fullPage: true }); };
@@ -305,9 +323,13 @@ try {
   process.stdout.write(`PASS ST237_BROWSER_ENROLLMENT_PROFILE locale=${locale} theme=${theme}\n`);
   process.stdout.write('PASS ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES\nPASS ST237_BROWSER_RELOAD_STOP\n');
   process.stdout.write('PASS ST237_BROWSER_COMMITTED_PARTIAL_TERMINAL_COOKIE_STOP\n');
-} catch {
+} catch (caught) {
+  if (phase === 'RELOAD_NAVIGATE') {
+    reloadError = reloadFailureClass(caught);
+    reloadPageClosed = page?.isClosed() ? 'YES' : 'NO';
+  }
   if (phase === 'AUTHORITY_NEGATIVES') process.stderr.write(`ST237_NEGATIVE_GATE case=${negativeCase} status=${negativeStatus} network=${negativeNetwork}\n`);
-  process.stderr.write(`FAIL ST237_BROWSER_PROFILE phase=${phase} navigation=${navigationStatus} patch=${profileWire.patch} read=${profileWire.read} reloadNavigation=${reloadNavigationType} reloadStatus=${reloadStatus}\n`);
+  process.stderr.write(`FAIL ST237_BROWSER_PROFILE phase=${phase} navigation=${navigationStatus} patch=${profileWire.patch} read=${profileWire.read} reloadNavigation=${reloadNavigationType} reloadStatus=${reloadStatus} reloadError=${reloadError} reloadPageClosed=${reloadPageClosed} reloadRequestFailure=${reloadRequestFailure}\n`);
   process.exitCode = 1;
 } finally {
   if (context) await context.close();
