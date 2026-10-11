@@ -1,7 +1,7 @@
 // Actual natural browser driver; no credential bodies, console messages or traces leave task custody.
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
-import { setTimeout } from 'node:timers';
+import { setTimeout, clearTimeout } from 'node:timers';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -75,6 +75,8 @@ let navigationStatus = 'NONE';
 let reloadNavigationType = 'NONE';
 let reloadStatus = 'NONE';
 let reloadError = 'NONE', reloadPageClosed = 'NONE', reloadRequestFailure = 'NONE';
+let partialNavigation = 'NONE', partialCompletion = 'NONE', partialRead = 'NONE';
+let partialCompletionCount = 'ZERO', partialRoute = 'NONE';
 let negativeCase = 'NONE', negativeStatus = 'NONE', negativeNetwork = 'NONE';
 const safeStatus = value => [200, 400, 401, 403, 409, 421, 500].includes(value) ? String(value) : 'OTHER';
 try {
@@ -307,55 +309,89 @@ try {
   phase = 'RELOAD_ABSENT';
   assert.equal(await profileRegion.getByLabel(copy.profile.displayName, { exact: true }).count(), 0);
   await capture('reload-stop');
-  phase = 'PARTIAL_TERMINAL';
+  phase = 'PARTIAL_SETUP';
   await context.clearCookies();
   const partialPage = await context.newPage();
   partialPage.setDefaultTimeout(45000);
   let completionRequests = 0;
   let committedCompletion = false;
+  let resolveRouteSettled;
+  const routeSettled = new Promise(resolve => { resolveRouteSettled = resolve; });
   partialPage.on('request', incoming => {
-    if (new URL(incoming.url()).pathname === '/v2/auth/enrollment/complete') completionRequests++;
+    if (new URL(incoming.url()).pathname === '/v2/auth/enrollment/complete') {
+      completionRequests++;
+      partialCompletionCount = completionRequests === 1 ? 'ONE' : 'MANY';
+    }
   });
   await partialPage.route('**/v2/auth/enrollment/complete', async route => {
-    const committed = await route.fetch();
-    assert.equal(committed.status(), 201);
-    committedCompletion = true;
-    const setCookies = (await committed.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie');
-    assert.deepEqual(setCookies.map(header => header.value.split('=')[0]).sort(),
-      ['st_v2_access', 'st_v2_chain', 'st_v2_refresh']);
-    const accessOnly = setCookies.find(header => header.value.startsWith('st_v2_access='));
-    assert(accessOnly);
-    // route.fetch may populate the shared browser cookie jar before fulfill. Remove only
-    // terminal credentials, then deliver the one retained header to model partial storage.
-    for (const name of ['st_v2_access', 'st_v2_refresh', 'st_v2_chain']) await context.clearCookies({ name });
-    await route.fulfill({ response: committed, headers: { ...committed.headers(), 'set-cookie': accessOnly.value } });
+    try {
+      const committed = await route.fetch();
+      partialCompletion = [201, 400, 401, 403, 409, 500].includes(committed.status()) ? String(committed.status()) : 'OTHER';
+      assert.equal(committed.status(), 201);
+      committedCompletion = true;
+      const setCookies = (await committed.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie');
+      assert.deepEqual(setCookies.map(header => header.value.split('=')[0]).sort(),
+        ['st_v2_access', 'st_v2_chain', 'st_v2_refresh']);
+      const accessOnly = setCookies.find(header => header.value.startsWith('st_v2_access='));
+      assert(accessOnly);
+      // route.fetch may populate the shared browser cookie jar before fulfill. Remove only
+      // terminal credentials, then deliver the one retained header to model partial storage.
+      for (const name of ['st_v2_access', 'st_v2_refresh', 'st_v2_chain']) await context.clearCookies({ name });
+      await route.fulfill({ response: committed, headers: { ...committed.headers(), 'set-cookie': accessOnly.value } });
+      partialRoute = 'OK';
+    } catch {
+      partialRoute = 'FAILED';
+      try { await route.abort('failed'); } catch { /* Keep the failure in the closed main-flow receipt. */ }
+    } finally { resolveRouteSettled(); }
   });
+  phase = 'PARTIAL_NAVIGATE';
   const partialStart = await partialPage.goto(`${origin}/${locale}/register?st237_probe=${randomUUID()}`,
     { waitUntil: 'domcontentloaded' });
+  partialNavigation = partialStart ? [200, 304, 400, 404, 500].includes(partialStart.status()) ? String(partialStart.status()) : 'OTHER' : 'NONE';
   assert.equal(partialStart?.status(), 200);
+  phase = 'PARTIAL_IDENTIFIER';
   await partialPage.getByLabel(copy.identifier.emailLabel, { exact: true }).fill(`partial-${randomUUID()}@example.test`);
   await partialPage.getByRole('button', { name: copy.identifier.continueLabel, exact: true }).click();
+  phase = 'PARTIAL_OTP';
   await partialPage.getByLabel(copy.registration.otpLabel, { exact: true }).fill('123456');
   await partialPage.getByRole('button', { name: copy.registration.verifyLabel, exact: true }).click();
+  phase = 'PARTIAL_SIMULATOR';
   await partialPage.getByRole('button', { name: copy.registration.simulatorAction, exact: true }).waitFor();
   const deniedRead = partialPage.waitForResponse(response =>
-    new URL(response.url()).pathname === '/v2/me/profile/read' && response.request().method() === 'POST');
+    new URL(response.url()).pathname === '/v2/me/profile/read' && response.request().method() === 'POST')
+    .then(response => response, () => null);
+  phase = 'PARTIAL_COMPLETE';
+  const partialCompletionDeadline = Date.now() + 45000;
   await partialPage.getByRole('button', { name: copy.registration.simulatorAction, exact: true }).click();
+  phase = 'PARTIAL_READ';
   const denied = await deniedRead;
+  partialRead = denied ? [200, 400, 401, 403, 409, 500].includes(denied.status()) ? String(denied.status()) : 'OTHER' : 'NONE';
+  assert(denied);
+  const remainingRouteWait = Math.max(0, partialCompletionDeadline - Date.now());
+  assert(remainingRouteWait > 0);
+  const observedRouteSettlement = await new Promise(resolve => {
+    const timer = setTimeout(() => resolve(false), remainingRouteWait);
+    routeSettled.then(() => { clearTimeout(timer); resolve(true); });
+  });
+  assert(observedRouteSettlement);
   assert(committedCompletion);
   assert.equal(completionRequests, 1);
+  assert.equal(partialRoute, 'OK');
   assert.equal(denied.status(), 403);
   const deniedBody = await denied.json();
   assert.deepEqual(Object.keys(deniedBody).sort(), ['code', 'status', 'title', 'type']);
   assert.equal(deniedBody.code, 'PROFILE_REQUEST_REJECTED');
+  phase = 'PARTIAL_STOP';
   await partialPage.getByText(copy.registration.verifiedLoginRequired, { exact: true }).waitFor();
   assert.equal(await partialPage.getByRole('region', { name: copy.profile.title, exact: true })
     .getByLabel(copy.profile.displayName, { exact: true }).count(), 0);
+  phase = 'PARTIAL_COOKIES';
   const retained = await context.cookies();
   assert(retained.some(cookie => cookie.name === 'st_v2_access'));
   assert(retained.some(cookie => cookie.name === 'st_v2_binding'));
   assert(!retained.some(cookie => cookie.name === 'st_v2_chain' || cookie.name === 'st_v2_refresh'));
   assert.equal(completionRequests, 1);
+  await partialPage.screenshot({ path: path.join(screenshotDir, 'partial-terminal-stop.png'), fullPage: true });
   await partialPage.close();
   process.stdout.write(`PASS ST237_BROWSER_ENROLLMENT_PROFILE locale=${locale} theme=${theme}\n`);
   process.stdout.write('PASS ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES\nPASS ST237_BROWSER_RELOAD_STOP\n');
@@ -366,7 +402,7 @@ try {
     reloadPageClosed = page?.isClosed() ? 'YES' : 'NO';
   }
   if (phase === 'AUTHORITY_NEGATIVES') process.stderr.write(`ST237_NEGATIVE_GATE case=${negativeCase} status=${negativeStatus} network=${negativeNetwork}\n`);
-  process.stderr.write(`FAIL ST237_BROWSER_PROFILE phase=${phase} navigation=${navigationStatus} patch=${profileWire.patch} read=${profileWire.read} reloadNavigation=${reloadNavigationType} reloadStatus=${reloadStatus} reloadError=${reloadError} reloadPageClosed=${reloadPageClosed} reloadRequestFailure=${reloadRequestFailure}\n`);
+  process.stderr.write(`FAIL ST237_BROWSER_PROFILE phase=${phase} navigation=${navigationStatus} patch=${profileWire.patch} read=${profileWire.read} reloadNavigation=${reloadNavigationType} reloadStatus=${reloadStatus} reloadError=${reloadError} reloadPageClosed=${reloadPageClosed} reloadRequestFailure=${reloadRequestFailure} partialNavigation=${partialNavigation} partialCompletion=${partialCompletion} partialRead=${partialRead} partialCompletionCount=${partialCompletionCount} partialRoute=${partialRoute}\n`);
   process.exitCode = 1;
 } finally {
   if (context) await context.close();
