@@ -1,0 +1,9 @@
+# ST-236 frozen PLATFORM source review C2
+- Exact PR281 HEAD `7118c1fd6a85276c51090427cfa045d98c580e14`; independent source review only. Verdict: **SOURCE CLEAR; runtime acceptance pending**.
+- C1 P1 corrected: integration catalog now expects `identity_birth(identity_id,xid)` and expired seed inserts those two columns, with expiry on linked `enrollment_intent`; SQL010 retains the approved two-column birth attestation.
+- C1 coverage gap corrected: integration executes own/foreign/mismatched-dual-GUC identity reads as runtime and executor; foreign and mismatched rows must be invisible. Login cannot assume executor; executor grant remains SELECT(id,external_id,deleted_at) with dual-GUC policy.
+- SQL010/service unchanged from C1: qualified current-xid intent/trigger/birth, live locked identity binding, immutable stored session digest, canonical refresh/CSRF, atomic sidecar consumption and known-commit disclosure remain source-aligned with the binding amendment.
+- Harness C2 aligns readiness with migration TCP 127.0.0.1; migration receipt adds fixed step, strict anchored five-character SQLSTATE or unavailable, and bounded exit 1–255 or unavailable, without raw diagnostics.
+- Actual parser/finish receipt negative cases cover valid SQLSTATE, embedded/malformed text, invalid exit, timeout, missing log and private sentinel exclusion; no local Linux execution claimed.
+- Retain C1 PG16 run `38131421699` FAIL in early migration with cleanup removed and unknown cause, before SQL010; C1 source rejection remains historical. Other eight workflows/nine jobs passed at C1; C2 CI and qualified exact-head PG16/QA evidence are pending.
+- This source verdict does not establish actual PG16 behavior, race safety outside the disabled-writer fixture, default schema migration, HTTP signup, delivery or production activation.

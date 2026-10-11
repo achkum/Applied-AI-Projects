@@ -1,0 +1,8 @@
+# ST-236 frozen C4 QA source review — READY FOR ACTUAL PG16
+Exact PR281 HEAD `94bf5b7cfa0bb7976a6e6431fb4e7e2273d8d449`; independent source review only. C3 actual run `38132773842` remains FAILED/HOLD at SQL010 `42601`, before the enrollment driver started.
+Against C3 `cc6613c`, the only source changes are SQL010 `default_currency` from `pg_catalog.char(3)` to `pg_catalog.bpchar(3)` and five integration catalog assertion lines; task/evidence changes are metadata.
+The new catalog check requires exactly one live `identity_profile.default_currency` attribute with `bpchar` type and typmod 7; zero, duplicate, dropped, wrong-type, and wrong-length cases cannot satisfy its `true` result.
+SQL retains `NOT NULL`, default `SEK`, and `CHECK (default_currency='SEK')`; the existing graph joins the committed profile and asserts its stored value is `SEK` with the full account/session/credential/CSRF graph.
+No C4 change touches grants, FORCE RLS, policies, writers, SQL001–009, service, pins, proof harness, cleanup, or custody bounds. The C3 integration still calls catalog first and retains signed V2 current-web owner callback, races, rollback, and fresh-process cases.
+The author's receipt records Node-target esbuild bundle and focused ESLint PASS; independent `git diff --check cc6613c..HEAD` passed. No C4 local or exact-head actual PG16 execution is claimed.
+**QA source verdict: READY FOR ACTUAL PG16; acceptance HOLD.** Require fresh exact-head actual PG16 34-pin proof, full enrollment/current-authority PASS, negative cases and cleanup, plus applicable CI and actual QA before merge. Preserve C1/C2/C3 failure history.

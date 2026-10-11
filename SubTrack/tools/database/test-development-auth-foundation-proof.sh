@@ -6,14 +6,324 @@ script=tools/database/development-auth-foundation-proof.sh
 base=$(mktemp -d)
 trap 'rm -rf -- "$base"' EXIT
 record="$base/st233a-container" receipt="$base/receipt.txt"
+scope=foundation fixture_prefix=st233a fixture_label=ST-233a driver_prefix=st233l driver_fixture_label=ST-233l scope_title='ST-233a foundation'
 source_head=$(git rev-parse HEAD)
 image=mirror.gcr.io/library/postgres:16-alpine
 cid=$(printf '%064d' 0) marker=$(printf '%032d' 0) name="st233a-$(printf '%032d' 0)" created=''
 declare -A clients=() writers=()
 driver_cid='' driver_name='' driver_env='' driver_image='node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
-for function in private_file custody custody_diagnostic terminate_container cleanup_container cleanup_temp finish monotonic registry launch_client observe_clients live_client poll_client join_client close_writers terminate_clients driver_custody driver_cleanup; do
+for function in private_file custody custody_diagnostic terminate_container cleanup_container cleanup_temp finish record_migration_failure read_enrollment_checkpoint read_enrollment_diagnostic monotonic registry launch_client observe_clients live_client poll_client join_client close_writers terminate_clients driver_custody driver_cleanup; do
   source <(sed -n "/^$function() {/,/^}/p" "$script")
 done
+for function in gn_catalog_query parse_gn_catalog_output snapshot_gn_catalog atomic_catalog_unchanged; do
+  source <(sed -n "/^$function() {/,/^}/p" "$script")
+done
+whole_a=$(printf 'a%.0s' {1..32}) whole_b=$(printf 'b%.0s' {1..32})
+logical_a=$(printf 'c%.0s' {1..32}) logical_b=$(printf 'd%.0s' {1..32})
+atomic_catalog_unchanged "$whole_a" "$logical_a" "$whole_a" "$logical_a"
+[[ "$atomic_drift" == none ]]
+atomic_catalog_unchanged "$whole_a" "$logical_a" "$whole_b" "$logical_a"
+[[ "$atomic_drift" == physical-only ]]
+for pair in "$whole_b $logical_b" "$whole_a $logical_b"; do
+  read -r after_whole after_logical <<< "$pair"
+  if atomic_catalog_unchanged "$whole_a" "$logical_a" "$after_whole" "$after_logical"; then exit 1; fi
+  [[ "$atomic_drift" == logical ]]
+done
+for pair in "- $logical_a $whole_a $logical_a" "$whole_a - $whole_a $logical_a" "$whole_a $logical_a - $logical_a" "$whole_a $logical_a $whole_a -" \
+            "${whole_a^^} $logical_a $whole_a $logical_a" "$whole_a $logical_a ${whole_a^^} $logical_a"; do
+  read -r before_whole before_logical after_whole after_logical <<< "$pair"
+  if atomic_catalog_unchanged "$before_whole" "$before_logical" "$after_whole" "$after_logical"; then exit 1; fi
+  [[ "$atomic_drift" == unavailable ]]
+done
+# Stub the database client only to exercise exact paired-output parsing.
+owner() { :; }
+client_log="$base/catalog.log"
+catalog_output() {
+  printf ' md5 | md5\n-----+-----\n %s | %s\n(1 row)\n' "$1" "$2" > "$client_log"
+}
+catalog_output "$whole_a" "$logical_a"
+snapshot_gn_catalog
+[[ "$gn_catalog" == "$whole_a" && "$gn_catalog_logical" == "$logical_a" ]]
+for output_case in missing malformed duplicate extra; do
+  catalog_output "$whole_a" "$logical_a"
+  case "$output_case" in
+    missing) : > "$client_log" ;;
+    malformed) sed -i "s/$logical_a/${logical_a^^}/" "$client_log" ;;
+    duplicate) printf ' %s | %s\n' "$whole_a" "$logical_a" >> "$client_log" ;;
+    extra) printf 'private-sentinel\n' >> "$client_log" ;;
+  esac
+  if snapshot_gn_catalog; then exit 1; fi
+done
+catalog_output "$whole_a" "$logical_a"
+cat "$client_log" "$client_log" > "$base/catalog-pairs.log"
+client_log="$base/catalog-pairs.log"
+parse_gn_catalog_output 2
+[[ ${#gn_catalog_wholes[@]} == 2 && ${#gn_catalog_logicals[@]} == 2 ]]
+client_log="$base/catalog.log"
+owner() { return 1; }
+if snapshot_gn_catalog; then exit 1; fi
+# Scope dispatch must reject every malformed form before touching Docker or a receipt.
+for malformed in '--enrollment-proof --cleanup' '--cleanup --enrollment-proof' '--enrollment-proof --enrollment-proof' '--enrollment-proof extra' 'extra' ''; do
+  [[ -n "$malformed" ]] || continue
+  if RUNNER_TEMP="$base" bash "$script" "$malformed" > "$base/invalid.stdout" 2> "$base/invalid.stderr"; then exit 1; fi
+  [[ ! -s "$base/invalid.stdout" && ! -s "$base/invalid.stderr" && ! -e "$base/st236e-proof-receipt.txt" ]]
+done
+for args in '--cleanup --enrollment-proof' '--enrollment-proof --cleanup extra'; do
+  read -r -a words <<< "$args"
+  if RUNNER_TEMP="$base" bash "$script" "${words[@]}" > "$base/invalid.stdout" 2> "$base/invalid.stderr"; then exit 1; fi
+  [[ ! -s "$base/invalid.stdout" && ! -s "$base/invalid.stderr" ]]
+done
+printf 'foreign fixture remains\n' > "$record"
+RUNNER_TEMP="$base" bash "$script" --enrollment-proof --cleanup
+[[ $(cat "$record") == 'foreign fixture remains' ]]
+rm -- "$record"
+
+foundation_record=$record foundation_receipt=$receipt
+scope=enrollment fixture_prefix=st236e fixture_label=ST-236e driver_prefix=st236n driver_fixture_label=ST-236n scope_title='ST-236 enrollment proof'
+record="$base/st236e-container" receipt="$base/st236e-proof-receipt.txt"
+for checkpoint_case in valid missing duplicate malicious wrongcase; do
+  tmp=$(mktemp -d "$base/st236e.XXXXXX")
+  checkpoint_file="$tmp/driver.log"
+  printf 'ERROR: private-sentinel raw-SQL row=secret\n' > "$checkpoint_file"
+  expected_checkpoint=unavailable
+  case "$checkpoint_case" in
+    valid) printf 'ST-236 enrollment checkpoint: FAIL stage=first-account\n' >> "$checkpoint_file"; expected_checkpoint=first-account ;;
+    missing) rm -- "$checkpoint_file" ;;
+    duplicate) printf 'ST-236 enrollment checkpoint: FAIL stage=first-account\nST-236 enrollment checkpoint: FAIL stage=restart\n' >> "$checkpoint_file" ;;
+    malicious) printf 'ST-236 enrollment checkpoint: FAIL stage=first-account private-sentinel\n' >> "$checkpoint_file" ;;
+    wrongcase) printf 'ST-236 enrollment checkpoint: FAIL stage=FIRST-ACCOUNT\n' >> "$checkpoint_file" ;;
+  esac
+  read_enrollment_checkpoint "$checkpoint_file" || [[ "$checkpoint_case" == missing ]]
+  [[ "$enrollment_checkpoint" == "$expected_checkpoint" ]]
+  rm -rf -- "$tmp"
+done
+for diagnostic_case in valid missing duplicate unknown invalid_sqlstate malicious; do
+  tmp=$(mktemp -d "$base/st236e.XXXXXX")
+  diagnostic_file="$tmp/driver-failure.log"
+  printf 'ERROR: private-sentinel raw-SQL row=secret\n' > "$diagnostic_file"
+  expected_node_step=unavailable expected_node_query=unavailable expected_node_sqlstate=unavailable
+  case "$diagnostic_case" in
+    valid) printf 'ST-236 enrollment diagnostic: step=first-bootstrap query=reserve sqlstate=42P01\n' >> "$diagnostic_file"
+      expected_node_step=first-bootstrap expected_node_query=reserve expected_node_sqlstate=42P01 ;;
+    missing) rm -- "$diagnostic_file" ;;
+    duplicate) printf 'ST-236 enrollment diagnostic: step=first-bootstrap query=reserve sqlstate=42P01\nST-236 enrollment diagnostic: step=first-admit query=admit sqlstate=42P01\n' >> "$diagnostic_file" ;;
+    unknown) printf 'ST-236 enrollment diagnostic: step=private-sentinel query=reserve sqlstate=42P01\n' >> "$diagnostic_file" ;;
+    invalid_sqlstate) printf 'ST-236 enrollment diagnostic: step=first-bootstrap query=reserve sqlstate=42p01\n' >> "$diagnostic_file" ;;
+    malicious) printf 'ST-236 enrollment diagnostic: step=first-bootstrap query=reserve sqlstate=42P01 private-sentinel\n' >> "$diagnostic_file" ;;
+  esac
+  read_enrollment_diagnostic "$diagnostic_file" || [[ "$diagnostic_case" == missing ]]
+  [[ "$node_step" == "$expected_node_step" && "$node_query" == "$expected_node_query" && "$node_sqlstate" == "$expected_node_sqlstate" ]]
+  rm -rf -- "$tmp"
+done
+scoped_original_cid=$cid
+for diagnostic_case in install node malformed cleanup pass; do
+  tmp=$(mktemp -d "$base/st236e.XXXXXX")
+  : > "$tmp/clients"
+  phase=durable-enrollment passed=false cid='' driver_cid='' enrollment_checkpoint=unavailable node_step=unavailable node_query=unavailable node_sqlstate=unavailable
+  enrollment_step=sql010 enrollment_failure_kind=operation enrollment_sqlstate=unavailable enrollment_driver_exit=unavailable
+  expected_phase=durable-enrollment expected_step=sql010 expected_kind=operation expected_state=unavailable expected_exit=unavailable expected_checkpoint=unavailable expected_node_step=unavailable expected_node_query=unavailable expected_node_sqlstate=unavailable
+  case "$diagnostic_case" in
+    install) phase=enrollment-install; enrollment_step=sql006
+      client_log="$tmp/install.log" client_exit_status=1
+      printf 'ERROR:  42P01: private-sentinel raw-SQL row=secret\n' > "$client_log"
+      record_migration_failure; enrollment_sqlstate=$migration_sqlstate
+      expected_phase=enrollment-install expected_step=sql006 expected_state=42P01 ;;
+    node) enrollment_step=driver-exit; enrollment_failure_kind=nonzero-exit; enrollment_driver_exit=9
+      printf 'ERROR: private-sentinel raw-SQL row=secret\nST-236 enrollment checkpoint: FAIL stage=first-account\nST-236 enrollment diagnostic: step=first-bootstrap query=reserve sqlstate=42P01\n' > "$tmp/driver.log"
+      read_enrollment_checkpoint "$tmp/driver.log"
+      read_enrollment_diagnostic "$tmp/driver.log"
+      expected_step=driver-exit expected_kind=nonzero-exit expected_exit=9 expected_checkpoint=first-account expected_node_step=first-bootstrap expected_node_query=reserve expected_node_sqlstate=42P01 ;;
+    malformed) enrollment_step=private-sentinel; enrollment_failure_kind=private-sentinel; enrollment_sqlstate=42P01X; enrollment_driver_exit=999; enrollment_checkpoint=private-sentinel; node_step=private-sentinel; node_query=private-sentinel; node_sqlstate=42p01
+      expected_step=unavailable expected_kind=unavailable ;;
+    cleanup) enrollment_step=driver-custody; enrollment_failure_kind=invalid-custody
+      expected_step=driver-custody expected_kind=invalid-custody ;;
+    pass) phase=pins passed=true ;;
+  esac
+  : > "$receipt"
+  if [[ "$diagnostic_case" == cleanup ]]; then
+    status=0
+    (cleanup_temp() { return 1; }; trap finish EXIT; false) || status=$?
+    [[ "$status" != 0 && -d "$tmp" ]]
+    grep -Eq "^ST-236 enrollment proof: FAIL source_head=$source_head phase=durable-enrollment cleanup=failed step=driver-custody failure_kind=invalid-custody sqlstate=unavailable driver_exit=unavailable checkpoint=unavailable node_step=unavailable node_query=unavailable node_sqlstate=unavailable$" "$receipt"
+    rm -rf -- "$tmp"
+  elif [[ "$diagnostic_case" == pass ]]; then
+    (trap finish EXIT; true)
+    grep -Eq "^ST-236 enrollment proof: PASS source_head=$source_head cases=PG16,SCRAM,qualified-SQL001-010,private-writers,full-node-enrollment fixture=removed secrets=destroyed$" "$receipt"
+    ! grep -q 'ST-233a foundation: PASS' "$receipt"
+  else
+    status=0; (trap finish EXIT; false) || status=$?
+    [[ "$status" != 0 && ! -e "$tmp" ]]
+    grep -Eq "^ST-236 enrollment proof: FAIL source_head=$source_head phase=$expected_phase cleanup=removed step=$expected_step failure_kind=$expected_kind sqlstate=$expected_state driver_exit=$expected_exit checkpoint=$expected_checkpoint node_step=$expected_node_step node_query=$expected_node_query node_sqlstate=$expected_node_sqlstate$" "$receipt"
+  fi
+  ! grep -q 'private-sentinel' "$receipt"
+done
+cid=$scoped_original_cid
+[[ "$cid" == "$(printf '%064d' 0)" ]]
+scope=foundation fixture_prefix=st233a fixture_label=ST-233a driver_prefix=st233l driver_fixture_label=ST-233l scope_title='ST-233a foundation'
+record=$foundation_record receipt=$foundation_receipt
+# Run the production parser and receipt writer against private client-log fixtures.
+# Raw psql text must never become a receipt field, even when it resembles SQLSTATE.
+diagnostic_cid=$cid; cid=''
+for diagnostic_case in undefined_table insufficient_privilege no_colon end_of_line embedded_error malformed_code long_code lowercase_code invalid_exit timeout missing_log; do
+  tmp=$(mktemp -d "$base/st233a.XXXXXX")
+  client_log="$tmp/client.log"; migration_step=parent-0001 phase=migration passed=false
+  client_exit_status=1; expected_state=unavailable; expected_exit=1
+  case "$diagnostic_case" in
+    undefined_table) printf 'ERROR:  42P01: private-sentinel\n' > "$client_log"; expected_state=42P01 ;;
+    insufficient_privilege) printf 'ERROR:  42501: private-sentinel\n' > "$client_log"; expected_state=42501 ;;
+    no_colon) printf 'ERROR:  42P01 private-sentinel\n' > "$client_log"; expected_state=42P01 ;;
+    end_of_line) printf 'ERROR:  42P01\n' > "$client_log"; expected_state=42P01 ;;
+    embedded_error) printf 'NOTICE: prefix ERROR:  42P01: private-sentinel\n' > "$client_log" ;;
+    malformed_code) printf 'ERROR:  42P0 private-sentinel\n' > "$client_log" ;;
+    long_code) printf 'ERROR:  42P01X private-sentinel\n' > "$client_log" ;;
+    lowercase_code) printf 'ERROR:  42p01 private-sentinel\n' > "$client_log" ;;
+    invalid_exit) printf 'ERROR:  42P01: private-sentinel\n' > "$client_log"; client_exit_status=999; expected_state=42P01; expected_exit=unavailable ;;
+    timeout) printf 'private-sentinel timeout\n' > "$client_log"; client_exit_status=unavailable; expected_exit=unavailable ;;
+    missing_log) client_log="$tmp/missing" ;;
+  esac
+  : > "$receipt"
+  record_migration_failure
+  [[ "$migration_sqlstate" == "$expected_state" && "$migration_exit" == "$expected_exit" ]]
+  status=0; (trap finish EXIT; false) || status=$?
+  [[ "$status" != 0 && ! -e "$tmp" ]]
+  grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=migration cleanup=removed step=parent-0001 sqlstate=$expected_state client_exit=$expected_exit$" "$receipt"
+  ! grep -q 'private-sentinel' "$receipt"
+  printf 'ST-236 migration diagnostic case=%s: expected result verified\n' "$diagnostic_case"
+done
+
+# Prune diagnostics use the actual finish writer and the last private client-log parser.
+for diagnostic_case in valid unavailable invalid_step invalid_enum invalid_sqlstate invalid_exit; do
+  tmp=$(mktemp -d "$base/st233a.XXXXXX")
+  client_log="$tmp/client.log" client_exit_status=1 phase=prune passed=false
+  prune_step=race-pre-expiry-second prune_direction=reserve-first prune_outcome=ROLLBACK prune_failure_kind=assertion
+  expected_step=race-pre-expiry-second expected_direction=reserve-first expected_outcome=ROLLBACK expected_kind=assertion expected_state=42P01 expected_exit=1
+  printf 'ERROR:  42P01: private-sentinel\n' > "$client_log"
+  case "$diagnostic_case" in
+    valid) client_exit_status=255; expected_exit=255 ;;
+    unavailable) client_log="$tmp/missing"; client_exit_status=unavailable; expected_state=unavailable expected_exit=unavailable ;;
+    invalid_step) prune_step=private-sentinel; expected_step=unavailable ;;
+    invalid_enum) prune_direction=private-sentinel prune_outcome=private-sentinel prune_failure_kind=private-sentinel
+      expected_direction=unavailable expected_outcome=unavailable expected_kind=unavailable ;;
+    invalid_sqlstate) printf 'ERROR:  42P01X: private-sentinel\n' > "$client_log"; expected_state=unavailable ;;
+    invalid_exit) client_exit_status=256; expected_exit=unavailable ;;
+  esac
+  : > "$receipt"
+  status=0; (trap finish EXIT; false) || status=$?
+  [[ "$status" != 0 && ! -e "$tmp" ]]
+  grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=prune cleanup=removed prune_step=$expected_step direction=$expected_direction outcome=$expected_outcome failure_kind=$expected_kind last_client_sqlstate=$expected_state last_client_exit=$expected_exit$" "$receipt"
+  ! grep -q 'private-sentinel' "$receipt"
+  printf 'ST-236 prune diagnostic case=%s: expected result verified\n' "$diagnostic_case"
+done
+
+# The retained holder log may explain an observer timeout only through a
+# strict SQLSTATE; missing or hostile text never enters the public receipt.
+for holder_case in valid missing malformed embedded; do
+  tmp=$(mktemp -d "$base/st233a.XXXXXX")
+  client_log="$tmp/observer.log" holder_log="$tmp/holder.log" client_exit_status=1
+  printf 'ERROR:  42P01: private-sentinel observer\n' > "$client_log"
+  holder_expected=unavailable
+  case "$holder_case" in
+    valid) printf 'ERROR:  57014: private-sentinel holder\n' > "$holder_log"; holder_expected=57014 ;;
+    missing) holder_log="$tmp/missing" ;;
+    malformed) printf 'ERROR:  57014X: private-sentinel holder\n' > "$holder_log" ;;
+    embedded) printf 'NOTICE: ERROR:  57014 private-sentinel holder\n' > "$holder_log" ;;
+  esac
+  phase=prune passed=false prune_step=race-holder-observe prune_direction=prune-first prune_outcome=COMMIT prune_failure_kind=timeout
+  : > "$receipt"
+  status=0; (trap finish EXIT; false) || status=$?
+  [[ "$status" != 0 && ! -e "$tmp" ]]
+  grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=prune cleanup=removed prune_step=race-holder-observe direction=prune-first outcome=COMMIT failure_kind=timeout last_client_sqlstate=42P01 last_client_exit=1 holder_sqlstate=$holder_expected$" "$receipt"
+  ! grep -q 'private-sentinel' "$receipt"
+done
+
+# Every timed phase uses the real finish writer. Values from private clients and
+# unapproved labels must never reach the public receipt.
+for timed_phase in peek settle nonce-prune atomic-issue-16; do
+  for diagnostic_case in valid invalid_step invalid_case invalid_release invalid_kind invalid_state invalid_exit; do
+    tmp=$(mktemp -d "$base/st233a.XXXXXX")
+    phase=$timed_phase passed=false client_log="$tmp/client.log" client_exit_status=1
+    timed_step=blocked-edge timed_case=epoch timed_release=ROLLBACK timed_failure_kind=assertion
+    expected_step=blocked-edge expected_case=epoch expected_release=ROLLBACK expected_kind=assertion expected_state=42P01 expected_exit=1
+    printf 'ERROR:  42P01: private-sentinel raw-SQL row=secret time=123 id=secret\n' > "$client_log"
+    case "$diagnostic_case" in
+      valid) ;;
+      invalid_step) timed_step=private-sentinel; expected_step=unavailable ;;
+      invalid_case) timed_case=private-sentinel; expected_case=unavailable ;;
+      invalid_release) timed_release=private-sentinel; expected_release=unavailable ;;
+      invalid_kind) timed_failure_kind=private-sentinel; expected_kind=unavailable ;;
+      invalid_state) printf 'ERROR:  42P01X: private-sentinel\n' > "$client_log"; expected_state=unavailable ;;
+      invalid_exit) client_exit_status=256; expected_exit=unavailable ;;
+    esac
+    : > "$receipt"
+    status=0; (trap finish EXIT; false) || status=$?
+    [[ "$status" != 0 && ! -e "$tmp" ]]
+    grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=$timed_phase cleanup=removed step=$expected_step case=$expected_case release=$expected_release failure_kind=$expected_kind last_client_sqlstate=$expected_state last_client_exit=$expected_exit$" "$receipt"
+    ! grep -Eq 'private-sentinel|raw-SQL|row=|time=|id=' "$receipt"
+  done
+done
+
+# Atomic guard diagnostics use fixed case labels and captured client fields.
+# Exercise the real finish writer for both guard phases, including hostile inputs.
+for atomic_phase in atomic-issue-02 atomic-issue-03; do
+  for atomic_case in graph-fk parent-search-path parent-public-execute parent-body nonce-update nonce-select executor-membership reservation-constraint constraint-pin parent-fence parent-peek parent-reserve parent-prune parent-settle parent-nonce-prune; do
+    tmp=$(mktemp -d "$base/st233a.XXXXXX")
+    phase=$atomic_phase passed=false client_log="$tmp/client.log" client_exit_status=1
+    timed_step=guard-catalog timed_case=$atomic_case timed_release=none timed_failure_kind=assertion
+    atomic_sqlstate=22012 atomic_exit=1 atomic_drift=physical-only
+    : > "$receipt"
+    status=0; (trap finish EXIT; false) || status=$?
+    [[ "$status" != 0 && ! -e "$tmp" ]]
+    grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=$atomic_phase cleanup=removed step=guard-catalog case=$atomic_case release=none failure_kind=assertion guard_client_sqlstate=22012 guard_client_exit=1 drift=physical-only$" "$receipt"
+  done
+  for diagnostic_case in logical unavailable invalid_step invalid_case invalid_release invalid_kind invalid_state invalid_exit invalid_drift; do
+    tmp=$(mktemp -d "$base/st233a.XXXXXX")
+    phase=$atomic_phase passed=false client_log="$tmp/client.log" client_exit_status=1
+    timed_step=guard-sqlstate timed_case=graph-fk timed_release=ROLLBACK timed_failure_kind=operation
+    atomic_sqlstate=42P01 atomic_exit=255 atomic_drift=none
+    expected_step=guard-sqlstate expected_case=graph-fk expected_release=ROLLBACK expected_kind=operation
+    expected_state=42P01 expected_exit=255 expected_drift=none
+    printf 'ERROR:  42P01: private-sentinel raw-SQL row=secret time=123 id=secret\n' > "$client_log"
+    case "$diagnostic_case" in
+      logical) atomic_drift=logical; expected_drift=logical ;;
+      unavailable) atomic_drift=unavailable; expected_drift=unavailable ;;
+      invalid_step) timed_step=private-sentinel; expected_step=unavailable ;;
+      invalid_case) timed_case=private-sentinel; expected_case=unavailable ;;
+      invalid_release) timed_release=private-sentinel; expected_release=unavailable ;;
+      invalid_kind) timed_failure_kind=private-sentinel; expected_kind=unavailable ;;
+      invalid_state) atomic_sqlstate='42P01X-private-sentinel'; expected_state=unavailable ;;
+      invalid_exit) atomic_exit='256-private-sentinel'; expected_exit=unavailable ;;
+      invalid_drift) atomic_drift='private-sentinel'; expected_drift=unavailable ;;
+    esac
+    : > "$receipt"
+    status=0; (trap finish EXIT; false) || status=$?
+    [[ "$status" != 0 && ! -e "$tmp" ]]
+    grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=$atomic_phase cleanup=removed step=$expected_step case=$expected_case release=$expected_release failure_kind=$expected_kind guard_client_sqlstate=$expected_state guard_client_exit=$expected_exit drift=$expected_drift$" "$receipt"
+    ! grep -Eq 'private-sentinel|raw-SQL|row=|time=|id=' "$receipt"
+  done
+done
+
+# The enrollment diagnostic passes through the same real finish writer.
+for diagnostic_case in sql010 driver_exit invalid_step invalid_fields; do
+  tmp=$(mktemp -d "$base/st233a.XXXXXX")
+  phase=durable-enrollment passed=false
+  enrollment_step=sql010 enrollment_failure_kind=operation enrollment_sqlstate=unavailable enrollment_driver_exit=unavailable
+  expected_step=sql010 expected_kind=operation expected_state=unavailable expected_exit=unavailable
+  case "$diagnostic_case" in
+    sql010) enrollment_sqlstate=42P01; expected_state=42P01 ;;
+    driver_exit) enrollment_step=driver-exit; enrollment_failure_kind=nonzero-exit; enrollment_driver_exit=255
+      expected_step=driver-exit expected_kind=nonzero-exit expected_exit=255 ;;
+    invalid_step) enrollment_step='private-sentinel'; expected_step=unavailable ;;
+    invalid_fields) enrollment_failure_kind='private-sentinel'; enrollment_sqlstate='42P01X'; enrollment_driver_exit='256'
+      expected_kind=unavailable ;;
+  esac
+  : > "$receipt"
+  status=0; (trap finish EXIT; false) || status=$?
+  [[ "$status" != 0 && ! -e "$tmp" ]]
+  grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=durable-enrollment cleanup=removed step=$expected_step failure_kind=$expected_kind sqlstate=$expected_state driver_exit=$expected_exit$" "$receipt"
+  ! grep -q 'private-sentinel' "$receipt"
+  printf 'ST-236 enrollment diagnostic case=%s: expected result verified\n' "$diagnostic_case"
+done
+cid=$diagnostic_cid
 custody_cases() {
 for case_name in "$@"; do
   created=$(python3 -c 'import datetime; print(datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"))')
@@ -43,11 +353,11 @@ for case_name in "$@"; do
     case "$1" in
       inspect)
         [[ "$case_name" != inspect ]] || return 1
-        python3 - "$case_name" "$cid" "$name" "$created" "$marker" "$source_head" "$image" <<'PY'
+        python3 - "$case_name" "$cid" "$name" "$created" "$marker" "$source_head" "$image" "$fixture_label" <<'PY'
 import json, sys
-case, cid, name, created, marker, head, image = sys.argv[1:]
+case, cid, name, created, marker, head, image, label = sys.argv[1:]
 x = {'Id':cid, 'Name':'/'+name, 'Created':created,
-     'Config':{'Labels':{'subtrack.task':'ST-233a:'+marker, 'subtrack.head':head}, 'Image':image},
+     'Config':{'Labels':{'subtrack.task':label+':'+marker, 'subtrack.head':head}, 'Image':image},
      'HostConfig':{'NetworkMode':'none', 'PortBindings':None, 'Privileged':False, 'CapAdd':None, 'Devices':None, 'PidMode':''},
      'NetworkSettings':{'Networks':{'none':{}}, 'Ports':{'5432/tcp':None}},
      'Mounts':[{'Type':'tmpfs','Destination':'/var/lib/postgresql/data'}]}
@@ -254,9 +564,15 @@ cleanup_temp
 [[ -d "$outside" ]]
 printf 'ST-233a actual custody and finish negatives: PASS\n'
 # Sidecar custody faults must refuse use and removal without touching the PG registry.
-tmp=$(mktemp -d "$base/st233a.XXXXXX")
+for driver_scope in foundation enrollment; do
+if [[ "$driver_scope" == enrollment ]]; then
+  scope=enrollment fixture_prefix=st236e driver_prefix=st236n driver_fixture_label=ST-236n
+else
+  scope=foundation fixture_prefix=st233a driver_prefix=st233l driver_fixture_label=ST-233l
+fi
+tmp=$(mktemp -d "$base/$fixture_prefix.XXXXXX")
 : > "$tmp/driver.cjs"; : > "$tmp/driver.json"
-driver_cid=$(printf '%064d' 1); driver_name="st233l-$marker"
+driver_cid=$(printf '%064d' 1); driver_name="$driver_prefix-$marker"
 for driver_case in valid valid-development image network mount label uid pid port pids-limit memory-limit env env-production created-pid exited-running; do
   driver_removed=false
   driver_env=''
@@ -264,10 +580,10 @@ for driver_case in valid valid-development image network mount label uid pid por
   docker() {
     case "$1" in
       inspect)
-        python3 - "$driver_case" "$driver_cid" "$driver_name" "$marker" "$source_head" "$driver_image" "$cid" "$tmp" "$UID" <<'PY'
+        python3 - "$driver_case" "$driver_cid" "$driver_name" "$marker" "$source_head" "$driver_image" "$cid" "$tmp" "$UID" "$driver_fixture_label" <<'PY'
 import json,sys
-case,ident,name,marker,head,image,pg,tmp,uid=sys.argv[1:]
-x={'Id':ident,'Name':'/'+name,'Config':{'Image':image,'Labels':{'subtrack.task':'ST-233l:'+marker,'subtrack.head':head},'User':uid,'Env':['PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','NODE_VERSION=22.23.2','YARN_VERSION=1.22.22'],'Entrypoint':['docker-entrypoint.sh'],'Cmd':['node','/fixture.cjs']},
+case,ident,name,marker,head,image,pg,tmp,uid,label=sys.argv[1:]
+x={'Id':ident,'Name':'/'+name,'Config':{'Image':image,'Labels':{'subtrack.task':label+':'+marker,'subtrack.head':head},'User':uid,'Env':['PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','NODE_VERSION=22.23.2','YARN_VERSION=1.22.22'],'Entrypoint':['docker-entrypoint.sh'],'Cmd':['node','/fixture.cjs']},
    'HostConfig':{'NetworkMode':'container:'+pg,'Privileged':False,'PortBindings':None,'CapAdd':None,'CapDrop':['ALL'],'Devices':None,'ReadonlyRootfs':True,'SecurityOpt':['no-new-privileges'],'PidsLimit':64,'Memory':134217728},
    'NetworkSettings':{'Ports':{}},'State':{'Running':True,'Status':'running','Pid':1234},
    'Mounts':[{'Type':'bind','Source':tmp+'/driver.cjs','Destination':'/fixture.cjs','RW':False},{'Type':'bind','Source':tmp+'/driver.json','Destination':'/fixture.json','RW':False}]}
@@ -295,6 +611,7 @@ PY
   }
   if [[ "$driver_case" == valid || "$driver_case" == valid-development ]]; then driver_custody running; driver_cleanup; [[ "$driver_removed" == true ]]; driver_cid=$(printf '%064d' 1)
   else ! driver_custody running; ! driver_cleanup; [[ "$driver_removed" == false ]]; fi
-  printf 'ST-233l sidecar custody case=%s: expected result verified\n' "$driver_case"
+  printf '%s sidecar custody case=%s: expected result verified\n' "$driver_fixture_label" "$driver_case"
 done
 command rm -rf -- "$tmp"
+done

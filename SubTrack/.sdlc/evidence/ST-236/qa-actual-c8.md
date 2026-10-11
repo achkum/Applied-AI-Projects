@@ -1,0 +1,15 @@
+# ST-236 C8 actual QA — FAILED / HOLD
+
+Frozen PR 281 HEAD `ae9e9fb19e472a7c253f41404719f466b7aa9358`; [actual run 38137719975](https://github.com/achkum/Applied-AI-Projects/actions/runs/38137719975) completed FAILURE. Both required owned PG16 jobs failed.
+
+Foundation job `114464920909`: locked install passed; `Actual custody and bounded client lifecycle negatives` failed. The GitHub job log's safe test markers show the new diagnostic groups completed through the enrollment invalid-fields case, then `ST-233a custody: FAIL reason=record` and `ST-233a negative harness failure: case=success phase=cleanup status=1`. Source inspection identifies the empty mock `cid` restoration described in `qa-source-c8.md`. The actual PG16 foundation proof step was skipped. The exact-recorded-fixture cleanup step passed, but artifact upload failed because no foundation receipt artifact was produced. There is no C8 foundation receipt or new prune/atomic failure signature; C7's prune timeout and C6's atomic failure remain unresolved.
+
+Enrollment job `114464921133`: locked install passed; `Actual isolated PG16 full enrollment proof` failed; exact-recorded-fixture cleanup and artifact upload passed. The sole non-input sanitized receipt line is:
+
+`ST-236 enrollment proof: FAIL source_head=ae9e9fb19e472a7c253f41404719f466b7aa9358 phase=durable-enrollment cleanup=removed step=driver-exit failure_kind=nonzero-exit sqlstate=unavailable driver_exit=1 checkpoint=fixture-qualification`
+
+The enrollment artifact contains exactly 34 unique `ST-236e input=` pins. Each reported blob OID and SHA256 matches the committed Git blob at this HEAD: **34/34 verified, zero mismatches**. The failure is in the Node proof's initial `catalog()` fixture qualification, before the `otp-cases` checkpoint. The safe receipt does not identify which catalog assertion failed. `driver_exit=1` establishes a nonzero process exit, not a SQL or service cause. No raw Docker, SQL, Node exception, credential, or private identifier was copied into QA evidence. Cleanup `removed` is a custody result and does not make the proof pass.
+
+There is no `ST-233a foundation: PASS` or `ST-236 durable enrollment: PASS` marker. This run does not establish actual PG16 foundation negatives, full OTP→verified→atomic identity/profile/session/CSRF flow, signed V2/current-web authority, race/restart/rollback/old-UUID/erasure/pool negatives, or usable signup. The exact-head quality job also failed an existing browser subscription lifecycle composition test timeout; applicable CI is not green. Preserve prior C1–C7 actual failures and source/actual separation.
+
+**QA verdict: FAILED / HOLD.** Both PG16 jobs remain blocking. A corrected frozen head needs a passing full Linux custody/lifecycle negative suite, both successful 34-pin PG16 proofs with cleanup, full functional assertions and independent actual QA, plus applicable CI and source reviews. No feature, production, provider, or global race safety claim follows. Original 2026-10-11T09:44:30.897Z L240 attempt 1/source attempt 1 and deadline 13:44:30.897Z remain in force.

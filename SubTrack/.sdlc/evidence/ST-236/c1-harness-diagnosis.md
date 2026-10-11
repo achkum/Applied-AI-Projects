@@ -1,0 +1,7 @@
+# C1 migration diagnosis and bounded C2 correction
+C1 exact45c8193 foundation38131421699 artifact11698414080 FAIL phase=migration cleanup=removed; custody negatives passed and SQL010/enrollment was not reached. No SQLSTATE or substep existed, so the actual cause remains unknown; no flake claim.
+Source readiness used Unix pg_isready while migration psql used TCP127.0.0.1. Official Docker Library Postgres README describes a temporary Unix-only initialization server, supporting a plausible race. C2 aligns readiness to the same TCP endpoint without changing bounds or credentials.
+C2 records only fixed parent-0001/parent-0002/fixture-control substep, strict verbose five-character uppercase alphanumeric SQLSTATE followed by colon, and exit1–255/unavailable. Raw errors, SQL, paths and secrets remain private and destroyed.
+Real-function negative cases exercise42P01,42501,embedded/malformed private text,invalid exit,timeout,missing log through actual finish receipt writer; private sentinel cannot appear in receipt. Actual Linux negatives remain CI gate; Windows chmod prevents equivalent local claim.
+Root GitBash syntax checks both scripts PASS and diff-check PASS. Conductor devops source review approves bounded readiness/diagnostic changes; independent frozen security/platform/sourceQA and actualPG remain required.
+Original09:44:30.897ZL240attempt1source1deadline13:44 and C1 migrationfailure1/sourcebirthrejectioncycle1 retained; no reset/blindC1retry.

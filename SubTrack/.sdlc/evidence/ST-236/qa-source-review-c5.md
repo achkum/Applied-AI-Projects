@@ -1,0 +1,8 @@
+# ST-236 frozen C5 QA source review — READY FOR ACTUAL PG16
+Exact PR281 HEAD `859f5ef1fe675ea00ee1414bea6a3230f863c957`; independent source review only. C4 actual run `38133422655` remains FAILED/HOLD at upstream `phase=prune`, before SQL010 or enrollment.
+Against C4 `94bf5b7`, executable edits are confined to the foundation proof harness and its focused harness test; task/evidence edits record the retained history and C5 scope.
+The prune path now labels its existing checkpoints and four direction/outcome races; `finish()` allowlists step, direction, outcome, and failure kind, then reports strict five-character SQLSTATE and bounded client exit from the last private client log.
+Those last-client fields are evidence about that client only, not attribution of an assertion's cause. Invalid or missing values become `unavailable`; no raw SQL, private text, identifiers, or clock values enter the receipt.
+Focused tests invoke the real `finish()` writer for valid, unavailable, malformed step/enum/SQLSTATE/exit inputs and assert private-sentinel non-disclosure. The author reports Git Bash syntax and diff-check PASS; this review inspected source and `git diff --check`, not an actual PG16 run.
+Existing SQL assertions, 5000 ms fixture expiry, race directions/results, 10000-row bound, locks/timeouts, cleanup/custody, 34 input pins, and durable-current/enrollment proof remain in place; no SQL/service/feature source changed.
+**QA source verdict: READY FOR ACTUAL PG16; acceptance HOLD.** Require exact-head 34-pin actual foundation and full enrollment/current-authority PASS with negatives and cleanup, applicable CI, and actual QA. Preserve C1–C4 failures, original 09:44 L240 attempt 1/source 1 and 13:44 deadline; no usable signup or production claim.

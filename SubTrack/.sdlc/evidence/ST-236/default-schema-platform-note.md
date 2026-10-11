@@ -1,0 +1,6 @@
+# ST-236 PRE-FREEZE platform scope verdict — Type 2a
+`schema.prisma` adds `Identity.verifiedAt/givenName/surname` and `IdentityProfile`, but ordinary migrations `0001`/`0002` create none of those identity columns or the profile table; SQL010 adds them only in the qualified ST-233a fixture.
+`clean-migration-proof.sh` deploys only ordinary migrations, then diffs that database against this same Prisma schema and rejects all drift except three partial indexes: the current mapping makes that existing gate fail.
+The API build/typecheck/test scripts regenerate Prisma from the shared schema; ordinary `identity.findUnique` calls in data-rights/invitations omit `select`, so their generated full scalar SELECT would request absent columns on a normal migrated database. Identity-provider `findFirst` and `create` select only `id` and are narrower.
+Verdict: defer these Prisma mappings from ST-236 until a separately scoped ordinary migration and deployment integration can land; keep the private service's SQL010 and raw SQL against its qualified fixture. Do not assert default-platform compatibility from private PG proof.
+This is pre-freeze integration evidence for root/independent review, not author approval or a production activation decision.

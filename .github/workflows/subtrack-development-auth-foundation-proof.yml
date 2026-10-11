@@ -8,6 +8,9 @@ on:
       - 'SubTrack/apps/api/src/auth/browser-nonce/development-bootstrap-postgres-port.ts'
       - 'SubTrack/apps/api/src/auth/browser-nonce/development-bootstrap-postgres-port.spec.ts'
       - 'SubTrack/apps/api/src/auth/sessions-v2/durable-current-web-*.ts'
+      - 'SubTrack/apps/api/src/auth/enrollment-v2/durable-development-enrollment*.ts'
+      - 'SubTrack/apps/api/test/durable-development-enrollment.integration.ts'
+      - 'SubTrack/apps/api/test/vitest.durable-development-enrollment.config.ts'
       - 'SubTrack/apps/api/src/auth/session-csrf/durable-session-csrf*.ts'
       - 'SubTrack/apps/api/test/durable-current-web-authority.integration.ts'
       - 'SubTrack/apps/api/test/vitest.durable-current-web-authority.config.ts'
@@ -40,7 +43,7 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
       - name: Actual custody and bounded client lifecycle negatives
         run: bash tools/database/test-development-auth-foundation-proof.sh
-      - name: Actual owned PG16 SCRAM foundation and private bootstrap port proof
+      - name: Actual owned PG16 SCRAM foundation, current web and durable enrollment proof
         run: bash tools/database/development-auth-foundation-proof.sh
       - name: Remove exact recorded fixture
         if: always()
@@ -50,5 +53,33 @@ jobs:
         with:
           name: st233a-foundation-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/st233a-proof-receipt.txt
+          if-no-files-found: error
+          retention-days: 7
+  owned-pg16-enrollment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: SubTrack
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked private driver proof dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Actual isolated PG16 full enrollment proof
+        run: bash tools/database/development-auth-foundation-proof.sh --enrollment-proof
+      - name: Remove exact recorded enrollment fixture
+        if: always()
+        run: bash tools/database/development-auth-foundation-proof.sh --enrollment-proof --cleanup
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: st236e-enrollment-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/st236e-proof-receipt.txt
           if-no-files-found: error
           retention-days: 7

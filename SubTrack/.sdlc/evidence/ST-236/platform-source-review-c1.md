@@ -1,0 +1,8 @@
+# ST-236 frozen PLATFORM source review C1
+- Frozen head: `45c8193bcf72d821c442b70f81506578b72fbda9`; independent source review of SQL010, private service, focused spec, actual-PG integration and proof harness.
+- Verdict: **BLOCKED (P1 proof defect)**; no platform acceptance until correction and fresh exact-head actual-PG evidence.
+- P1: SQL010:119–121 defines `identity_birth(identity_id,xid)` only, matching `binding-security-amendment.md` §7, but `durable-development-enrollment.integration.ts:174–177` asserts a third `expires_ms` column. The mandatory PG catalog proof deterministically fails `birth-shape` before the enrollment graph.
+- The same integration test at lines 232–233 INSERTs `(identity_id,xid,expires_ms)` into that two-column table; correcting only the shape assertion still leaves a SQL error. Align both test statements with the approved two-column birth attestation; do not widen the retained birth row.
+- Reviewed source boundaries: SQL010 keeps executor public identity grant to SELECT(id,external_id,deleted_at), dual-owner-GUC RLS policy, provisioner INSERT and private intent/birth trigger; the service derives immutable session binding at OTP issue, uses `v2r.` refresh and CSRF digest, and withholds material on unknown commit.
+- Default Prisma mapping is deferred as recorded; no ordinary schema/default module or real provider/HTTP activation is in this head.
+- Local 11 focused tests, typecheck, lint, bundle and shell syntax are author-reported passes only; actual qualified PG16 proof and exact-head CI/QA remained pending at review. No SQL execution or source edit was performed by this reviewer.

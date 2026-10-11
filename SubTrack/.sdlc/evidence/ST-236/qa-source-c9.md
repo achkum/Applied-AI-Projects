@@ -1,0 +1,11 @@
+# ST-236 C9 frozen source QA — APPROVE source / HOLD acceptance
+
+Reviewed PR 281 HEAD `462b20e32bb5cf3857b11111398c815d7afe8335` against C8 `ae9e9fb19e472a7c253f41404719f466b7aa9358`. This is a source review, not an actual PG16 or hosted Linux acceptance result.
+
+The C8 blocking mock-ID defect is corrected. `test-development-auth-foundation-proof.sh` saves the original fixed 64-digit `cid` before the new enrollment diagnostic loop, restores it afterward, checks its exact fixed value, then passes it through the inherited foundation diagnostic loop into the positive custody case. The later inherited loop still saves/restores its own `diagnostic_cid`. The original custody and lifecycle cases, including positive `success` and `empty`, remain present and unweakened. The companion and foundation receipt scopes remain distinct.
+
+The parent 0001 identity migration requires `updated_at TIMESTAMPTZ(6) NOT NULL` without a default. The terminal provisioner `INSERT` and both unqualified catalog seed `INSERT`s now supply `pg_catalog.clock_timestamp()` explicitly. The focused fixture rejects the old insert shape with simulated `23502`, and the completed-account test traverses the corrected insert. The actual integration graph now reads the completed identity's `updated_at` and checks for a finite PostgreSQL timestamp. No SQL010, role/grant/RLS, service transaction ordering, or existing functional case was removed in this delta. The earlier C8 security boundary remains unchanged.
+
+`git diff --check ae9e9fb..462b20e` passed, and Git Bash syntax check of the changed shell passed. The author reports 11 focused Vitest cases and focused ESLint passed; this review did not independently rerun those tests. The root's local Windows full negative run and fresh hosted checks are separate evidence.
+
+Source QA verdict **APPROVE for this C9 delta; acceptance HOLD** until the same head passes the full hosted Linux foundation negatives, both exact-head PG16 proof jobs, applicable CI, and independent actual QA. C8's observed failures and C1–C7 history remain recorded. The source review does not establish usable signup, feature acceptance, or production readiness. Original 09:44:30.897Z L240 attempt 1/source attempt 1, 13:44:30.897Z deadline, and 4700/5000 caps remain unchanged.

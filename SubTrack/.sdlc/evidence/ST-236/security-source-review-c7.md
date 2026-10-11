@@ -1,0 +1,9 @@
+# ST-236 frozen C7 independent security source review
+
+Decision: **APPROVE security source only** for PR281 HEAD `70dd6b09c4e6ab61fc754d9036a700bea8799c36` versus C6 `1c4c7b0f30b13cfc572f23d4942d017dbda0569e`; no actionable rated finding. This is not actual PG16, QA, CI, or merge approval.
+The source delta changes only the two proof shell scripts; private enrollment SQL, service, grants, and terminal authority are unchanged from source-approved C6.
+Atomic issue 02 retains all nine faults with fixed case labels; 03 has six fixed parent labels. Operation, SQLSTATE, rollback, and catalog steps identify the failing assertion without publishing fault SQL or private values.
+The installer status is captured immediately after its client returns and emitted as `guard_client_*`, so a later assertion cannot mislabel another client as the installer. Strict SQLSTATE and decimal exit parsing, fixed label allowlists, and real finish-writer negative cases cover both phases, malformed fields, and private sentinels.
+One SQL statement yields original whole-catalog and diagnostic logical hashes. The latter removes only `pg_class` relpages, reltuples, relallvisible, relfrozenxid, and relminmxid. Original whole-catalog equality remains blocking; physical-only, logical, and unavailable drift are diagnostic receipt classes, never acceptance. No hashes, catalog JSON, SQL, secrets, or private identifiers enter receipts.
+`git diff --check` and both Git Bash syntax checks passed. Focused harness diagnostic cases ran, but its broader run stopped at a later Python step because `python` was unavailable in this local shell; this is not a PG16 result.
+C6 actual run `38135548331` failed at atomic-issue-02 with unknown first predicate. C1–C6 failure history remains retained. C7 actual PG16, actual QA, and exact-head applicable CI remain mandatory before merge; original 09:44:30.897Z L240 attempt 1/source 1, 13:44:30.897Z deadline, and 4700/5000 caps remain.
