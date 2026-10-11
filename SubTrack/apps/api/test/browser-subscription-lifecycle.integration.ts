@@ -7,7 +7,7 @@ import { request as httpsRequest } from 'node:https';
 import { resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { test } from 'vitest';
-import { AUTHORITY_CASES, type AuthorityCase, createWriterRollbackDelegate, inspectOwnedFixture, privateFile, ROLLBACK_BASELINE, ROLLBACK_FIXTURE } from '../src/subscriptions/browser-subscription-lifecycle.local';
+import { AUTHORITY_CASES, COMPETITOR_FIXTURES, type AuthorityCase, createWriterRollbackDelegate, inspectOwnedFixture, privateFile, ROLLBACK_BASELINE, ROLLBACK_FIXTURE } from '../src/subscriptions/browser-subscription-lifecycle.local';
 import { SubscriptionLifecycleRepository } from '../src/subscriptions/subscription-lifecycle.repository';
 
 type Credential = { handle: 'owner' | 'peer' | AuthorityCase; access: string; binding: string; csrf: string };
@@ -33,7 +33,7 @@ const targets = ['ACTIVE', 'PAUSED', 'CANCELLED', 'ARCHIVED'] as const;
 const allowed = new Set(['ACTIVE:PAUSED', 'ACTIVE:CANCELLED', 'ACTIVE:ARCHIVED',
   'PAUSED:ACTIVE', 'PAUSED:CANCELLED', 'PAUSED:ARCHIVED', 'CANCELLED:ARCHIVED']);
 const phases = ['fixture', 'compiled_child', 'child_spawn', 'child_bootstrap', 'child_startup_exit',
-  'child_startup_timeout', 'child_pool', 'smoke', 'denials', 'browser', 'writer_rollback', 'writer_negative', 'fixture_reset', 'matrix', 'visibility', 'authority', 'malformed', 'sigterm_cleanup', 'sigint_cleanup', 'parent_cleanup'] as const;
+  'child_startup_timeout', 'child_pool', 'smoke', 'denials', 'browser', 'writer_rollback', 'writer_negative', 'fixture_reset', 'matrix', 'visibility', 'authority', 'competing', 'abort', 'reconciliation', 'malformed', 'sigterm_cleanup', 'sigint_cleanup', 'parent_cleanup'] as const;
 type Phase = typeof phases[number];
 type Cleanup = 'none' | 'child_exit' | 'child_timeout' | 'owner_disconnect';
 const failureReceipt = (phase: unknown, cleanup: unknown) =>
@@ -130,6 +130,10 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
       (id,identity_id,merchant_id,custom_name,category_code,cadence,expected_amount_minor,currency,status,source,always_private,updated_at)
       VALUES (${ROLLBACK_FIXTURE}::uuid,${owner}::uuid,${merchant}::uuid,'synthetic','VIDEO_STREAMING','MONTHLY',1,'SEK',
         'ACTIVE'::subscription_status,'DETECTED',true,${new Date(ROLLBACK_BASELINE)})`);
+    for (const id of Object.values(COMPETITOR_FIXTURES)) await settled(ownerDb.$executeRaw`INSERT INTO subscription
+      (id,identity_id,merchant_id,custom_name,category_code,cadence,expected_amount_minor,currency,status,source,always_private,updated_at)
+      VALUES (${id}::uuid,${owner}::uuid,${merchant}::uuid,'synthetic','VIDEO_STREAMING','MONTHLY',1,'SEK',
+        'ACTIVE'::subscription_status,'DETECTED',true,NOW())`);
     await settled(ownerDb.$transaction(async tx => {
       await tx.$executeRaw`INSERT INTO household (id,name,updated_at) VALUES (${household}::uuid,'synthetic',NOW())`;
       await tx.$executeRaw`INSERT INTO household_member (household_id,identity_id,role)
@@ -187,14 +191,14 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
     }
     await waitForConnections(baseline);
     phase = 'compiled_child';
-    const startChild = async () => {
+    const startChild = async (competing = false) => {
       custody();
       phase = 'child_spawn';
       child = spawn(process.execPath, [resolve(root, 'apps/api/dist/subscriptions/browser-subscription-lifecycle.local.js')], {
         cwd: resolve(root, 'apps/api'), stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
         env: { ...process.env, DATABASE_URL: '', NODE_ENV: 'development', ST226_ENABLED: '1', ST226_HOST: '127.0.0.1',
           ST226_PORT: '35426', ST226_OWNER_ID: owner, ST226_PEER_ID: peer, ST226_RUNTIME_URL: runtimeUrl,
-          ST226_OWNER_URL: '', ST226_OWNER_PROVENANCE_FILE: '', ST227B_ENABLED: '1', ST227C1_ENABLED: '1' },
+          ST226_OWNER_URL: '', ST226_OWNER_PROVENANCE_FILE: '', ST227B_ENABLED: '1', ST227C1_ENABLED: '1', ST227C2_ENABLED: competing ? '1' : '' },
       });
       phase = 'child_bootstrap';
       const current = child;
@@ -225,7 +229,7 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
         current.once('message', ready); current.once('error', failed); current.once('exit', exited);
       });
       phase = 'child_pool';
-      await waitForConnections(baseline + 1);
+      await waitForConnections(baseline + (competing ? 2 : 1));
     };
     let nextId = 1;
     let startupPid: number | undefined;
@@ -270,7 +274,7 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
         try { current.send({ kind: 'control', id, action }, error => { if (error) finish(new Error('control send')); }); }
         catch { finish(new Error('control send')); }
       });
-    await startChild();
+    await startChild(true);
     phase = 'browser';
     browser = await settled(chromium.launch(), 10_000);
     const pageFor = async (credential: Credential, options: { access?: string | null; binding?: string | null; refresh?: boolean } = {}) => {
@@ -297,7 +301,8 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
     };
     type Client = Awaited<ReturnType<typeof pageFor>>;
     const fetchCase = async (client: Client, credential: Credential, id: string, options: {
-      read?: boolean; body?: string; query?: string; csrf?: string | null; headers?: Record<string, string>
+      read?: boolean; body?: string; query?: string; csrf?: string | null; headers?: Record<string, string>;
+      controlledAbort?: boolean; deferObservation?: boolean; reconcile?: boolean
     } = {}) => {
       const method = options.read ? 'POST' : 'PATCH';
       const url = `${origin}/v2/subscriptions/${id}${options.read ? '/read' : ''}${options.query ?? ''}`;
@@ -321,16 +326,26 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
       try {
         const result = await settled(client.page.evaluate(async input => {
           const controller = new AbortController(); const deadline = setTimeout(() => controller.abort(), 5_000);
+          const memory = globalThis as unknown as { proofAbort?: AbortController;
+            proofView?: { view: unknown; actions: boolean } };
+          if (input.controlledAbort) memory.proofAbort = controller;
+          if (input.reconcile && !memory.proofView) memory.proofView = { view: 'PAUSED', actions: true };
           try {
             const response = await fetch(input.url, { method: input.method, credentials: 'include', signal: controller.signal,
               body: input.body, headers: input.headers });
-            return { status: response.status, body: await response.json() as Record<string, unknown>,
+            const body = await response.json() as Record<string, unknown>;
+            if (input.reconcile) memory.proofView = response.status === 200
+              ? { view: body.status, actions: true } : { view: null, actions: false };
+            return { status: response.status, body, view: memory.proofView?.view ?? null, actions: memory.proofView?.actions ?? false,
               cache: response.headers.get('cache-control'), contentType: response.headers.get('content-type') };
-          } finally { clearTimeout(deadline); }
-        }, { url, method, body: options.body ?? (options.read ? '{}' : '{"status":"PAUSED"}'),
+          } catch (error) {
+            if (!input.controlledAbort || !controller.signal.aborted || !(error instanceof Error) || error.name !== 'AbortError') throw error;
+            return { status: 0, body: {} as Record<string, unknown>, cache: 'no-store', contentType: null, view: null, actions: false };
+          } finally { clearTimeout(deadline); delete memory.proofAbort; }
+        }, { url, method, controlledAbort: options.controlledAbort, reconcile: options.reconcile, body: options.body ?? (options.read ? '{}' : '{"status":"PAUSED"}'),
           headers: { 'Content-Type': 'application/json', ...(options.csrf === null ? {} : { 'X-Session-CSRF': options.csrf ?? credential.csrf }), ...options.headers } }), 7_000);
         await settled(headersEvidence); assert.equal(result.cache, 'no-store');
-        await settled(observe(credential.handle === 'peer' ? 'peer' : 'owner')); return result;
+        if (!options.deferObservation) await settled(observe(credential.handle === 'peer' ? 'peer' : 'owner')); return result;
       } finally { clearTimeout(timer); client.page.off('request', listener); cancelObservation(); }
     };
     const ownerClient = await pageFor(credentials[0]!), peerClient = await pageFor(credentials[1]!);
@@ -352,6 +367,67 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
         : expectedProblems[status]);
     };
     await settled(observe('owner'));
+    for (const handle of ['race', 'abort'] as const) {
+      phase = handle === 'race' ? 'competing' : 'abort';
+      const prior = await settled(snapshot()), id = COMPETITOR_FIXTURES[handle];
+      const locked = new Promise<number>((done, reject) => {
+        const current = child!, timer = setTimeout(() => finish(new Error('lock deadline')), 5_000);
+        const finish = (error?: Error, pid?: number) => {
+          clearTimeout(timer); current.off('message', listener); if (error) reject(error); else done(pid!);
+        };
+        const listener = (raw: unknown) => {
+          if (!raw || typeof raw !== 'object' || (raw as { kind?: string }).kind !== 'competitor-locked') return;
+          const ack = raw as { handle: string; pid: number };
+          if (Object.keys(raw).sort().join(',') !== 'handle,kind,pid' || ack.handle !== handle ||
+              !Number.isSafeInteger(ack.pid) || ack.pid < 1 || ack.pid > 2147483647 || ack.pid === startupPid)
+            return finish(new Error('lock evidence'));
+          finish(undefined, ack.pid);
+        };
+        current.on('message', listener);
+      });
+      void locked.catch(() => undefined);
+      await settled(rollbackControl(`arm-${handle}`, true));
+      const competitorPid = await settled(locked);
+      const patch = fetchCase(ownerClient, credentials[0]!, id, { controlledAbort: handle === 'abort', deferObservation: true });
+      pending.add(patch); void patch.then(() => pending.delete(patch), () => pending.delete(patch));
+      const deadline = Date.now() + 5_000;
+      let waiter = false;
+      while (Date.now() < deadline) {
+        const rows = await settled(ownerDb.$queryRaw<{ blocked: boolean }[]>`SELECT
+          (${competitorPid}::integer = ANY(pg_blocking_pids(${startupPid!}::integer))) AND
+          EXISTS(SELECT 1 FROM pg_stat_activity WHERE pid=${startupPid!}::integer AND wait_event_type='Lock') AS blocked`);
+        if (rows.length === 1 && rows[0]?.blocked === true) { waiter = true; break; }
+        await new Promise(done => setTimeout(done, 20));
+      }
+      assert(waiter);
+      if (handle === 'abort') {
+        assert.equal(await settled(ownerClient.page.evaluate(async () => {
+          const controller = (globalThis as unknown as { proofAbort?: AbortController }).proofAbort;
+          if (!controller || controller.signal.aborted) return false;
+          controller.abort(); return true;
+        }, {})), true);
+        assert.equal((await settled(patch)).status, 0); // In-page AbortError is observed while the row lock is held.
+      }
+      await settled(rollbackControl('competitor-release', true));
+      await settled(rollbackControl('writer-settled', true));
+      if (handle === 'race') problem(await settled(patch), 409);
+      await settled(observe('owner'));
+      const committed = await settled(snapshot()), expected = handle === 'race' ? 'CANCELLED' : 'PAUSED';
+      assert.equal(committed.subscriptions.find(row => row.id === id)?.status, expected);
+      assert.deepEqual({ ...committed, subscriptions: committed.subscriptions.map(row => row.id === id
+        ? prior.subscriptions.find(original => original.id === id)! : row) }, prior);
+      const read = await fetchCase(ownerClient, credentials[0]!, id, { read: true });
+      assert.equal(read.status, 200); assert.equal(read.body.status, expected);
+    }
+    phase = 'reconciliation';
+    const missingAccess = await pageFor(credentials[0]!, { access: null });
+    const deniedRead = await fetchCase(missingAccess, credentials[0]!, COMPETITOR_FIXTURES.abort, { read: true, reconcile: true });
+    problem(deniedRead, 401, true);
+    assert.equal(deniedRead.view, null); assert.equal(deniedRead.actions, false);
+    const restored = await fetchCase(ownerClient, credentials[0]!, COMPETITOR_FIXTURES.abort, { read: true, reconcile: true });
+    assert.equal(restored.status, 200); assert.equal(restored.body.status, 'PAUSED');
+    assert.equal(restored.view, 'PAUSED'); assert.equal(restored.actions, true);
+    await settled(rollbackControl('competitor-close', true)); await waitForConnections(baseline + 1);
     phase = 'writer_rollback';
     const beforeRollback = await settled(snapshot());
     await settled(rollbackControl('arm-writer-rollback', false));
@@ -511,4 +587,5 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
   }
   if (failure || cleanup !== 'none') throw new Error(failureReceipt(failure ?? 'parent_cleanup', cleanup));
   process.stdout.write('ST227C1 authority proof: PASS cases=8 dispatch=zero current-owner=post-await\n');
+  process.stdout.write('ST227C2 race proof: PASS waiter=actual cancel=CANCELLED pause=409 abort=before-release writer=settled eventual=PAUSED reconciliation=cleared-restored\n');
 }, 180_000);
