@@ -7,10 +7,10 @@ import { request as httpsRequest } from 'node:https';
 import { resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { test } from 'vitest';
-import { createWriterRollbackDelegate, inspectOwnedFixture, privateFile, ROLLBACK_BASELINE, ROLLBACK_FIXTURE } from '../src/subscriptions/browser-subscription-lifecycle.local';
+import { AUTHORITY_CASES, type AuthorityCase, createWriterRollbackDelegate, inspectOwnedFixture, privateFile, ROLLBACK_BASELINE, ROLLBACK_FIXTURE } from '../src/subscriptions/browser-subscription-lifecycle.local';
 import { SubscriptionLifecycleRepository } from '../src/subscriptions/subscription-lifecycle.repository';
 
-type Credential = { handle: 'owner' | 'peer'; access: string; binding: string; csrf: string };
+type Credential = { handle: 'owner' | 'peer' | AuthorityCase; access: string; binding: string; csrf: string };
 const root = resolve(__dirname, '../../..');
 const origin = 'https://127.0.0.1:35426';
 interface BrowserRequest { allHeaders(): Promise<Record<string, string>>; method(): string; url(): string }
@@ -165,6 +165,7 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
       consents: await ownerDb!.$queryRaw`SELECT * FROM consent ORDER BY identity_id`,
       merchants: await ownerDb!.$queryRaw`SELECT * FROM merchant ORDER BY id`,
       audit: await ownerDb!.$queryRaw`SELECT * FROM audit_log ORDER BY id`,
+      sessions: await ownerDb!.$queryRaw`SELECT * FROM session ORDER BY id`,
     });
     await settled(snapshot());
     phase = 'writer_negative';
@@ -193,7 +194,7 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
         cwd: resolve(root, 'apps/api'), stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
         env: { ...process.env, DATABASE_URL: '', NODE_ENV: 'development', ST226_ENABLED: '1', ST226_HOST: '127.0.0.1',
           ST226_PORT: '35426', ST226_OWNER_ID: owner, ST226_PEER_ID: peer, ST226_RUNTIME_URL: runtimeUrl,
-          ST226_OWNER_URL: '', ST226_OWNER_PROVENANCE_FILE: '', ST227B_ENABLED: '1' },
+          ST226_OWNER_URL: '', ST226_OWNER_PROVENANCE_FILE: '', ST227B_ENABLED: '1', ST227C1_ENABLED: '1' },
       });
       phase = 'child_bootstrap';
       const current = child;
@@ -212,7 +213,8 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
               (raw as { kind?: string }).kind !== 'ready' || (raw as { id?: number }).id !== 0)
             return finish(new Error('bootstrap'));
           const result = (raw as { credentials?: Credential[] }).credentials;
-          if (!Array.isArray(result) || result.length !== 2 || result[0]?.handle !== 'owner' || result[1]?.handle !== 'peer' ||
+          if (!Array.isArray(result) || result.length !== 10 ||
+              result.map(item => item.handle).join(',') !== ['owner', 'peer', ...AUTHORITY_CASES].join(',') ||
               !result.every(item => item && Object.keys(item).sort().join(',') === 'access,binding,csrf,handle' &&
                 typeof item.access === 'string' && item.access.length > 16 && item.access.length < 8192 &&
                 typeof item.binding === 'string' && /^[A-Za-z0-9_-]{43}$/.test(item.binding) &&
@@ -251,7 +253,7 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
       assert.equal(await childExit(child, 15_000), 0); child = undefined; credentials.length = 0;
       await listenerClosed(smoke); await waitForConnections(baseline);
     };
-    const rollbackControl = (action: 'arm-writer-rollback' | 'writer-rollback-observe', verified: boolean) =>
+    const rollbackControl = (action: string, verified: boolean) =>
       new Promise<void>((done, reject) => {
         const current = child!, id = nextId++;
         const finish = (error?: Error) => { clearTimeout(timer); current.off('message', listener); if (error) reject(error); else done(); };
@@ -328,7 +330,7 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
         }, { url, method, body: options.body ?? (options.read ? '{}' : '{"status":"PAUSED"}'),
           headers: { 'Content-Type': 'application/json', ...(options.csrf === null ? {} : { 'X-Session-CSRF': options.csrf ?? credential.csrf }), ...options.headers } }), 7_000);
         await settled(headersEvidence); assert.equal(result.cache, 'no-store');
-        await settled(observe(credential.handle)); return result;
+        await settled(observe(credential.handle === 'peer' ? 'peer' : 'owner')); return result;
       } finally { clearTimeout(timer); client.page.off('request', listener); cancelObservation(); }
     };
     const ownerClient = await pageFor(credentials[0]!), peerClient = await pageFor(credentials[1]!);
@@ -446,6 +448,36 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
     const refreshClient = await pageFor(credentials[0]!, { refresh: true });
     for (const read of [false, true]) problem(await fetchCase(refreshClient, credentials[0]!, smoke, { read }), 400, read);
     assert.deepEqual(await settled(snapshot()), finalState);
+    phase = 'authority';
+    let authorityDenials = 0;
+    for (const handle of AUTHORITY_CASES) {
+      const credential = credentials.find(item => item.handle === handle)!;
+      const client = await pageFor(credential), before = await settled(snapshot());
+      await settled(observe('owner'));
+      await settled(rollbackControl(`arm-${handle}`, true));
+      const current = child!;
+      let listener!: (raw: unknown) => void, arrivalTimer: NodeJS.Timeout | undefined;
+      const arrival = new Promise<void>((done, reject) => {
+        arrivalTimer = setTimeout(() => reject(new Error('arrival deadline')), 5_000);
+        listener = raw => {
+          if (!raw || typeof raw !== 'object' || (raw as { kind?: string }).kind !== 'arrived') return;
+          if (Object.keys(raw).sort().join(',') !== 'handle,kind' || (raw as { handle?: string }).handle !== handle)
+            return reject(new Error('arrival evidence'));
+          clearTimeout(arrivalTimer); done();
+        }; current.on('message', listener);
+      });
+      // Start the natural request before awaiting arrival; release uses a separate IPC command.
+      const response = fetchCase(client, credential, smoke, { read: handle.startsWith('read-') });
+      const trackedResponse = settled(response, 7_000); void trackedResponse.catch(() => undefined);
+      try {
+        await settled(arrival);
+        await settled(rollbackControl(`release-${handle}`, true));
+        problem(await trackedResponse, 401, handle.startsWith('read-'));
+        await settled(rollbackControl(`observe-${handle}`, true));
+        assert.deepEqual(await settled(snapshot()), before); authorityDenials++;
+      } finally { clearTimeout(arrivalTimer); current.off('message', listener); }
+    }
+    assert.equal(authorityDenials, 8);
     for (const context of contexts) await settled(context.close(), 10_000);
     contexts.length = 0; await settled(browser.close(), 10_000); browser = undefined;
     assert.equal(pending.size, 0);
@@ -478,4 +510,5 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
     try { if (pending.size === 0 && childStopped) await settled(ownerDb?.$disconnect() ?? Promise.resolve(), 10_000); } catch { cleanup = 'owner_disconnect'; }
   }
   if (failure || cleanup !== 'none') throw new Error(failureReceipt(failure ?? 'parent_cleanup', cleanup));
+  process.stdout.write('ST227C1 authority proof: PASS cases=8 dispatch=zero current-owner=post-await\n');
 }, 180_000);

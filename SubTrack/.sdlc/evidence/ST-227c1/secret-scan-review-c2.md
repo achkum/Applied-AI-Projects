@@ -1,0 +1,9 @@
+APPROVE exact historical finding only: ST227c1 PR265 head be13f1367de1802aee83144e9309233682569a72; standard38103968962/job114365451009 Gitleaks FAIL/license SKIPPED remain blocking pending fresh gates.
+Classification: conclusive non-secret public immutable Git blob pin in accepted-parent import evidence; one generic-api-key finding at SubTrack/.sdlc/evidence/ST-227c1/accepted-parent-import-qa.md line4.
+Privately stripped ANSI and truncation markers; redacted surrounding context uniquely reconstructs columns151-193 (43 bytes), SQL label plus40hex blob identifier; Shannon entropy3.908027 exactly equals scanner output; matched bytes withheld.
+Frozen evidence blob98e3e8f7277b7bc37eb5ac9ca92a096b5806a9cd independently equals public GitHub blob and exact-head tree entry; repository API confirms public, both trees untruncated.
+Span identifier independently equals public frozen233f3d8b059a1bb9adf88f7ffa7b4b9166008019 and exact be13 head blob for SubTrack/apps/api/prisma/development-auth/001-epoch-nonce-reservation.sql, also frozen local SQL blob; provenance is source integrity evidence.
+Recommend ONLY fingerprint be13f1367de1802aee83144e9309233682569a72:SubTrack/.sdlc/evidence/ST-227c1/accepted-parent-import-qa.md:generic-api-key:4; no file/rule-wide ignore or failure waiver.
+Read AGENTS/Constitution/task, first-head PASS ci-qa, accepted-parent-import-qa, current ci-triage-c2 and ST233a classification precedent; prior dd5799ca standard success independently API-confirmed, no stale-head acceptance.
+Original2026-10-11T01:40:28Z L240attempt1 retained; root alone owns exception/Git/acceptance and new exact-head scan/license/all mandatory gates; all eight other current CI PASS remains triage evidence.
+Only this9-line review written; private raw log/context/API materials TEMP only; read-only Git/API inspection, no source/tests/task/status/Git mutation/rerun/delegation; independent author-not-reviewer classification, STOP within20calls30min.
