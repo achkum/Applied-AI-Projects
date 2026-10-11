@@ -1,0 +1,8 @@
+ST233a C3 freeze; original2026-10-11T01:07:21Z L240attempt1 retry0 preserved; branchst/ST-233a-auth-epoch-reservation-foundation HEAD5b2169987d5c9578fa86c65f9e5c64f31f5155f2; no author base import/status/stage/commit/push/PR/delegation.
+Strengthened exact SQLSTATE negatives/catalog column-types/policies/privileges; cleared stale client errors; fixture guard raises22012 beforeDDL; fixed canonical identity seed mandatory fields; incomplete proof exits1; real record/temp removal failures and foreign no-delete checks added.
+LOCAL: both Bash syntax exit0; harness success plus13 failure cases verified, then exit1 explicitly unsupported directory chmod on MINGW64_NT-10.0-26200/NTFS; chmod700/755 and600/644 do not reliably change modes here. No skip/fake/Linux/PG claim; no Docker/psql/install. One wrong-cwd harness invocation127 corrected; complete Linux custody/PG16 CI and independent reviews remain required.
+Source94+269+77+36=476; author readiness12+C2eight+C3eight=>504<=700; all readiness reviews+task included=>564<=1000. Existing receipts/stashes untouched; LOCAL token returned to root; freeze source bytes below for root accepted-main import after freeze.
+SQL blobafc7bb487ce1d26bd2b02c4f40647f4bbd5493fd sha2567350bd44634b1dce9a933cce57695eaf530857bbff349ca4af2a026d8bd6f2ee.
+Launcher blob908a884c7d6f87521e365cae9f4ae589c1f2893e sha256734ba2de668b81dce3eea50dd0b7c957f1f939ba77479037d0b2c6103dd7109a.
+Negatives blobabd29d36cb722034e5170cad1ba0b0e0338249e3 sha256902e5a89a7ed3d4c87e5ae33c38a505197f6a56d4ca97bce4fb6a253741e9b0f.
+Workflow blob9489b075d9bc45cedeb6d0497c102924bed6ccb8 sha256583083fffa336a56cc4121ad0475441a7c040d9033e569c2ef47f79e6019257d; source frozen and handed to Conductor for renewed independent source review/actual Linux acceptance.
