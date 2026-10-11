@@ -168,10 +168,10 @@ finish() {
   if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
   if cleanup_container; then cleanup_temp || bad=true; else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; cleanup_result=failed; fi
-  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|pins|cleanup) ;; *) status=1; phase=starting ;; esac
+  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|pins|cleanup) ;; *) status=1; phase=starting ;; esac
   [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" || exit 1
   if [[ "$status" == 0 && "$passed" == true && "$bad" == false ]]; then
-    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,postlock-clock,rollback,reconnect,bounded-clients fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
+    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,postlock-clock,rollback,reconnect,bounded-clients fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
   else
     status=1
     printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s\n' "$source_head" "$phase" "$cleanup_result" >> "$receipt"
@@ -203,7 +203,7 @@ trap 'interrupted=true; [[ "$registering" == true ]] || exit 1' INT TERM
 inputs=(apps/api/prisma/migrations/0001_canonical_schema/migration.sql apps/api/prisma/migrations/0002_privacy_constraints/migration.sql
   apps/api/prisma/development-auth/001-epoch-nonce-reservation.sql tools/database/development-auth-foundation-proof.sh
   tools/database/test-development-auth-foundation-proof.sh ../.github/workflows/subtrack-development-auth-foundation-proof.yml
-  apps/api/prisma/development-auth/002-epoch-fence.sql apps/api/prisma/development-auth/003-nonce-binding-lookup.sql)
+  apps/api/prisma/development-auth/002-epoch-fence.sql apps/api/prisma/development-auth/003-nonce-binding-lookup.sql apps/api/prisma/development-auth/004-bootstrap-reservation.sql)
 : > "$receipt"
 for path in "${inputs[@]}"; do
   blob=$(git hash-object "$path")
@@ -577,6 +577,125 @@ for outcome in COMMIT ROLLBACK; do
   ! grep -q 'ERROR:' "$holder_log" && ! grep -q 'ERROR:' "$waiter_log" || exit 1
   snapshot_private; [[ "$snapshot" == "$before_peek" ]] || exit 1
   printf "DELETE FROM subtrack_auth.nonce WHERE nonce_h=repeat('4',64); DELETE FROM subtrack_auth.epoch WHERE id='peek-lock';\n" | owner
+done
+phase=reserve
+reserve_signature='subtrack_auth.reserve_bootstrap(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.ms,text,text,subtrack_auth.h,subtrack_auth.ms)'
+for fault in "SET st233a.head='invalid';" "SET st233a.marker='invalid';" "SET st233c.constraints='invalid';" "ALTER FUNCTION $peek_signature SET search_path=public;" "GRANT EXECUTE ON FUNCTION $peek_signature TO PUBLIC;" "ALTER FUNCTION subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms) SET search_path=public;" "GRANT EXECUTE ON FUNCTION subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms) TO PUBLIC;" "ALTER TABLE subtrack_auth.reservation DROP CONSTRAINT reservation_check;" "CREATE OR REPLACE FUNCTION subtrack_auth.peek(nonce_h subtrack_auth.h,binding_h subtrack_auth.h,origin text,epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms,purpose text) RETURNS text LANGUAGE plpgsql SECURITY DEFINER VOLATILE PARALLEL UNSAFE SET search_path=pg_catalog AS 'BEGIN RETURN NULL; END';" "ALTER DOMAIN subtrack_auth.h DROP CONSTRAINT h_check;" "GRANT SELECT ON subtrack_auth.reservation TO subtrack_runtime;" "GRANT subtrack_auth_executor TO subtrack_dev_auth_login;"; do
+  { printf "BEGIN; SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s'; %s\n" "$source_head" "$marker" "$constraints_pin" "$fault"; sed '/^BEGIN;$/d;/^COMMIT;$/d' "${inputs[8]}"; } > "$tmp/reserve-guard.sql"
+  if owner < "$tmp/reserve-guard.sql"; then exit 1; fi
+  grep -q 'ERROR:  22012' "$client_log" || exit 1
+  assert_owner "(SELECT count(*)=2 AND bool_and(proname IN ('fence','peek')) FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace)"
+done
+{ printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat "${inputs[8]}"; } | owner
+cat > "$tmp/reserve-catalog.sql" <<'SQL'
+SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=9 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['key_h','owner_h','authority_h','request_h','retention_ms','origin','epoch','manifest_h','observed_ms'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='int8'::regtype AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql')),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.reserve_bootstrap(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.ms,text,text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure;
+WITH actual AS (SELECT a.* FROM pg_catalog.pg_proc p,LATERAL pg_catalog.aclexplode(p.proacl) a WHERE p.oid='subtrack_auth.reserve_bootstrap(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.ms,text,text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure), expected AS (SELECT 'subtrack_auth_executor'::regrole::oid grantor,r.role::regrole::oid grantee,'EXECUTE'::text privilege_type,false is_grantable FROM (VALUES ('subtrack_auth_executor'),('subtrack_runtime')) r(role)), delta AS ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) SELECT 1/(NOT EXISTS(SELECT 1 FROM delta))::integer;
+SQL
+owner < "$tmp/reserve-catalog.sql"
+reserve_values=("repeat('5',64)" "repeat('6',64)" "repeat('7',64)" "repeat('8',64)" 86400000 "'https://st233a.invalid'" "'fixture'" "repeat('a',64)" 0)
+reserve_args=$(IFS=,; printf '%s' "${reserve_values[*]}")
+for prefix in '' 'SET ROLE subtrack_identity_provisioner;' 'SET ROLE subtrack_auth_producer;'; do deny_actor "$prefix SELECT subtrack_auth.reserve_bootstrap($reserve_args);" || exit 1; done
+positive_reserve_sql() { printf "SELECT expiry AS reserved_expiry,1/COALESCE((expiry>0),false)::integer FROM (SELECT subtrack_auth.reserve_bootstrap(%s) expiry) admitted;" "$1"; }
+returned_expiry() { sed -n '/^[ ]*[0-9][0-9]*[ ]*|[ ]*1[ ]*$/s/|.*//p' "$1" | tr -d ' '; }
+snapshot_private; before_reserve=$snapshot
+# A real transactional NULL-return mutation must fail the identical positive assertion.
+{ printf "BEGIN; CREATE OR REPLACE FUNCTION subtrack_auth.reserve_bootstrap(key_h subtrack_auth.h,owner_h subtrack_auth.h,authority_h subtrack_auth.h,request_h subtrack_auth.h,retention_ms subtrack_auth.ms,origin text,epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER VOLATILE PARALLEL UNSAFE CALLED ON NULL INPUT SET search_path=pg_catalog AS 'BEGIN RETURN NULL; END'; SET LOCAL ROLE subtrack_runtime;\n"; positive_reserve_sql "$reserve_args"; } > "$tmp/reserve-null.sql"
+if owner < "$tmp/reserve-null.sql"; then exit 1; fi
+grep -q 'ERROR:  22012' "$client_log" || exit 1
+owner < "$tmp/reserve-catalog.sql"; snapshot_private; [[ "$snapshot" == "$before_reserve" ]] || exit 1
+for index in "${!reserve_values[@]}"; do
+  tuple=("${reserve_values[@]}"); tuple[$index]=NULL; joined=$(IFS=,; printf '%s' "${tuple[*]}")
+  printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT 1/(subtrack_auth.reserve_bootstrap(%s) IS NULL)::integer; COMMIT; %s\n' "$joined" "$reset_sql" | actor
+done
+for change in "4 0" "4 86400001" "5 'https://foreign.invalid'" "5 ''" "6 ''" "6 'absent'" "6 'retired'" "6 'regression'" "7 repeat('b',64)" "8 9007199254740991"; do
+  index=${change%% *}; tuple=("${reserve_values[@]}"); tuple[$index]=${change#* }; joined=$(IFS=,; printf '%s' "${tuple[*]}")
+  printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT 1/(subtrack_auth.reserve_bootstrap(%s) IS NULL)::integer; COMMIT; %s\n' "$joined" "$reset_sql" | actor
+done
+for change in "0 'bad'" "1 'bad'" "2 'bad'" "3 'bad'" "7 'bad'" "4 -1" "4 9007199254740992" "8 -1" "8 9007199254740992" "8 'overflow'"; do
+  index=${change%% *}; tuple=("${reserve_values[@]}"); tuple[$index]=${change#* }; joined=$(IFS=,; printf '%s' "${tuple[*]}")
+  if printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT subtrack_auth.reserve_bootstrap(%s);\n' "$joined" | actor; then exit 1; fi
+  expected=23514; [[ "$change" != "8 'overflow'" ]] || expected=22P02
+  grep -q "ERROR:  $expected" "$client_log" || exit 1
+done
+printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL app.user_id='fault'; SET LOCAL app.current_user_id='fault';\n\\set ON_ERROR_STOP off\nSELECT subtrack_auth.reserve_bootstrap('bad',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);\n\\set ON_ERROR_STOP on\nROLLBACK; %s\n" "$reset_sql" | actor
+for isolation in 'REPEATABLE READ' SERIALIZABLE 'READ UNCOMMITTED'; do
+  printf 'BEGIN ISOLATION LEVEL %s; SET LOCAL ROLE subtrack_runtime; SELECT 1/(subtrack_auth.reserve_bootstrap(%s) IS NULL)::integer; COMMIT; %s\n' "$isolation" "$reserve_args" "$reset_sql" | actor
+done
+snapshot_private; [[ "$snapshot" == "$before_reserve" ]] || exit 1
+# Numeric boundary evidence, never a mocked maximum actual database clock.
+printf 'SELECT 1/(9007199254740991::numeric+1>9007199254740991 AND 0::numeric+86400000=86400000)::integer;\n' | owner
+printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL app.user_id='fault'; SET LOCAL app.current_user_id='fault'; %s ROLLBACK; %s\n" "$(positive_reserve_sql "$reserve_args")" "$reset_sql" | actor
+snapshot_private; [[ "$snapshot" == "$before_reserve" ]] || exit 1
+printf "SELECT md5(jsonb_build_array((SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM subtrack_auth.epoch e),(SELECT jsonb_agg(to_jsonb(n) ORDER BY nonce_h) FROM subtrack_auth.nonce n))::text);\n" | owner
+unmutated=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log"); [[ "$unmutated" =~ ^[a-f0-9]{32}$ ]] || exit 1
+printf 'BEGIN ISOLATION LEVEL READ COMMITTED; SET LOCAL ROLE subtrack_runtime; SET LOCAL search_path=public; %s COMMIT; %s\n' "$(positive_reserve_sql "$reserve_args")" "$reset_sql" | actor
+reserved_expiry=$(returned_expiry "$client_log"); [[ "$reserved_expiry" =~ ^[0-9]+$ ]] || exit 1
+assert_owner "(SELECT expires_ms=$reserved_expiry FROM subtrack_auth.reservation WHERE key_h=repeat('5',64))"
+printf "SELECT md5(jsonb_build_array((SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM subtrack_auth.epoch e),(SELECT jsonb_agg(to_jsonb(n) ORDER BY nonce_h) FROM subtrack_auth.nonce n))::text);\n" | owner
+after=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log"); [[ "$after" == "$unmutated" ]] || exit 1
+assert_owner "(SELECT operation='createV2BrowserNonce' AND authority_kind='browser-bootstrap-origin' AND authority_h=repeat('7',64) AND request_h=repeat('8',64) AND owner_h=repeat('6',64) AND transport='web' AND epoch='fixture' AND state='pending' AND expires_ms-issued_ms=86400000 AND issued_ms<=floor(extract(epoch FROM clock_timestamp())*1000) FROM subtrack_auth.reservation WHERE key_h=repeat('5',64))"
+for state in pending completed failed; do
+ for expired in false true; do
+  # Reset each fixture iteration so both live and expired variants are actual.
+  printf "UPDATE subtrack_auth.reservation SET state='%s',issued_ms=t.ms,expires_ms=t.ms+86400000 FROM (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint ms) t WHERE key_h=repeat('5',64);\n" "$state" | owner
+  [[ "$expired" == false ]] || printf "UPDATE subtrack_auth.reservation SET issued_ms=0,expires_ms=1 WHERE key_h=repeat('5',64);\n" | owner
+  for operation in createV2BrowserNonce refreshV2Session; do
+   printf "UPDATE subtrack_auth.reservation SET operation='%s' WHERE key_h=repeat('5',64);\n" "$operation" | owner
+   snapshot_private; duplicate_snapshot=$snapshot
+   for change in same owner epoch key; do
+    tuple=("${reserve_values[@]}"); case "$change" in owner) tuple[1]="repeat('9',64)" ;; epoch) tuple[6]="'parallel'" ;; key) tuple[0]="repeat('9',64)" ;; esac
+    joined=$(IFS=,; printf '%s' "${tuple[*]}")
+    printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT 1/(subtrack_auth.reserve_bootstrap(%s) IS NULL)::integer; COMMIT; %s\n' "$joined" "$reset_sql" | actor
+   done
+   snapshot_private; [[ "$snapshot" == "$duplicate_snapshot" ]] || exit 1
+  done
+ done
+done
+printf "DELETE FROM subtrack_auth.reservation; INSERT INTO subtrack_auth.epoch VALUES ('reserve-a',repeat('a',64),'https://st233a.invalid',0,'active'),('reserve-b',repeat('a',64),'https://st233a.invalid',0,'active');\n" | owner
+# Real same-key and cross-epoch capacity actors share the reviewed function locks.
+for scenario in same capacity; do
+ for outcome in COMMIT ROLLBACK; do
+  printf 'DELETE FROM subtrack_auth.reservation;\n' | owner
+  if [[ "$scenario" == capacity ]]; then printf "INSERT INTO subtrack_auth.reservation SELECT md5('key-'||i)||md5('key-'||i),'retained','other',repeat('7',64),repeat('8',64),md5('owner-'||i)||md5('owner-'||i),'web','fixture',0,1,'failed' FROM generate_series(1,9999) i;\n" | owner; fi
+  printf "SELECT md5(jsonb_build_array((SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM subtrack_auth.epoch e),(SELECT jsonb_agg(to_jsonb(n) ORDER BY nonce_h) FROM subtrack_auth.nonce n))::text);\n" | owner
+  unchanged=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log"); [[ "$unchanged" =~ ^[a-f0-9]{32}$ ]] || exit 1
+  printf "SELECT md5(COALESCE(jsonb_agg(to_jsonb(r) ORDER BY key_h),'[]'::jsonb)::text) FROM subtrack_auth.reservation r;\n" | owner
+  retained=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log"); [[ "$retained" =~ ^[a-f0-9]{32}$ ]] || exit 1
+  holder_args="repeat('5',64),repeat('6',64),repeat('7',64),repeat('8',64),1,'https://st233a.invalid','reserve-a',repeat('a',64),0"
+  waiter_args="repeat('9',64),repeat('0',64),repeat('7',64),repeat('8',64),86400000,'https://st233a.invalid','reserve-b',repeat('a',64),0"
+  [[ "$scenario" != same ]] || waiter_args="repeat('5',64),repeat('0',64),repeat('7',64),repeat('8',64),86400000,'https://st233a.invalid','reserve-b',repeat('a',64),0"
+  fifo=$(mktemp -u "$tmp/holder.XXXXXX"); mkfifo -m 600 "$fifo"; exec {writer}<>"$fifo"; writers[holder]=$writer
+  launch_client subtrack_dev_auth_login "$fifo" st233b-holder; holder_pid=$client_pid holder_log=$client_log
+  printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s\n" "$(positive_reserve_sql "$holder_args")" >&"$writer"
+  observer=$(mktemp "$tmp/observer.XXXXXX"); waiter_pid=''
+  observe_clients "SELECT count(*)=1 FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';" '^ t *$' || exit 1
+  printf "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='%s' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';\n" "$db" > "$observer"
+  launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1
+  holder_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$holder_backend" =~ ^[0-9]+$ ]] || exit 1
+  waiter=$(mktemp "$tmp/waiter.XXXXXX"); assertion="$(positive_reserve_sql "$waiter_args")"
+  [[ "$outcome" != COMMIT ]] || assertion="SELECT 1/(subtrack_auth.reserve_bootstrap($waiter_args) IS NULL)::integer;"
+  printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s COMMIT; %s\n" "$assertion" "$reset_sql" > "$waiter"
+  launch_client subtrack_dev_auth_login "$waiter" st233b-waiter; waiter_pid=$client_pid waiter_log=$client_log
+  observe_clients "SELECT w.pid FROM pg_catalog.pg_stat_activity h JOIN pg_catalog.pg_stat_activity w ON h.pid<>w.pid WHERE h.pid=$holder_backend AND h.datname='$db' AND w.datname=h.datname AND h.usename='subtrack_dev_auth_login' AND w.usename=h.usename AND h.application_name='st233b-holder' AND w.application_name='st233b-waiter' AND h.state='idle in transaction' AND w.wait_event_type='Lock' AND w.wait_event='advisory' AND h.pid=ANY(pg_catalog.pg_blocking_pids(w.pid));" '^[ ]*[0-9]+[ ]*$' || exit 1
+  waiter_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$waiter_backend" =~ ^[0-9]+$ && "$waiter_backend" != "$holder_backend" ]] || exit 1
+  printf "SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint;\n" > "$observer"
+  launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1
+  release_ms=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log" | tail -1); [[ "$release_ms" =~ ^[0-9]+$ ]] || exit 1
+  printf '%s; %s\n\q\n' "$outcome" "$reset_sql" >&"$writer"; close_writers
+  join_client "$holder_pid" 25000 && join_client "$waiter_pid" 25000 || exit 1
+  ! grep -q 'ERROR:' "$holder_log" && ! grep -q 'ERROR:' "$waiter_log" || exit 1
+  holder_expiry=$(returned_expiry "$holder_log"); [[ "$holder_expiry" =~ ^[0-9]+$ ]] || exit 1
+  if [[ "$outcome" == COMMIT ]]; then assert_owner "(SELECT expires_ms=$holder_expiry FROM subtrack_auth.reservation WHERE owner_h=repeat('6',64))"
+  else waiter_expiry=$(returned_expiry "$waiter_log"); [[ "$waiter_expiry" =~ ^[0-9]+$ ]] || exit 1; assert_owner "(SELECT expires_ms=$waiter_expiry FROM subtrack_auth.reservation WHERE owner_h=repeat('0',64))"; fi
+  printf "SELECT md5(COALESCE(jsonb_agg(to_jsonb(r) ORDER BY key_h),'[]'::jsonb)::text) FROM subtrack_auth.reservation r WHERE owner_h NOT IN (repeat('6',64),repeat('0',64));\n" | owner
+  after=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log"); [[ "$after" == "$retained" ]] || exit 1
+  expected=1; [[ "$scenario" != capacity ]] || expected=10000
+  assert_owner "(SELECT count(*)=$expected FROM subtrack_auth.reservation) AND (SELECT count(*)=1 FROM subtrack_auth.reservation WHERE key_h=repeat('5',64) OR key_h=repeat('9',64))"
+  if [[ "$outcome" == COMMIT ]]; then assert_owner "EXISTS(SELECT 1 FROM subtrack_auth.reservation WHERE key_h=repeat('5',64) AND owner_h=repeat('6',64) AND state='pending' AND epoch='reserve-a' AND expires_ms-issued_ms=1) AND NOT EXISTS(SELECT 1 FROM subtrack_auth.reservation WHERE owner_h=repeat('0',64))"
+  else assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.reservation WHERE owner_h=repeat('6',64)) AND EXISTS(SELECT 1 FROM subtrack_auth.reservation WHERE owner_h=repeat('0',64) AND state='pending' AND epoch='reserve-b' AND issued_ms>=$release_ms AND expires_ms-issued_ms=86400000)"; fi
+  printf "SELECT md5(jsonb_build_array((SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM subtrack_auth.epoch e),(SELECT jsonb_agg(to_jsonb(n) ORDER BY nonce_h) FROM subtrack_auth.nonce n))::text);\n" | owner
+  after=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log"); [[ "$after" == "$unchanged" ]] || exit 1
+ done
 done
 for role in subtrack_dev_auth_login subtrack_runtime subtrack_identity_provisioner subtrack_auth_producer; do
   assert_owner "NOT pg_catalog.has_database_privilege('$role','$db','CREATE,TEMP') AND NOT pg_catalog.has_schema_privilege('$role','subtrack_auth','CREATE') AND NOT pg_catalog.has_schema_privilege('$role','public','CREATE')"

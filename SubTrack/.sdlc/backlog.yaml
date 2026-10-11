@@ -6,7 +6,8 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-233c, title: 'Private development nonce binding lookup SQL function', owner: architect-platform, size: L, status: IN_REVIEW, deps: [ST-233b]}
+  - {id: ST-233d, title: 'Private development browser bootstrap reservation SQL function', owner: architect-platform, size: L, status: IN_REVIEW, deps: [ST-233c]}
+  - {id: ST-233c, title: 'Private development nonce binding lookup SQL function', owner: architect-platform, size: L, status: DONE, deps: [ST-233b]}
   - {id: ST-233b, title: 'Private development epoch clock fence SQL function', owner: architect-platform, size: L, status: DONE, deps: [ST-233a]}
   - {id: ST-227c2, title: 'Natural-browser competing writer and uncertain response proof', owner: dev-backend, size: L, status: DONE, deps: [ST-227c1]}
   - {id: ST-227c1, title: 'Natural-browser awaited current-authority denial proof', owner: dev-backend, size: L, status: DONE, deps: [ST-227b]}
