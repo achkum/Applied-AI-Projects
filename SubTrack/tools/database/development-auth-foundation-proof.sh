@@ -4,7 +4,7 @@ set -euo pipefail
 umask 077
 shopt -s lastpipe
 declare -A clients=() writers=()
-driver_cid='' driver_name='' driver_image='node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
+driver_cid='' driver_name='' driver_env='' driver_image='node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
 driver_result=''
 registering=false interrupted=false sequence=0 client_log='' client_pid=''
 monotonic() { python3 -c 'import time; print(int(time.monotonic()*1000))'; }
@@ -78,7 +78,7 @@ driver_custody() {
   reason=$(python3 -c "$(cat <<'PY'
 import json,sys
 try:
- x=json.load(sys.stdin); ident,name,marker,head,image,pg,tmp,uid,required=sys.argv[1:]
+ x=json.load(sys.stdin); ident,name,marker,head,image,pg,tmp,uid,required,driver_env=sys.argv[1:]
  c=x['Config']; h=x['HostConfig']; n=x['NetworkSettings']; s=x['State']
  assert (x['Id'],x['Name'],c['Image'],c['Labels']['subtrack.task'],c['Labels']['subtrack.head'])==(ident,'/'+name,image,'ST-233l:'+marker,head)
  assert h['NetworkMode']=='container:'+pg and h['Privileged'] is False and not h['PortBindings'] and not h['CapAdd'] and not h['Devices']
@@ -88,12 +88,13 @@ try:
  assert s['Status'] in ('created','running','exited') and isinstance(s['Pid'],int) and not isinstance(s['Pid'],bool)
  assert (s['Status']=='running') == (s['Running'] is True) == (s['Pid']>0)
  assert required=='any' or s['Status']==required
- assert sorted(c['Env'])==sorted(['PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','NODE_VERSION=22.23.2','YARN_VERSION=1.22.22'])
+ assert driver_env in ('','NODE_ENV=development')
+ assert sorted(c['Env'])==sorted(['PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','NODE_VERSION=22.23.2','YARN_VERSION=1.22.22']+([driver_env] if driver_env else []))
  assert c['Entrypoint'] in (None,[],['docker-entrypoint.sh']) and c['Cmd']==['node','/fixture.cjs']
  assert {(m['Type'],m['Source'],m['Destination'],m['RW']) for m in x['Mounts']}=={('bind',tmp+'/driver.cjs','/fixture.cjs',False),('bind',tmp+'/driver.json','/fixture.json',False)}
 except (KeyError,TypeError,ValueError,AssertionError): sys.exit(1)
 PY
-)" "$driver_cid" "$driver_name" "$marker" "$source_head" "$driver_image" "$cid" "$tmp" "$UID" "${1:-any}" <<< "$actual" 2>/dev/null) || return 1
+)" "$driver_cid" "$driver_name" "$marker" "$source_head" "$driver_image" "$cid" "$tmp" "$UID" "${1:-any}" "$driver_env" <<< "$actual" 2>/dev/null) || return 1
 }
 driver_cleanup() {
   [[ -z "$driver_cid" ]] && return 0
@@ -202,10 +203,10 @@ finish() {
   if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
   if cleanup_container; then cleanup_temp || bad=true; else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; cleanup_result=failed; fi
-  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|prune|settle|nonce-prune|atomic-issue|atomic-issue-0[1-9]|atomic-issue-1[0-9]|driver|driver-cleanup|port-durable-state|pins|cleanup) ;; *) status=1; phase=starting ;; esac
+  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|prune|settle|nonce-prune|atomic-issue|atomic-issue-0[1-9]|atomic-issue-1[0-9]|driver|driver-cleanup|port-durable-state|durable-current|pins|cleanup) ;; *) status=1; phase=starting ;; esac
   [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" || exit 1
   if [[ "$status" == 0 && "$passed" == true && "$bad" == false ]]; then
-    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,private-atomic-issue,postlock-clock,rollback,reconnect,bounded-clients fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
+    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,private-atomic-issue,postlock-clock,rollback,reconnect,bounded-clients,durable-current-web fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
   else
     status=1
     printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s\n' "$source_head" "$phase" "$cleanup_result" >> "$receipt"
@@ -239,7 +240,8 @@ inputs=(apps/api/prisma/migrations/0001_canonical_schema/migration.sql apps/api/
   tools/database/test-development-auth-foundation-proof.sh ../.github/workflows/subtrack-development-auth-foundation-proof.yml
   apps/api/prisma/development-auth/002-epoch-fence.sql apps/api/prisma/development-auth/003-nonce-binding-lookup.sql apps/api/prisma/development-auth/004-bootstrap-reservation.sql apps/api/prisma/development-auth/005-expired-reservation-prune.sql apps/api/prisma/development-auth/006-owned-bootstrap-settlement.sql apps/api/prisma/development-auth/007-expired-nonce-prune.sql apps/api/prisma/development-auth/008-atomic-bootstrap-nonce-issue.sql apps/api/package.json pnpm-lock.yaml docs/architecture/adr/0031-isolated-node-postgres-driver-fixture.md
   apps/api/src/auth/browser-nonce/development-bootstrap-postgres-port.ts apps/api/src/auth/browser-nonce/development-bootstrap-postgres-port.spec.ts docs/architecture/adr/0032-private-development-bootstrap-postgres-port.md
-  apps/api/src/auth/browser-nonce/development-bootstrap-transaction.ts apps/api/src/auth/browser-nonce/development-bootstrap-material.ts apps/api/src/auth/idempotency/development-bootstrap-burn-material.ts)
+  apps/api/src/auth/browser-nonce/development-bootstrap-transaction.ts apps/api/src/auth/browser-nonce/development-bootstrap-material.ts apps/api/src/auth/idempotency/development-bootstrap-burn-material.ts
+  apps/api/prisma/development-auth/009-current-web-session-csrf.sql apps/api/src/auth/sessions-v2/durable-current-web-authority.ts apps/api/src/auth/sessions-v2/durable-current-web-fixture.ts apps/api/src/auth/session-csrf/durable-session-csrf.ts apps/api/test/durable-current-web-authority.integration.ts apps/api/test/vitest.durable-current-web-authority.config.ts)
 : > "$receipt"
 for path in "${inputs[@]}"; do
   blob=$(git hash-object "$path")
@@ -1571,6 +1573,40 @@ driver_cleanup || exit 1
 phase=port-durable-state
 st233m_rows failed
 assert_owner "(SELECT count(*)=7 FROM subtrack_auth.reservation) AND (SELECT count(*)=10000 FROM subtrack_auth.nonce)"
+phase=durable-current
+{ printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat apps/api/prisma/development-auth/009-current-web-session-csrf.sql; } | owner
+owner_secret=$(sed -n '1s/.*://p' "$tmp/pgpass")
+actor_secret=$(sed -n '2s/.*://p' "$tmp/pgpass")
+[[ "$owner_secret" =~ ^[a-f0-9]{48}$ && "$actor_secret" =~ ^[a-f0-9]{48}$ ]] || exit 1
+printf '{"database":"%s","password":"%s","ownerPassword":"%s"}\n' "$db" "$actor_secret" "$owner_secret" > "$tmp/driver.json"
+owner_secret='' actor_secret=''
+private_file "$tmp/driver.json" || exit 1
+node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],logLevel:"silent"})' apps/api/test/durable-current-web-authority.integration.ts "$tmp/driver.cjs" || exit 1
+driver_bundle_hash=$(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1)
+driver_env='NODE_ENV=development'
+docker create --name "$driver_name" --label "subtrack.task=ST-233l:$marker" --label "subtrack.head=$source_head" \
+  --network "container:$cid" --user "$UID" --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 128m -e NODE_ENV=development \
+  --mount "type=bind,src=$tmp/driver.cjs,dst=/fixture.cjs,readonly" --mount "type=bind,src=$tmp/driver.json,dst=/fixture.json,readonly" \
+  "$driver_image" node /fixture.cjs > "$tmp/driver-cid" 2> "$tmp/driver-create.log" || exit 1
+driver_cid=$(cat "$tmp/driver-cid")
+[[ "$driver_cid" =~ ^[a-f0-9]{64}$ ]] || exit 1
+driver_custody created || exit 1
+docker start "$driver_cid" >/dev/null 2>&1 || exit 1
+driver_custody running || exit 1
+[[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
+driver_deadline=$(( $(monotonic) + 60000 ))
+while [[ $(monotonic) -lt "$driver_deadline" ]]; do
+  driver_state=$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}}' "$driver_cid" 2>/dev/null) || exit 1
+  [[ "$driver_state" != 'running 0' ]] && break
+  sleep .1
+done
+[[ "$driver_state" == 'exited 0' ]] || exit 1
+driver_custody exited || exit 1
+[[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
+driver_result=$(docker logs "$driver_cid" 2>/dev/null) || exit 1
+[[ "$driver_result" == 'ST-235 durable current web: PASS' ]] || exit 1
+printf '%s\n' "$driver_result" >> "$receipt"
+driver_cleanup || exit 1
 phase=pins
 [[ $(git rev-parse HEAD) == "$source_head" ]] || exit 1
 while read -r path blob bytes; do [[ $(git hash-object "$path") == "$blob" && $(sha256sum "$path" | cut -d ' ' -f1) == "$bytes" ]] || exit 1; done < "$tmp/pins"
