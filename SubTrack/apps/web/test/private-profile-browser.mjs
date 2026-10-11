@@ -349,8 +349,21 @@ try {
     { waitUntil: 'domcontentloaded' });
   partialNavigation = partialStart ? [200, 304, 400, 404, 500].includes(partialStart.status()) ? String(partialStart.status()) : 'OTHER' : 'NONE';
   assert.equal(partialStart?.status(), 200);
-  phase = 'PARTIAL_IDENTIFIER';
+  phase = 'PARTIAL_READY';
+  const partialThemeButton = partialPage.getByRole('navigation', { name: preferenceCopy.label, exact: true })
+    .getByRole('button', { name: preferenceCopy.themes[theme], exact: true });
+  await partialThemeButton.waitFor({ state: 'visible' });
+  await partialPage.waitForFunction(({ label, name }) => [...globalThis.document.querySelectorAll('nav[aria-label]')]
+    .some(nav => nav.getAttribute('aria-label') === label && [...nav.querySelectorAll('button')]
+      .some(button => button.textContent === name && button.getAttribute('aria-pressed') === 'true')),
+  { label: preferenceCopy.label, name: preferenceCopy.themes[theme] });
+  await partialThemeButton.click();
+  await partialPage.waitForFunction(selected => globalThis.localStorage.getItem('theme-preference') === selected, theme);
+  await partialPage.getByRole('heading', { name: copy.registration.title, exact: true }).waitFor();
+  await partialPage.screenshot({ path: path.join(screenshotDir, 'partial-identifier.png'), fullPage: true });
+  phase = 'PARTIAL_FILL';
   await partialPage.getByLabel(copy.identifier.emailLabel, { exact: true }).fill(`partial-${randomUUID()}@example.test`);
+  phase = 'PARTIAL_SUBMIT';
   await partialPage.getByRole('button', { name: copy.identifier.continueLabel, exact: true }).click();
   phase = 'PARTIAL_OTP';
   await partialPage.getByLabel(copy.registration.otpLabel, { exact: true }).fill('123456');
