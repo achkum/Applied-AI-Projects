@@ -258,8 +258,45 @@ try {
   process.stdout.write('PASS ST237_BROWSER_COMMITTED_PATCH_LOST_RESPONSE_SINGLE_SUBMISSION\n');
   csrf = '';
   phase = 'RELOAD_NAVIGATE';
-  const reloaded = await page.reload({ waitUntil: 'domcontentloaded' });
-  reloadStatus = reloaded ? [200, 304, 400, 404, 500].includes(reloaded.status()) ? String(reloaded.status()) : 'OTHER' : 'NONE';
+  const reloadUrl = page.url();
+  assert.equal(reloadUrl, first.url());
+  const beforeReloadTimeOrigin = await page.evaluate(() => globalThis.performance.timeOrigin);
+  const reloadDeadline = Date.now() + 45000;
+  let reloadAttempted = false;
+  let resolveDocumentResponse;
+  const documentResponse = new Promise(resolve => { resolveDocumentResponse = resolve; });
+  const onReloadResponse = response => {
+    if (!reloadAttempted || response.url() !== reloadUrl || response.status() !== 200) return;
+    try {
+      const request = response.request();
+      if (request.isNavigationRequest() && request.resourceType() === 'document' &&
+          request.frame() === page.mainFrame()) resolveDocumentResponse(true);
+    } catch { /* A failed frame lookup does not establish a committed document. */ }
+  };
+  page.on('response', onReloadResponse);
+  try {
+    reloadAttempted = true;
+    try {
+      const reloaded = await page.reload({ waitUntil: 'domcontentloaded' });
+      reloadStatus = reloaded ? [200, 304, 400, 404, 500].includes(reloaded.status()) ? String(reloaded.status()) : 'OTHER' : 'NONE';
+    } catch (caught) {
+      if (reloadFailureClass(caught) !== 'ABORT' || page.isClosed()) throw caught;
+      const remaining = () => Math.max(0, reloadDeadline - Date.now());
+      assert(remaining() > 0);
+      await page.waitForFunction(({ url, timeOrigin }) =>
+        globalThis.location.href === url && globalThis.performance.timeOrigin > timeOrigin &&
+        globalThis.performance.getEntriesByType('navigation')[0]?.type === 'reload',
+      { url: reloadUrl, timeOrigin: beforeReloadTimeOrigin }, { timeout: remaining() });
+      assert(remaining() > 0);
+      const sawDocumentResponse = await new Promise(resolve => {
+        const timer = setTimeout(() => resolve(false), remaining());
+        documentResponse.then(() => { clearTimeout(timer); resolve(true); });
+      });
+      assert(sawDocumentResponse);
+      assert.equal(page.url(), reloadUrl);
+      reloadStatus = '200';
+    }
+  } finally { page.off('response', onReloadResponse); }
   await capture('reloaded');
   const observedNavigationType = await page.evaluate(() =>
     globalThis.performance.getEntriesByType('navigation')[0]?.type);
