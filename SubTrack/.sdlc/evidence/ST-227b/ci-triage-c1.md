@@ -1,0 +1,6 @@
+TRIAGE/v1 ST227b C1 exact head6a2a7266359b367d4b4a28759e8e1cdce58a803f PR264; applicable standard38102200497 FAIL, all actual browser/container/READ proofs PASS.
+Actual receipt facts: API78files77passed1failed;1744tests1743passed1failed; failure is5000ms timeout in src/subscriptions/browser-subscription-read.composition.spec.ts, no assertion/OOM claim.
+Contracts18passed; subsequent Storybook/ML/i18n/Gitleaks/license steps skipped, full quality acceptance incomplete; no secret/license range established.
+Actual launcher38102200535 receipt binds exact source_head and actualrollback/wrongresultdenial/strictreset/natural7/21/28/removedfixture/stoppedchild/destroyedsecrets, coverage93.93/92.73/89.47/98.31; its proof+cleanup steps all SUCCESS.
+Source hypothesis only: unchanged composition HTTPS tests generate ephemeral TLS and exercise real application/listener paths under suite load; timeout may be timing/resource sensitivity. Actual logs prove timeout, not cause, and do not establish ST227b delegate involvement.
+No code change, test rerun, timeout relaxation, generic red override or passing fullAPI claim; failure1/new history retained. Root must diagnose with bounded explicit grant; STOP.
