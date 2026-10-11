@@ -1,0 +1,10 @@
+# ST230 author C2 correction checkpoint
+Original2026-10-11T00:04:11Z M120attempt1 preserved; fresh context2, documentation only; no source/schema/runtime/grant/status/backlog/commit/heavy work.
+Pre-edit author82 + projected11=93<=120; full task+ADR+all evidence127 + projected11=138<=300; C1 remains12 lines, C2<=10; root reviews excluded author.
+Corrected security S1 Type2a: exact nonce-free reserve_refresh rematches current/consumed credential and derives browser-chain/request burn tuple, independently commits global key before mutation; selected CSRF preflight and locked live-owner/CSRF revalidation retained, no identity selector or new authentication authority.
+Corrected platform P1 Type2a: every auth/profile/conditional retirement runtime owner policy uses existing granted public.subtrack_principal_matches(identity_id), both live-owner GUCs retained; no parser EXECUTE grant.
+Pin metadata: C3a122 is historical author freeze before root one-trailing-space trim; current C3 checkpoint7fad06358d250f3f191c3f41540c03b1b1c96c3f. Candidate2374 contract hashes26c1de72/fda9a153 unchanged; parent reports root basef0eeac6 includes accepted ST226/all applicable CI, PR257 remains CI/merge pending; this worktree HEAD2374 unchanged.
+Freeze C2: ADR0027 normalized blob719db4b1eb38c7fb505d511dab3db1be538ae0c1,71lines; corrected C1 pins6436645c637081f2bca057707710734a4856c181,12lines; C2 self hash excluded.
+Original REQUEST CHANGES notes preserved, failure counts platform1/security1 unchanged pending renewed independent reviews and fresh planning QA; no storage/PG/account-readiness acceptance.
+CSRF A/B, post-erasure semantics and optional retirement remain unselected; historical-CSRF B and retained erased digests Type1 only if chosen; no permanent signup ban/resurrection/autolink assumption.
+STOP C2 before20calls/30min; all checks light reads/count/hash/whitespace only, no tests/builds or heavy jobs. Further edits require fresh author context, original budget/time/attempt/failures preserved.
