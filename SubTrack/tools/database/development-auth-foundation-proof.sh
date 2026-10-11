@@ -193,10 +193,18 @@ cleanup_temp() {
   [[ ! -e "$target" && ! -L "$target" ]]
 }
 finish() {
-  local status=$? bad=false cleanup_result=removed migration_detail='' enrollment_detail=''
+  local status=$? bad=false cleanup_result=removed migration_detail='' enrollment_detail='' prune_detail=''
   trap - EXIT
   if [[ "$phase" == migration ]]; then
     migration_detail=" step=${migration_step:-unavailable} sqlstate=${migration_sqlstate:-unavailable} client_exit=${migration_exit:-unavailable}"
+  elif [[ "$phase" == prune ]]; then
+    # Last client evidence may belong to an earlier command; it is not a cause attribution.
+    record_migration_failure
+    case "${prune_step:-}" in baseline|guard-operation|guard-sqlstate|guard-catalog|guard-immutable|body-operation|body-sqlstate|body-immutable|install|catalog|acl|null-operation|null-sqlstate|null-immutable|negative|invalid-operation|invalid-sqlstate|reset|isolation|origin|seed|live-pin|rollback|positive|zero-pin|bound-seed|bound-first|bound-second|bound-empty|reuse-seed|reuse-reserve|reuse-prune|reuse-final|reuse-state|pre-race|race-reset|race-seed|race-expiry|race-holder-launch|race-holder-start|race-holder-observe|race-holder-backend|race-pre-expiry-first|race-waiter-launch|race-waiter-observe|race-waiter-backend|race-pre-expiry-second|race-expiry-wait|race-release-clock|race-release|race-join|race-client-logs|race-post-expiry|race-result|race-immutable|final-catalog|final-immutable) ;; *) prune_step=unavailable ;; esac
+    case "${prune_direction:-}" in prune-first|reserve-first) ;; *) prune_direction=unavailable ;; esac
+    case "${prune_outcome:-}" in COMMIT|ROLLBACK) ;; *) prune_outcome=unavailable ;; esac
+    case "${prune_failure_kind:-}" in operation|assertion|timeout|unexpected-state) ;; *) prune_failure_kind=unavailable ;; esac
+    prune_detail=" prune_step=$prune_step direction=$prune_direction outcome=$prune_outcome failure_kind=$prune_failure_kind last_client_sqlstate=$migration_sqlstate last_client_exit=$migration_exit"
   elif [[ "$phase" == durable-enrollment ]]; then
     case "${enrollment_step:-}" in sql010|writer-acl|bundle|driver-create|driver-start|driver-wait|driver-exit|driver-custody|driver-result) ;; *) enrollment_step=unavailable ;; esac
     case "${enrollment_failure_kind:-}" in operation|invalid-custody|timeout|nonzero-exit|unexpected-state|result-mismatch) ;; *) enrollment_failure_kind=unavailable ;; esac
@@ -208,7 +216,7 @@ finish() {
   if [[ -n "${driver_cid:-}" ]]; then driver_cleanup || bad=true; fi
   if [[ "$bad" == true || ${#clients[@]} != 0 ]]; then
     printf 'ST-233b lifecycle: FAIL recovery=retained\n' >&2
-    [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" && printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=failed%s%s\n' "$source_head" "$phase" "$migration_detail" "$enrollment_detail" >> "$receipt"
+    [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" && printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=failed%s%s%s\n' "$source_head" "$phase" "$migration_detail" "$enrollment_detail" "$prune_detail" >> "$receipt"
     exit 1
   fi
   if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
@@ -220,7 +228,7 @@ finish() {
     printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,private-atomic-issue,postlock-clock,rollback,reconnect,bounded-clients,durable-current-web,durable-enrollment fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
   else
     status=1
-    printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s%s%s\n' "$source_head" "$phase" "$cleanup_result" "$migration_detail" "$enrollment_detail" >> "$receipt"
+    printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s%s%s%s\n' "$source_head" "$phase" "$cleanup_result" "$migration_detail" "$enrollment_detail" "$prune_detail" >> "$receipt"
   fi
   exit "$status"
 }
@@ -763,7 +771,7 @@ for scenario in same capacity; do
   after=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log"); [[ "$after" == "$unchanged" ]] || exit 1
  done
 done
-phase=prune
+phase=prune prune_step=baseline prune_direction=unavailable prune_outcome=unavailable prune_failure_kind=operation
 prune_signature='subtrack_auth.prune_reservations(text,subtrack_auth.h,subtrack_auth.ms)'
 prune_args="'fixture',repeat('a',64),0"
 positive_prune_sql() { printf 'SELECT 1/COALESCE(subtrack_auth.prune_reservations(%s),false)::integer;' "$1"; }
@@ -773,136 +781,197 @@ snapshot_unpruned() {
   unpruned=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log"); [[ "$unpruned" =~ ^[a-f0-9]{32}$ ]]
 }
 snapshot_private; before_prune=$snapshot
+prune_step=baseline prune_failure_kind=assertion
 snapshot_unpruned; unpruned_baseline=$unpruned
 # All three accepted function guards plus schema/role/constraint/ACL/head guards abort atomically.
 for fault in "SET st233a.head='invalid';" "SET st233a.marker='invalid';" "SET st233c.constraints='invalid';" "ALTER FUNCTION $reserve_signature SET search_path=public;" "GRANT EXECUTE ON FUNCTION $reserve_signature TO PUBLIC;" "ALTER FUNCTION $peek_signature SET search_path=public;" "GRANT EXECUTE ON FUNCTION $peek_signature TO PUBLIC;" "ALTER FUNCTION subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms) SET search_path=public;" "GRANT EXECUTE ON FUNCTION subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms) TO PUBLIC;" "ALTER TABLE subtrack_auth.reservation DROP CONSTRAINT reservation_check;" "ALTER DOMAIN subtrack_auth.h DROP CONSTRAINT h_check;" "GRANT DELETE ON subtrack_auth.reservation TO subtrack_runtime;" "GRANT subtrack_auth_executor TO subtrack_dev_auth_login;"; do
+  prune_step=guard-operation prune_failure_kind=unexpected-state
   { printf "BEGIN; SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s'; %s\n" "$source_head" "$marker" "$constraints_pin" "$fault"; sed '/^BEGIN;$/d;/^COMMIT;$/d' "${inputs[9]}"; } > "$tmp/prune-guard.sql"
   if owner < "$tmp/prune-guard.sql"; then exit 1; fi
+  prune_step=guard-sqlstate prune_failure_kind=assertion
   grep -q 'ERROR:  22012' "$client_log" || exit 1
+  prune_step=guard-catalog prune_failure_kind=assertion
   assert_owner "(SELECT count(*)=3 AND bool_and(proname IN ('fence','peek','reserve_bootstrap')) FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace)"
+  prune_step=guard-immutable prune_failure_kind=assertion
   snapshot_private; [[ "$snapshot" == "$before_prune" ]] || exit 1
  done
 for guarded_function in fence peek reserve_bootstrap; do
+  prune_step=body-operation prune_failure_kind=unexpected-state
   case "$guarded_function" in fence) declaration='epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms'; returns=boolean ;; peek) declaration='nonce_h subtrack_auth.h,binding_h subtrack_auth.h,origin text,epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms,purpose text'; returns=text ;; reserve_bootstrap) declaration='key_h subtrack_auth.h,owner_h subtrack_auth.h,authority_h subtrack_auth.h,request_h subtrack_auth.h,retention_ms subtrack_auth.ms,origin text,epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms'; returns=bigint ;; esac
   { printf "BEGIN; SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s'; CREATE OR REPLACE FUNCTION subtrack_auth.%s(%s) RETURNS %s LANGUAGE plpgsql SECURITY DEFINER VOLATILE PARALLEL UNSAFE CALLED ON NULL INPUT SET search_path=pg_catalog AS 'BEGIN RETURN NULL; END';\n" "$source_head" "$marker" "$constraints_pin" "$guarded_function" "$declaration" "$returns"; sed '/^BEGIN;$/d;/^COMMIT;$/d' "${inputs[9]}"; } > "$tmp/prune-body-guard.sql"
   if owner < "$tmp/prune-body-guard.sql"; then exit 1; fi
+  prune_step=body-sqlstate prune_failure_kind=assertion
   grep -q 'ERROR:  22012' "$client_log" || exit 1
+  prune_step=body-immutable prune_failure_kind=assertion
   snapshot_private; [[ "$snapshot" == "$before_prune" ]] || exit 1
  done
+prune_step=install prune_failure_kind=operation
 { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat "${inputs[9]}"; } | owner
 cat > "$tmp/prune-catalog.sql" <<'SQL'
 SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=3 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['epoch','manifest_h','observed_ms'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='bool'::regtype AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql') AND md5(p.prosrc)='58f0b2de33474881c5e782826800745e'),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.prune_reservations(text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure;
 WITH actual AS (SELECT a.* FROM pg_catalog.pg_proc p,LATERAL pg_catalog.aclexplode(p.proacl) a WHERE p.oid='subtrack_auth.prune_reservations(text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure), expected AS (SELECT 'subtrack_auth_executor'::regrole::oid grantor,r.role::regrole::oid grantee,'EXECUTE'::text privilege_type,false is_grantable FROM (VALUES ('subtrack_auth_executor'),('subtrack_runtime')) r(role)), delta AS ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) SELECT 1/(NOT EXISTS(SELECT 1 FROM delta))::integer;
 SELECT 1/(count(*)=4)::integer FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace;
 SQL
+prune_step=catalog prune_failure_kind=assertion
 owner < "$tmp/prune-catalog.sql"
+prune_step=acl prune_failure_kind=assertion
 for prefix in '' 'SET ROLE subtrack_identity_provisioner;' 'SET ROLE subtrack_auth_producer;'; do deny_actor "$prefix SELECT subtrack_auth.prune_reservations($prune_args);" || exit 1; done
 # Real NULL-return fault hits the SAME positive assertion; all state and body/ACL roll back.
 { printf "BEGIN; CREATE OR REPLACE FUNCTION subtrack_auth.prune_reservations(epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER VOLATILE PARALLEL UNSAFE CALLED ON NULL INPUT SET search_path=pg_catalog AS 'BEGIN RETURN NULL; END'; SET LOCAL ROLE subtrack_runtime;\n"; positive_prune_sql "$prune_args"; } > "$tmp/prune-null.sql"
+prune_step=null-operation prune_failure_kind=unexpected-state
 if owner < "$tmp/prune-null.sql"; then exit 1; fi
+prune_step=null-sqlstate prune_failure_kind=assertion
 grep -q 'ERROR:  22012' "$client_log" || exit 1
+prune_step=null-immutable prune_failure_kind=assertion
 owner < "$tmp/prune-catalog.sql"; snapshot_private; [[ "$snapshot" == "$before_prune" ]] || exit 1
+prune_step=negative prune_failure_kind=assertion
 for args in "NULL,repeat('a',64),0" "'fixture',NULL,0" "'fixture',repeat('a',64),NULL" "'',repeat('a',64),0" "'absent',repeat('a',64),0" "'retired',repeat('a',64),0" "'regression',repeat('a',64),0" "'fixture',repeat('b',64),0" "'fixture',repeat('a',64),9007199254740991"; do
   printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT 1/COALESCE(NOT subtrack_auth.prune_reservations(%s),false)::integer; COMMIT; %s\n' "$args" "$reset_sql" | actor
  done
 for args in "'fixture','bad',0" "'fixture',repeat('a',64),-1" "'fixture',repeat('a',64),9007199254740992" "'fixture',repeat('a',64),'overflow'"; do
+  prune_step=invalid-operation prune_failure_kind=unexpected-state
   if printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT subtrack_auth.prune_reservations(%s);\n' "$args" | actor; then exit 1; fi
+  prune_step=invalid-sqlstate prune_failure_kind=assertion
   expected=23514; [[ "$args" != *overflow* ]] || expected=22P02
   grep -q "ERROR:  $expected" "$client_log" || exit 1
- done
+done
+prune_step=reset prune_failure_kind=operation
 printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL app.user_id='fault'; SET LOCAL app.current_user_id='fault';\n\\set ON_ERROR_STOP off\nSELECT subtrack_auth.prune_reservations('fixture','bad',0);\n\\set ON_ERROR_STOP on\nROLLBACK; %s\n" "$reset_sql" | actor
+prune_step=isolation prune_failure_kind=assertion
 for isolation in 'REPEATABLE READ' SERIALIZABLE 'READ UNCOMMITTED'; do
   printf 'BEGIN ISOLATION LEVEL %s; SET LOCAL ROLE subtrack_runtime; SELECT 1/COALESCE(NOT subtrack_auth.prune_reservations(%s),false)::integer; COMMIT; %s\n' "$isolation" "$prune_args" "$reset_sql" | actor
  done
 # Existing schema forbids foreign Origin; trusted transactional corruption tests body refusal.
+prune_step=origin prune_failure_kind=assertion
 printf "BEGIN; ALTER TABLE subtrack_auth.epoch DROP CONSTRAINT epoch_origin_check; UPDATE subtrack_auth.epoch SET origin='https://foreign.invalid' WHERE id='reserve-b'; SET LOCAL ROLE subtrack_runtime; SELECT 1/COALESCE(NOT subtrack_auth.prune_reservations('reserve-b',repeat('a',64),0),false)::integer; ROLLBACK; %s\n" "$reset_sql" | owner
 snapshot_private; [[ "$snapshot" == "$before_prune" ]] || exit 1
 # All states/operations/owners/epochs: retired epoch is eligible, live rows survive byte-for-byte.
+prune_step=seed prune_failure_kind=operation
 printf "DELETE FROM subtrack_auth.reservation; INSERT INTO subtrack_auth.reservation SELECT md5('prune-key-'||i)||md5('prune-key-'||i),CASE WHEN i%%2=0 THEN 'refreshV2Session' ELSE 'createV2BrowserNonce' END,'other',repeat('7',64),repeat('8',64),md5('prune-owner-'||i)||md5('prune-owner-'||i),'web',CASE WHEN i%%3=0 THEN 'retired' WHEN i%%3=1 THEN 'fixture' ELSE 'reserve-b' END,CASE WHEN i<=6 THEN 0 ELSE t.ms END,CASE WHEN i<=6 THEN 1 ELSE t.ms+86400000 END,(ARRAY['pending','completed','failed'])[1+(i%%3)] FROM generate_series(1,12) i CROSS JOIN (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint ms) t;\n" | owner
+prune_step=live-pin prune_failure_kind=assertion
 printf "SELECT md5(jsonb_agg(to_jsonb(r) ORDER BY key_h)::text) FROM subtrack_auth.reservation r WHERE issued_ms>0;\n" | owner
 live_pin=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log")
+prune_step=rollback prune_failure_kind=assertion
 snapshot_private; rollback_pin=$snapshot
 printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s ROLLBACK; %s\n' "$(positive_prune_sql "$prune_args")" "$reset_sql" | actor
 snapshot_private; [[ "$snapshot" == "$rollback_pin" ]] || exit 1
+prune_step=positive prune_failure_kind=assertion
 printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL search_path=public; SET LOCAL app.user_id='"'fault'"'; SET LOCAL app.current_user_id='"'fault'"'; %s COMMIT; %s\n' "$(positive_prune_sql "$prune_args")" "$reset_sql" | actor
 assert_owner "(SELECT count(*)=6 AND bool_and(issued_ms>0) FROM subtrack_auth.reservation)"
 printf "SELECT md5(jsonb_agg(to_jsonb(r) ORDER BY key_h)::text) FROM subtrack_auth.reservation r;\n" | owner
 after=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log"); [[ "$after" == "$live_pin" ]] || exit 1
+prune_step=zero-pin prune_failure_kind=assertion
 snapshot_private; zero_pin=$snapshot
 printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(positive_prune_sql "$prune_args")" "$reset_sql" | actor
 snapshot_private; [[ "$snapshot" == "$zero_pin" ]] || exit 1
 # Deliberate fixture-owner overcapacity only: deterministic first10000 then remaining expired row.
+prune_step=bound-seed prune_failure_kind=operation
 printf "DELETE FROM subtrack_auth.reservation; INSERT INTO subtrack_auth.reservation SELECT md5('bound-key-'||i)||md5('bound-key-'||i),'other','other',repeat('7',64),repeat('8',64),md5('bound-owner-'||i)||md5('bound-owner-'||i),'web','retired',0,1,'failed' FROM generate_series(1,10001) i; SELECT key_h FROM subtrack_auth.reservation ORDER BY expires_ms DESC,key_h DESC LIMIT 1;\n" | owner
 remaining_key=$(sed -n '/^[ ]*[a-f0-9]\{64\}[ ]*$/s/ //gp' "$client_log"); [[ "$remaining_key" =~ ^[a-f0-9]{64}$ ]] || exit 1
+prune_step=bound-first prune_failure_kind=assertion
 printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(positive_prune_sql "$prune_args")" "$reset_sql" | actor
 assert_owner "(SELECT count(*)=1 AND bool_and(key_h='$remaining_key') FROM subtrack_auth.reservation)"
+prune_step=bound-second prune_failure_kind=assertion
 printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(positive_prune_sql "$prune_args")" "$reset_sql" | actor
+prune_step=bound-empty prune_failure_kind=assertion
 assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.reservation)"
 printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(positive_prune_sql "$prune_args")" "$reset_sql" | actor
 # Independent global key and owner reuse, never only an identical tuple success.
 for reuse in key owner; do
+  prune_step=reuse-seed prune_failure_kind=operation
   printf "DELETE FROM subtrack_auth.reservation; INSERT INTO subtrack_auth.reservation VALUES (repeat('5',64),'other','other',repeat('7',64),repeat('8',64),repeat('6',64),'web','retired',0,1,'completed');\n" | owner
   tuple=("${reserve_values[@]}"); [[ "$reuse" != key ]] || tuple[1]="repeat('0',64)"; [[ "$reuse" != owner ]] || tuple[0]="repeat('9',64)"; joined=$(IFS=,; printf '%s' "${tuple[*]}")
+  prune_step=reuse-reserve prune_failure_kind=assertion
   printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT 1/(subtrack_auth.reserve_bootstrap(%s) IS NULL)::integer; COMMIT; %s\n' "$joined" "$reset_sql" | actor
+  prune_step=reuse-prune prune_failure_kind=assertion
   printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(positive_prune_sql "$prune_args")" "$reset_sql" | actor
+  prune_step=reuse-final prune_failure_kind=assertion
   printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(positive_reserve_sql "$joined")" "$reset_sql" | actor
+  prune_step=reuse-state prune_failure_kind=assertion
   assert_owner "(SELECT count(*)=1 AND bool_and(state='pending' AND epoch='fixture') FROM subtrack_auth.reservation)"
  done
+prune_step=pre-race prune_failure_kind=assertion
 snapshot_unpruned; [[ "$unpruned" == "$unpruned_baseline" ]] || exit 1
 # Both serial orders, distinct epochs and actual advisory wait, COMMIT and ROLLBACK.
 for direction in prune-first reserve-first; do
  for outcome in COMMIT ROLLBACK; do
+   prune_direction=$direction prune_outcome=$outcome
+   prune_step=race-reset prune_failure_kind=operation
   printf 'DELETE FROM subtrack_auth.reservation;\n' | owner
+   prune_step=race-immutable prune_failure_kind=assertion
   snapshot_unpruned; race_immutable=$unpruned
   if [[ "$direction" == prune-first ]]; then
+     prune_step=race-seed prune_failure_kind=operation
     printf "INSERT INTO subtrack_auth.reservation SELECT md5('cap-key-'||i)||md5('cap-key-'||i),'other','other',repeat('7',64),repeat('8',64),md5('cap-owner-'||i)||md5('cap-owner-'||i),'web','retired',0,1,'failed' FROM generate_series(1,10000) i;\n" | owner
     holder_assertion="$(positive_prune_sql "'reserve-a',repeat('a',64),0")"
     waiter_args="repeat('9',64),repeat('0',64),repeat('7',64),repeat('8',64),86400000,'https://st233a.invalid','reserve-b',repeat('a',64),0"
     waiter_assertion="$(positive_reserve_sql "$waiter_args")"; [[ "$outcome" != ROLLBACK ]] || waiter_assertion="SELECT 1/(subtrack_auth.reserve_bootstrap($waiter_args) IS NULL)::integer;"
   else
     # Eligibility will become true WHILE waiting; no caller-controlled/mocked DB clock.
+     prune_step=race-expiry prune_failure_kind=assertion
     printf "INSERT INTO subtrack_auth.reservation SELECT repeat('1',64),'other','other',repeat('7',64),repeat('8',64),repeat('2',64),'web','retired',t.ms,t.ms+5000,'completed' FROM (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint ms) t; SELECT expires_ms FROM subtrack_auth.reservation;\n" | owner
     target_expiry=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$target_expiry" =~ ^[0-9]+$ ]] || exit 1
     holder_assertion="$(positive_reserve_sql "repeat('5',64),repeat('6',64),repeat('7',64),repeat('8',64),1,'https://st233a.invalid','reserve-a',repeat('a',64),0")"
     waiter_assertion="$(positive_prune_sql "'reserve-b',repeat('a',64),0")"
   fi
+   prune_step=race-holder-launch prune_failure_kind=operation
   fifo=$(mktemp -u "$tmp/holder.XXXXXX"); mkfifo -m 600 "$fifo"; exec {writer}<>"$fifo"; writers[holder]=$writer
   launch_client subtrack_dev_auth_login "$fifo" st233b-holder; holder_pid=$client_pid holder_log=$client_log
+   prune_step=race-holder-start prune_failure_kind=operation
   printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s\n" "$holder_assertion" >&"$writer"
   observer=$(mktemp "$tmp/observer.XXXXXX"); waiter_pid=''
+   prune_step=race-holder-observe prune_failure_kind=timeout
   observe_clients "SELECT count(*)=1 FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';" '^ t *$' || exit 1
+   prune_step=race-holder-backend prune_failure_kind=assertion
   printf "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='%s' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';\n" "$db" > "$observer"
   launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1
   holder_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$holder_backend" =~ ^[0-9]+$ ]] || exit 1
+   prune_step=race-pre-expiry-first prune_failure_kind=assertion
   [[ "$direction" != reserve-first ]] || assert_owner "floor(extract(epoch FROM clock_timestamp())*1000)<$target_expiry"
   waiter=$(mktemp "$tmp/waiter.XXXXXX")
   printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='"'15s'"'; SET LOCAL statement_timeout='"'20s'"'; %s COMMIT; %s\n' "$waiter_assertion" "$reset_sql" > "$waiter"
+   prune_step=race-waiter-launch prune_failure_kind=operation
   launch_client subtrack_dev_auth_login "$waiter" st233b-waiter; waiter_pid=$client_pid waiter_log=$client_log
+   prune_step=race-waiter-observe prune_failure_kind=timeout
   observe_clients "SELECT w.pid FROM pg_catalog.pg_stat_activity h JOIN pg_catalog.pg_stat_activity w ON h.pid<>w.pid WHERE h.pid=$holder_backend AND h.datname='$db' AND w.datname=h.datname AND h.usename='subtrack_dev_auth_login' AND w.usename=h.usename AND h.application_name='st233b-holder' AND w.application_name='st233b-waiter' AND h.state='idle in transaction' AND w.wait_event_type='Lock' AND w.wait_event='advisory' AND h.pid=ANY(pg_catalog.pg_blocking_pids(w.pid));" '^[ ]*[0-9]+[ ]*$' || exit 1
+   prune_step=race-waiter-backend prune_failure_kind=assertion
   waiter_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$waiter_backend" =~ ^[0-9]+$ && "$waiter_backend" != "$holder_backend" ]] || exit 1
   if [[ "$direction" == reserve-first ]]; then
+     prune_step=race-pre-expiry-second prune_failure_kind=assertion
     assert_owner "floor(extract(epoch FROM clock_timestamp())*1000)<$target_expiry"
+     prune_step=race-expiry-wait prune_failure_kind=timeout
     observe_clients "SELECT floor(extract(epoch FROM clock_timestamp())*1000)>=$target_expiry;" '^ t *$' || exit 1
   fi
+   prune_step=race-release-clock prune_failure_kind=assertion
   printf 'SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint;\n' > "$observer"
   launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1
   release_ms=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log" | tail -1); [[ "$release_ms" =~ ^[0-9]+$ ]] || exit 1
+   prune_step=race-release prune_failure_kind=operation
   printf '%s; %s\n\q\n' "$outcome" "$reset_sql" >&"$writer"; close_writers
+   prune_step=race-join prune_failure_kind=timeout
   join_client "$holder_pid" 25000 && join_client "$waiter_pid" 25000 || exit 1
+   prune_step=race-client-logs prune_failure_kind=unexpected-state
   ! grep -q 'ERROR:' "$holder_log" && ! grep -q 'ERROR:' "$waiter_log" || exit 1
   if [[ "$direction" == reserve-first ]]; then
+     prune_step=race-post-expiry prune_failure_kind=assertion
     [[ "$release_ms" -ge "$target_expiry" ]] || exit 1
+     prune_step=race-result prune_failure_kind=assertion
     assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.reservation)"
   elif [[ "$outcome" == COMMIT ]]; then
+     prune_step=race-result prune_failure_kind=assertion
     expiry=$(returned_expiry "$waiter_log"); [[ "$expiry" =~ ^[0-9]+$ ]] || exit 1
     assert_owner "(SELECT count(*)=1 AND bool_and(owner_h=repeat('0',64) AND issued_ms>=$release_ms AND expires_ms=$expiry) FROM subtrack_auth.reservation)"
   else
+     prune_step=race-result prune_failure_kind=assertion
     assert_owner "(SELECT count(*)=10000 AND bool_and(epoch='retired' AND expires_ms=1 AND state='failed') FROM subtrack_auth.reservation)"
   fi
+   prune_step=race-immutable prune_failure_kind=assertion
   snapshot_unpruned; [[ "$unpruned" == "$race_immutable" ]] || exit 1
  done
  done
-owner < "$tmp/prune-catalog.sql"
+ prune_direction=unavailable prune_outcome=unavailable prune_step=final-catalog prune_failure_kind=assertion
+ owner < "$tmp/prune-catalog.sql"
+ prune_step=final-immutable prune_failure_kind=assertion
 snapshot_unpruned; [[ "$unpruned" == "$unpruned_baseline" ]] || exit 1
 phase=settle
 sf_signature='subtrack_auth.settle_bootstrap(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,subtrack_auth.h,subtrack_auth.ms,text)'

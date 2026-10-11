@@ -44,6 +44,30 @@ for diagnostic_case in undefined_table insufficient_privilege no_colon end_of_li
   printf 'ST-236 migration diagnostic case=%s: expected result verified\n' "$diagnostic_case"
 done
 
+# Prune diagnostics use the actual finish writer and the last private client-log parser.
+for diagnostic_case in valid unavailable invalid_step invalid_enum invalid_sqlstate invalid_exit; do
+  tmp=$(mktemp -d "$base/st233a.XXXXXX")
+  client_log="$tmp/client.log" client_exit_status=1 phase=prune passed=false
+  prune_step=race-pre-expiry-second prune_direction=reserve-first prune_outcome=ROLLBACK prune_failure_kind=assertion
+  expected_step=race-pre-expiry-second expected_direction=reserve-first expected_outcome=ROLLBACK expected_kind=assertion expected_state=42P01 expected_exit=1
+  printf 'ERROR:  42P01: private-sentinel\n' > "$client_log"
+  case "$diagnostic_case" in
+    valid) client_exit_status=255; expected_exit=255 ;;
+    unavailable) client_log="$tmp/missing"; client_exit_status=unavailable; expected_state=unavailable expected_exit=unavailable ;;
+    invalid_step) prune_step=private-sentinel; expected_step=unavailable ;;
+    invalid_enum) prune_direction=private-sentinel prune_outcome=private-sentinel prune_failure_kind=private-sentinel
+      expected_direction=unavailable expected_outcome=unavailable expected_kind=unavailable ;;
+    invalid_sqlstate) printf 'ERROR:  42P01X: private-sentinel\n' > "$client_log"; expected_state=unavailable ;;
+    invalid_exit) client_exit_status=256; expected_exit=unavailable ;;
+  esac
+  : > "$receipt"
+  status=0; (trap finish EXIT; false) || status=$?
+  [[ "$status" != 0 && ! -e "$tmp" ]]
+  grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=prune cleanup=removed prune_step=$expected_step direction=$expected_direction outcome=$expected_outcome failure_kind=$expected_kind last_client_sqlstate=$expected_state last_client_exit=$expected_exit$" "$receipt"
+  ! grep -q 'private-sentinel' "$receipt"
+  printf 'ST-236 prune diagnostic case=%s: expected result verified\n' "$diagnostic_case"
+done
+
 # The enrollment diagnostic passes through the same real finish writer.
 for diagnostic_case in sql010 driver_exit invalid_step invalid_fields; do
   tmp=$(mktemp -d "$base/st233a.XXXXXX")
