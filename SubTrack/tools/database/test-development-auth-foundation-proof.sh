@@ -12,9 +12,56 @@ image=mirror.gcr.io/library/postgres:16-alpine
 cid=$(printf '%064d' 0) marker=$(printf '%032d' 0) name="st233a-$(printf '%032d' 0)" created=''
 declare -A clients=() writers=()
 driver_cid='' driver_name='' driver_env='' driver_image='node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
-for function in private_file custody custody_diagnostic terminate_container cleanup_container cleanup_temp finish record_migration_failure read_enrollment_checkpoint monotonic registry launch_client observe_clients live_client poll_client join_client close_writers terminate_clients driver_custody driver_cleanup; do
+for function in private_file custody custody_diagnostic terminate_container cleanup_container cleanup_temp finish record_migration_failure read_enrollment_checkpoint read_enrollment_diagnostic monotonic registry launch_client observe_clients live_client poll_client join_client close_writers terminate_clients driver_custody driver_cleanup; do
   source <(sed -n "/^$function() {/,/^}/p" "$script")
 done
+for function in gn_catalog_query parse_gn_catalog_output snapshot_gn_catalog atomic_catalog_unchanged; do
+  source <(sed -n "/^$function() {/,/^}/p" "$script")
+done
+whole_a=$(printf 'a%.0s' {1..32}) whole_b=$(printf 'b%.0s' {1..32})
+logical_a=$(printf 'c%.0s' {1..32}) logical_b=$(printf 'd%.0s' {1..32})
+atomic_catalog_unchanged "$whole_a" "$logical_a" "$whole_a" "$logical_a"
+[[ "$atomic_drift" == none ]]
+atomic_catalog_unchanged "$whole_a" "$logical_a" "$whole_b" "$logical_a"
+[[ "$atomic_drift" == physical-only ]]
+for pair in "$whole_b $logical_b" "$whole_a $logical_b"; do
+  read -r after_whole after_logical <<< "$pair"
+  if atomic_catalog_unchanged "$whole_a" "$logical_a" "$after_whole" "$after_logical"; then exit 1; fi
+  [[ "$atomic_drift" == logical ]]
+done
+for pair in "- $logical_a $whole_a $logical_a" "$whole_a - $whole_a $logical_a" "$whole_a $logical_a - $logical_a" "$whole_a $logical_a $whole_a -" \
+            "${whole_a^^} $logical_a $whole_a $logical_a" "$whole_a $logical_a ${whole_a^^} $logical_a"; do
+  read -r before_whole before_logical after_whole after_logical <<< "$pair"
+  if atomic_catalog_unchanged "$before_whole" "$before_logical" "$after_whole" "$after_logical"; then exit 1; fi
+  [[ "$atomic_drift" == unavailable ]]
+done
+# Stub the database client only to exercise exact paired-output parsing.
+owner() { :; }
+client_log="$base/catalog.log"
+catalog_output() {
+  printf ' md5 | md5\n-----+-----\n %s | %s\n(1 row)\n' "$1" "$2" > "$client_log"
+}
+catalog_output "$whole_a" "$logical_a"
+snapshot_gn_catalog
+[[ "$gn_catalog" == "$whole_a" && "$gn_catalog_logical" == "$logical_a" ]]
+for output_case in missing malformed duplicate extra; do
+  catalog_output "$whole_a" "$logical_a"
+  case "$output_case" in
+    missing) : > "$client_log" ;;
+    malformed) sed -i "s/$logical_a/${logical_a^^}/" "$client_log" ;;
+    duplicate) printf ' %s | %s\n' "$whole_a" "$logical_a" >> "$client_log" ;;
+    extra) printf 'private-sentinel\n' >> "$client_log" ;;
+  esac
+  if snapshot_gn_catalog; then exit 1; fi
+done
+catalog_output "$whole_a" "$logical_a"
+cat "$client_log" "$client_log" > "$base/catalog-pairs.log"
+client_log="$base/catalog-pairs.log"
+parse_gn_catalog_output 2
+[[ ${#gn_catalog_wholes[@]} == 2 && ${#gn_catalog_logicals[@]} == 2 ]]
+client_log="$base/catalog.log"
+owner() { return 1; }
+if snapshot_gn_catalog; then exit 1; fi
 # Scope dispatch must reject every malformed form before touching Docker or a receipt.
 for malformed in '--enrollment-proof --cleanup' '--cleanup --enrollment-proof' '--enrollment-proof --enrollment-proof' '--enrollment-proof extra' 'extra' ''; do
   [[ -n "$malformed" ]] || continue
@@ -50,13 +97,31 @@ for checkpoint_case in valid missing duplicate malicious wrongcase; do
   [[ "$enrollment_checkpoint" == "$expected_checkpoint" ]]
   rm -rf -- "$tmp"
 done
+for diagnostic_case in valid missing duplicate unknown invalid_sqlstate malicious; do
+  tmp=$(mktemp -d "$base/st236e.XXXXXX")
+  diagnostic_file="$tmp/driver-failure.log"
+  printf 'ERROR: private-sentinel raw-SQL row=secret\n' > "$diagnostic_file"
+  expected_node_step=unavailable expected_node_query=unavailable expected_node_sqlstate=unavailable
+  case "$diagnostic_case" in
+    valid) printf 'ST-236 enrollment diagnostic: step=first-bootstrap query=reserve sqlstate=42P01\n' >> "$diagnostic_file"
+      expected_node_step=first-bootstrap expected_node_query=reserve expected_node_sqlstate=42P01 ;;
+    missing) rm -- "$diagnostic_file" ;;
+    duplicate) printf 'ST-236 enrollment diagnostic: step=first-bootstrap query=reserve sqlstate=42P01\nST-236 enrollment diagnostic: step=first-admit query=admit sqlstate=42P01\n' >> "$diagnostic_file" ;;
+    unknown) printf 'ST-236 enrollment diagnostic: step=private-sentinel query=reserve sqlstate=42P01\n' >> "$diagnostic_file" ;;
+    invalid_sqlstate) printf 'ST-236 enrollment diagnostic: step=first-bootstrap query=reserve sqlstate=42p01\n' >> "$diagnostic_file" ;;
+    malicious) printf 'ST-236 enrollment diagnostic: step=first-bootstrap query=reserve sqlstate=42P01 private-sentinel\n' >> "$diagnostic_file" ;;
+  esac
+  read_enrollment_diagnostic "$diagnostic_file" || [[ "$diagnostic_case" == missing ]]
+  [[ "$node_step" == "$expected_node_step" && "$node_query" == "$expected_node_query" && "$node_sqlstate" == "$expected_node_sqlstate" ]]
+  rm -rf -- "$tmp"
+done
 scoped_original_cid=$cid
 for diagnostic_case in install node malformed cleanup pass; do
   tmp=$(mktemp -d "$base/st236e.XXXXXX")
   : > "$tmp/clients"
-  phase=durable-enrollment passed=false cid='' driver_cid='' enrollment_checkpoint=unavailable
+  phase=durable-enrollment passed=false cid='' driver_cid='' enrollment_checkpoint=unavailable node_step=unavailable node_query=unavailable node_sqlstate=unavailable
   enrollment_step=sql010 enrollment_failure_kind=operation enrollment_sqlstate=unavailable enrollment_driver_exit=unavailable
-  expected_phase=durable-enrollment expected_step=sql010 expected_kind=operation expected_state=unavailable expected_exit=unavailable expected_checkpoint=unavailable
+  expected_phase=durable-enrollment expected_step=sql010 expected_kind=operation expected_state=unavailable expected_exit=unavailable expected_checkpoint=unavailable expected_node_step=unavailable expected_node_query=unavailable expected_node_sqlstate=unavailable
   case "$diagnostic_case" in
     install) phase=enrollment-install; enrollment_step=sql006
       client_log="$tmp/install.log" client_exit_status=1
@@ -64,10 +129,11 @@ for diagnostic_case in install node malformed cleanup pass; do
       record_migration_failure; enrollment_sqlstate=$migration_sqlstate
       expected_phase=enrollment-install expected_step=sql006 expected_state=42P01 ;;
     node) enrollment_step=driver-exit; enrollment_failure_kind=nonzero-exit; enrollment_driver_exit=9
-      printf 'ERROR: private-sentinel raw-SQL row=secret\nST-236 enrollment checkpoint: FAIL stage=first-account\n' > "$tmp/driver.log"
+      printf 'ERROR: private-sentinel raw-SQL row=secret\nST-236 enrollment checkpoint: FAIL stage=first-account\nST-236 enrollment diagnostic: step=first-bootstrap query=reserve sqlstate=42P01\n' > "$tmp/driver.log"
       read_enrollment_checkpoint "$tmp/driver.log"
-      expected_step=driver-exit expected_kind=nonzero-exit expected_exit=9 expected_checkpoint=first-account ;;
-    malformed) enrollment_step=private-sentinel; enrollment_failure_kind=private-sentinel; enrollment_sqlstate=42P01X; enrollment_driver_exit=999; enrollment_checkpoint=private-sentinel
+      read_enrollment_diagnostic "$tmp/driver.log"
+      expected_step=driver-exit expected_kind=nonzero-exit expected_exit=9 expected_checkpoint=first-account expected_node_step=first-bootstrap expected_node_query=reserve expected_node_sqlstate=42P01 ;;
+    malformed) enrollment_step=private-sentinel; enrollment_failure_kind=private-sentinel; enrollment_sqlstate=42P01X; enrollment_driver_exit=999; enrollment_checkpoint=private-sentinel; node_step=private-sentinel; node_query=private-sentinel; node_sqlstate=42p01
       expected_step=unavailable expected_kind=unavailable ;;
     cleanup) enrollment_step=driver-custody; enrollment_failure_kind=invalid-custody
       expected_step=driver-custody expected_kind=invalid-custody ;;
@@ -78,7 +144,7 @@ for diagnostic_case in install node malformed cleanup pass; do
     status=0
     (cleanup_temp() { return 1; }; trap finish EXIT; false) || status=$?
     [[ "$status" != 0 && -d "$tmp" ]]
-    grep -Eq "^ST-236 enrollment proof: FAIL source_head=$source_head phase=durable-enrollment cleanup=failed step=driver-custody failure_kind=invalid-custody sqlstate=unavailable driver_exit=unavailable checkpoint=unavailable$" "$receipt"
+    grep -Eq "^ST-236 enrollment proof: FAIL source_head=$source_head phase=durable-enrollment cleanup=failed step=driver-custody failure_kind=invalid-custody sqlstate=unavailable driver_exit=unavailable checkpoint=unavailable node_step=unavailable node_query=unavailable node_sqlstate=unavailable$" "$receipt"
     rm -rf -- "$tmp"
   elif [[ "$diagnostic_case" == pass ]]; then
     (trap finish EXIT; true)
@@ -87,7 +153,7 @@ for diagnostic_case in install node malformed cleanup pass; do
   else
     status=0; (trap finish EXIT; false) || status=$?
     [[ "$status" != 0 && ! -e "$tmp" ]]
-    grep -Eq "^ST-236 enrollment proof: FAIL source_head=$source_head phase=$expected_phase cleanup=removed step=$expected_step failure_kind=$expected_kind sqlstate=$expected_state driver_exit=$expected_exit checkpoint=$expected_checkpoint$" "$receipt"
+    grep -Eq "^ST-236 enrollment proof: FAIL source_head=$source_head phase=$expected_phase cleanup=removed step=$expected_step failure_kind=$expected_kind sqlstate=$expected_state driver_exit=$expected_exit checkpoint=$expected_checkpoint node_step=$expected_node_step node_query=$expected_node_query node_sqlstate=$expected_node_sqlstate$" "$receipt"
   fi
   ! grep -q 'private-sentinel' "$receipt"
 done

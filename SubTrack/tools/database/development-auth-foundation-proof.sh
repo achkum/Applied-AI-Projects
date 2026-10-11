@@ -127,6 +127,17 @@ read_enrollment_checkpoint() {
   [[ "$checkpoint" != *$'\n'* && "$checkpoint" =~ ^ST-236\ enrollment\ checkpoint:\ FAIL\ stage=([a-z-]+)$ ]] && enrollment_checkpoint=${BASH_REMATCH[1]}
   return 0
 }
+read_enrollment_diagnostic() {
+  node_step=unavailable node_query=unavailable node_sqlstate=unavailable
+  private_file "$1" || return 1
+  local diagnostic
+  diagnostic=$(grep 'ST-236 enrollment diagnostic:' "$1" || true)
+  [[ "$diagnostic" != *$'\n'* && "$diagnostic" =~ ^ST-236\ enrollment\ diagnostic:\ step=([a-z-]+)\ query=([a-z-]+)\ sqlstate=([0-9A-Z]{5}|unavailable)$ ]] || return 0
+  local parsed_step=${BASH_REMATCH[1]} parsed_query=${BASH_REMATCH[2]} parsed_sqlstate=${BASH_REMATCH[3]}
+  case "$parsed_step" in first-bootstrap|first-start-otp|first-verify-otp|first-admit|first-person|wrong-verified|wrong-binding|profile-rollback|account-residue|birth-residue|unavailable) ;; *) return 0 ;; esac
+  case "$parsed_query" in lookup|reserve|issue-otp|verify-otp|admit|pending|verify-person|terminal|identity-insert|profile-insert|bind|issue-session|consume|other|unavailable) ;; *) return 0 ;; esac
+  node_step=$parsed_step node_query=$parsed_query node_sqlstate=$parsed_sqlstate
+}
 base=${RUNNER_TEMP:-/tmp}
 record="$base/$fixture_prefix-container"
 receipt="$base/$receipt_file"
@@ -258,8 +269,11 @@ finish() {
     [[ "${enrollment_sqlstate:-}" =~ ^[0-9A-Z]{5}$ ]] || enrollment_sqlstate=unavailable
     [[ "${enrollment_driver_exit:-}" =~ ^([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])$ ]] || enrollment_driver_exit=unavailable
     case "${enrollment_checkpoint:-}" in entry|fixture-qualification|otp-cases|wrong-code|first-account|restart|old-id|active-subject|contact-race|subject-race|unknown-commit|deleted-subject|erasure|pool-reset|restart-child) ;; *) enrollment_checkpoint=unavailable ;; esac
+    case "${node_step:-}" in first-bootstrap|first-start-otp|first-verify-otp|first-admit|first-person|wrong-verified|wrong-binding|profile-rollback|account-residue|birth-residue|unavailable) ;; *) node_step=unavailable ;; esac
+    case "${node_query:-}" in lookup|reserve|issue-otp|verify-otp|admit|pending|verify-person|terminal|identity-insert|profile-insert|bind|issue-session|consume|other|unavailable) ;; *) node_query=unavailable ;; esac
+    [[ "${node_sqlstate:-}" =~ ^[0-9A-Z]{5}$ ]] || node_sqlstate=unavailable
     enrollment_detail=" step=$enrollment_step failure_kind=$enrollment_failure_kind sqlstate=$enrollment_sqlstate driver_exit=$enrollment_driver_exit"
-    [[ "$scope" != enrollment ]] || enrollment_detail+=" checkpoint=$enrollment_checkpoint"
+    [[ "$scope" != enrollment ]] || enrollment_detail+=" checkpoint=$enrollment_checkpoint node_step=$node_step node_query=$node_query node_sqlstate=$node_sqlstate"
   fi
   if [[ ${#clients[@]} != 0 ]]; then status=1; terminate_clients || bad=true; fi
   if [[ -n "${driver_cid:-}" ]]; then driver_cleanup || bad=true; fi
@@ -460,6 +474,7 @@ if [[ "$driver_state" =~ ^exited\ ([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0
   if [[ "$scope" == enrollment ]]; then
     if docker logs "$driver_cid" > "$tmp/driver-failure.log" 2>&1 && private_file "$tmp/driver-failure.log"; then
       read_enrollment_checkpoint "$tmp/driver-failure.log" || exit 1
+      read_enrollment_diagnostic "$tmp/driver-failure.log" || exit 1
     fi
   fi
   exit 1
@@ -1301,13 +1316,52 @@ snapshot_gn_others() {
   printf "SELECT md5(jsonb_build_array((SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM subtrack_auth.epoch e),(SELECT jsonb_agg(to_jsonb(n) ORDER BY key_h) FROM subtrack_auth.reservation n),(SELECT string_agg(pg_catalog.query_to_xml(format('SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text) FROM %%I.%%I t',n.nspname,c.relname),false,true,'')::text,E'\\n' ORDER BY c.relname) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r'))::text);\n" | owner
   gn_others=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log"); [[ "$gn_others" =~ ^[a-f0-9]{32}$ ]]
 }
+gn_catalog_query() {
+  printf "WITH catalog AS (SELECT jsonb_build_array((SELECT jsonb_agg(to_jsonb(p) ORDER BY oid) FROM pg_catalog.pg_proc p WHERE pronamespace='subtrack_auth'::regnamespace),(SELECT jsonb_agg(to_jsonb(n) ORDER BY oid) FROM pg_catalog.pg_namespace n),(SELECT jsonb_agg(to_jsonb(c) ORDER BY oid) FROM pg_catalog.pg_constraint c),(SELECT jsonb_agg(to_jsonb(r) ORDER BY oid) FROM pg_catalog.pg_roles r),(SELECT jsonb_agg(to_jsonb(m) ORDER BY roleid,member) FROM pg_catalog.pg_auth_members m),(SELECT jsonb_agg(to_jsonb(a) ORDER BY oid) FROM pg_catalog.pg_default_acl a),(SELECT jsonb_agg(to_jsonb(c) ORDER BY oid) FROM pg_catalog.pg_class c WHERE relnamespace='subtrack_auth'::regnamespace),(SELECT jsonb_agg(to_jsonb(a) ORDER BY attrelid,attnum) FROM pg_catalog.pg_attribute a WHERE attrelid IN ('subtrack_auth.epoch'::regclass,'subtrack_auth.reservation'::regclass,'subtrack_auth.nonce'::regclass)),(SELECT jsonb_agg(to_jsonb(t) ORDER BY oid) FROM pg_catalog.pg_type t WHERE typnamespace='subtrack_auth'::regnamespace),(SELECT jsonb_agg(to_jsonb(p) ORDER BY oid) FROM pg_catalog.pg_policy p)) AS whole) SELECT md5(whole::text), md5(jsonb_set(whole,'{6}',(SELECT jsonb_agg(to_jsonb(c)-'relpages'-'reltuples'-'relallvisible'-'relfrozenxid'-'relminmxid' ORDER BY oid) FROM pg_catalog.pg_class c WHERE relnamespace='subtrack_auth'::regnamespace))::text) FROM catalog;\n"
+}
+parse_gn_catalog_output() {
+  local expected_count=$1 line catalog_line_count=0
+  gn_catalog_wholes=() gn_catalog_logicals=()
+  while IFS= read -r line; do
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+    catalog_line_count=$((catalog_line_count+1))
+    case "$(((catalog_line_count-1)%4))" in
+      0) [[ "$line" =~ ^[[:space:]]*md5[[:space:]]*\|[[:space:]]*md5[[:space:]]*$ ]] || return 1 ;;
+      1) [[ "$line" =~ ^[[:space:]-]+\+[[:space:]-]+$ ]] || return 1 ;;
+      2) [[ "$line" =~ ^[[:space:]]*([a-f0-9]{32})[[:space:]]*\|[[:space:]]*([a-f0-9]{32})[[:space:]]*$ ]] || return 1
+         gn_catalog_wholes+=("${BASH_REMATCH[1]}") gn_catalog_logicals+=("${BASH_REMATCH[2]}") ;;
+      3) [[ "$line" =~ ^[[:space:]]*\(1[[:space:]]row\)[[:space:]]*$ ]] || return 1 ;;
+    esac
+  done < "$client_log"
+  [[ "$catalog_line_count" == "$((4*expected_count))" ]] || return 1
+}
 snapshot_gn_catalog() {
-  printf "WITH catalog AS (SELECT jsonb_build_array((SELECT jsonb_agg(to_jsonb(p) ORDER BY oid) FROM pg_catalog.pg_proc p WHERE pronamespace='subtrack_auth'::regnamespace),(SELECT jsonb_agg(to_jsonb(n) ORDER BY oid) FROM pg_catalog.pg_namespace n),(SELECT jsonb_agg(to_jsonb(c) ORDER BY oid) FROM pg_catalog.pg_constraint c),(SELECT jsonb_agg(to_jsonb(r) ORDER BY oid) FROM pg_catalog.pg_roles r),(SELECT jsonb_agg(to_jsonb(m) ORDER BY roleid,member) FROM pg_catalog.pg_auth_members m),(SELECT jsonb_agg(to_jsonb(a) ORDER BY oid) FROM pg_catalog.pg_default_acl a),(SELECT jsonb_agg(to_jsonb(c) ORDER BY oid) FROM pg_catalog.pg_class c WHERE relnamespace='subtrack_auth'::regnamespace),(SELECT jsonb_agg(to_jsonb(a) ORDER BY attrelid,attnum) FROM pg_catalog.pg_attribute a WHERE attrelid IN ('subtrack_auth.epoch'::regclass,'subtrack_auth.reservation'::regclass,'subtrack_auth.nonce'::regclass)),(SELECT jsonb_agg(to_jsonb(t) ORDER BY oid) FROM pg_catalog.pg_type t WHERE typnamespace='subtrack_auth'::regnamespace),(SELECT jsonb_agg(to_jsonb(p) ORDER BY oid) FROM pg_catalog.pg_policy p)) AS whole) SELECT md5(whole::text), md5(jsonb_set(whole,'{6}',(SELECT jsonb_agg(to_jsonb(c)-'relpages'-'reltuples'-'relallvisible'-'relfrozenxid'-'relminmxid' ORDER BY oid) FROM pg_catalog.pg_class c WHERE relnamespace='subtrack_auth'::regnamespace))::text) FROM catalog;\n" | owner
+  gn_catalog_query | owner || return 1
   gn_catalog= gn_catalog_logical=
-  local line
-  line=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*|[ ]*[a-f0-9]\{32\}[ ]*$/p' "$client_log")
-  [[ "$line" =~ ^[[:space:]]*([a-f0-9]{32})[[:space:]]*\|[[:space:]]*([a-f0-9]{32})[[:space:]]*$ ]] || return 1
-  gn_catalog=${BASH_REMATCH[1]} gn_catalog_logical=${BASH_REMATCH[2]}
+  parse_gn_catalog_output 1 || return 1
+  gn_catalog=${gn_catalog_wholes[0]} gn_catalog_logical=${gn_catalog_logicals[0]}
+}
+atomic_catalog_unchanged() {
+  # The paired snapshot query excludes only five pg_class maintenance fields.
+  local before_whole=$1 before_logical=$2 after_whole=$3 after_logical=$4
+  atomic_drift=unavailable
+  [[ "$before_whole" =~ ^[a-f0-9]{32}$ && "$before_logical" =~ ^[a-f0-9]{32}$ &&
+     "$after_whole" =~ ^[a-f0-9]{32}$ && "$after_logical" =~ ^[a-f0-9]{32}$ ]] || return 1
+  if [[ "$after_logical" != "$before_logical" ]]; then atomic_drift=logical; return 1; fi
+  if [[ "$after_whole" != "$before_whole" ]]; then atomic_drift=physical-only; else atomic_drift=none; fi
+}
+probe_atomic_catalog_retained() {
+  local mutation=$1 probe_logical
+  snapshot_gn_catalog || return 1
+  probe_logical=$gn_catalog_logical
+  { printf 'BEGIN;\n'; gn_catalog_query; printf '%s\n' "$mutation"; gn_catalog_query; printf 'ROLLBACK;\n'; } | owner || return 1
+  parse_gn_catalog_output 2 || return 1
+  [[ "${gn_catalog_logicals[0]}" == "$probe_logical" ]] || return 1
+  if atomic_catalog_unchanged "${gn_catalog_wholes[0]}" "${gn_catalog_logicals[0]}" "${gn_catalog_wholes[1]}" "${gn_catalog_logicals[1]}"; then return 1; fi
+  [[ "$atomic_drift" == logical ]] || return 1
+  snapshot_gn_catalog || return 1
+  [[ "$gn_catalog_logical" == "$probe_logical" ]] || return 1
+  atomic_drift=none
 }
 snapshot_gn_catalog; gn_catalog_before=$gn_catalog
 snapshot_private; gn_before=$snapshot
@@ -1470,7 +1524,10 @@ ak_burn() {
   assert_owner "(SELECT count(*)=1 AND bool_and(state='pending') FROM subtrack_auth.reservation WHERE key_h=repeat('$1',64))"
 }
 phase=atomic-issue-02 timed_step=catalog timed_case=none atomic_drift=none atomic_sqlstate=unavailable atomic_exit=unavailable
-snapshot_gn_catalog; ak_catalog_before=$gn_catalog ak_catalog_logical_before=$gn_catalog_logical
+probe_atomic_catalog_retained 'ALTER TABLE subtrack_auth.nonce SET (autovacuum_enabled=false);' || exit 1
+probe_atomic_catalog_retained 'ALTER ROLE subtrack_auth_producer CONNECTION LIMIT 1;' || exit 1
+printf 'ST-236 atomic catalog projection probes: PASS\n' >> "$receipt"
+snapshot_gn_catalog || exit 1; ak_catalog_before=$gn_catalog ak_catalog_logical_before=$gn_catalog_logical
 ak_fault_labels=(graph-fk parent-search-path parent-public-execute parent-body nonce-update nonce-select executor-membership reservation-constraint constraint-pin)
 ak_faults=("CREATE SCHEMA ak_graph; CREATE TABLE ak_graph.future(nonce_h subtrack_auth.h REFERENCES subtrack_auth.nonce(nonce_h));" "ALTER FUNCTION $gn_signature SET search_path=public;" "GRANT EXECUTE ON FUNCTION $gn_signature TO PUBLIC;" "CREATE OR REPLACE FUNCTION subtrack_auth.prune_nonces(epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER VOLATILE PARALLEL UNSAFE CALLED ON NULL INPUT SET search_path=pg_catalog AS 'BEGIN RETURN NULL; END';" "GRANT UPDATE(chain) ON subtrack_auth.nonce TO subtrack_auth_executor;" "GRANT SELECT ON subtrack_auth.nonce TO subtrack_runtime;" "GRANT subtrack_auth_executor TO subtrack_dev_auth_login;" "ALTER TABLE subtrack_auth.reservation DROP CONSTRAINT reservation_check;" "SET st233c.constraints='invalid';")
 for ak_index in "${!ak_faults[@]}"; do
@@ -1485,11 +1542,7 @@ for ak_index in "${!ak_faults[@]}"; do
   assert_owner "NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace AND proname='issue_bootstrap_nonce') AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='ak_graph')" || exit 1
   timed_step=guard-catalog atomic_drift=unavailable
   snapshot_gn_catalog || exit 1
-  if [[ "$gn_catalog" != "$ak_catalog_before" ]]; then
-    atomic_drift=logical; [[ "$gn_catalog_logical" != "$ak_catalog_logical_before" ]] || atomic_drift=physical-only
-    exit 1
-  fi
-  atomic_drift=none
+  atomic_catalog_unchanged "$ak_catalog_before" "$ak_catalog_logical_before" "$gn_catalog" "$gn_catalog_logical" || exit 1
 done
 phase=atomic-issue-03
 ak_parent_labels=(parent-fence parent-peek parent-reserve parent-prune parent-settle parent-nonce-prune)
@@ -1506,11 +1559,7 @@ for ak_index in "${!ak_parents[@]}"; do
   assert_owner "NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace AND proname='issue_bootstrap_nonce') AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='ak_graph')" || exit 1
   timed_step=guard-catalog atomic_drift=unavailable
   snapshot_gn_catalog || exit 1
-  if [[ "$gn_catalog" != "$ak_catalog_before" ]]; then
-    atomic_drift=logical; [[ "$gn_catalog_logical" != "$ak_catalog_logical_before" ]] || atomic_drift=physical-only
-    exit 1
-  fi
-  atomic_drift=none
+  atomic_catalog_unchanged "$ak_catalog_before" "$ak_catalog_logical_before" "$gn_catalog" "$gn_catalog_logical" || exit 1
 done
 phase=atomic-issue-04
 { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat "${inputs[12]}"; } | owner

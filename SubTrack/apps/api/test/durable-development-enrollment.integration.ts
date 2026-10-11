@@ -28,6 +28,53 @@ const checkpointStages = ['entry', 'fixture-qualification', 'otp-cases', 'wrong-
   'restart', 'old-id', 'active-subject', 'contact-race', 'subject-race', 'unknown-commit',
   'deleted-subject', 'erasure', 'pool-reset', 'restart-child'] as const;
 let checkpoint: (typeof checkpointStages)[number] = 'entry';
+const firstSteps = ['first-bootstrap', 'first-start-otp', 'first-verify-otp', 'first-admit', 'first-person',
+  'wrong-verified', 'wrong-binding', 'profile-rollback', 'account-residue', 'birth-residue', 'unavailable'] as const;
+type FirstStep = (typeof firstSteps)[number];
+const queryLabels = ['lookup', 'reserve', 'issue-otp', 'verify-otp', 'admit', 'pending', 'verify-person',
+  'terminal', 'identity-insert', 'profile-insert', 'bind', 'issue-session', 'consume', 'other', 'unavailable'] as const;
+type QueryLabel = (typeof queryLabels)[number];
+let firstStep: FirstStep = 'unavailable';
+let firstQuery: QueryLabel = 'unavailable';
+let firstSqlstate = 'unavailable';
+function beginFirstStep(step: FirstStep) {
+  firstStep = step;
+  firstQuery = 'unavailable';
+  firstSqlstate = 'unavailable';
+}
+function classifyFirstQuery(sql: string): QueryLabel {
+  if (sql.startsWith('SELECT subtrack_auth.peek(')) return 'lookup';
+  if (sql.startsWith('SELECT subtrack_auth.reserve_enrollment(')) return 'reserve';
+  if (sql.startsWith('SELECT subtrack_auth.issue_enrollment_otp(')) return 'issue-otp';
+  if (sql.startsWith('SELECT subtrack_auth.verify_enrollment_otp(')) return 'verify-otp';
+  if (sql.startsWith('SELECT subtrack_auth.admit_enrollment(')) return 'admit';
+  if (sql.startsWith('SELECT subtrack_auth.pending_enrollment(')) return 'pending';
+  if (sql.startsWith('SELECT subtrack_auth.verify_enrollment_person(')) return 'verify-person';
+  if (sql.startsWith('SELECT * FROM subtrack_auth.terminal_enrollment(')) return 'terminal';
+  if (sql.startsWith('INSERT INTO public.identity(')) return 'identity-insert';
+  if (sql.startsWith('INSERT INTO public.identity_profile(')) return 'profile-insert';
+  if (sql.startsWith('SELECT subtrack_auth.bind_enrollment_identity(')) return 'bind';
+  if (sql.startsWith('SELECT subtrack_auth.issue_enrollment_session(')) return 'issue-session';
+  if (sql.startsWith('SELECT subtrack_auth.consume_enrollment(')) return 'consume';
+  return 'other';
+}
+function firstAccountPool(): Pick<Pool, 'connect'> {
+  return { connect: async () => {
+    const client = await actor.connect();
+    const intercepted: PoolClient['query'] = (async (sql: string, values?: unknown[]) => {
+      try { return await (values === undefined ? client.query(sql) : client.query(sql, values)); }
+      catch (error) {
+        if (firstStep !== 'unavailable' && firstQuery === 'unavailable') {
+          firstQuery = classifyFirstQuery(sql);
+          const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
+          firstSqlstate = typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code) ? code : 'unavailable';
+        }
+        throw error;
+      }
+    }) as PoolClient['query'];
+    return { query: intercepted, release: (error?: Error) => client.release(error) } as PoolClient;
+  } };
+}
 const keyNames = ['binding', 'idempotency', 'authority', 'request', 'nonce', 'otp', 'proof', 'person', 'session'] as const;
 const keys = Object.fromEntries(keyNames.map((name, index) => [name, new Uint8Array(32).fill(index + 17)])) as
   Record<(typeof keyNames)[number], Uint8Array>;
@@ -57,14 +104,19 @@ async function initialWeb() {
   return { origin, bindingCookie: minted.cookieSecret, nonce: minted.nonce, chainId: '', epoch };
 }
 async function stage(label: string, enrol = service, contact?: string) {
+  if (label === 'first') beginFirstStep('first-bootstrap');
   const startWeb = await initialWeb();
   const identifier = contact ?? `${label}-${randomUUID()}@example.invalid`;
+  if (label === 'first') beginFirstStep('first-start-otp');
   const started = await enrol.startOtp(startWeb, { identifier, channel: 'email', purpose: 'enroll_identifier' }, `st236-start-${randomUUID()}`);
   const verifyWeb = { ...startWeb, nonce: started.nextBrowserNonce };
+  if (label === 'first') beginFirstStep('first-verify-otp');
   const verifiedOtp = await enrol.verifyOtp(verifyWeb, { challengeId: started.challengeId, code: '123456' }, `st236-otp-${randomUUID()}`);
   const admitWeb = { ...startWeb, nonce: verifiedOtp.nextBrowserNonce };
+  if (label === 'first') beginFirstStep('first-admit');
   const admitted = await enrol.admit(admitWeb, { proof: verifiedOtp.proof }, `st236-admit-${randomUUID()}`);
   const personWeb = { ...startWeb, nonce: admitted.nextBrowserNonce };
+  if (label === 'first') beginFirstStep('first-person');
   const person = await enrol.verifyPerson(personWeb, { pending: admitted.pending }, `st236-person-${randomUUID()}`);
   const terminalWeb = { ...startWeb, nonce: person.nextBrowserNonce };
   return { startWeb, started, verifyWeb, verifiedOtp, admitWeb, admitted, personWeb, person, terminalWeb, identifier };
@@ -96,12 +148,16 @@ async function cleanPool() {
     }
   } finally { clients.forEach(client => client.release()); }
 }
-function failAtProfileInsert(): Pick<Pool, 'connect'> {
+function failAtProfileInsert(onAttempt: () => void, pool: Pick<Pool, 'connect'> = actor): Pick<Pool, 'connect'> {
   let injected = false;
   return { connect: async () => {
-    const client = await actor.connect();
+    const client = await pool.connect();
     const query: PoolClient['query'] = ((sql: string, values?: unknown[]) => {
-      if (!injected && sql.startsWith('INSERT INTO public.identity_profile')) { injected = true; throw Error('injected-profile-write'); }
+      if (!injected && sql.startsWith('INSERT INTO public.identity_profile')) {
+        injected = true;
+        onAttempt();
+        throw Error('injected-profile-write');
+      }
       return client.query(sql, values);
     }) as PoolClient['query'];
     return { query, release: (error?: Error) => client.release(error) } as PoolClient;
@@ -421,16 +477,25 @@ async function main() {
     JOIN subtrack_auth.otp o ON o.challenge_h=p.challenge_h WHERE o.contact=$1`, [wrongIdentifier]);
   if (noProof.rows[0]?.n !== 0) throw Error('wrong-code-proof');
   checkpoint = 'first-account';
-  const first = await stage('first');
-  await deny('terminal-wrong-verified', () => service.complete(first.terminalWeb,
+  const firstService = create(firstAccountPool());
+  const first = await stage('first', firstService);
+  beginFirstStep('wrong-verified');
+  await deny('terminal-wrong-verified', () => firstService.complete(first.terminalWeb,
     { verified: first.startWeb.nonce }, `st236-wrong-verified-${randomUUID()}`));
-  await deny('terminal-wrong-binding', () => service.complete({ ...first.terminalWeb, bindingCookie: first.terminalWeb.nonce },
+  beginFirstStep('wrong-binding');
+  await deny('terminal-wrong-binding', () => firstService.complete({ ...first.terminalWeb, bindingCookie: first.terminalWeb.nonce },
     { verified: first.person.verified }, `st236-wrong-terminal-binding-${randomUUID()}`));
-  await deny('injected-write-rollback', () => create(failAtProfileInsert()).complete(first.terminalWeb,
+  beginFirstStep('profile-rollback');
+  let profileInsertAttempted = false;
+  await deny('injected-write-rollback', () => create(failAtProfileInsert(() => { profileInsertAttempted = true; }, firstAccountPool())).complete(first.terminalWeb,
     { verified: first.person.verified }, `st236-rollback-${randomUUID()}`));
+  if (!profileInsertAttempted) throw Error('profile-insert-not-reached');
+  beginFirstStep('account-residue');
   const afterRollback = await query('SELECT count(*)::int AS n FROM public.identity WHERE email=$1', [first.identifier]);
   if (afterRollback.rows[0]?.n !== 0) throw Error('partial-account-graph');
+  beginFirstStep('birth-residue');
   await noBirthResidue('rollback');
+  beginFirstStep('unavailable');
   checkpoint = 'restart';
   const key = `st236-complete-${randomUUID()}`;
   await restartInFreshProcess({ web: first.terminalWeb, verified: first.person.verified, key });
@@ -512,7 +577,11 @@ async function main() {
 }
 main().catch(() => {
   const safeCheckpoint = (checkpointStages as readonly string[]).includes(checkpoint) ? checkpoint : 'entry';
+  const safeStep = safeCheckpoint === 'first-account' && (firstSteps as readonly string[]).includes(firstStep) ? firstStep : 'unavailable';
+  const safeQuery = safeCheckpoint === 'first-account' && (queryLabels as readonly string[]).includes(firstQuery) ? firstQuery : 'unavailable';
+  const safeSqlstate = safeCheckpoint === 'first-account' && /^[0-9A-Z]{5}$/.test(firstSqlstate) ? firstSqlstate : 'unavailable';
   process.stderr.write(`ST-236 enrollment checkpoint: FAIL stage=${safeCheckpoint}\n`);
+  process.stderr.write(`ST-236 enrollment diagnostic: step=${safeStep} query=${safeQuery} sqlstate=${safeSqlstate}\n`);
   process.exitCode = 1;
   void actor.end(); void owner.end();
 });
