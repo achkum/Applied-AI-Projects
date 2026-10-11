@@ -6,6 +6,20 @@ shopt -s lastpipe
 declare -A clients=() writers=()
 driver_cid='' driver_name='' driver_env='' driver_image='node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
 driver_result=''
+scope=foundation
+if (( $# == 0 )); then :
+elif (( $# == 1 )) && [[ "$1" == --cleanup ]]; then :
+elif (( $# == 1 )) && [[ "$1" == --enrollment-proof ]]; then scope=enrollment
+elif (( $# == 2 )) && [[ "$1" == --enrollment-proof && "$2" == --cleanup ]]; then scope=enrollment
+else exit 1
+fi
+if [[ "$scope" == enrollment ]]; then
+  fixture_prefix=st236e fixture_label=ST-236e driver_prefix=st236n driver_fixture_label=ST-236n
+  scope_title='ST-236 enrollment proof' receipt_file=st236e-proof-receipt.txt
+else
+  fixture_prefix=st233a fixture_label=ST-233a driver_prefix=st233l driver_fixture_label=ST-233l
+  scope_title='ST-233a foundation' receipt_file=st233a-proof-receipt.txt
+fi
 registering=false interrupted=false sequence=0 client_log='' client_pid='' client_exit_status=unavailable
 monotonic() { python3 -c 'import time; print(int(time.monotonic()*1000))'; }
 registry() {
@@ -74,15 +88,15 @@ terminate_clients() {
   [[ "$bad" == false && ${#clients[@]} == 0 ]]
 }
 driver_custody() {
-  [[ "$driver_cid" =~ ^[a-f0-9]{64}$ && "$driver_name" == "st233l-$marker" ]] || return 1
+  [[ "$driver_cid" =~ ^[a-f0-9]{64}$ && "$driver_name" == "$driver_prefix-$marker" ]] || return 1
   local actual reason
   actual=$(docker inspect --format '{{json .}}' "$driver_cid" 2>/dev/null) || return 1
   reason=$(python3 -c "$(cat <<'PY'
 import json,sys
 try:
- x=json.load(sys.stdin); ident,name,marker,head,image,pg,tmp,uid,required,driver_env=sys.argv[1:]
+ x=json.load(sys.stdin); ident,name,marker,head,image,pg,tmp,uid,required,driver_env,label=sys.argv[1:]
  c=x['Config']; h=x['HostConfig']; n=x['NetworkSettings']; s=x['State']
- assert (x['Id'],x['Name'],c['Image'],c['Labels']['subtrack.task'],c['Labels']['subtrack.head'])==(ident,'/'+name,image,'ST-233l:'+marker,head)
+ assert (x['Id'],x['Name'],c['Image'],c['Labels']['subtrack.task'],c['Labels']['subtrack.head'])==(ident,'/'+name,image,label+':'+marker,head)
  assert h['NetworkMode']=='container:'+pg and h['Privileged'] is False and not h['PortBindings'] and not h['CapAdd'] and not h['Devices']
  assert h['ReadonlyRootfs'] is True and h['CapDrop']==['ALL'] and 'no-new-privileges' in h['SecurityOpt'] and c['User']==uid
  assert h['PidsLimit']==64 and h['Memory']==134217728
@@ -96,7 +110,7 @@ try:
  assert {(m['Type'],m['Source'],m['Destination'],m['RW']) for m in x['Mounts']}=={('bind',tmp+'/driver.cjs','/fixture.cjs',False),('bind',tmp+'/driver.json','/fixture.json',False)}
 except (KeyError,TypeError,ValueError,AssertionError): sys.exit(1)
 PY
-)" "$driver_cid" "$driver_name" "$marker" "$source_head" "$driver_image" "$cid" "$tmp" "$UID" "${1:-any}" "$driver_env" <<< "$actual" 2>/dev/null) || return 1
+ )" "$driver_cid" "$driver_name" "$marker" "$source_head" "$driver_image" "$cid" "$tmp" "$UID" "${1:-any}" "$driver_env" "$driver_fixture_label" <<< "$actual" 2>/dev/null) || return 1
 }
 driver_cleanup() {
   [[ -z "$driver_cid" ]] && return 0
@@ -105,9 +119,17 @@ driver_cleanup() {
   [[ -z $(docker ps -a --no-trunc --filter "id=$driver_cid" --format '{{.ID}}' 2>/dev/null) ]] || return 1
   driver_cid=''
 }
+read_enrollment_checkpoint() {
+  enrollment_checkpoint=unavailable
+  private_file "$1" || return 1
+  local checkpoint
+  checkpoint=$(grep -E '^ST-236 enrollment checkpoint: FAIL stage=(entry|fixture-qualification|otp-cases|wrong-code|first-account|restart|old-id|active-subject|contact-race|subject-race|unknown-commit|deleted-subject|erasure|pool-reset|restart-child)$' "$1" || true)
+  [[ "$checkpoint" != *$'\n'* && "$checkpoint" =~ ^ST-236\ enrollment\ checkpoint:\ FAIL\ stage=([a-z-]+)$ ]] && enrollment_checkpoint=${BASH_REMATCH[1]}
+  return 0
+}
 base=${RUNNER_TEMP:-/tmp}
-record="$base/st233a-container"
-receipt="$base/st233a-proof-receipt.txt"
+record="$base/$fixture_prefix-container"
+receipt="$base/$receipt_file"
 image=mirror.gcr.io/library/postgres:16-alpine
 db=st233a_development_auth_foundation_proof
 source_head=$(git rev-parse HEAD)
@@ -120,7 +142,7 @@ custody() {
   local rcid rmarker rname rcreated extra actual
   read -r rcid rmarker rname rcreated extra < "$record" || { custody_diagnostic record; return 1; }
   [[ -z "$extra" && "$rcid" =~ ^[a-f0-9]{64}$ && "$rmarker" =~ ^[a-f0-9]{32}$ &&
-     "$rname" == "st233a-$rmarker" && "$rcreated" =~ ^[0-9T:.Z-]+$ ]] || { custody_diagnostic record; return 1; }
+     "$rname" == "$fixture_prefix-$rmarker" && "$rcreated" =~ ^[0-9T:.Z-]+$ ]] || { custody_diagnostic record; return 1; }
   [[ "$rcid" == "$cid" && "$rmarker" == "$marker" && "$rname" == "$name" && "$rcreated" == "$created" ]] || { custody_diagnostic identity; return 1; }
   actual=$(docker inspect --format '{{json .}}' "$cid" 2>/dev/null) || { custody_diagnostic inspect-unavailable; return 1; }
   local diagnostic
@@ -142,10 +164,10 @@ def collection(parent, key, kind):
 try:
     x = json.load(sys.stdin)
     if not isinstance(x, dict): reject('null-shape')
-    cid, name, created, marker, head, image = sys.argv[1:]
+    cid, name, created, marker, head, image, label = sys.argv[1:]
     config, host, settings = (object_at(x, k) for k in ('Config', 'HostConfig', 'NetworkSettings'))
     labels = object_at(config, 'Labels')
-    if (x.get('Id'), x.get('Name'), x.get('Created'), labels.get('subtrack.task'), labels.get('subtrack.head'), config.get('Image')) != (cid, '/'+name, created, 'ST-233a:'+marker, head, image): reject('identity')
+    if (x.get('Id'), x.get('Name'), x.get('Created'), labels.get('subtrack.task'), labels.get('subtrack.head'), config.get('Image')) != (cid, '/'+name, created, label+':'+marker, head, image): reject('identity')
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z', created): reject('age')
     stamp = datetime.datetime.fromisoformat(created.replace('Z', '+00:00')).timestamp()
     age = time.time() - stamp
@@ -161,7 +183,7 @@ try:
 except (ValueError, TypeError, KeyError, OverflowError, OSError):
     reject('parse')
 PY
-)" "$cid" "$name" "$created" "$marker" "$source_head" "$image" <<< "$actual" 2>/dev/null) || { custody_diagnostic "${diagnostic:-parse}"; return 1; }
+)" "$cid" "$name" "$created" "$marker" "$source_head" "$image" "$fixture_label" <<< "$actual" 2>/dev/null) || { custody_diagnostic "${diagnostic:-parse}"; return 1; }
 }
 custody_diagnostic() {
   case "$1" in record|identity|inspect-unavailable|null-shape|age|network|published-port|mount|configuration|parse) printf 'ST-233a custody: FAIL reason=%s\n' "$1" >&2 ;; *) printf 'ST-233a custody: FAIL reason=parse\n' >&2 ;; esac
@@ -188,7 +210,7 @@ cleanup_temp() {
   local root target
   root=$(cd -P -- "$base" && pwd -P) || return 1
   target=$(cd -P -- "$tmp" && pwd -P) || return 1
-  [[ "$target" == "$root/st233a."* && "${target#"$root"/}" != */* ]] || return 1
+  [[ "$target" == "$root/$fixture_prefix."* && "${target#"$root"/}" != */* ]] || return 1
   rm -rf -- "$target" || return 1
   [[ ! -e "$target" && ! -L "$target" ]]
 }
@@ -205,6 +227,15 @@ finish() {
     case "${prune_outcome:-}" in COMMIT|ROLLBACK) ;; *) prune_outcome=unavailable ;; esac
     case "${prune_failure_kind:-}" in operation|assertion|timeout|unexpected-state) ;; *) prune_failure_kind=unavailable ;; esac
     prune_detail=" prune_step=$prune_step direction=$prune_direction outcome=$prune_outcome failure_kind=$prune_failure_kind last_client_sqlstate=$migration_sqlstate last_client_exit=$migration_exit"
+    if [[ "$prune_step" == race-holder-observe ]]; then
+      holder_sqlstate=unavailable
+      if [[ -n "${holder_log:-}" ]] && private_file "$holder_log"; then
+        local holder_match
+        holder_match=$(grep -Eom1 '^ERROR:[[:space:]]+[0-9A-Z]{5}(:|[[:space:]]|$)' "$holder_log" 2>/dev/null || true)
+        [[ "$holder_match" =~ ^ERROR:[[:space:]]+([0-9A-Z]{5})(:|[[:space:]]|$) ]] && holder_sqlstate=${BASH_REMATCH[1]}
+      fi
+      prune_detail+=" holder_sqlstate=$holder_sqlstate"
+    fi
   elif [[ "$phase" == peek || "$phase" == settle || "$phase" == nonce-prune || "$phase" == atomic-issue* ]]; then
     # Fixed labels describe the last assertion, not a proven failure cause.
     [[ "$phase" == atomic-issue-02 || "$phase" == atomic-issue-03 ]] || record_migration_failure
@@ -221,36 +252,42 @@ finish() {
     else
       timed_detail=" step=$timed_step case=$timed_case release=$timed_release failure_kind=$timed_failure_kind last_client_sqlstate=$migration_sqlstate last_client_exit=$migration_exit"
     fi
-  elif [[ "$phase" == durable-enrollment ]]; then
-    case "${enrollment_step:-}" in sql010|writer-acl|bundle|driver-create|driver-start|driver-wait|driver-exit|driver-custody|driver-result) ;; *) enrollment_step=unavailable ;; esac
+  elif [[ "$phase" == durable-enrollment || "$phase" == enrollment-install || "$phase" == enrollment-audit ]]; then
+    case "${enrollment_step:-}" in sql002|sql003|sql004|sql005|sql006|sql007|sql008|sql009|sql010|writer-acl|bundle|driver-create|driver-start|driver-wait|driver-exit|driver-custody|driver-result) ;; *) enrollment_step=unavailable ;; esac
     case "${enrollment_failure_kind:-}" in operation|invalid-custody|timeout|nonzero-exit|unexpected-state|result-mismatch) ;; *) enrollment_failure_kind=unavailable ;; esac
     [[ "${enrollment_sqlstate:-}" =~ ^[0-9A-Z]{5}$ ]] || enrollment_sqlstate=unavailable
     [[ "${enrollment_driver_exit:-}" =~ ^([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])$ ]] || enrollment_driver_exit=unavailable
+    case "${enrollment_checkpoint:-}" in entry|fixture-qualification|otp-cases|wrong-code|first-account|restart|old-id|active-subject|contact-race|subject-race|unknown-commit|deleted-subject|erasure|pool-reset|restart-child) ;; *) enrollment_checkpoint=unavailable ;; esac
     enrollment_detail=" step=$enrollment_step failure_kind=$enrollment_failure_kind sqlstate=$enrollment_sqlstate driver_exit=$enrollment_driver_exit"
+    [[ "$scope" != enrollment ]] || enrollment_detail+=" checkpoint=$enrollment_checkpoint"
   fi
   if [[ ${#clients[@]} != 0 ]]; then status=1; terminate_clients || bad=true; fi
   if [[ -n "${driver_cid:-}" ]]; then driver_cleanup || bad=true; fi
   if [[ "$bad" == true || ${#clients[@]} != 0 ]]; then
     printf 'ST-233b lifecycle: FAIL recovery=retained\n' >&2
-    [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" && printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=failed%s%s%s%s\n' "$source_head" "$phase" "$migration_detail" "$enrollment_detail" "$prune_detail" "$timed_detail" >> "$receipt"
+    [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" && printf '%s: FAIL source_head=%s phase=%s cleanup=failed%s%s%s%s\n' "$scope_title" "$source_head" "$phase" "$migration_detail" "$enrollment_detail" "$prune_detail" "$timed_detail" >> "$receipt"
     exit 1
   fi
   if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
   if cleanup_container; then cleanup_temp || bad=true; else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; cleanup_result=failed; fi
-  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|prune|settle|nonce-prune|atomic-issue|atomic-issue-0[1-9]|atomic-issue-1[0-9]|driver|driver-cleanup|port-durable-state|durable-current|durable-enrollment|pins|cleanup) ;; *) status=1; phase=starting ;; esac
+  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|enrollment-install|enrollment-audit|fence|peek|reserve|prune|settle|nonce-prune|atomic-issue|atomic-issue-0[1-9]|atomic-issue-1[0-9]|driver|driver-cleanup|port-durable-state|durable-current|durable-enrollment|pins|cleanup) ;; *) status=1; phase=starting ;; esac
   [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" || exit 1
   if [[ "$status" == 0 && "$passed" == true && "$bad" == false ]]; then
-    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,private-atomic-issue,postlock-clock,rollback,reconnect,bounded-clients,durable-current-web,durable-enrollment fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
+    if [[ "$scope" == enrollment ]]; then
+      printf 'ST-236 enrollment proof: PASS source_head=%s cases=PG16,SCRAM,qualified-SQL001-010,private-writers,full-node-enrollment fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
+    else
+      printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,private-atomic-issue,postlock-clock,rollback,reconnect,bounded-clients,durable-current-web,durable-enrollment fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
+    fi
   else
     status=1
-    printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s%s%s%s%s\n' "$source_head" "$phase" "$cleanup_result" "$migration_detail" "$enrollment_detail" "$prune_detail" "$timed_detail" >> "$receipt"
+    printf '%s: FAIL source_head=%s phase=%s cleanup=%s%s%s%s%s\n' "$scope_title" "$source_head" "$phase" "$cleanup_result" "$migration_detail" "$enrollment_detail" "$prune_detail" "$timed_detail" >> "$receipt"
   fi
   exit "$status"
 }
-if [[ "${1:-}" == --cleanup ]]; then
+if { (( $# == 1 )) && [[ "$1" == --cleanup ]]; } || { (( $# == 2 )) && [[ "$2" == --cleanup ]]; }; then
   # Recovery cannot infer exit of host clients from a container removal.
-  for recovery in "$base"/st233a.*/clients; do
+  for recovery in "$base"/"$fixture_prefix".*/clients; do
     [[ ! -e "$recovery" ]] || { private_file "$recovery" && [[ ! -s "$recovery" ]] || exit 1; }
   done
   if [[ ! -e "$record" && ! -L "$record" ]]; then exit 0; fi
@@ -259,13 +296,13 @@ if [[ "${1:-}" == --cleanup ]]; then
   [[ -z "${extra:-}" ]] || exit 1
   cleanup_container; exit
 fi
-[[ $# == 0 && $(uname -s) == Linux ]] || exit 1
+[[ $(uname -s) == Linux ]] || exit 1
 for var in DATABASE_URL DIRECT_URL PGHOST PGPORT PGUSER PGPASSWORD PGPASSFILE PGSERVICE PGSERVICEFILE PGDATABASE PGOPTIONS DOCKER_HOST DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH; do
   [[ ! -v "$var" ]] || { printf 'ST-233a inherited credentials rejected\n' >&2; exit 1; }
 done
 for command in docker openssl sha256sum git python3 node; do command -v "$command" >/dev/null || exit 1; done
 [[ ! -e "$record" && ! -L "$record" && ! -L "$receipt" ]] || exit 1
-tmp=$(mktemp -d "$base/st233a.XXXXXX")
+tmp=$(mktemp -d "$base/$fixture_prefix.XXXXXX")
 : > "$tmp/clients"
 private_file "$tmp/clients" || exit 1
 trap finish EXIT
@@ -283,15 +320,15 @@ for path in "${inputs[@]}"; do
   blob=$(git hash-object "$path")
   [[ "$blob" == $(git rev-parse "$source_head:$(git ls-files --full-name "$path")") ]] || exit 1
   printf '%s %s %s\n' "$path" "$blob" "$(sha256sum "$path" | cut -d ' ' -f1)" >> "$tmp/pins"
-  printf 'ST-233a input=%s blob=%s sha256=%s\n' "$path" "$blob" "$(sha256sum "$path" | cut -d ' ' -f1)" >> "$receipt"
+  printf '%s input=%s blob=%s sha256=%s\n' "$fixture_label" "$path" "$blob" "$(sha256sum "$path" | cut -d ' ' -f1)" >> "$receipt"
 done
 owner_pass=$(openssl rand -hex 24) actor_pass=$(openssl rand -hex 24) marker=$(openssl rand -hex 16)
-name="st233a-$marker"
+name="$fixture_prefix-$marker"
 printf 'POSTGRES_USER=st233a_fixture_owner\nPOSTGRES_DB=%s\nPOSTGRES_PASSWORD=%s\nPOSTGRES_HOST_AUTH_METHOD=scram-sha-256\nPOSTGRES_INITDB_ARGS=--auth-host=scram-sha-256\n' "$db" "$owner_pass" > "$tmp/container.env"
 printf '127.0.0.1:5432:%s:st233a_fixture_owner:%s\n127.0.0.1:5432:%s:subtrack_dev_auth_login:%s\n' "$db" "$owner_pass" "$db" "$actor_pass" > "$tmp/pgpass"
 private_file "$tmp/container.env" && private_file "$tmp/pgpass" || exit 1
 phase=fixture
-docker create --name "$name" --label "subtrack.task=ST-233a:$marker" --label "subtrack.head=$source_head" --network none \
+docker create --name "$name" --label "subtrack.task=$fixture_label:$marker" --label "subtrack.head=$source_head" --network none \
   --mount type=tmpfs,destination=/var/lib/postgresql/data --env-file "$tmp/container.env" "$image" > "$tmp/cid" 2> "$tmp/create.log"
 cid=$(cat "$tmp/cid")
 [[ "$cid" =~ ^[a-f0-9]{64}$ ]] || exit 1
@@ -342,7 +379,105 @@ migration_step=parent-0002
 if owner < "${inputs[1]}"; then :; else record_migration_failure; exit 1; fi
 migration_step=fixture-control
 if printf "REVOKE TEMPORARY, CREATE ON DATABASE %s FROM PUBLIC; CREATE TABLE public.st233a_fixture_control(task text, head text, marker text); REVOKE ALL ON public.st233a_fixture_control FROM PUBLIC; INSERT INTO public.st233a_fixture_control VALUES ('ST-233a','%s','%s');\n" "$db" "$source_head" "$marker" | owner; then :; else record_migration_failure; exit 1; fi
+catalog_001() {
+phase=catalog
+cat > "$tmp/catalog.sql" <<'SQL'
+SELECT 1 / (count(*)=4 AND bool_and(NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolbypassrls AND NOT rolinherit AND rolcanlogin=(rolname='subtrack_dev_auth_login')))::integer FROM pg_catalog.pg_roles WHERE rolname IN ('subtrack_auth_owner','subtrack_auth_executor','subtrack_auth_producer','subtrack_dev_auth_login');
+SELECT 1 / (count(*)=3 AND bool_and(NOT admin_option AND NOT inherit_option AND set_option AND roleid IN ('subtrack_runtime'::regrole,'subtrack_identity_provisioner'::regrole,'subtrack_auth_producer'::regrole)))::integer FROM pg_catalog.pg_auth_members WHERE member='subtrack_dev_auth_login'::regrole;
+SELECT 1 / (NOT EXISTS(WITH RECURSIVE members(id) AS (SELECT roleid FROM pg_catalog.pg_auth_members WHERE member='subtrack_dev_auth_login'::regrole UNION SELECT m.roleid FROM pg_catalog.pg_auth_members m JOIN members p ON m.member=p.id) SELECT 1 FROM members WHERE id NOT IN ('subtrack_runtime'::regrole,'subtrack_identity_provisioner'::regrole,'subtrack_auth_producer'::regrole)))::integer;
+SELECT 1 / (count(*)=3 AND bool_and(relowner='subtrack_auth_owner'::regrole AND relrowsecurity AND relforcerowsecurity))::integer FROM pg_catalog.pg_class WHERE relnamespace='subtrack_auth'::regnamespace AND relkind='r';
+SELECT 1 / (count(*)=9 AND bool_and(polroles=ARRAY['subtrack_auth_executor'::regrole::oid] AND polpermissive))::integer FROM pg_catalog.pg_policy WHERE polrelid IN ('subtrack_auth.epoch'::regclass,'subtrack_auth.nonce'::regclass,'subtrack_auth.reservation'::regclass);
+SELECT 1 / bool_and((c.relname,p.polname,p.polcmd) IN (('epoch','epoch_select','r'),('epoch','epoch_watermark','w'),('reservation','reservation_select','r'),('reservation','reservation_insert','a'),('reservation','reservation_delete','d'),('reservation','reservation_settle','w'),('nonce','nonce_select','r'),('nonce','nonce_insert','a'),('nonce','nonce_delete','d')) AND (CASE WHEN p.polcmd='a' THEN p.polqual IS NULL ELSE pg_catalog.pg_get_expr(p.polqual,p.polrelid)='true' END) AND (CASE WHEN p.polcmd IN ('a','w') THEN pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid)='true' ELSE p.polwithcheck IS NULL END))::integer FROM pg_catalog.pg_policy p JOIN pg_catalog.pg_class c ON c.oid=p.polrelid WHERE c.relnamespace='subtrack_auth'::regnamespace;
+SELECT 1 / (count(*)=2 AND bool_and(typowner='subtrack_auth_owner'::regrole))::integer FROM pg_catalog.pg_type WHERE typnamespace='subtrack_auth'::regnamespace AND typtype='d';
+SELECT 1 / (count(*)=2 AND bool_and((typname,typbasetype) IN (('h','pg_catalog.text'::regtype),('ms','pg_catalog.int8'::regtype))))::integer FROM pg_catalog.pg_type WHERE typnamespace='subtrack_auth'::regnamespace AND typtype='d';
+SELECT 1 / (nspowner='subtrack_auth_owner'::regrole)::integer FROM pg_catalog.pg_namespace WHERE nspname='subtrack_auth';
+SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace))::integer;
+SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid WHERE c.relnamespace='subtrack_auth'::regnamespace AND NOT t.tgisinternal))::integer;
+SELECT 1 / (count(*)=26 AND bool_and(NOT atthasdef AND NOT attisdropped))::integer FROM pg_catalog.pg_attribute WHERE attrelid IN ('subtrack_auth.epoch'::regclass,'subtrack_auth.nonce'::regclass,'subtrack_auth.reservation'::regclass) AND attnum>0;
+WITH expected(name,columns,types) AS (VALUES ('epoch',ARRAY['id','manifest_h','origin','watermark_ms','state'],ARRAY['text','subtrack_auth.h','text','subtrack_auth.ms','text']),('reservation',ARRAY['key_h','operation','authority_kind','authority_h','request_h','owner_h','transport','epoch','issued_ms','expires_ms','state'],ARRAY['subtrack_auth.h','text','text','subtrack_auth.h','subtrack_auth.h','subtrack_auth.h','text','text','subtrack_auth.ms','subtrack_auth.ms','text']),('nonce',ARRAY['nonce_h','transport','origin','chain','binding_h','epoch','issued_ms','expires_ms','purpose','authority_h'],ARRAY['subtrack_auth.h','text','text','text','subtrack_auth.h','text','subtrack_auth.ms','subtrack_auth.ms','text','subtrack_auth.h'])) SELECT 1 / (count(*)=3 AND bool_and(e.columns=(SELECT array_agg(a.attname::text ORDER BY a.attnum) FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0) AND e.types=(SELECT array_agg(pg_catalog.format_type(a.atttypid,a.atttypmod) ORDER BY a.attnum) FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0)))::integer FROM expected e JOIN pg_catalog.pg_class c ON c.relname=e.name AND c.relnamespace='subtrack_auth'::regnamespace;
+SELECT 1 / bool_and(pg_catalog.has_column_privilege('subtrack_auth_executor',c.oid,a.attnum,'SELECT') AND pg_catalog.has_column_privilege('subtrack_auth_executor',c.oid,a.attnum,'INSERT')=(c.relname IN ('reservation','nonce')) AND pg_catalog.has_column_privilege('subtrack_auth_executor',c.oid,a.attnum,'UPDATE')=((c.relname,a.attname) IN (('epoch','watermark_ms'),('reservation','state'))) AND NOT pg_catalog.has_column_privilege('subtrack_auth_executor',c.oid,a.attnum,'REFERENCES'))::integer FROM pg_catalog.pg_class c JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid WHERE c.relnamespace='subtrack_auth'::regnamespace AND c.relkind='r' AND a.attnum>0 AND NOT a.attisdropped;
+SELECT 1 / bool_and(pg_catalog.has_table_privilege('subtrack_auth_executor',oid,'DELETE')=(relname IN ('reservation','nonce')) AND NOT pg_catalog.has_table_privilege('subtrack_auth_executor',oid,'UPDATE,TRUNCATE,REFERENCES,TRIGGER'))::integer FROM pg_catalog.pg_class WHERE relnamespace='subtrack_auth'::regnamespace AND relkind='r';
+SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid IN ('subtrack_auth.epoch'::regclass,'subtrack_auth.nonce'::regclass,'subtrack_auth.reservation'::regclass) AND attnum>0 AND NOT attisdropped AND NOT attnotnull AND NOT(attrelid='subtrack_auth.nonce'::regclass AND attname='authority_h')))::integer;
+SELECT 1 / (count(*)=4 AND bool_and(NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(d.defaclacl) a WHERE a.grantee=0)))::integer FROM pg_catalog.pg_default_acl d WHERE defaclrole IN ('subtrack_auth_owner'::regrole,'subtrack_auth_executor'::regrole) AND defaclnamespace=0 AND defaclobjtype IN ('f','T');
+SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_class c, LATERAL pg_catalog.aclexplode(COALESCE(c.relacl,pg_catalog.acldefault('r',c.relowner))) a WHERE c.relnamespace='subtrack_auth'::regnamespace AND a.grantee=0))::integer;
+SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_class c, LATERAL pg_catalog.aclexplode(COALESCE(c.relacl,pg_catalog.acldefault('r',c.relowner))) a WHERE c.relnamespace='subtrack_auth'::regnamespace AND a.grantee NOT IN ('subtrack_auth_owner'::regrole,'subtrack_auth_executor'::regrole)) AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c ON c.oid=a.attrelid, LATERAL pg_catalog.aclexplode(a.attacl) x WHERE c.relnamespace='subtrack_auth'::regnamespace AND x.grantee NOT IN ('subtrack_auth_owner'::regrole,'subtrack_auth_executor'::regrole)))::integer;
+SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_type t, LATERAL pg_catalog.aclexplode(COALESCE(t.typacl,pg_catalog.acldefault('T',t.typowner))) a WHERE t.typnamespace='subtrack_auth'::regnamespace AND t.typtype='d' AND a.grantee=0))::integer;
+SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace n,LATERAL pg_catalog.aclexplode(n.nspacl) a WHERE n.nspname='subtrack_auth' AND a.grantee=0))::integer;
+SELECT 1 / (NOT pg_catalog.has_table_privilege('subtrack_identity_provisioner','public.identity','UPDATE,DELETE') AND NOT pg_catalog.has_column_privilege('subtrack_identity_provisioner','public.identity','email','SELECT') AND pg_catalog.has_column_privilege('subtrack_identity_provisioner','public.identity','id','SELECT') AND pg_catalog.has_column_privilege('subtrack_identity_provisioner','public.identity','external_id','SELECT') AND pg_catalog.has_table_privilege('subtrack_identity_provisioner','public.identity','INSERT'))::integer;
+RESET ROLE; RESET app.user_id; RESET app.current_user_id; RESET search_path;
+SELECT 1/(CURRENT_USER=SESSION_USER AND COALESCE(pg_catalog.current_setting('app.user_id',true),'')='' AND COALESCE(pg_catalog.current_setting('app.current_user_id',true),'')='')::integer;
+SQL
+owner < "$tmp/catalog.sql"
+# Capture exact accepted-001 constraint definitions before adding any functions.
+printf "SELECT md5(string_agg(format('%%s:%%s:%%s:%%s:%%s',c.conname,c.contype,c.convalidated,c.condeferrable,pg_get_constraintdef(c.oid)),E'\\n' ORDER BY c.conname,c.oid)) FROM pg_catalog.pg_constraint c WHERE c.connamespace='subtrack_auth'::regnamespace;\n" | owner
+constraints_pin=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log")
+[[ "$constraints_pin" =~ ^[a-f0-9]{32}$ ]] || exit 1
+}
+run_enrollment() {
+phase=durable-enrollment enrollment_step=sql010 enrollment_failure_kind=operation enrollment_sqlstate=unavailable enrollment_driver_exit=unavailable
+# Prior fixture cases deliberately fill nonce capacity. Retire only this owned,
+# disposable database's completed test state before the next isolated proof.
+printf 'DELETE FROM subtrack_auth.nonce; DELETE FROM subtrack_auth.reservation;\n' | owner
+if { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat apps/api/prisma/development-auth/010-enrollment-account.sql; } | owner; then :; else
+  record_migration_failure
+  enrollment_sqlstate=$migration_sqlstate
+  exit 1
+fi
+# SQL010 must not open an unrelated legacy/session/deletion writer in the fixture.
+enrollment_step=writer-acl
+assert_owner "NOT pg_catalog.has_table_privilege('subtrack_dev_auth_login','public.identity','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_dev_auth_login','subtrack_auth.session','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_auth_producer','public.identity','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_identity_provisioner','public.identity','UPDATE,DELETE') AND pg_catalog.has_table_privilege('subtrack_runtime','public.identity','DELETE')"
+enrollment_step=bundle
+: > "$tmp/driver-bundle.log"
+private_file "$tmp/driver-bundle.log" || exit 1
+node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],logLevel:"silent"})' apps/api/test/durable-development-enrollment.integration.ts "$tmp/driver.cjs" > "$tmp/driver-bundle.log" 2>&1 || exit 1
+driver_bundle_hash=$(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1)
+enrollment_step=driver-create
+docker create --name "$driver_name" --label "subtrack.task=$driver_fixture_label:$marker" --label "subtrack.head=$source_head" \
+  --network "container:$cid" --user "$UID" --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 128m -e NODE_ENV=development \
+  --mount "type=bind,src=$tmp/driver.cjs,dst=/fixture.cjs,readonly" --mount "type=bind,src=$tmp/driver.json,dst=/fixture.json,readonly" \
+  "$driver_image" node /fixture.cjs > "$tmp/driver-cid" 2> "$tmp/driver-create.log" || exit 1
+driver_cid=$(cat "$tmp/driver-cid")
+[[ "$driver_cid" =~ ^[a-f0-9]{64}$ ]] || exit 1
+enrollment_step=driver-custody enrollment_failure_kind=invalid-custody
+driver_custody created || exit 1
+enrollment_step=driver-start enrollment_failure_kind=operation
+docker start "$driver_cid" >/dev/null 2>&1 || exit 1
+enrollment_step=driver-custody enrollment_failure_kind=invalid-custody
+driver_custody running || exit 1
+[[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
+enrollment_step=driver-wait enrollment_failure_kind=operation
+driver_deadline=$(( $(monotonic) + 90000 ))
+while [[ $(monotonic) -lt "$driver_deadline" ]]; do
+  driver_state=$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}}' "$driver_cid" 2>/dev/null) || exit 1
+  [[ "$driver_state" != 'running 0' ]] && break
+  sleep .1
+done
+if [[ "$driver_state" == 'running 0' ]]; then enrollment_failure_kind=timeout; exit 1; fi
+enrollment_step=driver-exit enrollment_failure_kind=unexpected-state
+if [[ "$driver_state" =~ ^exited\ ([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])$ ]]; then
+  enrollment_driver_exit=${BASH_REMATCH[1]}
+  enrollment_failure_kind=nonzero-exit
+  if [[ "$scope" == enrollment ]]; then
+    if docker logs "$driver_cid" > "$tmp/driver-failure.log" 2>&1 && private_file "$tmp/driver-failure.log"; then
+      read_enrollment_checkpoint "$tmp/driver-failure.log" || exit 1
+    fi
+  fi
+  exit 1
+fi
+[[ "$driver_state" == 'exited 0' ]] || exit 1
+enrollment_step=driver-custody enrollment_failure_kind=invalid-custody
+driver_custody exited || exit 1
+[[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
+enrollment_step=driver-result enrollment_failure_kind=operation
+driver_result=$(docker logs "$driver_cid" 2>/dev/null) || exit 1
+enrollment_failure_kind=result-mismatch
+[[ "$driver_result" == 'ST-236 durable enrollment: PASS' ]] || exit 1
+printf '%s\n' "$driver_result" >> "$receipt"
+enrollment_step=driver-custody enrollment_failure_kind=invalid-custody
+driver_cleanup || exit 1
+}
 phase=foundation
+if [[ "$scope" == foundation ]]; then
 for bad in head marker; do
   badhead="$source_head" badmarker="$marker"
   [[ "$bad" != head ]] || badhead=invalid
@@ -351,12 +486,40 @@ for bad in head marker; do
   grep -q 'ERROR:  22012' "$client_log" || exit 1
   assert_owner "NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='subtrack_auth') AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='subtrack_auth_owner')"
 done
+fi
 { printf "SET st233a.head='%s'; SET st233a.marker='%s';\n" "$source_head" "$marker"; cat "${inputs[2]}"; } | owner
 printf "ALTER ROLE subtrack_dev_auth_login PASSWORD '%s';\n" "$actor_secret" | owner
 printf '{"password":"%s","database":"%s"}\n' "$actor_secret" "$db" > "$tmp/driver.json"
 private_file "$tmp/driver.json" || exit 1
 actor_secret=''
 assert_owner "(SELECT rolpassword LIKE 'SCRAM-SHA-256\$%%' FROM pg_catalog.pg_authid WHERE rolname='subtrack_dev_auth_login')"
+if [[ "$scope" == enrollment ]]; then
+  catalog_001
+  phase=enrollment-install enrollment_step=sql002 enrollment_failure_kind=operation
+  for migration in 002-epoch-fence 003-nonce-binding-lookup 004-bootstrap-reservation 005-expired-reservation-prune 006-owned-bootstrap-settlement 007-expired-nonce-prune 008-atomic-bootstrap-nonce-issue 009-current-web-session-csrf; do
+    enrollment_step=sql${migration%%-*}
+    if { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat "apps/api/prisma/development-auth/$migration.sql"; } | owner; then :; else
+      record_migration_failure; enrollment_sqlstate=$migration_sqlstate; exit 1
+    fi
+  done
+  phase=enrollment-audit enrollment_step=writer-acl
+  printf "INSERT INTO subtrack_auth.epoch VALUES ('fixture',repeat('a',64),'https://st233a.invalid',0,'active');\n" | owner
+  assert_owner "(SELECT count(*)=1 AND bool_and(id='fixture' AND state='active' AND manifest_h=repeat('a',64)) FROM subtrack_auth.epoch)"
+  [[ ${#clients[@]} == 0 && -z "$driver_cid" ]] || exit 1
+  driver_name="$driver_prefix-$marker" driver_env='NODE_ENV=development'
+  owner_secret=$(sed -n '1s/.*://p' "$tmp/pgpass")
+  actor_secret=$(sed -n '2s/.*://p' "$tmp/pgpass")
+  [[ "$owner_secret" =~ ^[a-f0-9]{48}$ && "$actor_secret" =~ ^[a-f0-9]{48}$ ]] || exit 1
+  printf '{"database":"%s","password":"%s","ownerPassword":"%s"}\n' "$db" "$actor_secret" "$owner_secret" > "$tmp/driver.json"
+  owner_secret='' actor_secret=''
+  private_file "$tmp/driver.json" || exit 1
+  run_enrollment
+  phase=pins
+  [[ $(git rev-parse HEAD) == "$source_head" ]] || exit 1
+  while read -r path blob bytes; do [[ $(git hash-object "$path") == "$blob" && $(sha256sum "$path" | cut -d ' ' -f1) == "$bytes" ]] || exit 1; done < "$tmp/pins"
+  passed=true
+  exit 0
+fi
 phase=actor
 printf "SELECT 1/(SESSION_USER='subtrack_dev_auth_login' AND CURRENT_USER=SESSION_USER)::integer;\n" | actor
 for role in subtrack_dev_auth_login subtrack_runtime subtrack_identity_provisioner subtrack_auth_producer; do
@@ -448,38 +611,7 @@ for table in epoch reservation nonce; do
     deny_executor "UPDATE subtrack_auth.$table SET $column=$column;" || exit 1
   done < <(case "$table" in epoch) printf '%s\n' id manifest_h origin watermark_ms state ;; reservation) printf '%s\n' key_h operation authority_kind authority_h request_h owner_h transport epoch issued_ms expires_ms state ;; nonce) printf '%s\n' nonce_h transport origin chain binding_h epoch issued_ms expires_ms purpose authority_h ;; esac)
 done
-phase=catalog
-cat > "$tmp/catalog.sql" <<'SQL'
-SELECT 1 / (count(*)=4 AND bool_and(NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolbypassrls AND NOT rolinherit AND rolcanlogin=(rolname='subtrack_dev_auth_login')))::integer FROM pg_catalog.pg_roles WHERE rolname IN ('subtrack_auth_owner','subtrack_auth_executor','subtrack_auth_producer','subtrack_dev_auth_login');
-SELECT 1 / (count(*)=3 AND bool_and(NOT admin_option AND NOT inherit_option AND set_option AND roleid IN ('subtrack_runtime'::regrole,'subtrack_identity_provisioner'::regrole,'subtrack_auth_producer'::regrole)))::integer FROM pg_catalog.pg_auth_members WHERE member='subtrack_dev_auth_login'::regrole;
-SELECT 1 / (NOT EXISTS(WITH RECURSIVE members(id) AS (SELECT roleid FROM pg_catalog.pg_auth_members WHERE member='subtrack_dev_auth_login'::regrole UNION SELECT m.roleid FROM pg_catalog.pg_auth_members m JOIN members p ON m.member=p.id) SELECT 1 FROM members WHERE id NOT IN ('subtrack_runtime'::regrole,'subtrack_identity_provisioner'::regrole,'subtrack_auth_producer'::regrole)))::integer;
-SELECT 1 / (count(*)=3 AND bool_and(relowner='subtrack_auth_owner'::regrole AND relrowsecurity AND relforcerowsecurity))::integer FROM pg_catalog.pg_class WHERE relnamespace='subtrack_auth'::regnamespace AND relkind='r';
-SELECT 1 / (count(*)=9 AND bool_and(polroles=ARRAY['subtrack_auth_executor'::regrole::oid] AND polpermissive))::integer FROM pg_catalog.pg_policy WHERE polrelid IN ('subtrack_auth.epoch'::regclass,'subtrack_auth.nonce'::regclass,'subtrack_auth.reservation'::regclass);
-SELECT 1 / bool_and((c.relname,p.polname,p.polcmd) IN (('epoch','epoch_select','r'),('epoch','epoch_watermark','w'),('reservation','reservation_select','r'),('reservation','reservation_insert','a'),('reservation','reservation_delete','d'),('reservation','reservation_settle','w'),('nonce','nonce_select','r'),('nonce','nonce_insert','a'),('nonce','nonce_delete','d')) AND (CASE WHEN p.polcmd='a' THEN p.polqual IS NULL ELSE pg_catalog.pg_get_expr(p.polqual,p.polrelid)='true' END) AND (CASE WHEN p.polcmd IN ('a','w') THEN pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid)='true' ELSE p.polwithcheck IS NULL END))::integer FROM pg_catalog.pg_policy p JOIN pg_catalog.pg_class c ON c.oid=p.polrelid WHERE c.relnamespace='subtrack_auth'::regnamespace;
-SELECT 1 / (count(*)=2 AND bool_and(typowner='subtrack_auth_owner'::regrole))::integer FROM pg_catalog.pg_type WHERE typnamespace='subtrack_auth'::regnamespace AND typtype='d';
-SELECT 1 / (count(*)=2 AND bool_and((typname,typbasetype) IN (('h','pg_catalog.text'::regtype),('ms','pg_catalog.int8'::regtype))))::integer FROM pg_catalog.pg_type WHERE typnamespace='subtrack_auth'::regnamespace AND typtype='d';
-SELECT 1 / (nspowner='subtrack_auth_owner'::regrole)::integer FROM pg_catalog.pg_namespace WHERE nspname='subtrack_auth';
-SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace))::integer;
-SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid WHERE c.relnamespace='subtrack_auth'::regnamespace AND NOT t.tgisinternal))::integer;
-SELECT 1 / (count(*)=26 AND bool_and(NOT atthasdef AND NOT attisdropped))::integer FROM pg_catalog.pg_attribute WHERE attrelid IN ('subtrack_auth.epoch'::regclass,'subtrack_auth.nonce'::regclass,'subtrack_auth.reservation'::regclass) AND attnum>0;
-WITH expected(name,columns,types) AS (VALUES ('epoch',ARRAY['id','manifest_h','origin','watermark_ms','state'],ARRAY['text','subtrack_auth.h','text','subtrack_auth.ms','text']),('reservation',ARRAY['key_h','operation','authority_kind','authority_h','request_h','owner_h','transport','epoch','issued_ms','expires_ms','state'],ARRAY['subtrack_auth.h','text','text','subtrack_auth.h','subtrack_auth.h','subtrack_auth.h','text','text','subtrack_auth.ms','subtrack_auth.ms','text']),('nonce',ARRAY['nonce_h','transport','origin','chain','binding_h','epoch','issued_ms','expires_ms','purpose','authority_h'],ARRAY['subtrack_auth.h','text','text','text','subtrack_auth.h','text','subtrack_auth.ms','subtrack_auth.ms','text','subtrack_auth.h'])) SELECT 1 / (count(*)=3 AND bool_and(e.columns=(SELECT array_agg(a.attname::text ORDER BY a.attnum) FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0) AND e.types=(SELECT array_agg(pg_catalog.format_type(a.atttypid,a.atttypmod) ORDER BY a.attnum) FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0)))::integer FROM expected e JOIN pg_catalog.pg_class c ON c.relname=e.name AND c.relnamespace='subtrack_auth'::regnamespace;
-SELECT 1 / bool_and(pg_catalog.has_column_privilege('subtrack_auth_executor',c.oid,a.attnum,'SELECT') AND pg_catalog.has_column_privilege('subtrack_auth_executor',c.oid,a.attnum,'INSERT')=(c.relname IN ('reservation','nonce')) AND pg_catalog.has_column_privilege('subtrack_auth_executor',c.oid,a.attnum,'UPDATE')=((c.relname,a.attname) IN (('epoch','watermark_ms'),('reservation','state'))) AND NOT pg_catalog.has_column_privilege('subtrack_auth_executor',c.oid,a.attnum,'REFERENCES'))::integer FROM pg_catalog.pg_class c JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid WHERE c.relnamespace='subtrack_auth'::regnamespace AND c.relkind='r' AND a.attnum>0 AND NOT a.attisdropped;
-SELECT 1 / bool_and(pg_catalog.has_table_privilege('subtrack_auth_executor',oid,'DELETE')=(relname IN ('reservation','nonce')) AND NOT pg_catalog.has_table_privilege('subtrack_auth_executor',oid,'UPDATE,TRUNCATE,REFERENCES,TRIGGER'))::integer FROM pg_catalog.pg_class WHERE relnamespace='subtrack_auth'::regnamespace AND relkind='r';
-SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid IN ('subtrack_auth.epoch'::regclass,'subtrack_auth.nonce'::regclass,'subtrack_auth.reservation'::regclass) AND attnum>0 AND NOT attisdropped AND NOT attnotnull AND NOT(attrelid='subtrack_auth.nonce'::regclass AND attname='authority_h')))::integer;
-SELECT 1 / (count(*)=4 AND bool_and(NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(d.defaclacl) a WHERE a.grantee=0)))::integer FROM pg_catalog.pg_default_acl d WHERE defaclrole IN ('subtrack_auth_owner'::regrole,'subtrack_auth_executor'::regrole) AND defaclnamespace=0 AND defaclobjtype IN ('f','T');
-SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_class c, LATERAL pg_catalog.aclexplode(COALESCE(c.relacl,pg_catalog.acldefault('r',c.relowner))) a WHERE c.relnamespace='subtrack_auth'::regnamespace AND a.grantee=0))::integer;
-SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_class c, LATERAL pg_catalog.aclexplode(COALESCE(c.relacl,pg_catalog.acldefault('r',c.relowner))) a WHERE c.relnamespace='subtrack_auth'::regnamespace AND a.grantee NOT IN ('subtrack_auth_owner'::regrole,'subtrack_auth_executor'::regrole)) AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c ON c.oid=a.attrelid, LATERAL pg_catalog.aclexplode(a.attacl) x WHERE c.relnamespace='subtrack_auth'::regnamespace AND x.grantee NOT IN ('subtrack_auth_owner'::regrole,'subtrack_auth_executor'::regrole)))::integer;
-SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_type t, LATERAL pg_catalog.aclexplode(COALESCE(t.typacl,pg_catalog.acldefault('T',t.typowner))) a WHERE t.typnamespace='subtrack_auth'::regnamespace AND t.typtype='d' AND a.grantee=0))::integer;
-SELECT 1 / (NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace n,LATERAL pg_catalog.aclexplode(n.nspacl) a WHERE n.nspname='subtrack_auth' AND a.grantee=0))::integer;
-SELECT 1 / (NOT pg_catalog.has_table_privilege('subtrack_identity_provisioner','public.identity','UPDATE,DELETE') AND NOT pg_catalog.has_column_privilege('subtrack_identity_provisioner','public.identity','email','SELECT') AND pg_catalog.has_column_privilege('subtrack_identity_provisioner','public.identity','id','SELECT') AND pg_catalog.has_column_privilege('subtrack_identity_provisioner','public.identity','external_id','SELECT') AND pg_catalog.has_table_privilege('subtrack_identity_provisioner','public.identity','INSERT'))::integer;
-RESET ROLE; RESET app.user_id; RESET app.current_user_id; RESET search_path;
-SELECT 1/(CURRENT_USER=SESSION_USER AND COALESCE(pg_catalog.current_setting('app.user_id',true),'')='' AND COALESCE(pg_catalog.current_setting('app.current_user_id',true),'')='')::integer;
-SQL
-owner < "$tmp/catalog.sql"
-# Capture exact accepted-001 constraint definitions before adding any functions.
-printf "SELECT md5(string_agg(format('%%s:%%s:%%s:%%s:%%s',c.conname,c.contype,c.convalidated,c.condeferrable,pg_get_constraintdef(c.oid)),E'\\n' ORDER BY c.conname,c.oid)) FROM pg_catalog.pg_constraint c WHERE c.connamespace='subtrack_auth'::regnamespace;\n" | owner
-constraints_pin=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log")
-[[ "$constraints_pin" =~ ^[a-f0-9]{32}$ ]] || exit 1
+catalog_001
 phase=fence
 for bad in head marker; do
   badhead="$source_head" badmarker="$marker"
@@ -1780,62 +1912,7 @@ driver_result=$(docker logs "$driver_cid" 2>/dev/null) || exit 1
 [[ "$driver_result" == 'ST-235 durable current web: PASS' ]] || exit 1
 printf '%s\n' "$driver_result" >> "$receipt"
 driver_cleanup || exit 1
-phase=durable-enrollment enrollment_step=sql010 enrollment_failure_kind=operation enrollment_sqlstate=unavailable enrollment_driver_exit=unavailable
-# Prior fixture cases deliberately fill nonce capacity. Retire only this owned,
-# disposable database's completed test state before the next isolated proof.
-printf 'DELETE FROM subtrack_auth.nonce; DELETE FROM subtrack_auth.reservation;\n' | owner
-if { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat apps/api/prisma/development-auth/010-enrollment-account.sql; } | owner; then :; else
-  record_migration_failure
-  enrollment_sqlstate=$migration_sqlstate
-  exit 1
-fi
-# SQL010 must not open an unrelated legacy/session/deletion writer in the fixture.
-enrollment_step=writer-acl
-assert_owner "NOT pg_catalog.has_table_privilege('subtrack_dev_auth_login','public.identity','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_dev_auth_login','subtrack_auth.session','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_auth_producer','public.identity','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_identity_provisioner','public.identity','UPDATE,DELETE') AND pg_catalog.has_table_privilege('subtrack_runtime','public.identity','DELETE')"
-enrollment_step=bundle
-: > "$tmp/driver-bundle.log"
-private_file "$tmp/driver-bundle.log" || exit 1
-node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],logLevel:"silent"})' apps/api/test/durable-development-enrollment.integration.ts "$tmp/driver.cjs" > "$tmp/driver-bundle.log" 2>&1 || exit 1
-driver_bundle_hash=$(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1)
-enrollment_step=driver-create
-docker create --name "$driver_name" --label "subtrack.task=ST-233l:$marker" --label "subtrack.head=$source_head" \
-  --network "container:$cid" --user "$UID" --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 128m -e NODE_ENV=development \
-  --mount "type=bind,src=$tmp/driver.cjs,dst=/fixture.cjs,readonly" --mount "type=bind,src=$tmp/driver.json,dst=/fixture.json,readonly" \
-  "$driver_image" node /fixture.cjs > "$tmp/driver-cid" 2> "$tmp/driver-create.log" || exit 1
-driver_cid=$(cat "$tmp/driver-cid")
-[[ "$driver_cid" =~ ^[a-f0-9]{64}$ ]] || exit 1
-enrollment_step=driver-custody enrollment_failure_kind=invalid-custody
-driver_custody created || exit 1
-enrollment_step=driver-start enrollment_failure_kind=operation
-docker start "$driver_cid" >/dev/null 2>&1 || exit 1
-enrollment_step=driver-custody enrollment_failure_kind=invalid-custody
-driver_custody running || exit 1
-[[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
-enrollment_step=driver-wait enrollment_failure_kind=operation
-driver_deadline=$(( $(monotonic) + 90000 ))
-while [[ $(monotonic) -lt "$driver_deadline" ]]; do
-  driver_state=$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}}' "$driver_cid" 2>/dev/null) || exit 1
-  [[ "$driver_state" != 'running 0' ]] && break
-  sleep .1
-done
-if [[ "$driver_state" == 'running 0' ]]; then enrollment_failure_kind=timeout; exit 1; fi
-enrollment_step=driver-exit enrollment_failure_kind=unexpected-state
-if [[ "$driver_state" =~ ^exited\ ([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])$ ]]; then
-  enrollment_driver_exit=${BASH_REMATCH[1]}
-  enrollment_failure_kind=nonzero-exit
-  exit 1
-fi
-[[ "$driver_state" == 'exited 0' ]] || exit 1
-enrollment_step=driver-custody enrollment_failure_kind=invalid-custody
-driver_custody exited || exit 1
-[[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
-enrollment_step=driver-result enrollment_failure_kind=operation
-driver_result=$(docker logs "$driver_cid" 2>/dev/null) || exit 1
-enrollment_failure_kind=result-mismatch
-[[ "$driver_result" == 'ST-236 durable enrollment: PASS' ]] || exit 1
-printf '%s\n' "$driver_result" >> "$receipt"
-enrollment_step=driver-custody enrollment_failure_kind=invalid-custody
-driver_cleanup || exit 1
+run_enrollment
 phase=pins
 [[ $(git rev-parse HEAD) == "$source_head" ]] || exit 1
 while read -r path blob bytes; do [[ $(git hash-object "$path") == "$blob" && $(sha256sum "$path" | cut -d ' ' -f1) == "$bytes" ]] || exit 1; done < "$tmp/pins"

@@ -55,3 +55,31 @@ jobs:
           path: ${{ runner.temp }}/st233a-proof-receipt.txt
           if-no-files-found: error
           retention-days: 7
+  owned-pg16-enrollment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: SubTrack
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked private driver proof dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Actual isolated PG16 full enrollment proof
+        run: bash tools/database/development-auth-foundation-proof.sh --enrollment-proof
+      - name: Remove exact recorded enrollment fixture
+        if: always()
+        run: bash tools/database/development-auth-foundation-proof.sh --enrollment-proof --cleanup
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: st236e-enrollment-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/st236e-proof-receipt.txt
+          if-no-files-found: error
+          retention-days: 7

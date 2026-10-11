@@ -24,6 +24,10 @@ const connection = { host: '127.0.0.1', port: 5432, database: String(fixture.dat
   application_name: 'st236-durable-enrollment' };
 const actor = new Pool({ ...connection, user: 'subtrack_dev_auth_login', password: String(fixture.password), max: 4 });
 const owner = new Pool({ ...connection, user: 'st233a_fixture_owner', password: String(fixture.ownerPassword), max: 2 });
+const checkpointStages = ['entry', 'fixture-qualification', 'otp-cases', 'wrong-code', 'first-account',
+  'restart', 'old-id', 'active-subject', 'contact-race', 'subject-race', 'unknown-commit',
+  'deleted-subject', 'erasure', 'pool-reset', 'restart-child'] as const;
+let checkpoint: (typeof checkpointStages)[number] = 'entry';
 const keyNames = ['binding', 'idempotency', 'authority', 'request', 'nonce', 'otp', 'proof', 'person', 'session'] as const;
 const keys = Object.fromEntries(keyNames.map((name, index) => [name, new Uint8Array(32).fill(index + 17)])) as
   Record<(typeof keyNames)[number], Uint8Array>;
@@ -336,8 +340,10 @@ async function main() {
   if (process.argv.length !== 2) throw Error('argv');
   let input = '';
   for await (const part of process.stdin) { input += String(part); if (input.length > 16_384) throw Error('restart-input'); }
-  if (input) { await restartChild(JSON.parse(input) as Parameters<typeof restartChild>[0]); return; }
+  if (input) { checkpoint = 'restart-child'; await restartChild(JSON.parse(input) as Parameters<typeof restartChild>[0]); return; }
+  checkpoint = 'fixture-qualification';
   await catalog();
+  checkpoint = 'otp-cases';
   const wrongWeb = await initialWeb();
   const candidate = { identifier: `bound-${randomUUID()}@example.invalid`, channel: 'email' as const,
     purpose: 'enroll_identifier' as const };
@@ -391,6 +397,7 @@ async function main() {
     { identifier: `capacity-${randomUUID()}@example.invalid`, channel: 'email', purpose: 'enroll_identifier' },
     `st236-capacity-${randomUUID()}`));
   await query("DELETE FROM subtrack_auth.otp WHERE chain='capacity-chain'");
+  checkpoint = 'wrong-code';
   const attemptWeb = await initialWeb();
   const wrongIdentifier = `attempt-${randomUUID()}@example.invalid`;
   const challenge = await service.startOtp(attemptWeb,
@@ -412,6 +419,7 @@ async function main() {
   const noProof = await query(`SELECT count(*)::int AS n FROM subtrack_auth.restricted_proof p
     JOIN subtrack_auth.otp o ON o.challenge_h=p.challenge_h WHERE o.contact=$1`, [wrongIdentifier]);
   if (noProof.rows[0]?.n !== 0) throw Error('wrong-code-proof');
+  checkpoint = 'first-account';
   const first = await stage('first');
   await deny('terminal-wrong-verified', () => service.complete(first.terminalWeb,
     { verified: first.startWeb.nonce }, `st236-wrong-verified-${randomUUID()}`));
@@ -422,6 +430,7 @@ async function main() {
   const afterRollback = await query('SELECT count(*)::int AS n FROM public.identity WHERE email=$1', [first.identifier]);
   if (afterRollback.rows[0]?.n !== 0) throw Error('partial-account-graph');
   await noBirthResidue('rollback');
+  checkpoint = 'restart';
   const key = `st236-complete-${randomUUID()}`;
   await restartInFreshProcess({ web: first.terminalWeb, verified: first.person.verified, key });
   await restartInFreshProcess({ web: first.terminalWeb, verified: first.person.verified, key, retry: true });
@@ -429,6 +438,7 @@ async function main() {
   if (committed.rowCount !== 1) throw Error('restart-identity');
   await graph(String(committed.rows[0].id), first.identifier);
   await noBirthResidue('committed');
+  checkpoint = 'old-id';
   const oldIdStage = await stage('old-id-rebind', create(actor, 14));
   let oldBindAttempted = false;
   await deny('old-identity-cannot-bind', () => create(substituteOldIdentityAtBind(String(committed.rows[0].id),
@@ -438,9 +448,11 @@ async function main() {
   await noBirthResidue('old-id-rollback');
   await deny('duplicate-global-key', () => service.complete(first.terminalWeb, { verified: first.person.verified }, key));
   await deny('spent-verified', () => service.complete(first.terminalWeb, { verified: first.person.verified }, `st236-repeat-${randomUUID()}`));
+  checkpoint = 'active-subject';
   const second = await stage('active-subject');
   await deny('active-subject', () => service.complete(second.terminalWeb, { verified: second.person.verified }, `st236-active-${randomUUID()}`),
     'ENROLLMENT_LOGIN_REQUIRED');
+  checkpoint = 'contact-race';
   const sharedContact = `contact-race-${randomUUID()}@example.invalid`;
   const races = await Promise.all([stage('contact-a', create(actor, 10), sharedContact),
     stage('contact-b', create(actor, 11), sharedContact)]);
@@ -450,6 +462,7 @@ async function main() {
       raced.filter(r => r.status === 'rejected').length !== 1) throw Error('contact-race-result');
   const contactRows = await query('SELECT count(*)::int AS n FROM public.identity WHERE email=$1', [sharedContact]);
   if (contactRows.rows[0]?.n !== 1) throw Error('contact-race-duplicate');
+  checkpoint = 'subject-race';
   const subjectStages = await Promise.all([stage('subject-a', create(actor, 13)),
     stage('subject-b', create(actor, 13))]);
   const subjectRaced = await Promise.allSettled(subjectStages.map(s => create(actor, 13).complete(
@@ -459,6 +472,7 @@ async function main() {
   const subjectContacts = await query('SELECT count(*)::int AS n FROM public.identity WHERE email=ANY($1::text[])',
     [subjectStages.map(s => s.identifier)]);
   if (subjectContacts.rows[0]?.n !== 1) throw Error('subject-race-duplicate');
+  checkpoint = 'unknown-commit';
   const uncertain = await stage('unknown-commit', create(actor, 12));
   const uncertainKey = `st236-uncertain-${randomUUID()}`;
   await deny('unknown-commit-no-disclosure', () => create(unknownAfterCommit(), 12).complete(
@@ -468,10 +482,12 @@ async function main() {
   await noBirthResidue('unknown-commit');
   await deny('unknown-commit-no-retry', () => create(actor, 12).complete(
     uncertain.terminalWeb, { verified: uncertain.person.verified }, uncertainKey));
+  checkpoint = 'deleted-subject';
   await query('UPDATE public.identity SET deleted_at=clock_timestamp() WHERE id=$1', [committed.rows[0].id]);
   const deleted = await stage('detectable-deleted');
   await deny('detectable-deleted', () => service.complete(deleted.terminalWeb,
     { verified: deleted.person.verified }, `st236-deleted-${randomUUID()}`));
+  checkpoint = 'erasure';
   for (const table of ['csrf','credential','session','family'])
     await query(`DELETE FROM subtrack_auth.${table} WHERE identity_id=$1`, [committed.rows[0].id]);
   await query('DELETE FROM public.identity_profile WHERE identity_id=$1', [committed.rows[0].id]);
@@ -488,8 +504,14 @@ async function main() {
     { verified: erased.person.verified }, `st236-erased-${randomUUID()}`);
   if (afterErasure.identityId === committed.rows[0].id) throw Error('erased-uuid-restored');
   await graph(afterErasure.identityId, erased.identifier);
+  checkpoint = 'pool-reset';
   await cleanPool();
   await actor.end(); await owner.end();
   process.stdout.write('ST-236 durable enrollment: PASS\n');
 }
-main().catch(() => { process.exitCode = 1; void actor.end(); void owner.end(); });
+main().catch(() => {
+  const safeCheckpoint = (checkpointStages as readonly string[]).includes(checkpoint) ? checkpoint : 'entry';
+  process.stderr.write(`ST-236 enrollment checkpoint: FAIL stage=${safeCheckpoint}\n`);
+  process.exitCode = 1;
+  void actor.end(); void owner.end();
+});
