@@ -29,3 +29,6 @@ fb0b0a96faf37d56aae8478162b867aed65a0e44:SubTrack/.sdlc/evidence/ST-227/source-p
 
 # ST233a: independently verified public CI aggregate prose; exact historical finding only.
 b115f3bbaaf25f1eb489325e8fcac694851edbf0:SubTrack/.sdlc/evidence/ST-233a/ci-qa.md:generic-api-key:8
+
+# ST227c1: independently verified public SQL Git source pin; exact historical finding only.
+be13f1367de1802aee83144e9309233682569a72:SubTrack/.sdlc/evidence/ST-227c1/accepted-parent-import-qa.md:generic-api-key:4
