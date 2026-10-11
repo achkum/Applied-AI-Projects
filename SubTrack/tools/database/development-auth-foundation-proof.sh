@@ -4,6 +4,8 @@ set -euo pipefail
 umask 077
 shopt -s lastpipe
 declare -A clients=() writers=()
+driver_cid='' driver_name='' driver_image='node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
+driver_result=''
 registering=false interrupted=false sequence=0 client_log='' client_pid=''
 monotonic() { python3 -c 'import time; print(int(time.monotonic()*1000))'; }
 registry() {
@@ -68,6 +70,36 @@ terminate_clients() {
     join_client "$pid" 1 || { [[ -z "${clients[$pid]:-}" ]] || bad=true; }
   done
   [[ "$bad" == false && ${#clients[@]} == 0 ]]
+}
+driver_custody() {
+  [[ "$driver_cid" =~ ^[a-f0-9]{64}$ && "$driver_name" == "st233l-$marker" ]] || return 1
+  local actual reason
+  actual=$(docker inspect --format '{{json .}}' "$driver_cid" 2>/dev/null) || return 1
+  reason=$(python3 -c "$(cat <<'PY'
+import json,sys
+try:
+ x=json.load(sys.stdin); ident,name,marker,head,image,pg,tmp,uid,required=sys.argv[1:]
+ c=x['Config']; h=x['HostConfig']; n=x['NetworkSettings']; s=x['State']
+ assert (x['Id'],x['Name'],c['Image'],c['Labels']['subtrack.task'],c['Labels']['subtrack.head'])==(ident,'/'+name,image,'ST-233l:'+marker,head)
+ assert h['NetworkMode']=='container:'+pg and h['Privileged'] is False and not h['PortBindings'] and not h['CapAdd'] and not h['Devices']
+ assert h['ReadonlyRootfs'] is True and h['CapDrop']==['ALL'] and 'no-new-privileges' in h['SecurityOpt'] and c['User']==uid
+ assert n['Ports'] in ({},None) and len(x['Mounts'])==2
+ assert s['Status'] in ('created','running','exited') and isinstance(s['Pid'],int) and not isinstance(s['Pid'],bool)
+ assert (s['Status']=='running') == (s['Running'] is True) == (s['Pid']>0)
+ assert required=='any' or s['Status']==required
+ assert sorted(c['Env'])==sorted(['PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','NODE_VERSION=22.23.2','YARN_VERSION=1.22.22'])
+ assert c['Entrypoint'] in (None,[],['docker-entrypoint.sh']) and c['Cmd']==['node','/fixture.cjs']
+ assert {(m['Type'],m['Source'],m['Destination'],m['RW']) for m in x['Mounts']}=={('bind',tmp+'/driver.cjs','/fixture.cjs',False),('bind',tmp+'/driver.json','/fixture.json',False)}
+except (KeyError,TypeError,ValueError,AssertionError): sys.exit(1)
+PY
+)" "$driver_cid" "$driver_name" "$marker" "$source_head" "$driver_image" "$cid" "$tmp" "$UID" "${1:-any}" <<< "$actual" 2>/dev/null) || return 1
+}
+driver_cleanup() {
+  [[ -z "$driver_cid" ]] && return 0
+  driver_custody || return 1
+  docker rm --force --volumes "$driver_cid" >/dev/null 2>&1 || return 1
+  [[ -z $(docker ps -a --no-trunc --filter "id=$driver_cid" --format '{{.ID}}' 2>/dev/null) ]] || return 1
+  driver_cid=''
 }
 base=${RUNNER_TEMP:-/tmp}
 record="$base/st233a-container"
@@ -160,6 +192,7 @@ finish() {
   local status=$? bad=false cleanup_result=removed
   trap - EXIT
   if [[ ${#clients[@]} != 0 ]]; then status=1; terminate_clients || bad=true; fi
+  if [[ -n "${driver_cid:-}" ]]; then driver_cleanup || bad=true; fi
   if [[ "$bad" == true || ${#clients[@]} != 0 ]]; then
     printf 'ST-233b lifecycle: FAIL recovery=retained\n' >&2
     [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" && printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=failed\n' "$source_head" "$phase" >> "$receipt"
@@ -168,7 +201,7 @@ finish() {
   if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
   if cleanup_container; then cleanup_temp || bad=true; else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; cleanup_result=failed; fi
-  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|prune|settle|nonce-prune|atomic-issue|atomic-issue-0[1-9]|atomic-issue-1[0-9]|pins|cleanup) ;; *) status=1; phase=starting ;; esac
+  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|prune|settle|nonce-prune|atomic-issue|atomic-issue-0[1-9]|atomic-issue-1[0-9]|driver|pins|cleanup) ;; *) status=1; phase=starting ;; esac
   [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" || exit 1
   if [[ "$status" == 0 && "$passed" == true && "$bad" == false ]]; then
     printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,private-atomic-issue,postlock-clock,rollback,reconnect,bounded-clients fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
@@ -203,7 +236,7 @@ trap 'interrupted=true; [[ "$registering" == true ]] || exit 1' INT TERM
 inputs=(apps/api/prisma/migrations/0001_canonical_schema/migration.sql apps/api/prisma/migrations/0002_privacy_constraints/migration.sql
   apps/api/prisma/development-auth/001-epoch-nonce-reservation.sql tools/database/development-auth-foundation-proof.sh
   tools/database/test-development-auth-foundation-proof.sh ../.github/workflows/subtrack-development-auth-foundation-proof.yml
-  apps/api/prisma/development-auth/002-epoch-fence.sql apps/api/prisma/development-auth/003-nonce-binding-lookup.sql apps/api/prisma/development-auth/004-bootstrap-reservation.sql apps/api/prisma/development-auth/005-expired-reservation-prune.sql apps/api/prisma/development-auth/006-owned-bootstrap-settlement.sql apps/api/prisma/development-auth/007-expired-nonce-prune.sql apps/api/prisma/development-auth/008-atomic-bootstrap-nonce-issue.sql)
+  apps/api/prisma/development-auth/002-epoch-fence.sql apps/api/prisma/development-auth/003-nonce-binding-lookup.sql apps/api/prisma/development-auth/004-bootstrap-reservation.sql apps/api/prisma/development-auth/005-expired-reservation-prune.sql apps/api/prisma/development-auth/006-owned-bootstrap-settlement.sql apps/api/prisma/development-auth/007-expired-nonce-prune.sql apps/api/prisma/development-auth/008-atomic-bootstrap-nonce-issue.sql apps/api/package.json pnpm-lock.yaml docs/architecture/adr/0031-isolated-node-postgres-driver-fixture.md)
 : > "$receipt"
 for path in "${inputs[@]}"; do
   blob=$(git hash-object "$path")
@@ -265,6 +298,8 @@ for bad in head marker; do
 done
 { printf "SET st233a.head='%s'; SET st233a.marker='%s';\n" "$source_head" "$marker"; cat "${inputs[2]}"; } | owner
 printf "ALTER ROLE subtrack_dev_auth_login PASSWORD '%s';\n" "$actor_secret" | owner
+printf '{"password":"%s","database":"%s"}\n' "$actor_secret" "$db" > "$tmp/driver.json"
+private_file "$tmp/driver.json" || exit 1
 actor_secret=''
 assert_owner "(SELECT rolpassword LIKE 'SCRAM-SHA-256\$%%' FROM pg_catalog.pg_authid WHERE rolname='subtrack_dev_auth_login')"
 phase=actor
@@ -1306,6 +1341,101 @@ for role in subtrack_dev_auth_login subtrack_runtime subtrack_identity_provision
   done
 done
 printf "SET ROLE subtrack_auth_executor; DELETE FROM subtrack_auth.nonce; DELETE FROM subtrack_auth.reservation; RESET ROLE; RESET app.user_id; RESET app.current_user_id; RESET search_path; SELECT 1/(CURRENT_USER=SESSION_USER)::integer;\n" | owner
+phase=driver
+cat > "$tmp/driver.js" <<'JS'
+const fs = require('node:fs');
+const { Client } = require('pg');
+if (require('pg/package.json').version !== '8.23.1') throw Error('driver-version');
+const forbidden = /^(PG[A-Z_]*|DATABASE_URL|DIRECT_URL|DOCKER_[A-Z_]*)$/;
+if (Object.keys(process.env).some(k => forbidden.test(k))) throw Error('ambient-config');
+const config = JSON.parse(fs.readFileSync('/fixture.json', 'utf8'));
+if (Object.keys(config).sort().join(',') !== 'database,password' || !/^st233a_[a-z_]+$/.test(config.database) || !/^[a-f0-9]{48}$/.test(config.password)) throw Error('config');
+const input = {host:'127.0.0.1', port:5432, database:config.database, user:'subtrack_dev_auth_login', password:config.password,
+  connectionTimeoutMillis:3000, query_timeout:3000, statement_timeout:2000, lock_timeout:1000, idle_in_transaction_session_timeout:4000,
+  application_name:'st233l-driver'};
+function exact(r, command, rows) { if (r.command !== command || r.rowCount !== (command === 'SELECT' ? rows : null) || r.rows.length !== rows) throw Error('result'); }
+function idle(c) { if (c.getTransactionStatus() !== 'I') throw Error('transaction-status'); }
+async function close(c) {
+  const done = await Promise.race([c.end().then(() => true, () => false), new Promise(resolve => setTimeout(() => resolve(false), 3000))]);
+  if (!done) { c.connection?.stream?.destroy(); throw Error('end-unknown'); }
+}
+async function fresh(mode) {
+  const c = new Client(input); c.on('error', () => {}); let outcome='unknown';
+  try {
+    await c.connect(); idle(c);
+    const start = await c.query('BEGIN ISOLATION LEVEL READ COMMITTED'); exact(start,'BEGIN',0);
+    const role = await c.query('SET LOCAL ROLE subtrack_runtime'); exact(role,'SET',0);
+    const r = await c.query("SELECT current_user = $1 AS role_ok, current_setting('transaction_isolation') = $2 AS isolation_ok, current_setting('app.user_id',true) AS user_guc, current_setting('app.current_user_id',true) AS current_guc", ['subtrack_runtime','read committed']);
+    exact(r,'SELECT',1);
+    if (r.rows[0].role_ok !== true || r.rows[0].isolation_ok !== true || !['',null].includes(r.rows[0].user_guc) || !['',null].includes(r.rows[0].current_guc)) throw Error('role-isolation');
+    for (const key of ['app.user_id','app.current_user_id']) {
+      const set = await c.query('SELECT set_config($1,$2,true) AS value', [key,'fixture-local']); exact(set,'SELECT',1);
+      if (set.rows[0].value !== 'fixture-local') throw Error('local-guc');
+    }
+    if (mode === 'aborted') {
+      try { await c.query('SELECT 1/0'); throw Error('expected-abort'); } catch (e) { if (e.code !== '22012') throw e; }
+      const end = await c.query('COMMIT'); exact(end,'ROLLBACK',0); idle(c); outcome='aborted';
+    } else if (mode === 'rollback') {
+      const end = await c.query('ROLLBACK'); exact(end,'ROLLBACK',0); idle(c); outcome='rollback';
+    } else if (mode === 'timeout') {
+      try { await c.query('SELECT pg_sleep(3)'); throw Error('expected-timeout'); } catch (e) { if (e.code !== '57014') throw e; }
+      outcome='unknown';
+    } else if (mode === 'lost-reply') {
+      const pending = c.query('COMMIT').catch(() => null);
+      c.connection.stream.destroy(); await pending; outcome='unknown';
+    } else {
+      const end = await c.query('COMMIT'); exact(end,'COMMIT',0); idle(c); outcome='committed';
+      if (mode === 'failed-end') c.end = () => Promise.reject(Error('fixture-end-fault'));
+    }
+  } finally {
+    try { await close(c); } catch { outcome='unknown'; }
+  }
+  return outcome;
+}
+async function reset() {
+  const c = new Client(input);
+  try {
+    await c.connect(); idle(c);
+    const r = await c.query("SELECT current_user = session_user AS login_ok, coalesce(current_setting('app.user_id',true),'') = '' AS user_ok, coalesce(current_setting('app.current_user_id',true),'') = '' AS current_ok");
+    exact(r,'SELECT',1);
+    if (!Object.values(r.rows[0]).every(v => v === true)) throw Error('reset');
+  } finally { await close(c); }
+}
+(async () => {
+  const result = [];
+  for (const mode of ['commit','aborted','rollback','timeout','lost-reply','failed-end']) { result.push(await fresh(mode)); await reset(); }
+  if (result.join(',') !== 'committed,aborted,rollback,unknown,unknown,unknown') throw Error('outcome');
+  process.stdout.write('ST-233l driver: PASS cases=SCRAM,commit-tag,aborted-commit-tag,rollback-tag,timeout,unknown-reply,failed-end,fresh-reset,close\n');
+})().catch(() => { process.stderr.write('ST-233l driver: FAIL\n'); process.exitCode=1; });
+JS
+private_file "$tmp/driver.js" || exit 1
+node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],logLevel:"silent"})' "$tmp/driver.js" "$tmp/driver.cjs" || exit 1
+private_file "$tmp/driver.cjs" || exit 1
+driver_bundle_hash=$(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1)
+driver_name="st233l-$marker"
+docker create --name "$driver_name" --label "subtrack.task=ST-233l:$marker" --label "subtrack.head=$source_head" \
+  --network "container:$cid" --user "$UID" --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 128m \
+  --mount "type=bind,src=$tmp/driver.cjs,dst=/fixture.cjs,readonly" --mount "type=bind,src=$tmp/driver.json,dst=/fixture.json,readonly" \
+  "$driver_image" node /fixture.cjs > "$tmp/driver-cid" 2> "$tmp/driver-create.log" || exit 1
+driver_cid=$(cat "$tmp/driver-cid")
+[[ "$driver_cid" =~ ^[a-f0-9]{64}$ ]] || exit 1
+driver_custody created || exit 1
+docker start "$driver_cid" >/dev/null 2>&1 || exit 1
+driver_custody running || exit 1
+[[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
+driver_deadline=$(( $(monotonic) + 30000 ))
+while [[ $(monotonic) -lt "$driver_deadline" ]]; do
+  driver_state=$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}}' "$driver_cid" 2>/dev/null) || exit 1
+  [[ "$driver_state" != 'running 0' ]] && break
+  sleep .1
+done
+[[ "$driver_state" == 'exited 0' ]] || exit 1
+driver_custody exited || exit 1
+[[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
+driver_result=$(docker logs "$driver_cid" 2>/dev/null) || exit 1
+[[ "$driver_result" == 'ST-233l driver: PASS cases=SCRAM,commit-tag,aborted-commit-tag,rollback-tag,timeout,unknown-reply,failed-end,fresh-reset,close' ]] || exit 1
+printf '%s\n' "$driver_result" >> "$receipt"
+driver_cleanup || exit 1
 phase=pins
 [[ $(git rev-parse HEAD) == "$source_head" ]] || exit 1
 while read -r path blob bytes; do [[ $(git hash-object "$path") == "$blob" && $(sha256sum "$path" | cut -d ' ' -f1) == "$bytes" ]] || exit 1; done < "$tmp/pins"

@@ -10,7 +10,8 @@ source_head=$(git rev-parse HEAD)
 image=mirror.gcr.io/library/postgres:16-alpine
 cid=$(printf '%064d' 0) marker=$(printf '%032d' 0) name="st233a-$(printf '%032d' 0)" created=''
 declare -A clients=() writers=()
-for function in private_file custody custody_diagnostic terminate_container cleanup_container cleanup_temp finish monotonic registry launch_client observe_clients live_client poll_client join_client close_writers terminate_clients; do
+driver_cid='' driver_name='' driver_image='node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
+for function in private_file custody custody_diagnostic terminate_container cleanup_container cleanup_temp finish monotonic registry launch_client observe_clients live_client poll_client join_client close_writers terminate_clients driver_custody driver_cleanup; do
   source <(sed -n "/^$function() {/,/^}/p" "$script")
 done
 custody_cases() {
@@ -252,3 +253,42 @@ tmp="$saved"
 cleanup_temp
 [[ -d "$outside" ]]
 printf 'ST-233a actual custody and finish negatives: PASS\n'
+# Sidecar custody faults must refuse use and removal without touching the PG registry.
+tmp=$(mktemp -d "$base/st233a.XXXXXX")
+: > "$tmp/driver.cjs"; : > "$tmp/driver.json"
+driver_cid=$(printf '%064d' 1); driver_name="st233l-$marker"
+for driver_case in valid image network mount label uid pid port env created-pid exited-running; do
+  driver_removed=false
+  docker() {
+    case "$1" in
+      inspect)
+        python3 - "$driver_case" "$driver_cid" "$driver_name" "$marker" "$source_head" "$driver_image" "$cid" "$tmp" "$UID" <<'PY'
+import json,sys
+case,ident,name,marker,head,image,pg,tmp,uid=sys.argv[1:]
+x={'Id':ident,'Name':'/'+name,'Config':{'Image':image,'Labels':{'subtrack.task':'ST-233l:'+marker,'subtrack.head':head},'User':uid,'Env':['PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','NODE_VERSION=22.23.2','YARN_VERSION=1.22.22'],'Entrypoint':['docker-entrypoint.sh'],'Cmd':['node','/fixture.cjs']},
+   'HostConfig':{'NetworkMode':'container:'+pg,'Privileged':False,'PortBindings':None,'CapAdd':None,'CapDrop':['ALL'],'Devices':None,'ReadonlyRootfs':True,'SecurityOpt':['no-new-privileges']},
+   'NetworkSettings':{'Ports':{}},'State':{'Running':True,'Status':'running','Pid':1234},
+   'Mounts':[{'Type':'bind','Source':tmp+'/driver.cjs','Destination':'/fixture.cjs','RW':False},{'Type':'bind','Source':tmp+'/driver.json','Destination':'/fixture.json','RW':False}]}
+if case=='image': x['Config']['Image']='foreign'
+if case=='network': x['HostConfig']['NetworkMode']='bridge'
+if case=='mount': x['Mounts'][0]['Source']='/foreign'
+if case=='label': x['Config']['Labels']['subtrack.head']='foreign'
+if case=='uid': x['Config']['User']='0'
+if case=='pid': x['State']['Pid']=0
+if case=='port': x['HostConfig']['PortBindings']={'5432/tcp':[{}]}
+if case=='env': x['Config']['Env'].append('PGPASSWORD=foreign')
+if case=='created-pid': x['State'].update(Status='created',Running=False,Pid=1234)
+if case=='exited-running': x['State'].update(Status='exited',Running=True,Pid=1234)
+print(json.dumps(x))
+PY
+        ;;
+      rm) driver_removed=true ;;
+      ps) ;;
+      *) return 1 ;;
+    esac
+  }
+  if [[ "$driver_case" == valid ]]; then driver_custody running; driver_cleanup; [[ "$driver_removed" == true ]]; driver_cid=$(printf '%064d' 1)
+  else ! driver_custody running; ! driver_cleanup; [[ "$driver_removed" == false ]]; fi
+  printf 'ST-233l sidecar custody case=%s: expected result verified\n' "$driver_case"
+done
+command rm -rf -- "$tmp"
