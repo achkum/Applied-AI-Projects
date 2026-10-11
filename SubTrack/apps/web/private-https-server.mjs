@@ -158,7 +158,7 @@ async function assertQualifiedCatalog(client) {
     WHERE n.nspname='subtrack_auth' ORDER BY p.proname`);
   if (functions.rows.length !== expected.size) { gate('FUNCTION_COUNT'); fail(); }
   for (const row of functions.rows) {
-    const entry = expected.get(row.name);
+    const entry = expected.get(`subtrack_auth.${row.name}`);
     if (!entry) { gate('FUNCTION_NAME'); fail(); }
     const predicates = [
       ['BODY', row.body === entry.body], ['SECURITY', row.security_definer],
