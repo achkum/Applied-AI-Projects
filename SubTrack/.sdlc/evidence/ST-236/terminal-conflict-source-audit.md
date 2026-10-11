@@ -1,0 +1,7 @@
+# ST-236 terminal conflict source audit
+- Scope: read-only review of `859f5ef1fe675ea00ee1414bea6a3230f863c957`, SQL010 lines 478–501; C5 actual PG16 was still running at review time.
+- Classification: **concrete source defect, execution unconfirmed**. `terminal_enrollment` has parameter `verified_h`; line 500 uses bare `verified_h` in `ON CONFLICT (xid,verified_h)` against the same-named intent column.
+- PostgreSQL 16 defaults `plpgsql.variable_conflict` to `error` for ambiguous variable/column references; an independent PG16 reproduction reports SQLSTATE 42702 for this exact `ON CONFLICT (column)` shape. [PL/pgSQL docs](https://www.postgresql.org/docs/16/plpgsql-implementation.html), [PG16 reproduction](https://www.postgresql.org/message-id/18587-c4ee4d43f6a4f8f3%40postgresql.org).
+- Expected consequence if execution reaches line 500 under that default: ambiguous-column 42702 before intent admission; no local PG16 execution or observed C5 failure supports a claim about this run.
+- Narrow source correction proposal: replace only line 500 with `ON CONFLICT ON CONSTRAINT enrollment_intent_pkey DO NOTHING;`. SQL010 lines 115–117 declare the `(xid,verified_h)` primary key, so the named arbiter preserves that exact conflict target and authority. [PG16 INSERT syntax](https://www.postgresql.org/docs/16/sql-insert.html).
+- This is a source finding for Conductor review, not an approval or a CI/QA result. No SQL, Git, CI, or retry action taken.

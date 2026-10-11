@@ -193,18 +193,26 @@ cleanup_temp() {
   [[ ! -e "$target" && ! -L "$target" ]]
 }
 finish() {
-  local status=$? bad=false cleanup_result=removed migration_detail='' enrollment_detail='' prune_detail=''
+  local status=$? bad=false cleanup_result=removed migration_detail='' enrollment_detail='' prune_detail='' timed_detail=''
   trap - EXIT
   if [[ "$phase" == migration ]]; then
     migration_detail=" step=${migration_step:-unavailable} sqlstate=${migration_sqlstate:-unavailable} client_exit=${migration_exit:-unavailable}"
   elif [[ "$phase" == prune ]]; then
     # Last client evidence may belong to an earlier command; it is not a cause attribution.
     record_migration_failure
-    case "${prune_step:-}" in baseline|guard-operation|guard-sqlstate|guard-catalog|guard-immutable|body-operation|body-sqlstate|body-immutable|install|catalog|acl|null-operation|null-sqlstate|null-immutable|negative|invalid-operation|invalid-sqlstate|reset|isolation|origin|seed|live-pin|rollback|positive|zero-pin|bound-seed|bound-first|bound-second|bound-empty|reuse-seed|reuse-reserve|reuse-prune|reuse-final|reuse-state|pre-race|race-reset|race-seed|race-expiry|race-holder-launch|race-holder-start|race-holder-observe|race-holder-backend|race-pre-expiry-first|race-waiter-launch|race-waiter-observe|race-waiter-backend|race-pre-expiry-second|race-expiry-wait|race-release-clock|race-release|race-join|race-client-logs|race-post-expiry|race-result|race-immutable|final-catalog|final-immutable) ;; *) prune_step=unavailable ;; esac
+    case "${prune_step:-}" in baseline|guard-operation|guard-sqlstate|guard-catalog|guard-immutable|body-operation|body-sqlstate|body-immutable|install|catalog|acl|null-operation|null-sqlstate|null-immutable|negative|invalid-operation|invalid-sqlstate|reset|isolation|origin|seed|live-pin|rollback|positive|zero-pin|bound-seed|bound-first|bound-second|bound-empty|reuse-seed|reuse-reserve|reuse-prune|reuse-final|reuse-state|pre-race|race-reset|race-seed|race-expiry|race-holder-launch|race-holder-start|race-holder-observe|race-holder-backend|race-pre-expiry-first|race-waiter-launch|race-waiter-observe|race-waiter-backend|race-pre-expiry-second|race-renew|race-expiry-wait|race-release-clock|race-release|race-join|race-client-logs|race-post-expiry|race-result|race-immutable|final-catalog|final-immutable) ;; *) prune_step=unavailable ;; esac
     case "${prune_direction:-}" in prune-first|reserve-first) ;; *) prune_direction=unavailable ;; esac
     case "${prune_outcome:-}" in COMMIT|ROLLBACK) ;; *) prune_outcome=unavailable ;; esac
     case "${prune_failure_kind:-}" in operation|assertion|timeout|unexpected-state) ;; *) prune_failure_kind=unavailable ;; esac
     prune_detail=" prune_step=$prune_step direction=$prune_direction outcome=$prune_outcome failure_kind=$prune_failure_kind last_client_sqlstate=$migration_sqlstate last_client_exit=$migration_exit"
+  elif [[ "$phase" == peek || "$phase" == settle || "$phase" == nonce-prune || "$phase" == atomic-issue* ]]; then
+    # Fixed labels describe the last assertion, not a proven failure cause.
+    record_migration_failure
+    case "${timed_step:-}" in catalog|acl|negative|seed|holder-launch|holder-backend|target-valid|waiter-launch|waiter-backend|blocked-edge|snapshot|renew|expiry-wait|release-clock|release|join|client-logs|result|immutable|final-catalog|other) ;; *) timed_step=unavailable ;; esac
+    case "${timed_case:-}" in none|epoch|capacity|cross-prune|reservation|compete-COMMIT|compete-ROLLBACK|expiry-epoch|expiry-advisory|expiry-row|settle-prune-COMMIT|settle-prune-ROLLBACK|prune-settle-COMMIT|prune-settle-ROLLBACK|expired-prune-COMMIT|expired-prune-ROLLBACK) ;; *) timed_case=unavailable ;; esac
+    case "${timed_release:-}" in COMMIT|ROLLBACK|none) ;; *) timed_release=unavailable ;; esac
+    case "${timed_failure_kind:-}" in operation|assertion|timeout|unexpected-state) ;; *) timed_failure_kind=unavailable ;; esac
+    timed_detail=" step=$timed_step case=$timed_case release=$timed_release failure_kind=$timed_failure_kind last_client_sqlstate=$migration_sqlstate last_client_exit=$migration_exit"
   elif [[ "$phase" == durable-enrollment ]]; then
     case "${enrollment_step:-}" in sql010|writer-acl|bundle|driver-create|driver-start|driver-wait|driver-exit|driver-custody|driver-result) ;; *) enrollment_step=unavailable ;; esac
     case "${enrollment_failure_kind:-}" in operation|invalid-custody|timeout|nonzero-exit|unexpected-state|result-mismatch) ;; *) enrollment_failure_kind=unavailable ;; esac
@@ -216,7 +224,7 @@ finish() {
   if [[ -n "${driver_cid:-}" ]]; then driver_cleanup || bad=true; fi
   if [[ "$bad" == true || ${#clients[@]} != 0 ]]; then
     printf 'ST-233b lifecycle: FAIL recovery=retained\n' >&2
-    [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" && printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=failed%s%s%s\n' "$source_head" "$phase" "$migration_detail" "$enrollment_detail" "$prune_detail" >> "$receipt"
+    [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" && printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=failed%s%s%s%s\n' "$source_head" "$phase" "$migration_detail" "$enrollment_detail" "$prune_detail" "$timed_detail" >> "$receipt"
     exit 1
   fi
   if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
@@ -228,7 +236,7 @@ finish() {
     printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,private-atomic-issue,postlock-clock,rollback,reconnect,bounded-clients,durable-current-web,durable-enrollment fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
   else
     status=1
-    printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s%s%s%s\n' "$source_head" "$phase" "$cleanup_result" "$migration_detail" "$enrollment_detail" "$prune_detail" >> "$receipt"
+    printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s%s%s%s%s\n' "$source_head" "$phase" "$cleanup_result" "$migration_detail" "$enrollment_detail" "$prune_detail" "$timed_detail" >> "$receipt"
   fi
   exit "$status"
 }
@@ -546,7 +554,7 @@ done
 # A successful but rolled-back fence leaves the persisted watermark untouched.
 printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT 1/subtrack_auth.fence('parallel',repeat('a',64),0)::integer; ROLLBACK; %s\n" "$reset_sql" | actor
 assert_owner "(SELECT watermark_ms=0 FROM subtrack_auth.epoch WHERE id='parallel')"
-phase=peek
+phase=peek timed_step=catalog timed_case=none timed_release=none timed_failure_kind=assertion
 peek_signature='subtrack_auth.peek(subtrack_auth.h,subtrack_auth.h,text,text,subtrack_auth.h,subtrack_auth.ms,text)'
 for bad in head marker constraints; do
   badhead="$source_head" badmarker="$marker" badconstraints="$constraints_pin"
@@ -630,8 +638,10 @@ for offset in 10000 -400000; do
 done
 # Holder and waiter lock only through peek. Waiter admission must sample AFTER actual expiry.
 for outcome in COMMIT ROLLBACK; do
+  timed_step=seed timed_release=$outcome timed_failure_kind=operation
   printf "INSERT INTO subtrack_auth.epoch VALUES ('peek-lock',repeat('a',64),'https://st233a.invalid',0,'active'); INSERT INTO subtrack_auth.nonce SELECT repeat('4',64),'web','https://st233a.invalid','peek-locked',repeat('c',64),'peek-lock',ms-300000,ms,'session',NULL FROM (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint+5000 ms) t;\n" | owner
   snapshot_private; before_peek=$snapshot
+  timed_step=holder-launch timed_failure_kind=operation
   fifo=$(mktemp -u "$tmp/holder.XXXXXX"); mkfifo -m 600 "$fifo"; exec {writer}<>"$fifo"; writers[holder]=$writer
   launch_client subtrack_dev_auth_login "$fifo" st233b-holder; holder_pid=$client_pid holder_log=$client_log
   printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s\n" "$(positive_peek_sql "repeat('4',64),repeat('c',64),'https://st233a.invalid','peek-lock',repeat('a',64),0,'session'" 'peek-locked')" >&"$writer"
@@ -640,6 +650,7 @@ for outcome in COMMIT ROLLBACK; do
   printf "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='%s' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';\n" "$db" > "$observer"
   launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1
   holder_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$holder_backend" =~ ^[0-9]+$ ]] || exit 1
+  timed_step=waiter-launch
   waiter=$(mktemp "$tmp/waiter.XXXXXX")
   printf "BEGIN; SET LOCAL ROLE subtrack_auth_producer; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; SELECT 1/(subtrack_auth.peek(repeat('4',64),repeat('c',64),'https://st233a.invalid','peek-lock',repeat('a',64),0,'session') IS NULL)::integer; COMMIT; %s\n" "$reset_sql" > "$waiter"
   launch_client subtrack_dev_auth_login "$waiter" st233b-waiter; waiter_pid=$client_pid waiter_log=$client_log
@@ -909,7 +920,7 @@ for direction in prune-first reserve-first; do
   else
     # Eligibility will become true WHILE waiting; no caller-controlled/mocked DB clock.
      prune_step=race-expiry prune_failure_kind=assertion
-    printf "INSERT INTO subtrack_auth.reservation SELECT repeat('1',64),'other','other',repeat('7',64),repeat('8',64),repeat('2',64),'web','retired',t.ms,t.ms+5000,'completed' FROM (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint ms) t; SELECT expires_ms FROM subtrack_auth.reservation;\n" | owner
+     printf "INSERT INTO subtrack_auth.reservation SELECT repeat('1',64),'other','other',repeat('7',64),repeat('8',64),repeat('2',64),'web','retired',t.ms,t.ms+86400000,'completed' FROM (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint ms) t; SELECT expires_ms FROM subtrack_auth.reservation;\n" | owner
     target_expiry=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$target_expiry" =~ ^[0-9]+$ ]] || exit 1
     holder_assertion="$(positive_reserve_sql "repeat('5',64),repeat('6',64),repeat('7',64),repeat('8',64),1,'https://st233a.invalid','reserve-a',repeat('a',64),0")"
     waiter_assertion="$(positive_prune_sql "'reserve-b',repeat('a',64),0")"
@@ -926,8 +937,8 @@ for direction in prune-first reserve-first; do
   printf "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='%s' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';\n" "$db" > "$observer"
   launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1
   holder_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$holder_backend" =~ ^[0-9]+$ ]] || exit 1
-   prune_step=race-pre-expiry-first prune_failure_kind=assertion
-  [[ "$direction" != reserve-first ]] || assert_owner "floor(extract(epoch FROM clock_timestamp())*1000)<$target_expiry"
+    prune_step=race-pre-expiry-first prune_failure_kind=assertion
+   [[ "$direction" != reserve-first ]] || assert_owner "EXISTS(SELECT 1 FROM subtrack_auth.reservation WHERE key_h=repeat('1',64) AND issued_ms<expires_ms AND expires_ms>floor(extract(epoch FROM clock_timestamp())*1000))"
   waiter=$(mktemp "$tmp/waiter.XXXXXX")
   printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='"'15s'"'; SET LOCAL statement_timeout='"'20s'"'; %s COMMIT; %s\n' "$waiter_assertion" "$reset_sql" > "$waiter"
    prune_step=race-waiter-launch prune_failure_kind=operation
@@ -937,10 +948,13 @@ for direction in prune-first reserve-first; do
    prune_step=race-waiter-backend prune_failure_kind=assertion
   waiter_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$waiter_backend" =~ ^[0-9]+$ && "$waiter_backend" != "$holder_backend" ]] || exit 1
   if [[ "$direction" == reserve-first ]]; then
-     prune_step=race-pre-expiry-second prune_failure_kind=assertion
-    assert_owner "floor(extract(epoch FROM clock_timestamp())*1000)<$target_expiry"
+      prune_step=race-renew prune_failure_kind=operation
+     printf "BEGIN; WITH tick AS (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint ms), renewed AS (UPDATE subtrack_auth.reservation r SET issued_ms=tick.ms,expires_ms=tick.ms+5000 FROM tick WHERE r.key_h=repeat('1',64) RETURNING r.expires_ms) SELECT min(expires_ms) FROM renewed HAVING 1/(count(*)=1)::integer=1; SELECT 1/(count(*)=1 AND bool_and(issued_ms<expires_ms AND expires_ms>floor(extract(epoch FROM clock_timestamp())*1000)))::integer FROM subtrack_auth.reservation WHERE key_h=repeat('1',64); SELECT 1/(EXISTS(SELECT 1 FROM pg_catalog.pg_stat_activity h JOIN pg_catalog.pg_stat_activity w ON h.pid=$holder_backend AND w.pid=$waiter_backend WHERE h.state='idle in transaction' AND w.wait_event_type='Lock' AND w.wait_event='advisory' AND h.pid=ANY(pg_catalog.pg_blocking_pids(w.pid))))::integer; COMMIT;\n" | owner || exit 1
+     target_expiry=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log" | head -1); [[ "$target_expiry" =~ ^[0-9]+$ ]] || exit 1
+      prune_step=race-pre-expiry-second prune_failure_kind=assertion
+     assert_owner "EXISTS(SELECT 1 FROM subtrack_auth.reservation WHERE key_h=repeat('1',64) AND expires_ms=$target_expiry)"
      prune_step=race-expiry-wait prune_failure_kind=timeout
-    observe_clients "SELECT floor(extract(epoch FROM clock_timestamp())*1000)>=$target_expiry;" '^ t *$' || exit 1
+     observe_clients "SELECT floor(extract(epoch FROM clock_timestamp())*1000)>=$target_expiry AND EXISTS(SELECT 1 FROM pg_catalog.pg_stat_activity w WHERE w.pid=$waiter_backend AND w.wait_event_type='Lock' AND w.wait_event='advisory' AND $holder_backend=ANY(pg_catalog.pg_blocking_pids(w.pid)));" '^ t *$' || exit 1
   fi
    prune_step=race-release-clock prune_failure_kind=assertion
   printf 'SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint;\n' > "$observer"
@@ -973,7 +987,7 @@ for direction in prune-first reserve-first; do
  owner < "$tmp/prune-catalog.sql"
  prune_step=final-immutable prune_failure_kind=assertion
 snapshot_unpruned; [[ "$unpruned" == "$unpruned_baseline" ]] || exit 1
-phase=settle
+phase=settle timed_step=catalog timed_case=none timed_release=none timed_failure_kind=assertion
 sf_signature='subtrack_auth.settle_bootstrap(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,subtrack_auth.h,subtrack_auth.ms,text)'
 sf_declaration='key_h subtrack_auth.h,owner_h subtrack_auth.h,authority_h subtrack_auth.h,request_h subtrack_auth.h,origin text,epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms,outcome text'
 sf_values=("repeat('5',64)" "repeat('6',64)" "repeat('7',64)" "repeat('8',64)" "'https://st233a.invalid'" "'fixture'" "repeat('a',64)" 0 "'completed'")
@@ -1069,6 +1083,7 @@ assert_owner "(SELECT count(*)=3 AND md5(jsonb_agg(to_jsonb(r) ORDER BY key_h)::
 # Separate expiry waits expose epoch, advisory, and direct external reservation row contention.
 # Two prune directions share capacity without holding a different epoch under that lock.
 for sf_case in compete-COMMIT compete-ROLLBACK expiry-epoch expiry-advisory expiry-row settle-prune-COMMIT settle-prune-ROLLBACK prune-settle-COMMIT prune-settle-ROLLBACK expired-prune-COMMIT expired-prune-ROLLBACK; do
+  timed_step=seed timed_case=$sf_case timed_release=COMMIT timed_failure_kind=operation
   printf '%s\n' "$sf_seed" | owner
   sf_holder_user=subtrack_dev_auth_login; sf_holder_statement="SET LOCAL ROLE subtrack_runtime; $(positive_settle_sql "$sf_args")"
   sf_waiter_statement="$(negative_settle_sql "${sf_args%\'completed\'}'failed'")"; sf_release=COMMIT; sf_wait_event=transactionid
@@ -1093,24 +1108,30 @@ for sf_case in compete-COMMIT compete-ROLLBACK expiry-epoch expiry-advisory expi
       sf_holder_statement="SET LOCAL ROLE subtrack_runtime; $(positive_prune_sql "'reserve-b',repeat('a',64),0")"
       sf_waiter_statement="$(positive_settle_sql "$sf_args")"; sf_wait_event=advisory; sf_release=${sf_case##*-} ;;
   esac
+  timed_release=$sf_release timed_step=holder-launch
   printf "SELECT md5((to_jsonb(r)-'state')::text) FROM subtrack_auth.reservation r;\n" | owner
   sf_race_immutable=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log")
+  timed_step=holder-launch timed_failure_kind=operation
   fifo=$(mktemp -u "$tmp/holder.XXXXXX"); mkfifo -m 600 "$fifo"; exec {writer}<>"$fifo"; writers[holder]=$writer
   launch_client "$sf_holder_user" "$fifo" st233b-holder; holder_pid=$client_pid holder_log=$client_log
   printf "BEGIN; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s\n" "$sf_holder_statement" >&"$writer"
   observer=$(mktemp "$tmp/observer.XXXXXX"); waiter_pid=''
   observe_clients "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND usename='$sf_holder_user' AND application_name='st233b-holder' AND state='idle in transaction';" '^[ ]*[0-9]+[ ]*$' || exit 1
   sf_holder_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$sf_holder_backend" =~ ^[0-9]+$ ]] || exit 1
+  timed_step=waiter-launch
   waiter=$(mktemp "$tmp/waiter.XXXXXX")
   printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s COMMIT; %s\n" "$sf_waiter_statement" "$reset_sql" > "$waiter"
   launch_client subtrack_dev_auth_login "$waiter" st233b-waiter; waiter_pid=$client_pid waiter_log=$client_log
   observe_clients "SELECT w.pid FROM pg_catalog.pg_stat_activity h JOIN pg_catalog.pg_stat_activity w ON h.pid<>w.pid WHERE h.pid=$sf_holder_backend AND h.datname='$db' AND w.datname=h.datname AND h.usename='$sf_holder_user' AND w.usename='subtrack_dev_auth_login' AND h.application_name='st233b-holder' AND w.application_name='st233b-waiter' AND h.state='idle in transaction' AND w.wait_event_type='Lock' AND w.wait_event='$sf_wait_event' AND h.pid=ANY(pg_catalog.pg_blocking_pids(w.pid));" '^[ ]*[0-9]+[ ]*$' || exit 1
   sf_waiter_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$sf_waiter_backend" =~ ^[0-9]+$ && "$sf_waiter_backend" != "$sf_holder_backend" ]] || exit 1
   if [[ "$sf_case" == expiry-* ]]; then
+    timed_step=expiry-wait timed_failure_kind=timeout
     assert_owner "floor(extract(epoch FROM clock_timestamp())*1000)<$sf_expiry"
     observe_clients "SELECT floor(extract(epoch FROM clock_timestamp())*1000)>=$sf_expiry;" '^ t *$' || exit 1
   fi
+  timed_step=release timed_failure_kind=operation
   printf '%s; %s\n\q\n' "$sf_release" "$reset_sql" >&"$writer"; close_writers
+  timed_step=join timed_failure_kind=timeout
   join_client "$holder_pid" 25000 && join_client "$waiter_pid" 25000 || exit 1
   ! grep -q 'ERROR:' "$holder_log" && ! grep -q 'ERROR:' "$waiter_log" || exit 1
   case "$sf_case" in
@@ -1131,7 +1152,7 @@ for sf_case in compete-COMMIT compete-ROLLBACK expiry-epoch expiry-advisory expi
  done
 owner < "$tmp/settle-catalog.sql"
 
-phase=nonce-prune
+phase=nonce-prune timed_step=catalog timed_case=none timed_release=none timed_failure_kind=assertion
 gn_signature='subtrack_auth.prune_nonces(text,subtrack_auth.h,subtrack_auth.ms)'
 gn_args="'fixture',repeat('a',64),0"
 positive_gn_sql() { printf 'SELECT 1/COALESCE(subtrack_auth.prune_nonces(%s),false)::integer;' "$1"; }
@@ -1228,8 +1249,13 @@ printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(positive_gn_
 # The test fixture alone seeds original 300000ms lifetime, becoming expired during a wait.
 for gn_case in epoch capacity cross-prune; do
  for gn_release in COMMIT ROLLBACK; do
+   timed_step=seed timed_case=$gn_case timed_release=$gn_release timed_failure_kind=operation
   snapshot_gn_others; gn_race_others=$gn_others
-  printf "DELETE FROM subtrack_auth.nonce; INSERT INTO subtrack_auth.nonce SELECT repeat('1',64),'web','https://st233a.invalid','private-race-chain',repeat('7',64),'retired',t.ms-295000,t.ms+5000,'otp_step_up',NULL FROM (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint ms) t; SELECT expires_ms FROM subtrack_auth.nonce;\n" | owner
+   if [[ "$gn_case" == cross-prune ]]; then
+     printf "DELETE FROM subtrack_auth.nonce; INSERT INTO subtrack_auth.nonce SELECT repeat('1',64),'web','https://st233a.invalid','private-race-chain',repeat('7',64),'retired',t.ms-295000,t.ms+5000,'otp_step_up',NULL FROM (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint ms) t; SELECT expires_ms FROM subtrack_auth.nonce;\n" | owner
+   else
+     printf "DELETE FROM subtrack_auth.nonce; INSERT INTO subtrack_auth.nonce SELECT repeat('1',64),'web','https://st233a.invalid','private-race-chain',repeat('7',64),'retired',t.ms,t.ms+300000,'otp_step_up',NULL FROM (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint ms) t; SELECT expires_ms FROM subtrack_auth.nonce;\n" | owner
+   fi
   gn_expiry=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$gn_expiry" =~ ^[0-9]+$ ]] || exit 1
   gn_holder_user=st233a_fixture_owner; gn_wait_event=advisory
   case "$gn_case" in
@@ -1240,32 +1266,43 @@ for gn_case in epoch capacity cross-prune; do
       gn_holder_user=subtrack_dev_auth_login; gn_holder_statement="SET LOCAL ROLE subtrack_runtime; $(positive_gn_sql "'reserve-b',repeat('a',64),0")" ;;
   esac
   snapshot_private; gn_race_before=$snapshot
+  timed_step=holder-launch
   fifo=$(mktemp -u "$tmp/holder.XXXXXX"); mkfifo -m 600 "$fifo"; exec {writer}<>"$fifo"; writers[holder]=$writer
   launch_client "$gn_holder_user" "$fifo" st233b-holder; holder_pid=$client_pid holder_log=$client_log
   printf "BEGIN; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s\n" "$gn_holder_statement" >&"$writer"
   observer=$(mktemp "$tmp/observer.XXXXXX"); waiter_pid=''
   observe_clients "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND usename='$gn_holder_user' AND application_name='st233b-holder' AND state='idle in transaction';" '^[ ]*[0-9]+[ ]*$' || exit 1
   gn_holder_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$gn_holder_backend" =~ ^[0-9]+$ ]] || exit 1
-  [[ "$gn_case" == cross-prune ]] || assert_owner "floor(extract(epoch FROM clock_timestamp())*1000)<$gn_expiry"
+  timed_step=target-valid timed_failure_kind=assertion
+   [[ "$gn_case" == cross-prune ]] || assert_owner "EXISTS(SELECT 1 FROM subtrack_auth.nonce WHERE nonce_h=repeat('1',64) AND issued_ms+300000=expires_ms AND expires_ms>floor(extract(epoch FROM clock_timestamp())*1000))"
+  timed_step=waiter-launch timed_failure_kind=operation
   waiter=$(mktemp "$tmp/waiter.XXXXXX")
   printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s COMMIT; SELECT 'gn-finished:'||floor(extract(epoch FROM clock_timestamp())*1000)::bigint::text; %s\n" "$(positive_gn_sql "$gn_args")" "$reset_sql" > "$waiter"
   launch_client subtrack_dev_auth_login "$waiter" st233b-waiter; waiter_pid=$client_pid waiter_log=$client_log
+  timed_step=blocked-edge timed_failure_kind=timeout
   observe_clients "SELECT w.pid FROM pg_catalog.pg_stat_activity h JOIN pg_catalog.pg_stat_activity w ON h.pid<>w.pid WHERE h.pid=$gn_holder_backend AND h.datname='$db' AND w.datname=h.datname AND h.usename='$gn_holder_user' AND w.usename='subtrack_dev_auth_login' AND h.application_name='st233b-holder' AND w.application_name='st233b-waiter' AND h.state='idle in transaction' AND w.wait_event_type='Lock' AND w.wait_event='$gn_wait_event' AND h.pid=ANY(pg_catalog.pg_blocking_pids(w.pid));" '^[ ]*[0-9]+[ ]*$' || exit 1
   gn_waiter_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$gn_waiter_backend" =~ ^[0-9]+$ && "$gn_waiter_backend" != "$gn_holder_backend" ]] || exit 1
   # MVCC confirms uncommitted deletion is invisible to an independent real connection.
   snapshot_private; [[ "$snapshot" == "$gn_race_before" ]] || exit 1
   if [[ "$gn_case" != cross-prune ]]; then
-    assert_owner "floor(extract(epoch FROM clock_timestamp())*1000)<$gn_expiry"
+     timed_step=renew timed_failure_kind=operation
+     printf "BEGIN; WITH tick AS (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint ms), renewed AS (UPDATE subtrack_auth.nonce n SET issued_ms=tick.ms-295000,expires_ms=tick.ms+5000 FROM tick WHERE n.nonce_h=repeat('1',64) RETURNING n.expires_ms) SELECT min(expires_ms) FROM renewed HAVING 1/(count(*)=1)::integer=1; SELECT 1/(count(*)=1 AND bool_and(issued_ms+300000=expires_ms AND expires_ms>floor(extract(epoch FROM clock_timestamp())*1000)))::integer FROM subtrack_auth.nonce WHERE nonce_h=repeat('1',64); SELECT 1/(EXISTS(SELECT 1 FROM pg_catalog.pg_stat_activity h JOIN pg_catalog.pg_stat_activity w ON h.pid=$gn_holder_backend AND w.pid=$gn_waiter_backend WHERE h.state='idle in transaction' AND w.wait_event_type='Lock' AND w.wait_event='$gn_wait_event' AND h.pid=ANY(pg_catalog.pg_blocking_pids(w.pid))))::integer; COMMIT;\n" | owner || exit 1
+     gn_expiry=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log" | head -1); [[ "$gn_expiry" =~ ^[0-9]+$ ]] || exit 1
+     snapshot_private; gn_race_before=$snapshot
+     timed_step=expiry-wait timed_failure_kind=timeout
     observe_clients "SELECT floor(extract(epoch FROM clock_timestamp())*1000)>=$gn_expiry AND EXISTS(SELECT 1 FROM pg_catalog.pg_stat_activity WHERE pid=$gn_waiter_backend AND wait_event_type='Lock' AND $gn_holder_backend=ANY(pg_catalog.pg_blocking_pids(pid)));" '^ t *$' || exit 1
   fi
   printf 'SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint;\n' > "$observer"
   launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1
   gn_release_ms=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$gn_release_ms" =~ ^[0-9]+$ ]] || exit 1
+  timed_step=release timed_failure_kind=operation
   printf '%s; %s\n\q\n' "$gn_release" "$reset_sql" >&"$writer"; close_writers
+  timed_step=join timed_failure_kind=timeout
   join_client "$holder_pid" 25000 && join_client "$waiter_pid" 25000 || exit 1
   ! grep -q 'ERROR:' "$holder_log" && ! grep -q 'ERROR:' "$waiter_log" || exit 1
   gn_finished_ms=$(sed -n 's/^[ ]*gn-finished:\([0-9][0-9]*\)[ ]*$/\1/p' "$waiter_log"); [[ "$gn_finished_ms" =~ ^[0-9]+$ && "$gn_finished_ms" -ge "$gn_release_ms" ]] || exit 1
   [[ "$gn_case" == cross-prune || "$gn_release_ms" -ge "$gn_expiry" ]] || exit 1
+  timed_step=result timed_failure_kind=assertion
   assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.nonce)"
   snapshot_gn_others; [[ "$gn_others" == "$gn_race_others" ]] || exit 1
  done
@@ -1273,7 +1310,7 @@ for gn_case in epoch capacity cross-prune; do
 owner < "$tmp/gn-catalog.sql"
 snapshot_gn_others; [[ "$gn_others" == "$gn_others_baseline" ]] || exit 1
 
-phase=atomic-issue
+phase=atomic-issue timed_step=catalog timed_case=none timed_release=none timed_failure_kind=assertion
 phase=atomic-issue-01
 ak_signature='subtrack_auth.issue_bootstrap_nonce(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,text,text,subtrack_auth.h,subtrack_auth.ms)'
 ak_purposes=(enroll_identifier otp_step_up session)
@@ -1383,6 +1420,7 @@ owner < "$tmp/ak-catalog.sql"
 
 # Real blocked connections establish each lock is acquired before the clock sample.
 for ak_case in epoch capacity reservation compete-COMMIT compete-ROLLBACK; do
+  timed_step=seed timed_case=$ak_case timed_release=COMMIT timed_failure_kind=operation
   case "$ak_case" in epoch) phase=atomic-issue-16 ;; capacity) phase=atomic-issue-17 ;; reservation) phase=atomic-issue-18 ;; compete-*) phase=atomic-issue-19 ;; esac
   printf 'DELETE FROM subtrack_auth.nonce; DELETE FROM subtrack_auth.reservation;\n' | owner
   ak_burn a "${ak_hashes[2]}"
@@ -1402,6 +1440,7 @@ for ak_case in epoch capacity reservation compete-COMMIT compete-ROLLBACK; do
       ak_waiter_assertion="$(ak_call 'NOT ' "$ak_args_current")"
       if [[ "$ak_case" == compete-ROLLBACK ]]; then ak_release=ROLLBACK; ak_waiter_assertion="$(ak_call '' "$ak_args_current")"; fi ;;
   esac
+  timed_release=$ak_release timed_step=holder-launch
   fifo=$(mktemp -u "$tmp/holder.XXXXXX"); mkfifo -m 600 "$fifo"; exec {writer}<>"$fifo"; writers[holder]=$writer
   launch_client "$ak_holder_user" "$fifo" st233b-holder; holder_pid=$client_pid holder_log=$client_log
   printf "BEGIN; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s\n" "$ak_holder_statement" >&"$writer"

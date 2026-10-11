@@ -497,7 +497,7 @@ BEGIN
   IF (SELECT pg_catalog.count(*) FROM subtrack_auth.enrollment_intent)>=10000 THEN RETURN; END IF;
   INSERT INTO subtrack_auth.enrollment_intent(xid,verified_h,expires_ms)
     VALUES (pg_catalog.pg_current_xact_id(),v.verified_h,v.expires_ms)
-    ON CONFLICT (xid,verified_h) DO NOTHING;
+    ON CONFLICT ON CONSTRAINT enrollment_intent_pkey DO NOTHING;
   RETURN QUERY SELECT v.subject_h,v.channel,v.contact,v.verified_at,v.given_name,v.surname;
 END $terminal$;
 ALTER FUNCTION subtrack_auth.terminal_enrollment(subtrack_auth.enrollment_scope,subtrack_auth.h,subtrack_auth.h) OWNER TO subtrack_auth_executor;
