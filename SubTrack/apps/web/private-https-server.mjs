@@ -156,22 +156,36 @@ async function assertQualifiedCatalog(client) {
     JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
     JOIN pg_catalog.pg_language l ON l.oid=p.prolang
     WHERE n.nspname='subtrack_auth' ORDER BY p.proname`);
-  if (functions.rows.length !== expected.size) fail();
+  if (functions.rows.length !== expected.size) { gate('FUNCTION_COUNT'); fail(); }
   for (const row of functions.rows) {
     const entry = expected.get(row.name);
-    if (!entry || row.body !== entry.body || !row.security_definer ||
-      row.owner !== 'subtrack_auth_executor' || row.language !== 'plpgsql' ||
-      row.volatility !== 'v' || row.parallel !== 'u' || row.strict !== false ||
-      row.returns_set !== entry.returnsSet ||
-      JSON.stringify(row.config) !== '["search_path=pg_catalog"]' ||
-      row.bad_grant || JSON.stringify(row.execute_grantees) !== JSON.stringify(entry.grants)) fail();
+    if (!entry) { gate('FUNCTION_NAME'); fail(); }
+    const predicates = [
+      ['BODY', row.body === entry.body], ['SECURITY', row.security_definer],
+      ['OWNER', row.owner === 'subtrack_auth_executor'], ['LANGUAGE', row.language === 'plpgsql'],
+      ['VOLATILITY', row.volatility === 'v'], ['PARALLEL', row.parallel === 'u'],
+      ['STRICT', row.strict === false], ['SET', row.returns_set === entry.returnsSet],
+      ['CONFIG', JSON.stringify(row.config) === '["search_path=pg_catalog"]'],
+      ['GRANT_KIND', !row.bad_grant],
+      ['GRANTEES', JSON.stringify(row.execute_grantees) === JSON.stringify(entry.grants)],
+    ];
+    const rejected = predicates.find(([, ok]) => !ok);
+    if (rejected) {
+      // Both words come from the pinned source roster. Never export database bodies or row values.
+      process.stderr.write(`ST237_FUNCTION_GATE ${row.name} ${rejected[0]}\n`);
+      fail();
+    }
     const identity = await client.query(`SELECT pg_catalog.to_regprocedure($1::text)::pg_catalog.oid::text AS oid,
       pg_catalog.to_regtype($2::text)::pg_catalog.oid::text AS result_oid`,
       [entry.signature, entry.result]);
-    if (identity.rows[0]?.oid !== row.oid || identity.rows[0]?.result_oid !== row.result_oid) fail();
+    if (identity.rows[0]?.oid !== row.oid || identity.rows[0]?.result_oid !== row.result_oid) {
+      process.stderr.write(`ST237_FUNCTION_GATE ${row.name} SIGNATURE\n`); fail();
+    }
     if (row.name === 'terminal_enrollment' &&
       (JSON.stringify(row.arg_modes) !== '["i","i","i","t","t","t","t","t","t"]' ||
-        JSON.stringify(row.arg_names) !== '["scope","verified_h","terminal_nonce_h","subject_h","channel","contact","verified_at","given_name","surname"]')) fail();
+        JSON.stringify(row.arg_names) !== '["scope","verified_h","terminal_nonce_h","subject_h","channel","contact","verified_at","given_name","surname"]')) {
+      process.stderr.write('ST237_FUNCTION_GATE terminal_enrollment TERMINAL_ARGS\n'); fail();
+    }
   }
   return { policies: approved.policies, columns: approved.columns };
 }
@@ -623,4 +637,7 @@ async function main() {
   process.once('SIGTERM', () => { void close().finally(() => process.exit(0)); });
   process.once('SIGINT', () => { void close().finally(() => process.exit(0)); });
 }
-main().catch(() => { process.stderr.write('Private HTTPS unavailable\n'); process.exitCode = 1; void pool.end(); });
+main().catch(error => {
+  if (/^[A-Z0-9]{5}$/.test(error?.code ?? '')) process.stderr.write(`ST237_STARTUP_SQLSTATE ${error.code}\n`);
+  process.stderr.write('Private HTTPS unavailable\n'); process.exitCode = 1; void pool.end();
+});

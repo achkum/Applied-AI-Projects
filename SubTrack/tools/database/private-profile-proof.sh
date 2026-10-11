@@ -77,7 +77,10 @@ assert set(x["Containers"]).issubset({cid})
 cleanup() {
   local code=$? ok=1 sqlstate=unavailable observed
   if [[ -f "$work/browser.log" ]]; then grep -E '^FAIL ST237_BROWSER_PROFILE phase=(LAUNCH|IDENTIFIER|OTP|SIMULATOR|PROFILE|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|PARTIAL_TERMINAL)$' "$work/browser.log" >&3 || true; fi
-  if [[ -f "$work/server.log" ]]; then grep -E '^ST237_STARTUP_GATE (ENV|CONNECT|IDENTITY|SOURCE|FUNCTIONS|PRINCIPALS|PROFILE_COLUMNS|PROFILE_POLICIES|PROFILE_GRANTS|PROFILE_CONSTRAINTS|AUTH_TABLES|AUTH_POLICIES|AUTH_GRANTS|AUTH_ROLES|AUTH_DOMAINS|AUTH_CONSTRAINTS|EPOCH)$' "$work/server.log" | tail -1 >&3 || true; fi
+  if [[ -f "$work/server.log" ]]; then
+    grep -E '^ST237_STARTUP_GATE (ENV|CONNECT|IDENTITY|SOURCE|FUNCTIONS|FUNCTION_COUNT|FUNCTION_NAME|PRINCIPALS|PROFILE_COLUMNS|PROFILE_POLICIES|PROFILE_GRANTS|PROFILE_CONSTRAINTS|AUTH_TABLES|AUTH_POLICIES|AUTH_GRANTS|AUTH_ROLES|AUTH_DOMAINS|AUTH_CONSTRAINTS|EPOCH)$' "$work/server.log" | tail -1 >&3 || true
+    grep -E '^ST237_FUNCTION_GATE [a-z_]+ (BODY|SECURITY|OWNER|LANGUAGE|VOLATILITY|PARALLEL|STRICT|SET|CONFIG|GRANT_KIND|GRANTEES|SIGNATURE|TERMINAL_ARGS)$|^ST237_STARTUP_SQLSTATE [A-Z0-9]{5}$' "$work/server.log" >&3 || true
+  fi
   trap - EXIT INT TERM
   if [[ "$phase" == INSTALL && -f "$work/internal.log" ]]; then
     observed="$(sed -nE 's/^ERROR:[[:space:]]+([A-Z0-9]{5}).*/\1/p' "$work/internal.log" | tail -n 1)"
