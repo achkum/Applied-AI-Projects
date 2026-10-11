@@ -48,11 +48,11 @@ assert h["NetworkMode"]==net and not h["Privileged"] and not h["CapAdd"] and not
 assert h["PidsLimit"]==128 and h["Memory"]==536870912
 assert set(h["PortBindings"])=={"5432/tcp"}
 assert all(p["HostIp"]=="127.0.0.1" for p in h["PortBindings"]["5432/tcp"])
-if x['State']['Running']:
-  bindings=x['NetworkSettings']['Ports']
-  assert set(bindings)=={'5432/tcp'} and len(bindings['5432/tcp'])==1
-  mapped=bindings['5432/tcp'][0]
-  assert mapped['HostIp']=='127.0.0.1' and mapped['HostPort'].isdigit() and 0<int(mapped['HostPort'])<65536
+if x["State"]["Running"]:
+  bindings=x["NetworkSettings"]["Ports"]
+  assert set(bindings)=={"5432/tcp"} and len(bindings["5432/tcp"])==1
+  mapped=bindings["5432/tcp"][0]
+  assert mapped["HostIp"]=="127.0.0.1" and mapped["HostPort"].isdigit() and 0<int(mapped["HostPort"])<65536
 assert set(h["Tmpfs"])=={"/var/lib/postgresql/data"}
 assert all(m["Type"]=="tmpfs" and m["Destination"]=="/var/lib/postgresql/data" and m["RW"] is True for m in x["Mounts"])
 ' "$cid" "$name" "$marker" "$head" "$image" "$network" || return 1
@@ -60,14 +60,14 @@ assert all(m["Type"]=="tmpfs" and m["Destination"]=="/var/lib/postgresql/data" a
 import json,sys
 x=json.load(sys.stdin)[0]; ident,marker,head,cid=sys.argv[1:]
 assert x["Id"]==ident and x["Internal"] is False and x["Driver"]=="bridge"
-assert x["Options"]=={"com.docker.network.bridge.host_binding_ipv4":"127.0.0.1"}
+assert x["Options"]=={"com.docker.network.bridge.host_binding_ipv4":"127.0.0.1","com.docker.network.bridge.gateway_mode_ipv4":"nat"}
 assert x["Labels"]["subtrack.task"]=="ST-237:"+marker and x["Labels"]["subtrack.head"]==head
 assert set(x["Containers"]).issubset({cid})
 ' "$network" "$marker" "$head" "$cid"
 }
 cleanup() {
   local code=$? ok=1 sqlstate=unavailable observed
-  if [[ -f "$work/browser.log" ]]; then grep -E '^FAIL ST237_BROWSER_PROFILE phase=(LAUNCH|IDENTIFIER|OTP|SIMULATOR|PROFILE|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD)$' "$work/browser.log" >&3 || true; fi
+  if [[ -f "$work/browser.log" ]]; then grep -E '^FAIL ST237_BROWSER_PROFILE phase=(LAUNCH|IDENTIFIER|OTP|SIMULATOR|PROFILE|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|PARTIAL_TERMINAL)$' "$work/browser.log" >&3 || true; fi
   if [[ -f "$work/server.log" ]]; then grep -E '^ST237_STARTUP_GATE (ENV|SOURCE|FUNCTIONS|PRINCIPALS|PROFILE_COLUMNS|PROFILE_POLICIES|PROFILE_GRANTS|PROFILE_CONSTRAINTS|AUTH_TABLES|AUTH_POLICIES|AUTH_GRANTS|AUTH_ROLES|AUTH_DOMAINS|AUTH_CONSTRAINTS|EPOCH)$' "$work/server.log" | tail -1 >&3 || true; fi
   trap - EXIT INT TERM
   if [[ "$phase" == INSTALL && -f "$work/internal.log" ]]; then
@@ -112,16 +112,31 @@ printf 'RUNTIME docker_server=%s\n' "$engine" >&3
 owner_pass="$(openssl rand -hex 24)" actor_pass="$(openssl rand -hex 24)"
 printf 'POSTGRES_USER=st233a_fixture_owner\nPOSTGRES_DB=%s\nPOSTGRES_PASSWORD=%s\nPOSTGRES_HOST_AUTH_METHOD=scram-sha-256\nPOSTGRES_INITDB_ARGS=--auth-host=scram-sha-256\n' "$db" "$owner_pass" > "$work/pg.env"
 printf '127.0.0.1:5432:%s:st233a_fixture_owner:%s\n' "$db" "$owner_pass" > "$work/pgpass"
-network="$(docker network create --driver bridge --opt com.docker.network.bridge.host_binding_ipv4=127.0.0.1 --label "subtrack.task=ST-237:$marker" --label "subtrack.head=$head" "$name")"
+step=NETWORK_CREATE
+network="$(docker network create --driver bridge --opt com.docker.network.bridge.host_binding_ipv4=127.0.0.1 --opt com.docker.network.bridge.gateway_mode_ipv4=nat --label "subtrack.task=ST-237:$marker" --label "subtrack.head=$head" "$name")"
 [[ "$network" =~ ^[a-f0-9]{64}$ ]]
 docker create --name "$name" --label "subtrack.task=ST-237:$marker" --label "subtrack.head=$head" \
   --network "$network" -p 127.0.0.1::5432 --pids-limit 128 --memory 512m --cpus 2 \
   --tmpfs /var/lib/postgresql/data --env-file "$work/pg.env" "$image" > "$work/cid"
-cid="$(cat "$work/cid")"; custody
+cid="$(cat "$work/cid")"; step=CREATED_CUSTODY; custody
 docker start "$cid" >/dev/null
 for _ in {1..60}; do docker exec "$cid" pg_isready -h 127.0.0.1 -U st233a_fixture_owner -d "$db" >/dev/null && break; sleep 1; done
 docker exec "$cid" pg_isready -h 127.0.0.1 -U st233a_fixture_owner -d "$db" >/dev/null
+step=RUNNING_CUSTODY
 custody
+phase=FIXTURE_PORT step=PORT_BINDING
+port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "5432/tcp") 0).HostPort}}' "$cid")"
+[[ "$port" =~ ^[0-9]+$ && "$port" -gt 0 && "$port" -lt 65536 ]]
+step=HOST_REACHABILITY
+node - "$port" <<'NODE'
+const net=require('node:net');
+const socket=net.createConnection({host:'127.0.0.1',port:Number(process.argv[2])});
+socket.setTimeout(5000);
+socket.once('connect',()=>socket.end());
+socket.once('timeout',()=>{socket.destroy();process.exitCode=1;});
+socket.once('error',()=>{process.exitCode=1;});
+NODE
+printf 'PASS ST237_PRE_SEED_EXACT_LOOPBACK_BINDING_HOST_REACHABILITY\n' >&3
 docker cp "$work/pgpass" "$cid:/tmp/st237.pgpass" >/dev/null
 owner() { timeout 25s docker exec -i -e PGPASSFILE=/tmp/st237.pgpass "$cid" psql -X -q -A -t -h 127.0.0.1 -U st233a_fixture_owner -d "$db" -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate; }
 phase=INSTALL
@@ -154,9 +169,6 @@ fs.writeFileSync(process.argv[3],`INSERT INTO subtrack_auth.epoch VALUES ('st237
 NODE
 step=EPOCH_SEED
 owner < "$work/seed.sql"
-phase=FIXTURE_PORT step=PORT_BINDING
-port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "5432/tcp") 0).HostPort}}' "$cid")"
-[[ "$port" =~ ^[0-9]+$ && "$port" -gt 0 && "$port" -lt 65536 ]]
 export ST237_PG_PORT="$port" ST237_PG_PASSWORD="$actor_pass"
 phase=CERTIFICATE
 mkdir -m 700 "$work/trusted"
@@ -240,14 +252,14 @@ phase=BROWSER
 for ((i=0;i<2400;i++)); do kill -0 "$browser_pid" 2>/dev/null || break; sleep .1; done
 kill -0 "$browser_pid" 2>/dev/null && exit 1
 if ! wait "$browser_pid"; then
-  grep -E '^FAIL ST237_BROWSER_PROFILE phase=(LAUNCH|IDENTIFIER|OTP|SIMULATOR|PROFILE|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD)$' "$work/browser.log" >&3 || true
+  grep -E '^FAIL ST237_BROWSER_PROFILE phase=(LAUNCH|IDENTIFIER|OTP|SIMULATOR|PROFILE|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|PARTIAL_TERMINAL)$' "$work/browser.log" >&3 || true
   exit 1
 fi
 grep -qx "PASS ST237_BROWSER_ENROLLMENT_PROFILE locale=$ST237_BROWSER_LOCALE theme=$ST237_BROWSER_THEME" "$work/browser.log"
-for line in ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES ST237_BROWSER_SAME_KEY_FRESH_PROCESS_RESTART ST237_BROWSER_COMMITTED_PATCH_LOST_RESPONSE_SINGLE_SUBMISSION ST237_BROWSER_RELOAD_STOP; do grep -qx "PASS $line" "$work/browser.log"; done
+for line in ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES ST237_BROWSER_SAME_KEY_FRESH_PROCESS_RESTART ST237_BROWSER_COMMITTED_PATCH_LOST_RESPONSE_SINGLE_SUBMISSION ST237_BROWSER_RELOAD_STOP ST237_BROWSER_COMMITTED_PARTIAL_TERMINAL_COOKIE_STOP; do grep -qx "PASS $line" "$work/browser.log"; done
 grep '^PASS ST237_BROWSER_' "$work/browser.log" >&3
 phase=DATABASE
-printf "SELECT 1/(count(*)=1 AND bool_and(display_name='Private Proof Updated' AND profile_complete AND default_currency='SEK' AND language='%s' AND theme='%s'))::integer FROM public.identity_profile;\n" "$ST237_BROWSER_LOCALE" "$ST237_BROWSER_THEME" | owner
+printf "SELECT 1/(count(*)=1 AND bool_and(profile_complete AND default_currency='SEK' AND language='%s' AND theme='%s'))::integer FROM public.identity_profile WHERE display_name='Private Proof Updated'; SELECT 1/(count(*)=2)::integer FROM public.identity_profile;\n" "$ST237_BROWSER_LOCALE" "$ST237_BROWSER_THEME" | owner
 printf 'PASS ST237_BROWSER_PROFILE_ACTUAL_PERSISTENCE\n' >&3
 phase=CATALOG_RLS
 node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,packages:"external",platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],logLevel:"silent"})' apps/api/test/private-profile.integration.ts "$work/pg-proof.cjs"
@@ -261,6 +273,9 @@ for line in ST237_ACTUAL_ORDINARY_QUALIFIED_CATALOG_EQUIVALENCE ST237_ACTUAL_PG_
 done
 phase=SCHEMA_REFUSAL
 stop_group "$server_pid"; server_pid=''
+printf "ALTER ROLE subtrack_runtime BYPASSRLS;\n" | owner
+refuses_startup RUNTIME_BYPASSRLS
+printf "ALTER ROLE subtrack_runtime NOBYPASSRLS;\n" | owner
 printf "ALTER FUNCTION subtrack_auth.fence(pg_catalog.text,subtrack_auth.h,subtrack_auth.ms) SET search_path=public;\n" | owner
 refuses_startup CHANGED_FUNCTION_CONFIG
 printf "ALTER FUNCTION subtrack_auth.fence(pg_catalog.text,subtrack_auth.h,subtrack_auth.ms) SET search_path=pg_catalog;\n" | owner

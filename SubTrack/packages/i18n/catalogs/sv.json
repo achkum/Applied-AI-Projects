@@ -88,7 +88,9 @@
       "invalid": "Kontrollera profiluppgifterna och försök igen.",
       "unchanged": "Ändra ett fält innan du sparar.",
       "uncertain": "Det gick inte att bekräfta sparningen. Din aktuella profil har hämtats igen.",
-      "saved": "Profilen har sparats och bekräftats."
+      "saved": "Profilen har sparats och bekräftats.",
+      "complete": "Profilen är komplett.",
+      "incomplete": "Profilen är inte komplett."
     },
     "registration": {
       "simulatorTitle": "Verifieringssimulator för utveckling",

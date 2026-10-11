@@ -44,8 +44,17 @@ export function ProfileEditor({ locale, view, busy, saved, uncertain, onSave }: 
     return changes;
   }
   const changes = candidate();
+  let valid = false;
+  try { parseProfilePatch(changes); valid = true; } catch { /* No valid changed patch to submit. */ }
 
   function clearError() { setNameError(''); setFormError(''); }
+  function updateName(value: string) {
+    setName(value);
+    setFormError('');
+    if (value === (view.displayName ?? '')) { setNameError(''); return; }
+    try { parseProfilePatch({ displayName: value }); setNameError(''); }
+    catch { setNameError(copy.invalid); }
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,12 +76,12 @@ export function ProfileEditor({ locale, view, busy, saved, uncertain, onSave }: 
     <p>{copy.introduction}</p>
     <form className={styles.form} onSubmit={submit} noValidate>
       <label htmlFor="profile-name">{copy.displayName}</label>
-      <input ref={nameInput} id="profile-name" autoComplete="name" value={name} onChange={(event) => { setName(event.currentTarget.value); clearError(); }}
+      <input ref={nameInput} id="profile-name" autoComplete="name" value={name} onChange={(event) => updateName(event.currentTarget.value)}
         onBlur={() => { if (name !== (view.displayName ?? '')) { try { parseProfilePatch({ displayName: name }); } catch { setNameError(copy.invalid); } } }}
         aria-invalid={nameError ? 'true' : undefined} aria-describedby={nameError ? 'profile-name-validation' : undefined} />
       {nameError ? <p id="profile-name-validation" className={styles.error} role="alert">{nameError}</p> : null}
       <label htmlFor="profile-colour">{copy.avatarColour}</label>
-      <select id="profile-colour" value={colour} onChange={(event) => { setColour(event.currentTarget.value); clearError(); }}>
+      <select id="profile-colour" value={colour} onChange={(event) => { setColour(event.currentTarget.value); setFormError(''); }}>
         <option value="">{copy.none}</option>
         {Array.from({ length: 8 }, (_, index) => {
           const token = `member.accent.0${index + 1}`;
@@ -80,23 +89,24 @@ export function ProfileEditor({ locale, view, busy, saved, uncertain, onSave }: 
         })}
       </select>
       <label htmlFor="profile-emoji">{copy.avatarEmoji}</label>
-      <select id="profile-emoji" value={emoji} onChange={(event) => { setEmoji(event.currentTarget.value); clearError(); }}>
+      <select id="profile-emoji" value={emoji} onChange={(event) => { setEmoji(event.currentTarget.value); setFormError(''); }}>
         <option value="">{copy.none}</option>
         {['🙂', '😀', '😎', '🌟', '🌿', '🐱', '🦊', '🦉'].map((value) => <option key={value} value={value}>{value}</option>)}
       </select>
       <label htmlFor="profile-language">{copy.language}</label>
-      <select id="profile-language" value={language} onChange={(event) => { setLanguage(event.currentTarget.value as 'sv' | 'en'); clearError(); }}>
+      <select id="profile-language" value={language} onChange={(event) => { setLanguage(event.currentTarget.value as 'sv' | 'en'); setFormError(''); }}>
         <option value="sv">{copy.swedish}</option><option value="en">{copy.english}</option>
       </select>
       <label htmlFor="profile-theme">{copy.theme}</label>
-      <select id="profile-theme" value={theme} onChange={(event) => { setTheme(event.currentTarget.value as 'system' | 'light' | 'dark'); clearError(); }}>
+      <select id="profile-theme" value={theme} onChange={(event) => { setTheme(event.currentTarget.value as 'system' | 'light' | 'dark'); setFormError(''); }}>
         <option value="system">{copy.system}</option><option value="light">{copy.light}</option><option value="dark">{copy.dark}</option>
       </select>
       <p className={styles.readOnly}>{copy.currency}: {view.defaultCurrency}</p>
-      <Button type="submit" disabled={busy}>{busy ? copy.saving : copy.save}</Button>
+      <Button type="submit" disabled={busy || !valid}>{busy ? copy.saving : copy.save}</Button>
     </form>
     {formError ? <p ref={formMessage} tabIndex={-1} className={styles.focusTarget} role="alert">{formError}</p> : null}
     {uncertain ? <p ref={uncertainMessage} tabIndex={-1} className={styles.focusTarget} role="alert">{copy.uncertain}</p> : null}
     {saved ? <h3 ref={savedHeading} tabIndex={-1} className={styles.focusTarget}>{copy.saved}</h3> : null}
+    {saved ? <p role="status">{view.profileComplete ? copy.complete : copy.incomplete}</p> : null}
   </section>;
 }

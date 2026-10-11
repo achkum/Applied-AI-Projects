@@ -88,7 +88,9 @@
       "invalid": "Check your profile details and try again.",
       "unchanged": "Change a field before saving.",
       "uncertain": "The save could not be confirmed. Your current profile was loaded again.",
-      "saved": "Profile saved and confirmed."
+      "saved": "Profile saved and confirmed.",
+      "complete": "Profile complete.",
+      "incomplete": "Profile incomplete."
     },
     "registration": {
       "simulatorTitle": "Development verification simulator",

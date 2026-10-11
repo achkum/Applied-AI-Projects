@@ -196,8 +196,58 @@ try {
   await page.getByText(copy.registration.verifiedLoginRequired, { exact: true }).waitFor();
   assert.equal(await page.getByLabel(copy.profile.displayName, { exact: true }).count(), 0);
   await capture('reload-stop');
+  phase = 'PARTIAL_TERMINAL';
+  await context.clearCookies();
+  const partialPage = await context.newPage();
+  partialPage.setDefaultTimeout(45000);
+  let completionRequests = 0;
+  let committedCompletion = false;
+  partialPage.on('request', incoming => {
+    if (new URL(incoming.url()).pathname === '/v2/auth/enrollment/complete') completionRequests++;
+  });
+  await partialPage.route('**/v2/auth/enrollment/complete', async route => {
+    const committed = await route.fetch();
+    assert.equal(committed.status(), 201);
+    committedCompletion = true;
+    const setCookies = (await committed.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie');
+    assert.deepEqual(setCookies.map(header => header.value.split('=')[0]).sort(),
+      ['st_v2_access', 'st_v2_chain', 'st_v2_refresh']);
+    const accessOnly = setCookies.find(header => header.value.startsWith('st_v2_access='));
+    assert(accessOnly);
+    // route.fetch may populate the shared browser cookie jar before fulfill. Remove only
+    // terminal credentials, then deliver the one retained header to model partial storage.
+    for (const name of ['st_v2_access', 'st_v2_refresh', 'st_v2_chain']) await context.clearCookies({ name });
+    await route.fulfill({ response: committed, headers: { ...committed.headers(), 'set-cookie': accessOnly.value } });
+  });
+  const partialStart = await partialPage.goto(`${origin}/${locale}/register?st237_probe=${randomUUID()}`,
+    { waitUntil: 'domcontentloaded' });
+  assert.equal(partialStart?.status(), 200);
+  await partialPage.getByLabel(copy.identifier.emailLabel, { exact: true }).fill(`partial-${randomUUID()}@example.test`);
+  await partialPage.getByRole('button', { name: copy.identifier.continueLabel, exact: true }).click();
+  await partialPage.getByLabel(copy.registration.otpLabel, { exact: true }).fill('123456');
+  await partialPage.getByRole('button', { name: copy.registration.verifyLabel, exact: true }).click();
+  await partialPage.getByRole('button', { name: copy.registration.simulatorAction, exact: true }).waitFor();
+  const deniedRead = partialPage.waitForResponse(response =>
+    new URL(response.url()).pathname === '/v2/me/profile/read' && response.request().method() === 'POST');
+  await partialPage.getByRole('button', { name: copy.registration.simulatorAction, exact: true }).click();
+  const denied = await deniedRead;
+  assert(committedCompletion);
+  assert.equal(completionRequests, 1);
+  assert.equal(denied.status(), 403);
+  const deniedBody = await denied.json();
+  assert.deepEqual(Object.keys(deniedBody).sort(), ['code', 'status', 'title', 'type']);
+  assert.equal(deniedBody.code, 'PROFILE_REQUEST_REJECTED');
+  await partialPage.getByText(copy.registration.verifiedLoginRequired, { exact: true }).waitFor();
+  assert.equal(await partialPage.getByLabel(copy.profile.displayName, { exact: true }).count(), 0);
+  const retained = await context.cookies();
+  assert(retained.some(cookie => cookie.name === 'st_v2_access'));
+  assert(retained.some(cookie => cookie.name === 'st_v2_binding'));
+  assert(!retained.some(cookie => cookie.name === 'st_v2_chain' || cookie.name === 'st_v2_refresh'));
+  assert.equal(completionRequests, 1);
+  await partialPage.close();
   process.stdout.write(`PASS ST237_BROWSER_ENROLLMENT_PROFILE locale=${locale} theme=${theme}\n`);
   process.stdout.write('PASS ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES\nPASS ST237_BROWSER_RELOAD_STOP\n');
+  process.stdout.write('PASS ST237_BROWSER_COMMITTED_PARTIAL_TERMINAL_COOKIE_STOP\n');
 } catch {
   process.stderr.write(`FAIL ST237_BROWSER_PROFILE phase=${phase}\n`);
   process.exitCode = 1;

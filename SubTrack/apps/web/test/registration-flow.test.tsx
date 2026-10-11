@@ -52,6 +52,7 @@ describe('mounted private enrollment and profile', () => {
     fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Synthetic Owner' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
     await screen.findByText('Profile saved and confirmed.');
+    expect(screen.getByRole('status').textContent).toBe('Profile complete.');
     expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Profile saved and confirmed.' }));
     expect(fetchMock.mock.calls.map(([url]) => url).slice(-3)).toEqual(['/v2/me/profile/read', '/v2/me/profile', '/v2/me/profile/read']);
     expect(JSON.parse(fetchMock.mock.calls[7]?.[1]?.body as string)).toEqual({ displayName: 'Synthetic Owner' });

@@ -346,34 +346,39 @@ async function assertAuthCatalog(client, approved) {
   if (JSON.stringify(sortRows(actualColumns)) !== JSON.stringify(sortRows(approved.columns))) fail();
   const roles = await client.query(`SELECT rolname::text AS name,rolcanlogin AS login,
       rolsuper AS super,rolcreatedb AS create_db,rolcreaterole AS create_role,
-      rolbypassrls AS bypass_rls,rolinherit AS inherit
+      rolbypassrls AS bypass_rls,rolinherit AS inherit,rolreplication AS replication,
+      rolconnlimit AS connection_limit,rolvaliduntil IS NULL AS no_expiry,
+      rolconfig IS NULL AS no_config
     FROM pg_catalog.pg_roles WHERE rolname IN
-      ('subtrack_auth_owner','subtrack_auth_executor','subtrack_auth_producer','subtrack_dev_auth_login')
+      ('subtrack_auth_owner','subtrack_auth_executor','subtrack_auth_producer','subtrack_dev_auth_login',
+       'subtrack_runtime','subtrack_catalogue_writer','subtrack_otp_service',
+       'subtrack_invitation_service','subtrack_identity_provisioner','subtrack_visibility_lookup')
     ORDER BY rolname`);
-  if (roles.rows.length !== 4 || roles.rows.some(r =>
-    r.super || r.create_db || r.create_role || r.bypass_rls || r.inherit ||
+  const approvedRoles = [
+    'subtrack_auth_executor','subtrack_auth_owner','subtrack_auth_producer',
+    'subtrack_catalogue_writer','subtrack_dev_auth_login','subtrack_identity_provisioner',
+    'subtrack_invitation_service','subtrack_otp_service','subtrack_runtime',
+    'subtrack_visibility_lookup',
+  ];
+  if (roles.rows.length !== approvedRoles.length || roles.rows.some((r, i) =>
+    r.name !== approvedRoles[i] || r.super || r.create_db || r.create_role ||
+    r.bypass_rls !== (r.name === 'subtrack_visibility_lookup') || r.inherit ||
+    r.replication || r.connection_limit !== -1 || !r.no_expiry || !r.no_config ||
     r.login !== (r.name === 'subtrack_dev_auth_login'))) fail();
-  const membership = await client.query(`WITH RECURSIVE membership(roleid) AS (
-      SELECT roleid FROM pg_catalog.pg_auth_members WHERE member='subtrack_dev_auth_login'::pg_catalog.regrole
-      UNION SELECT m.roleid FROM pg_catalog.pg_auth_members m JOIN membership p ON m.member=p.roleid
-    ) SELECT pg_catalog.pg_get_userbyid(m.roleid)::text AS role,
+  // Every edge incident to a private or business role is reviewed. This also
+  // rejects transitive privilege additions through an otherwise unknown role.
+  const membership = await client.query(`SELECT pg_catalog.pg_get_userbyid(m.roleid)::text AS role,
+      pg_catalog.pg_get_userbyid(m.member)::text AS member,
       m.admin_option AS admin,m.inherit_option AS inherit,m.set_option AS can_set
     FROM pg_catalog.pg_auth_members m
-    WHERE m.member='subtrack_dev_auth_login'::pg_catalog.regrole
-    UNION ALL SELECT pg_catalog.pg_get_userbyid(roleid)::text,NULL,NULL,NULL FROM membership
-      WHERE roleid NOT IN ('subtrack_runtime'::pg_catalog.regrole,
-        'subtrack_identity_provisioner'::pg_catalog.regrole,'subtrack_auth_producer'::pg_catalog.regrole)
-    ORDER BY role`);
+    WHERE m.roleid IN (SELECT oid FROM pg_catalog.pg_roles WHERE rolname=ANY($1::text[]))
+       OR m.member IN (SELECT oid FROM pg_catalog.pg_roles WHERE rolname=ANY($1::text[]))
+    ORDER BY role,member`, [approvedRoles]);
   if (JSON.stringify(membership.rows) !== JSON.stringify([
-    {role:'subtrack_auth_producer',admin:false,inherit:false,can_set:true},
-    {role:'subtrack_identity_provisioner',admin:false,inherit:false,can_set:true},
-    {role:'subtrack_runtime',admin:false,inherit:false,can_set:true},
+    {role:'subtrack_auth_producer',member:'subtrack_dev_auth_login',admin:false,inherit:false,can_set:true},
+    {role:'subtrack_identity_provisioner',member:'subtrack_dev_auth_login',admin:false,inherit:false,can_set:true},
+    {role:'subtrack_runtime',member:'subtrack_dev_auth_login',admin:false,inherit:false,can_set:true},
   ])) fail();
-  const privilegedMembership = await client.query(`SELECT pg_catalog.count(*)::pg_catalog.int4 AS total
-    FROM pg_catalog.pg_auth_members WHERE member IN
-      ('subtrack_auth_owner'::pg_catalog.regrole,'subtrack_auth_executor'::pg_catalog.regrole,
-       'subtrack_auth_producer'::pg_catalog.regrole)`);
-  if (privilegedMembership.rows[0]?.total !== 0) fail();
   const authSchema = await client.query(`SELECT r.rolname::text AS owner,
       ARRAY(SELECT pg_catalog.pg_get_userbyid(a.grantee)::text || ':' || a.privilege_type ||
         ':' || a.is_grantable::text FROM pg_catalog.aclexplode(n.nspacl) a
