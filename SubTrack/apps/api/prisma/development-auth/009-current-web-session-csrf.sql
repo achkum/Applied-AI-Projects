@@ -1,7 +1,7 @@
 -- ST-235: disposable PG16 current-web authority. Install only after pinned 001-008.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
-SELECT 1 / COALESCE((pg_catalog.current_database() = 'st233a_development_auth_foundation_proof'
+SELECT 1 / COALESCE((pg_catalog.current_database() IN ('st233a_development_auth_foundation_proof','st237_private_https_profile')
   AND SESSION_USER = 'st233a_fixture_owner'
   AND pg_catalog.current_setting('server_version_num')::pg_catalog.int4 BETWEEN 160000 AND 169999
   AND EXISTS (SELECT 1 FROM public.st233a_fixture_control AS c WHERE c.task = 'ST-233a'
@@ -52,7 +52,7 @@ CREATE TABLE subtrack_auth.session (
   family_id pg_catalog.uuid NOT NULL,
   identity_id pg_catalog.uuid NOT NULL,
   transport pg_catalog.text NOT NULL CHECK (transport = 'web'),
-  origin pg_catalog.text NOT NULL CHECK (origin = 'https://st233a.invalid'),
+  origin pg_catalog.text NOT NULL CHECK (origin = (CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END)),
   chain pg_catalog.text NOT NULL CHECK (chain <> ''),
   binding_h subtrack_auth.h NOT NULL,
   epoch pg_catalog.text NOT NULL,
@@ -192,7 +192,7 @@ BEGIN
   IF pg_catalog.current_setting('transaction_isolation') OPERATOR(pg_catalog.<>) 'read committed'
     OR sub IS NULL OR sid IS NULL OR origin IS NULL OR chain IS NULL OR chain OPERATOR(pg_catalog.=) ''
     OR binding_h IS NULL OR csrf_h IS NULL OR epoch IS NULL OR manifest_h IS NULL OR observed_ms IS NULL
-    OR origin OPERATOR(pg_catalog.<>) 'https://st233a.invalid'
+    OR origin OPERATOR(pg_catalog.<>) (CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END)
     OR pg_catalog.current_setting('app.user_id',true) IS DISTINCT FROM sub::pg_catalog.text
     OR pg_catalog.current_setting('app.current_user_id',true) IS DISTINCT FROM sub::pg_catalog.text THEN RETURN false; END IF;
   SELECT t.* INTO e FROM subtrack_auth.epoch AS t WHERE t.id OPERATOR(pg_catalog.=) check_current_web.epoch;

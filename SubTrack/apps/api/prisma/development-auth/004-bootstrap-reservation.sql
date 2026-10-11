@@ -1,7 +1,7 @@
 -- ST-233d: incomplete private bootstrap reservation; pruning/adapter remain separate.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
-SELECT 1 / COALESCE((pg_catalog.current_database() = 'st233a_development_auth_foundation_proof'
+SELECT 1 / COALESCE((pg_catalog.current_database() IN ('st233a_development_auth_foundation_proof','st237_private_https_profile')
   AND SESSION_USER = 'st233a_fixture_owner'
   AND pg_catalog.current_setting('server_version_num')::pg_catalog.int4 BETWEEN 160000 AND 169999
   AND EXISTS (SELECT 1 FROM public.st233a_fixture_control WHERE task='ST-233a'
@@ -61,7 +61,7 @@ BEGIN
   -- A different isolation snapshot cannot safely implement fresh capacity after a wait.
   IF pg_catalog.current_setting('transaction_isolation') OPERATOR(pg_catalog.<>) 'read committed' THEN RETURN NULL; END IF;
   IF key_h IS NULL OR owner_h IS NULL OR authority_h IS NULL OR request_h IS NULL OR retention_ms IS NULL OR origin IS NULL OR epoch IS NULL OR manifest_h IS NULL OR observed_ms IS NULL
-    OR epoch OPERATOR(pg_catalog.=) '' OR origin OPERATOR(pg_catalog.<>) 'https://st233a.invalid'
+    OR epoch OPERATOR(pg_catalog.=) '' OR origin OPERATOR(pg_catalog.<>) (CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END)
     OR retention_ms OPERATOR(pg_catalog.<) 1 OR retention_ms OPERATOR(pg_catalog.>) 86400000 THEN RETURN NULL; END IF;
   SELECT e.manifest_h,e.watermark_ms,e.state,e.origin INTO stored_manifest,stored_watermark,stored_state,stored_origin
     FROM subtrack_auth.epoch AS e WHERE e.id OPERATOR(pg_catalog.=) reserve_bootstrap.epoch FOR UPDATE;

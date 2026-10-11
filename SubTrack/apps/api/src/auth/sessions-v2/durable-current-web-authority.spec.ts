@@ -38,7 +38,9 @@ function setup(options: FakeOptions = {}) {
       if (sql.includes('set_config')) bound = true;
       if (sql === 'COMMIT' || sql === 'ROLLBACK') { role = 'subtrack_dev_auth_login'; bound = false; }
       if (sql.includes('session_user::text')) return { rows: [{ session_user: 'subtrack_dev_auth_login',
-        current_user: role, user_id: bound ? owner : '', current_user_id: bound ? owner : '' }], command: 'SELECT' };
+        current_user: role, database_name: 'st233a_development_auth_foundation_proof',
+        user_id: bound ? owner : '', current_user_id: bound ? owner : '' }], command: 'SELECT' };
+      if (sql.includes('current_database()')) return { rows: [{ database_name: 'st233a_development_auth_foundation_proof' }], command: 'SELECT' };
       if (sql.includes('public.identity')) return { rows: [{ id: owner }], command: 'SELECT' };
       if (sql.includes('subtrack_auth.')) return { rows: [{ ok: !options.denied }], command: 'SELECT' };
       return { rows: [], command: sql === 'COMMIT' ? options.commitCommand ?? 'COMMIT' : sql === 'ROLLBACK' ? 'ROLLBACK' : 'SELECT' };
@@ -52,6 +54,16 @@ function setup(options: FakeOptions = {}) {
 }
 
 describe('durable current web authority transaction', () => {
+  it('pins the private Origin to the private database and epoch', () => {
+    const pool = { connect: async () => { throw new Error('unused'); } } as Pick<Pool, 'connect'>;
+    const config = { pool, accessTokens: tokens, origin: 'https://localhost:3443',
+      database: 'st237_private_https_profile', epoch: 'st237_private_https_v1',
+      manifestHash, businessStatements: { ownerUpdate } };
+    expect(() => new DurableCurrentWebAuthority(config)).not.toThrow();
+    expect(() => new DurableCurrentWebAuthority({ ...config, database: 'st233a_development_auth_foundation_proof' })).toThrow();
+    expect(() => new DurableCurrentWebAuthority({ ...config, epoch: 'fixture' })).toThrow();
+    expect(() => new DurableCurrentWebAuthority({ ...config, origin })).toThrow();
+  });
   it('holds one connection and invalidates the named owner capability after known commit', async () => {
     const { authority, calls } = setup();
     let leaked: OwnerTx | undefined;

@@ -1,7 +1,7 @@
 -- ST-233f: owned state-only bootstrap settlement, not a complete adapter.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
-SELECT 1 / COALESCE((pg_catalog.current_database() = 'st233a_development_auth_foundation_proof'
+SELECT 1 / COALESCE((pg_catalog.current_database() IN ('st233a_development_auth_foundation_proof','st237_private_https_profile')
   AND SESSION_USER = 'st233a_fixture_owner'
   AND pg_catalog.current_setting('server_version_num')::pg_catalog.int4 BETWEEN 160000 AND 169999
   AND EXISTS (SELECT 1 FROM public.st233a_fixture_control WHERE task='ST-233a'
@@ -60,7 +60,7 @@ BEGIN
   IF pg_catalog.current_setting('transaction_isolation') OPERATOR(pg_catalog.<>) 'read committed' THEN RETURN false; END IF;
   IF key_h IS NULL OR owner_h IS NULL OR authority_h IS NULL OR request_h IS NULL OR origin IS NULL OR epoch IS NULL
     OR manifest_h IS NULL OR observed_ms IS NULL OR outcome IS NULL OR epoch OPERATOR(pg_catalog.=) ''
-    OR origin OPERATOR(pg_catalog.<>) 'https://st233a.invalid' OR outcome NOT IN ('completed','failed') THEN RETURN false; END IF;
+    OR origin OPERATOR(pg_catalog.<>) (CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END) OR outcome NOT IN ('completed','failed') THEN RETURN false; END IF;
   SELECT e.* INTO stored_epoch FROM subtrack_auth.epoch AS e WHERE e.id OPERATOR(pg_catalog.=) settle_bootstrap.epoch FOR UPDATE;
   IF NOT FOUND THEN RETURN false; END IF;
   -- Every reservation writer: own epoch, shared capacity, reservation; no other epoch.

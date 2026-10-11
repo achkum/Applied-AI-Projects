@@ -1,7 +1,7 @@
 -- ST-233e: expiry-only global reservation cleanup, not a complete adapter.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
-SELECT 1 / COALESCE((pg_catalog.current_database() = 'st233a_development_auth_foundation_proof'
+SELECT 1 / COALESCE((pg_catalog.current_database() IN ('st233a_development_auth_foundation_proof','st237_private_https_profile')
   AND SESSION_USER = 'st233a_fixture_owner'
   AND pg_catalog.current_setting('server_version_num')::pg_catalog.int4 BETWEEN 160000 AND 169999
   AND EXISTS (SELECT 1 FROM public.st233a_fixture_control WHERE task='ST-233a'
@@ -66,7 +66,7 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(233::pg_catalog.int4,4::pg_catalog.int4);
   clock_ms := pg_catalog.floor(EXTRACT(EPOCH FROM pg_catalog.clock_timestamp()) OPERATOR(pg_catalog.*) 1000::pg_catalog.numeric);
   IF clock_ms OPERATOR(pg_catalog.<) 0::pg_catalog.numeric OR clock_ms OPERATOR(pg_catalog.>) 9007199254740991::pg_catalog.numeric
-    OR stored_state OPERATOR(pg_catalog.<>) 'active' OR stored_manifest OPERATOR(pg_catalog.<>) manifest_h OR stored_origin OPERATOR(pg_catalog.<>) 'https://st233a.invalid'
+    OR stored_state OPERATOR(pg_catalog.<>) 'active' OR stored_manifest OPERATOR(pg_catalog.<>) manifest_h OR stored_origin OPERATOR(pg_catalog.<>) (CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END)
     OR clock_ms OPERATOR(pg_catalog.<) stored_watermark::pg_catalog.numeric OR observed_ms::pg_catalog.numeric OPERATOR(pg_catalog.>) clock_ms THEN RETURN false; END IF;
   -- Fresh RC snapshot after BOTH locks, global across state/operation/owner/epoch.
   WITH eligible AS MATERIALIZED (

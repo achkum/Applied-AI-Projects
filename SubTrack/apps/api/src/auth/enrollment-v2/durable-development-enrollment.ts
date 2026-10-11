@@ -29,7 +29,7 @@ type Operation = 'startV2Otp' | 'verifyV2Otp' | 'admitEnrollment' | 'verifyEnrol
 type Role = 'subtrack_auth_producer' | 'subtrack_runtime' | 'subtrack_identity_provisioner';
 export type EnrollmentWeb = Readonly<{ origin: string; bindingCookie: string; nonce: string; chainId: string; epoch: string }>;
 export type DurableEnrollmentConfig = Readonly<{
-  environment: string; enabled: boolean; origin: string; epoch: string; manifestHash: string;
+  environment: string; enabled: boolean; origin: string; epoch: string; manifestHash: string; database?: string;
   pool: Pick<Pool, 'connect'>; clock: () => number; verifier: DevelopmentEnrollmentPersonVerifier;
   keys: Keys; developmentOtpCode: () => string;
 }>;
@@ -73,6 +73,7 @@ export class DurableDevelopmentEnrollment {
   private readonly origin!: string;
   private readonly epoch!: string;
   private readonly manifestH!: string;
+  private readonly database!: string;
   private readonly pool!: Pick<Pool, 'connect'>;
   private readonly clock!: () => number;
   private readonly verifyPersonEvidence!: DevelopmentEnrollmentPersonVerifier['verify'];
@@ -83,9 +84,12 @@ export class DurableDevelopmentEnrollment {
   constructor(config: DurableEnrollmentConfig) {
     try {
       const c = own(config, ['environment', 'enabled', 'origin', 'epoch', 'manifestHash', 'pool',
-        'clock', 'verifier', 'keys', 'developmentOtpCode']);
+        'clock', 'verifier', 'keys', 'developmentOtpCode', ...(Object.hasOwn(config, 'database') ? ['database'] : [])]);
+      const oldTuple = c.origin === ORIGIN && (c.database === undefined || c.database === DATABASE);
+      const privateTuple = c.origin === 'https://localhost:3443' && c.database === 'st237_private_https_profile' &&
+        c.epoch === 'st237_private_https_v1';
       if (process.env.NODE_ENV !== 'development' || c.environment !== 'development' ||
-        c.enabled !== true || c.origin !== ORIGIN || typeof c.epoch !== 'string' ||
+        c.enabled !== true || !(oldTuple || privateTuple) || typeof c.epoch !== 'string' ||
         c.epoch.length === 0 || c.epoch !== c.epoch.trim() ||
         typeof c.manifestHash !== 'string' || !HEX.test(c.manifestHash) ||
         !c.pool || typeof (c.pool as Pool).connect !== 'function' ||
@@ -106,6 +110,7 @@ export class DurableDevelopmentEnrollment {
       this.origin = c.origin as string;
       this.epoch = c.epoch as string;
       this.manifestH = c.manifestHash as string;
+      this.database = c.database === undefined ? DATABASE : c.database as string;
       this.pool = Object.freeze({ connect: (c.pool as Pool).connect.bind(c.pool) });
       this.clock = (c.clock as () => number).bind(c);
       const verifier = c.verifier as DevelopmentEnrollmentPersonVerifier;
@@ -141,7 +146,7 @@ export class DurableDevelopmentEnrollment {
     const result = await client.query(CLEAN);
     const row = result.rows[0];
     if (result.command !== 'SELECT' || result.rowCount !== 1 || result.rows.length !== 1 ||
-      row?.session_user !== LOGIN || row?.current_user !== LOGIN || row?.database_name !== DATABASE ||
+      row?.session_user !== LOGIN || row?.current_user !== LOGIN || row?.database_name !== this.database ||
       ![null, ''].includes(row?.user_id ?? null) || ![null, ''].includes(row?.current_user_id ?? null)) fail();
   }
   private async role(client: PoolClient, role: Role): Promise<void> {
@@ -334,7 +339,7 @@ export class DurableDevelopmentEnrollment {
     } catch { return fail(); }
   }
   async complete(web: EnrollmentWeb, input: Readonly<{ verified: string }>, key: string, privateLocaleHint?: string):
-    Promise<Readonly<{ identityId: string; sessionId: string; refreshToken: string; csrfToken: string; profile: EnrollmentProfileView }>> {
+    Promise<Readonly<{ identityId: string; sessionId: string; refreshToken: string; csrfToken: string; browserChainId: string; profile: EnrollmentProfileView }>> {
     try {
       const request = own(input, ['verified']);
       if (!canonical(request.verified) || (privateLocaleHint !== undefined && typeof privateLocaleHint !== 'string')) fail();
@@ -410,7 +415,7 @@ export class DurableDevelopmentEnrollment {
         if (result.state === 'rolledBack' && loginRequired) throw new Error(LOGIN_REQUIRED);
         fail();
       }
-      return Object.freeze({ identityId, sessionId, refreshToken, csrfToken, profile });
+      return Object.freeze({ identityId, sessionId, refreshToken, csrfToken, browserChainId: w.chain, profile });
     } catch (error) {
       if (error instanceof Error && error.message === LOGIN_REQUIRED) throw error;
       return fail();

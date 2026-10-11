@@ -1,7 +1,7 @@
 -- ST-233c: private lookup in the owned disposable PG16 fixture only.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
-SELECT 1 / COALESCE((pg_catalog.current_database() = 'st233a_development_auth_foundation_proof'
+SELECT 1 / COALESCE((pg_catalog.current_database() IN ('st233a_development_auth_foundation_proof','st237_private_https_profile')
   AND SESSION_USER = 'st233a_fixture_owner'
   AND pg_catalog.current_setting('server_version_num')::pg_catalog.int4 BETWEEN 160000 AND 169999
   AND EXISTS (SELECT 1 FROM public.st233a_fixture_control WHERE task='ST-233a'
@@ -54,7 +54,7 @@ DECLARE
   stored_chain pg_catalog.text;
 BEGIN
   IF nonce_h IS NULL OR binding_h IS NULL OR origin IS NULL OR epoch IS NULL OR manifest_h IS NULL OR observed_ms IS NULL OR purpose IS NULL
-    OR origin OPERATOR(pg_catalog.<>) 'https://st233a.invalid' OR epoch OPERATOR(pg_catalog.=) ''
+    OR origin OPERATOR(pg_catalog.<>) (CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END) OR epoch OPERATOR(pg_catalog.=) ''
     OR (purpose OPERATOR(pg_catalog.<>) 'enroll_identifier' AND purpose OPERATOR(pg_catalog.<>) 'otp_step_up' AND purpose OPERATOR(pg_catalog.<>) 'session') THEN RETURN NULL; END IF;
   SELECT e.manifest_h,e.watermark_ms,e.state,e.origin INTO stored_manifest,stored_watermark,stored_state,stored_origin
     FROM subtrack_auth.epoch AS e WHERE e.id OPERATOR(pg_catalog.=) peek.epoch FOR UPDATE;

@@ -2,7 +2,7 @@
 -- No capacity, clock, dispatch, burn/settlement or authentication functions.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
-SELECT pg_catalog.current_database() = 'st233a_development_auth_foundation_proof'
+SELECT pg_catalog.current_database() IN ('st233a_development_auth_foundation_proof','st237_private_https_profile')
   AND SESSION_USER = 'st233a_fixture_owner'
   AND pg_catalog.current_setting('server_version_num')::integer BETWEEN 160000 AND 169999
   AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname = 'subtrack_auth')
@@ -33,7 +33,7 @@ CREATE DOMAIN subtrack_auth.ms AS pg_catalog.int8
 CREATE TABLE subtrack_auth.epoch (
   id pg_catalog.text PRIMARY KEY CHECK (id <> ''),
   manifest_h subtrack_auth.h NOT NULL,
-  origin pg_catalog.text NOT NULL CHECK (origin = 'https://st233a.invalid'),
+  origin pg_catalog.text NOT NULL CHECK (origin = (CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END)),
   watermark_ms subtrack_auth.ms NOT NULL,
   state pg_catalog.text NOT NULL CHECK (state IN ('active','retired')),
   UNIQUE (id, origin)
@@ -55,7 +55,7 @@ CREATE TABLE subtrack_auth.reservation (
 CREATE TABLE subtrack_auth.nonce (
   nonce_h subtrack_auth.h PRIMARY KEY,
   transport pg_catalog.text NOT NULL CHECK (transport = 'web'),
-  origin pg_catalog.text NOT NULL CHECK (origin = 'https://st233a.invalid'),
+  origin pg_catalog.text NOT NULL CHECK (origin = (CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END)),
   chain pg_catalog.text NOT NULL CHECK (chain <> ''),
   binding_h subtrack_auth.h NOT NULL,
   epoch pg_catalog.text NOT NULL REFERENCES subtrack_auth.epoch(id),

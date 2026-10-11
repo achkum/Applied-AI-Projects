@@ -1,7 +1,7 @@
 -- ST-233k: private atomic issue on a previously committed burn.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
-SELECT 1 / COALESCE((pg_catalog.current_database() = 'st233a_development_auth_foundation_proof'
+SELECT 1 / COALESCE((pg_catalog.current_database() IN ('st233a_development_auth_foundation_proof','st237_private_https_profile')
   AND SESSION_USER = 'st233a_fixture_owner'
   AND pg_catalog.current_setting('server_version_num')::pg_catalog.int4 BETWEEN 160000 AND 169999
   AND EXISTS (SELECT 1 FROM public.st233a_fixture_control WHERE task='ST-233a'
@@ -68,7 +68,7 @@ DECLARE
 BEGIN
   IF pg_catalog.current_setting('transaction_isolation') OPERATOR(pg_catalog.<>) 'read committed' THEN RETURN false; END IF;
   IF key_h IS NULL OR owner_h IS NULL OR authority_h IS NULL OR request_h IS NULL OR nonce_h IS NULL OR binding_h IS NULL OR chain IS NULL OR purpose IS NULL OR origin IS NULL OR epoch IS NULL OR manifest_h IS NULL OR observed_ms IS NULL
-    OR chain OPERATOR(pg_catalog.=) '' OR epoch OPERATOR(pg_catalog.=) '' OR origin OPERATOR(pg_catalog.<>) 'https://st233a.invalid' THEN RETURN false; END IF;
+    OR chain OPERATOR(pg_catalog.=) '' OR epoch OPERATOR(pg_catalog.=) '' OR origin OPERATOR(pg_catalog.<>) (CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END) THEN RETURN false; END IF;
   expected_request := CASE purpose
     WHEN 'enroll_identifier' THEN '761e0825866db57f73a0050934f7ebe28e988ca1b893b76197c2f04f081ab036'
     WHEN 'otp_step_up' THEN '1c48f3dc4d338ddd4fb001c13d797c6b5ca6cd01f013ab34ccecf8b338953367'

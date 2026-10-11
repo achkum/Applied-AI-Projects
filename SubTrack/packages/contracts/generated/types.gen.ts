@@ -5,6 +5,13 @@ export type ClientOptions = {
 };
 
 /**
+ * Exact empty JSON object; current session CSRF remains required.
+ */
+export type ProfileReadRequest = {
+    [key: string]: never;
+};
+
+/**
  * Private profile data patch; no identity, owner, contact, provider, session or household authority. A later writer must scope it from trusted context.
  */
 export type ProfilePatch = {
@@ -32,6 +39,16 @@ export type ProfileView = {
     theme: 'system' | 'light' | 'dark';
     defaultCurrency: 'SEK';
     profileComplete: boolean;
+};
+
+/**
+ * Closed generic RFC 9457 profile failure. Code is fixed by status; no private detail or owner existence.
+ */
+export type BrowserProfileProblem = {
+    type: 'about:blank';
+    title: 'Bad Request' | 'Unauthorized' | 'Forbidden' | 'Conflict' | 'Internal Server Error';
+    status: 400 | 401 | 403 | 409 | 500;
+    code: 'INVALID_PROFILE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'PROFILE_REQUEST_REJECTED' | 'PROFILE_CONFLICT' | 'INTERNAL_ERROR';
 };
 
 /**
@@ -2003,6 +2020,118 @@ export type VerifyV2DeleteOtpReauthResponses = {
 };
 
 export type VerifyV2DeleteOtpReauthResponse = VerifyV2DeleteOtpReauthResponses[keyof VerifyV2DeleteOtpReauthResponses];
+
+export type ReadV2BrowserProfileData = {
+    body: ProfileReadRequest;
+    headers?: {
+        /**
+         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         */
+        Origin?: string;
+        /**
+         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         */
+        'X-Session-CSRF'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/me/profile/read';
+};
+
+export type ReadV2BrowserProfileErrors = {
+    /**
+     * Exact status/code pairs: 400 INVALID_PROFILE_REQUEST for invalid request; 401 AUTHENTICATION_REQUIRED for all collapsed current-authority failures; 403 PROFILE_REQUEST_REJECTED only for syntactically rejected envelope; 409 PROFILE_CONFLICT for safe state or uncertain outcome; 500 INTERNAL_ERROR for masked failure outside authority.
+     *
+     */
+    400: BrowserProfileProblem;
+    /**
+     * Exact status/code pairs: 400 INVALID_PROFILE_REQUEST for invalid request; 401 AUTHENTICATION_REQUIRED for all collapsed current-authority failures; 403 PROFILE_REQUEST_REJECTED only for syntactically rejected envelope; 409 PROFILE_CONFLICT for safe state or uncertain outcome; 500 INTERNAL_ERROR for masked failure outside authority.
+     *
+     */
+    401: BrowserProfileProblem;
+    /**
+     * Exact status/code pairs: 400 INVALID_PROFILE_REQUEST for invalid request; 401 AUTHENTICATION_REQUIRED for all collapsed current-authority failures; 403 PROFILE_REQUEST_REJECTED only for syntactically rejected envelope; 409 PROFILE_CONFLICT for safe state or uncertain outcome; 500 INTERNAL_ERROR for masked failure outside authority.
+     *
+     */
+    403: BrowserProfileProblem;
+    /**
+     * Exact status/code pairs: 400 INVALID_PROFILE_REQUEST for invalid request; 401 AUTHENTICATION_REQUIRED for all collapsed current-authority failures; 403 PROFILE_REQUEST_REJECTED only for syntactically rejected envelope; 409 PROFILE_CONFLICT for safe state or uncertain outcome; 500 INTERNAL_ERROR for masked failure outside authority.
+     *
+     */
+    409: BrowserProfileProblem;
+    /**
+     * Exact status/code pairs: 400 INVALID_PROFILE_REQUEST for invalid request; 401 AUTHENTICATION_REQUIRED for all collapsed current-authority failures; 403 PROFILE_REQUEST_REJECTED only for syntactically rejected envelope; 409 PROFILE_CONFLICT for safe state or uncertain outcome; 500 INTERNAL_ERROR for masked failure outside authority.
+     *
+     */
+    500: BrowserProfileProblem;
+};
+
+export type ReadV2BrowserProfileError = ReadV2BrowserProfileErrors[keyof ReadV2BrowserProfileErrors];
+
+export type ReadV2BrowserProfileResponses = {
+    /**
+     * Fresh persisted, owner-scoped closed profile view after successful current authority.
+     */
+    200: ProfileView;
+};
+
+export type ReadV2BrowserProfileResponse = ReadV2BrowserProfileResponses[keyof ReadV2BrowserProfileResponses];
+
+export type PatchV2BrowserProfileData = {
+    body: ProfilePatch;
+    headers?: {
+        /**
+         * Required for web-cookie/browser transport; must exactly match configured allowlist. Mobile Bearer transport does not send browser Origin.
+         */
+        Origin?: string;
+        /**
+         * Required for web cookie unsafe calls; session-bound, separate from browser nonce. Bearer mobile does not use cookie CSRF.
+         */
+        'X-Session-CSRF'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/me/profile';
+};
+
+export type PatchV2BrowserProfileErrors = {
+    /**
+     * Exact status/code pairs: 400 INVALID_PROFILE_REQUEST for invalid request; 401 AUTHENTICATION_REQUIRED for all collapsed current-authority failures; 403 PROFILE_REQUEST_REJECTED only for syntactically rejected envelope; 409 PROFILE_CONFLICT for safe state or uncertain outcome; 500 INTERNAL_ERROR for masked failure outside authority.
+     *
+     */
+    400: BrowserProfileProblem;
+    /**
+     * Exact status/code pairs: 400 INVALID_PROFILE_REQUEST for invalid request; 401 AUTHENTICATION_REQUIRED for all collapsed current-authority failures; 403 PROFILE_REQUEST_REJECTED only for syntactically rejected envelope; 409 PROFILE_CONFLICT for safe state or uncertain outcome; 500 INTERNAL_ERROR for masked failure outside authority.
+     *
+     */
+    401: BrowserProfileProblem;
+    /**
+     * Exact status/code pairs: 400 INVALID_PROFILE_REQUEST for invalid request; 401 AUTHENTICATION_REQUIRED for all collapsed current-authority failures; 403 PROFILE_REQUEST_REJECTED only for syntactically rejected envelope; 409 PROFILE_CONFLICT for safe state or uncertain outcome; 500 INTERNAL_ERROR for masked failure outside authority.
+     *
+     */
+    403: BrowserProfileProblem;
+    /**
+     * Exact status/code pairs: 400 INVALID_PROFILE_REQUEST for invalid request; 401 AUTHENTICATION_REQUIRED for all collapsed current-authority failures; 403 PROFILE_REQUEST_REJECTED only for syntactically rejected envelope; 409 PROFILE_CONFLICT for safe state or uncertain outcome; 500 INTERNAL_ERROR for masked failure outside authority.
+     *
+     */
+    409: BrowserProfileProblem;
+    /**
+     * Exact status/code pairs: 400 INVALID_PROFILE_REQUEST for invalid request; 401 AUTHENTICATION_REQUIRED for all collapsed current-authority failures; 403 PROFILE_REQUEST_REJECTED only for syntactically rejected envelope; 409 PROFILE_CONFLICT for safe state or uncertain outcome; 500 INTERNAL_ERROR for masked failure outside authority.
+     *
+     */
+    500: BrowserProfileProblem;
+};
+
+export type PatchV2BrowserProfileError = PatchV2BrowserProfileErrors[keyof PatchV2BrowserProfileErrors];
+
+export type PatchV2BrowserProfileResponses = {
+    /**
+     * Fresh persisted, owner-scoped closed profile view after successful current authority.
+     */
+    200: ProfileView;
+};
+
+export type PatchV2BrowserProfileResponse = PatchV2BrowserProfileResponses[keyof PatchV2BrowserProfileResponses];
 
 export type DeleteV2MeData = {
     body: DeleteMeRequest;

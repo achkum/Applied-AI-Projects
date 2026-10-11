@@ -62,15 +62,16 @@ export DATABASE_URL="$BUG_008B_OWNER_URL"
 if ! (cd apps/api && corepack pnpm exec prisma migrate deploy --schema=prisma/schema.prisma) > "$tmp/migrate.log" 2>&1; then
   fail migrate "$tmp/migrate.log"
 fi
-expected=$(printf '0001_canonical_schema|%s\n0002_privacy_constraints|%s' \
+expected=$(printf '0001_canonical_schema|%s\n0002_privacy_constraints|%s\n0003_enrollment_profile|%s' \
   "$(sha256sum apps/api/prisma/migrations/0001_canonical_schema/migration.sql | cut -d' ' -f1)" \
-  "$(sha256sum apps/api/prisma/migrations/0002_privacy_constraints/migration.sql | cut -d' ' -f1)")
+  "$(sha256sum apps/api/prisma/migrations/0002_privacy_constraints/migration.sql | cut -d' ' -f1)" \
+  "$(sha256sum apps/api/prisma/migrations/0003_enrollment_profile/migration.sql | cut -d' ' -f1)")
 actual=$(docker exec "$cid" psql --username fixture_owner --dbname clean_migration_proof \
   --no-psqlrc --tuples-only --no-align --command \
   "SELECT migration_name || '|' || checksum FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name") || fail migration-ledger
 [[ "$actual" == "$expected" ]] || fail migration-ledger
 [[ "$(docker exec "$cid" psql --username fixture_owner --dbname clean_migration_proof \
-  --no-psqlrc --tuples-only --no-align --command 'SELECT count(*) FROM _prisma_migrations')" == 2 ]] || fail migration-ledger
+  --no-psqlrc --tuples-only --no-align --command 'SELECT count(*) FROM _prisma_migrations')" == 3 ]] || fail migration-ledger
 printf "CREATE ROLE proof_runtime LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_runtime TO proof_runtime WITH INHERIT TRUE, SET FALSE;\nCREATE ROLE proof_service LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_invitation_service TO proof_service WITH INHERIT TRUE, SET FALSE;\nCREATE ROLE proof_identity LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_identity_provisioner TO proof_identity WITH INHERIT TRUE, SET FALSE;\nCREATE ROLE proof_otp LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_otp_service TO proof_otp WITH INHERIT TRUE, SET FALSE;\nCREATE ROLE proof_catalogue LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_catalogue_writer TO proof_catalogue WITH INHERIT TRUE, SET FALSE;\n" \
   "$runtime_pass" "$service_pass" "$identity_pass" "$otp_pass" "$catalogue_pass" > "$tmp/runtime.sql"
 if ! docker exec -i "$cid" psql --username fixture_owner --dbname clean_migration_proof \
@@ -105,4 +106,4 @@ if ! (cd apps/api && corepack pnpm exec vitest run --config vitest.clean-migrati
   printf 'BUG-008b disposable proof: FAIL stage=policy phase=%s %s %s\n' "${phase##*: }" "${step:-step=unavailable}" "${code:-code=unavailable}" | tee "$receipt" >&2
   exit 1
 fi
-printf 'BUG-008b: PASS migrations=2 ledger_checksums=2 modeled_drift=0 vitest_tests=1 ordinary_login=1 service_logins=4\n' > "$receipt"
+printf 'BUG-008b: PASS migrations=3 ledger_checksums=3 modeled_drift=0 vitest_tests=2 ordinary_login=1 service_logins=4 profile_rls=1\n' > "$receipt"

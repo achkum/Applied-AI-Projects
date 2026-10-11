@@ -59,8 +59,16 @@ test('v2 mutating POSTs require idempotency and browser state distinguishes nonc
     const operations = Object.entries(document.paths).flatMap(([path, item]) =>
       Object.entries(item).filter(([method]) => method.toLowerCase() === 'post')
         .map(([method, operation]) => [path, method, operation]),
-    ).filter(([path]) => path.startsWith('/v2/') && path !== '/v2/subscriptions/{id}/read');
+    ).filter(([path]) => path.startsWith('/v2/') &&
+      path !== '/v2/subscriptions/{id}/read' && path !== '/v2/me/profile/read');
     assert.equal(operations.length, 10);
+    const profileRead = document.paths['/v2/me/profile/read'].post;
+    assert.ok(profileRead);
+    assert.equal(profileRead.parameters.some((parameter) => parameter.name === 'Idempotency-Key'), false);
+    assert.ok(profileRead.parameters.some((parameter) => parameter.name === 'X-Session-CSRF'));
+    assert.ok(profileRead.parameters.some((parameter) => parameter.name === 'Origin'));
+    assert.equal(profileRead.requestBody.content['application/json'].schema.type, 'object');
+    assert.equal(profileRead.requestBody.content['application/json'].schema.maxProperties, 0);
     for (const [path, , operation] of operations) {
       assert.ok(operation.parameters.some((parameter) =>
         parameter.name === 'Idempotency-Key' && parameter.required === true),
@@ -101,7 +109,8 @@ test('v2 POST recovery contract stays generic and explains restart after referen
     const operations = Object.entries(document.paths).flatMap(([path, item]) =>
       Object.entries(item).filter(([method]) => method.toLowerCase() === 'post')
         .map(([method, operation]) => [path, method, operation]),
-    ).filter(([path]) => path.startsWith('/v2/') && path !== '/v2/subscriptions/{id}/read');
+    ).filter(([path]) => path.startsWith('/v2/') &&
+      path !== '/v2/subscriptions/{id}/read' && path !== '/v2/me/profile/read');
     assert.equal(operations.length, 10);
     for (const [path, , operation] of operations) {
       const response = operation.responses['409'];

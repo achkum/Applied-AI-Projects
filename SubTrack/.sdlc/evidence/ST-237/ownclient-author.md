@@ -1,0 +1,9 @@
+# ST-237 client author handoff
+
+Implemented the mounted registration route through identifier, OTP, pending admission, trusted development simulator, terminal completion, current-session owner profile read, PATCH, distinct owner reread, and saved display. Calls use same-origin relative `/v2` with browser credentials. Enrollment secrets and current CSRF remain in component memory; the browser supplies Origin. A reload presents a verified-login-required stop because no session recovery route is contracted.
+
+Exports: `startRegistration`, `verifyRegistration`, `admitPendingRegistration`, `verifySimulatorRegistration`, `completeRegistration` from `apps/web/lib/registration-api.ts`; `readProfile(csrf, signal)` and `patchProfile(patch, csrf, signal)` from `apps/web/lib/profile-api.ts`. `RegistrationFlow({ locale })` remains mounted by the existing register page and renders `ProfileEditor({ locale, view, busy, saved, uncertain, onSave })` after an authoritative read.
+
+The client validates closed enrollment responses and the accepted profile parser, sends exactly the five mutable profile fields, and withholds a saved claim until a known 200 PATCH and a separate 200 read. A lost PATCH may trigger only a fresh read and uncertain message. Lost terminal enrollment requires verified login; it is never replayed. No Just me, subscription, provider, or public activation path was added.
+
+Focused client checks on this source state: web TypeScript typecheck passed after the task-owned `apps/web/tsconfig.json` import-extension setting; targeted ESLint passed; all 25 focused tests passed; Swedish/English key parity passed. No actual browser or PG claim is made here. Integration must reconcile the enrollment HTTP problem codes/titles against the accepted contract before browser proof, and run the final source-head checks after all lanes settle.

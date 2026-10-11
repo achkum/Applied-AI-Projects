@@ -1033,6 +1033,63 @@ paths:
         '409': { $ref: '#/components/responses/V2Problem' }
         default: { $ref: '#/components/responses/V2Problem' }
 
+  /v2/me/profile/read:
+    post:
+      operationId: readV2BrowserProfile
+      summary: Read the current browser owner's persisted private profile
+      description: >
+        Same-origin HTTPS web cookie request only. Requires exactly one Origin,
+        X-Session-CSRF, st_v2_access cookie and distinct browser-binding cookie,
+        with the current browser chain and current session CSRF. The JSON body
+        must be exactly {}. No query, Authorization, refresh credential,
+        Idempotency-Key, owner selector or method override is accepted. A fresh
+        owner-scoped read does not rotate session, nonce or CSRF. Every response
+        is no-store and no-cache.
+      parameters:
+        - $ref: '#/components/parameters/OriginForWeb'
+        - $ref: '#/components/parameters/SessionCsrf'
+      security:
+        - V2WebAccessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileReadRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/BrowserProfileView' }
+        '400': { $ref: '#/components/responses/BrowserProfileProblem' }
+        '401': { $ref: '#/components/responses/BrowserProfileProblem' }
+        '403': { $ref: '#/components/responses/BrowserProfileProblem' }
+        '409': { $ref: '#/components/responses/BrowserProfileProblem' }
+        '500': { $ref: '#/components/responses/BrowserProfileProblem' }
+  /v2/me/profile:
+    patch:
+      operationId: patchV2BrowserProfile
+      summary: Patch the current browser owner's private profile
+      description: >
+        Same current web cookie, exact Origin, browser binding and chain, and
+        X-Session-CSRF requirements as profile read. No query, Authorization,
+        refresh credential, Idempotency-Key, owner selector or method override.
+        The returned view represents a known committed update. An uncertain
+        result must not be replayed automatically. Every response is no-store
+        and no-cache.
+      parameters:
+        - $ref: '#/components/parameters/OriginForWeb'
+        - $ref: '#/components/parameters/SessionCsrf'
+      security:
+        - V2WebAccessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfilePatch' }
+      responses:
+        '200': { $ref: '#/components/responses/BrowserProfileView' }
+        '400': { $ref: '#/components/responses/BrowserProfileProblem' }
+        '401': { $ref: '#/components/responses/BrowserProfileProblem' }
+        '403': { $ref: '#/components/responses/BrowserProfileProblem' }
+        '409': { $ref: '#/components/responses/BrowserProfileProblem' }
+        '500': { $ref: '#/components/responses/BrowserProfileProblem' }
   /v2/me:
     delete:
       operationId: deleteV2Me
@@ -1065,6 +1122,11 @@ paths:
 
 components:
   schemas:
+    ProfileReadRequest:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+      description: Exact empty JSON object; current session CSRF remains required.
     ProfilePatch:
       description: Private profile data patch; no identity, owner, contact, provider, session or household authority. A later writer must scope it from trusted context.
       type: object
@@ -1089,6 +1151,16 @@ components:
         theme: { type: string, enum: [system, light, dark] }
         defaultCurrency: { type: string, const: SEK }
         profileComplete: { type: boolean }
+    BrowserProfileProblem:
+      description: Closed generic RFC 9457 profile failure. Code is fixed by status; no private detail or owner existence.
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, enum: [Bad Request, Unauthorized, Forbidden, Conflict, Internal Server Error] }
+        status: { type: integer, enum: [400, 401, 403, 409, 500] }
+        code: { type: string, enum: [INVALID_PROFILE_REQUEST, AUTHENTICATION_REQUIRED, PROFILE_REQUEST_REJECTED, PROFILE_CONFLICT, INTERNAL_ERROR] }
     JustMeChoice:
       description: Explicit data choice after a persisted completed profile. A future trusted caller enforces that prerequisite; this component creates no household, membership or consent.
       type: object
@@ -2018,6 +2090,27 @@ components:
       name: Authorization
       description: Mobile only, exact form `Refresh <opaque-secret>`; custom auth scheme, never body/query.
   responses:
+    BrowserProfileView:
+      description: Fresh persisted, owner-scoped closed profile view after successful current authority.
+      headers:
+        Cache-Control: { required: true, schema: { type: string, const: no-store } }
+        Pragma: { required: true, schema: { type: string, const: no-cache } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProfileView' }
+    BrowserProfileProblem:
+      description: >
+        Exact status/code pairs: 400 INVALID_PROFILE_REQUEST for invalid request;
+        401 AUTHENTICATION_REQUIRED for all collapsed current-authority failures;
+        403 PROFILE_REQUEST_REJECTED only for syntactically rejected envelope;
+        409 PROFILE_CONFLICT for safe state or uncertain outcome;
+        500 INTERNAL_ERROR for masked failure outside authority.
+      headers:
+        Cache-Control: { required: true, schema: { type: string, const: no-store } }
+        Pragma: { required: true, schema: { type: string, const: no-cache } }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/BrowserProfileProblem' }
     BrowserSubscriptionLifecycleProblem:
       description: >
         Generic bounded error. Malformed path/body/target/query, transport, origin
