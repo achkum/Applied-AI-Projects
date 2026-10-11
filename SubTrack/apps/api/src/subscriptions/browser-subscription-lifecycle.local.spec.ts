@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AUTHORITY_CASES, assertOwnedFixture, createAuthorityBarrier, createFixtureClock, createWriterRollbackDelegate, main, ROLLBACK_BASELINE, ROLLBACK_FIXTURE, type Provenance } from './browser-subscription-lifecycle.local';
+import { AUTHORITY_CASES, COMPETITOR_FIXTURES, assertOwnedFixture, createAuthorityBarrier, createCompetitor, createFixtureClock, createWriterRollbackDelegate, main, ROLLBACK_BASELINE, ROLLBACK_FIXTURE, type Provenance } from './browser-subscription-lifecycle.local';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import type { BrowserSubscriptionLifecycleCompositionOptions } from './browser-subscription-lifecycle.composition';
 
@@ -18,7 +18,7 @@ vi.mock('node:fs', async importOriginal => ({ ...await importOriginal<typeof imp
 vi.mock('node:child_process', async importOriginal => ({ ...await importOriginal<typeof import('node:child_process')>(),
   execFileSync: () => runtime.inspected,
 }));
-vi.mock('@prisma/client', () => ({ PrismaClient: class {
+vi.mock('@prisma/client', async importOriginal => ({ ...await importOriginal<typeof import('@prisma/client')>(), PrismaClient: class {
   $queryRaw = async () => [{ pid: 7, canonical: null, historical: null }];
   $transaction = async (callback: (tx: { $queryRaw: () => Promise<unknown[]> }) => Promise<unknown>) => {
     runtime.transactions++;
@@ -60,6 +60,66 @@ const fixture = () => ({
   Mounts: [{ Type: 'tmpfs', Destination: '/var/lib/postgresql/data' }],
   HostConfig: { PortBindings: { '5432/tcp': [{ HostIp: '127.0.0.1', HostPort: '' }] } },
   NetworkSettings: { Ports: { '5432/tcp': [{ HostIp: '127.0.0.1', HostPort: '35001' }] } },
+});
+
+describe('ordinary fixed competitor custody', () => {
+  const owner = '00000000-0000-4000-8000-000000000001';
+  const setup = (handle: 'race' | 'abort', defect = '', arrivalGate = Promise.resolve()) => {
+    let transactionSettled = false, queries = 0;
+    const row = { id: COMPETITOR_FIXTURES[handle], owner, status: handle === 'race' ? 'CANCELLED' : 'ACTIVE',
+      private: true, pid: 17, canonical: owner, historical: owner };
+    const tx = { $executeRaw: vi.fn(async () => 1), $queryRaw: vi.fn(async () => {
+      queries++;
+      if (defect === 'query') throw new Error('private');
+      if (handle === 'race' && queries === 1) return [{ id: COMPETITOR_FIXTURES.race, identityId: owner, status: 'ACTIVE' }];
+      if (handle === 'race' && queries === 2) return [{ id: defect === 'result' ? 'wrong' : COMPETITOR_FIXTURES.race, status: 'CANCELLED' }];
+      return defect === 'empty' ? [] : [{ ...row, ...(defect === 'owner' ? { canonical: 'wrong' } : {}),
+        ...(defect === 'pid' ? { pid: 0 } : {}), ...(defect === 'status' ? { status: 'PAUSED' } : {}) }];
+    }) };
+    const pool = { $transaction: vi.fn(async (operation: (tx: unknown) => Promise<unknown>) => {
+      try { return await operation(tx); } finally { transactionSettled = true; }
+    }) } as unknown as PrismaClient;
+    const arrived = vi.fn(async () => { await arrivalGate; if (defect === 'arrival') throw new Error('private'); });
+    const stop = vi.fn(), proof = createCompetitor(pool, owner, arrived, stop);
+    return { proof, arrived, stop, tx, pool, settled: () => transactionSettled };
+  };
+  it.each(['race', 'abort'] as const)('announces %s actual callback lock before separate release and settlement', async handle => {
+    const test = setup(handle); test.proof.start(handle);
+    await vi.waitFor(() => expect(test.arrived).toHaveBeenCalledWith(handle, 17));
+    expect(test.settled()).toBe(false);
+    expect(() => test.proof.start(handle)).toThrow();
+    test.proof.release(); expect(() => test.proof.release()).toThrow();
+    await test.proof.finish(); expect(test.settled()).toBe(true); expect(test.proof.failed).toBe(false);
+    expect(() => test.proof.start(handle)).toThrow(); await test.proof.settle(); expect(test.stop).not.toHaveBeenCalled();
+  });
+  it.each(['empty', 'owner', 'pid', 'status', 'query', 'arrival', 'result'])('fails closed on %s evidence', async defect => {
+    const test = setup(defect === 'result' ? 'race' : 'abort', defect); test.proof.start(defect === 'result' ? 'race' : 'abort');
+    await vi.waitFor(() => expect(test.stop).toHaveBeenCalled());
+    expect(test.proof.failed).toBe(true); expect(() => test.proof.release()).toThrow();
+    await expect(test.proof.finish()).rejects.toThrow(); await test.proof.settle(); expect(test.settled()).toBe(true);
+  });
+  it('rejects arbitrary handles, premature release/finish and new work after stop', async () => {
+    const test = setup('abort');
+    expect(() => test.proof.start('outside' as 'abort')).toThrow(); expect(() => test.proof.release()).toThrow();
+    await expect(test.proof.finish()).rejects.toThrow(); await test.proof.settle();
+    expect(() => test.proof.start('abort')).toThrow();
+  });
+  it('stop releases a hold but drains underlying arrival before returning', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>(done => { release = done; }), test = setup('abort', '', gate);
+    test.proof.start('abort'); await vi.waitFor(() => expect(test.arrived).toHaveBeenCalled());
+    let drained = false; const drain = test.proof.settle().then(() => { drained = true; });
+    await Promise.resolve(); expect(drained).toBe(false); expect(test.settled()).toBe(false);
+    release(); await drain; expect(test.settled()).toBe(true); expect(test.proof.failed).toBe(true);
+  });
+  it('expires an uncompleted lock without certifying settlement', async () => {
+    vi.useFakeTimers();
+    try {
+      const test = setup('abort'); test.proof.start('abort');
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(test.stop).toHaveBeenCalled(); expect(test.proof.failed).toBe(true); await test.proof.settle();
+    } finally { vi.useRealTimers(); }
+  });
 });
 
 describe('awaited actual authority custody', () => {

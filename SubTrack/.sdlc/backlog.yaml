@@ -6,7 +6,8 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-227c1, title: 'Natural-browser awaited current-authority denial proof', owner: dev-backend, size: L, status: IN_REVIEW, deps: [ST-227b]}
+  - {id: ST-227c2, title: 'Natural-browser competing writer and uncertain response proof', owner: dev-backend, size: L, status: IN_REVIEW, deps: [ST-227c1]}
+  - {id: ST-227c1, title: 'Natural-browser awaited current-authority denial proof', owner: dev-backend, size: L, status: DONE, deps: [ST-227b]}
   - {id: ST-233a, title: 'Development auth epoch nonce and global reservation SQL foundation', owner: architect-platform, size: L, status: DONE, deps: [ST-230, ST-231, ST-232]}
   - {id: ST-227b, title: 'Natural-browser actual writer rollback proof', owner: dev-backend, size: M, status: DONE, deps: [ST-227a]}
   - {id: ST-227a, title: 'Natural-browser subscription lifecycle transitions and denials', owner: dev-backend, size: L, status: DONE, deps: [ST-227, ST-226, ST-222, ST-224]}

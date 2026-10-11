@@ -12,7 +12,8 @@ import { V2AccessToken } from '../auth/sessions-v2/v2-access-token.js';
 import { DevelopmentV2PrincipalResolver } from '../auth/sessions-v2/v2-principal-resolver.js';
 import { DevelopmentV2SessionIssuer, InMemoryV2SessionRepository } from '../auth/sessions-v2/v2-session-issuer.js';
 import { hashBrowserBindingCookie } from '../auth/sessions-v2/v2-web-session-binding.js';
-import { createBrowserSubscriptionLifecycleApp } from './browser-subscription-lifecycle.composition.js';
+import { assertBrowserSubscriptionLifecycleStorage, createBrowserSubscriptionLifecycleApp } from './browser-subscription-lifecycle.composition.js';
+import { SubscriptionLifecycleRepository } from './subscription-lifecycle.repository.js';
 
 const DENIED = 'ST-226 local proof denied';
 const IMAGE = 'mirror.gcr.io/library/postgres:16-alpine';
@@ -23,6 +24,74 @@ const ROLLBACK_FAULT = 'ST-227b verified writer rollback';
 export const AUTHORITY_CASES = ['read-missing', 'patch-missing', 'read-revoked', 'patch-revoked',
   'read-rebound', 'patch-rebound', 'read-expired', 'patch-expired'] as const;
 export type AuthorityCase = typeof AUTHORITY_CASES[number];
+export const COMPETITOR_FIXTURES = { race: '00000000-0000-4000-8000-000000000228',
+  abort: '00000000-0000-4000-8000-000000000229' } as const;
+type CompetitorCase = keyof typeof COMPETITOR_FIXTURES;
+/** Ordinary pool, accepted cancel callback, fixed private handles. Start never awaits the held transaction. */
+export function createCompetitor(pool: PrismaClient, owner: string,
+  arrived: (handle: CompetitorCase, pid: number) => Promise<void>, stop: () => void) {
+  let current: { handle: CompetitorCase; release: () => void; gate: Promise<void>; locked: boolean;
+    released: boolean; timer: NodeJS.Timeout } | undefined;
+  let underlying: Promise<unknown> | undefined, stopping = false, failed = false;
+  const spent = new Set<CompetitorCase>();
+  const deny = () => { failed = true; current?.release(); stop(); };
+  const hold = async (tx: Prisma.TransactionClient, handle: CompetitorCase) => {
+    const id = COMPETITOR_FIXTURES[handle];
+    const rows = await tx.$queryRaw<{ id: string; owner: string; status: string; private: boolean;
+      pid: number; canonical: string; historical: string }[]>`SELECT id::text, identity_id::text AS owner,
+      status::text, always_private AS private, pg_backend_pid() AS pid,
+      current_setting('app.user_id',true) AS canonical, current_setting('app.current_user_id',true) AS historical
+      FROM subscription WHERE id=${id}::uuid AND identity_id=${owner}::uuid FOR UPDATE`;
+    const row = rows[0], capture = current;
+    if (!capture || stopping || rows.length !== 1 || !row || row.id !== id || row.owner !== owner || !row.private ||
+        row.status !== (handle === 'race' ? 'CANCELLED' : 'ACTIVE') || !Number.isSafeInteger(row.pid) ||
+        row.pid < 1 || row.pid > 2147483647 || row.canonical !== owner || row.historical !== owner) throw new Error(DENIED);
+    capture.locked = true; await arrived(handle, row.pid); await capture.gate;
+    if (failed) throw new Error(DENIED);
+  };
+  return { get failed() { return failed; },
+    start(handle: CompetitorCase) {
+      if (stopping || current || !Object.prototype.hasOwnProperty.call(COMPETITOR_FIXTURES, handle) || spent.has(handle)) throw new Error(DENIED);
+      let release!: () => void;
+      const gate = new Promise<void>(done => { release = done; });
+      current = { handle, release, gate, locked: false, released: false, timer: setTimeout(deny, 5_000) }; spent.add(handle);
+      if (handle === 'race') {
+        const proxy = new Proxy(pool, { get(target, property) {
+          if (property === '$transaction') return (operation: (tx: Prisma.TransactionClient) => Promise<unknown>, ...options: unknown[]) =>
+            Reflect.apply(target.$transaction, target, [async (tx: Prisma.TransactionClient) => {
+              const result = await operation(tx);
+              if (!result || typeof result !== 'object' || Reflect.ownKeys(result).length !== 2 ||
+                  Object.keys(result).sort().join(',') !== 'id,status' ||
+                  (result as { id: unknown }).id !== COMPETITOR_FIXTURES.race ||
+                  (result as { status: unknown }).status !== 'CANCELLED') throw new Error(DENIED);
+              await hold(tx, handle); return result;
+            }, ...options]);
+          const value: unknown = Reflect.get(target, property, target);
+          return typeof value === 'function' ? value.bind(target) : value;
+        } });
+        underlying = new SubscriptionLifecycleRepository(proxy).apply({ userId: owner }, COMPETITOR_FIXTURES.race, 'cancel');
+      } else underlying = pool.$transaction(async tx => {
+        await tx.$executeRaw`SELECT set_config('app.user_id',${owner},true)`;
+        await tx.$executeRaw`SELECT set_config('app.current_user_id',${owner},true)`;
+        await hold(tx, handle);
+      }, { maxWait: 5_000, timeout: 5_000 });
+      void underlying.catch(deny);
+    },
+    release() {
+      if (stopping || !current?.locked || current.released || failed) throw new Error(DENIED);
+      current.released = true; clearTimeout(current.timer); current.release();
+    },
+    async finish() {
+      if (stopping || !current?.released || failed || !underlying) throw new Error(DENIED);
+      await underlying; if (failed) throw new Error(DENIED); current = undefined; underlying = undefined;
+    },
+    async settle() {
+      stopping = true;
+      if (current) { clearTimeout(current.timer); if (!current.released) deny(); current.release(); }
+      if (underlying) await Promise.allSettled([underlying]);
+    },
+  };
+}
 export function createFixtureClock(wall = Date.now) {
   let previous = wall(), offset = 0;
   const now = () => {
@@ -235,6 +304,8 @@ async function bounded<T>(operation: Promise<T>, ms = 10_000): Promise<T> {
 }
 
 export async function main(): Promise<void> {
+  const competitorEnabled = process.env['ST227C2_ENABLED'];
+  if (competitorEnabled && competitorEnabled !== '1') throw new Error(DENIED);
   const authorityEnabled = process.env['ST227C1_ENABLED'];
   if (authorityEnabled && authorityEnabled !== '1') throw new Error(DENIED);
   const rollbackEnabled = process.env['ST227B_ENABLED'];
@@ -261,6 +332,9 @@ export async function main(): Promise<void> {
   let rollback: Awaited<ReturnType<typeof createWriterRollbackDelegate>> | undefined;
   let barrier: ReturnType<typeof createAuthorityBarrier> | undefined;
   let authorityControl: ((action: string) => Promise<void>) | undefined;
+  let competitorPool: PrismaClient | undefined;
+  let competitor: ReturnType<typeof createCompetitor> | undefined;
+  let competitorControl: ((action: string) => Promise<void>) | undefined;
   const ipcPending = new Set<Promise<unknown>>();
   const storagePending = new Set<Promise<unknown>>();
   const deliver = (message: object) => {
@@ -282,6 +356,7 @@ export async function main(): Promise<void> {
     process.off('SIGTERM', signal); process.off('SIGINT', signal); process.off('disconnect', signal);
     process.off('message', control);
     // A timeout cannot certify settlement or permit pool disconnect to race a writer.
+    if (competitor) await bounded(competitor.settle());
     if (barrier) await bounded(barrier.settle());
     if (rollback) await bounded(rollback.settle());
     if (controlling) await bounded(controlling);
@@ -289,12 +364,13 @@ export async function main(): Promise<void> {
     await bounded(Promise.allSettled([...storagePending]).then(() => undefined));
     try {
       if (app) await bounded(app.close());
+      if (competitorPool) await bounded(competitorPool.$disconnect());
       await bounded(prisma.$disconnect());
     }
     finally {
       key.fill(0); cert?.fill(0); credentials.length = 0; if (process.connected) process.disconnect?.();
     }
-    if (controlFailed || rollback?.failed || barrier?.failed) throw new Error(DENIED);
+    if (controlFailed || rollback?.failed || barrier?.failed || competitor?.failed) throw new Error(DENIED);
   };
   let nextId = 1;
   const control = (value: unknown) => {
@@ -304,7 +380,10 @@ export async function main(): Promise<void> {
     const arm = command.action === 'arm-writer-rollback';
     const evidence = command.action === 'writer-rollback-observe';
     const authority = /^(arm|release|observe)-(read|patch)-(missing|revoked|expired|rebound)$/.test(command.action);
-    if (authority) {
+    const competing = /^(arm-race|arm-abort|competitor-release|writer-settled|competitor-close)$/.test(command.action);
+    if (competing) {
+      if (Object.keys(command).sort().join(',') !== 'action,id,kind' || !competitorControl) return;
+    } else if (authority) {
       if (Object.keys(command).sort().join(',') !== 'action,id,kind' || !authorityControl) return;
     } else if (arm || evidence) {
       if (Object.keys(command).sort().join(',') !== 'action,id,kind' || !rollback ||
@@ -313,6 +392,10 @@ export async function main(): Promise<void> {
         !['owner', 'peer'].includes(command.handle ?? '') || command.action !== 'pool-observe') return;
     nextId++;
     controlling = (async () => {
+      if (competing) {
+        await competitorControl!(command.action);
+        await deliver({ kind: 'controlled', id: command.id, action: command.action, verified: true }); return;
+      }
       if (authority) {
         await authorityControl!(command.action);
         await deliver({ kind: 'controlled', id: command.id, action: command.action, verified: true }); return;
@@ -415,10 +498,37 @@ export async function main(): Promise<void> {
         else barrier!.observe(handle);
       };
     }
-    app = await createBrowserSubscriptionLifecycleApp({ prisma: authorityEnabled === '1' ? counted : delegate, accessTokens,
+    const composition = { prisma: authorityEnabled === '1' || competitorEnabled === '1' ? counted : delegate, accessTokens,
       principal: barrier?.principal ?? principal, repository: sessions, csrf,
-      clock, bindingCookieName: 'st_v2_binding', developmentEnabled: true, host: '127.0.0.1', port,
-      exactOrigin: origin, tls: { key, cert: cert! }, expectedDatabase: 'browser_subscription_lifecycle_proof', expectedRole: 'st_browser_lifecycle_runtime' });
+      clock, bindingCookieName: 'st_v2_binding', developmentEnabled: true as const, host: '127.0.0.1' as const, port,
+      exactOrigin: origin, tls: { key, cert: cert! }, expectedDatabase: 'browser_subscription_lifecycle_proof' as const,
+      expectedRole: 'st_browser_lifecycle_runtime' as const };
+    if (competitorEnabled === '1') {
+      inspectOwnedFixture(process.env['ST226_PROVENANCE_FILE'], process.env['ST226_RUNTIME_URL']);
+      competitorPool = new PrismaClient({ datasources: { db: { url: process.env['ST226_RUNTIME_URL']! } }, log: [] });
+      const preflight = assertBrowserSubscriptionLifecycleStorage({ ...composition, prisma: competitorPool });
+      storagePending.add(preflight);
+      void preflight.then(() => storagePending.delete(preflight), () => storagePending.delete(preflight));
+      await bounded(preflight, 5_000);
+      competitor = createCompetitor(competitorPool, owner!, (handle, pid) => deliver({ kind: 'competitor-locked', handle, pid }), signal);
+      let writerBaseline: number | undefined, cases = 0;
+      competitorControl = async action => {
+        active();
+        if (action === 'arm-race' || action === 'arm-abort') {
+          if (writerBaseline !== undefined || storagePending.size) throw new Error(DENIED);
+          writerBaseline = transactions; competitor!.start(action === 'arm-race' ? 'race' : 'abort');
+        } else if (action === 'competitor-release') competitor!.release();
+        else if (action === 'writer-settled') {
+          if (writerBaseline === undefined || transactions !== writerBaseline + 1) throw new Error(DENIED);
+          await competitor!.finish(); await bounded(Promise.allSettled([...storagePending]));
+          if (storagePending.size) throw new Error(DENIED); writerBaseline = undefined; cases++;
+        } else {
+          if (writerBaseline !== undefined || cases !== 2) throw new Error(DENIED);
+          await bounded(competitor!.settle()); await bounded(competitorPool!.$disconnect()); competitorControl = undefined;
+        }
+      };
+    }
+    app = await createBrowserSubscriptionLifecycleApp(composition);
     active();
     inspectOwnedFixture(process.env['ST226_PROVENANCE_FILE'], process.env['ST226_RUNTIME_URL']);
     await app.listen();
