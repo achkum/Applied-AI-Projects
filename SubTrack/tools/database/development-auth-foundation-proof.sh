@@ -13,14 +13,55 @@ private_file() {
   [[ -f "$1" && ! -L "$1" && $(stat -c %u "$1") == "$UID" && $(stat -c %a "$1") == 600 ]]
 }
 custody() {
-  private_file "$record" || return 1
+  private_file "$record" || { custody_diagnostic record; return 1; }
   local rcid rmarker rname rcreated extra actual
-  read -r rcid rmarker rname rcreated extra < "$record" || return 1
+  read -r rcid rmarker rname rcreated extra < "$record" || { custody_diagnostic record; return 1; }
   [[ -z "$extra" && "$rcid" =~ ^[a-f0-9]{64}$ && "$rmarker" =~ ^[a-f0-9]{32}$ &&
-     "$rname" == "st233a-$rmarker" && "$rcreated" =~ ^[0-9T:.Z-]+$ ]] || return 1
-  [[ "$rcid" == "$cid" && "$rmarker" == "$marker" && "$rname" == "$name" && "$rcreated" == "$created" ]] || return 1
-  actual=$(docker inspect --format '{{.Id}}|{{.Name}}|{{.Created}}|{{index .Config.Labels "subtrack.task"}}|{{index .Config.Labels "subtrack.head"}}|{{.Config.Image}}|{{.HostConfig.NetworkMode}}|{{len .HostConfig.PortBindings}}|{{len .NetworkSettings.Networks}}|{{len .Mounts}}|{{range .Mounts}}{{.Type}}:{{.Destination}}{{end}}|{{.HostConfig.Privileged}}|{{len .HostConfig.CapAdd}}|{{len .HostConfig.Devices}}|{{.HostConfig.PidMode}}' "$cid" 2>/dev/null) || return 1
-  [[ "$actual" == "$cid|/$name|$created|ST-233a:$marker|$source_head|$image|none|0|1|1|tmpfs:/var/lib/postgresql/data|false|0|0|" ]]
+     "$rname" == "st233a-$rmarker" && "$rcreated" =~ ^[0-9T:.Z-]+$ ]] || { custody_diagnostic record; return 1; }
+  [[ "$rcid" == "$cid" && "$rmarker" == "$marker" && "$rname" == "$name" && "$rcreated" == "$created" ]] || { custody_diagnostic identity; return 1; }
+  actual=$(docker inspect --format '{{json .}}' "$cid" 2>/dev/null) || { custody_diagnostic inspect-unavailable; return 1; }
+  local diagnostic
+  diagnostic=$(python3 -c "$(cat <<'PY'
+import datetime, json, math, re, sys, time
+def reject(reason):
+    print(reason)
+    sys.exit(1)
+def object_at(parent, key):
+    value = parent.get(key)
+    if not isinstance(value, dict): reject('null-shape')
+    return value
+def collection(parent, key, kind):
+    if key not in parent: reject('null-shape')
+    value = parent[key]
+    if value is None: return kind()
+    if not isinstance(value, kind): reject('null-shape')
+    return value
+try:
+    x = json.load(sys.stdin)
+    if not isinstance(x, dict): reject('null-shape')
+    cid, name, created, marker, head, image = sys.argv[1:]
+    config, host, settings = (object_at(x, k) for k in ('Config', 'HostConfig', 'NetworkSettings'))
+    labels = object_at(config, 'Labels')
+    if (x.get('Id'), x.get('Name'), x.get('Created'), labels.get('subtrack.task'), labels.get('subtrack.head'), config.get('Image')) != (cid, '/'+name, created, 'ST-233a:'+marker, head, image): reject('identity')
+    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z', created): reject('age')
+    stamp = datetime.datetime.fromisoformat(created.replace('Z', '+00:00')).timestamp()
+    age = time.time() - stamp
+    if not math.isfinite(stamp) or not math.isfinite(age) or not -60 <= age <= 1800: reject('age')
+    networks = object_at(settings, 'Networks')
+    if host.get('NetworkMode') != 'none' or set(networks) != {'none'} or not isinstance(networks['none'], dict): reject('network')
+    if collection(host, 'PortBindings', dict): reject('published-port')
+    ports = collection(settings, 'Ports', dict)
+    if any(v not in (None, []) for v in ports.values()): reject('published-port')
+    mounts = collection(x, 'Mounts', list)
+    if len(mounts) != 1 or not isinstance(mounts[0], dict) or (mounts[0].get('Type'), mounts[0].get('Destination')) != ('tmpfs', '/var/lib/postgresql/data'): reject('mount')
+    if host.get('Privileged') is not False or collection(host, 'CapAdd', list) or collection(host, 'Devices', list) or host.get('PidMode') != '': reject('configuration')
+except (ValueError, TypeError, KeyError, OverflowError, OSError):
+    reject('parse')
+PY
+)" "$cid" "$name" "$created" "$marker" "$source_head" "$image" <<< "$actual" 2>/dev/null) || { custody_diagnostic "${diagnostic:-parse}"; return 1; }
+}
+custody_diagnostic() {
+  case "$1" in record|identity|inspect-unavailable|null-shape|age|network|published-port|mount|configuration|parse) printf 'ST-233a custody: FAIL reason=%s\n' "$1" >&2 ;; *) printf 'ST-233a custody: FAIL reason=parse\n' >&2 ;; esac
 }
 cleanup_container() {
   if [[ ! -e "$record" && ! -L "$record" ]]; then
@@ -45,17 +86,18 @@ cleanup_temp() {
   [[ ! -e "$target" && ! -L "$target" ]]
 }
 finish() {
-  local status=$? bad=false
+  local status=$? bad=false cleanup_result=removed
   trap - EXIT
   cleanup_container || bad=true
   cleanup_temp || bad=true
-  if [[ "$bad" == true ]]; then status=1; phase=cleanup; fi
+  if [[ "$bad" == true ]]; then status=1; cleanup_result=failed; fi
   case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|pins|cleanup) ;; *) status=1; phase=starting ;; esac
+  [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" || exit 1
   if [[ "$status" == 0 && "$passed" == true && "$bad" == false ]]; then
     printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
   else
     status=1
-    printf 'ST-233a foundation: FAIL source_head=%s phase=%s\n' "$source_head" "$phase" > "$receipt"
+    printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s\n' "$source_head" "$phase" "$cleanup_result" >> "$receipt"
   fi
   exit "$status"
 }
