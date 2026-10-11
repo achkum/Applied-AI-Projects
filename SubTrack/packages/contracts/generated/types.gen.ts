@@ -386,6 +386,148 @@ export type OtpVerifyResponse = {
     nextBrowserNonce: string | null;
 };
 
+/**
+ * Restricted secret enrollment/enroll-credential proof; never login authority.
+ */
+export type WebEnrollmentIdentifierProof = string;
+
+/**
+ * Distinct pending-enrollment opaque handle; in memory only, hash stored server-side.
+ */
+export type WebEnrollmentContinuation = string;
+
+/**
+ * Separate one-use authoritative enrollment handle; never a login proof, in memory only.
+ */
+export type WebVerifiedEnrollment = string;
+
+export type WebEnrollmentNonce = string;
+
+export type WebEnrollmentKey = string;
+
+/**
+ * Exactly one Idempotency-Key, exact configured HTTPS Origin and X-Browser-Nonce. Direct HTTPS only. Browser manages Origin; JavaScript must not set it. Reject every query parameter, duplicate/framing ambiguity, Authorization, access/refresh cookies, X-Session-CSRF and legacy authority headers with 400 before work. Origin/chain/binding mismatch is 403. These adapter envelopes describe normalized wire evidence; SDK calls alone cannot enforce duplicate headers, cookies or exact allowlist matching.
+ *
+ */
+export type WebEnrollmentHeaders = {
+    idempotencyKey: WebEnrollmentKey;
+    origin: string;
+    browserNonce: WebEnrollmentNonce;
+};
+
+/**
+ * Server-observed exactly one deployment-configured distinct binding cookie; host-only Secure; HttpOnly; SameSite=Lax; Domain omitted, configured Path. Same cookie throughout rotations; never expose cookie to JavaScript. Access/refresh credentials are forbidden on these pre-session operations.
+ *
+ */
+export type WebEnrollmentCookies = {
+    bindingCookie: WebEnrollmentNonce;
+};
+
+export type WebEnrollmentPendingRequest = {
+    transport: 'web';
+    identifierProof: WebEnrollmentIdentifierProof;
+};
+
+export type WebEnrollmentSimulatorRequest = {
+    transport: 'web';
+    continuation: WebEnrollmentContinuation;
+};
+
+export type WebEnrollmentCompleteRequest = {
+    transport: 'web';
+    verifiedEnrollment: WebVerifiedEnrollment;
+};
+
+export type WebEnrollmentPendingCallEnvelope = {
+    transport: 'web';
+    headers: WebEnrollmentHeaders;
+    cookies: WebEnrollmentCookies;
+    body: WebEnrollmentPendingRequest;
+};
+
+export type WebEnrollmentSimulatorCallEnvelope = {
+    transport: 'web';
+    headers: WebEnrollmentHeaders;
+    cookies: WebEnrollmentCookies;
+    body: WebEnrollmentSimulatorRequest;
+};
+
+export type WebEnrollmentCompleteCallEnvelope = {
+    transport: 'web';
+    headers: WebEnrollmentHeaders;
+    cookies: WebEnrollmentCookies;
+    body: WebEnrollmentCompleteRequest;
+};
+
+export type WebEnrollmentPendingResponse = {
+    transport: 'web';
+    continuation: WebEnrollmentContinuation;
+    status: 'pending';
+    nextBrowserNonce: WebEnrollmentNonce;
+};
+
+export type WebEnrollmentSimulatorResponse = {
+    transport: 'web';
+    verifiedEnrollment: WebVerifiedEnrollment;
+    status: 'verified';
+    nextBrowserNonce: WebEnrollmentNonce;
+};
+
+/**
+ * Exactly four masked fields, no PII/credential/provider/contact/driver details. Status/code pairs follow WebEnrollmentProblem response mapping.
+ *
+ */
+export type WebEnrollmentProblem = WebEnrollmentBadRequestProblem | WebEnrollmentInvalidAuthorityProblem | WebEnrollmentOriginProblem | WebEnrollmentUnavailableProblem | WebEnrollmentConflictProblem | WebEnrollmentRateProblem | WebEnrollmentInternalProblem;
+
+export type WebEnrollmentBadRequestProblem = {
+    type: 'about:blank';
+    title: 'Authentication unavailable';
+    status: 400;
+    code: 'INVALID_ENROLLMENT_REQUEST';
+};
+
+export type WebEnrollmentInvalidAuthorityProblem = {
+    type: 'about:blank';
+    title: 'Authentication unavailable';
+    status: 401;
+    code: 'ENROLLMENT_AUTHORITY_INVALID';
+};
+
+export type WebEnrollmentOriginProblem = {
+    type: 'about:blank';
+    title: 'Authentication unavailable';
+    status: 403;
+    code: 'AUTH_ORIGIN_REJECTED';
+};
+
+export type WebEnrollmentUnavailableProblem = {
+    type: 'about:blank';
+    title: 'Authentication unavailable';
+    status: 404;
+    code: 'ENROLLMENT_UNAVAILABLE';
+};
+
+export type WebEnrollmentConflictProblem = {
+    type: 'about:blank';
+    title: 'Authentication unavailable';
+    status: 409;
+    code: 'AUTH_RESTART_REQUIRED' | 'ENROLLMENT_LOGIN_REQUIRED';
+};
+
+export type WebEnrollmentRateProblem = {
+    type: 'about:blank';
+    title: 'Authentication unavailable';
+    status: 429;
+    code: 'ENROLLMENT_RATE_LIMITED';
+};
+
+export type WebEnrollmentInternalProblem = {
+    type: 'about:blank';
+    title: 'Authentication unavailable';
+    status: 500;
+    code: 'INTERNAL_ERROR';
+};
+
 export type SessionRequest = ({
     transport: 'web';
 } & WebSessionRequest) | ({
@@ -525,6 +667,16 @@ export type SubscriptionCursor = string;
  * Default 20; valid integer range 1 through 50, with no clamping.
  */
 export type SubscriptionLimit = number;
+
+/**
+ * Exactly one nonspace printable ASCII key; global burn retained at most24h, duplicates never replay.
+ */
+export type WebEnrollmentIdempotencyKey = WebEnrollmentKey;
+
+/**
+ * Exactly one public nonce matched to Origin/chain/binding cookie and operation purpose.
+ */
+export type WebEnrollmentBrowserNonce = WebEnrollmentNonce;
 
 /**
  * Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
@@ -1313,6 +1465,216 @@ export type VerifyV2OtpResponses = {
 };
 
 export type VerifyV2OtpResponse = VerifyV2OtpResponses[keyof VerifyV2OtpResponses];
+
+export type AdmitV2WebEnrollmentData = {
+    body: WebEnrollmentPendingRequest;
+    headers: {
+        /**
+         * Exactly one nonspace printable ASCII key; global burn retained at most24h, duplicates never replay.
+         */
+        'Idempotency-Key': WebEnrollmentKey;
+        /**
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+         */
+        Origin: string;
+        /**
+         * Exactly one public nonce matched to Origin/chain/binding cookie and operation purpose.
+         */
+        'X-Browser-Nonce': WebEnrollmentNonce;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/auth/enrollment/pending';
+};
+
+export type AdmitV2WebEnrollmentErrors = {
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    400: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    401: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    403: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    404: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    409: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    429: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    500: WebEnrollmentProblem;
+};
+
+export type AdmitV2WebEnrollmentError = AdmitV2WebEnrollmentErrors[keyof AdmitV2WebEnrollmentErrors];
+
+export type AdmitV2WebEnrollmentResponses = {
+    /**
+     * Pending admission only; no account or login authority.
+     */
+    201: WebEnrollmentPendingResponse;
+};
+
+export type AdmitV2WebEnrollmentResponse = AdmitV2WebEnrollmentResponses[keyof AdmitV2WebEnrollmentResponses];
+
+export type VerifyV2WebSimulatorEnrollmentData = {
+    body: WebEnrollmentSimulatorRequest;
+    headers: {
+        /**
+         * Exactly one nonspace printable ASCII key; global burn retained at most24h, duplicates never replay.
+         */
+        'Idempotency-Key': WebEnrollmentKey;
+        /**
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+         */
+        Origin: string;
+        /**
+         * Exactly one public nonce matched to Origin/chain/binding cookie and operation purpose.
+         */
+        'X-Browser-Nonce': WebEnrollmentNonce;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/auth/enrollment/simulator/verify';
+};
+
+export type VerifyV2WebSimulatorEnrollmentErrors = {
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    400: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    401: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    403: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    404: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    409: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    429: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    500: WebEnrollmentProblem;
+};
+
+export type VerifyV2WebSimulatorEnrollmentError = VerifyV2WebSimulatorEnrollmentErrors[keyof VerifyV2WebSimulatorEnrollmentErrors];
+
+export type VerifyV2WebSimulatorEnrollmentResponses = {
+    /**
+     * Separate verified enrollment authority; not a login proof.
+     */
+    200: WebEnrollmentSimulatorResponse;
+};
+
+export type VerifyV2WebSimulatorEnrollmentResponse = VerifyV2WebSimulatorEnrollmentResponses[keyof VerifyV2WebSimulatorEnrollmentResponses];
+
+export type CompleteV2WebEnrollmentData = {
+    body: WebEnrollmentCompleteRequest;
+    headers: {
+        /**
+         * Exactly one nonspace printable ASCII key; global burn retained at most24h, duplicates never replay.
+         */
+        'Idempotency-Key': WebEnrollmentKey;
+        /**
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+         */
+        Origin: string;
+        /**
+         * Exactly one public nonce matched to Origin/chain/binding cookie and operation purpose.
+         */
+        'X-Browser-Nonce': WebEnrollmentNonce;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/auth/enrollment/complete';
+};
+
+export type CompleteV2WebEnrollmentErrors = {
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    400: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    401: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    403: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    404: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    409: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    429: WebEnrollmentProblem;
+    /**
+     * Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy; 404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for pending/expired/consumed/mismatch/conflict or duplicate, except verified registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only; 429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR for unavailable dependencies. No replay or credential Set-Cookie on error.
+     *
+     */
+    500: WebEnrollmentProblem;
+};
+
+export type CompleteV2WebEnrollmentError = CompleteV2WebEnrollmentErrors[keyof CompleteV2WebEnrollmentErrors];
+
+export type CompleteV2WebEnrollmentResponses = {
+    /**
+     * New account/session committed; public session id and in-memory CSRF only.
+     */
+    201: WebSessionResponse;
+};
+
+export type CompleteV2WebEnrollmentResponse = CompleteV2WebEnrollmentResponses[keyof CompleteV2WebEnrollmentResponses];
 
 export type CreateV2SessionData = {
     body: SessionRequest;

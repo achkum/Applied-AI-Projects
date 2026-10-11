@@ -402,6 +402,156 @@ export const zOtpVerifyResponse = z.object({
     nextBrowserNonce: z.string().nullable()
 }).strict();
 
+/**
+ * Restricted secret enrollment/enroll-credential proof; never login authority.
+ */
+export const zWebEnrollmentIdentifierProof = z.string().length(46).regex(/^v2\.[A-Za-z0-9_-]{43}$/);
+
+/**
+ * Distinct pending-enrollment opaque handle; in memory only, hash stored server-side.
+ */
+export const zWebEnrollmentContinuation = z.string().length(47).regex(/^wep\.[A-Za-z0-9_-]{43}$/);
+
+/**
+ * Separate one-use authoritative enrollment handle; never a login proof, in memory only.
+ */
+export const zWebVerifiedEnrollment = z.string().length(47).regex(/^wev\.[A-Za-z0-9_-]{43}$/);
+
+export const zWebEnrollmentNonce = z.string().length(43).regex(/^[A-Za-z0-9_-]{43}$/);
+
+export const zWebEnrollmentKey = z.string().min(16).max(255).regex(/^[\x21-\x7e]{16,255}$/);
+
+/**
+ * Exactly one Idempotency-Key, exact configured HTTPS Origin and X-Browser-Nonce. Direct HTTPS only. Browser manages Origin; JavaScript must not set it. Reject every query parameter, duplicate/framing ambiguity, Authorization, access/refresh cookies, X-Session-CSRF and legacy authority headers with 400 before work. Origin/chain/binding mismatch is 403. These adapter envelopes describe normalized wire evidence; SDK calls alone cannot enforce duplicate headers, cookies or exact allowlist matching.
+ *
+ */
+export const zWebEnrollmentHeaders = z.object({
+    idempotencyKey: zWebEnrollmentKey,
+    origin: z.url().regex(/^https:\/\/[^\/?#]+$/),
+    browserNonce: zWebEnrollmentNonce
+}).strict();
+
+/**
+ * Server-observed exactly one deployment-configured distinct binding cookie; host-only Secure; HttpOnly; SameSite=Lax; Domain omitted, configured Path. Same cookie throughout rotations; never expose cookie to JavaScript. Access/refresh credentials are forbidden on these pre-session operations.
+ *
+ */
+export const zWebEnrollmentCookies = z.object({
+    bindingCookie: zWebEnrollmentNonce
+}).strict();
+
+export const zWebEnrollmentPendingRequest = z.object({
+    transport: z.literal('web'),
+    identifierProof: zWebEnrollmentIdentifierProof
+}).strict();
+
+export const zWebEnrollmentSimulatorRequest = z.object({
+    transport: z.literal('web'),
+    continuation: zWebEnrollmentContinuation
+}).strict();
+
+export const zWebEnrollmentCompleteRequest = z.object({
+    transport: z.literal('web'),
+    verifiedEnrollment: zWebVerifiedEnrollment
+}).strict();
+
+export const zWebEnrollmentPendingCallEnvelope = z.object({
+    transport: z.literal('web'),
+    headers: zWebEnrollmentHeaders,
+    cookies: zWebEnrollmentCookies,
+    body: zWebEnrollmentPendingRequest
+}).strict();
+
+export const zWebEnrollmentSimulatorCallEnvelope = z.object({
+    transport: z.literal('web'),
+    headers: zWebEnrollmentHeaders,
+    cookies: zWebEnrollmentCookies,
+    body: zWebEnrollmentSimulatorRequest
+}).strict();
+
+export const zWebEnrollmentCompleteCallEnvelope = z.object({
+    transport: z.literal('web'),
+    headers: zWebEnrollmentHeaders,
+    cookies: zWebEnrollmentCookies,
+    body: zWebEnrollmentCompleteRequest
+}).strict();
+
+export const zWebEnrollmentPendingResponse = z.object({
+    transport: z.literal('web'),
+    continuation: zWebEnrollmentContinuation,
+    status: z.literal('pending'),
+    nextBrowserNonce: zWebEnrollmentNonce
+}).strict();
+
+export const zWebEnrollmentSimulatorResponse = z.object({
+    transport: z.literal('web'),
+    verifiedEnrollment: zWebVerifiedEnrollment,
+    status: z.literal('verified'),
+    nextBrowserNonce: zWebEnrollmentNonce
+}).strict();
+
+export const zWebEnrollmentBadRequestProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.literal('Authentication unavailable'),
+    status: z.literal(400),
+    code: z.literal('INVALID_ENROLLMENT_REQUEST')
+}).strict();
+
+export const zWebEnrollmentInvalidAuthorityProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.literal('Authentication unavailable'),
+    status: z.literal(401),
+    code: z.literal('ENROLLMENT_AUTHORITY_INVALID')
+}).strict();
+
+export const zWebEnrollmentOriginProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.literal('Authentication unavailable'),
+    status: z.literal(403),
+    code: z.literal('AUTH_ORIGIN_REJECTED')
+}).strict();
+
+export const zWebEnrollmentUnavailableProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.literal('Authentication unavailable'),
+    status: z.literal(404),
+    code: z.literal('ENROLLMENT_UNAVAILABLE')
+}).strict();
+
+export const zWebEnrollmentConflictProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.literal('Authentication unavailable'),
+    status: z.literal(409),
+    code: z.enum(['AUTH_RESTART_REQUIRED', 'ENROLLMENT_LOGIN_REQUIRED'])
+}).strict();
+
+export const zWebEnrollmentRateProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.literal('Authentication unavailable'),
+    status: z.literal(429),
+    code: z.literal('ENROLLMENT_RATE_LIMITED')
+}).strict();
+
+export const zWebEnrollmentInternalProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.literal('Authentication unavailable'),
+    status: z.literal(500),
+    code: z.literal('INTERNAL_ERROR')
+}).strict();
+
+/**
+ * Exactly four masked fields, no PII/credential/provider/contact/driver details. Status/code pairs follow WebEnrollmentProblem response mapping.
+ *
+ */
+export const zWebEnrollmentProblem = z.union([
+    zWebEnrollmentBadRequestProblem,
+    zWebEnrollmentInvalidAuthorityProblem,
+    zWebEnrollmentOriginProblem,
+    zWebEnrollmentUnavailableProblem,
+    zWebEnrollmentConflictProblem,
+    zWebEnrollmentRateProblem,
+    zWebEnrollmentInternalProblem
+]);
+
 export const zWebSessionRequest = z.object({
     transport: z.literal('web'),
     loginProof: z.string()
@@ -545,6 +695,16 @@ export const zSubscriptionCursor = z.string().min(1).max(512).regex(/^[A-Za-z0-9
  * Default 20; valid integer range 1 through 50, with no clamping.
  */
 export const zSubscriptionLimit = z.int().gte(1).lte(50).default(20);
+
+/**
+ * Exactly one nonspace printable ASCII key; global burn retained at most24h, duplicates never replay.
+ */
+export const zWebEnrollmentIdempotencyKey = zWebEnrollmentKey;
+
+/**
+ * Exactly one public nonce matched to Origin/chain/binding cookie and operation purpose.
+ */
+export const zWebEnrollmentBrowserNonce = zWebEnrollmentNonce;
 
 /**
  * Required on every mutating POST; retries cannot replay secrets/proofs or bypass throttles.
@@ -784,6 +944,45 @@ export const zVerifyV2OtpHeaders = z.object({
  * Restricted one-use proof; no-store.
  */
 export const zVerifyV2OtpResponse = zOtpVerifyResponse;
+
+export const zAdmitV2WebEnrollmentBody = zWebEnrollmentPendingRequest;
+
+export const zAdmitV2WebEnrollmentHeaders = z.object({
+    'Idempotency-Key': zWebEnrollmentKey,
+    Origin: z.url(),
+    'X-Browser-Nonce': zWebEnrollmentNonce
+});
+
+/**
+ * Pending admission only; no account or login authority.
+ */
+export const zAdmitV2WebEnrollmentResponse = zWebEnrollmentPendingResponse;
+
+export const zVerifyV2WebSimulatorEnrollmentBody = zWebEnrollmentSimulatorRequest;
+
+export const zVerifyV2WebSimulatorEnrollmentHeaders = z.object({
+    'Idempotency-Key': zWebEnrollmentKey,
+    Origin: z.url(),
+    'X-Browser-Nonce': zWebEnrollmentNonce
+});
+
+/**
+ * Separate verified enrollment authority; not a login proof.
+ */
+export const zVerifyV2WebSimulatorEnrollmentResponse = zWebEnrollmentSimulatorResponse;
+
+export const zCompleteV2WebEnrollmentBody = zWebEnrollmentCompleteRequest;
+
+export const zCompleteV2WebEnrollmentHeaders = z.object({
+    'Idempotency-Key': zWebEnrollmentKey,
+    Origin: z.url(),
+    'X-Browser-Nonce': zWebEnrollmentNonce
+});
+
+/**
+ * New account/session committed; public session id and in-memory CSRF only.
+ */
+export const zCompleteV2WebEnrollmentResponse = zWebSessionResponse;
 
 export const zCreateV2SessionBody = zSessionRequest;
 

@@ -135,7 +135,86 @@ Store only hashes of opaque proof and refresh credentials. Proofs bind purpose, 
 
 Web session responses set access/refresh cookies and return `{sessionId, csrfToken}`. Mobile receives `{accessToken, refreshToken, sessionId}` once for OS secure storage. Web refresh uses only its refresh cookie, exact Origin and session CSRF; mobile refresh uses only `Authorization: Refresh <opaque-secret>`, never body/query. Refresh has no request body, responses are `no-store` and `Pragma: no-cache`, and mixed cookie/Authorization credentials are rejected. Protected mobile requests use `Authorization: Bearer <access JWT>`. Reject cookie-plus-Bearer, refresh mixed credentials and all credential-mode fallback. Keep v2 issuer/audience/key space separate; never accept v2 credentials in v1 or use v1 identity headers as fallback.
 
-## Session management and deletion
+## Private development web enrollment (ST-229, contract only)
+
+These three additive operations are disabled/unavailable by default and limited
+to explicitly opted-in private development HTTPS web. No runtime, storage,
+provider, delivery, UI or account-readiness acceptance follows from this contract.
+Existing login and anonymous mobile enrollment OTP operations remain unchanged.
+
+1. Bootstrap `enroll_identifier` browser nonce, then use existing strict OTP
+   start/verify. Both successes rotate the enrollment nonce on the same exact
+   Origin/browser chain/HttpOnly binding cookie. The proof remains restricted
+   `enrollment/enroll-credential`; it never becomes a login proof.
+2. `POST /v2/auth/enrollment/pending` accepts exactly
+   `{transport:'web',identifierProof}`. `201` returns exactly
+   `{transport:'web',continuation,status:'pending',nextBrowserNonce}`. Consume
+   proof, admit pending state, rotate enrollment nonce and settle atomically.
+3. `POST /v2/auth/enrollment/simulator/verify` accepts exactly
+   `{transport:'web',continuation}`. Mandatory trusted server simulator
+   verification happens outside account locks. `200` returns exactly
+   `{transport:'web',verifiedEnrollment,status:'verified',nextBrowserNonce}`.
+   Revalidate after awaits, consume pending, store separate authoritative
+   subject-HMAC/verified-at/trusted-name record and atomically transition to
+   session-purpose nonce on the SAME Origin/chain/binding cookie; bind the
+   authoritative record to that nonce digest. No client provider result/subject,
+   identity, contact, challenge, name or role selector is accepted.
+4. `POST /v2/auth/enrollment/complete` accepts exactly
+   `{transport:'web',verifiedEnrollment}`. A single connection/transaction
+   rechecks locked reservation/authority/nonce, uses existing insert-only
+   provisioner then ordinary server-derived owner RequestContext, and commits
+   account/private fields/contact/defaults/session/family/CSRF, terminal nonce
+   and authority consumption and completed settlement together. `201` is exactly
+   `WebSessionResponse {transport:'web',sessionId,csrfToken}`, no successor nonce.
+
+Require exactly one `Idempotency-Key` matching `^[\x21-\x7e]{16,255}$` (spaces
+excluded), configured exact HTTPS `Origin`, 43-base64url `X-Browser-Nonce` and
+deployment binding cookie. Reject all query parameters, duplicate/framing
+ambiguity, Authorization, access/refresh cookies, CSRF and legacy authority
+headers. Browser controls Origin/cookies; wire envelopes model server-observed
+evidence, never JavaScript access to HttpOnly cookies. Generated SDK calls alone
+cannot enforce these transport checks. Proof is `v2.` +43 base64url; pending and
+authoritative handles use distinct `wep.` and `wev.` domains +43 base64url.
+
+Burn global key independently before mutation/provider work, bind operation,
+web, trusted chain and keyed strict request digest, retain at most24h. Every
+pending/completed/failed duplicate gives generic `409 AUTH_RESTART_REQUIRED`
+without replay. Pending and authoritative stores are each bounded to10000 and
+at most five minutes; pending cannot outlive proof/contact metadata, authority
+cannot outlive pending. Never renew/revive; session nonce exact five-minute TTL
+does not extend tighter authority expiry. Expired/consumed/mismatched/conflicting
+state fails closed. Rollback preserves burn; crash pending expires. Uncertain
+commit/lost response requires fresh verified login/nonce, no automatic retry,
+response replay or destructive compensation; unknown orphan sessions expire.
+
+Only verified active registered subject on completion gives
+`409 ENROLLMENT_LOGIN_REQUIRED`, followed by explicit later verified login;
+never return an enrollment session, relink contact or overwrite profile. Deleted
+subject, contact conflict and insertion-race loser give generic restart. Every
+outcome has `Cache-Control: no-store` and `Pragma: no-cache`. Problems have exactly
+`{type:'about:blank',title:'Authentication unavailable',status,code}`: 400 malformed,
+401 invalid proof/provider authority, 403 Origin/binding policy, 404 disabled,
+409 restart/login-required, 429 capacity/throttle, 500 unavailable dependencies.
+No detail/instance/PII/provider/driver information or credential cookies on errors.
+After commit only, set host-only Secure/HttpOnly/SameSite=Lax `st_v2_access`
+Path=/v2 and `st_v2_refresh` Path=/v2/auth, omit Domain and preserve binding cookie.
+Access15min/session24h unchanged; CSRF/proof/handles in memory, credentials never
+in body, URL, local storage or logs.
+
+Future prerequisites are explicit: coherent private normalized contact issuance
+metadata and secret-bound restricted-proof resolution (current OTP has hashes;
+proof consumption returns boolean), transaction-bound consumption, authoritative
+enrollment producer (current simulator resolves registered login only), trusted
+given/surname extension (never split full name), same-chain cross-purpose nonce
+transition (current rotate preserves purpose), new idempotency operation entries
+and async reserve/settle ports. Profile/Just me, household/native/real BankID and
+exact auth-state SQL objects/grants/operations remain separately reviewed.
+Current-versus-predecessor CSRF consumed-refresh policy needs its own security
+gate; this task neither chooses it nor adds a recovery operation. Without reviewed
+CSRF recovery, reload requires fresh verified login. Existing access-readiness
+sketch authorizes no permissions.
+
+## Session management and deletion (existing operations)
 
 Session listing and revocation are scoped to the active authenticated caller; no identity selector is accepted. Derive `{identityId, sessionId}` only from an active server-validated v2 credential. Unknown, expired, or revoked credentials reveal no ownership. Missing/invalid auth uses a stable generic RFC 9457 `401`; CSRF failure is `403`; use `application/problem+json` and redact credentials and PII from errors and logs.
 

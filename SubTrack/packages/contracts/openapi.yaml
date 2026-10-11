@@ -632,6 +632,184 @@ paths:
         '409': { $ref: '#/components/responses/V2Problem' }
         default: { $ref: '#/components/responses/V2Problem' }
 
+  /v2/auth/enrollment/pending:
+    post:
+      operationId: admitV2WebEnrollment
+      summary: Admit restricted identifier proof to pending private web enrollment
+      x-runtime-availability: unavailable-default
+      x-wire-call-envelopes: ['WebEnrollmentPendingCallEnvelope']
+      description: >
+        Contract only, disabled by default and unavailable outside explicitly
+        opted-in private development HTTPS web. Apply WebEnrollmentHeaders and
+        WebEnrollmentCookies authority rules. Require enroll_identifier nonce;
+        resolve coherent challenge/hash/channel/private normalized contact only
+        from server issuance metadata and secret-bound enrollment/enroll-credential
+        proof. No client identity/contact/challenge/provider/name/role selector.
+        Atomically consume restricted proof once, create bounded pending record,
+        rotate enroll_identifier nonce on the same Origin/chain/binding cookie
+        and settle owned reservation. OTP never establishes login or an account.
+        Pending expiry is at most five minutes and cannot outlive source proof
+        or contact metadata; at most 10000 pending records, no renewal/revival.
+        Independently commit global Idempotency-Key burn before mutation, bound
+        to this operation/web/trusted browser-chain/keyed strict request digest;
+        pending/completed/failed duplicates are generic 409 AUTH_RESTART_REQUIRED,
+        never replay. Lost or uncertain responses require fresh verified login
+        and nonce, no automatic retry or compensation; unknown orphans expire.
+        Existing OTP stores only hash/channel and proof consumption returns a
+        boolean; coherent contact/proof metadata resolution and transaction-bound
+        consumption are future prerequisites, not existing capabilities.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/WebEnrollmentIdempotencyKey'
+        - $ref: '#/components/parameters/ExactOrigin'
+        - $ref: '#/components/parameters/WebEnrollmentBrowserNonce'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WebEnrollmentPendingRequest' }
+      responses:
+        '201':
+          description: Pending admission only; no account or login authority.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebEnrollmentPendingResponse' }
+        '400': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '401': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '403': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '404': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '409': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '429': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '500': { $ref: '#/components/responses/WebEnrollmentProblem' }
+
+  /v2/auth/enrollment/simulator/verify:
+    post:
+      operationId: verifyV2WebSimulatorEnrollment
+      summary: Verify mandatory server simulator authority for private web enrollment
+      x-runtime-availability: unavailable-default
+      x-wire-call-envelopes: ['WebEnrollmentSimulatorCallEnvelope']
+      description: >
+        Contract only, disabled by default and unavailable outside explicitly
+        opted-in private development HTTPS web. Apply WebEnrollmentHeaders and
+        WebEnrollmentCookies authority rules. Require enroll_identifier nonce
+        and matched live pending continuation. Mandatory trusted server simulator
+        verification occurs outside account locks; never accept provider tokens,
+        results, subject, contact, names or identity selectors from the client.
+        Recheck immutable bindings/clock/expiry after awaits. Atomically consume
+        pending continuation, create separate authoritative one-use enrollment
+        record (subject-HMAC/verified-at/trusted names), settle owned reservation
+        and consume enrollment nonce into fresh session-purpose nonce on the SAME
+        Origin/chain/binding cookie. Bind authoritative record to terminal nonce
+        digest; restricted OTP proof is never converted to login. Authoritative
+        expiry is at most five minutes and cannot outlive pending expiry; at most
+        10000 authoritative records, no renewal/revival. Session nonce retains
+        exact five-minute TTL; authoritative expiry remains the tighter bound.
+        Independently commit global Idempotency-Key burn before provider work,
+        bound to operation/web/trusted browser-chain/keyed strict request digest.
+        Pending/completed/failed duplicates are generic 409 AUTH_RESTART_REQUIRED,
+        never replay. Lost/uncertain response requires fresh verified login/nonce,
+        no automatic retry or compensation; unknown orphans expire. Current nonce
+        consumeAndRotate preserves purpose: this cross-purpose transition is a
+        future reviewed core prerequisite. Existing registered-login simulator
+        producer cannot supply authoritative enrollment; trusted given/surname
+        extension is separately reviewed, never split full name or invent fields.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/WebEnrollmentIdempotencyKey'
+        - $ref: '#/components/parameters/ExactOrigin'
+        - $ref: '#/components/parameters/WebEnrollmentBrowserNonce'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WebEnrollmentSimulatorRequest' }
+      responses:
+        '200':
+          description: Separate verified enrollment authority; not a login proof.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebEnrollmentSimulatorResponse' }
+        '400': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '401': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '403': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '404': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '409': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '429': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '500': { $ref: '#/components/responses/WebEnrollmentProblem' }
+
+  /v2/auth/enrollment/complete:
+    post:
+      operationId: completeV2WebEnrollment
+      summary: Terminally complete private web account and cookie session atomically
+      x-runtime-availability: unavailable-default
+      x-wire-call-envelopes: ['WebEnrollmentCompleteCallEnvelope']
+      description: >
+        Contract only, disabled by default and unavailable outside explicitly
+        opted-in private development HTTPS web. Apply WebEnrollmentHeaders and
+        WebEnrollmentCookies authority rules. Require session-purpose nonce bound
+        to matched live authoritative enrollment and same Origin/chain/cookie.
+        Independently commit global Idempotency-Key burn before mutation, bound
+        to operation/web/trusted browser-chain/keyed strict request digest.
+        Single connection/transaction locks owned reservation, authoritative
+        record and nonce; rechecks bindings/clock/expiry; uses existing provisioner
+        identity SELECT(id,external_id)/INSERT, then ordinary owner RequestContext.
+        Atomically write new account/private verified fields/contact/defaults,
+        session/family/CSRF, terminally consume nonce and authoritative record,
+        and settle completed. No successor nonce. Registered active subject gives
+        409 ENROLLMENT_LOGIN_REQUIRED only after trusted verification; explicit
+        later verified login, no enrollment session/relink/contact/profile overwrite.
+        Deleted subject/contact conflict/insertion-race loser gives generic
+        409 AUTH_RESTART_REQUIRED. Expired/consumed/mismatched authority fails closed.
+        Rollback leaves independently committed burn; crash pending expires.
+        Pending/completed/failed duplicate 409 never replays credentials. Lost or
+        uncertain response requires fresh verified login/nonce, no automatic retry
+        or destructive compensation; unknown orphan sessions expire. Only after
+        commit set exclusive secure access/refresh cookies, CSRF in memory; no
+        credentials in body/URL/local storage/logs. Access15min/session24h unchanged.
+        New idempotency operation allowlist and async reserve/settle transaction
+        ports remain future core prerequisites. Profile/Just me, SQL objects/grants
+        and current-versus-predecessor consumed-refresh CSRF policy remain separate
+        security-reviewed gates; this contract authorizes or selects none of them.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/WebEnrollmentIdempotencyKey'
+        - $ref: '#/components/parameters/ExactOrigin'
+        - $ref: '#/components/parameters/WebEnrollmentBrowserNonce'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WebEnrollmentCompleteRequest' }
+      responses:
+        '201':
+          description: New account/session committed; public session id and in-memory CSRF only.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+            Set-Cookie:
+              required: true
+              schema: { type: string }
+              description: >
+                Separate postcommit Set-Cookie headers for st_v2_access Path=/v2
+                and st_v2_refresh Path=/v2/auth; host-only Secure; HttpOnly;
+                SameSite=Lax; Domain omitted. Existing binding cookie preserved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebSessionResponse' }
+        '400': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '401': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '403': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '404': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '409': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '429': { $ref: '#/components/responses/WebEnrollmentProblem' }
+        '500': { $ref: '#/components/responses/WebEnrollmentProblem' }
+
   /v2/auth/session:
     post:
       x-wire-call-envelopes: ['WebSessionCallEnvelope', 'MobileSessionCallEnvelope']
@@ -1361,6 +1539,202 @@ components:
         purpose: { type: string, enum: [enroll_identifier, otp_step_up] }
         proof: { type: string, description: "Opaque one-use purpose and transport-bound proof; store hash only." }
         nextBrowserNonce: { type: [string, 'null'], description: "Next public nonce for browser flow; null for mobile." }
+    WebEnrollmentIdentifierProof:
+      type: string
+      pattern: '^v2\.[A-Za-z0-9_-]{43}$'
+      minLength: 46
+      maxLength: 46
+      description: Restricted secret enrollment/enroll-credential proof; never login authority.
+    WebEnrollmentContinuation:
+      type: string
+      pattern: '^wep\.[A-Za-z0-9_-]{43}$'
+      minLength: 47
+      maxLength: 47
+      description: Distinct pending-enrollment opaque handle; in memory only, hash stored server-side.
+    WebVerifiedEnrollment:
+      type: string
+      pattern: '^wev\.[A-Za-z0-9_-]{43}$'
+      minLength: 47
+      maxLength: 47
+      description: Separate one-use authoritative enrollment handle; never a login proof, in memory only.
+    WebEnrollmentNonce:
+      type: string
+      pattern: '^[A-Za-z0-9_-]{43}$'
+      minLength: 43
+      maxLength: 43
+    WebEnrollmentKey:
+      type: string
+      pattern: '^[\x21-\x7e]{16,255}$'
+      minLength: 16
+      maxLength: 255
+    WebEnrollmentHeaders:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, origin, browserNonce]
+      description: >
+        Exactly one Idempotency-Key, exact configured HTTPS Origin and
+        X-Browser-Nonce. Direct HTTPS only. Browser manages Origin; JavaScript
+        must not set it. Reject every query parameter, duplicate/framing ambiguity,
+        Authorization, access/refresh cookies, X-Session-CSRF and legacy authority
+        headers with 400 before work. Origin/chain/binding mismatch is 403.
+        These adapter envelopes describe normalized wire evidence; SDK calls
+        alone cannot enforce duplicate headers, cookies or exact allowlist matching.
+      properties:
+        idempotencyKey: { $ref: '#/components/schemas/WebEnrollmentKey' }
+        origin: { type: string, format: uri, pattern: '^https://[^/?#]+$' }
+        browserNonce: { $ref: '#/components/schemas/WebEnrollmentNonce' }
+    WebEnrollmentCookies:
+      type: object
+      additionalProperties: false
+      required: [bindingCookie]
+      description: >
+        Server-observed exactly one deployment-configured distinct binding cookie;
+        host-only Secure; HttpOnly; SameSite=Lax; Domain omitted, configured Path.
+        Same cookie throughout rotations; never expose cookie to JavaScript.
+        Access/refresh credentials are forbidden on these pre-session operations.
+      properties:
+        bindingCookie: { $ref: '#/components/schemas/WebEnrollmentNonce' }
+    WebEnrollmentPendingRequest:
+      type: object
+      additionalProperties: false
+      required: [transport, identifierProof]
+      properties:
+        transport: { type: string, const: web }
+        identifierProof: { $ref: '#/components/schemas/WebEnrollmentIdentifierProof' }
+    WebEnrollmentSimulatorRequest:
+      type: object
+      additionalProperties: false
+      required: [transport, continuation]
+      properties:
+        transport: { type: string, const: web }
+        continuation: { $ref: '#/components/schemas/WebEnrollmentContinuation' }
+    WebEnrollmentCompleteRequest:
+      type: object
+      additionalProperties: false
+      required: [transport, verifiedEnrollment]
+      properties:
+        transport: { type: string, const: web }
+        verifiedEnrollment: { $ref: '#/components/schemas/WebVerifiedEnrollment' }
+    WebEnrollmentPendingCallEnvelope:
+      type: object
+      additionalProperties: false
+      required: [transport, headers, cookies, body]
+      properties:
+        transport: { type: string, const: web }
+        headers: { $ref: '#/components/schemas/WebEnrollmentHeaders' }
+        cookies: { $ref: '#/components/schemas/WebEnrollmentCookies' }
+        body: { $ref: '#/components/schemas/WebEnrollmentPendingRequest' }
+    WebEnrollmentSimulatorCallEnvelope:
+      type: object
+      additionalProperties: false
+      required: [transport, headers, cookies, body]
+      properties:
+        transport: { type: string, const: web }
+        headers: { $ref: '#/components/schemas/WebEnrollmentHeaders' }
+        cookies: { $ref: '#/components/schemas/WebEnrollmentCookies' }
+        body: { $ref: '#/components/schemas/WebEnrollmentSimulatorRequest' }
+    WebEnrollmentCompleteCallEnvelope:
+      type: object
+      additionalProperties: false
+      required: [transport, headers, cookies, body]
+      properties:
+        transport: { type: string, const: web }
+        headers: { $ref: '#/components/schemas/WebEnrollmentHeaders' }
+        cookies: { $ref: '#/components/schemas/WebEnrollmentCookies' }
+        body: { $ref: '#/components/schemas/WebEnrollmentCompleteRequest' }
+    WebEnrollmentPendingResponse:
+      type: object
+      additionalProperties: false
+      required: [transport, continuation, status, nextBrowserNonce]
+      properties:
+        transport: { type: string, const: web }
+        continuation: { $ref: '#/components/schemas/WebEnrollmentContinuation' }
+        status: { type: string, const: pending }
+        nextBrowserNonce: { $ref: '#/components/schemas/WebEnrollmentNonce' }
+    WebEnrollmentSimulatorResponse:
+      type: object
+      additionalProperties: false
+      required: [transport, verifiedEnrollment, status, nextBrowserNonce]
+      properties:
+        transport: { type: string, const: web }
+        verifiedEnrollment: { $ref: '#/components/schemas/WebVerifiedEnrollment' }
+        status: { type: string, const: verified }
+        nextBrowserNonce: { $ref: '#/components/schemas/WebEnrollmentNonce' }
+    WebEnrollmentProblem:
+      description: >
+        Exactly four masked fields, no PII/credential/provider/contact/driver
+        details. Status/code pairs follow WebEnrollmentProblem response mapping.
+      oneOf:
+        - { $ref: '#/components/schemas/WebEnrollmentBadRequestProblem' }
+        - { $ref: '#/components/schemas/WebEnrollmentInvalidAuthorityProblem' }
+        - { $ref: '#/components/schemas/WebEnrollmentOriginProblem' }
+        - { $ref: '#/components/schemas/WebEnrollmentUnavailableProblem' }
+        - { $ref: '#/components/schemas/WebEnrollmentConflictProblem' }
+        - { $ref: '#/components/schemas/WebEnrollmentRateProblem' }
+        - { $ref: '#/components/schemas/WebEnrollmentInternalProblem' }
+    WebEnrollmentBadRequestProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: 'Authentication unavailable' }
+        status: { type: integer, const: 400 }
+        code: { type: string, const: INVALID_ENROLLMENT_REQUEST }
+    WebEnrollmentInvalidAuthorityProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: 'Authentication unavailable' }
+        status: { type: integer, const: 401 }
+        code: { type: string, const: ENROLLMENT_AUTHORITY_INVALID }
+    WebEnrollmentOriginProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: 'Authentication unavailable' }
+        status: { type: integer, const: 403 }
+        code: { type: string, const: AUTH_ORIGIN_REJECTED }
+    WebEnrollmentUnavailableProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: 'Authentication unavailable' }
+        status: { type: integer, const: 404 }
+        code: { type: string, const: ENROLLMENT_UNAVAILABLE }
+    WebEnrollmentConflictProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: 'Authentication unavailable' }
+        status: { type: integer, const: 409 }
+        code: { type: string, enum: [AUTH_RESTART_REQUIRED, ENROLLMENT_LOGIN_REQUIRED] }
+    WebEnrollmentRateProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: 'Authentication unavailable' }
+        status: { type: integer, const: 429 }
+        code: { type: string, const: ENROLLMENT_RATE_LIMITED }
+    WebEnrollmentInternalProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: 'Authentication unavailable' }
+        status: { type: integer, const: 500 }
+        code: { type: string, const: INTERNAL_ERROR }
     SessionRequest:
       oneOf:
         - $ref: '#/components/schemas/WebSessionRequest'
@@ -1543,6 +1917,18 @@ components:
       required: false
       description: Default 20; valid integer range 1 through 50, with no clamping.
       schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+    WebEnrollmentIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { $ref: '#/components/schemas/WebEnrollmentKey' }
+      description: Exactly one nonspace printable ASCII key; global burn retained at most24h, duplicates never replay.
+    WebEnrollmentBrowserNonce:
+      name: X-Browser-Nonce
+      in: header
+      required: true
+      schema: { $ref: '#/components/schemas/WebEnrollmentNonce' }
+      description: Exactly one public nonce matched to Origin/chain/binding cookie and operation purpose.
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -1649,6 +2035,22 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
 
+    WebEnrollmentProblem:
+      description: >
+        Generic masked four-field error. 400 INVALID_ENROLLMENT_REQUEST for malformed
+        request; 401 ENROLLMENT_AUTHORITY_INVALID for invalid proof/provider
+        authority; 403 AUTH_ORIGIN_REJECTED for Origin/binding policy;
+        404 ENROLLMENT_UNAVAILABLE when disabled; 409 AUTH_RESTART_REQUIRED for
+        pending/expired/consumed/mismatch/conflict or duplicate, except verified
+        registered active subject ENROLLMENT_LOGIN_REQUIRED on completion only;
+        429 ENROLLMENT_RATE_LIMITED for capacity/throttle; 500 INTERNAL_ERROR
+        for unavailable dependencies. No replay or credential Set-Cookie on error.
+      headers:
+        Cache-Control: { required: true, schema: { type: string, const: no-store } }
+        Pragma: { required: true, schema: { type: string, const: no-cache } }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/WebEnrollmentProblem' }
     V2Problem:
       description: Generic v2 error; duplicate or uncertain one-use POST returns 409 AUTH_RESTART_REQUIRED without credentials.
       headers:
