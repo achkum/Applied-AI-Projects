@@ -257,7 +257,7 @@ printf 'ST-233a actual custody and finish negatives: PASS\n'
 tmp=$(mktemp -d "$base/st233a.XXXXXX")
 : > "$tmp/driver.cjs"; : > "$tmp/driver.json"
 driver_cid=$(printf '%064d' 1); driver_name="st233l-$marker"
-for driver_case in valid image network mount label uid pid port env created-pid exited-running; do
+for driver_case in valid image network mount label uid pid port pids-limit memory-limit env created-pid exited-running; do
   driver_removed=false
   docker() {
     case "$1" in
@@ -266,7 +266,7 @@ for driver_case in valid image network mount label uid pid port env created-pid 
 import json,sys
 case,ident,name,marker,head,image,pg,tmp,uid=sys.argv[1:]
 x={'Id':ident,'Name':'/'+name,'Config':{'Image':image,'Labels':{'subtrack.task':'ST-233l:'+marker,'subtrack.head':head},'User':uid,'Env':['PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','NODE_VERSION=22.23.2','YARN_VERSION=1.22.22'],'Entrypoint':['docker-entrypoint.sh'],'Cmd':['node','/fixture.cjs']},
-   'HostConfig':{'NetworkMode':'container:'+pg,'Privileged':False,'PortBindings':None,'CapAdd':None,'CapDrop':['ALL'],'Devices':None,'ReadonlyRootfs':True,'SecurityOpt':['no-new-privileges']},
+   'HostConfig':{'NetworkMode':'container:'+pg,'Privileged':False,'PortBindings':None,'CapAdd':None,'CapDrop':['ALL'],'Devices':None,'ReadonlyRootfs':True,'SecurityOpt':['no-new-privileges'],'PidsLimit':64,'Memory':134217728},
    'NetworkSettings':{'Ports':{}},'State':{'Running':True,'Status':'running','Pid':1234},
    'Mounts':[{'Type':'bind','Source':tmp+'/driver.cjs','Destination':'/fixture.cjs','RW':False},{'Type':'bind','Source':tmp+'/driver.json','Destination':'/fixture.json','RW':False}]}
 if case=='image': x['Config']['Image']='foreign'
@@ -276,6 +276,8 @@ if case=='label': x['Config']['Labels']['subtrack.head']='foreign'
 if case=='uid': x['Config']['User']='0'
 if case=='pid': x['State']['Pid']=0
 if case=='port': x['HostConfig']['PortBindings']={'5432/tcp':[{}]}
+if case=='pids-limit': x['HostConfig']['PidsLimit']=65
+if case=='memory-limit': x['HostConfig']['Memory']=134217729
 if case=='env': x['Config']['Env'].append('PGPASSWORD=foreign')
 if case=='created-pid': x['State'].update(Status='created',Running=False,Pid=1234)
 if case=='exited-running': x['State'].update(Status='exited',Running=True,Pid=1234)

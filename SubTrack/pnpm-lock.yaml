@@ -214,9 +214,6 @@ importers:
       '@subtrack/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      pg:
-        specifier: 8.23.1
-        version: 8.23.1
       pino:
         specifier: ^10.3.1
         version: 10.3.1
@@ -254,6 +251,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 4.1.11
         version: 4.1.11(vitest@4.1.11)
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 6.19.2
         version: 6.19.2(magicast@0.3.5)(typescript@5.9.3)

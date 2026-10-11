@@ -83,6 +83,7 @@ try:
  assert (x['Id'],x['Name'],c['Image'],c['Labels']['subtrack.task'],c['Labels']['subtrack.head'])==(ident,'/'+name,image,'ST-233l:'+marker,head)
  assert h['NetworkMode']=='container:'+pg and h['Privileged'] is False and not h['PortBindings'] and not h['CapAdd'] and not h['Devices']
  assert h['ReadonlyRootfs'] is True and h['CapDrop']==['ALL'] and 'no-new-privileges' in h['SecurityOpt'] and c['User']==uid
+ assert h['PidsLimit']==64 and h['Memory']==134217728
  assert n['Ports'] in ({},None) and len(x['Mounts'])==2
  assert s['Status'] in ('created','running','exited') and isinstance(s['Pid'],int) and not isinstance(s['Pid'],bool)
  assert (s['Status']=='running') == (s['Running'] is True) == (s['Pid']>0)
