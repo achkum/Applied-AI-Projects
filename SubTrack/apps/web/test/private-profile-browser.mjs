@@ -62,6 +62,8 @@ let phase = 'LAUNCH';
 let context;
 let profileWire = { patch: 'NONE', read: 'NONE' };
 let navigationStatus = 'NONE';
+let reloadNavigationType = 'NONE';
+let reloadStatus = 'NONE';
 let negativeCase = 'NONE', negativeStatus = 'NONE', negativeNetwork = 'NONE';
 const safeStatus = value => [200, 400, 401, 403, 409, 421, 500].includes(value) ? String(value) : 'OTHER';
 try {
@@ -237,9 +239,17 @@ try {
   assert.equal(afterLostResponse.body.displayName, 'Private Proof Updated');
   process.stdout.write('PASS ST237_BROWSER_COMMITTED_PATCH_LOST_RESPONSE_SINGLE_SUBMISSION\n');
   csrf = '';
-  phase = 'RELOAD';
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  phase = 'RELOAD_NAVIGATE';
+  const reloaded = await page.reload({ waitUntil: 'domcontentloaded' });
+  reloadStatus = reloaded ? [200, 304, 400, 404, 500].includes(reloaded.status()) ? String(reloaded.status()) : 'OTHER' : 'NONE';
+  await capture('reloaded');
+  const observedNavigationType = await page.evaluate(() =>
+    globalThis.performance.getEntriesByType('navigation')[0]?.type);
+  reloadNavigationType = ['reload', 'navigate', 'back_forward', 'prerender']
+    .includes(observedNavigationType) ? observedNavigationType : observedNavigationType === undefined ? 'NONE' : 'OTHER';
+  phase = 'RELOAD_STOP';
   await page.getByText(copy.registration.verifiedLoginRequired, { exact: true }).waitFor();
+  phase = 'RELOAD_ABSENT';
   assert.equal(await profileRegion.getByLabel(copy.profile.displayName, { exact: true }).count(), 0);
   await capture('reload-stop');
   phase = 'PARTIAL_TERMINAL';
@@ -297,7 +307,7 @@ try {
   process.stdout.write('PASS ST237_BROWSER_COMMITTED_PARTIAL_TERMINAL_COOKIE_STOP\n');
 } catch {
   if (phase === 'AUTHORITY_NEGATIVES') process.stderr.write(`ST237_NEGATIVE_GATE case=${negativeCase} status=${negativeStatus} network=${negativeNetwork}\n`);
-  process.stderr.write(`FAIL ST237_BROWSER_PROFILE phase=${phase} navigation=${navigationStatus} patch=${profileWire.patch} read=${profileWire.read}\n`);
+  process.stderr.write(`FAIL ST237_BROWSER_PROFILE phase=${phase} navigation=${navigationStatus} patch=${profileWire.patch} read=${profileWire.read} reloadNavigation=${reloadNavigationType} reloadStatus=${reloadStatus}\n`);
   process.exitCode = 1;
 } finally {
   if (context) await context.close();
