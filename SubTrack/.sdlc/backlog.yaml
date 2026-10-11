@@ -6,6 +6,7 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
+  - {id: ST-234, title: 'Private profile and explicit Just me data contract', owner: architect-platform, size: M, status: READY, deps: [ST-228, ST-229, ST-230, ST-231]}
   - {id: ST-233l, title: 'Private isolated Node PostgreSQL driver fixture proof', owner: architect-platform, size: L, status: IN_PROGRESS, deps: [ST-233k]}
   - {id: ST-233k, title: 'Private development atomic bootstrap nonce issue SQL function', owner: architect-platform, size: L, status: DONE, deps: [ST-233j]}
   - {id: ST-233j, title: 'Private development awaited bootstrap transaction lifecycle', owner: architect-platform, size: M, status: DONE, deps: [ST-233i]}
