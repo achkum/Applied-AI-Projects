@@ -168,10 +168,10 @@ finish() {
   if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
   if cleanup_container; then cleanup_temp || bad=true; else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; cleanup_result=failed; fi
-  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|prune|settle|nonce-prune|pins|cleanup) ;; *) status=1; phase=starting ;; esac
+  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|prune|settle|nonce-prune|atomic-issue|atomic-issue-0[1-9]|atomic-issue-1[0-9]|pins|cleanup) ;; *) status=1; phase=starting ;; esac
   [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" || exit 1
   if [[ "$status" == 0 && "$passed" == true && "$bad" == false ]]; then
-    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,postlock-clock,rollback,reconnect,bounded-clients fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
+    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,private-atomic-issue,postlock-clock,rollback,reconnect,bounded-clients fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
   else
     status=1
     printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s\n' "$source_head" "$phase" "$cleanup_result" >> "$receipt"
@@ -193,7 +193,7 @@ fi
 for var in DATABASE_URL DIRECT_URL PGHOST PGPORT PGUSER PGPASSWORD PGPASSFILE PGSERVICE PGSERVICEFILE PGDATABASE PGOPTIONS DOCKER_HOST DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH; do
   [[ ! -v "$var" ]] || { printf 'ST-233a inherited credentials rejected\n' >&2; exit 1; }
 done
-for command in docker openssl sha256sum git python3; do command -v "$command" >/dev/null || exit 1; done
+for command in docker openssl sha256sum git python3 node; do command -v "$command" >/dev/null || exit 1; done
 [[ ! -e "$record" && ! -L "$record" && ! -L "$receipt" ]] || exit 1
 tmp=$(mktemp -d "$base/st233a.XXXXXX")
 : > "$tmp/clients"
@@ -203,7 +203,7 @@ trap 'interrupted=true; [[ "$registering" == true ]] || exit 1' INT TERM
 inputs=(apps/api/prisma/migrations/0001_canonical_schema/migration.sql apps/api/prisma/migrations/0002_privacy_constraints/migration.sql
   apps/api/prisma/development-auth/001-epoch-nonce-reservation.sql tools/database/development-auth-foundation-proof.sh
   tools/database/test-development-auth-foundation-proof.sh ../.github/workflows/subtrack-development-auth-foundation-proof.yml
-  apps/api/prisma/development-auth/002-epoch-fence.sql apps/api/prisma/development-auth/003-nonce-binding-lookup.sql apps/api/prisma/development-auth/004-bootstrap-reservation.sql apps/api/prisma/development-auth/005-expired-reservation-prune.sql apps/api/prisma/development-auth/006-owned-bootstrap-settlement.sql apps/api/prisma/development-auth/007-expired-nonce-prune.sql)
+  apps/api/prisma/development-auth/002-epoch-fence.sql apps/api/prisma/development-auth/003-nonce-binding-lookup.sql apps/api/prisma/development-auth/004-bootstrap-reservation.sql apps/api/prisma/development-auth/005-expired-reservation-prune.sql apps/api/prisma/development-auth/006-owned-bootstrap-settlement.sql apps/api/prisma/development-auth/007-expired-nonce-prune.sql apps/api/prisma/development-auth/008-atomic-bootstrap-nonce-issue.sql)
 : > "$receipt"
 for path in "${inputs[@]}"; do
   blob=$(git hash-object "$path")
@@ -1137,6 +1137,167 @@ for gn_case in epoch capacity cross-prune; do
  done
 owner < "$tmp/gn-catalog.sql"
 snapshot_gn_others; [[ "$gn_others" == "$gn_others_baseline" ]] || exit 1
+
+phase=atomic-issue
+phase=atomic-issue-01
+ak_signature='subtrack_auth.issue_bootstrap_nonce(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,text,text,subtrack_auth.h,subtrack_auth.ms)'
+ak_purposes=(enroll_identifier otp_step_up session)
+ak_hashes=()
+for ak_purpose in "${ak_purposes[@]}"; do
+  ak_hashes+=("$(node -e "const c=require('crypto'),p=process.argv[1];console.log(c.createHash('sha256').update('subtrack:v2:browser-nonce:request:v1:'+Buffer.byteLength(p,'utf8')+':'+p,'utf8').digest('hex'))" "$ak_purpose")")
+done
+[[ ${ak_hashes[0]} == 761e0825866db57f73a0050934f7ebe28e988ca1b893b76197c2f04f081ab036 && ${ak_hashes[1]} == 1c48f3dc4d338ddd4fb001c13d797c6b5ca6cd01f013ab34ccecf8b338953367 && ${ak_hashes[2]} == 8766d4fdf971ce1370633b940d0276dfc88a8641f8731fd527c0516c632d1f19 ]] || exit 1
+ak_args() { printf "repeat('%s',64),repeat('2',64),repeat('3',64),'%s',repeat('%s',64),repeat('5',64),'private-chain','%s','https://st233a.invalid','fixture',repeat('a',64),0" "$1" "$2" "$3" "$4"; }
+ak_call() { printf 'SELECT 1/COALESCE(%ssubtrack_auth.issue_bootstrap_nonce(%s),false)::integer;' "$1" "$2"; }
+ak_burn() {
+  printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT 1/COALESCE(subtrack_auth.reserve_bootstrap(repeat('%s',64),repeat('2',64),repeat('3',64),'%s',60000,'https://st233a.invalid','fixture',repeat('a',64),0)>0,false)::integer; COMMIT; %s\n" "$1" "$2" "$reset_sql" | actor
+  assert_owner "(SELECT count(*)=1 AND bool_and(state='pending') FROM subtrack_auth.reservation WHERE key_h=repeat('$1',64))"
+}
+phase=atomic-issue-02
+snapshot_gn_catalog; ak_catalog_before=$gn_catalog
+for ak_fault in "CREATE SCHEMA ak_graph; CREATE TABLE ak_graph.future(nonce_h subtrack_auth.h REFERENCES subtrack_auth.nonce(nonce_h));" "ALTER FUNCTION $gn_signature SET search_path=public;" "GRANT EXECUTE ON FUNCTION $gn_signature TO PUBLIC;" "CREATE OR REPLACE FUNCTION subtrack_auth.prune_nonces(epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER VOLATILE PARALLEL UNSAFE CALLED ON NULL INPUT SET search_path=pg_catalog AS 'BEGIN RETURN NULL; END';" "GRANT UPDATE(chain) ON subtrack_auth.nonce TO subtrack_auth_executor;" "GRANT SELECT ON subtrack_auth.nonce TO subtrack_runtime;" "GRANT subtrack_auth_executor TO subtrack_dev_auth_login;" "ALTER TABLE subtrack_auth.reservation DROP CONSTRAINT reservation_check;" "SET st233c.constraints='invalid';"; do
+  { printf "BEGIN; SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s'; %s\n" "$source_head" "$marker" "$constraints_pin" "$ak_fault"; sed '/^BEGIN;$/d;/^COMMIT;$/d' "${inputs[12]}"; } > "$tmp/ak-guard.sql"
+  if owner < "$tmp/ak-guard.sql"; then exit 1; fi
+  grep -q 'ERROR:  22012' "$client_log" || exit 1
+  assert_owner "NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace AND proname='issue_bootstrap_nonce') AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='ak_graph')"
+  snapshot_gn_catalog; [[ "$gn_catalog" == "$ak_catalog_before" ]] || exit 1
+done
+phase=atomic-issue-03
+for ak_parent in 'subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms)' "$peek_signature" "$reserve_signature" "$prune_signature" "$sf_signature" "$gn_signature"; do
+  { printf "BEGIN; SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s'; ALTER FUNCTION %s SET search_path=public;\n" "$source_head" "$marker" "$constraints_pin" "$ak_parent"; sed '/^BEGIN;$/d;/^COMMIT;$/d' "${inputs[12]}"; } > "$tmp/ak-guard.sql"
+  if owner < "$tmp/ak-guard.sql"; then exit 1; fi
+  grep -q 'ERROR:  22012' "$client_log" || exit 1
+  snapshot_gn_catalog; [[ "$gn_catalog" == "$ak_catalog_before" ]] || exit 1
+done
+phase=atomic-issue-04
+{ printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat "${inputs[12]}"; } | owner
+phase=atomic-issue-05
+cat > "$tmp/ak-catalog.sql" <<'SQL'
+SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=12 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['key_h','owner_h','authority_h','request_h','nonce_h','binding_h','chain','purpose','origin','epoch','manifest_h','observed_ms'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='bool'::regtype AND p.proargtypes=ARRAY['subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,25::oid,25::oid,25::oid,25::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.ms'::regtype::oid]::oidvector AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql') AND md5(p.prosrc)='b695f67d7b09e08ddc236f1f119fe622'),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.issue_bootstrap_nonce(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,text,text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure;
+WITH actual AS (SELECT a.* FROM pg_catalog.pg_proc p,LATERAL pg_catalog.aclexplode(p.proacl) a WHERE p.oid='subtrack_auth.issue_bootstrap_nonce(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,text,text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure), expected AS (SELECT 'subtrack_auth_executor'::regrole::oid grantor,r.role::regrole::oid grantee,'EXECUTE'::text privilege_type,false is_grantable FROM (VALUES ('subtrack_auth_executor'),('subtrack_runtime')) r(role)), delta AS ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) SELECT 1/(NOT EXISTS(SELECT 1 FROM delta))::integer;
+SELECT 1/(count(*)=7)::integer FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace;
+SQL
+owner < "$tmp/ak-catalog.sql"
+phase=atomic-issue-06
+for ak_role in '' 'SET ROLE subtrack_identity_provisioner;' 'SET ROLE subtrack_auth_producer;'; do deny_actor "$ak_role SELECT subtrack_auth.issue_bootstrap_nonce($(ak_args a "${ak_hashes[2]}" b session));" || exit 1; done
+deny_executor 'UPDATE subtrack_auth.nonce SET chain=chain;' || exit 1
+phase=atomic-issue-07
+for ak_index in 0 1 2; do
+  printf 'DELETE FROM subtrack_auth.nonce; DELETE FROM subtrack_auth.reservation;\n' | owner
+  ak_key=$(printf '%s' "${ak_purposes[$ak_index]}" | sha256sum | cut -c1); [[ "$ak_key" =~ ^[a-f0-9]$ ]] || exit 1
+  ak_burn "$ak_key" "${ak_hashes[$ak_index]}"
+  ak_args_current=$(ak_args "$ak_key" "${ak_hashes[$ak_index]}" "$ak_key" "${ak_purposes[$ak_index]}")
+  for ak_other in 0 1 2; do
+    [[ "$ak_other" == "$ak_index" ]] && continue
+    printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(ak_call 'NOT ' "$(ak_args "$ak_key" "${ak_hashes[$ak_index]}" "$ak_key" "${ak_purposes[$ak_other]}")")" "$reset_sql" | actor
+    assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.nonce) AND (SELECT state='pending' FROM subtrack_auth.reservation WHERE key_h=repeat('$ak_key',64))"
+  done
+  printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s ROLLBACK; %s\n' "$(ak_call '' "$ak_args_current")" "$reset_sql" | actor
+  assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.nonce) AND (SELECT state='pending' FROM subtrack_auth.reservation WHERE key_h=repeat('$ak_key',64))"
+  printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(ak_call '' "$ak_args_current")" "$reset_sql" | actor
+  assert_owner "(SELECT count(*)=1 AND bool_and(purpose='${ak_purposes[$ak_index]}' AND authority_h IS NULL AND expires_ms-issued_ms=300000) FROM subtrack_auth.nonce) AND (SELECT state='completed' FROM subtrack_auth.reservation WHERE key_h=repeat('$ak_key',64))"
+  printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(ak_call 'NOT ' "$ak_args_current")" "$reset_sql" | actor
+done
+phase=atomic-issue-08
+printf 'DELETE FROM subtrack_auth.nonce; DELETE FROM subtrack_auth.reservation;\n' | owner
+ak_burn a "${ak_hashes[2]}"
+ak_args_current=$(ak_args a "${ak_hashes[2]}" b session)
+for ak_bad in "$(ak_args c "${ak_hashes[2]}" b session)" "$(ak_args a "${ak_hashes[1]}" b session)" "$(ak_args a "${ak_hashes[2]}" b otp_step_up)" "$(ak_args a "${ak_hashes[2]}" b invalid)" "$(ak_args a "${ak_hashes[2]}" b session | sed 's/private-chain//')" "$(ak_args a "${ak_hashes[2]}" b session | sed "s/'https:\/\/st233a.invalid'/'https:\/\/other.invalid'/")" "$(ak_args a "${ak_hashes[2]}" b session | sed 's/,0$/,9007199254740991/')"; do
+  printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(ak_call 'NOT ' "$ak_bad")" "$reset_sql" | actor
+done
+assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.nonce) AND (SELECT state='pending' FROM subtrack_auth.reservation WHERE key_h=repeat('a',64))"
+phase=atomic-issue-09
+printf "BEGIN; REVOKE UPDATE(state) ON subtrack_auth.reservation FROM subtrack_auth_executor; SET LOCAL ROLE subtrack_runtime; %s\n" "$(ak_call '' "$ak_args_current")" > "$tmp/ak-postinsert.sql"
+if owner < "$tmp/ak-postinsert.sql"; then exit 1; fi
+grep -q 'ERROR:  42501' "$client_log" || exit 1
+assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.nonce) AND (SELECT state='pending' FROM subtrack_auth.reservation WHERE key_h=repeat('a',64))"
+owner < "$tmp/ak-catalog.sql"
+phase=atomic-issue-10
+ak_fields=("repeat('a',64)" "repeat('2',64)" "repeat('3',64)" "'${ak_hashes[2]}'" "repeat('b',64)" "repeat('5',64)" "'private-chain'" "'session'" "'https://st233a.invalid'" "'fixture'" "repeat('a',64)" "0")
+[[ ${#ak_fields[@]} == 12 ]] || exit 1
+[[ "$(IFS=,; printf '%s' "${ak_fields[*]}")" == "$ak_args_current" ]] || exit 1
+for ak_index in "${!ak_fields[@]}"; do
+  ak_null=("${ak_fields[@]}"); ak_null[$ak_index]=NULL
+  ak_joined=$(IFS=,; printf '%s' "${ak_null[*]}")
+  printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(ak_call 'NOT ' "$ak_joined")" "$reset_sql" | actor
+done
+phase=atomic-issue-11
+for ak_change in "UPDATE subtrack_auth.reservation SET owner_h=repeat('8',64)" "UPDATE subtrack_auth.reservation SET authority_h=repeat('8',64)" "UPDATE subtrack_auth.reservation SET request_h=repeat('8',64)" "UPDATE subtrack_auth.reservation SET epoch='retired'" "UPDATE subtrack_auth.reservation SET operation='other'" "UPDATE subtrack_auth.reservation SET authority_kind='other'" "UPDATE subtrack_auth.reservation SET state='failed'" "UPDATE subtrack_auth.reservation SET issued_ms=0,expires_ms=1" "UPDATE subtrack_auth.reservation SET issued_ms=9007199254640991,expires_ms=9007199254700991" "UPDATE subtrack_auth.epoch SET state='retired' WHERE id='fixture'" "UPDATE subtrack_auth.epoch SET manifest_h=repeat('b',64) WHERE id='fixture'" "UPDATE subtrack_auth.epoch SET watermark_ms=9007199254740991 WHERE id='fixture'"; do
+  printf 'BEGIN; %s; SET LOCAL ROLE subtrack_runtime; %s ROLLBACK; %s\n' "$ak_change" "$(ak_call 'NOT ' "$ak_args_current")" "$reset_sql" | owner
+  assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.nonce) AND (SELECT state='pending' FROM subtrack_auth.reservation WHERE key_h=repeat('a',64))"
+done
+phase=atomic-issue-12
+snapshot_private; ak_corruption_before=$snapshot
+for ak_change in "ALTER TABLE subtrack_auth.reservation DROP CONSTRAINT reservation_transport_check; UPDATE subtrack_auth.reservation SET transport='mobile' WHERE key_h=repeat('a',64);" "ALTER TABLE subtrack_auth.epoch DROP CONSTRAINT epoch_origin_check; UPDATE subtrack_auth.epoch SET origin='https://foreign.invalid' WHERE id='fixture';"; do
+  printf 'BEGIN; %s SET LOCAL ROLE subtrack_runtime; %s ROLLBACK; %s\n' "$ak_change" "$(ak_call 'NOT ' "$ak_args_current")" "$reset_sql" | owner
+  snapshot_private; [[ "$snapshot" == "$ak_corruption_before" ]] || exit 1
+  assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.nonce) AND (SELECT state='pending' FROM subtrack_auth.reservation WHERE key_h=repeat('a',64))"
+done
+phase=atomic-issue-13
+printf "BEGIN; SET LOCAL ROLE subtrack_runtime; %s ROLLBACK; %s\n" "$(ak_call 'NOT ' "$(ak_args a "${ak_hashes[2]}" b session | sed "s/'fixture'/'retired'/")")" "$reset_sql" | actor
+phase=atomic-issue-14
+printf "INSERT INTO subtrack_auth.nonce SELECT md5('ak-cap-'||i)||md5('ak-cap-'||i),'web','https://st233a.invalid','private-cap',repeat('5',64),'retired',0,300000,(ARRAY['enroll_identifier','otp_step_up','session'])[1+(i%%3)],NULL FROM generate_series(1,10000) i;\n" | owner
+printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(ak_call 'NOT ' "$ak_args_current")" "$reset_sql" | actor
+assert_owner "(SELECT count(*)=10000 FROM subtrack_auth.nonce) AND (SELECT state='pending' FROM subtrack_auth.reservation WHERE key_h=repeat('a',64))"
+phase=atomic-issue-15
+printf "DELETE FROM subtrack_auth.nonce; INSERT INTO subtrack_auth.nonce VALUES (repeat('b',64),'web','https://st233a.invalid','duplicate',repeat('5',64),'retired',0,300000,'session',NULL);\n" | owner
+printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(ak_call 'NOT ' "$ak_args_current")" "$reset_sql" | actor
+assert_owner "(SELECT count(*)=1 FROM subtrack_auth.nonce) AND (SELECT state='pending' FROM subtrack_auth.reservation WHERE key_h=repeat('a',64))"
+printf 'DELETE FROM subtrack_auth.nonce;\n' | owner
+owner < "$tmp/ak-catalog.sql"
+
+# Real blocked connections establish each lock is acquired before the clock sample.
+for ak_case in epoch capacity reservation compete-COMMIT compete-ROLLBACK; do
+  case "$ak_case" in epoch) phase=atomic-issue-16 ;; capacity) phase=atomic-issue-17 ;; reservation) phase=atomic-issue-18 ;; compete-*) phase=atomic-issue-19 ;; esac
+  printf 'DELETE FROM subtrack_auth.nonce; DELETE FROM subtrack_auth.reservation;\n' | owner
+  ak_burn a "${ak_hashes[2]}"
+  ak_release=COMMIT; ak_event=transactionid; ak_holder_user=st233a_fixture_owner
+  ak_holder_statement="SELECT 1 FROM subtrack_auth.epoch WHERE id='fixture' FOR UPDATE;"
+  ak_waiter_assertion="$(ak_call 'NOT ' "$ak_args_current")"
+  if [[ "$ak_case" == epoch || "$ak_case" == capacity || "$ak_case" == reservation ]]; then
+    printf "UPDATE subtrack_auth.reservation SET expires_ms=floor(extract(epoch FROM clock_timestamp())*1000)::bigint+5000 WHERE key_h=repeat('a',64); SELECT expires_ms FROM subtrack_auth.reservation WHERE key_h=repeat('a',64);\n" | owner
+    ak_expiry=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$ak_expiry" =~ ^[0-9]+$ ]] || exit 1
+  fi
+  case "$ak_case" in
+    capacity) ak_holder_statement='SELECT pg_advisory_xact_lock(233,4);'; ak_event=advisory ;;
+    reservation) ak_holder_statement="SELECT 1 FROM subtrack_auth.reservation WHERE key_h=repeat('a',64) FOR UPDATE;" ;;
+    compete-*)
+      ak_holder_user=subtrack_dev_auth_login
+      ak_holder_statement="SET LOCAL ROLE subtrack_runtime; $(ak_call '' "$ak_args_current")"
+      ak_waiter_assertion="$(ak_call 'NOT ' "$ak_args_current")"
+      if [[ "$ak_case" == compete-ROLLBACK ]]; then ak_release=ROLLBACK; ak_waiter_assertion="$(ak_call '' "$ak_args_current")"; fi ;;
+  esac
+  fifo=$(mktemp -u "$tmp/holder.XXXXXX"); mkfifo -m 600 "$fifo"; exec {writer}<>"$fifo"; writers[holder]=$writer
+  launch_client "$ak_holder_user" "$fifo" st233b-holder; holder_pid=$client_pid holder_log=$client_log
+  printf "BEGIN; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s\n" "$ak_holder_statement" >&"$writer"
+  observer=$(mktemp "$tmp/observer.XXXXXX"); waiter_pid=''
+  observe_clients "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND usename='$ak_holder_user' AND application_name='st233b-holder' AND state='idle in transaction';" '^[ ]*[0-9]+[ ]*$' || exit 1
+  ak_holder_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$ak_holder_backend" =~ ^[0-9]+$ ]] || exit 1
+  waiter=$(mktemp "$tmp/waiter.XXXXXX")
+  printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s COMMIT; SELECT 'ak-finished:'||floor(extract(epoch FROM clock_timestamp())*1000)::bigint::text; %s\n" "$ak_waiter_assertion" "$reset_sql" > "$waiter"
+  launch_client subtrack_dev_auth_login "$waiter" st233b-waiter; waiter_pid=$client_pid waiter_log=$client_log
+  observe_clients "SELECT w.pid FROM pg_catalog.pg_stat_activity h JOIN pg_catalog.pg_stat_activity w ON h.pid<>w.pid WHERE h.pid=$ak_holder_backend AND h.datname='$db' AND w.datname=h.datname AND h.usename='$ak_holder_user' AND w.usename='subtrack_dev_auth_login' AND h.application_name='st233b-holder' AND w.application_name='st233b-waiter' AND h.state='idle in transaction' AND w.wait_event_type='Lock' AND w.wait_event='$ak_event' AND h.pid=ANY(pg_catalog.pg_blocking_pids(w.pid));" '^[ ]*[0-9]+[ ]*$' || exit 1
+  ak_waiter_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$ak_waiter_backend" =~ ^[0-9]+$ && "$ak_waiter_backend" != "$ak_holder_backend" ]] || exit 1
+  assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.nonce) AND (SELECT state='pending' FROM subtrack_auth.reservation WHERE key_h=repeat('a',64))"
+  if [[ "$ak_case" != compete-* ]]; then
+    assert_owner "floor(extract(epoch FROM clock_timestamp())*1000)<$ak_expiry"
+    observe_clients "SELECT floor(extract(epoch FROM clock_timestamp())*1000)>=$ak_expiry AND EXISTS(SELECT 1 FROM pg_catalog.pg_stat_activity WHERE pid=$ak_waiter_backend AND wait_event_type='Lock' AND $ak_holder_backend=ANY(pg_catalog.pg_blocking_pids(pid)));" '^ t *$' || exit 1
+  fi
+  printf 'SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint;\n' > "$observer"
+  launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1
+  ak_release_ms=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$ak_release_ms" =~ ^[0-9]+$ ]] || exit 1
+  printf '%s; %s\n\q\n' "$ak_release" "$reset_sql" >&"$writer"; close_writers
+  join_client "$holder_pid" 25000 && join_client "$waiter_pid" 25000 || exit 1
+  ! grep -q 'ERROR:' "$holder_log" && ! grep -q 'ERROR:' "$waiter_log" || exit 1
+  ak_finished_ms=$(sed -n 's/^[ ]*ak-finished:\([0-9][0-9]*\)[ ]*$/\1/p' "$waiter_log"); [[ "$ak_finished_ms" =~ ^[0-9]+$ && "$ak_finished_ms" -ge "$ak_release_ms" ]] || exit 1
+  if [[ "$ak_case" == compete-* ]]; then
+    assert_owner "(SELECT count(*)=1 AND bool_and(purpose='session' AND authority_h IS NULL) FROM subtrack_auth.nonce) AND (SELECT state='completed' FROM subtrack_auth.reservation WHERE key_h=repeat('a',64))"
+  else
+    [[ "$ak_release_ms" -ge "$ak_expiry" ]] || exit 1
+    assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.nonce) AND (SELECT state='pending' FROM subtrack_auth.reservation WHERE key_h=repeat('a',64))"
+  fi
+done
+owner < "$tmp/ak-catalog.sql"
 
 for role in subtrack_dev_auth_login subtrack_runtime subtrack_identity_provisioner subtrack_auth_producer; do
   assert_owner "NOT pg_catalog.has_database_privilege('$role','$db','CREATE,TEMP') AND NOT pg_catalog.has_schema_privilege('$role','subtrack_auth','CREATE') AND NOT pg_catalog.has_schema_privilege('$role','public','CREATE')"

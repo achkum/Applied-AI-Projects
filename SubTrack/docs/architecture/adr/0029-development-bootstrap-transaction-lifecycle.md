@@ -1,6 +1,6 @@
 # ADR-0029: Private awaited development bootstrap lifecycle
 
-- Status: Proposed Type 2a architecture for ST-233j; private source acceptance only.
+- Status: Accepted Type 2a architecture via ST-233j PR275; private unregistered lifecycle only, no SQL/HTTP activation approval.
 - Date: 2026-10-11.
 
 ## Decision

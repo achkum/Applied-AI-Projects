@@ -6,7 +6,8 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-233j, title: 'Private development awaited bootstrap transaction lifecycle', owner: architect-platform, size: M, status: IN_REVIEW, deps: [ST-233i]}
+  - {id: ST-233k, title: 'Private development atomic bootstrap nonce issue SQL function', owner: architect-platform, size: L, status: IN_REVIEW, deps: [ST-233j]}
+  - {id: ST-233j, title: 'Private development awaited bootstrap transaction lifecycle', owner: architect-platform, size: M, status: DONE, deps: [ST-233i]}
   - {id: ST-233i, title: 'Private trusted development bootstrap burn material producer', owner: architect-platform, size: M, status: DONE, deps: [ST-233h]}
   - {id: ST-233h, title: 'Private trusted development bootstrap material producer', owner: architect-platform, size: M, status: DONE, deps: [ST-233g]}
   - {id: ST-233g, title: 'Private development expired global nonce cleanup SQL function', owner: architect-platform, size: L, status: DONE, deps: [ST-233f]}
