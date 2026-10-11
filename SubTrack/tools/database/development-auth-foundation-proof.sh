@@ -168,10 +168,10 @@ finish() {
   if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
   if cleanup_container; then cleanup_temp || bad=true; else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; cleanup_result=failed; fi
-  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|pins|cleanup) ;; *) status=1; phase=starting ;; esac
+  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|pins|cleanup) ;; *) status=1; phase=starting ;; esac
   [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" || exit 1
   if [[ "$status" == 0 && "$passed" == true && "$bad" == false ]]; then
-    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,postlock-clock,rollback,reconnect,bounded-clients fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
+    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,postlock-clock,rollback,reconnect,bounded-clients fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
   else
     status=1
     printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s\n' "$source_head" "$phase" "$cleanup_result" >> "$receipt"
@@ -203,7 +203,7 @@ trap 'interrupted=true; [[ "$registering" == true ]] || exit 1' INT TERM
 inputs=(apps/api/prisma/migrations/0001_canonical_schema/migration.sql apps/api/prisma/migrations/0002_privacy_constraints/migration.sql
   apps/api/prisma/development-auth/001-epoch-nonce-reservation.sql tools/database/development-auth-foundation-proof.sh
   tools/database/test-development-auth-foundation-proof.sh ../.github/workflows/subtrack-development-auth-foundation-proof.yml
-  apps/api/prisma/development-auth/002-epoch-fence.sql)
+  apps/api/prisma/development-auth/002-epoch-fence.sql apps/api/prisma/development-auth/003-nonce-binding-lookup.sql)
 : > "$receipt"
 for path in "${inputs[@]}"; do
   blob=$(git hash-object "$path")
@@ -386,6 +386,10 @@ RESET ROLE; RESET app.user_id; RESET app.current_user_id; RESET search_path;
 SELECT 1/(CURRENT_USER=SESSION_USER AND COALESCE(pg_catalog.current_setting('app.user_id',true),'')='' AND COALESCE(pg_catalog.current_setting('app.current_user_id',true),'')='')::integer;
 SQL
 owner < "$tmp/catalog.sql"
+# Capture exact accepted-001 constraint definitions before adding any functions.
+printf "SELECT md5(string_agg(format('%%s:%%s:%%s:%%s:%%s',c.conname,c.contype,c.convalidated,c.condeferrable,pg_get_constraintdef(c.oid)),E'\\n' ORDER BY c.conname,c.oid)) FROM pg_catalog.pg_constraint c WHERE c.connamespace='subtrack_auth'::regnamespace;\n" | owner
+constraints_pin=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log")
+[[ "$constraints_pin" =~ ^[a-f0-9]{32}$ ]] || exit 1
 phase=fence
 for bad in head marker; do
   badhead="$source_head" badmarker="$marker"
@@ -468,6 +472,96 @@ done
 # A successful but rolled-back fence leaves the persisted watermark untouched.
 printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT 1/subtrack_auth.fence('parallel',repeat('a',64),0)::integer; ROLLBACK; %s\n" "$reset_sql" | actor
 assert_owner "(SELECT watermark_ms=0 FROM subtrack_auth.epoch WHERE id='parallel')"
+phase=peek
+peek_signature='subtrack_auth.peek(subtrack_auth.h,subtrack_auth.h,text,text,subtrack_auth.h,subtrack_auth.ms,text)'
+for bad in head marker constraints; do
+  badhead="$source_head" badmarker="$marker" badconstraints="$constraints_pin"
+  case "$bad" in head) badhead=invalid ;; marker) badmarker=invalid ;; constraints) badconstraints=invalid ;; esac
+  if { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$badhead" "$badmarker" "$badconstraints"; cat "${inputs[7]}"; } | owner; then exit 1; fi
+  grep -q 'ERROR:  22012' "$client_log" || exit 1
+  assert_owner "(SELECT count(*)=1 AND bool_and(proname='fence') FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace)"
+done
+# Exact parent-definition and ACL tampering must refuse before CREATE; rollback the fixture-only fault.
+for fault in "ALTER FUNCTION subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms) SET search_path=public;" "GRANT EXECUTE ON FUNCTION subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms) TO PUBLIC;" "ALTER TABLE subtrack_auth.nonce DROP CONSTRAINT nonce_check;" "CREATE OR REPLACE FUNCTION subtrack_auth.fence(epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER VOLATILE PARALLEL UNSAFE SET search_path=pg_catalog AS 'BEGIN RETURN false; END';"; do
+  { printf "BEGIN; %s SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$fault" "$source_head" "$marker" "$constraints_pin"; sed '/^BEGIN;$/d;/^COMMIT;$/d' "${inputs[7]}"; } > "$tmp/guard-fault.sql"
+  if owner < "$tmp/guard-fault.sql"; then exit 1; fi
+  grep -q 'ERROR:  22012' "$client_log" || exit 1
+  assert_owner "(SELECT count(*)=1 AND bool_and(proname='fence') FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace)"
+done
+{ printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat "${inputs[7]}"; } | owner
+assert_owner "(SELECT count(*)=2 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace)"
+cat > "$tmp/peek-catalog.sql" <<'SQL'
+SELECT 1/(p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='text'::regtype AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql'))::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.peek(subtrack_auth.h,subtrack_auth.h,text,text,subtrack_auth.h,subtrack_auth.ms,text)'::regprocedure;
+WITH actual AS (SELECT a.* FROM pg_catalog.pg_proc p,LATERAL pg_catalog.aclexplode(p.proacl) a WHERE p.pronamespace='subtrack_auth'::regnamespace), expected AS (SELECT 'subtrack_auth_executor'::regrole::oid grantor,r.role::regrole::oid grantee,'EXECUTE'::text privilege_type,false is_grantable FROM (VALUES ('subtrack_auth_executor'),('subtrack_runtime'),('subtrack_auth_producer')) r(role) CROSS JOIN generate_series(1,2)), delta AS ((SELECT * FROM actual EXCEPT ALL SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT ALL SELECT * FROM actual)) SELECT 1/(NOT EXISTS(SELECT 1 FROM delta))::integer;
+SQL
+owner < "$tmp/peek-catalog.sql"
+peek_args="repeat('1',64),repeat('c',64),'https://st233a.invalid','fixture',repeat('a',64),0,'session'"
+for prefix in '' 'SET ROLE subtrack_identity_provisioner;'; do deny_actor "$prefix SELECT subtrack_auth.peek($peek_args);" || exit 1; done
+# Fresh actual rows; fixed digest values are synthetic fixtures, not session-cookie digest substitutes.
+printf "INSERT INTO subtrack_auth.nonce SELECT repeat(i::text,64),'web','https://st233a.invalid','peek-chain-'||p,repeat('c',64),'fixture',t.ms,t.ms+300000,p,NULL FROM (VALUES (1,'session'),(2,'enroll_identifier'),(3,'otp_step_up')) v(i,p) CROSS JOIN (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint-1000 ms) t;\n" | owner
+snapshot_private() {
+  printf "SELECT md5(jsonb_build_array((SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM subtrack_auth.epoch e),(SELECT jsonb_agg(to_jsonb(n) ORDER BY nonce_h) FROM subtrack_auth.nonce n),(SELECT jsonb_agg(to_jsonb(r) ORDER BY key_h) FROM subtrack_auth.reservation r))::text);\n" | owner
+  snapshot=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log")
+  [[ "$snapshot" =~ ^[a-f0-9]{32}$ ]]
+}
+snapshot_private; before_peek=$snapshot
+for role in subtrack_runtime subtrack_auth_producer; do
+  for pair in '1 session' '2 enroll_identifier' '3 otp_step_up'; do
+    read -r digit purpose <<< "$pair"
+    # Independent SCRAM reconnects, commit and rollback, altered caller search_path and both GUCs.
+    for outcome in COMMIT ROLLBACK; do
+      printf "BEGIN; SET LOCAL ROLE %s; SET LOCAL search_path=public; SET LOCAL app.user_id='fault'; SET LOCAL app.current_user_id='fault'; SELECT 1/(subtrack_auth.peek(repeat('%s',64),repeat('c',64),'https://st233a.invalid','fixture',repeat('a',64),0,'%s')='peek-chain-%s')::integer; %s; %s\n" "$role" "$digit" "$purpose" "$purpose" "$outcome" "$reset_sql" | actor
+    done
+  done
+  values=("repeat('1',64)" "repeat('c',64)" "'https://st233a.invalid'" "'fixture'" "repeat('a',64)" 0 "'session'")
+  for index in "${!values[@]}"; do
+    tuple=("${values[@]}"); tuple[$index]=NULL; joined=$(IFS=,; printf '%s' "${tuple[*]}")
+    printf 'BEGIN; SET LOCAL ROLE %s; SELECT 1/(subtrack_auth.peek(%s) IS NULL)::integer; COMMIT; %s\n' "$role" "$joined" "$reset_sql" | actor
+  done
+  for change in "0 repeat('9',64)" "1 repeat('d',64)" "2 'https://foreign.invalid'" "2 ''" "3 'absent'" "3 ''" "3 'retired'" "3 'regression'" "3 'parallel'" "4 repeat('b',64)" "5 9007199254740991" "6 'wrong'" "6 'otp_step_up'"; do
+    index=${change%% *}; tuple=("${values[@]}"); tuple[$index]=${change#* }; joined=$(IFS=,; printf '%s' "${tuple[*]}")
+    printf 'BEGIN; SET LOCAL ROLE %s; SET LOCAL search_path=public; SELECT 1/(subtrack_auth.peek(%s) IS NULL)::integer; COMMIT; %s\n' "$role" "$joined" "$reset_sql" | actor
+  done
+  for change in "0 'bad'" "1 'bad'" "4 'bad'" "5 -1" "5 9007199254740992" "5 'overflow'"; do
+    index=${change%% *}; tuple=("${values[@]}"); tuple[$index]=${change#* }; joined=$(IFS=,; printf '%s' "${tuple[*]}")
+    if printf 'BEGIN; SET LOCAL ROLE %s; SELECT subtrack_auth.peek(%s);\n' "$role" "$joined" | actor; then exit 1; fi
+    expected=23514; [[ "$change" != "5 'overflow'" ]] || expected=22P02
+    grep -q "ERROR:  $expected" "$client_log" || exit 1
+  done
+  printf 'BEGIN; SET LOCAL ROLE %s; SET LOCAL app.user_id='\''fault'\''; SET LOCAL app.current_user_id='\''fault'\'';\n\set ON_ERROR_STOP off\nSELECT subtrack_auth.peek('\''bad'\'',NULL,NULL,NULL,NULL,NULL,NULL);\n\set ON_ERROR_STOP on\nROLLBACK; %s\n' "$role" "$reset_sql" | actor
+  snapshot_private; [[ "$snapshot" == "$before_peek" ]] || exit 1
+done
+# Future-issued and expired rows are refused without pruning or watermark mutation.
+for offset in 10000 -400000; do
+  printf "UPDATE subtrack_auth.nonce SET issued_ms=t.ms,expires_ms=t.ms+300000 FROM (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint+%s ms) t WHERE nonce_h=repeat('1',64);\n" "$offset" | owner
+  snapshot_private; before_peek=$snapshot
+  for role in subtrack_runtime subtrack_auth_producer; do printf 'BEGIN; SET LOCAL ROLE %s; SELECT 1/(subtrack_auth.peek(%s) IS NULL)::integer; COMMIT; %s\n' "$role" "$peek_args" "$reset_sql" | actor; done
+  snapshot_private; [[ "$snapshot" == "$before_peek" ]] || exit 1
+done
+# Holder and waiter lock only through peek. Waiter admission must sample AFTER actual expiry.
+for outcome in COMMIT ROLLBACK; do
+  printf "INSERT INTO subtrack_auth.epoch VALUES ('peek-lock',repeat('a',64),'https://st233a.invalid',0,'active'); INSERT INTO subtrack_auth.nonce SELECT repeat('4',64),'web','https://st233a.invalid','peek-locked',repeat('c',64),'peek-lock',ms-300000,ms,'session',NULL FROM (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint+5000 ms) t;\n" | owner
+  snapshot_private; before_peek=$snapshot
+  fifo=$(mktemp -u "$tmp/holder.XXXXXX"); mkfifo -m 600 "$fifo"; exec {writer}<>"$fifo"; writers[holder]=$writer
+  launch_client subtrack_dev_auth_login "$fifo" st233b-holder; holder_pid=$client_pid holder_log=$client_log
+  printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; SELECT 1/(subtrack_auth.peek(repeat('4',64),repeat('c',64),'https://st233a.invalid','peek-lock',repeat('a',64),0,'session')='peek-locked')::integer;\n" >&"$writer"
+  observer=$(mktemp "$tmp/observer.XXXXXX"); waiter_pid=''
+  observe_clients "SELECT count(*)=1 FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';" '^ t *$' || exit 1
+  printf "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='%s' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';\n" "$db" > "$observer"
+  launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1
+  holder_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$holder_backend" =~ ^[0-9]+$ ]] || exit 1
+  waiter=$(mktemp "$tmp/waiter.XXXXXX")
+  printf "BEGIN; SET LOCAL ROLE subtrack_auth_producer; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; SELECT 1/(subtrack_auth.peek(repeat('4',64),repeat('c',64),'https://st233a.invalid','peek-lock',repeat('a',64),0,'session') IS NULL)::integer; COMMIT; %s\n" "$reset_sql" > "$waiter"
+  launch_client subtrack_dev_auth_login "$waiter" st233b-waiter; waiter_pid=$client_pid waiter_log=$client_log
+  observe_clients "SELECT w.pid FROM pg_catalog.pg_stat_activity h JOIN pg_catalog.pg_stat_activity w ON h.pid<>w.pid WHERE h.pid=$holder_backend AND h.datname='$db' AND w.datname=h.datname AND h.usename='subtrack_dev_auth_login' AND w.usename=h.usename AND h.application_name='st233b-holder' AND w.application_name='st233b-waiter' AND h.state='idle in transaction' AND w.wait_event_type='Lock' AND h.pid=ANY(pg_catalog.pg_blocking_pids(w.pid));" '^[ ]*[0-9]+[ ]*$' || exit 1
+  waiter_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$waiter_backend" =~ ^[0-9]+$ && "$waiter_backend" != "$holder_backend" ]] || exit 1
+  observe_clients "SELECT (SELECT floor(extract(epoch FROM clock_timestamp())*1000)>=expires_ms FROM subtrack_auth.nonce WHERE nonce_h=repeat('4',64)) AND EXISTS(SELECT 1 FROM pg_catalog.pg_stat_activity w WHERE w.pid=$waiter_backend AND w.wait_event_type='Lock' AND $holder_backend=ANY(pg_catalog.pg_blocking_pids(w.pid)));" '^ t *$' 10000 || exit 1
+  printf '%s; %s\n\q\n' "$outcome" "$reset_sql" >&"$writer"; close_writers
+  join_client "$holder_pid" 25000 && join_client "$waiter_pid" 25000 || exit 1
+  ! grep -q 'ERROR:' "$holder_log" && ! grep -q 'ERROR:' "$waiter_log" || exit 1
+  snapshot_private; [[ "$snapshot" == "$before_peek" ]] || exit 1
+  printf "DELETE FROM subtrack_auth.nonce WHERE nonce_h=repeat('4',64); DELETE FROM subtrack_auth.epoch WHERE id='peek-lock';\n" | owner
+done
 for role in subtrack_dev_auth_login subtrack_runtime subtrack_identity_provisioner subtrack_auth_producer; do
   assert_owner "NOT pg_catalog.has_database_privilege('$role','$db','CREATE,TEMP') AND NOT pg_catalog.has_schema_privilege('$role','subtrack_auth','CREATE') AND NOT pg_catalog.has_schema_privilege('$role','public','CREATE')"
   for table in epoch reservation nonce; do
