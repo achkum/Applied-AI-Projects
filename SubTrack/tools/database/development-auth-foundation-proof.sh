@@ -168,10 +168,10 @@ finish() {
   if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
   if cleanup_container; then cleanup_temp || bad=true; else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; cleanup_result=failed; fi
-  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|prune|pins|cleanup) ;; *) status=1; phase=starting ;; esac
+  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|prune|settle|pins|cleanup) ;; *) status=1; phase=starting ;; esac
   [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" || exit 1
   if [[ "$status" == 0 && "$passed" == true && "$bad" == false ]]; then
-    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,postlock-clock,rollback,reconnect,bounded-clients fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
+    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,postlock-clock,rollback,reconnect,bounded-clients fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
   else
     status=1
     printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s\n' "$source_head" "$phase" "$cleanup_result" >> "$receipt"
@@ -203,7 +203,7 @@ trap 'interrupted=true; [[ "$registering" == true ]] || exit 1' INT TERM
 inputs=(apps/api/prisma/migrations/0001_canonical_schema/migration.sql apps/api/prisma/migrations/0002_privacy_constraints/migration.sql
   apps/api/prisma/development-auth/001-epoch-nonce-reservation.sql tools/database/development-auth-foundation-proof.sh
   tools/database/test-development-auth-foundation-proof.sh ../.github/workflows/subtrack-development-auth-foundation-proof.yml
-  apps/api/prisma/development-auth/002-epoch-fence.sql apps/api/prisma/development-auth/003-nonce-binding-lookup.sql apps/api/prisma/development-auth/004-bootstrap-reservation.sql apps/api/prisma/development-auth/005-expired-reservation-prune.sql)
+  apps/api/prisma/development-auth/002-epoch-fence.sql apps/api/prisma/development-auth/003-nonce-binding-lookup.sql apps/api/prisma/development-auth/004-bootstrap-reservation.sql apps/api/prisma/development-auth/005-expired-reservation-prune.sql apps/api/prisma/development-auth/006-owned-bootstrap-settlement.sql)
 : > "$receipt"
 for path in "${inputs[@]}"; do
   blob=$(git hash-object "$path")
@@ -838,6 +838,164 @@ for direction in prune-first reserve-first; do
  done
 owner < "$tmp/prune-catalog.sql"
 snapshot_unpruned; [[ "$unpruned" == "$unpruned_baseline" ]] || exit 1
+phase=settle
+sf_signature='subtrack_auth.settle_bootstrap(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,subtrack_auth.h,subtrack_auth.ms,text)'
+sf_declaration='key_h subtrack_auth.h,owner_h subtrack_auth.h,authority_h subtrack_auth.h,request_h subtrack_auth.h,origin text,epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms,outcome text'
+sf_values=("repeat('5',64)" "repeat('6',64)" "repeat('7',64)" "repeat('8',64)" "'https://st233a.invalid'" "'fixture'" "repeat('a',64)" 0 "'completed'")
+sf_args=$(IFS=,; printf '%s' "${sf_values[*]}")
+positive_settle_sql() { printf 'SELECT 1/COALESCE(subtrack_auth.settle_bootstrap(%s),false)::integer;' "$1"; }
+negative_settle_sql() { printf 'SELECT 1/COALESCE(NOT subtrack_auth.settle_bootstrap(%s),false)::integer;' "$1"; }
+sf_seed="DELETE FROM subtrack_auth.reservation; INSERT INTO subtrack_auth.reservation SELECT repeat('5',64),'createV2BrowserNonce','browser-bootstrap-origin',repeat('7',64),repeat('8',64),repeat('6',64),'web','fixture',t.ms,t.ms+86400000,'pending' FROM (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint ms) t;"
+snapshot_private; sf_before=$snapshot
+# Every accepted parent body/configuration/ACL plus complete existing envelope rejects atomically.
+for sf_fault in "SET st233a.head='invalid';" "SET st233a.marker='invalid';" "SET st233c.constraints='invalid';" "ALTER TABLE subtrack_auth.reservation DROP CONSTRAINT reservation_check;" "ALTER DOMAIN subtrack_auth.h DROP CONSTRAINT h_check;" "GRANT UPDATE(state) ON subtrack_auth.reservation TO subtrack_runtime;" "GRANT subtrack_auth_executor TO subtrack_dev_auth_login;"; do
+  { printf "BEGIN; SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s'; %s\n" "$source_head" "$marker" "$constraints_pin" "$sf_fault"; sed '/^BEGIN;$/d;/^COMMIT;$/d' "${inputs[10]}"; } > "$tmp/settle-guard.sql"
+  if owner < "$tmp/settle-guard.sql"; then exit 1; fi
+  grep -q 'ERROR:  22012' "$client_log" || exit 1
+  snapshot_private; [[ "$snapshot" == "$sf_before" ]] || exit 1
+ done
+for sf_parent in fence peek reserve_bootstrap prune_reservations; do
+  case "$sf_parent" in
+    fence) sf_parent_signature='subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms)'; sf_parent_declaration='epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms'; sf_returns=boolean ;;
+    peek) sf_parent_signature=$peek_signature; sf_parent_declaration='nonce_h subtrack_auth.h,binding_h subtrack_auth.h,origin text,epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms,purpose text'; sf_returns=text ;;
+    reserve_bootstrap) sf_parent_signature=$reserve_signature; sf_parent_declaration='key_h subtrack_auth.h,owner_h subtrack_auth.h,authority_h subtrack_auth.h,request_h subtrack_auth.h,retention_ms subtrack_auth.ms,origin text,epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms'; sf_returns=bigint ;;
+    prune_reservations) sf_parent_signature=$prune_signature; sf_parent_declaration='epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms'; sf_returns=boolean ;;
+  esac
+  for sf_fault in "ALTER FUNCTION $sf_parent_signature SET search_path=public;" "GRANT EXECUTE ON FUNCTION $sf_parent_signature TO PUBLIC;" "CREATE OR REPLACE FUNCTION subtrack_auth.$sf_parent($sf_parent_declaration) RETURNS $sf_returns LANGUAGE plpgsql SECURITY DEFINER VOLATILE PARALLEL UNSAFE CALLED ON NULL INPUT SET search_path=pg_catalog AS 'BEGIN RETURN NULL; END';"; do
+    { printf "BEGIN; SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s'; %s\n" "$source_head" "$marker" "$constraints_pin" "$sf_fault"; sed '/^BEGIN;$/d;/^COMMIT;$/d' "${inputs[10]}"; } > "$tmp/settle-guard.sql"
+    if owner < "$tmp/settle-guard.sql"; then exit 1; fi
+    grep -q 'ERROR:  22012' "$client_log" || exit 1
+    assert_owner "(SELECT count(*)=4 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace)"
+    snapshot_private; [[ "$snapshot" == "$sf_before" ]] || exit 1
+  done
+ done
+{ printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat "${inputs[10]}"; } | owner
+cat > "$tmp/settle-catalog.sql" <<'SQL'
+SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=9 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['key_h','owner_h','authority_h','request_h','origin','epoch','manifest_h','observed_ms','outcome'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='bool'::regtype AND p.proargtypes=ARRAY['subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,25::oid,25::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.ms'::regtype::oid,25::oid]::oidvector AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql') AND md5(p.prosrc)='80a414cdd61ae6f5504aa99f67f3f46c'),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.settle_bootstrap(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,subtrack_auth.h,subtrack_auth.ms,text)'::regprocedure;
+WITH actual AS (SELECT a.* FROM pg_catalog.pg_proc p,LATERAL pg_catalog.aclexplode(p.proacl) a WHERE p.oid='subtrack_auth.settle_bootstrap(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,subtrack_auth.h,subtrack_auth.ms,text)'::regprocedure), expected AS (SELECT 'subtrack_auth_executor'::regrole::oid grantor,r.role::regrole::oid grantee,'EXECUTE'::text privilege_type,false is_grantable FROM (VALUES ('subtrack_auth_executor'),('subtrack_runtime')) r(role)), delta AS ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) SELECT 1/(NOT EXISTS(SELECT 1 FROM delta))::integer;
+SELECT 1/(count(*)=5)::integer FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace;
+SQL
+owner < "$tmp/settle-catalog.sql"
+for sf_prefix in '' 'SET ROLE subtrack_identity_provisioner;' 'SET ROLE subtrack_auth_producer;'; do deny_actor "$sf_prefix SELECT subtrack_auth.settle_bootstrap($sf_args);" || exit 1; done
+printf '%s\n' "$sf_seed" | owner
+snapshot_private; sf_before=$snapshot
+# NULL replacement must hit the SAME positive assertion and fail, not accidentally pass SQL NULL.
+{ printf "BEGIN; CREATE OR REPLACE FUNCTION subtrack_auth.settle_bootstrap(%s) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER VOLATILE PARALLEL UNSAFE CALLED ON NULL INPUT SET search_path=pg_catalog AS 'BEGIN RETURN NULL; END'; SET LOCAL ROLE subtrack_runtime;\n" "$sf_declaration"; positive_settle_sql "$sf_args"; } > "$tmp/settle-null.sql"
+if owner < "$tmp/settle-null.sql"; then exit 1; fi
+grep -q 'ERROR:  22012' "$client_log" || exit 1
+owner < "$tmp/settle-catalog.sql"; snapshot_private; [[ "$snapshot" == "$sf_before" ]] || exit 1
+for sf_index in "${!sf_values[@]}"; do
+  sf_tuple=("${sf_values[@]}"); sf_tuple[$sf_index]=NULL; sf_joined=$(IFS=,; printf '%s' "${sf_tuple[*]}")
+  printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(negative_settle_sql "$sf_joined")" "$reset_sql" | actor
+ done
+for sf_change in "0 repeat('9',64)" "1 repeat('9',64)" "2 repeat('9',64)" "3 repeat('9',64)" "4 'https://foreign.invalid'" "5 ''" "5 'absent'" "5 'retired'" "5 'regression'" "5 'reserve-b'" "6 repeat('b',64)" "7 9007199254740991" "8 'pending'" "8 'unknown'"; do
+  sf_index=${sf_change%% *}; sf_tuple=("${sf_values[@]}"); sf_tuple[$sf_index]=${sf_change#* }; sf_joined=$(IFS=,; printf '%s' "${sf_tuple[*]}")
+  printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(negative_settle_sql "$sf_joined")" "$reset_sql" | actor
+ done
+for sf_change in "0 'bad'" "1 'bad'" "2 'bad'" "3 'bad'" "6 'bad'" "7 -1" "7 9007199254740992" "7 'overflow'"; do
+  sf_index=${sf_change%% *}; sf_tuple=("${sf_values[@]}"); sf_tuple[$sf_index]=${sf_change#* }; sf_joined=$(IFS=,; printf '%s' "${sf_tuple[*]}")
+  if printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT subtrack_auth.settle_bootstrap(%s);\n' "$sf_joined" | actor; then exit 1; fi
+  sf_expected=23514; [[ "$sf_change" != *overflow* ]] || sf_expected=22P02
+  grep -q "ERROR:  $sf_expected" "$client_log" || exit 1
+ done
+printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL app.user_id='fault'; SET LOCAL app.current_user_id='fault';\n\\set ON_ERROR_STOP off\nSELECT subtrack_auth.settle_bootstrap('bad',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);\n\\set ON_ERROR_STOP on\nROLLBACK; %s\n" "$reset_sql" | actor
+for sf_isolation in 'REPEATABLE READ' SERIALIZABLE 'READ UNCOMMITTED'; do
+  printf 'BEGIN ISOLATION LEVEL %s; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$sf_isolation" "$(negative_settle_sql "$sf_args")" "$reset_sql" | actor
+ done
+snapshot_private; [[ "$snapshot" == "$sf_before" ]] || exit 1
+for sf_corruption in "state='completed'" "state='failed'" "operation='other'" "authority_kind='other'" "epoch='reserve-b'" "issued_ms=0,expires_ms=1" "issued_ms=9007199254740990,expires_ms=9007199254740991"; do
+  printf 'BEGIN; UPDATE subtrack_auth.reservation SET %s; SET LOCAL ROLE subtrack_runtime; %s ROLLBACK; %s\n' "$sf_corruption" "$(negative_settle_sql "$sf_args")" "$reset_sql" | owner
+ done
+# Trusted corruption is transactional: actual schema otherwise forbids foreign origin/transport.
+for sf_corruption in "ALTER TABLE subtrack_auth.epoch DROP CONSTRAINT epoch_origin_check; UPDATE subtrack_auth.epoch SET origin='https://foreign.invalid' WHERE id='reserve-b'; UPDATE subtrack_auth.reservation SET epoch='reserve-b';" "ALTER TABLE subtrack_auth.reservation DROP CONSTRAINT reservation_transport_check; UPDATE subtrack_auth.reservation SET transport='mobile';"; do
+  sf_corrupt_args=$sf_args; [[ "$sf_corruption" != *epoch_origin_check* ]] || sf_corrupt_args=${sf_args/\'fixture\'/\'reserve-b\'}
+  printf 'BEGIN; %s SET LOCAL ROLE subtrack_runtime; %s ROLLBACK; %s\n' "$sf_corruption" "$(negative_settle_sql "$sf_corrupt_args")" "$reset_sql" | owner
+ done
+snapshot_private; [[ "$snapshot" == "$sf_before" ]] || exit 1
+snapshot_unpruned; sf_unpruned=$unpruned
+for sf_outcome in completed failed; do
+  printf '%s\n' "$sf_seed" | owner
+  sf_tuple=("${sf_values[@]}"); sf_tuple[8]="'$sf_outcome'"; sf_joined=$(IFS=,; printf '%s' "${sf_tuple[*]}")
+  snapshot_private; sf_before=$snapshot
+  printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL app.user_id='"'fault'"'; SET LOCAL app.current_user_id='"'fault'"'; %s ROLLBACK; %s\n' "$(positive_settle_sql "$sf_joined")" "$reset_sql" | actor
+  snapshot_private; [[ "$snapshot" == "$sf_before" ]] || exit 1
+  printf "SELECT md5((to_jsonb(r)-'state')::text) FROM subtrack_auth.reservation r;\n" | owner
+  sf_immutable=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log")
+  printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL search_path=public; %s %s COMMIT; %s\n' "$(positive_settle_sql "$sf_joined")" "$(negative_settle_sql "$sf_joined")" "$reset_sql" | actor
+  assert_owner "(SELECT count(*)=1 AND bool_and(state='$sf_outcome' AND md5((to_jsonb(r)-'state')::text)='$sf_immutable') FROM subtrack_auth.reservation r)"
+ done
+snapshot_unpruned; [[ "$unpruned" == "$sf_unpruned" ]] || exit 1
+# Live mixed global tuples survive except the single fixed owned pending target's state.
+printf "%s INSERT INTO subtrack_auth.reservation SELECT md5('sf-key-'||i)||md5('sf-key-'||i),'other','other',repeat('7',64),repeat('8',64),md5('sf-owner-'||i)||md5('sf-owner-'||i),'web','retired',t.ms,t.ms+86400000,(ARRAY['pending','completed','failed'])[i] FROM generate_series(1,3) i CROSS JOIN (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint ms) t; SELECT md5(jsonb_agg(to_jsonb(r) ORDER BY key_h)::text) FROM subtrack_auth.reservation r WHERE operation='other';\n" "$sf_seed" | owner
+sf_mixed=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log")
+printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(positive_settle_sql "$sf_args")" "$reset_sql" | actor
+assert_owner "(SELECT count(*)=3 AND md5(jsonb_agg(to_jsonb(r) ORDER BY key_h)::text)='$sf_mixed' FROM subtrack_auth.reservation r WHERE operation='other')"
+# Same owned row: terminal COMMIT excludes a competing outcome; ROLLBACK lets it win.
+# Separate expiry waits expose epoch, advisory, and direct external reservation row contention.
+# Two prune directions share capacity without holding a different epoch under that lock.
+for sf_case in compete-COMMIT compete-ROLLBACK expiry-epoch expiry-advisory expiry-row settle-prune-COMMIT settle-prune-ROLLBACK prune-settle-COMMIT prune-settle-ROLLBACK expired-prune-COMMIT expired-prune-ROLLBACK; do
+  printf '%s\n' "$sf_seed" | owner
+  sf_holder_user=subtrack_dev_auth_login; sf_holder_statement="SET LOCAL ROLE subtrack_runtime; $(positive_settle_sql "$sf_args")"
+  sf_waiter_statement="$(negative_settle_sql "${sf_args%\'completed\'}'failed'")"; sf_release=COMMIT; sf_wait_event=transactionid
+  case "$sf_case" in
+    compete-ROLLBACK) sf_release=ROLLBACK; sf_waiter_statement="$(positive_settle_sql "${sf_args%\'completed\'}'failed'")" ;;
+    expiry-*)
+      printf "UPDATE subtrack_auth.reservation SET expires_ms=issued_ms+5000; SELECT expires_ms FROM subtrack_auth.reservation;\n" | owner
+      sf_expiry=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$sf_expiry" =~ ^[0-9]+$ ]] || exit 1
+      sf_holder_user=st233a_fixture_owner
+      case "$sf_case" in
+        expiry-epoch) sf_holder_statement="SELECT 1 FROM subtrack_auth.epoch WHERE id='fixture' FOR UPDATE;" ;;
+        expiry-advisory) sf_holder_statement='SELECT pg_advisory_xact_lock(233,4);'; sf_wait_event=advisory ;;
+        expiry-row) sf_holder_statement="SELECT 1 FROM subtrack_auth.reservation WHERE key_h=repeat('5',64) FOR UPDATE;" ;;
+      esac
+      sf_waiter_statement="$(negative_settle_sql "$sf_args")" ;;
+    settle-prune-*) sf_waiter_statement="$(positive_prune_sql "'reserve-b',repeat('a',64),0")"; sf_wait_event=advisory; sf_release=${sf_case##*-} ;;
+    expired-prune-*)
+      printf "UPDATE subtrack_auth.reservation SET issued_ms=0,expires_ms=1;\n" | owner
+      sf_holder_statement="SET LOCAL ROLE subtrack_runtime; $(positive_prune_sql "'reserve-b',repeat('a',64),0")"
+      sf_waiter_statement="$(negative_settle_sql "$sf_args")"; sf_wait_event=advisory; sf_release=${sf_case##*-} ;;
+    prune-settle-*)
+      sf_holder_statement="SET LOCAL ROLE subtrack_runtime; $(positive_prune_sql "'reserve-b',repeat('a',64),0")"
+      sf_waiter_statement="$(positive_settle_sql "$sf_args")"; sf_wait_event=advisory; sf_release=${sf_case##*-} ;;
+  esac
+  printf "SELECT md5((to_jsonb(r)-'state')::text) FROM subtrack_auth.reservation r;\n" | owner
+  sf_race_immutable=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log")
+  fifo=$(mktemp -u "$tmp/holder.XXXXXX"); mkfifo -m 600 "$fifo"; exec {writer}<>"$fifo"; writers[holder]=$writer
+  launch_client "$sf_holder_user" "$fifo" st233b-holder; holder_pid=$client_pid holder_log=$client_log
+  printf "BEGIN; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s\n" "$sf_holder_statement" >&"$writer"
+  observer=$(mktemp "$tmp/observer.XXXXXX"); waiter_pid=''
+  observe_clients "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND usename='$sf_holder_user' AND application_name='st233b-holder' AND state='idle in transaction';" '^[ ]*[0-9]+[ ]*$' || exit 1
+  sf_holder_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$sf_holder_backend" =~ ^[0-9]+$ ]] || exit 1
+  waiter=$(mktemp "$tmp/waiter.XXXXXX")
+  printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s COMMIT; %s\n" "$sf_waiter_statement" "$reset_sql" > "$waiter"
+  launch_client subtrack_dev_auth_login "$waiter" st233b-waiter; waiter_pid=$client_pid waiter_log=$client_log
+  observe_clients "SELECT w.pid FROM pg_catalog.pg_stat_activity h JOIN pg_catalog.pg_stat_activity w ON h.pid<>w.pid WHERE h.pid=$sf_holder_backend AND h.datname='$db' AND w.datname=h.datname AND h.usename='$sf_holder_user' AND w.usename='subtrack_dev_auth_login' AND h.application_name='st233b-holder' AND w.application_name='st233b-waiter' AND h.state='idle in transaction' AND w.wait_event_type='Lock' AND w.wait_event='$sf_wait_event' AND h.pid=ANY(pg_catalog.pg_blocking_pids(w.pid));" '^[ ]*[0-9]+[ ]*$' || exit 1
+  sf_waiter_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log"); [[ "$sf_waiter_backend" =~ ^[0-9]+$ && "$sf_waiter_backend" != "$sf_holder_backend" ]] || exit 1
+  if [[ "$sf_case" == expiry-* ]]; then
+    assert_owner "floor(extract(epoch FROM clock_timestamp())*1000)<$sf_expiry"
+    observe_clients "SELECT floor(extract(epoch FROM clock_timestamp())*1000)>=$sf_expiry;" '^ t *$' || exit 1
+  fi
+  printf '%s; %s\n\q\n' "$sf_release" "$reset_sql" >&"$writer"; close_writers
+  join_client "$holder_pid" 25000 && join_client "$waiter_pid" 25000 || exit 1
+  ! grep -q 'ERROR:' "$holder_log" && ! grep -q 'ERROR:' "$waiter_log" || exit 1
+  case "$sf_case" in
+    compete-COMMIT|settle-prune-COMMIT|prune-settle-*) sf_expected_state=completed ;;
+    compete-ROLLBACK) sf_expected_state=failed ;;
+    *) sf_expected_state=pending ;;
+  esac
+  if [[ "$sf_case" == expired-prune-COMMIT ]]; then
+    assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.reservation)"
+  else
+    assert_owner "(SELECT count(*)=1 AND bool_and(state='$sf_expected_state' AND md5((to_jsonb(r)-'state')::text)='$sf_race_immutable') FROM subtrack_auth.reservation r)"
+  fi
+  if [[ "$sf_case" == expiry-* ]]; then
+    printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; %s COMMIT; %s\n' "$(positive_prune_sql "$prune_args")" "$reset_sql" | actor
+    assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.reservation)"
+  fi
+  snapshot_unpruned; [[ "$unpruned" == "$sf_unpruned" ]] || exit 1
+ done
+owner < "$tmp/settle-catalog.sql"
+
 for role in subtrack_dev_auth_login subtrack_runtime subtrack_identity_provisioner subtrack_auth_producer; do
   assert_owner "NOT pg_catalog.has_database_privilege('$role','$db','CREATE,TEMP') AND NOT pg_catalog.has_schema_privilege('$role','subtrack_auth','CREATE') AND NOT pg_catalog.has_schema_privilege('$role','public','CREATE')"
   for table in epoch reservation nonce; do
