@@ -56,6 +56,14 @@ cleanup_container() {
 classify_launcher_failure() {
   local line code fallback=unavailable
   while IFS= read -r line; do
+    if [[ "${3:-}" == ST227a ]]; then
+      line=$(printf '%s\n' "$line" | sed -E 's/\x1B\[[0-9;]*m//g')
+      if [[ "$line" =~ ^[[:space:]]*(Error:\ )?ST-227a\ browser\ proof\ failed:\ (fixture|compiled_child|child_spawn|child_bootstrap|child_startup_exit|child_startup_timeout|child_pool|smoke|denials|browser|matrix|visibility|authority|malformed|sigterm_cleanup|sigint_cleanup|parent_cleanup)\;\ cleanup:\ (none|child_exit|child_timeout|owner_disconnect)[[:space:]]*$ ]]; then
+        if [[ "${2:-phase}" == cleanup ]]; then code=${BASH_REMATCH[3]}; else code=${BASH_REMATCH[2]}; fi
+        printf '%s\n' "$code"; return
+      fi
+      continue
+    fi
     if [[ "${2:-phase}" == cleanup ]]; then
       for code in none child_exit child_timeout owner_disconnect; do
         if [[ "$line" =~ ST-226\ launcher\ proof\ failed:.*\;\ cleanup:\ ${code}($|[^a-zA-Z0-9_-]) ]]; then printf '%s\n' "$code"; return; fi
@@ -76,8 +84,8 @@ classify_launcher_failure() {
 run_browser_integration() {
   phase=browser-integration
   if ! (cd apps/api && corepack pnpm exec vitest run --config test/vitest.browser-subscription-lifecycle.config.ts) >"$tmp/browser.log" 2>&1; then
-    failure_subphase=unavailable
-    failure_cleanup=unavailable
+    failure_subphase=$(classify_launcher_failure "$tmp/browser.log" phase ST227a)
+    failure_cleanup=$(classify_launcher_failure "$tmp/browser.log" cleanup ST227a)
     return 1
   fi
   browser_passed=true
@@ -110,7 +118,7 @@ finish() {
   else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; phase=cleanup; fi
   case "$phase" in starting|fixture|migration|role|tls|build|launcher-coverage|launcher-integration|browser-integration|cleanup) ;; *) phase=starting; status=1 ;; esac
-  case "$failure_subphase" in unavailable|fixture|compiled_child|child_spawn|child_bootstrap|child_startup_exit|child_startup_timeout|child_pool|smoke|denials|sigterm_cleanup|sigint_cleanup|parent_cleanup|collection) ;; *) failure_subphase=unavailable; status=1 ;; esac
+  case "$failure_subphase" in unavailable|fixture|compiled_child|child_spawn|child_bootstrap|child_startup_exit|child_startup_timeout|child_pool|smoke|denials|browser|matrix|visibility|authority|malformed|sigterm_cleanup|sigint_cleanup|parent_cleanup|collection) ;; *) failure_subphase=unavailable; status=1 ;; esac
   case "$failure_cleanup" in unavailable|none|child_exit|child_timeout|owner_disconnect) ;; *) failure_cleanup=unavailable; status=1 ;; esac
   [[ "$coverage" == unavailable || "$coverage" =~ ^statements:[0-9]+([.][0-9]+)?,branches:[0-9]+([.][0-9]+)?,functions:[0-9]+([.][0-9]+)?,lines:[0-9]+([.][0-9]+)?$ ]] || { coverage=unavailable; status=1; }
   if [[ "$status" -eq 0 && "$passed" == true && "${browser_passed:-false}" == true ]]; then

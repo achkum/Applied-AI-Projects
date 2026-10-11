@@ -1,0 +1,8 @@
+TRIAGE/v1; QA/Devops read-only; PR261 run38099636217 attempt1 headf61e49bb204eddb7c6bcd9ca15c0095e007460fb FAIL; original2026-10-11T00:20:05Z L240attempt1 retained; repair0.
+Safe signature: owned-browser-proof / Owned PG16, compiled Node HTTPS persistence proof; receipt phase=browser-integration subphase=unavailable parent_cleanup=unavailable fixture_cleanup=false code=unavailable.
+Compiled launcher/coverage gates preceded browser phase; mandatory cleanup removed private browser.log, so emitted browser subphase/assertion remains unavailable; no raw logs/headers/URLs/credentials exposed.
+Diagnostic-only proposal: reuse classify_launcher_failure with explicit ST227a prefix and fixed integration phase/cleanup allowlists; run_browser_integration extracts enums before finish destroys private logs; retain fail-closed receipt and cleanup.
+Negative checks must exercise every known phase/cleanup, unknown/suffix/embedded-sensitive strings, missing diagnostics and production runner receipt; emit only allowlisted enums or unavailable, never matched text.
+Confirmed source defect independent of actual emitted CI subphase: integration.ts128-131 repeats owner/peer active memberships across two households, violating canonical migration0002 lines6-7 one-active-membership index.
+After actual safe phase confirms fixture, smallest proposed fixture repair uses one household for distinct shared/open-book rows, preserving READ-visible peer PATCH404 proof; no schema/runtime changes or weakened gates.
+STOP within20calls/30min; only this evidence written, no source/status/stage/commit/install/local tests; root owns diagnostic author dispatch and fresh exact-head Linux Node22/pinned Chromium/PG16 CI.

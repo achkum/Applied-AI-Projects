@@ -108,7 +108,7 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
     const owner = randomUUID(), peer = randomUUID(), smoke = randomUUID(), unrelated = randomUUID(), missing = randomUUID();
     await settled(ownerDb.$executeRaw`SET statement_timeout = 5000`);
     const fixtures = statuses.flatMap(current => targets.map(target => ({ id: randomUUID(), current, target })));
-    const shared = randomUUID(), openBook = randomUUID(), sharedHousehold = randomUUID(), openHousehold = randomUUID();
+    const shared = randomUUID(), openBook = randomUUID(), household = randomUUID();
     for (const identity of [owner, peer])
       await ownerDb.$executeRaw`INSERT INTO identity (id,auth_method,updated_at) VALUES (${identity}::uuid,'MOCK',NOW())`;
     const merchant = randomUUID();
@@ -125,20 +125,18 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
         (id,identity_id,merchant_id,custom_name,category_code,cadence,expected_amount_minor,currency,status,source,always_private,updated_at)
         VALUES (${fixture.id}::uuid,${owner}::uuid,${merchant}::uuid,'synthetic','VIDEO_STREAMING','MONTHLY',1,'SEK',
           ${fixture.current}::subscription_status,'DETECTED',true,NOW())`);
-    for (const household of [sharedHousehold, openHousehold]) {
-      await settled(ownerDb.$executeRaw`INSERT INTO household (id,name,updated_at) VALUES (${household}::uuid,'synthetic',NOW())`);
-      await settled(ownerDb.$executeRaw`INSERT INTO household_member (household_id,identity_id,role)
-        VALUES (${household}::uuid,${owner}::uuid,'ADMIN'),(${household}::uuid,${peer}::uuid,'MEMBER')`);
-    }
+    await settled(ownerDb.$executeRaw`INSERT INTO household (id,name,updated_at) VALUES (${household}::uuid,'synthetic',NOW())`);
+    await settled(ownerDb.$executeRaw`INSERT INTO household_member (household_id,identity_id,role)
+      VALUES (${household}::uuid,${owner}::uuid,'ADMIN'),(${household}::uuid,${peer}::uuid,'MEMBER')`);
     await settled(ownerDb.$executeRaw`INSERT INTO consent (identity_id,scope_id,scope_type,open_book,updated_at)
-      VALUES (${owner}::uuid,${openHousehold}::uuid,'HOUSEHOLD',true,NOW())`);
+      VALUES (${owner}::uuid,${household}::uuid,'HOUSEHOLD',true,NOW())`);
     for (const [id, privateRow] of [[shared, true], [openBook, false]] as const)
       await settled(ownerDb.$executeRaw`INSERT INTO subscription
         (id,identity_id,merchant_id,custom_name,category_code,cadence,expected_amount_minor,currency,status,source,always_private,updated_at)
         VALUES (${id}::uuid,${owner}::uuid,${merchant}::uuid,'synthetic','VIDEO_STREAMING','MONTHLY',1,'SEK',
           'ACTIVE'::subscription_status,'DETECTED',${privateRow},NOW())`);
     await settled(ownerDb.$executeRaw`INSERT INTO subscription_share (id,subscription_id,household_id,shared_by)
-      VALUES (${randomUUID()}::uuid,${shared}::uuid,${sharedHousehold}::uuid,${owner}::uuid)`);
+      VALUES (${randomUUID()}::uuid,${shared}::uuid,${household}::uuid,${owner}::uuid)`);
     const connections = async () => (await ownerDb!.$queryRaw<{ count: number }[]>`
       SELECT count(*)::integer AS count FROM pg_stat_activity
       WHERE datname=current_database() AND usename='st_browser_lifecycle_runtime'`)[0]!.count;
