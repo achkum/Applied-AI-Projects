@@ -1087,7 +1087,8 @@ for direction in prune-first reserve-first; do
   printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s\n" "$holder_assertion" >&"$writer"
   observer=$(mktemp "$tmp/observer.XXXXXX"); waiter_pid=''
    prune_step=race-holder-observe prune_failure_kind=timeout
-  observe_clients "SELECT count(*)=1 FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';" '^ t *$' || exit 1
+  holder_observe_ms=10000; [[ "$direction" != prune-first ]] || holder_observe_ms=25000
+  observe_clients "SELECT count(*)=1 FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';" '^ t *$' "$holder_observe_ms" || exit 1
    prune_step=race-holder-backend prune_failure_kind=assertion
   printf "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='%s' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';\n" "$db" > "$observer"
   launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1

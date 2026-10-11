@@ -14,6 +14,23 @@ const webRequire = createRequire(path.join(webDir, 'package.json'));
 const apiRequire = createRequire(path.join(apiDir, 'package.json'));
 const fail = () => { throw new Error('Private HTTPS unavailable'); };
 const gate = name => process.stderr.write(`ST237_STARTUP_GATE ${name}\n`);
+// Diagnose Next startup without exporting exception text, paths, or environment values.
+function nextFailureClass(error) {
+  const causes = [error, error?.cause];
+  for (const cause of causes) {
+    if (cause?.code === 'EADDRINUSE') return 'PORT';
+    if (cause?.code === 'EACCES' || cause?.code === 'EPERM') return 'PERMISSION';
+    if (cause?.code === 'ENOENT' || cause?.code === 'ERR_MODULE_NOT_FOUND' || cause?.code === 'MODULE_NOT_FOUND') return 'MISSING_FILE';
+    const message = typeof cause?.message === 'string' ? cause.message : '';
+    if (/\block\b/i.test(message)) return 'LOCK';
+    if (/turbopack|swc|native binding/i.test(message)) return 'COMPILER';
+    if (/next\.config|configuration/i.test(message)) return 'CONFIG';
+    if (/module not found|cannot find module|no such file/i.test(message)) return 'MISSING_FILE';
+    if (cause?.name === 'TypeError') return 'TYPE';
+    if (cause?.name === 'SyntaxError') return 'SYNTAX';
+  }
+  return 'OTHER';
+}
 const env = process.env;
 gate('ENV');
 if (env.NODE_ENV !== 'development' || !env.ST237_PRIVATE_CONFIG ||
@@ -630,7 +647,8 @@ async function main() {
   gate('FRAMEWORK_READY');
   const nextApp = next({ dev: true, dir: webDir, hostname: 'localhost', port: 3443 });
   gate('NEXT');
-  await nextApp.prepare();
+  try { await nextApp.prepare(); }
+  catch (error) { gate(`NEXT_FAILED_${nextFailureClass(error)}`); throw error; }
   gate('NEXT_READY');
   const web = nextApp.getRequestHandler();
   const routes = new Set(['/v2/auth/browser-nonce','/v2/auth/otp/start','/v2/auth/otp/verify',
