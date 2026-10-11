@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assertOwnedFixture, main, type Provenance } from './browser-subscription-lifecycle.local';
+import { assertOwnedFixture, createWriterRollbackDelegate, main, ROLLBACK_BASELINE, ROLLBACK_FIXTURE, type Provenance } from './browser-subscription-lifecycle.local';
+import type { Prisma, PrismaClient } from '@prisma/client';
 
 const runtime = vi.hoisted(() => ({
   record: '', inspected: '', url: '', appFailure: false, ready: false,
   disconnects: 0, closes: 0, listens: 0, transactions: 0, order: [] as string[], queryFailure: false, listenFailure: false, fileMode: 0o600,
   queryGate: undefined as Promise<void> | undefined, badFile: '', symlink: '',
+  writerUpdated: false, writer: undefined as (() => Promise<unknown>) | undefined,
 }));
 vi.mock('node:fs', async importOriginal => ({ ...await importOriginal<typeof import('node:fs')>(),
   lstatSync: (path: string) => ({ isFile: () => !path.endsWith('private'), isDirectory: () => path.endsWith('private'),
@@ -18,11 +20,18 @@ vi.mock('@prisma/client', () => ({ PrismaClient: class {
   $queryRaw = async () => [{ pid: 7, canonical: null, historical: null }];
   $transaction = async (callback: (tx: { $queryRaw: () => Promise<unknown[]> }) => Promise<unknown>) => {
     runtime.transactions++;
-    return callback({ $queryRaw: async () => { await runtime.queryGate; if (runtime.queryFailure) throw new Error('private query error'); return [{ pid: 7, canonical: null, historical: null }]; } });
+    return callback({ $executeRaw: async () => 1, $queryRaw: async () => {
+      await runtime.queryGate; if (runtime.queryFailure) throw new Error('private query error');
+      return process.env['ST227B_ENABLED'] === '1' && runtime.transactions === 1
+        ? [{ id: ROLLBACK_FIXTURE, owner: process.env['ST226_OWNER_ID'], status: 'ACTIVE', private: true,
+          updated: new Date(ROLLBACK_BASELINE), pid: 7, canonical: process.env['ST226_OWNER_ID'], historical: process.env['ST226_OWNER_ID'] }]
+        : [{ pid: 7, canonical: null, historical: null }];
+    } } as unknown as { $queryRaw: () => Promise<unknown[]> });
   };
   $disconnect = async () => { runtime.disconnects++; runtime.order.push('disconnect'); };
 } }));
-vi.mock('./browser-subscription-lifecycle.composition.js', () => ({ createBrowserSubscriptionLifecycleApp: async () => {
+vi.mock('./browser-subscription-lifecycle.composition.js', () => ({ createBrowserSubscriptionLifecycleApp: async (options: { prisma: PrismaClient }) => {
+  runtime.writer = () => options.prisma.$transaction(async () => ({ id: 'wrong', status: 'PAUSED' }));
   if (runtime.appFailure) throw new Error('synthetic startup failure');
   return { listen: async () => { runtime.listens++; if (runtime.listenFailure) throw new Error('listen failed'); }, close: async () => { runtime.closes++; runtime.order.push('close'); } };
 } }));
@@ -41,6 +50,110 @@ const fixture = () => ({
   Mounts: [{ Type: 'tmpfs', Destination: '/var/lib/postgresql/data' }],
   HostConfig: { PortBindings: { '5432/tcp': [{ HostIp: '127.0.0.1', HostPort: '' }] } },
   NetworkSettings: { Ports: { '5432/tcp': [{ HostIp: '127.0.0.1', HostPort: '35001' }] } },
+});
+
+describe('ST-227b real-transaction delegate contract', () => {
+  const owner = '11111111-1111-4111-8111-111111111111';
+  function model() {
+    const row = { id: ROLLBACK_FIXTURE, owner, status: 'ACTIVE', private: true,
+      updated: new Date(ROLLBACK_BASELINE), pid: 7, canonical: owner, historical: owner };
+    const order: string[] = [], options: unknown[] = [];
+    let tx!: Prisma.TransactionClient;
+    const client = {
+      marker: 17,
+      $queryRaw() { expect(this).toBe(client); return Promise.resolve(this.marker); },
+      async $transaction(callback: (value: Prisma.TransactionClient) => Promise<unknown>, option: unknown) {
+        expect(this).toBe(client); options.push(option);
+        const previous = { ...row }; order.push('begin');
+        tx = { $executeRaw: async () => { order.push('guc'); return 1; },
+          $queryRaw: async () => { order.push('select'); return [{ ...row }]; } } as unknown as Prisma.TransactionClient;
+        try { const result = await callback(tx); order.push('commit'); return result; }
+        catch (error) { Object.assign(row, previous); order.push('rollback'); throw error; }
+      },
+    };
+    return { row, order, options, client: client as unknown as PrismaClient, tx: () => tx,
+      update() { order.push('update'); row.status = 'PAUSED'; row.updated = new Date('2001-01-01'); } };
+  }
+  it('binds callable proxy properties, preserves receiver/options/exact tx and nonarmed values/errors', async () => {
+    const m = model(), stop = vi.fn();
+    const original = new Proxy(m.client, { get: (target, key) => {
+      const value: unknown = Reflect.get(target, key); return typeof value === 'function' ? value.bind(target) : value;
+    } });
+    const proof = await createWriterRollbackDelegate(original, owner, stop);
+    // Original methods see their original proxy receiver, including property access.
+    const option = { timeout: 5_000 };
+    await expect(proof.prisma.$queryRaw`SELECT 1`).resolves.toBe(17);
+    await expect(proof.prisma.$transaction(async tx => { expect(tx).toBe(m.tx()); return 23; }, option)).resolves.toBe(23);
+    expect(m.options.at(-1)).toBe(option);
+    const error = new Error('accepted callback error');
+    await expect(proof.prisma.$transaction(async () => { throw error; })).rejects.toBe(error);
+    expect(proof.verified).toBe(false); expect(stop).not.toHaveBeenCalled(); await proof.settle();
+  });
+  it('consumes once before accepted callback UPDATE, verifies in same tx, and rolls back', async () => {
+    const m = model(), proof = await createWriterRollbackDelegate(m.client, owner, vi.fn());
+    const before = { ...m.row }; m.order.length = 0;
+    expect(proof.arm()).toBe(true); expect(proof.arm()).toBe(false);
+    await expect(proof.prisma.$transaction(async tx => {
+      expect(tx).toBe(m.tx()); expect(proof.arm()).toBe(false); m.update();
+      return { id: ROLLBACK_FIXTURE, status: 'PAUSED' };
+    })).rejects.toThrow('ST-227b verified writer rollback');
+    expect(m.order).toEqual(['begin', 'update', 'select', 'rollback']);
+    expect(m.row).toEqual(before); expect(proof.verified).toBe(true); expect(proof.failed).toBe(false);
+    await expect(proof.prisma.$transaction(async () => 29)).resolves.toBe(29); await proof.settle();
+  });
+  it.each([null, [], { id: 'other', status: 'PAUSED' }, { id: ROLLBACK_FIXTURE, status: 'ACTIVE' },
+    { id: ROLLBACK_FIXTURE, status: 'PAUSED', extra: true }, { status: 'PAUSED' },
+    Object.create({ id: ROLLBACK_FIXTURE, status: 'PAUSED' })])('denies armed noncandidate %j inside transaction', async result => {
+    const m = model(), stop = vi.fn(), proof = await createWriterRollbackDelegate(m.client, owner, stop);
+    const before = { ...m.row }; expect(proof.arm()).toBe(true);
+    await expect(proof.prisma.$transaction(async () => { m.update(); return result; })).rejects.toThrow('ST-226 local proof denied');
+    expect(m.row).toEqual(before); expect(m.order.at(-1)).toBe('rollback');
+    expect(proof.verified).toBe(false); expect(proof.failed).toBe(true); expect(stop).toHaveBeenCalledOnce(); await proof.settle();
+  });
+  it.each(['no-update', 'pid', 'canonical', 'historical', 'owner', 'private', 'status'])(
+    'denies candidate with invalid post-UPDATE %s', async field => {
+      const m = model(), stop = vi.fn(), proof = await createWriterRollbackDelegate(m.client, owner, stop);
+      expect(proof.arm()).toBe(true);
+      await expect(proof.prisma.$transaction(async () => {
+        if (field !== 'no-update') m.update();
+        if (field === 'pid') m.row.pid = 8;
+        if (field === 'canonical') m.row.canonical = 'other';
+        if (field === 'historical') m.row.historical = 'other';
+        if (field === 'owner') m.row.owner = 'other';
+        if (field === 'private') m.row.private = false;
+        if (field === 'status') m.row.status = 'ACTIVE';
+        return { id: ROLLBACK_FIXTURE, status: 'PAUSED' };
+      })).rejects.toThrow('ST-226 local proof denied');
+      expect(proof.verified).toBe(false); expect(stop).toHaveBeenCalledOnce(); await proof.settle();
+    });
+  it('denies startup without strict owned ACTIVE old timestamp', async () => {
+    for (const field of ['status', 'updated', 'private', 'owner', 'pid', 'canonical', 'historical'] as const) {
+      const m = model();
+      if (field === 'updated') m.row.updated = new Date(); else if (field === 'pid') m.row.pid = 0;
+      else if (field === 'private') m.row.private = false; else m.row[field] = 'invalid';
+      await expect(createWriterRollbackDelegate(m.client, owner, vi.fn())).rejects.toThrow('ST-226 local proof denied');
+    }
+  });
+  it('waits for underlying writer settlement and refuses work after stop', async () => {
+    const m = model(), proof = await createWriterRollbackDelegate(m.client, owner, vi.fn());
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const writer = proof.prisma.$transaction(async () => { await gate; return 31; });
+    expect(proof.arm()).toBe(false); let settled = false;
+    const drain = proof.settle().then(() => { settled = true; });
+    await Promise.resolve(); expect(settled).toBe(false); release(); await writer; await drain;
+    expect(() => proof.prisma.$transaction(async () => 0)).toThrow('ST-226 local proof denied'); expect(proof.arm()).toBe(false);
+  });
+  it('expires an unused arm and denies armed callback failure', async () => {
+    vi.useFakeTimers();
+    try {
+      const m = model(), stop = vi.fn(), proof = await createWriterRollbackDelegate(m.client, owner, stop);
+      proof.arm(); await vi.advanceTimersByTimeAsync(5_000); expect(proof.failed).toBe(true); expect(stop).toHaveBeenCalledOnce(); await proof.settle();
+      const second = await createWriterRollbackDelegate(m.client, owner, stop); second.arm();
+      await expect(second.prisma.$transaction(async () => { throw new Error('private'); })).rejects.toThrow('ST-226 local proof denied');
+      expect(second.verified).toBe(false); await second.settle();
+    } finally { vi.useRealTimers(); }
+  });
 });
 
 describe('ST-226 owned fixture provenance before Prisma', () => {
@@ -93,6 +206,7 @@ function prepareMain(onSend: (message: Record<string, unknown>) => void): void {
   Object.assign(runtime, { record: JSON.stringify(record), inspected: JSON.stringify(fixture()), url: runtimeUrl,
     appFailure: false, ready: false, disconnects: 0, closes: 0, listens: 0, transactions: 0, order: [], queryFailure: false, listenFailure: false, fileMode: 0o600, queryGate: undefined, badFile: '', symlink: '' });
   delete process.env['DATABASE_URL'];
+  delete process.env['ST227B_ENABLED'];
   Object.assign(process.env, { NODE_ENV: 'development', ST226_ENABLED: '1', ST226_HOST: '127.0.0.1',
     ST226_PORT: '35426', ST226_OWNER_ID: '11111111-1111-4111-8111-111111111111',
     ST226_PEER_ID: '22222222-2222-4222-8222-222222222222',
@@ -107,6 +221,36 @@ function prepareMain(onSend: (message: Record<string, unknown>) => void): void {
 }
 
 describe('ST-226 compiled launcher lifecycle', () => {
+  it('rejects invalid enabled values and legacy rollback controls without changing the graph', async () => {
+    prepareMain(() => undefined); process.env['ST227B_ENABLED'] = 'other';
+    await expect(main()).rejects.toThrow('ST-226 local proof denied'); expect(runtime.disconnects).toBe(0);
+    prepareMain(message => {
+      if (message.kind === 'ready') {
+        process.emit('message', { kind: 'control', id: 1, action: 'arm-writer-rollback' });
+        process.emit('SIGTERM');
+      }
+    });
+    await main(); expect(runtime.transactions).toBe(0);
+  });
+  it('enabled private arm ignores arbitrary/replayed controls and fails wrong callback before disconnect', async () => {
+    prepareMain(message => {
+      if (message.kind === 'ready') {
+        for (const command of [
+          { kind: 'control', id: 1, action: 'arm-writer-rollback', handle: 'owner' },
+          { kind: 'control', id: 2, action: 'arm-writer-rollback' },
+          { kind: 'control', id: 1, action: 'writer-rollback-observe' },
+        ]) process.emit('message', command);
+        process.emit('message', { kind: 'control', id: 1, action: 'arm-writer-rollback' });
+        process.emit('message', { kind: 'control', id: 1, action: 'arm-writer-rollback' });
+      } else {
+        expect(message).toMatchObject({ action: 'arm-writer-rollback', verified: false });
+        void runtime.writer!().catch(() => undefined);
+      }
+    });
+    process.env['ST227B_ENABLED'] = '1';
+    await expect(main()).rejects.toThrow('ST-226 local proof denied');
+    expect(runtime.order).toEqual(['close', 'disconnect']); expect(runtime.transactions).toBe(2);
+  });
   it('starts the accepted graph, observes both clean GUCs on the writer pool, and closes on SIGTERM', async () => {
     const sent: Record<string, unknown>[] = [];
     prepareMain(message => {

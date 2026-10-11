@@ -83,7 +83,7 @@ done
 printf 'Failed Suites 1\n' > "$base/failure.log"
 [[ "$(classify_launcher_failure "$base/failure.log")" == collection ]]
 printf 'ST-226 actual finish negatives and diagnostic allowlist: PASS\n'
-for code in fixture compiled_child child_spawn child_bootstrap child_startup_exit child_startup_timeout child_pool smoke denials browser matrix visibility authority malformed sigterm_cleanup sigint_cleanup parent_cleanup; do
+for code in fixture compiled_child child_spawn child_bootstrap child_startup_exit child_startup_timeout child_pool smoke denials browser writer_rollback writer_negative fixture_reset matrix visibility authority malformed sigterm_cleanup sigint_cleanup parent_cleanup; do
   printf '\033[31mError: ST-227a browser proof failed: %s; cleanup: none\033[39m\n' "$code" > "$base/failure.log"
   [[ "$(classify_launcher_failure "$base/failure.log" phase ST227a)" == "$code" ]]
 done
