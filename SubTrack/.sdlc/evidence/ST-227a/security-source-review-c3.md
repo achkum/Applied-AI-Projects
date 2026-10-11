@@ -1,0 +1,8 @@
+REVIEW/v1; reviewer=security-privacy; session=ST227a-security-review-c1; revision=C3; verdict=APPROVE; findings=[]; prior review preserved.
+Verified integration2bf12fbbc634abe7c645bd05827fb68568986e13/checkpointaa162b6aed349dee4306f3bd48f9355ff9e91f38; configee3f65f877df2ffc94a869e5c94ffb424397f9f5/wrapper32dcd2aa7b32a6a644df46da14c536932701b71c/negative2f91edeb4355bad6f9ddc344f94f26f856f4b558/workflowab909dd2e9c079777d5dd30be551314775ebbf79 unchanged.
+Reverse-applying only the literal problem table/assertion, status type and READ400 call-site selection in memory reproduces exact prior blob84acc22305c22c713e4a3d1e5accc90d7b9a3e7a; no other source change.
+Complete four-field literal401/403/404/409 and distinct READ400/PATCH400 expectations match accepted contracts and existing adapters; generic titles/codes introduce no resource, credential, owner or driver-detail leak.
+Privacy-safe real browser Origin/cookie observation, GET-only fulfillment, HttpOnly/path checks, private credentials/logs, ordinary-owner seven/21 matrix and READ-visible peer404 remain exactly as previously approved.
+Bounded custody/settlement, child/PID/both-GUC/signal cleanup and fail-closed exact fixture/temp/TLS removal remain intact; no runtime/control/schema/permission delta or expanded authority.
+Valid-token absent/revoked/expired-session barriers remain ST227c; source approval does not replace actual Linux Node22/pinned Chromium/PG16, fresh QA and applicable exact-head CI/security gates.
+Original2026-10-11T00:20:05Z L240attempt1 and prior counters retained; checkpoint reports488/750 author,530/1000 current total. No tests/source/status/commit action; two read-tool failures corrected, no source repair; stop within20calls/30min.
