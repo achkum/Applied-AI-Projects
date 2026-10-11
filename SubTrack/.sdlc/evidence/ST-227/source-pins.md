@@ -1,0 +1,15 @@
+# ST227 source pins (Git-normalized blobs at candidate ab616ceb26e065263e071f4d69af666c822c869f)
+1. ADR0010/0023/0024/0025 + ST225 next-mutation-proof-readiness + ST226 launcher-plan-v2/startup-diagnosis-v1/platform-security-devops-correction/prisma-platform/prisma-qa/implementation-c5 evidence establish authority, custody and remaining gates; underlying candidate is not accepted.
+2. packages/domain/detection/subscription-lifecycle.ts = 1b7e9d13694e565d8c2061dc67e25a9099bfe004; broader core permits transitions private writer expressly excludes.
+3. apps/api/src/subscriptions/subscription-lifecycle.repository.ts = c1837f7a3623c58b11ad149856d59c08d7b32f53; locked scoped SELECT then actual UPDATE RETURNING within transaction.
+4. apps/api/src/database/request-transaction.ts = 8113881cce2373561bf34ba6411721f2ee2a3d42; both transaction-local GUCs.
+5. apps/api/src/subscriptions/browser-subscription-lifecycle.http.ts = 720a5c7324c03f41ceb4343b0a13ed540dcc8204; strict256-body/header/binding/CSRF and current-owner recheck after resolver, no replay.
+6. apps/api/src/subscriptions/browser-subscription-lifecycle.composition.ts = 7249a9b3705e04893ac9ad6502f17f9d9a05c42c; callable Prisma proxy property checks preserve same injected pool for READ/private writer and preflight.
+7. apps/api/src/subscriptions/browser-subscription-lifecycle.local.ts = 2160895f61241f639f1cf97a0d06002a07ef7957; fixed pool-observe IPC, private provenance/TLS, monotonic ids, controlling promise settlement before close/disconnect.
+8. apps/api/test/browser-subscription-lifecycle-launcher.integration.ts = e5cbd75349dcbd806dfc6109d8af7ee028b912aa; compiled HTTPS smoke, child PID/dual-GUC, snapshots, two signals and retained primary/cleanup failure.
+9. apps/api/test/browser-subscription-read.integration.ts = 960c8583c5c64ff24acee5fb93199936d63c8dee; existing Playwright page.evaluate/route GET/on request/request.allHeaders/context.addCookies/cookies APIs already used; no new Playwright API needed for a.
+10. apps/api/test/subscription-lifecycle-storage.integration.ts = 3354bac14bb2b641983408e74e4d4274bfe26547; seven-pair/race/RLS precedent, its standalone UPDATE-then-throw is not accepted-writer/browser rollback evidence.
+11. apps/api/src/auth/sessions-v2/v2-session-issuer.ts = ac8693420929e7150d0e89173459e52054c95cba; current-session revoke and scoped read/rollback/create exist, no rebind API; only synthetic fixed fixture replacement proposed.
+12. packages/contracts/openapi.yaml = 71f2b27c55cd110678fbe18f8e3abc8779dbf776; /v2/subscriptions/{id} and /read, strict status-only errors and uncertain-result READ reconciliation.
+13. tools/database/browser-subscription-lifecycle-launcher-proof.sh = 257d0fac0f14c45a57e8f52d90b808197b0b01c7; exact custody destruction before PASS, private recovery record/allowlisted receipt.
+14. Root .github/workflows/subtrack-browser-subscription-lifecycle-launcher-proof.yml = 05d874d38084337377f3104ac1978e8a2dc60098; actual Linux migration/build/proof/negative gates retained and expanded transitively for each slice; all other listed paths relative to SubTrack/.
