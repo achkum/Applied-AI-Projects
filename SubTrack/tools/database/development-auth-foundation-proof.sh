@@ -2,6 +2,73 @@
 # ST-233a. Local/CI owned fixture only. Never print client or Docker diagnostics.
 set -euo pipefail
 umask 077
+shopt -s lastpipe
+declare -A clients=() writers=()
+registering=false interrupted=false sequence=0 client_log='' client_pid=''
+monotonic() { python3 -c 'import time; print(int(time.monotonic()*1000))'; }
+registry() {
+  local pid
+  private_file "$tmp/clients" || return 1
+  : > "$tmp/clients"
+  for pid in "${!clients[@]}"; do printf '%s %s\n' "$pid" "${clients[$pid]}" >> "$tmp/clients"; done
+}
+live_client() { [[ -n "${clients[$1]:-}" && " $(jobs -pr | tr '\n' ' ') " == *" $1 "* ]]; }
+poll_client() {
+  local deadline=$(( $(monotonic) + $2 ))
+  while live_client "$1"; do [[ $(monotonic) -lt "$deadline" ]] || return 1; sleep .1; done
+}
+join_client() {
+  local pid=$1 status=0
+  [[ -n "${clients[$pid]:-}" ]] && poll_client "$pid" "${2:-25000}" || return 1
+  wait "$pid" || status=$?
+  [[ "$status" != 127 ]] || return 1
+  unset 'clients[$pid]'
+  registry || return 1
+  [[ "$status" == 0 ]]
+}
+launch_client() {
+  local user=$1 input=$2 app=$3
+  [[ "$app" =~ ^st233b-(holder|waiter|observer|sync-[0-9]+)$ ]] || return 1
+  private_file "$input" || { [[ -p "$input" && ! -L "$input" && $(stat -c %u "$input") == "$UID" && $(stat -c %a "$input") == 600 ]] || return 1; }
+  client_log=$(mktemp "$tmp/client.XXXXXX")
+  [[ -d "$tmp" && ! -L "$tmp" && $(stat -c %u "$tmp") == "$UID" && $(stat -c %a "$tmp") == 700 ]] && private_file "$client_log" && private_file "$tmp/clients" && custody || return 1
+  registering=true
+  (exec docker exec -i -e PGPASSFILE=/tmp/st233a.pgpass -e PGAPPNAME="$app" "$cid" psql -X -q -h 127.0.0.1 -U "$user" -d "$db" -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate < "$input" > "$client_log" 2>&1) &
+  client_pid=$! clients[$!]=$app
+  registry || interrupted=true
+  registering=false
+  [[ "$interrupted" == false ]] || return 1
+}
+close_writers() {
+  local fd
+  for fd in "${writers[@]}"; do exec {fd}>&-; done
+  writers=()
+}
+observe_clients() {
+  local query=$1 pattern=$2 deadline=$(( $(monotonic)+${3:-10000} ))
+  private_file "$observer" || return 1
+  while [[ $(monotonic) -lt "$deadline" ]]; do
+    printf '%s\n' "$query" > "$observer"
+    launch_client st233a_fixture_owner "$observer" st233b-observer && join_client "$client_pid" 2000 || return 1
+    if grep -Eq "$pattern" "$client_log"; then return 0; fi
+    live_client "$holder_pid" && { [[ -z "${waiter_pid:-}" ]] || live_client "$waiter_pid"; } || return 1
+    sleep .1
+  done
+  return 1
+}
+terminate_clients() {
+  local pid bad=false
+  close_writers
+  for pid in "${!clients[@]}"; do live_client "$pid" && kill -TERM "$pid" 2>/dev/null || true; done
+  for pid in "${!clients[@]}"; do poll_client "$pid" 5000 || { live_client "$pid" && kill -KILL "$pid" 2>/dev/null || true; }; done
+  # Even an exited docker client can leave a server psql: stop the owned fixture.
+  terminate_container || return 1
+  for pid in "${!clients[@]}"; do
+    poll_client "$pid" 5000 || { bad=true; continue; }
+    join_client "$pid" 1 || { [[ -z "${clients[$pid]:-}" ]] || bad=true; }
+  done
+  [[ "$bad" == false && ${#clients[@]} == 0 ]]
+}
 base=${RUNNER_TEMP:-/tmp}
 record="$base/st233a-container"
 receipt="$base/st233a-proof-receipt.txt"
@@ -68,13 +135,17 @@ cleanup_container() {
     [[ -z "$cid" ]] || return 1
     return 0
   fi
+  [[ "${container_gone:-false}" == true ]] || terminate_container || return 1
+  rm -- "$record" || return 1
+  [[ ! -e "$record" && ! -L "$record" ]]
+}
+terminate_container() {
   custody || return 1
   docker rm --force --volumes "$cid" >/dev/null 2>&1 || return 1
   local remaining
   remaining=$(docker ps -a --no-trunc --filter "id=$cid" --format '{{.ID}}' 2>/dev/null) || return 1
   [[ -z "$remaining" ]] || return 1
-  rm -- "$record" || return 1
-  [[ ! -e "$record" && ! -L "$record" ]]
+  container_gone=true
 }
 cleanup_temp() {
   [[ -n "$tmp" && -d "$tmp" && ! -L "$tmp" && $(stat -c %u "$tmp") == "$UID" && $(stat -c %a "$tmp") == 700 ]] || return 1
@@ -88,13 +159,19 @@ cleanup_temp() {
 finish() {
   local status=$? bad=false cleanup_result=removed
   trap - EXIT
-  cleanup_container || bad=true
-  cleanup_temp || bad=true
+  if [[ ${#clients[@]} != 0 ]]; then status=1; terminate_clients || bad=true; fi
+  if [[ "$bad" == true || ${#clients[@]} != 0 ]]; then
+    printf 'ST-233b lifecycle: FAIL recovery=retained\n' >&2
+    [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" && printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=failed\n' "$source_head" "$phase" >> "$receipt"
+    exit 1
+  fi
+  if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
+  if cleanup_container; then cleanup_temp || bad=true; else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; cleanup_result=failed; fi
-  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|pins|cleanup) ;; *) status=1; phase=starting ;; esac
+  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|pins|cleanup) ;; *) status=1; phase=starting ;; esac
   [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" || exit 1
   if [[ "$status" == 0 && "$passed" == true && "$bad" == false ]]; then
-    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
+    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,postlock-clock,rollback,reconnect,bounded-clients fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
   else
     status=1
     printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s\n' "$source_head" "$phase" "$cleanup_result" >> "$receipt"
@@ -102,6 +179,10 @@ finish() {
   exit "$status"
 }
 if [[ "${1:-}" == --cleanup ]]; then
+  # Recovery cannot infer exit of host clients from a container removal.
+  for recovery in "$base"/st233a.*/clients; do
+    [[ ! -e "$recovery" ]] || { private_file "$recovery" && [[ ! -s "$recovery" ]] || exit 1; }
+  done
   if [[ ! -e "$record" && ! -L "$record" ]]; then exit 0; fi
   private_file "$record" || exit 1
   read -r cid marker name created extra < "$record"
@@ -115,11 +196,14 @@ done
 for command in docker openssl sha256sum git python3; do command -v "$command" >/dev/null || exit 1; done
 [[ ! -e "$record" && ! -L "$record" && ! -L "$receipt" ]] || exit 1
 tmp=$(mktemp -d "$base/st233a.XXXXXX")
+: > "$tmp/clients"
+private_file "$tmp/clients" || exit 1
 trap finish EXIT
-trap 'exit 1' INT TERM
+trap 'interrupted=true; [[ "$registering" == true ]] || exit 1' INT TERM
 inputs=(apps/api/prisma/migrations/0001_canonical_schema/migration.sql apps/api/prisma/migrations/0002_privacy_constraints/migration.sql
   apps/api/prisma/development-auth/001-epoch-nonce-reservation.sql tools/database/development-auth-foundation-proof.sh
-  tools/database/test-development-auth-foundation-proof.sh ../.github/workflows/subtrack-development-auth-foundation-proof.yml)
+  tools/database/test-development-auth-foundation-proof.sh ../.github/workflows/subtrack-development-auth-foundation-proof.yml
+  apps/api/prisma/development-auth/002-epoch-fence.sql)
 : > "$receipt"
 for path in "${inputs[@]}"; do
   blob=$(git hash-object "$path")
@@ -151,17 +235,21 @@ custody || exit 1
 docker cp "$tmp/pgpass" "$cid:/tmp/st233a.pgpass" >/dev/null 2>&1
 owner_pass='' actor_secret="$actor_pass" actor_pass=''
 sql() {
-  : > "$tmp/client.log"
-  custody || return 1
-  docker exec -i -e PGPASSFILE=/tmp/st233a.pgpass "$cid" psql -X -q -h 127.0.0.1 -U "$1" -d "$db" -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate > "$tmp/client.log" 2>&1
+  local input
+  input=$(mktemp "$tmp/input.XXXXXX")
+  private_file "$input" || return 1
+  cat > "$input"
+  sequence=$((sequence+1))
+  launch_client "$1" "$input" "st233b-sync-$sequence" || return 1
+  join_client "$client_pid"
 }
 owner() { sql st233a_fixture_owner; }
 actor() { sql subtrack_dev_auth_login; }
 assert_owner() { printf 'SELECT 1 / COALESCE((%s),false)::integer;\n' "$1" | owner; }
-deny_actor() { if printf '%s\n' "$1" | actor; then return 1; fi; grep -q 'ERROR:  42501' "$tmp/client.log"; }
+deny_actor() { if printf '%s\n' "$1" | actor; then return 1; fi; grep -q 'ERROR:  42501' "$client_log"; }
 deny_executor() {
   if printf 'SET ROLE subtrack_auth_executor; %s\n' "$1" | owner; then return 1; fi
-  grep -q "ERROR:  ${2:-42501}" "$tmp/client.log"
+  grep -q "ERROR:  ${2:-42501}" "$client_log"
 }
 phase=migration
 for path in "${inputs[@]:0:2}"; do owner < "$path" || exit 1; done
@@ -172,7 +260,7 @@ for bad in head marker; do
   [[ "$bad" != head ]] || badhead=invalid
   [[ "$bad" != marker ]] || badmarker=invalid
   if { printf "SET st233a.head='%s'; SET st233a.marker='%s';\n" "$badhead" "$badmarker"; cat "${inputs[2]}"; } | owner; then exit 1; fi
-  grep -q 'ERROR:  22012' "$tmp/client.log" || exit 1
+  grep -q 'ERROR:  22012' "$client_log" || exit 1
   assert_owner "NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='subtrack_auth') AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='subtrack_auth_owner')"
 done
 { printf "SET st233a.head='%s'; SET st233a.marker='%s';\n" "$source_head" "$marker"; cat "${inputs[2]}"; } | owner
@@ -243,7 +331,7 @@ deny_executor "${nonce/repeat(\'f\',64)/repeat(\'b\',64)}" 23505 || exit 1
 for probe in "INSERT INTO subtrack_auth.epoch VALUES ('',repeat('a',64),'https://st233a.invalid',0,'active')" \
   "INSERT INTO subtrack_auth.epoch VALUES ('bad-state',repeat('a',64),'https://st233a.invalid',0,'unknown')"; do
   if printf '%s;\n' "$probe" | owner; then exit 1; fi
-  grep -q 'ERROR:  23514' "$tmp/client.log" || exit 1
+  grep -q 'ERROR:  23514' "$client_log" || exit 1
 done
 # NULL checks use otherwise valid, fresh tuples, so uniqueness cannot mask them.
 for table in epoch reservation nonce; do
@@ -257,7 +345,7 @@ for table in epoch reservation nonce; do
     joined=$(IFS=,; printf '%s' "${tuple[*]}")
     if [[ "$table" == epoch ]]; then
       if printf 'INSERT INTO subtrack_auth.epoch VALUES (%s);\n' "$joined" | owner; then exit 1; fi
-      grep -q 'ERROR:  23502' "$tmp/client.log" || exit 1
+      grep -q 'ERROR:  23502' "$client_log" || exit 1
     else
       [[ "$table" != nonce ]] || joined+=,NULL
       deny_executor "INSERT INTO subtrack_auth.$table VALUES ($joined);" 23502 || exit 1
@@ -298,6 +386,88 @@ RESET ROLE; RESET app.user_id; RESET app.current_user_id; RESET search_path;
 SELECT 1/(CURRENT_USER=SESSION_USER AND COALESCE(pg_catalog.current_setting('app.user_id',true),'')='' AND COALESCE(pg_catalog.current_setting('app.current_user_id',true),'')='')::integer;
 SQL
 owner < "$tmp/catalog.sql"
+phase=fence
+for bad in head marker; do
+  badhead="$source_head" badmarker="$marker"
+  [[ "$bad" != head ]] || badhead=invalid
+  [[ "$bad" != marker ]] || badmarker=invalid
+  if { printf "SET st233a.head='%s'; SET st233a.marker='%s';\n" "$badhead" "$badmarker"; cat "${inputs[6]}"; } | owner; then exit 1; fi
+  grep -q 'ERROR:  22012' "$client_log" || exit 1
+  assert_owner "NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace)"
+done
+{ printf "SET st233a.head='%s'; SET st233a.marker='%s';\n" "$source_head" "$marker"; cat "${inputs[6]}"; } | owner
+cat > "$tmp/fence-catalog.sql" <<'SQL'
+SELECT 1/(count(*)=1 AND bool_and(p.proname='fence' AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='pg_catalog.bool'::regtype AND p.proargtypes=ARRAY[25::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.ms'::regtype::oid]::oidvector AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql')))::integer FROM pg_catalog.pg_proc p WHERE p.pronamespace='subtrack_auth'::regnamespace;
+WITH actual AS (SELECT a.grantor,a.grantee,a.privilege_type,a.is_grantable FROM pg_catalog.pg_proc p,LATERAL pg_catalog.aclexplode(p.proacl) a WHERE p.oid='subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure), expected AS (SELECT 'subtrack_auth_executor'::regrole::oid grantor,r.role::regrole::oid grantee,'EXECUTE'::text privilege_type,false is_grantable FROM (VALUES ('subtrack_auth_executor'),('subtrack_runtime'),('subtrack_auth_producer')) r(role)), delta AS ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) SELECT 1/(NOT EXISTS(SELECT 1 FROM delta))::integer;
+SELECT 1/(NOT pg_catalog.has_schema_privilege('subtrack_auth_executor','subtrack_auth','CREATE') AND NOT pg_catalog.has_function_privilege('subtrack_dev_auth_login','subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms)','EXECUTE') AND NOT pg_catalog.has_function_privilege('subtrack_identity_provisioner','subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms)','EXECUTE'))::integer;
+SQL
+owner < "$tmp/fence-catalog.sql"
+deny_actor "SELECT subtrack_auth.fence('fixture',repeat('a',64)::subtrack_auth.h,0::subtrack_auth.ms);" || exit 1
+deny_actor "SET ROLE subtrack_identity_provisioner; SELECT subtrack_auth.fence('fixture',repeat('a',64)::subtrack_auth.h,0::subtrack_auth.ms);" || exit 1
+printf "INSERT INTO subtrack_auth.epoch VALUES ('retired',repeat('a',64),'https://st233a.invalid',0,'retired'),('regression',repeat('a',64),'https://st233a.invalid',9007199254740991,'active'),('parallel',repeat('a',64),'https://st233a.invalid',0,'active');\n" | owner
+reset_sql="RESET ROLE; RESET app.user_id; RESET app.current_user_id; RESET search_path; SET search_path=pg_catalog; SELECT 1/(SESSION_USER=CURRENT_USER AND pg_catalog.current_setting('search_path')='pg_catalog' AND COALESCE(pg_catalog.current_setting('app.user_id',true),'')='' AND COALESCE(pg_catalog.current_setting('app.current_user_id',true),'')='')::integer;"
+for role in subtrack_runtime subtrack_auth_producer; do
+  printf "SELECT watermark_ms FROM subtrack_auth.epoch WHERE id='fixture';\n" | owner
+  before_ms=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log")
+  [[ "$before_ms" =~ ^[0-9]+$ ]] || exit 1
+  for args in "NULL,repeat('a',64),0" "'',repeat('a',64),0" "'fixture',NULL,0" "'fixture',repeat('a',64),NULL" "'absent',repeat('a',64),0" "'retired',repeat('a',64),0" "'fixture',repeat('b',64),0" "'fixture',repeat('a',64),9007199254740991" "'regression',repeat('a',64),0"; do
+    printf 'BEGIN; SET LOCAL ROLE %s; SET LOCAL search_path=public; SELECT 1/(NOT subtrack_auth.fence(%s))::integer; COMMIT; %s\n' "$role" "$args" "$reset_sql" | actor
+  done
+  assert_owner "(SELECT watermark_ms=$before_ms FROM subtrack_auth.epoch WHERE id='fixture')"
+  for invalid in "'fixture','bad',0" "'fixture',repeat('a',64),-1" "'fixture',repeat('a',64),9007199254740992"; do
+    if printf 'BEGIN; SET LOCAL ROLE %s; SELECT subtrack_auth.fence(%s);\n' "$role" "$invalid" | actor; then exit 1; fi
+    grep -q 'ERROR:  23514' "$client_log" || exit 1
+  done
+  if printf "BEGIN; SET LOCAL ROLE %s; SELECT subtrack_auth.fence('fixture',repeat('a',64),'overflow');\n" "$role" | actor; then exit 1; fi
+  grep -q 'ERROR:  22P02' "$client_log" || exit 1
+  printf 'BEGIN; SET LOCAL ROLE %s; SET LOCAL search_path=public; SELECT 1/subtrack_auth.fence('\''fixture'\'',repeat('\''a'\'',64),0)::integer; COMMIT; %s\n' "$role" "$reset_sql" | actor
+  # A fresh SCRAM client reconnects to the SAME epoch; no fallback epoch.
+  assert_owner "(SELECT watermark_ms>1 AND watermark_ms<=floor(extract(epoch FROM clock_timestamp())*1000) FROM subtrack_auth.epoch WHERE id='fixture')"
+  printf 'BEGIN; SET LOCAL ROLE %s; SELECT 1/subtrack_auth.fence('\''fixture'\'',repeat('\''a'\'',64),0)::integer; COMMIT; %s\n' "$role" "$reset_sql" | actor
+  printf 'BEGIN; SET LOCAL ROLE %s; SET LOCAL search_path=public; SET LOCAL app.user_id='\''fault'\''; SET LOCAL app.current_user_id='\''fault'\'';\n\\set ON_ERROR_STOP off\nSELECT subtrack_auth.fence('\''fixture'\'','\''invalid'\'',0);\n\\set ON_ERROR_STOP on\nROLLBACK; %s\n' "$role" "$reset_sql" | actor
+done
+assert_owner "(SELECT watermark_ms=0 FROM subtrack_auth.epoch WHERE id='retired') AND (SELECT watermark_ms=9007199254740991 FROM subtrack_auth.epoch WHERE id='regression')"
+printf "SELECT 1/(floor(0::numeric*1000)=0 AND floor(9007199254740.991::numeric*1000)=9007199254740991 AND floor(9007199254740.992::numeric*1000)>9007199254740991)::integer;\n" | owner
+# Holder and waiter get row locks ONLY inside the exact fence function.
+for outcome in COMMIT ROLLBACK; do
+  assert_owner "(SELECT watermark_ms=0 FROM subtrack_auth.epoch WHERE id='parallel')"
+  fifo=$(mktemp -u "$tmp/holder.XXXXXX"); mkfifo -m 600 "$fifo"
+  [[ -p "$fifo" && ! -L "$fifo" && $(stat -c %u "$fifo") == "$UID" && $(stat -c %a "$fifo") == 600 ]] || exit 1
+  exec {writer}<>"$fifo"; writers[holder]=$writer
+  launch_client subtrack_dev_auth_login "$fifo" st233b-holder
+  holder_pid=$client_pid holder_log=$client_log
+  printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; SELECT 1/subtrack_auth.fence('parallel',repeat('a',64),0)::integer;\n" >&"$writer"
+  observer=$(mktemp "$tmp/observer.XXXXXX"); private_file "$observer" || exit 1
+  waiter_pid=''
+  observe_clients "SELECT count(*)=1 FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';" '^ t *$' || exit 1
+  printf "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='%s' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';\n" "$db" > "$observer"
+  launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1
+  holder_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log")
+  [[ "$holder_backend" =~ ^[0-9]+$ ]] || exit 1
+  waiter=$(mktemp "$tmp/waiter.XXXXXX"); private_file "$waiter" || exit 1
+  printf "BEGIN; SET LOCAL ROLE subtrack_auth_producer; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; SELECT 1/subtrack_auth.fence('parallel',repeat('a',64),0)::integer; COMMIT; %s\n" "$reset_sql" > "$waiter"
+  launch_client subtrack_dev_auth_login "$waiter" st233b-waiter
+  waiter_pid=$client_pid waiter_log=$client_log
+  observe_clients "SELECT w.pid FROM pg_catalog.pg_stat_activity h JOIN pg_catalog.pg_stat_activity w ON h.pid<>w.pid WHERE h.pid=$holder_backend AND h.datname='$db' AND w.datname=h.datname AND h.usename='subtrack_dev_auth_login' AND w.usename=h.usename AND h.application_name='st233b-holder' AND w.application_name='st233b-waiter' AND h.state='idle in transaction' AND w.wait_event_type='Lock' AND h.pid=ANY(pg_catalog.pg_blocking_pids(w.pid));" '^[ ]*[0-9]+[ ]*$' || exit 1
+  waiter_backend=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log")
+  [[ "$waiter_backend" =~ ^[0-9]+$ && "$waiter_backend" != "$holder_backend" ]] || exit 1
+  printf "SELECT 1/(count(*)=1)::integer FROM pg_catalog.pg_stat_activity h JOIN pg_catalog.pg_stat_activity w ON h.pid<>w.pid WHERE h.pid=%s AND w.pid=%s AND h.datname='%s' AND w.datname=h.datname AND h.usename='subtrack_dev_auth_login' AND w.usename=h.usename AND h.application_name='st233b-holder' AND w.application_name='st233b-waiter' AND h.state='idle in transaction' AND w.wait_event_type='Lock' AND h.pid=ANY(pg_catalog.pg_blocking_pids(w.pid));\n" "$holder_backend" "$waiter_backend" "$db" > "$observer"
+  launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1
+  # Sample a lower bound AFTER observing the edge and BEFORE releasing the lock.
+  printf "SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint;\n" > "$observer"
+  launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1
+  release_ms=$(sed -n '/^[ ]*[0-9][0-9]*[ ]*$/s/ //gp' "$client_log" | tail -1)
+  [[ "$release_ms" =~ ^[0-9]+$ ]] || exit 1
+  printf '%s; %s\n\\q\n' "$outcome" "$reset_sql" >&"$writer"
+  close_writers
+  join_client "$holder_pid" 25000 && join_client "$waiter_pid" 25000 || exit 1
+  ! grep -q 'ERROR:' "$holder_log" && ! grep -q 'ERROR:' "$waiter_log" || exit 1
+  assert_owner "(SELECT watermark_ms >= $release_ms AND watermark_ms<=floor(extract(epoch FROM clock_timestamp())*1000) FROM subtrack_auth.epoch WHERE id='parallel')"
+  printf "UPDATE subtrack_auth.epoch SET watermark_ms=0 WHERE id='parallel';\n" | owner
+done
+# A successful but rolled-back fence leaves the persisted watermark untouched.
+printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT 1/subtrack_auth.fence('parallel',repeat('a',64),0)::integer; ROLLBACK; %s\n" "$reset_sql" | actor
+assert_owner "(SELECT watermark_ms=0 FROM subtrack_auth.epoch WHERE id='parallel')"
 for role in subtrack_dev_auth_login subtrack_runtime subtrack_identity_provisioner subtrack_auth_producer; do
   assert_owner "NOT pg_catalog.has_database_privilege('$role','$db','CREATE,TEMP') AND NOT pg_catalog.has_schema_privilege('$role','subtrack_auth','CREATE') AND NOT pg_catalog.has_schema_privilege('$role','public','CREATE')"
   for table in epoch reservation nonce; do

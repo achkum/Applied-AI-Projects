@@ -9,10 +9,12 @@ record="$base/st233a-container" receipt="$base/receipt.txt"
 source_head=$(git rev-parse HEAD)
 image=mirror.gcr.io/library/postgres:16-alpine
 cid=$(printf '%064d' 0) marker=$(printf '%032d' 0) name="st233a-$(printf '%032d' 0)" created=''
-for function in private_file custody custody_diagnostic cleanup_container cleanup_temp finish; do
+declare -A clients=() writers=()
+for function in private_file custody custody_diagnostic terminate_container cleanup_container cleanup_temp finish monotonic registry launch_client observe_clients live_client poll_client join_client close_writers terminate_clients; do
   source <(sed -n "/^$function() {/,/^}/p" "$script")
 done
-for case_name in success empty missing substituted identity label head image name creation parse null_shape null_mounts null_networks missing_config future stale invalid_age network network_key extra_network port_binding published_port mount extra_mount privileged cap device pid inspect removal remains record_removal temp_removal failed_probe failed_probe_cleanup incomplete temp credentials; do
+custody_cases() {
+for case_name in "$@"; do
   created=$(python3 -c 'import datetime; print(datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"))')
   case "$case_name" in
     future|stale) created=$(python3 -c 'import datetime,sys; print((datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(seconds=int(sys.argv[1]))).isoformat().replace("+00:00","Z"))' "$([[ "$case_name" == future ]] && printf '%s' 120 || printf '%s' -1900)") ;;
@@ -21,7 +23,7 @@ for case_name in success empty missing substituted identity label head image nam
   tmp=$(mktemp -d "$base/st233a.XXXXXX")
   printf 'fixture-secret\n' > "$tmp/pgpass"
   printf '%s %s %s %s\n' "$cid" "$marker" "$name" "$created" > "$record"
-  passed=true phase=catalog
+  passed=true phase=catalog container_gone=false
   : > "$receipt"
   printf 'ST-233a input=fixture blob=%s sha256=%s\n' "$cid" "$cid" > "$receipt"
   command rm -f -- "$base/removed"
@@ -100,12 +102,145 @@ PY
     [[ "$case_name" != failed_probe_cleanup ]] || grep -q 'phase=catalog cleanup=failed$' "$receipt"
   fi
   case "$case_name" in success|empty|removal|remains|record_removal|temp_removal|failed_probe|failed_probe_cleanup|incomplete|temp) ;; *) [[ ! -e "$base/removed" ]] ;; esac
-  [[ "$case_name" == temp || "$case_name" == temp_removal || ! -e "$tmp" ]]
+  case "$case_name" in success|empty|failed_probe|incomplete) [[ ! -e "$tmp" ]] ;; *) [[ -f "$tmp/pgpass" ]] ;; esac
   chmod 700 "$tmp" 2>/dev/null || true
   command rm -rf -- "$tmp"
   command rm -f -- "$record"
   printf 'ST-233a custody negative case=%s: expected result verified\n' "$case_name"
 done
+}
+custody_cases success empty missing substituted identity label head image name creation parse null_shape null_mounts null_networks missing_config future stale invalid_age network network_key extra_network port_binding published_port mount extra_mount privileged cap device pid inspect removal remains record_removal temp_removal failed_probe failed_probe_cleanup incomplete
+# Actual launch/registry/observer/finish helpers; only Docker transport is a shell fixture.
+# These cases require real Linux private-file/FIFO semantics; no SQL/PG emulation.
+eval "$(declare -f docker | sed '1s/docker/custody_docker/')"
+mkdir "$base/bin"
+cat > "$base/bin/docker" <<'SH'
+#!/usr/bin/env bash
+[[ "$1" == exec ]] || exit 90
+printf 'launch\n' >> "$ST233B_EVENTS"
+[[ "$*" != *st233b-observer* ]] || { cat >/dev/null; printf 'no-edge\n'; exit 0; }
+[[ "$ST233B_MODE" != child ]] || exit 7
+[[ "$ST233B_MODE" != exited ]] || exit 0
+exec sleep 5
+SH
+chmod 700 "$base/bin/docker"
+PATH="$base/bin:$PATH"; export PATH
+for lifecycle in registry_write valid_fifo child wait deadline observer term exited uncertain custody survivor absence input fifo log registry; do
+  tmp=$(mktemp -d "$base/st233a.XXXXXX"); : > "$tmp/clients"; printf 'fixture-secret\n' > "$tmp/pgpass"
+  input="$tmp/input"; printf 'payload\n' > "$input"; events="$tmp/events"; : > "$events"
+  custody_fault=false case_name=success clients=() writers=() container_gone=false registering=false interrupted=false passed=true phase=fence db=fixture
+  printf '%s %s %s %s\n' "$cid" "$marker" "$name" "$created" > "$record"; chmod 600 "$record"
+  export ST233B_EVENTS="$events" ST233B_MODE="$lifecycle"
+  docker() {
+    case "$1" in
+      inspect) [[ "$custody_fault" == false ]] && custody_docker "$@" ;;
+      rm) printf 'remove\n' >> "$events"; [[ "$lifecycle" != survivor ]] || return 1; kill -TERM "$server_pid"; command wait "$server_pid" || true ;;
+      ps) [[ "$lifecycle" != absence ]] || { printf '%s\n' "$cid"; return; }; printf 'absent\n' >> "$events" ;;
+      *) return 90 ;;
+    esac
+  }
+  if [[ "$lifecycle" == input || "$lifecycle" == fifo || "$lifecycle" == registry ]]; then
+    victim="$input"; [[ "$lifecycle" != registry ]] || victim="$tmp/clients"
+    [[ "$lifecycle" != fifo ]] || { rm -- "$victim"; mkfifo -m 600 "$victim"; }
+    mv -- "$victim" "$tmp/unsafe"; ln -s "$tmp/unsafe" "$victim"
+    ! launch_client login "$input" st233b-holder; [[ ! -s "$events" && ${#clients[@]} == 0 ]]
+  elif [[ "$lifecycle" == log ]]; then
+    mktemp() { ln -s "$input" "$tmp/badlog"; printf '%s\n' "$tmp/badlog"; }
+    ! launch_client login "$input" st233b-holder; unset -f mktemp
+    [[ ! -s "$events" && $(cat "$input") == payload && ${#clients[@]} == 0 ]]
+  else
+    if [[ "$lifecycle" == valid_fifo ]]; then rm -- "$input"; mkfifo -m 600 "$input"; exec {fd}<>"$input"; writers[holder]=$fd; fi
+    if [[ "$lifecycle" == registry_write ]]; then
+      printf 'retained\n' > "$tmp/clients"
+      printf() { [[ "$1" != '%s %s\n' ]] || return 1; builtin printf "$@"; }
+    fi
+    status=0; launch_client login "$input" st233b-holder || status=$?; pid=$client_pid holder_log=$client_log
+    unset -f printf 2>/dev/null || true
+    [[ "$lifecycle" != registry_write ]] || [[ "$status" != 0 && ${clients[$pid]} == st233b-holder && "$interrupted" == true ]]
+    [[ "$lifecycle" == registry_write ]] || grep -qx "$pid st233b-holder" "$tmp/clients"
+    if [[ "$lifecycle" == child ]]; then ! join_client "$pid" 2000; [[ ${#clients[@]} == 0 ]]
+    elif [[ "$lifecycle" == wait ]]; then
+      wait() { return 127; }; kill -TERM "$pid"; ! join_client "$pid" 2000; [[ ${#clients[@]} == 1 ]]; unset -f wait
+    elif [[ "$lifecycle" == deadline ]]; then ! poll_client "$pid" 1; live_client "$pid"
+    elif [[ "$lifecycle" == observer ]]; then
+      holder_pid=$pid waiter_pid='' observer="$input"
+      ! observe_clients 'unobserved-edge' '^ t *$' 300; [[ "$holder_log" != "$client_log" ]]; live_client "$pid"; [[ $(grep -c launch "$events") -gt 1 ]]
+    else
+      [[ "$lifecycle" != custody ]] || custody_fault=true
+      (exec sleep 5) & server_pid=$!
+      [[ "$lifecycle" != exited ]] || { poll_client "$pid" 2000; kill -0 "$server_pid"; }
+      wait() { [[ "$lifecycle" != uncertain ]] || return 127; [[ "$container_gone" == true && $(tail -1 "$events") == absent ]] || return 127; printf 'reap\n' >> "$events"; command wait "$@"; }
+      if [[ "$lifecycle" == uncertain || "$lifecycle" == custody || "$lifecycle" == survivor || "$lifecycle" == absence ]]; then
+        status=0; (trap finish EXIT; false) 2> "$tmp/failure" || status=$?; [[ "$status" != 0 ]]
+        grep -q '^ST-233b lifecycle: FAIL recovery=retained$' "$tmp/failure"; ! grep -q fixture-secret "$receipt"
+        [[ -f "$tmp/pgpass" && -f "$tmp/clients" && -e "$record" ]]; ! grep -q reap "$events"
+      else
+        terminate_clients; [[ ${#clients[@]} == 0 ]]; grep -q reap "$events"
+        [[ $(sed -n '/remove/p;/absent/p;/reap/p' "$events" | head -3 | tr '\n' ' ') == 'remove absent reap ' ]]
+      fi
+      unset -f wait; kill -TERM "$server_pid" 2>/dev/null || true; command wait "$server_pid" 2>/dev/null || true
+    fi
+    for pid in "${!clients[@]}"; do kill -TERM "$pid" 2>/dev/null || true; command wait "$pid" 2>/dev/null || true; done
+  fi
+  close_writers; clients=(); command rm -rf -- "$tmp"; command rm -f -- "$record"
+  printf 'ST-233b actual shell lifecycle case=%s: expected result verified\n' "$lifecycle"
+done
+# Permission/type and custody faults must fail at the real pre-registration gate.
+launch_snapshot() {
+  local path
+  for path in "$input" "$tmp/clients" "$log" "$record" "$tmp"; do
+    stat -c '%F:%a:%u:%i' "$path"; [[ ! -f "$path" ]] || sha256sum "$path"
+  done
+}
+for prelaunch in input_mode fifo_mode log_mode registry_mode temp_mode input_directory log_directory registry_directory custody_record custody_inspect custody_identity; do
+  tmp=$(mktemp -d "$base/st233a.XXXXXX"); input="$tmp/input" log="$tmp/log" events="$tmp/events"
+  printf 'payload\n' > "$input"; printf 'retained-registry\n' > "$tmp/clients"; printf 'retained-log\n' > "$log"; : > "$events"
+  printf '%s %s %s %s\n' "$cid" "$marker" "$name" "$created" > "$record"; chmod 600 "$record"
+  custody_fault=false case_name=success clients=() writers=() registering=false interrupted=false client_pid='' client_log=''
+  export ST233B_EVENTS="$events" ST233B_MODE="$prelaunch"
+  victim='' expected_mode=''
+  case "$prelaunch" in
+    input_mode) victim="$input"; expected_mode=644 ;;
+    fifo_mode) command rm -- "$input"; mkfifo -m 600 "$input"; [[ -p "$input" && ! -L "$input" ]]; victim="$input"; expected_mode=644 ;;
+    log_mode) victim="$log"; expected_mode=644 ;;
+    registry_mode) victim="$tmp/clients"; expected_mode=644 ;;
+    temp_mode) victim="$tmp"; expected_mode=755 ;;
+    input_directory) victim="$input" ;;
+    log_directory) victim="$log" ;;
+    registry_directory) victim="$tmp/clients" ;;
+    custody_record) printf 'foreign\n' > "$record" ;;
+    custody_inspect) custody_fault=true ;;
+    custody_identity) case_name=identity ;;
+  esac
+  if [[ "$prelaunch" == *_directory ]]; then
+    command rm -- "$victim"; mkdir -m 600 "$victim"; [[ -d "$victim" && ! -L "$victim" ]]
+    expected_mode=600
+  fi
+  if [[ -n "$expected_mode" ]]; then
+    chmod "$expected_mode" "$victim"
+    [[ $(stat -c %a "$victim") == "$expected_mode" ]] || { printf 'ST-233b prelaunch negatives unavailable: actual chmod semantics unsupported on %s\n' "$(uname -s)" >&2; exit 1; }
+  fi
+  before=$(launch_snapshot); before_jobs=$(jobs -p)
+  mktemp() { printf '%s\n' "$log"; }
+  docker() {
+    case "$1" in
+      inspect) printf 'inspect\n' >> "$tmp/preflight"; [[ "$custody_fault" == false ]] && custody_docker "$@" ;;
+      *) printf 'unexpected-transport\n' >> "$events"; return 90 ;;
+    esac
+  }
+  status=0; launch_client login "$input" st233b-holder 2> "$tmp/refusal" || status=$?
+  unset -f mktemp
+  [[ "$status" != 0 && ! -s "$events" && ${#clients[@]} == 0 && ${#writers[@]} == 0 && -z "$client_pid" ]]
+  [[ "$registering" == false && "$interrupted" == false && $(jobs -p) == "$before_jobs" && $(launch_snapshot) == "$before" ]]
+  case "$prelaunch" in
+    custody_inspect|custody_identity) [[ $(cat "$tmp/preflight") == inspect ]] ;;
+    *) [[ ! -e "$tmp/preflight" ]] ;;
+  esac
+  [[ "$prelaunch" != *_directory ]] || chmod 700 "$victim"
+  chmod 700 "$tmp"; command rm -rf -- "$tmp"; command rm -f -- "$record"
+  printf 'ST-233b actual prelaunch case=%s: refusal-before-use verified\n' "$prelaunch"
+done
+custody_cases temp credentials
 # No deletion when the record is substituted or a temporary root escapes custody.
 tmp=$(mktemp -d "$base/st233a.XXXXXX")
 outside=$(mktemp -d "$base/foreign.XXXXXX")
