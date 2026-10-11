@@ -11,6 +11,7 @@ source_head=$(git rev-parse HEAD)
 source <(sed -n '/^cleanup_container() {/,/^}/p' "$script")
 source <(sed -n '/^classify_launcher_failure() {/,/^}/p' "$script")
 source <(sed -n '/^finish() {/,/^}/p' "$script")
+source <(sed -n '/^run_browser_integration() {/,/^}/p' "$script")
 passed=true
 phase=launcher-integration
 coverage=unavailable
@@ -82,3 +83,53 @@ done
 printf 'Failed Suites 1\n' > "$base/failure.log"
 [[ "$(classify_launcher_failure "$base/failure.log")" == collection ]]
 printf 'ST-226 actual finish negatives and diagnostic allowlist: PASS\n'
+for code in fixture compiled_child child_spawn child_bootstrap child_startup_exit child_startup_timeout child_pool smoke denials browser matrix visibility authority malformed sigterm_cleanup sigint_cleanup parent_cleanup; do
+  printf '\033[31mError: ST-227a browser proof failed: %s; cleanup: none\033[39m\n' "$code" > "$base/failure.log"
+  [[ "$(classify_launcher_failure "$base/failure.log" phase ST227a)" == "$code" ]]
+done
+for code in none child_exit child_timeout owner_disconnect; do
+  printf 'Error: ST-227a browser proof failed: fixture; cleanup: %s\n' "$code" > "$base/failure.log"
+  [[ "$(classify_launcher_failure "$base/failure.log" cleanup ST227a)" == "$code" ]]
+done
+for text in '' 'credentialURL header body' 'Error: ST-227a browser proof failed: unknown-sensitive; cleanup: none' \
+  'Error: ST-227a browser proof failed: fixture-secret; cleanup: none' \
+  'Error: ST-227a browser proof failed: fixture; cleanup: child_exit-secret' \
+  'Error: ST-227a browser proof failed: fixture; cleanup: none credentialURL' \
+  'credentialURL Error: ST-227a browser proof failed: fixture; cleanup: none' \
+  'Error: ST-227a browser proof failed: fixture; cleanup: unknown-sensitive' \
+  'Error: ST-226 launcher proof failed: fixture; cleanup: none'; do
+  printf '%s\n' "$text" > "$base/failure.log"
+  [[ "$(classify_launcher_failure "$base/failure.log" phase ST227a)" == unavailable ]]
+  [[ "$(classify_launcher_failure "$base/failure.log" cleanup ST227a)" == unavailable ]]
+done
+# Execute the production runner/finish gate with verified successful custody removal.
+for browser_case in integration_failure missing_browser_gate classified_failure malicious_failure; do
+  tmp="$base/st226.$browser_case"
+  mkdir -m 700 "$tmp"
+  printf '%s %s %s %s\n' "$cid" "$label" "$name" "$created" > "$record"
+  passed=true browser_passed=false phase=browser-integration
+  failure_subphase=unavailable failure_cleanup=unavailable
+  docker() {
+    if [[ "$1" == inspect && "$3" == '{{.Id}}' ]]; then printf '%s\n' "$cid"
+    elif [[ "$1" == inspect ]]; then
+      printf '%s|/%s|%s|%s|mirror.gcr.io/library/postgres:16-alpine|1|tmpfs:/var/lib/postgresql/data|1|1|127.0.0.1|1|1|127.0.0.1|35001|true\n' "$cid" "$name" "$label" "$created"
+    elif [[ "$1" != rm && "$1" != ps ]]; then return 1; fi
+  }
+  corepack() {
+    case "$browser_case" in
+      classified_failure) printf 'Error: ST-227a browser proof failed: fixture; cleanup: child_exit\n' ;;
+      malicious_failure) printf 'Error: ST-227a browser proof failed: fixture; cleanup: none credentialURL\n' ;;
+      *) printf 'synthetic integration failure\n' ;;
+    esac
+    return 1
+  }
+  status=0
+  (trap finish EXIT
+   if [[ "$browser_case" != missing_browser_gate ]]; then run_browser_integration || exit 1; fi
+   exit 0) || status=$?
+  [[ "$status" == 1 && ! -e "$tmp" && ! -e "$record" ]]
+  grep -q 'proof: FAIL .*phase=browser-integration .*fixture_cleanup=false ' "$receipt"
+  if [[ "$browser_case" == classified_failure ]]; then expected='fixture parent_cleanup=child_exit'; else expected='unavailable parent_cleanup=unavailable'; fi
+  grep -qx "ST-226 browser subscription lifecycle launcher proof: FAIL source_head=$source_head phase=browser-integration subphase=$expected fixture_cleanup=false code=unavailable" "$receipt"
+done
+printf 'ST-227a actual browser runner and absent proof gate negatives: PASS\n'
