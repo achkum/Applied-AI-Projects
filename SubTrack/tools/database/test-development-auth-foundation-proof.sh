@@ -94,6 +94,46 @@ for timed_phase in peek settle nonce-prune atomic-issue-16; do
   done
 done
 
+# Atomic guard diagnostics use fixed case labels and captured client fields.
+# Exercise the real finish writer for both guard phases, including hostile inputs.
+for atomic_phase in atomic-issue-02 atomic-issue-03; do
+  for atomic_case in graph-fk parent-search-path parent-public-execute parent-body nonce-update nonce-select executor-membership reservation-constraint constraint-pin parent-fence parent-peek parent-reserve parent-prune parent-settle parent-nonce-prune; do
+    tmp=$(mktemp -d "$base/st233a.XXXXXX")
+    phase=$atomic_phase passed=false client_log="$tmp/client.log" client_exit_status=1
+    timed_step=guard-catalog timed_case=$atomic_case timed_release=none timed_failure_kind=assertion
+    atomic_sqlstate=22012 atomic_exit=1 atomic_drift=physical-only
+    : > "$receipt"
+    status=0; (trap finish EXIT; false) || status=$?
+    [[ "$status" != 0 && ! -e "$tmp" ]]
+    grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=$atomic_phase cleanup=removed step=guard-catalog case=$atomic_case release=none failure_kind=assertion guard_client_sqlstate=22012 guard_client_exit=1 drift=physical-only$" "$receipt"
+  done
+  for diagnostic_case in logical unavailable invalid_step invalid_case invalid_release invalid_kind invalid_state invalid_exit invalid_drift; do
+    tmp=$(mktemp -d "$base/st233a.XXXXXX")
+    phase=$atomic_phase passed=false client_log="$tmp/client.log" client_exit_status=1
+    timed_step=guard-sqlstate timed_case=graph-fk timed_release=ROLLBACK timed_failure_kind=operation
+    atomic_sqlstate=42P01 atomic_exit=255 atomic_drift=none
+    expected_step=guard-sqlstate expected_case=graph-fk expected_release=ROLLBACK expected_kind=operation
+    expected_state=42P01 expected_exit=255 expected_drift=none
+    printf 'ERROR:  42P01: private-sentinel raw-SQL row=secret time=123 id=secret\n' > "$client_log"
+    case "$diagnostic_case" in
+      logical) atomic_drift=logical; expected_drift=logical ;;
+      unavailable) atomic_drift=unavailable; expected_drift=unavailable ;;
+      invalid_step) timed_step=private-sentinel; expected_step=unavailable ;;
+      invalid_case) timed_case=private-sentinel; expected_case=unavailable ;;
+      invalid_release) timed_release=private-sentinel; expected_release=unavailable ;;
+      invalid_kind) timed_failure_kind=private-sentinel; expected_kind=unavailable ;;
+      invalid_state) atomic_sqlstate='42P01X-private-sentinel'; expected_state=unavailable ;;
+      invalid_exit) atomic_exit='256-private-sentinel'; expected_exit=unavailable ;;
+      invalid_drift) atomic_drift='private-sentinel'; expected_drift=unavailable ;;
+    esac
+    : > "$receipt"
+    status=0; (trap finish EXIT; false) || status=$?
+    [[ "$status" != 0 && ! -e "$tmp" ]]
+    grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=$atomic_phase cleanup=removed step=$expected_step case=$expected_case release=$expected_release failure_kind=$expected_kind guard_client_sqlstate=$expected_state guard_client_exit=$expected_exit drift=$expected_drift$" "$receipt"
+    ! grep -Eq 'private-sentinel|raw-SQL|row=|time=|id=' "$receipt"
+  done
+done
+
 # The enrollment diagnostic passes through the same real finish writer.
 for diagnostic_case in sql010 driver_exit invalid_step invalid_fields; do
   tmp=$(mktemp -d "$base/st233a.XXXXXX")

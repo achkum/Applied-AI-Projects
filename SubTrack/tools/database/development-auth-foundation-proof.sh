@@ -207,12 +207,20 @@ finish() {
     prune_detail=" prune_step=$prune_step direction=$prune_direction outcome=$prune_outcome failure_kind=$prune_failure_kind last_client_sqlstate=$migration_sqlstate last_client_exit=$migration_exit"
   elif [[ "$phase" == peek || "$phase" == settle || "$phase" == nonce-prune || "$phase" == atomic-issue* ]]; then
     # Fixed labels describe the last assertion, not a proven failure cause.
-    record_migration_failure
-    case "${timed_step:-}" in catalog|acl|negative|seed|holder-launch|holder-backend|target-valid|waiter-launch|waiter-backend|blocked-edge|snapshot|renew|expiry-wait|release-clock|release|join|client-logs|result|immutable|final-catalog|other) ;; *) timed_step=unavailable ;; esac
-    case "${timed_case:-}" in none|epoch|capacity|cross-prune|reservation|compete-COMMIT|compete-ROLLBACK|expiry-epoch|expiry-advisory|expiry-row|settle-prune-COMMIT|settle-prune-ROLLBACK|prune-settle-COMMIT|prune-settle-ROLLBACK|expired-prune-COMMIT|expired-prune-ROLLBACK) ;; *) timed_case=unavailable ;; esac
+    [[ "$phase" == atomic-issue-02 || "$phase" == atomic-issue-03 ]] || record_migration_failure
+    case "${timed_step:-}" in catalog|acl|negative|seed|holder-launch|holder-backend|target-valid|waiter-launch|waiter-backend|blocked-edge|snapshot|renew|expiry-wait|release-clock|release|join|client-logs|result|immutable|final-catalog|other|guard-operation|guard-sqlstate|guard-rollback|guard-catalog) ;; *) timed_step=unavailable ;; esac
+    case "${timed_case:-}" in none|epoch|capacity|cross-prune|reservation|compete-COMMIT|compete-ROLLBACK|expiry-epoch|expiry-advisory|expiry-row|settle-prune-COMMIT|settle-prune-ROLLBACK|prune-settle-COMMIT|prune-settle-ROLLBACK|expired-prune-COMMIT|expired-prune-ROLLBACK|graph-fk|parent-search-path|parent-public-execute|parent-body|nonce-update|nonce-select|executor-membership|reservation-constraint|constraint-pin|parent-fence|parent-peek|parent-reserve|parent-prune|parent-settle|parent-nonce-prune) ;; *) timed_case=unavailable ;; esac
     case "${timed_release:-}" in COMMIT|ROLLBACK|none) ;; *) timed_release=unavailable ;; esac
     case "${timed_failure_kind:-}" in operation|assertion|timeout|unexpected-state) ;; *) timed_failure_kind=unavailable ;; esac
-    timed_detail=" step=$timed_step case=$timed_case release=$timed_release failure_kind=$timed_failure_kind last_client_sqlstate=$migration_sqlstate last_client_exit=$migration_exit"
+    if [[ "$phase" == atomic-issue-02 || "$phase" == atomic-issue-03 ]]; then
+      case "${atomic_drift:-}" in none|physical-only|logical|unavailable) ;; *) atomic_drift=unavailable ;; esac
+      [[ "${atomic_sqlstate:-}" =~ ^[0-9A-Z]{5}$ ]] || atomic_sqlstate=unavailable
+      [[ "${atomic_exit:-}" =~ ^([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])$ ]] || atomic_exit=unavailable
+      # Captured installer client status; it does not attribute a later assertion failure.
+      timed_detail=" step=$timed_step case=$timed_case release=$timed_release failure_kind=$timed_failure_kind guard_client_sqlstate=$atomic_sqlstate guard_client_exit=$atomic_exit drift=$atomic_drift"
+    else
+      timed_detail=" step=$timed_step case=$timed_case release=$timed_release failure_kind=$timed_failure_kind last_client_sqlstate=$migration_sqlstate last_client_exit=$migration_exit"
+    fi
   elif [[ "$phase" == durable-enrollment ]]; then
     case "${enrollment_step:-}" in sql010|writer-acl|bundle|driver-create|driver-start|driver-wait|driver-exit|driver-custody|driver-result) ;; *) enrollment_step=unavailable ;; esac
     case "${enrollment_failure_kind:-}" in operation|invalid-custody|timeout|nonzero-exit|unexpected-state|result-mismatch) ;; *) enrollment_failure_kind=unavailable ;; esac
@@ -1162,8 +1170,12 @@ snapshot_gn_others() {
   gn_others=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log"); [[ "$gn_others" =~ ^[a-f0-9]{32}$ ]]
 }
 snapshot_gn_catalog() {
-  printf "SELECT md5(jsonb_build_array((SELECT jsonb_agg(to_jsonb(p) ORDER BY oid) FROM pg_catalog.pg_proc p WHERE pronamespace='subtrack_auth'::regnamespace),(SELECT jsonb_agg(to_jsonb(n) ORDER BY oid) FROM pg_catalog.pg_namespace n),(SELECT jsonb_agg(to_jsonb(c) ORDER BY oid) FROM pg_catalog.pg_constraint c),(SELECT jsonb_agg(to_jsonb(r) ORDER BY oid) FROM pg_catalog.pg_roles r),(SELECT jsonb_agg(to_jsonb(m) ORDER BY roleid,member) FROM pg_catalog.pg_auth_members m),(SELECT jsonb_agg(to_jsonb(a) ORDER BY oid) FROM pg_catalog.pg_default_acl a),(SELECT jsonb_agg(to_jsonb(c) ORDER BY oid) FROM pg_catalog.pg_class c WHERE relnamespace='subtrack_auth'::regnamespace),(SELECT jsonb_agg(to_jsonb(a) ORDER BY attrelid,attnum) FROM pg_catalog.pg_attribute a WHERE attrelid IN ('subtrack_auth.epoch'::regclass,'subtrack_auth.reservation'::regclass,'subtrack_auth.nonce'::regclass)),(SELECT jsonb_agg(to_jsonb(t) ORDER BY oid) FROM pg_catalog.pg_type t WHERE typnamespace='subtrack_auth'::regnamespace),(SELECT jsonb_agg(to_jsonb(p) ORDER BY oid) FROM pg_catalog.pg_policy p))::text);\n" | owner
-  gn_catalog=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log"); [[ "$gn_catalog" =~ ^[a-f0-9]{32}$ ]]
+  printf "WITH catalog AS (SELECT jsonb_build_array((SELECT jsonb_agg(to_jsonb(p) ORDER BY oid) FROM pg_catalog.pg_proc p WHERE pronamespace='subtrack_auth'::regnamespace),(SELECT jsonb_agg(to_jsonb(n) ORDER BY oid) FROM pg_catalog.pg_namespace n),(SELECT jsonb_agg(to_jsonb(c) ORDER BY oid) FROM pg_catalog.pg_constraint c),(SELECT jsonb_agg(to_jsonb(r) ORDER BY oid) FROM pg_catalog.pg_roles r),(SELECT jsonb_agg(to_jsonb(m) ORDER BY roleid,member) FROM pg_catalog.pg_auth_members m),(SELECT jsonb_agg(to_jsonb(a) ORDER BY oid) FROM pg_catalog.pg_default_acl a),(SELECT jsonb_agg(to_jsonb(c) ORDER BY oid) FROM pg_catalog.pg_class c WHERE relnamespace='subtrack_auth'::regnamespace),(SELECT jsonb_agg(to_jsonb(a) ORDER BY attrelid,attnum) FROM pg_catalog.pg_attribute a WHERE attrelid IN ('subtrack_auth.epoch'::regclass,'subtrack_auth.reservation'::regclass,'subtrack_auth.nonce'::regclass)),(SELECT jsonb_agg(to_jsonb(t) ORDER BY oid) FROM pg_catalog.pg_type t WHERE typnamespace='subtrack_auth'::regnamespace),(SELECT jsonb_agg(to_jsonb(p) ORDER BY oid) FROM pg_catalog.pg_policy p)) AS whole) SELECT md5(whole::text), md5(jsonb_set(whole,'{6}',(SELECT jsonb_agg(to_jsonb(c)-'relpages'-'reltuples'-'relallvisible'-'relfrozenxid'-'relminmxid' ORDER BY oid) FROM pg_catalog.pg_class c WHERE relnamespace='subtrack_auth'::regnamespace))::text) FROM catalog;\n" | owner
+  gn_catalog= gn_catalog_logical=
+  local line
+  line=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*|[ ]*[a-f0-9]\{32\}[ ]*$/p' "$client_log")
+  [[ "$line" =~ ^[[:space:]]*([a-f0-9]{32})[[:space:]]*\|[[:space:]]*([a-f0-9]{32})[[:space:]]*$ ]] || return 1
+  gn_catalog=${BASH_REMATCH[1]} gn_catalog_logical=${BASH_REMATCH[2]}
 }
 snapshot_gn_catalog; gn_catalog_before=$gn_catalog
 snapshot_private; gn_before=$snapshot
@@ -1325,21 +1337,48 @@ ak_burn() {
   printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT 1/COALESCE(subtrack_auth.reserve_bootstrap(repeat('%s',64),repeat('2',64),repeat('3',64),'%s',60000,'https://st233a.invalid','fixture',repeat('a',64),0)>0,false)::integer; COMMIT; %s\n" "$1" "$2" "$reset_sql" | actor
   assert_owner "(SELECT count(*)=1 AND bool_and(state='pending') FROM subtrack_auth.reservation WHERE key_h=repeat('$1',64))"
 }
-phase=atomic-issue-02
-snapshot_gn_catalog; ak_catalog_before=$gn_catalog
-for ak_fault in "CREATE SCHEMA ak_graph; CREATE TABLE ak_graph.future(nonce_h subtrack_auth.h REFERENCES subtrack_auth.nonce(nonce_h));" "ALTER FUNCTION $gn_signature SET search_path=public;" "GRANT EXECUTE ON FUNCTION $gn_signature TO PUBLIC;" "CREATE OR REPLACE FUNCTION subtrack_auth.prune_nonces(epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER VOLATILE PARALLEL UNSAFE CALLED ON NULL INPUT SET search_path=pg_catalog AS 'BEGIN RETURN NULL; END';" "GRANT UPDATE(chain) ON subtrack_auth.nonce TO subtrack_auth_executor;" "GRANT SELECT ON subtrack_auth.nonce TO subtrack_runtime;" "GRANT subtrack_auth_executor TO subtrack_dev_auth_login;" "ALTER TABLE subtrack_auth.reservation DROP CONSTRAINT reservation_check;" "SET st233c.constraints='invalid';"; do
+phase=atomic-issue-02 timed_step=catalog timed_case=none atomic_drift=none atomic_sqlstate=unavailable atomic_exit=unavailable
+snapshot_gn_catalog; ak_catalog_before=$gn_catalog ak_catalog_logical_before=$gn_catalog_logical
+ak_fault_labels=(graph-fk parent-search-path parent-public-execute parent-body nonce-update nonce-select executor-membership reservation-constraint constraint-pin)
+ak_faults=("CREATE SCHEMA ak_graph; CREATE TABLE ak_graph.future(nonce_h subtrack_auth.h REFERENCES subtrack_auth.nonce(nonce_h));" "ALTER FUNCTION $gn_signature SET search_path=public;" "GRANT EXECUTE ON FUNCTION $gn_signature TO PUBLIC;" "CREATE OR REPLACE FUNCTION subtrack_auth.prune_nonces(epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER VOLATILE PARALLEL UNSAFE CALLED ON NULL INPUT SET search_path=pg_catalog AS 'BEGIN RETURN NULL; END';" "GRANT UPDATE(chain) ON subtrack_auth.nonce TO subtrack_auth_executor;" "GRANT SELECT ON subtrack_auth.nonce TO subtrack_runtime;" "GRANT subtrack_auth_executor TO subtrack_dev_auth_login;" "ALTER TABLE subtrack_auth.reservation DROP CONSTRAINT reservation_check;" "SET st233c.constraints='invalid';")
+for ak_index in "${!ak_faults[@]}"; do
+  timed_case=${ak_fault_labels[$ak_index]} ak_fault=${ak_faults[$ak_index]} atomic_drift=none
   { printf "BEGIN; SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s'; %s\n" "$source_head" "$marker" "$constraints_pin" "$ak_fault"; sed '/^BEGIN;$/d;/^COMMIT;$/d' "${inputs[12]}"; } > "$tmp/ak-guard.sql"
-  if owner < "$tmp/ak-guard.sql"; then exit 1; fi
+  timed_step=guard-operation timed_failure_kind=operation
+  if owner < "$tmp/ak-guard.sql"; then record_migration_failure; atomic_sqlstate=$migration_sqlstate atomic_exit=$migration_exit; exit 1; fi
+  record_migration_failure; atomic_sqlstate=$migration_sqlstate atomic_exit=$migration_exit
+  timed_step=guard-sqlstate timed_failure_kind=assertion
   grep -q 'ERROR:  22012' "$client_log" || exit 1
-  assert_owner "NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace AND proname='issue_bootstrap_nonce') AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='ak_graph')"
-  snapshot_gn_catalog; [[ "$gn_catalog" == "$ak_catalog_before" ]] || exit 1
+  timed_step=guard-rollback
+  assert_owner "NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace AND proname='issue_bootstrap_nonce') AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='ak_graph')" || exit 1
+  timed_step=guard-catalog atomic_drift=unavailable
+  snapshot_gn_catalog || exit 1
+  if [[ "$gn_catalog" != "$ak_catalog_before" ]]; then
+    atomic_drift=logical; [[ "$gn_catalog_logical" != "$ak_catalog_logical_before" ]] || atomic_drift=physical-only
+    exit 1
+  fi
+  atomic_drift=none
 done
 phase=atomic-issue-03
-for ak_parent in 'subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms)' "$peek_signature" "$reserve_signature" "$prune_signature" "$sf_signature" "$gn_signature"; do
+ak_parent_labels=(parent-fence parent-peek parent-reserve parent-prune parent-settle parent-nonce-prune)
+ak_parents=('subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms)' "$peek_signature" "$reserve_signature" "$prune_signature" "$sf_signature" "$gn_signature")
+for ak_index in "${!ak_parents[@]}"; do
+  timed_case=${ak_parent_labels[$ak_index]} ak_parent=${ak_parents[$ak_index]} atomic_drift=none
   { printf "BEGIN; SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s'; ALTER FUNCTION %s SET search_path=public;\n" "$source_head" "$marker" "$constraints_pin" "$ak_parent"; sed '/^BEGIN;$/d;/^COMMIT;$/d' "${inputs[12]}"; } > "$tmp/ak-guard.sql"
-  if owner < "$tmp/ak-guard.sql"; then exit 1; fi
+  timed_step=guard-operation timed_failure_kind=operation
+  if owner < "$tmp/ak-guard.sql"; then record_migration_failure; atomic_sqlstate=$migration_sqlstate atomic_exit=$migration_exit; exit 1; fi
+  record_migration_failure; atomic_sqlstate=$migration_sqlstate atomic_exit=$migration_exit
+  timed_step=guard-sqlstate timed_failure_kind=assertion
   grep -q 'ERROR:  22012' "$client_log" || exit 1
-  snapshot_gn_catalog; [[ "$gn_catalog" == "$ak_catalog_before" ]] || exit 1
+  timed_step=guard-rollback
+  assert_owner "NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace AND proname='issue_bootstrap_nonce') AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='ak_graph')" || exit 1
+  timed_step=guard-catalog atomic_drift=unavailable
+  snapshot_gn_catalog || exit 1
+  if [[ "$gn_catalog" != "$ak_catalog_before" ]]; then
+    atomic_drift=logical; [[ "$gn_catalog_logical" != "$ak_catalog_logical_before" ]] || atomic_drift=physical-only
+    exit 1
+  fi
+  atomic_drift=none
 done
 phase=atomic-issue-04
 { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat "${inputs[12]}"; } | owner
