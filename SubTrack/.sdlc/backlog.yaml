@@ -6,7 +6,8 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-227a, title: 'Natural-browser subscription lifecycle transitions and denials', owner: dev-backend, size: L, status: IN_REVIEW, deps: [ST-227, ST-226, ST-222, ST-224]}
+  - {id: ST-227b, title: 'Natural-browser actual writer rollback proof', owner: dev-backend, size: M, status: IN_PROGRESS, deps: [ST-227a]}
+  - {id: ST-227a, title: 'Natural-browser subscription lifecycle transitions and denials', owner: dev-backend, size: L, status: DONE, deps: [ST-227, ST-226, ST-222, ST-224]}
   - {id: ST-232, title: 'Trusted development simulator enrollment person result', owner: dev-backend, size: M, status: DONE, deps: [ST-228, ST-229, ST-230, ST-231]}
   - {id: ST-231, title: 'Source-preserving refresh-CSRF and erasure semantics proposal', owner: architect-platform, size: M, status: DONE, deps: [ST-230, ST-229, ST-228]}
   - {id: ST-230, title: 'Exact durable development auth-state SQL access proposal', owner: architect-platform, size: M, status: DONE, deps: [ST-228, ST-229]}
