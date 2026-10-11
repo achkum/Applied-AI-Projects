@@ -1,6 +1,6 @@
 import { HttpException, type INestApplication, type DynamicModule } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import type { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { execFileSync } from 'node:child_process';
 import { createServer as createHttpsServer, request as httpsRequest } from 'node:https';
 import { createServer } from 'node:net';
@@ -86,6 +86,38 @@ async function httpsPost(portNumber: number, headers: Record<string, string>, bo
 }
 
 describe('private browser subscription read composition', () => {
+  it('accepts the real Prisma proxy and reaches preflight without connecting or creating Nest', async () => {
+    const prisma = new PrismaClient({ datasourceUrl: 'postgresql://synthetic:synthetic@127.0.0.1:1/synthetic', log: [] });
+    const request = vi.spyOn(prisma as unknown as { _request: () => Promise<never> }, '_request')
+      .mockRejectedValue(new Error('Synthetic query refusal'));
+    const connect = vi.spyOn(prisma, '$connect');
+    const disconnect = vi.spyOn(prisma, '$disconnect');
+    const create = vi.spyOn(NestFactory, 'create');
+    try {
+      for (const method of ['$queryRaw', '$transaction'] as const) {
+        expect(typeof prisma[method]).toBe('function');
+        expect(typeof Object.getOwnPropertyDescriptor(prisma, method)?.value).not.toBe('function');
+      }
+      await expect(createBrowserSubscriptionLifecycleApp({ ...fixture().options, prisma })).rejects.toThrow(badStorage);
+      expect(request).toHaveBeenCalledOnce();
+      expect(connect).not.toHaveBeenCalled(); expect(disconnect).not.toHaveBeenCalled();
+      expect(create).not.toHaveBeenCalled();
+    } finally { request.mockRestore(); connect.mockRestore(); disconnect.mockRestore(); create.mockRestore(); }
+  });
+
+  it('rejects noncallable Prisma methods before preflight or Nest', async () => {
+    const create = vi.spyOn(NestFactory, 'create');
+    try {
+      for (const method of ['$queryRaw', '$transaction'] as const) {
+        const { options, query } = fixture();
+        Object.assign(options.prisma, { [method]: undefined });
+        await expect(createBrowserSubscriptionLifecycleApp(options)).rejects.toThrow(bad);
+        expect(query).not.toHaveBeenCalled();
+      }
+      expect(create).not.toHaveBeenCalled();
+    } finally { create.mockRestore(); }
+  });
+
   it('denies subscription UPDATE before Nest and masks query faults', async () => {
     const create = vi.spyOn(NestFactory, 'create');
     try {

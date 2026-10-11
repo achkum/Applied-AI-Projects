@@ -100,7 +100,8 @@ function snapshotOptions(input: BrowserSubscriptionLifecycleCompositionOptions):
         typeof c.port !== 'number' || !Number.isSafeInteger(c.port) || c.port < 1 || c.port > 65535 ||
         c.exactOrigin !== `https://127.0.0.1:${c.port}` || typeof c.clock !== 'function' ||
         !Buffer.isBuffer(tls.key) || !tls.key.length || !Buffer.isBuffer(tls.cert) || !tls.cert.length) throw denied();
-    bind(c.prisma, '$queryRaw'); bind(c.prisma, '$transaction');
+    const prisma = c.prisma as PrismaClient | undefined;
+    if (typeof prisma?.$queryRaw !== 'function' || typeof prisma?.$transaction !== 'function') throw denied();
     return Object.freeze({ ...c,
       accessTokens: Object.freeze({ verify: bind<V2AccessToken['verify']>(c.accessTokens, 'verify') }),
       principal: Object.freeze({ resolve: bind<DevelopmentV2PrincipalResolver['resolve']>(c.principal, 'resolve') }),

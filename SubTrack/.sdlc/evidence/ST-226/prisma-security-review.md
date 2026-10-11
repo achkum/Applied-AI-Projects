@@ -1,0 +1,10 @@
+# ST226 independent actual-Prisma security/privacy review
+REVIEW/v1; reviewer=security-privacy; session=ST226-prisma-security-c1; verdict=APPROVE; findings=[]; no blocker/major or High/Critical finding.
+Basis: AGENTS/task pre-edit authorization, Constitution/Decision Rules/Quality Gates/TEAM, ADR0010/0023/0024/0025, frozen v2 readiness, diagnosis-v1, c5 checkpoint and retained security reviews.
+Independently reproduced normalized composition7249a9b3705e04893ac9ad6502f17f9d9a05c42c and specdb71b707c9fac3e0ac3e0028f13d8b7880a45082; inspected exact two-file diff against HEAD7847c963ab71a117e7a4adaf7d0fc0b4891c36a9.
+Runtime delta only accepts callable Prisma property reads, matching accepted READ; original caller-owned pool passes unchanged to exact database/ordinary-role/membership/RLS/SELECT/UPDATE preflight and both scoped repositories before Nest.
+Auth/access/principal/session-repository/CSRF descriptor bindings and accessor-denial regression remain intact; provenance custody, HTTPS restriction, IPC authority, caller pool ownership and bounded lifetimes are unchanged. Local Type2b compatibility correction; no concrete Type1 security-model delta.
+Real installed Prisma regression preserves proxy descriptor mismatch and intercepts internal request once to reach masked storage denial without connect/disconnect/Nest; noncallable ORM methods reject before query/Nest. No raw errors or additional logging enter runtime receipts.
+Author c5 reports focused73PASS/coverage>=80, lint/type/buildPASS and fullAPI76files1668testsPASS zero skips; these are reported results, not independent QA. This reviewer performed source/hash review only and no heavy or actual-PG run.
+Source-only approval for these frozen blobs; prior actual CI failures retained, fresh applicable exact-head Linux ordinary-PG16/compiled-HTTPS proof and required independent QA remain blocking. ST227 natural-browser/race/rollback scope remains deferred.
+Original2026-10-10T23:17:14Z attempt1 L240/counters preserved; evidence-only write, no source/status/backlog/commit changes; 9 tool calls including review creation, corrected ADR read-path miss retained, no repeated failure.
