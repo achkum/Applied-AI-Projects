@@ -38,7 +38,7 @@ CREATE TABLE public.identity_profile (
   display_name pg_catalog.varchar(120), avatar_color pg_catalog.varchar(32), avatar_emoji pg_catalog.varchar(32),
   language pg_catalog.varchar(2) NOT NULL DEFAULT 'en' CHECK (language IN ('sv','en')),
   theme pg_catalog.varchar(16) NOT NULL DEFAULT 'system' CHECK (theme IN ('system','light','dark')),
-  default_currency pg_catalog.char(3) NOT NULL DEFAULT 'SEK' CHECK (default_currency='SEK'),
+  default_currency pg_catalog.bpchar(3) NOT NULL DEFAULT 'SEK' CHECK (default_currency='SEK'),
   profile_complete pg_catalog.bool NOT NULL DEFAULT false,
   created_at pg_catalog.timestamptz NOT NULL DEFAULT pg_catalog.now(),
   updated_at pg_catalog.timestamptz NOT NULL DEFAULT pg_catalog.now()

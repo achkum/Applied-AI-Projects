@@ -196,6 +196,11 @@ async function catalog() {
     const denied = await query('SELECT NOT has_table_privilege($1,\'public.identity_profile\',\'SELECT,INSERT,UPDATE,DELETE\') AS denied', [role]);
     if (denied.rows[0]?.denied !== true) throw Error(`profile-acl:${role}`);
   }
+  const currencyType = await query(`SELECT count(*)=1 AND bool_and(
+    atttypid='pg_catalog.bpchar'::regtype AND atttypmod=7) AS correct
+    FROM pg_catalog.pg_attribute WHERE attrelid='public.identity_profile'::regclass
+      AND attname='default_currency' AND attnum>0 AND NOT attisdropped`);
+  if (currencyType.rows[0]?.correct !== true) throw Error('profile-currency-type');
   const c = await actor.connect();
   try {
     for (const sql of ['SET ROLE subtrack_auth_executor','SELECT * FROM subtrack_auth.otp',
