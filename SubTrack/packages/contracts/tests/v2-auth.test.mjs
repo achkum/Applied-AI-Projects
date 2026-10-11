@@ -60,7 +60,7 @@ test('v2 mutating POSTs require idempotency and browser state distinguishes nonc
       Object.entries(item).filter(([method]) => method.toLowerCase() === 'post')
         .map(([method, operation]) => [path, method, operation]),
     ).filter(([path]) => path.startsWith('/v2/') && path !== '/v2/subscriptions/{id}/read');
-    assert.equal(operations.length, 7);
+    assert.equal(operations.length, 10);
     for (const [path, , operation] of operations) {
       assert.ok(operation.parameters.some((parameter) =>
         parameter.name === 'Idempotency-Key' && parameter.required === true),
@@ -102,14 +102,17 @@ test('v2 POST recovery contract stays generic and explains restart after referen
       Object.entries(item).filter(([method]) => method.toLowerCase() === 'post')
         .map(([method, operation]) => [path, method, operation]),
     ).filter(([path]) => path.startsWith('/v2/') && path !== '/v2/subscriptions/{id}/read');
-    assert.equal(operations.length, 7);
+    assert.equal(operations.length, 10);
     for (const [path, , operation] of operations) {
       const response = operation.responses['409'];
       assert.ok(response, `${path} documents generic duplicate handling`);
       assert.match(response.description, /generic/i, `${path} keeps the conflict generic`);
       assert.equal(response.headers['Cache-Control'].schema.const, 'no-store');
       assert.equal(response.headers.Pragma.schema.const, 'no-cache');
-      assert.equal(response.content['application/problem+json'].schema.allOf.find((part) => part.properties?.code).properties.code.type, 'string');
+      const problem = response.content['application/problem+json'].schema;
+      const shapes = problem.oneOf ?? [problem];
+      for (const shape of shapes)
+        assert.equal((shape.properties ?? shape.allOf.find((part) => part.properties?.code).properties).code.type, 'string');
       assert.match(operation.description ?? '', /AUTH_RESTART_REQUIRED/);
       assert.match(operation.description ?? '', /fresh|discard/i,
         `${path} describes a recovery action`);
