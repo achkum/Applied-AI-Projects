@@ -83,7 +83,7 @@ done
 printf 'Failed Suites 1\n' > "$base/failure.log"
 [[ "$(classify_launcher_failure "$base/failure.log")" == collection ]]
 printf 'ST-226 actual finish negatives and diagnostic allowlist: PASS\n'
-for code in fixture compiled_child child_spawn child_bootstrap child_startup_exit child_startup_timeout child_pool smoke denials browser writer_rollback writer_negative fixture_reset matrix visibility authority malformed sigterm_cleanup sigint_cleanup parent_cleanup; do
+for code in fixture compiled_child child_spawn child_bootstrap child_startup_exit child_startup_timeout child_pool smoke denials browser writer_rollback writer_negative fixture_reset matrix visibility authority competing abort reconciliation malformed sigterm_cleanup sigint_cleanup parent_cleanup; do
   printf '\033[31mError: ST-227a browser proof failed: %s; cleanup: none\033[39m\n' "$code" > "$base/failure.log"
   [[ "$(classify_launcher_failure "$base/failure.log" phase ST227a)" == "$code" ]]
 done
@@ -103,12 +103,13 @@ for text in '' 'credentialURL header body' 'Error: ST-227a browser proof failed:
   [[ "$(classify_launcher_failure "$base/failure.log" cleanup ST227a)" == unavailable ]]
 done
 # Execute the production runner/finish gate with verified successful custody removal.
-for browser_case in integration_failure missing_browser_gate missing_authority_gate classified_failure malicious_failure; do
+for browser_case in integration_failure missing_browser_gate missing_authority_gate missing_competitor_gate classified_failure malicious_failure; do
   tmp="$base/st226.$browser_case"
   mkdir -m 700 "$tmp"
   printf '%s %s %s %s\n' "$cid" "$label" "$name" "$created" > "$record"
-  passed=true browser_passed=false authority_passed=false phase=browser-integration
+  passed=true browser_passed=false authority_passed=false competitor_passed=false phase=browser-integration
   if [[ "$browser_case" == missing_authority_gate ]]; then browser_passed=true; fi
+  if [[ "$browser_case" == missing_competitor_gate ]]; then browser_passed=true; authority_passed=true; fi
   failure_subphase=unavailable failure_cleanup=unavailable
   docker() {
     if [[ "$1" == inspect && "$3" == '{{.Id}}' ]]; then printf '%s\n' "$cid"
@@ -126,7 +127,7 @@ for browser_case in integration_failure missing_browser_gate missing_authority_g
   }
   status=0
   (trap finish EXIT
-   if [[ "$browser_case" != missing_browser_gate && "$browser_case" != missing_authority_gate ]]; then run_browser_integration || exit 1; fi
+   if [[ "$browser_case" != missing_browser_gate && "$browser_case" != missing_authority_gate && "$browser_case" != missing_competitor_gate ]]; then run_browser_integration || exit 1; fi
    exit 0) || status=$?
   [[ "$status" == 1 && ! -e "$tmp" && ! -e "$record" ]]
   grep -q 'proof: FAIL .*phase=browser-integration .*fixture_cleanup=false ' "$receipt"
