@@ -645,6 +645,8 @@ async function main() {
   const nest = await NestFactory.create(PrivateModule, new ExpressAdapter(api), { logger: false, bodyParser: false });
   await nest.init();
   gate('FRAMEWORK_READY');
+  // next-intl resolves its development request-config path against process.cwd().
+  process.chdir(webDir);
   const nextApp = next({ dev: true, dir: webDir, hostname: 'localhost', port: 3443 });
   gate('NEXT');
   try { await nextApp.prepare(); }
