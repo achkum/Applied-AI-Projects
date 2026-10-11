@@ -1,0 +1,5 @@
+# ST-229 accepted dependency advancement
+Initial candidate2374f55 standard38097066809 failed inherited composition HTTPS test timeout107; preserved related-ST-229-ci-diagnosis.md identifies actual class, not a contract assertion.
+After ST226 PR256 accepted merge238f549/headab616 with all applicable CI PASS, root merges accepted main into ST229 without contract/generated source changes. Backlog conflict preserves ST229 IN_REVIEW and records ST226 DONE; predecessor accepted task/CI receipt carried under before-edit allowed-path extension.
+Frozen OpenAPI26c1de72cca1fd0da1ff93a25e41016e8db83577 and generated/source contract hashes remain unchanged; all three source reviews and independent18/18 QA retained. New exact-head applicable CI remains required; prior failed run is not waived.
+Planning ST230 runs separately in mobile-enrollment-ports on branchst/ST230-auth-state-access-plan from priorcandidate; no source/schema/permission changes. Context/time/failures and900 nongenerated cap preserved.
