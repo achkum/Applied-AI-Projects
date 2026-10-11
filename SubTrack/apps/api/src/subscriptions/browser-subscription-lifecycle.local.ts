@@ -20,6 +20,87 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export const ROLLBACK_FIXTURE = '00000000-0000-4000-8000-000000000227';
 export const ROLLBACK_BASELINE = '2000-01-01T00:00:00.000Z';
 const ROLLBACK_FAULT = 'ST-227b verified writer rollback';
+export const AUTHORITY_CASES = ['read-missing', 'patch-missing', 'read-revoked', 'patch-revoked',
+  'read-rebound', 'patch-rebound', 'read-expired', 'patch-expired'] as const;
+export type AuthorityCase = typeof AUTHORITY_CASES[number];
+export function createFixtureClock(wall = Date.now) {
+  let previous = wall(), offset = 0;
+  const now = () => {
+    const current = wall();
+    if (!Number.isSafeInteger(current) || current < previous || current < 0 ||
+        !Number.isSafeInteger(current + offset) || current + offset > Number.MAX_SAFE_INTEGER - 86_400_000)
+      throw new Error(DENIED);
+    previous = current; return current + offset;
+  };
+  now();
+  return { now, advance(target: number) {
+    const current = now();
+    if (!Number.isSafeInteger(target) || target < current || target > Number.MAX_SAFE_INTEGER - 86_400_000)
+      throw new Error(DENIED);
+    offset += target - current; return now();
+  } };
+}
+/** Child-local custody: actual resolve result is held, never copied or decorated. */
+export function createAuthorityBarrier(real: Pick<DevelopmentV2PrincipalResolver, 'resolve'>,
+  handles: ReadonlyMap<AuthorityCase, string>, mutate: (handle: AuthorityCase) => Promise<void>,
+  arrived: (handle: AuthorityCase) => Promise<void>, count: () => number, stop: () => void) {
+  let held: { handle: AuthorityCase; stage: 'armed' | 'resolving' | 'arrived' | 'released'; baseline: number;
+    release: () => void; reject: (error: Error) => void; gate: Promise<void>; timer: NodeJS.Timeout } | undefined;
+  let stopping = false, failed = false;
+  const spent = new Set<AuthorityCase>(), completed = new Map<AuthorityCase, number>(), pending = new Set<Promise<unknown>>();
+  const track = <T>(operation: Promise<T>): Promise<T> => {
+    pending.add(operation); void operation.then(() => pending.delete(operation), () => pending.delete(operation)); return operation;
+  };
+  const deny = () => { failed = true; held?.reject(new Error(DENIED)); stop(); };
+  return { get failed() { return failed; },
+    arm(handle: AuthorityCase) {
+      if (stopping || held || spent.has(handle) || !handles.has(handle)) throw new Error(DENIED);
+      let release!: () => void, reject!: (error: Error) => void;
+      const gate = new Promise<void>((done, fail) => { release = done; reject = fail; });
+      void gate.catch(() => undefined); spent.add(handle);
+      held = { handle, stage: 'armed', baseline: count(), release, reject, gate, timer: setTimeout(deny, 5_000) };
+    },
+    principal: { resolve(token: string, transport: Parameters<DevelopmentV2PrincipalResolver['resolve']>[1]) {
+      if (stopping) return Promise.reject(new Error(DENIED));
+      const capture = held;
+      if (capture && capture.stage !== 'armed') { deny(); return Promise.reject(new Error(DENIED)); }
+      if (capture) capture.stage = 'resolving';
+      const result = track(real.resolve(token, transport));
+      return track((async () => {
+        try {
+          const actual = await bounded(result, 5_000);
+          if (stopping) throw new Error(DENIED);
+          if (!capture) return actual;
+          if (actual.sessionId !== handles.get(capture.handle) || stopping) throw new Error(DENIED);
+          capture.stage = 'arrived'; await bounded(track(arrived(capture.handle)), 5_000);
+          await capture.gate;
+          if (stopping || !completed.has(capture.handle)) throw new Error(DENIED);
+          return actual;
+        } catch (error) { if (capture) deny(); throw error; }
+        finally { if (capture) { clearTimeout(capture.timer); held = undefined; } }
+      })());
+    } },
+    async release(handle: AuthorityCase) {
+      const capture = held;
+      if (stopping || !capture || capture.handle !== handle || capture.stage !== 'arrived') throw new Error(DENIED);
+      // Mutation finishes before resolver continuation; the serialized command does not await the HTTP request.
+      capture.stage = 'released';
+      try { await bounded(track(mutate(handle)), 5_000); capture.release(); completed.set(handle, capture.baseline); }
+      catch { deny(); throw new Error(DENIED); }
+    },
+    observe(handle: AuthorityCase) {
+      if (stopping || held || !completed.has(handle) || failed) throw new Error(DENIED);
+      const delta = count() - completed.get(handle)!;
+      if (delta !== 0) { deny(); throw new Error(DENIED); }
+      completed.delete(handle); return delta;
+    },
+    async settle() {
+      stopping = true;
+      if (held) { clearTimeout(held.timer); deny(); }
+      while (pending.size) await Promise.allSettled([...pending]);
+    },
+  };
+}
 type WriterRow = { id: string; owner: string; status: string; private: boolean; updated: Date;
   pid: number; canonical: string | null; historical: string | null };
 const writerRow = (tx: Prisma.TransactionClient, owner: string) => tx.$queryRaw<WriterRow[]>`
@@ -146,20 +227,16 @@ export function inspectOwnedFixture(recordPath: string | undefined, runtimeUrl: 
 
 type Case = 'owner' | 'peer';
 type Control = { kind: 'control'; id: number; action: string; handle?: Case };
-const send = (message: object): Promise<void> => new Promise((resolve, reject) => {
-  if (!process.send || !process.connected) return reject(new Error(DENIED));
-  const timer = setTimeout(() => reject(new Error(DENIED)), 5_000);
-  try { process.send(message, error => { clearTimeout(timer); if (error) reject(new Error(DENIED)); else resolve(); }); }
-  catch { clearTimeout(timer); reject(new Error(DENIED)); }
-});
-async function bounded(operation: Promise<void>): Promise<void> {
+async function bounded<T>(operation: Promise<T>, ms = 10_000): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
-  try { await Promise.race([operation, new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(DENIED)), 10_000);
+  try { return await Promise.race([operation, new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(DENIED)), ms);
   })]); } finally { if (timer) clearTimeout(timer); }
 }
 
 export async function main(): Promise<void> {
+  const authorityEnabled = process.env['ST227C1_ENABLED'];
+  if (authorityEnabled && authorityEnabled !== '1') throw new Error(DENIED);
   const rollbackEnabled = process.env['ST227B_ENABLED'];
   if (rollbackEnabled && rollbackEnabled !== '1') throw new Error(DENIED);
   if (process.env['NODE_ENV'] !== 'development' || Boolean(process.env['DATABASE_URL']) || process.env['ST226_ENABLED'] !== '1' ||
@@ -182,7 +259,20 @@ export async function main(): Promise<void> {
   let controlling: Promise<void> | undefined;
   let controlFailed = false;
   let rollback: Awaited<ReturnType<typeof createWriterRollbackDelegate>> | undefined;
-  const credentials = [] as { handle: Case; access: string; binding: string; csrf: string }[];
+  let barrier: ReturnType<typeof createAuthorityBarrier> | undefined;
+  let authorityControl: ((action: string) => Promise<void>) | undefined;
+  const ipcPending = new Set<Promise<unknown>>();
+  const storagePending = new Set<Promise<unknown>>();
+  const deliver = (message: object) => {
+    // Track callback settlement separately from its deadline; timeout is never custody release.
+    const underlying = new Promise<void>((done, fail) => {
+      if (!process.send || !process.connected) return fail(new Error(DENIED));
+      try { process.send(message, error => error ? fail(new Error(DENIED)) : done()); } catch { fail(new Error(DENIED)); }
+    });
+    ipcPending.add(underlying); void underlying.then(() => ipcPending.delete(underlying), () => ipcPending.delete(underlying));
+    return bounded(underlying, 5_000);
+  };
+  const credentials = [] as { handle: Case | AuthorityCase; access: string; binding: string; csrf: string }[];
   const signal = () => { stopRequested = true; stopWaiting?.(); };
   process.once('SIGTERM', signal);
   process.once('SIGINT', signal);
@@ -192,16 +282,19 @@ export async function main(): Promise<void> {
     process.off('SIGTERM', signal); process.off('SIGINT', signal); process.off('disconnect', signal);
     process.off('message', control);
     // A timeout cannot certify settlement or permit pool disconnect to race a writer.
+    if (barrier) await bounded(barrier.settle());
     if (rollback) await bounded(rollback.settle());
+    if (controlling) await bounded(controlling);
+    await bounded(Promise.allSettled([...ipcPending]).then(() => undefined));
+    await bounded(Promise.allSettled([...storagePending]).then(() => undefined));
     try {
-      if (controlling) await controlling;
       if (app) await bounded(app.close());
+      await bounded(prisma.$disconnect());
     }
     finally {
-      try { await bounded(prisma.$disconnect()); }
-      finally { key.fill(0); cert?.fill(0); credentials.length = 0; if (process.connected) process.disconnect?.(); }
+      key.fill(0); cert?.fill(0); credentials.length = 0; if (process.connected) process.disconnect?.();
     }
-    if (controlFailed || rollback?.failed) throw new Error(DENIED);
+    if (controlFailed || rollback?.failed || barrier?.failed) throw new Error(DENIED);
   };
   let nextId = 1;
   const control = (value: unknown) => {
@@ -210,15 +303,22 @@ export async function main(): Promise<void> {
     if (command.kind !== 'control' || command.id !== nextId || !Number.isSafeInteger(command.id)) return;
     const arm = command.action === 'arm-writer-rollback';
     const evidence = command.action === 'writer-rollback-observe';
-    if (arm || evidence) {
+    const authority = /^(arm|release|observe)-(read|patch)-(missing|revoked|expired|rebound)$/.test(command.action);
+    if (authority) {
+      if (Object.keys(command).sort().join(',') !== 'action,id,kind' || !authorityControl) return;
+    } else if (arm || evidence) {
       if (Object.keys(command).sort().join(',') !== 'action,id,kind' || !rollback ||
           (arm ? !rollback.arm() : !rollback.verified)) return;
     } else if (Object.keys(command).sort().join(',') !== 'action,handle,id,kind' ||
         !['owner', 'peer'].includes(command.handle ?? '') || command.action !== 'pool-observe') return;
     nextId++;
     controlling = (async () => {
+      if (authority) {
+        await authorityControl!(command.action);
+        await deliver({ kind: 'controlled', id: command.id, action: command.action, verified: true }); return;
+      }
       if (arm || evidence) {
-        await send({ kind: 'controlled', id: command.id, action: command.action, verified: rollback!.verified });
+        await deliver({ kind: 'controlled', id: command.id, action: command.action, verified: rollback!.verified });
         return;
       }
       const rows = await prisma.$transaction(tx => tx.$queryRaw<{
@@ -228,12 +328,13 @@ export async function main(): Promise<void> {
       const row = rows[0];
       if (rows.length !== 1 || !row || !Number.isSafeInteger(row.pid) || row.pid < 1 || row.pid > 2147483647)
         throw new Error(DENIED);
-      if (!stopRequested) await send({ kind: 'controlled', id: command.id, action: command.action,
+      if (!stopRequested) await deliver({ kind: 'controlled', id: command.id, action: command.action,
         handle: command.handle, pid: row.pid, canonicalClean: !row.canonical, historicalClean: !row.historical });
     })().catch(() => { controlFailed = true; signal(); }).finally(() => { controlling = undefined; });
   };
   try {
-    const clock = () => Date.now();
+    const fixtureClock = createFixtureClock(), clock = fixtureClock.now;
+    const fixtureStart = clock();
     const origin = `https://127.0.0.1:${port}`;
     const proofStore = new ProofStore(new InMemoryProofRepository(), clock);
     const sessions = new InMemoryV2SessionRepository([owner!, peer!], 10_000, clock);
@@ -245,7 +346,9 @@ export async function main(): Promise<void> {
     const principal = new DevelopmentV2PrincipalResolver({ environment: 'development', enabled: true,
       accessTokens, reader: sessions, clock });
     const csrf = new SessionCsrfGuard();
-    for (const [handle, identityId] of [['owner', owner!], ['peer', peer!]] as const) {
+    const handles = new Map<AuthorityCase, string>(), issued = new Map<AuthorityCase, string>();
+    for (const [handle, identityId] of [['owner', owner!], ['peer', peer!],
+      ...(authorityEnabled === '1' ? AUTHORITY_CASES.map(handle => [handle, owner!] as const) : [])] as const) {
       const simulatorKey = randomBytes(32);
       const expected = (await new BankIdSimulator(simulatorKey.toString('hex')).verify('alice')).personnummerHmac;
       const producer = new DevelopmentSimulatorLoginProofProducer({ environment: 'development', enabled: true,
@@ -260,11 +363,60 @@ export async function main(): Promise<void> {
       active();
       const authority = { identityId, sessionId: session.sessionId } as VerifiedWebSessionAuthority;
       credentials.push({ handle, access: session.accessToken, binding, csrf: csrf.mint(authority) });
+      if (handle !== 'owner' && handle !== 'peer') {
+        handles.set(handle, session.sessionId); issued.set(handle, session.accessToken);
+        if (handle.endsWith('expired')) {
+          const context = { userId: owner! }, record = sessions.readSession(session.sessionId, context, clock());
+          const expiresAt = fixtureStart + (handle === 'read-expired' ? 60_000 : 120_000);
+          if (!record || !await sessions.rollbackCreatedSession(record, context) ||
+              !await sessions.createForActiveIdentity({ ...record, createdAt: expiresAt - 86_400_000, expiresAt }, context)) throw new Error(DENIED);
+        }
+      }
       simulatorKey.fill(0);
     }
     inspectOwnedFixture(process.env['ST226_PROVENANCE_FILE'], process.env['ST226_RUNTIME_URL']);
     if (rollbackEnabled === '1') rollback = await createWriterRollbackDelegate(prisma, owner!, signal);
-    app = await createBrowserSubscriptionLifecycleApp({ prisma: rollback?.prisma ?? prisma, accessTokens, principal, repository: sessions, csrf,
+    let transactions = 0;
+    const delegate = rollback?.prisma ?? prisma;
+    const counted = new Proxy(delegate, { get(target, property) {
+      if (property === '$transaction') return (...args: unknown[]) => {
+        transactions++;
+        const operation = Reflect.apply(target.$transaction, target, args) as Promise<unknown>;
+        storagePending.add(operation); void operation.then(() => storagePending.delete(operation), () => storagePending.delete(operation));
+        return operation;
+      };
+      const value: unknown = Reflect.get(target, property, target);
+      return typeof value === 'function' ? value.bind(target) : value;
+    } });
+    if (authorityEnabled === '1') {
+      barrier = createAuthorityBarrier(principal, handles, async handle => {
+        active(); const context = { userId: owner! }, sid = handles.get(handle)!;
+        const record = sessions.readSession(sid, context, clock()); if (!record) throw new Error(DENIED);
+        if (handle.endsWith('expired')) {
+          fixtureClock.advance(record.expiresAt);
+          const claims = accessTokens.verify(issued.get(handle)!);
+          if (claims.sid !== sid || claims.sub !== owner || claims.exp - claims.iat !== 900 ||
+              Math.floor(clock() / 1000) >= claims.exp) throw new Error(DENIED);
+        } else if (handle.endsWith('revoked')) {
+          if (sessions.revokeForCurrentSession(sid, sid, context, clock()).kind !== 'revoked') throw new Error(DENIED);
+        } else {
+          if (!await sessions.rollbackCreatedSession(record, context)) throw new Error(DENIED);
+          if (handle.endsWith('rebound') && !await sessions.createForActiveIdentity({ ...record,
+            browserBindingCookieHash: hashBrowserBindingCookie(randomBytes(32).toString('base64url')) }, context)) throw new Error(DENIED);
+        }
+        const current = sessions.readSession(sid, context, clock());
+        if (handle.endsWith('rebound') ? !current || current.browserBindingCookieHash === record.browserBindingCookieHash : current !== null)
+          throw new Error(DENIED);
+      }, handle => deliver({ kind: 'arrived', handle }), () => transactions, signal);
+      authorityControl = async action => {
+        const [operation, ...parts] = action.split('-'), handle = parts.join('-') as AuthorityCase;
+        if (operation === 'arm') barrier!.arm(handle);
+        else if (operation === 'release') await barrier!.release(handle);
+        else barrier!.observe(handle);
+      };
+    }
+    app = await createBrowserSubscriptionLifecycleApp({ prisma: authorityEnabled === '1' ? counted : delegate, accessTokens,
+      principal: barrier?.principal ?? principal, repository: sessions, csrf,
       clock, bindingCookieName: 'st_v2_binding', developmentEnabled: true, host: '127.0.0.1', port,
       exactOrigin: origin, tls: { key, cert: cert! }, expectedDatabase: 'browser_subscription_lifecycle_proof', expectedRole: 'st_browser_lifecycle_runtime' });
     active();
@@ -272,7 +424,7 @@ export async function main(): Promise<void> {
     await app.listen();
     active();
     process.on('message', control);
-    await send({ kind: 'ready', id: 0, credentials });
+    await deliver({ kind: 'ready', id: 0, credentials });
     credentials.length = 0;
     await new Promise<void>(resolve => { stopWaiting = resolve; if (stopRequested) resolve(); });
     if (controlFailed) throw new Error(DENIED);

@@ -103,11 +103,12 @@ for text in '' 'credentialURL header body' 'Error: ST-227a browser proof failed:
   [[ "$(classify_launcher_failure "$base/failure.log" cleanup ST227a)" == unavailable ]]
 done
 # Execute the production runner/finish gate with verified successful custody removal.
-for browser_case in integration_failure missing_browser_gate classified_failure malicious_failure; do
+for browser_case in integration_failure missing_browser_gate missing_authority_gate classified_failure malicious_failure; do
   tmp="$base/st226.$browser_case"
   mkdir -m 700 "$tmp"
   printf '%s %s %s %s\n' "$cid" "$label" "$name" "$created" > "$record"
-  passed=true browser_passed=false phase=browser-integration
+  passed=true browser_passed=false authority_passed=false phase=browser-integration
+  if [[ "$browser_case" == missing_authority_gate ]]; then browser_passed=true; fi
   failure_subphase=unavailable failure_cleanup=unavailable
   docker() {
     if [[ "$1" == inspect && "$3" == '{{.Id}}' ]]; then printf '%s\n' "$cid"
@@ -125,7 +126,7 @@ for browser_case in integration_failure missing_browser_gate classified_failure 
   }
   status=0
   (trap finish EXIT
-   if [[ "$browser_case" != missing_browser_gate ]]; then run_browser_integration || exit 1; fi
+   if [[ "$browser_case" != missing_browser_gate && "$browser_case" != missing_authority_gate ]]; then run_browser_integration || exit 1; fi
    exit 0) || status=$?
   [[ "$status" == 1 && ! -e "$tmp" && ! -e "$record" ]]
   grep -q 'proof: FAIL .*phase=browser-integration .*fixture_cleanup=false ' "$receipt"

@@ -89,6 +89,8 @@ run_browser_integration() {
     return 1
   fi
   browser_passed=true
+  grep -qx 'ST227C1 authority proof: PASS cases=8 dispatch=zero current-owner=post-await' "$tmp/browser.log" || return 1
+  authority_passed=true
 }
 if [[ "${1:-}" == --cleanup ]]; then cleanup_container; exit; fi
 [[ ! -e "$record" && ! -L "$record" ]] || { echo 'ST-226 existing fixture requires verified cleanup' >&2; exit 1; }
@@ -98,6 +100,7 @@ chmod 700 "$tmp"
 phase=starting
 passed=false
 browser_passed=false
+authority_passed=false
 coverage=unavailable
 failure_subphase=unavailable
 failure_cleanup=unavailable
@@ -121,8 +124,8 @@ finish() {
   case "$failure_subphase" in unavailable|fixture|compiled_child|child_spawn|child_bootstrap|child_startup_exit|child_startup_timeout|child_pool|smoke|denials|browser|writer_rollback|writer_negative|fixture_reset|matrix|visibility|authority|malformed|sigterm_cleanup|sigint_cleanup|parent_cleanup|collection) ;; *) failure_subphase=unavailable; status=1 ;; esac
   case "$failure_cleanup" in unavailable|none|child_exit|child_timeout|owner_disconnect) ;; *) failure_cleanup=unavailable; status=1 ;; esac
   [[ "$coverage" == unavailable || "$coverage" =~ ^statements:[0-9]+([.][0-9]+)?,branches:[0-9]+([.][0-9]+)?,functions:[0-9]+([.][0-9]+)?,lines:[0-9]+([.][0-9]+)?$ ]] || { coverage=unavailable; status=1; }
-  if [[ "$status" -eq 0 && "$passed" == true && "${browser_passed:-false}" == true ]]; then
-    printf 'ST-226 browser subscription lifecycle launcher proof: PASS source_head=%s coverage=%s cases=READ,PATCH,reread,persistence,peer404,missing404,conflict409,pool-PID,dual-GUC,SIGTERM,SIGINT,listener-reuse,pool-baseline writer=actual-rollback wrong-result=denied reset=strict browser=natural-Chromium allowed=7 denied=21 total=28 fixture=removed child=stopped secrets=destroyed\n' "$source_head" "$coverage" > "$receipt"
+  if [[ "$status" -eq 0 && "$passed" == true && "${browser_passed:-false}" == true && "${authority_passed:-false}" == true ]]; then
+    printf 'ST-226 browser subscription lifecycle launcher proof: PASS source_head=%s coverage=%s cases=READ,PATCH,reread,persistence,peer404,missing404,conflict409,pool-PID,dual-GUC,SIGTERM,SIGINT,listener-reuse,pool-baseline writer=actual-rollback wrong-result=denied reset=strict browser=natural-Chromium allowed=7 denied=21 total=28 authority=READ-PATCH-missing-revoked-expired-rebound awaited=8 dispatch=zero current-owner=post-await fixture=removed child=stopped secrets=destroyed\n' "$source_head" "$coverage" > "$receipt"
   else
     status=1
     printf 'ST-226 browser subscription lifecycle launcher proof: FAIL source_head=%s phase=%s subphase=%s parent_cleanup=%s fixture_cleanup=%s code=unavailable\n' "$source_head" "$phase" "$failure_subphase" "$failure_cleanup" "$bad" > "$receipt"
