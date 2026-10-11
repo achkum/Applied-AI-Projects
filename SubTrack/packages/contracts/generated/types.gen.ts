@@ -4,6 +4,43 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+/**
+ * Private profile data patch; no identity, owner, contact, provider, session or household authority. A later writer must scope it from trusted context.
+ */
+export type ProfilePatch = {
+    /**
+     * Already NFC and trim-stable; 1-80 Unicode scalar values, no Cc/Cf or unpaired surrogate.
+     */
+    displayName?: string;
+    avatarColourToken?: 'member.accent.01' | 'member.accent.02' | 'member.accent.03' | 'member.accent.04' | 'member.accent.05' | 'member.accent.06' | 'member.accent.07' | 'member.accent.08' | null;
+    avatarEmoji?: '🙂' | '😀' | '😎' | '🌟' | '🌿' | '🐱' | '🦊' | '🦉' | null;
+    language?: 'sv' | 'en';
+    theme?: 'system' | 'light' | 'dark';
+};
+
+/**
+ * Closed private profile projection. A complete profile requires a valid nonnull displayName; incomplete may have null or a valid name.
+ */
+export type ProfileView = {
+    /**
+     * Nonnull when profileComplete; already NFC and trim-stable with 1-80 Unicode scalar values and no Cc/Cf or unpaired surrogate.
+     */
+    displayName: string | null;
+    avatarColourToken: 'member.accent.01' | 'member.accent.02' | 'member.accent.03' | 'member.accent.04' | 'member.accent.05' | 'member.accent.06' | 'member.accent.07' | 'member.accent.08' | null;
+    avatarEmoji: '🙂' | '😀' | '😎' | '🌟' | '🌿' | '🐱' | '🦊' | '🦉' | null;
+    language: 'sv' | 'en';
+    theme: 'system' | 'light' | 'dark';
+    defaultCurrency: 'SEK';
+    profileComplete: boolean;
+};
+
+/**
+ * Explicit data choice after a persisted completed profile. A future trusted caller enforces that prerequisite; this component creates no household, membership or consent.
+ */
+export type JustMeChoice = {
+    mode: 'just-me';
+};
+
 export type HealthResponse = {
     status: 'ok';
 };

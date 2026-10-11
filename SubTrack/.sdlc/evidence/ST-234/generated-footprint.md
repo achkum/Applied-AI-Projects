@@ -1,0 +1,6 @@
+PRECODE private-TEMP measurement at HEAD 1ab4fc054b795d8ec4932742afd5099ce721dc17; proposal `author-readiness.md` blob 66c6f1e55fdee94289e274c98296c1ee2dd6617f; no source code edited.
+Candidate copies current OpenAPI and config, adding only ProfilePatch, ProfileView and JustMeChoice component schemas; existing `packages/contracts/node_modules/.bin/openapi-ts.cmd` v0.99.0 generated baseline and candidate in `%TEMP%/st234-footprint-8b18609401c0480491312484d4fcc939`.
+Accepted generated tree versus private baseline: all 16 files identical; no unrelated regeneration drift, file addition or removal.
+Candidate versus baseline: `generated/index.ts` +1/-1; `generated/types.gen.ts` +22/-0; `generated/zod.gen.ts` +66/-0; other 13 files identical; total generated diff +89/-1 = 90 changed lines.
+Complete PR projection: current metadata 104 (includes 12 readiness lines) + remaining author proposal 266 (OpenAPI 70, API_CONTRACT 25, ASSUMPTIONS 6, decoder/export 65, tests 100) + measured generated 90 + final reviews 18 + QA 10 + root margin 20 = 508 changed lines; author proposal 278 <=500, complete PR 508 <600 and <=750.
+This measures codegen footprint only; it does not establish runtime, test, SQL, dependency, approval or GO status. Re-measure if schemas or generator inputs change.

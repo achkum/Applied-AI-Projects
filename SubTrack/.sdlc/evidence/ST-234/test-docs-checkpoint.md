@@ -1,0 +1,3 @@
+ST-234 tests/docs checkpoint: `node --test packages/contracts/tests/profile.test.mjs` passed 4/4 after source import correction; independent assertions cover closed/authority-denying patch, canonical 80/81-scalar names, exact tokens/emoji, completion, defaults, locale, and explicit Just me data.
+Installed Zod 4.6.5 accepts 80 astral scalars and rejects 81; generated Zod still accepts empty patch, decomposed name, and complete view with null name, so exported strict parsers are the semantic boundary.
+API_CONTRACT and ASSUMPTIONS record private component scope and Assumed precision; no endpoint, runtime, account, storage, household, or consent activation is claimed. Root owns integrated checks and acceptance.

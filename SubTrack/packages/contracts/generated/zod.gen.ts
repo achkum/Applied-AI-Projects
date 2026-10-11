@@ -2,6 +2,81 @@
 
 import * as z from 'zod';
 
+/**
+ * Private profile data patch; no identity, owner, contact, provider, session or household authority. A later writer must scope it from trusted context.
+ */
+export const zProfilePatch = z.object({
+    displayName: z.string().min(1).max(80).optional(),
+    avatarColourToken: z.enum([
+        'member.accent.01',
+        'member.accent.02',
+        'member.accent.03',
+        'member.accent.04',
+        'member.accent.05',
+        'member.accent.06',
+        'member.accent.07',
+        'member.accent.08'
+    ]).nullish(),
+    avatarEmoji: z.enum([
+        '🙂',
+        '😀',
+        '😎',
+        '🌟',
+        '🌿',
+        '🐱',
+        '🦊',
+        '🦉'
+    ]).nullish(),
+    language: z.enum(['sv', 'en']).optional(),
+    theme: z.enum([
+        'system',
+        'light',
+        'dark'
+    ]).optional()
+}).strict();
+
+/**
+ * Closed private profile projection. A complete profile requires a valid nonnull displayName; incomplete may have null or a valid name.
+ */
+export const zProfileView = z.object({
+    displayName: z.string().min(1).max(80).nullable(),
+    avatarColourToken: z.enum([
+        'member.accent.01',
+        'member.accent.02',
+        'member.accent.03',
+        'member.accent.04',
+        'member.accent.05',
+        'member.accent.06',
+        'member.accent.07',
+        'member.accent.08'
+    ]).nullable(),
+    avatarEmoji: z.enum([
+        '🙂',
+        '😀',
+        '😎',
+        '🌟',
+        '🌿',
+        '🐱',
+        '🦊',
+        '🦉'
+    ]).nullable(),
+    language: z.enum(['sv', 'en']),
+    theme: z.enum([
+        'system',
+        'light',
+        'dark'
+    ]),
+    defaultCurrency: z.literal('SEK'),
+    profileComplete: z.boolean()
+}).strict();
+
+/**
+ * Explicit data choice after a persisted completed profile. A future trusted caller enforces that prerequisite; this component creates no household, membership or consent.
+ */
+export const zJustMeChoice = z.object({
+    mode: z.literal('just-me')
+}).strict();
+
 export const zHealthResponse = z.object({
     status: z.literal('ok')
 });
