@@ -144,7 +144,10 @@ test('production contract preserves approved operational and privacy routes', ()
       ['POST /v2/auth/enrollment/complete', 'unavailable-default'],
       ['POST /v2/auth/enrollment/pending', 'unavailable-default'],
       ['POST /v2/auth/enrollment/simulator/verify', 'unavailable-default'],
+      ['POST /v2/me/mode', 'unavailable-default'],
+      ['POST /v2/me/mode/read', 'unavailable-default'],
       ['POST /v2/subscriptions/{id}/read', 'unavailable-default'],
+      ['POST /v2/subscriptions/owner/read', 'unavailable-default'],
     ]);
     const lifecyclePatch = document.paths['/v1/subscriptions/{id}'].patch;
     assert.match(lifecyclePatch.description, /Reject every query parameter with 400, including unknown parameters/);

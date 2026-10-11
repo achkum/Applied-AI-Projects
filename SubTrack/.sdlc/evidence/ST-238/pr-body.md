@@ -6,7 +6,8 @@ Default routes remain unavailable; the opt-in loopback TLS graph is private deve
 
 Validation currently completed:
 - Focused API handler and strict contract tests, client journey/decoder/UI tests, public money formatter test, TypeScript checks, lint and bilingual catalog parity passed.
+- C1 stopped before private database/browser proof at Next money-entry resolution and failed three contract compatibility assertions. The narrow formatter subpath now passes a full Next production build; the corrected exhaustive route classification and portable bundle test pass all 27 contract tests plus the Zod fixture check. C1 remains unaccepted; fresh C2 hosted results are pending.
 - Independent client/design, platform/security and QA source reviews approved the scoped source; actual acceptance remains pending.
-- Actual proof covers natural profile, partial credential stop, empty owner list, paginated list/detail/status, and uncertain mode/status responses in separate fresh fixtures for all four sv/en light/dark variants.
+- The required actual proof exercises natural profile, partial credential stop, empty owner list, paginated list/detail/status, and uncertain mode/status responses in separate fresh fixtures for all four sv/en light/dark variants. These new private cases have not yet passed hosted execution.
 
 Required before merge: final proof source review, actual PostgreSQL/HTTPS/browser results and synthetic screenshots at this head, independent actual QA and visual acceptance, all applicable CI and Conductor exact-head audit. This draft is not ready to merge and does not claim unrun proofs passed.

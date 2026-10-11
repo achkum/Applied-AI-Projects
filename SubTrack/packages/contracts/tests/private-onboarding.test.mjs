@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const moduleUrl = new URL('../private-onboarding.ts', import.meta.url).href;
@@ -17,7 +18,7 @@ const owner = { visibility: 'owner', id, customName: 'Example', merchantId: null
   currency: 'SEK', nextChargeDate: '2026-10-11', alwaysPrivate: false };
 
 test('private HTTPS contract keeps default routes unavailable and freezes owner-only response matrix', () => {
-  const root = resolve(new URL('..', import.meta.url).pathname.slice(1));
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   const dir = mkdtempSync(join(tmpdir(), 'st238-contract-'));
   try {
     const output = join(dir, 'openapi.json');
@@ -28,8 +29,18 @@ test('private HTTPS contract keeps default routes unavailable and freezes owner-
     const paths = doc.paths;
     for (const path of ['/v2/me/mode', '/v2/me/mode/read', '/v2/subscriptions/owner/read'])
       assert.equal(paths[path].post['x-runtime-availability'], 'unavailable-default');
+    for (const path of ['/v2/me/mode', '/v2/me/mode/read']) {
+      const operation = paths[path].post;
+      assert.deepEqual(Object.keys(operation.responses), ['200', '400', '401', '403', '409', '500']);
+      assert.deepEqual(operation.responses['200'], { $ref: '#/components/responses/BrowserModeView' });
+      for (const status of ['400', '401', '403', '409', '500'])
+        assert.deepEqual(operation.responses[status], { $ref: '#/components/responses/BrowserModeProblem' });
+    }
     const list = paths['/v2/subscriptions/owner/read'].post;
+    assert.deepEqual(Object.keys(list.responses), ['200', '400', '401', '403', '409', '500']);
     assert.deepEqual(list.responses['200'], { $ref: '#/components/responses/PrivateOwnerPage' });
+    for (const status of ['400', '401', '403', '409', '500'])
+      assert.deepEqual(list.responses[status], { $ref: '#/components/responses/PrivateSubscriptionProblem' });
     assert.match(JSON.stringify(doc.components.schemas.PrivateOwnerPage), /SubscriptionOwnerView|"visibility"/);
     assert.equal(doc.components.schemas.PrivateOwnerPage.properties.items.maxItems, 50);
     for (const [path, verb, success] of [
