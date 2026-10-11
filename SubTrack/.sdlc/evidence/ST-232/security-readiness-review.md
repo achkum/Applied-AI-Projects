@@ -1,0 +1,9 @@
+# ST232 independent security readiness — APPROVE
+Reviewed HEAD25b1767012db0226bf7cc32218a73ab6a807d457 and author-readiness blobfd65c8c789d08c9bb968d3b5ae73c8e0c4e1aafb; independent of author, preimplementation only.
+Read AGENTS/governance/ST232, ADR0026/0027/0028, IdentityResult, simulator/service/module and registered-login producer/spec; platform readiness agrees on the same narrow boundary.
+Fixed synthetic Alice givenName/surname from a frozen trusted descriptor satisfy the names prerequisite without arbitrary full-name parsing or invented real BankID fields; preserve legacy IdentityResult/verify/v1.
+Private zero-argument verifier, explicit development+enabled opt-in and independently copied >=32-byte key preserve server fixture authority; default unregistered/no barrel/wiring, no client subject/names/result or injected provider.
+No proof/identity/session/account mutation or OTP-to-login conversion is authorized; existing registered-login and restricted OTP purpose regressions remain required.
+Planned defensive descriptor snapshots/options copies, frozen scalar results, canonical bounded timestamps and instance-wide monotonic pre/post-await checks including concurrency are adequate; actual source must reject invalid options/extra inputs/results without getter execution or secret-bearing errors.
+Require independent HMAC/names assertions, mutation/environment/key/input/malformed-result/clock/await-boundary/concurrency/diagnostic tests, legacy regressions, >=80% new-runtime coverage in all metrics and full security-branch coverage.
+No readiness blocker found; runtime100+specs220+readiness12+handoff18 projection fits author350/total600. Actual source security/platform review, fresh QA and applicable exact-head CI remain mandatory; no account/SQL/public/provider/deployment approval. Retain original M120attempt1 and context20calls/30min STOP; no tests/heavy jobs run.

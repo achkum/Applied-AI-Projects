@@ -1,0 +1,9 @@
+# ST232 independent platform readiness — APPROVE
+Reviewed HEAD25b1767012db0226bf7cc32218a73ab6a807d457 and author-readiness blobfd65c8c789d08c9bb968d3b5ae73c8e0c4e1aafb before implementation; reviewer is independent of author.
+Read AGENTS, Constitution/Decision Rules/Team/quality/agent contracts, ST232, ADR0026/0027/0028, IdentityResult, legacy simulator/service tests and registered-login producer/spec.
+Additive readonly result and frozen fixed Alice givenName/surname descriptor meet ADR0026 prerequisite without full-name parsing, invented real-provider fields or changing legacy IdentityResult/verify.
+Separate zero-input verifier with explicit development+enabled gates and independently copied >=32-byte key preserves private fixture authority; no default registration/barrel/wiring or client subject/names/provider injection.
+Existing login producer and restricted OTP purposes remain unchanged; verifier has no proof/identity/session/account/SQL mutation and generic failures disclose no dependency details.
+Planned descriptor-based result snapshots, immutable scalar output, bounded canonical time and instance-monotonic pre/post-await clock checks including concurrency are appropriate; verify stale/future/300000ms boundaries in implementation review.
+Independent HMAC/name assertions, mutation/input/key/environment/clock/concurrency/malformed-result/diagnostic tests plus legacy regressions are sufficient readiness scope; new runtime >=80% all metrics and security branches fully covered remain required evidence.
+Projection runtime100+specs220+readiness12+handoff18=author350 fits total600 with independent receipts; retain original M120attempt1/context20calls-or30min STOP, root heavy-job token and later independent source review/fresh QA/exact-head CI. This approves readiness only, not implemented-source QA or account readiness.
