@@ -8,6 +8,8 @@ const DIGEST = /^[a-f0-9]{64}$/;
 const CHAIN = /^[A-Za-z0-9_-]{1,256}$/;
 const ROLE = 'subtrack_dev_auth_login';
 const BUSINESS_SQL = /^(?:SELECT\b|INSERT\s+INTO\b|UPDATE\b|DELETE\s+FROM\b)/i;
+const OPERATION = /^[A-Za-z][A-Za-z0-9_]*$/;
+const FORBIDDEN_SQL = /;|--|\/\*|\*\/|["'`]|\b(?:set_config|current_setting|setval|setrole|set_role|pg_advisory|dblink|copy|execute|prepare|deallocate|begin|commit|rollback|savepoint|reset|discard|listen|notify|security_definer)\b/i;
 
 export type CurrentWebRequest = Readonly<{
   accessToken: string;
@@ -19,9 +21,9 @@ export type CurrentWebRequest = Readonly<{
 
 export type CurrentWebOwner = Readonly<{ identityId: string; sessionId: string }>;
 
-/** Its query method becomes unusable as soon as the callback finishes. */
+/** Only server-composition-owned named statements are available during the callback. */
 export interface OwnerTx {
-  query<R extends QueryResultRow = QueryResultRow>(sql: string, values?: unknown[]): Promise<QueryResult<R>>;
+  execute<R extends QueryResultRow = QueryResultRow>(operationName: string, values: readonly unknown[]): Promise<QueryResult<R>>;
 }
 
 export type DurableCurrentWebConfig = Readonly<{
@@ -30,6 +32,8 @@ export type DurableCurrentWebConfig = Readonly<{
   origin: string;
   epoch: string;
   manifestHash: string;
+  /** Audited parameterized SQL literals supplied by trusted server composition, never request data. */
+  businessStatements: Readonly<Record<string, string>>;
   observedMs?: (() => number) | undefined;
 }>;
 
@@ -66,6 +70,7 @@ export class DurableCurrentWebAuthority {
   private readonly config: DurableCurrentWebConfig;
   private readonly clock: () => number;
   private readonly verifyToken: V2AccessToken['verify'];
+  private readonly businessStatements: Readonly<Record<string, string>>;
 
   constructor(config: DurableCurrentWebConfig) {
     if (process.env.NODE_ENV !== 'development' || config.origin !== 'https://st233a.invalid' ||
@@ -73,6 +78,15 @@ export class DurableCurrentWebAuthority {
       !config.pool || typeof config.pool.connect !== 'function' || !config.accessTokens ||
       typeof config.accessTokens.verify !== 'function' ||
       (config.observedMs !== undefined && typeof config.observedMs !== 'function')) unavailable();
+    if (!config.businessStatements || typeof config.businessStatements !== 'object') unavailable();
+    const statements: Record<string, string> = Object.create(null) as Record<string, string>;
+    for (const [name, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(config.businessStatements))) {
+      const sql: unknown = descriptor.value;
+      if (!OPERATION.test(name) || !('value' in descriptor) || typeof sql !== 'string' ||
+        !BUSINESS_SQL.test(sql.trimStart()) || FORBIDDEN_SQL.test(sql)) unavailable();
+      statements[name] = sql;
+    }
+    this.businessStatements = Object.freeze(statements);
     this.config = Object.freeze({ ...config, pool: Object.freeze({ connect: config.pool.connect.bind(config.pool) }) });
     this.clock = config.observedMs ?? Date.now;
     this.verifyToken = config.accessTokens.verify.bind(config.accessTokens);
@@ -161,11 +175,11 @@ export class DurableCurrentWebAuthority {
       let active = true;
       let pending = 0;
       const tx: OwnerTx = Object.freeze({
-        query: async <R extends QueryResultRow = QueryResultRow>(sql: string, values?: unknown[]): Promise<QueryResult<R>> => {
-          if (!active || typeof sql !== 'string' || !BUSINESS_SQL.test(sql.trimStart()) ||
-            /;|--|\/\*|\*\/|\bset_config\s*\(/i.test(sql)) unavailable();
+        execute: async <R extends QueryResultRow = QueryResultRow>(operationName: string, values: readonly unknown[]): Promise<QueryResult<R>> => {
+          if (!active || typeof operationName !== 'string' || !Object.hasOwn(this.businessStatements, operationName) ||
+            !Array.isArray(values)) unavailable();
           pending += 1;
-          try { return await client.query<R>(sql, values); }
+          try { return await client.query<R>(this.businessStatements[operationName]!, [...values]); }
           finally { pending -= 1; }
         },
       });

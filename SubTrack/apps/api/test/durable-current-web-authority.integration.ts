@@ -23,8 +23,14 @@ const actor = new Pool({ ...common, user: 'subtrack_dev_auth_login', password: S
 const owner = new Pool({ ...common, user: 'st233a_fixture_owner', password: String(db.ownerPassword), max: 2 });
 const { privateKey, publicKey } = generateKeyPairSync('ed25519');
 const tokens = new V2AccessToken({ environment: 'development', enabled: true, privateKey, publicKey, clock: Date.now });
+const businessStatements = {
+  touchOwnIdentity: 'UPDATE public.identity SET external_id=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2',
+  touchOwnIdentityPlain: 'UPDATE public.identity SET external_id=$1 WHERE id=$2',
+  ownIdentityIds: 'SELECT id FROM public.identity ORDER BY id',
+  crossOwnerTouch: 'UPDATE public.identity SET external_id=$1 WHERE id=$2 RETURNING id',
+};
 const authority = (options: { epoch?: string; manifestHash?: string; observedMs?: () => number } = {}) =>
-  new DurableCurrentWebAuthority({ pool: actor, accessTokens: tokens, origin,
+  new DurableCurrentWebAuthority({ pool: actor, accessTokens: tokens, origin, businessStatements,
     epoch: options.epoch ?? epoch, manifestHash: options.manifestHash ?? manifestHash, observedMs: options.observedMs });
 const fail = async (operation: () => Promise<unknown>, label: string) => {
   try { await operation(); } catch (error) {
@@ -38,20 +44,30 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function seed(label: string) {
   const identityId = randomUUID();
+  await query('INSERT INTO public.identity(id,external_id,auth_method,updated_at) VALUES ($1,$2,\'MOCK\',CURRENT_TIMESTAMP)',
+    [identityId, `st235-${label}`]);
+  return seedForOwner(identityId, label);
+}
+
+async function seedForOwner(identityId: string, label: string) {
+  const staged = await stageForOwner(identityId, label);
+  const issued = await staged.fixture.issueFixture();
+  return { identityId, nonce: staged.nonce, chain: staged.chain, ...issued,
+    request: { accessToken: issued.accessToken, exactOrigin: origin, bindingCookie: staged.bindingCookie,
+      browserChainId: staged.chain, csrfToken: issued.csrfToken } };
+}
+
+async function stageForOwner(identityId: string, label: string, fixturePool: Pick<Pool, 'connect'> = owner) {
   const nonce = randomBytes(32).toString('base64url');
   const bindingCookie = randomBytes(32).toString('base64url');
   const chain = `st235-${label}-${randomUUID()}`;
   const ms = Date.now();
-  await query('INSERT INTO public.identity(id,external_id,auth_method,updated_at) VALUES ($1,$2,\'MOCK\',CURRENT_TIMESTAMP)',
-    [identityId, `st235-${label}`]);
   await query(`INSERT INTO subtrack_auth.nonce(nonce_h,transport,origin,chain,binding_h,epoch,issued_ms,expires_ms,purpose,authority_h)
     VALUES ($1,'web',$2,$3,$4,$5,$6,$7,'session',NULL)`,
     [hashDurableFixtureNonce(nonce), origin, chain, hashBrowserBindingCookie(bindingCookie), epoch, ms - 1000, ms + 299000]);
-  const fixture = createDurableCurrentWebFixture({ pool: owner, accessTokens: tokens, origin, epoch, manifestHash,
+  const fixture = createDurableCurrentWebFixture({ pool: fixturePool, accessTokens: tokens, origin, epoch, manifestHash,
     ownerId: identityId, nonce, chain, bindingCookie });
-  const issued = await fixture.issueFixture();
-  return { identityId, nonce, chain, ...issued,
-    request: { accessToken: issued.accessToken, exactOrigin: origin, bindingCookie, browserChainId: chain, csrfToken: issued.csrfToken } };
+  return { nonce, chain, bindingCookie, fixture };
 }
 
 async function ordinaryReset() {
@@ -85,7 +101,7 @@ async function holdMutation(
     }) as PoolClient['query'];
     return { query, release: (error?: Error) => client.release(error) } as PoolClient;
   } };
-  const gated = new DurableCurrentWebAuthority({ pool: gatedPool, accessTokens: tokens, origin, epoch, manifestHash });
+  const gated = new DurableCurrentWebAuthority({ pool: gatedPool, accessTokens: tokens, origin, epoch, manifestHash, businessStatements });
   const operationResult = (operation === 'revoke' ? gated.revokeCurrent(request) : gated.replaceCurrentCsrf(request));
   return { enteredGate, release, operationResult };
 }
@@ -123,7 +139,7 @@ async function restartChild() {
   const signingKey = createPrivateKey(data.key);
   const sameKeyTokens = new V2AccessToken({ environment: 'development', enabled: true,
     privateKey: signingKey, publicKey: createPublicKey(signingKey), clock: Date.now });
-  const fresh = new DurableCurrentWebAuthority({ pool: actor, accessTokens: sameKeyTokens, origin, epoch, manifestHash });
+  const fresh = new DurableCurrentWebAuthority({ pool: actor, accessTokens: sameKeyTokens, origin, epoch, manifestHash, businessStatements });
   await fresh.withCurrentWebAuthority(data.current, async () => true);
   await fail(() => fresh.withCurrentWebAuthority(data.revoked, async () => true), 'restart-revoked');
   await fail(() => fresh.withCurrentWebAuthority(data.oldCsrf, async () => true), 'restart-old-csrf');
@@ -189,21 +205,35 @@ async function main() {
   const web = authority();
   const write = (value: string) => web.withCurrentWebAuthority(a.request, async (tx, principal) => {
     if (principal.identityId !== a.identityId) throw Error('wrong-principal');
-    await tx.query('UPDATE public.identity SET external_id=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2', [value, a.identityId]);
+    await tx.execute('touchOwnIdentity', [value, a.identityId]);
     return value;
   });
   if (await write('st235-committed') !== 'st235-committed') throw Error('commit-result');
   const persisted = await query('SELECT external_id FROM public.identity WHERE id=$1', [a.identityId]);
   if (persisted.rows[0]?.external_id !== 'st235-committed') throw Error('commit-missing');
+  // Neither an unknown name nor SQL disguised as a name can reach PostgreSQL.
+  await fail(() => web.withCurrentWebAuthority(a.request, tx => tx.execute('notRegistered', [])), 'unknown-business-name');
+  await fail(() => web.withCurrentWebAuthority(a.request, tx =>
+    tx.execute("SELECT pg_catalog.set_config('app.user_id','00000000-0000-0000-0000-000000000000',true)", [])), 'quoted-set-config-name');
+  if ((await query('SELECT external_id FROM public.identity WHERE id=$1', [a.identityId])).rows[0]?.external_id !== 'st235-committed')
+    throw Error('unregistered-business-write');
+  const mutableStatements = { ...businessStatements };
+  const copied = new DurableCurrentWebAuthority({ pool: actor, accessTokens: tokens, origin, epoch, manifestHash,
+    businessStatements: mutableStatements });
+  mutableStatements.touchOwnIdentityPlain = 'UPDATE public.identity SET external_id=$1 WHERE id=$2 AND id<>$2';
+  await copied.withCurrentWebAuthority(a.request, tx => tx.execute('touchOwnIdentityPlain', ['st235-copy-proof', a.identityId]));
+  if ((await query('SELECT external_id FROM public.identity WHERE id=$1', [a.identityId])).rows[0]?.external_id !== 'st235-copy-proof')
+    throw Error('registry-not-copied');
+  await copied.withCurrentWebAuthority(a.request, tx => tx.execute('touchOwnIdentityPlain', ['st235-committed', a.identityId]));
   await fail(() => web.withCurrentWebAuthority(a.request, async (tx) => {
-    await tx.query('UPDATE public.identity SET external_id=$1 WHERE id=$2', ['st235-rolled-back', a.identityId]);
+    await tx.execute('touchOwnIdentityPlain', ['st235-rolled-back', a.identityId]);
     throw Error('known-rollback');
   }), 'callback-rollback');
   if ((await query('SELECT external_id FROM public.identity WHERE id=$1',[a.identityId])).rows[0]?.external_id !== 'st235-committed') throw Error('rollback-write');
   await web.withCurrentWebAuthority(b.request, async tx => {
-    const rows = await tx.query('SELECT id FROM public.identity ORDER BY id');
+    const rows = await tx.execute('ownIdentityIds', []);
     if (rows.rows.length !== 1 || rows.rows[0]?.id !== b.identityId) throw Error('A-B-RLS');
-    const cross = await tx.query('UPDATE public.identity SET external_id=$1 WHERE id=$2 RETURNING id', ['cross',a.identityId]);
+    const cross = await tx.execute('crossOwnerTouch', ['cross',a.identityId]);
     if (cross.rowCount !== 0) throw Error('A-B-update');
   });
   const bad = [
@@ -232,7 +262,7 @@ async function main() {
     const first = await reusePool.connect();
     const backend = (await first.query('SELECT pg_catalog.pg_backend_pid() AS pid')).rows[0]?.pid;
     first.release();
-    const reused = new DurableCurrentWebAuthority({ pool: reusePool, accessTokens: tokens, origin, epoch, manifestHash });
+    const reused = new DurableCurrentWebAuthority({ pool: reusePool, accessTokens: tokens, origin, epoch, manifestHash, businessStatements });
     await reused.withCurrentWebAuthority(a.request, async () => true);
     const afterSuccess = await reusePool.connect();
     try {
@@ -259,7 +289,7 @@ async function main() {
   const enteredGate = new Promise<void>(resolve => { entered = resolve; });
   const holdGate = new Promise<void>(resolve => { release = resolve; });
   const held = web.withCurrentWebAuthority(a.request, async tx => {
-    await tx.query('UPDATE public.identity SET external_id=$1 WHERE id=$2', ['st235-held',a.identityId]);
+    await tx.execute('touchOwnIdentityPlain', ['st235-held',a.identityId]);
     entered(); await holdGate;
   });
   await enteredGate;
@@ -287,6 +317,41 @@ async function main() {
   await web.withCurrentWebAuthority({ ...c.request, csrfToken: nextCsrf }, async () => true);
   await ordinaryReset();
 
+  // Fixture issuance holds the epoch before requesting this same owner's row.
+  // Runtime must wait on that epoch and both calls must finish without a lock cycle.
+  let fixtureEpochEntered = () => {};
+  let releaseFixtureEpoch = () => {};
+  const fixtureEpochGate = new Promise<void>(resolve => { fixtureEpochEntered = resolve; });
+  const fixtureHoldGate = new Promise<void>(resolve => { releaseFixtureEpoch = resolve; });
+  let fixtureEpochSeen = false;
+  const gatedFixturePool = { connect: async () => {
+    const client = await owner.connect();
+    const gatedQuery: PoolClient['query'] = ((sql: string, values?: unknown[]) => {
+      if (sql.startsWith('SELECT id FROM public.identity') && !fixtureEpochSeen) throw Error('fixture-identity-before-epoch');
+      const result = client.query(sql, values);
+      if (sql.startsWith('SELECT id FROM subtrack_auth.epoch')) {
+        return result.then(async rows => { fixtureEpochSeen = true; fixtureEpochEntered(); await fixtureHoldGate; return rows; });
+      }
+      return result;
+    }) as PoolClient['query'];
+    return { query: gatedQuery, release: (error?: Error) => client.release(error) } as PoolClient;
+  } };
+  const stagedSameOwner = await stageForOwner(c.identityId, 'same-owner-race', gatedFixturePool);
+  const issuingSameOwner = stagedSameOwner.fixture.issueFixture();
+  await Promise.race([fixtureEpochGate, issuingSameOwner.then(
+    () => { throw Error('fixture-before-epoch-gate'); }, () => { throw Error('fixture-before-epoch-gate'); },
+  )]);
+  let runtimeFinished = false;
+  const concurrentRuntime = web.withCurrentWebAuthority({ ...c.request, csrfToken: nextCsrf }, async () => {
+    runtimeFinished = true;
+  });
+  await delay(100);
+  if (runtimeFinished) throw Error('runtime-passed-held-fixture-epoch');
+  releaseFixtureEpoch();
+  const [issuedSameOwner] = await Promise.all([issuingSameOwner, concurrentRuntime]);
+  if (!issuedSameOwner.accessToken || !runtimeFinished) throw Error('fixture-runtime-lock-order');
+  await ordinaryReset();
+
   // Reverse order: a committed revoke invalidates a writer that waited behind it.
   const reverseRevoke = await seed('reverse-revoke');
   const revokeFirst = await holdMutation(reverseRevoke.request, 'revoke');
@@ -295,7 +360,7 @@ async function main() {
   )]);
   let revokeWriterDone = false;
   const revokeWriter = web.withCurrentWebAuthority(reverseRevoke.request, async tx => {
-    await tx.query('UPDATE public.identity SET external_id=$1 WHERE id=$2', ['st235-reverse-leak', reverseRevoke.identityId]);
+    await tx.execute('touchOwnIdentityPlain', ['st235-reverse-leak', reverseRevoke.identityId]);
   }).then(() => { revokeWriterDone = true; throw Error('post-revoke-write'); }, () => { revokeWriterDone = true; });
   await delay(100);
   if (revokeWriterDone) throw Error('writer-passed-held-revoke');
@@ -310,7 +375,7 @@ async function main() {
   )]);
   let csrfWriterDone = false;
   const csrfWriter = web.withCurrentWebAuthority(reverseCsrf.request, async tx => {
-    await tx.query('UPDATE public.identity SET external_id=$1 WHERE id=$2', ['st235-old-csrf-leak', reverseCsrf.identityId]);
+    await tx.execute('touchOwnIdentityPlain', ['st235-old-csrf-leak', reverseCsrf.identityId]);
   }).then(() => { csrfWriterDone = true; throw Error('old-csrf-write'); }, () => { csrfWriterDone = true; });
   await delay(100);
   if (csrfWriterDone) throw Error('writer-passed-held-csrf');
@@ -341,9 +406,9 @@ async function main() {
     }) as PoolClient['query'];
     return client;
   } };
-  const uncertainAuthority = new DurableCurrentWebAuthority({ pool: lostAckPool, accessTokens: tokens, origin, epoch, manifestHash });
+  const uncertainAuthority = new DurableCurrentWebAuthority({ pool: lostAckPool, accessTokens: tokens, origin, epoch, manifestHash, businessStatements });
   await fail(() => uncertainAuthority.withCurrentWebAuthority(uncertain.request, async tx => {
-    await tx.query('UPDATE public.identity SET external_id=$1 WHERE id=$2', ['st235-uncertain-write', uncertain.identityId]);
+    await tx.execute('touchOwnIdentityPlain', ['st235-uncertain-write', uncertain.identityId]);
     return { privateResult: 'must-not-disclose' };
   }), 'unknown-commit');
   if (commits !== 1) throw Error('unknown-commit-retry');
@@ -356,7 +421,7 @@ async function main() {
   await fail(() => restarted.withCurrentWebAuthority(expired.request, async () => true), 'expired-csrf');
   const expiredSignedToken = new V2AccessToken({ environment: 'development', enabled: true, privateKey, publicKey,
     clock: () => Date.now() + 901_000 });
-  const expiredAuthority = new DurableCurrentWebAuthority({ pool: actor, accessTokens: expiredSignedToken, origin, epoch, manifestHash });
+  const expiredAuthority = new DurableCurrentWebAuthority({ pool: actor, accessTokens: expiredSignedToken, origin, epoch, manifestHash, businessStatements });
   await fail(() => expiredAuthority.withCurrentWebAuthority({ ...reverseCsrf.request, csrfToken: replacement }, async () => true), 'expired-signed-token');
   await ordinaryReset();
   await actor.end(); await owner.end();

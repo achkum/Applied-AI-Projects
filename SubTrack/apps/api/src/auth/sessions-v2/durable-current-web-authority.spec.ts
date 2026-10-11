@@ -22,7 +22,9 @@ afterEach(() => {
   else process.env.NODE_ENV = priorNodeEnv;
 });
 
-type FakeOptions = Readonly<{ denied?: boolean; commitCommand?: string; releaseThrows?: boolean }>;
+type FakeOptions = Readonly<{ denied?: boolean; commitCommand?: string; releaseThrows?: boolean;
+  businessStatements?: Readonly<Record<string, string>> }>;
+const ownerUpdate = 'UPDATE public.identity SET updated_at=updated_at WHERE id=$1::uuid';
 function setup(options: FakeOptions = {}) {
   const calls: string[] = [];
   let role = 'subtrack_dev_auth_login';
@@ -45,25 +47,27 @@ function setup(options: FakeOptions = {}) {
   };
   const pool = { connect: async () => client } as unknown as Pick<Pool, 'connect'>;
   const authority = new DurableCurrentWebAuthority({ pool, accessTokens: tokens, origin,
-    epoch: 'epoch-1', manifestHash });
+    epoch: 'epoch-1', manifestHash, businessStatements: options.businessStatements ?? { ownerUpdate } });
   return { authority, calls };
 }
 
 describe('durable current web authority transaction', () => {
-  it('holds one connection and invalidates the owner query capability after known commit', async () => {
+  it('holds one connection and invalidates the named owner capability after known commit', async () => {
     const { authority, calls } = setup();
     let leaked: OwnerTx | undefined;
     const result = await authority.withCurrentWebAuthority(request, async (tx, witness) => {
       leaked = tx;
       expect(witness).toEqual({ identityId: owner, sessionId: session });
-      await tx.query('UPDATE public.identity SET updated_at=updated_at WHERE id=$1::uuid', [owner]);
+      await tx.execute('ownerUpdate', [owner]);
       return 'committed';
     });
     expect(result).toBe('committed');
     expect(calls.filter((sql) => sql.includes('check_current_web'))).toHaveLength(2);
     expect(calls.indexOf('COMMIT')).toBeGreaterThan(calls.findIndex((sql) => sql.startsWith('UPDATE')));
     expect(calls.at(-1)).toBe('release');
-    await expect(leaked!.query('SELECT 1')).rejects.toThrow('Current web session unavailable');
+    await expect(leaked!.execute('ownerUpdate', [owner])).rejects.toThrow('Current web session unavailable');
+    const escapedExecute = leaked!.execute;
+    await expect(escapedExecute('ownerUpdate', [owner])).rejects.toThrow('Current web session unavailable');
   });
 
   it('rejects bad envelope before checkout and denied checker before callback', async () => {
@@ -83,7 +87,7 @@ describe('durable current web authority transaction', () => {
   it('rolls back callback failure and refuses transaction control through OwnerTx', async () => {
     const first = setup();
     await expect(first.authority.withCurrentWebAuthority(request, async (tx) => {
-      await tx.query('COMMIT'); return 1;
+      await tx.execute('COMMIT', []); return 1;
     })).rejects.toThrow('Current web session unavailable');
     expect(first.calls).not.toContain('COMMIT');
     expect(first.calls).toContain('ROLLBACK');
@@ -91,6 +95,40 @@ describe('durable current web authority transaction', () => {
     await expect(second.authority.withCurrentWebAuthority(request, async () => { throw new Error('business failed'); }))
       .rejects.toThrow('Current web session unavailable');
     expect(second.calls).toContain('ROLLBACK');
+  });
+
+  it('rejects quoted GUC functions in the trusted registry and unknown callback names', async () => {
+    const pool = { connect: async () => { throw new Error('unexpected checkout'); } } as unknown as Pick<Pool, 'connect'>;
+    expect(() => new DurableCurrentWebAuthority({ pool, accessTokens: tokens, origin,
+      epoch: 'epoch-1', manifestHash, businessStatements: {
+        escape: 'SELECT pg_catalog."set_config"($1,$2,true)',
+      } })).toThrow('Current web session unavailable');
+    const { authority, calls } = setup();
+    await expect(authority.withCurrentWebAuthority(request, async (tx) => {
+      expect(Object.keys(tx)).toEqual(['execute']);
+      await tx.execute('SELECT pg_catalog."set_config"', ['app.user_id', owner]);
+    })).rejects.toThrow('Current web session unavailable');
+    expect(calls.some((sql) => sql.includes('"set_config"'))).toBe(false);
+    expect(calls).toContain('ROLLBACK');
+  });
+
+  it('copies own registry data at construction and keeps parameterized business writes', async () => {
+    const businessStatements = { ownerUpdate };
+    const { authority, calls } = setup({ businessStatements });
+    businessStatements.ownerUpdate = 'SELECT pg_catalog."set_config"($1,$2,true)';
+    const result = await authority.withCurrentWebAuthority(request, async tx => {
+      await tx.execute('ownerUpdate', [owner]);
+      return true;
+    });
+    expect(result).toBe(true);
+    expect(calls).toContain(ownerUpdate);
+    expect(calls).not.toContain(businessStatements.ownerUpdate);
+    const inherited = Object.create({ ownerUpdate }) as Record<string, string>;
+    expect(() => new DurableCurrentWebAuthority({ pool: { connect: async () => { throw new Error('unused'); } } as Pick<Pool, 'connect'>,
+      accessTokens: tokens, origin, epoch: 'epoch-1', manifestHash, businessStatements: inherited })).not.toThrow();
+    const accessor = Object.defineProperty({}, 'ownerUpdate', { enumerable: true, get: () => ownerUpdate });
+    expect(() => new DurableCurrentWebAuthority({ pool: { connect: async () => { throw new Error('unused'); } } as Pick<Pool, 'connect'>,
+      accessTokens: tokens, origin, epoch: 'epoch-1', manifestHash, businessStatements: accessor })).toThrow('Current web session unavailable');
   });
 
   it('does not disclose result when COMMIT resolves as ROLLBACK', async () => {
@@ -112,13 +150,40 @@ describe('durable current web authority transaction', () => {
     expect(second.calls.some((sql) => sql.includes('revoke_current'))).toBe(true);
   });
 
+  it('locks fixture epoch before owner and nonce on one connection', async () => {
+    const calls: string[] = [];
+    const client = {
+      async query(sql: string) {
+        calls.push(sql);
+        if (sql.includes('session_user::text')) return { rows: [{ session_user: 'st233a_fixture_owner',
+          current_user: 'st233a_fixture_owner', user_id: '', current_user_id: '' }], command: 'SELECT' };
+        if (sql.includes('subtrack_auth.issue_fixture')) return { rows: [{ ok: true }], command: 'SELECT' };
+        if (sql.startsWith('SELECT')) return { rows: [{ id: owner }], command: 'SELECT' };
+        return { rows: [], command: sql === 'COMMIT' ? 'COMMIT' : 'BEGIN' };
+      },
+      release() { calls.push('release'); },
+    };
+    const pool = { connect: async () => client } as unknown as Pick<Pool, 'connect'>;
+    const fixture = createDurableCurrentWebFixture({ pool, accessTokens: tokens, origin,
+      epoch: 'epoch-1', manifestHash, ownerId: owner, nonce: request.csrfToken,
+      chain: request.browserChainId, bindingCookie: request.bindingCookie });
+    await fixture.issueFixture();
+    const epochIndex = calls.findIndex(sql => sql.includes('FROM subtrack_auth.epoch'));
+    const ownerIndex = calls.findIndex(sql => sql.includes('FROM public.identity'));
+    const nonceIndex = calls.findIndex(sql => sql.includes('FROM subtrack_auth.nonce'));
+    expect(epochIndex).toBeGreaterThan(calls.indexOf('BEGIN ISOLATION LEVEL READ COMMITTED'));
+    expect(ownerIndex).toBeGreaterThan(epochIndex);
+    expect(nonceIndex).toBeGreaterThan(ownerIndex);
+  });
+
   it('rejects default and production construction before checkout, including fixture issuance', () => {
     let connects = 0;
     const pool = { connect: async () => { connects += 1; throw new Error('unreachable'); } } as unknown as Pick<Pool, 'connect'>;
     for (const environment of [undefined, 'production']) {
       if (environment === undefined) delete process.env.NODE_ENV;
       else process.env.NODE_ENV = environment;
-      expect(() => new DurableCurrentWebAuthority({ pool, accessTokens: tokens, origin, epoch: 'epoch-1', manifestHash }))
+      expect(() => new DurableCurrentWebAuthority({ pool, accessTokens: tokens, origin, epoch: 'epoch-1', manifestHash,
+        businessStatements: { ownerUpdate } }))
         .toThrow('Current web session unavailable');
       expect(() => createDurableCurrentWebFixture({ pool, accessTokens: tokens, origin,
         epoch: 'epoch-1', manifestHash, ownerId: owner, nonce: request.csrfToken,

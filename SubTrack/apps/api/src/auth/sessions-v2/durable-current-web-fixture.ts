@@ -69,6 +69,11 @@ export function createDurableCurrentWebFixture(config: DurableCurrentWebFixtureC
           (state.current_user_id !== null && state.current_user_id !== '')) fail();
         await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
         began = true;
+        // Match runtime's epoch-before-identity lock order on this same transaction.
+        const epoch = await client.query(`SELECT id FROM subtrack_auth.epoch
+          WHERE id=$1 AND manifest_h=$2::subtrack_auth.h AND origin=$3 AND state='active' FOR UPDATE`,
+        [captured.epoch, captured.manifestHash, captured.origin]);
+        if (epoch.rows.length !== 1) fail();
         const owner = await client.query('SELECT id FROM public.identity WHERE id=$1::uuid AND auth_method=\'MOCK\' AND deleted_at IS NULL FOR UPDATE', [captured.ownerId]);
         if (owner.rows.length !== 1) fail();
         const nonce = await client.query('SELECT nonce_h FROM subtrack_auth.nonce WHERE nonce_h=$1::subtrack_auth.h AND purpose=\'session\' AND origin=$2 AND chain=$3 AND binding_h=$4::subtrack_auth.h AND epoch=$5 FOR UPDATE',
