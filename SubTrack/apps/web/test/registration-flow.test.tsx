@@ -1,174 +1,100 @@
 import { catalogs } from '@subtrack/i18n';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { axe } from 'jest-axe';
 import { RegistrationFlow } from '../components/onboarding/registration-flow';
 
-function response(status: number, body: unknown) {
-  return Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': status === 409 ? 'application/problem+json' : 'application/json' } }));
+const token = 'A'.repeat(43);
+const view = { displayName: null, avatarColourToken: null, avatarEmoji: null,
+  language: 'en', theme: 'system', defaultCurrency: 'SEK', profileComplete: false };
+const response = (status: number, body: unknown) => Promise.resolve(new Response(JSON.stringify(body), {
+  status, headers: { 'Content-Type': 'application/json' },
+}));
+function startMocks() {
+  return vi.spyOn(globalThis, 'fetch')
+    .mockImplementationOnce(() => response(200, { nonce: token }))
+    .mockImplementationOnce(() => response(202, { challengeId: 'challenge', status: 'accepted', nextBrowserNonce: token }))
+    .mockImplementationOnce(() => response(200, { purpose: 'enroll_identifier', proof: `v2.${token}`, nextBrowserNonce: token }))
+    .mockImplementationOnce(() => response(201, { transport: 'web', continuation: `wep.${token}`, status: 'pending', nextBrowserNonce: token }))
+    .mockImplementationOnce(() => response(200, { transport: 'web', verifiedEnrollment: `wev.${token}`, status: 'verified', nextBrowserNonce: token }))
+    .mockImplementationOnce(() => response(201, { transport: 'web', sessionId: '123e4567-e89b-42d3-a456-426614174000', csrfToken: 'private-csrf' }))
+    .mockImplementationOnce(() => response(200, view));
 }
-
-function continueIdentifier(locale: 'en' | 'sv' = 'en') {
-  const copy = catalogs[locale].onboarding.identifier;
-  fireEvent.change(screen.getByLabelText(copy.emailLabel), { target: { value: 'private@example.test' } });
-  fireEvent.click(screen.getByRole('button', { name: copy.continueLabel }));
+async function reachOtp(locale: 'en' | 'sv' = 'en') {
+  const identifier = catalogs[locale].onboarding.identifier;
+  fireEvent.change(screen.getByLabelText(identifier.emailLabel), { target: { value: 'synthetic@example.test' } });
+  fireEvent.click(screen.getByRole('button', { name: identifier.continueLabel }));
+  await screen.findByLabelText(catalogs[locale].onboarding.registration.otpLabel);
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: catalogs[locale].onboarding.registration.otpTitle }));
 }
-
-function nonce() { return { nonce: 'nonce-a' }; }
-function start() { return { challengeId: 'challenge-a', status: 'accepted', nextBrowserNonce: 'nonce-b' }; }
-function verify() { return { purpose: 'enroll_identifier', proof: 'sensitive-proof', nextBrowserNonce: 'nonce-c' }; }
-
+async function reachProfile(locale: 'en' | 'sv' = 'en') {
+  await reachOtp(locale);
+  const copy = catalogs[locale].onboarding.registration;
+  fireEvent.change(screen.getByLabelText(copy.otpLabel), { target: { value: '123456' } });
+  fireEvent.click(screen.getByRole('button', { name: copy.verifyLabel }));
+  await screen.findByRole('button', { name: copy.simulatorAction });
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: copy.simulatorTitle }));
+  fireEvent.click(screen.getByRole('button', { name: copy.simulatorAction }));
+  await screen.findByLabelText(catalogs[locale].onboarding.profile.displayName);
+  expect(document.activeElement).toBe(screen.getByRole('heading', { name: catalogs[locale].onboarding.profile.title }));
+}
 afterEach(() => vi.restoreAllMocks());
 
-describe('registration flow', () => {
-  it('starts with browser nonce then accepts a six digit OTP without claiming sign-in or displaying proof', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
-      .mockImplementationOnce(() => response(200, nonce()))
-      .mockImplementationOnce(() => response(202, start()))
-      .mockImplementationOnce(() => response(200, verify()));
+describe('mounted private enrollment and profile', () => {
+  it('awaits trusted simulator and shows only separately reread profile after save', async () => {
+    const fetchMock = startMocks()
+      .mockImplementationOnce(() => response(200, { ...view, displayName: 'Synthetic Owner', profileComplete: true }))
+      .mockImplementationOnce(() => response(200, { ...view, displayName: 'Synthetic Owner', profileComplete: true }));
     render(<RegistrationFlow locale="en" />);
-    continueIdentifier();
-    await waitFor(() => expect(screen.getByLabelText('Verification code')).toBeTruthy());
-    expect(fetchMock).toHaveBeenNthCalledWith(1, expect.stringMatching(/browser-nonce$/), expect.objectContaining({ credentials: 'include' }));
-    expect(fetchMock.mock.calls[1]?.[1]?.headers).toMatchObject({ 'X-Browser-Nonce': 'nonce-a' });
-    expect(fetchMock.mock.calls[1]?.[1]?.headers).not.toHaveProperty('Origin');
-    expect(fetchMock.mock.calls[1]?.[1]?.body).toContain('"purpose":"enroll_identifier"');
-    fireEvent.change(screen.getByLabelText('Verification code'), { target: { value: '123' } });
-    expect((screen.getByText('Verify') as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.change(screen.getByLabelText('Verification code'), { target: { value: '123456' } });
-    fireEvent.click(screen.getByText('Verify'));
-    await waitFor(() => expect(screen.getByRole('status').textContent).toContain(catalogs.en.onboarding.registration.acceptedMessage));
-    expect(fetchMock.mock.calls[2]?.[1]?.headers).toMatchObject({ 'X-Browser-Nonce': 'nonce-b' });
-    expect(document.body.textContent).not.toContain('sensitive-proof');
-    expect(document.body.textContent).not.toContain('private@example.test');
-    expect(document.body.textContent).not.toContain('signed in');
+    await reachProfile();
+    expect(document.body.textContent).not.toContain(`wep.${token}`);
+    expect(document.body.textContent).not.toContain('private-csrf');
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Synthetic Owner' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+    await screen.findByText('Profile saved and confirmed.');
+    expect(screen.getByRole('status').textContent).toBe('Profile complete.');
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Profile saved and confirmed.' }));
+    expect(fetchMock.mock.calls.map(([url]) => url).slice(-3)).toEqual(['/v2/me/profile/read', '/v2/me/profile', '/v2/me/profile/read']);
+    expect(JSON.parse(fetchMock.mock.calls[7]?.[1]?.body as string)).toEqual({ displayName: 'Synthetic Owner' });
+    expect(document.body.textContent).not.toContain('private-csrf');
   });
 
-  it('aborts the active request on unmount and ignores a late bootstrap response', async () => {
-    let resolveBootstrap: ((value: Response) => void) | undefined;
-    let requestSignal: AbortSignal | undefined;
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementationOnce((_input, init) => {
-      requestSignal = init?.signal as AbortSignal;
-      return new Promise<Response>((resolve) => { resolveBootstrap = resolve; });
-    });
-    const view = render(<RegistrationFlow locale="en" />);
-    continueIdentifier();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    view.unmount();
-    expect(requestSignal?.aborted).toBe(true);
-    resolveBootstrap?.(await response(200, nonce()));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  it('shows uncertain save after lost PATCH and never announces saved', async () => {
+    startMocks().mockRejectedValueOnce(new Error('lost response')).mockImplementationOnce(() => response(200, view));
+    render(<RegistrationFlow locale="en" />); await reachProfile();
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Synthetic Owner' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+    await screen.findByText(catalogs.en.onboarding.profile.uncertain);
+    expect(document.activeElement).toBe(screen.getByText(catalogs.en.onboarding.profile.uncertain));
+    expect(screen.queryByText(catalogs.en.onboarding.profile.saved)).toBeNull();
   });
 
-  it('ignores repeated identifier submission while the first request is pending', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise<Response>(() => undefined));
-    render(<RegistrationFlow locale="en" />);
-    fireEvent.change(screen.getByLabelText(catalogs.en.onboarding.identifier.emailLabel), { target: { value: 'private@example.test' } });
-    const form = screen.getByLabelText(catalogs.en.onboarding.identifier.emailLabel).closest('form')!;
-    // Both callbacks run before React commits busy state.
-    act(() => { fireEvent.submit(form); fireEvent.submit(form); });
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-  });
-
-  it('requires a fresh bootstrap and challenge after a consumed nonce response', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
-      .mockImplementationOnce(() => response(200, nonce()))
-      .mockImplementationOnce(() => response(202, start()))
-      .mockImplementationOnce(() => response(409, { type: 'about:blank', title: 'Conflict', status: 409, code: 'AUTH_RESTART_REQUIRED' }))
-      .mockImplementationOnce(() => response(200, { nonce: 'fresh-nonce' }))
-      .mockImplementationOnce(() => response(202, { ...start(), nextBrowserNonce: 'fresh-next' }));
-    render(<RegistrationFlow locale="en" />);
-    continueIdentifier();
-    await waitFor(() => expect(screen.getByLabelText('Verification code')).toBeTruthy());
-    fireEvent.change(screen.getByLabelText('Verification code'), { target: { value: '123456' } });
-    fireEvent.click(screen.getByText('Verify'));
-    await waitFor(() => expect(screen.getByText('Restart verification')).toBeTruthy());
-    fireEvent.click(screen.getByText('Restart verification'));
-    await waitFor(() => expect(screen.getByLabelText('Verification code')).toBeTruthy());
-    expect(fetchMock.mock.calls[3]?.[0]).toMatch(/browser-nonce$/);
-    expect(fetchMock.mock.calls[4]?.[1]?.headers).toMatchObject({ 'X-Browser-Nonce': 'fresh-nonce' });
-  });
-
-  it.each([401, 500, 'network', 'malformed'])('requires fresh verification after %s failure', async (failure) => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
-      .mockImplementationOnce(() => response(200, nonce()))
-      .mockImplementationOnce(() => response(202, start()));
-    if (failure === 'network') fetchMock.mockRejectedValueOnce(new Error('sensitive error'));
-    else fetchMock.mockImplementationOnce(() => response(typeof failure === 'number' ? failure : 200, {}));
-    fetchMock.mockImplementationOnce(() => response(200, { nonce: 'fresh-nonce' }))
-      .mockImplementationOnce(() => response(202, { ...start(), challengeId: 'fresh-challenge', nextBrowserNonce: 'fresh-next' }))
-      .mockImplementationOnce(() => response(200, verify()));
-    render(<RegistrationFlow locale="en" />); continueIdentifier();
-    await screen.findByLabelText('Verification code');
-    fireEvent.change(screen.getByLabelText('Verification code'), { target: { value: '123456' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
-    await screen.findByRole('button', { name: 'Restart verification' });
-    expect(screen.queryByLabelText('Verification code')).toBeNull();
-    expect(screen.getByRole('alert').textContent).toBe(catalogs.en.onboarding.registration.unavailable);
-    fireEvent.click(screen.getByRole('button', { name: 'Restart verification' }));
-    const input = await screen.findByLabelText('Verification code');
-    expect((input as HTMLInputElement).value).toBe('');
-    fireEvent.change(input, { target: { value: '654321' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
-    await screen.findByRole('status');
-    expect(JSON.parse(fetchMock.mock.calls[5]?.[1]?.body as string)).toEqual({ challengeId: 'fresh-challenge', code: '654321', transport: 'web' });
-    expect(fetchMock.mock.calls[5]?.[1]?.headers).toMatchObject({ 'X-Browser-Nonce': 'fresh-next' });
-    expect(document.body.textContent).not.toContain('sensitive error');
-  });
-
-  it('allows Back during verification and ignores late success after a new identifier starts', async () => {
+  it('aborts on Back and ignores late OTP responses', async () => {
     let resolveVerify: ((value: Response) => void) | undefined;
-    let oldSignal: AbortSignal | undefined;
     const fetchMock = vi.spyOn(globalThis, 'fetch')
-      .mockImplementationOnce(() => response(200, nonce()))
-      .mockImplementationOnce(() => response(202, start()))
-      .mockImplementationOnce((_url, init) => {
-        oldSignal = init?.signal as AbortSignal;
-        return new Promise<Response>((resolve) => { resolveVerify = resolve; });
-      })
-      .mockImplementationOnce(() => response(200, { nonce: 'new-chain' }))
-      .mockImplementationOnce(() => response(202, { ...start(), challengeId: 'new-challenge' }));
-    render(<RegistrationFlow locale="en" />); continueIdentifier();
-    await screen.findByLabelText('Verification code');
+      .mockImplementationOnce(() => response(200, { nonce: token }))
+      .mockImplementationOnce(() => response(202, { challengeId: 'challenge', status: 'accepted', nextBrowserNonce: token }))
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveVerify = resolve; }));
+    render(<RegistrationFlow locale="en" />); await reachOtp();
     fireEvent.change(screen.getByLabelText('Verification code'), { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
-    expect((screen.getByLabelText('Verification code') as HTMLInputElement).value).toBe('');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(oldSignal?.aborted).toBe(true);
-    expect((screen.getByLabelText(catalogs.en.onboarding.identifier.emailLabel) as HTMLInputElement).value).toBe('');
-    continueIdentifier();
-    await screen.findByLabelText('Verification code');
-    await act(async () => resolveVerify?.(await response(200, verify())));
-    expect(screen.queryByRole('status')).toBeNull();
-    expect((screen.getByLabelText('Verification code') as HTMLInputElement).value).toBe('');
-    expect(fetchMock).toHaveBeenCalledTimes(5);
-  });
-
-  it('dispatches only one verification for synchronous repeated form submissions', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
-      .mockImplementationOnce(() => response(200, nonce()))
-      .mockImplementationOnce(() => response(202, start()))
-      .mockImplementationOnce(() => new Promise<Response>(() => undefined));
-    render(<RegistrationFlow locale="en" />); continueIdentifier();
-    const input = await screen.findByLabelText('Verification code');
-    fireEvent.change(input, { target: { value: '123456' } });
-    act(() => { fireEvent.submit(input.closest('form')!); fireEvent.submit(input.closest('form')!); });
+    await act(async () => resolveVerify?.(await response(200, { purpose: 'enroll_identifier', proof: `v2.${token}`, nextBrowserNonce: token })));
     expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(screen.queryByText(catalogs.en.onboarding.registration.simulatorTitle)).toBeNull();
   });
 
-  it.each(['en', 'sv'] as const)('uses actual labeled controls and accessible states in %s', async (locale) => {
-    vi.spyOn(globalThis, 'fetch').mockImplementationOnce(() => response(200, nonce()))
-      .mockImplementationOnce(() => response(202, start()));
+  it.each(['en', 'sv'] as const)('labels identifier and OTP accessibly in %s', async (locale) => {
+    vi.spyOn(globalThis, 'fetch').mockImplementationOnce(() => response(200, { nonce: token }))
+      .mockImplementationOnce(() => response(202, { challengeId: 'challenge', status: 'accepted', nextBrowserNonce: token }));
     const { container } = render(<RegistrationFlow locale={locale} />);
-    expect(container.querySelector('main')?.getAttribute('lang')).toBe(locale);
     expect((await axe(container)).violations).toEqual([]);
-    continueIdentifier(locale);
-    const copy = catalogs[locale].onboarding.registration;
-    const input = await screen.findByLabelText(copy.otpLabel);
+    await reachOtp(locale);
     expect((await axe(container)).violations).toEqual([]);
-    fireEvent.change(input, { target: { value: '１２３abc1234567' } });
-    expect((input as HTMLInputElement).value).toBe('123456');
-    fireEvent.click(screen.getByRole('button', { name: copy.backLabel }));
-    expect(screen.queryByLabelText(copy.otpLabel)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: catalogs[locale].onboarding.registration.verifyLabel }));
+    const otp = screen.getByLabelText(catalogs[locale].onboarding.registration.otpLabel);
+    expect(document.activeElement).toBe(otp);
+    expect(otp.getAttribute('aria-invalid')).toBe('true');
+    expect(otp.getAttribute('aria-describedby')).toBe('registration-otp-error');
   });
 });

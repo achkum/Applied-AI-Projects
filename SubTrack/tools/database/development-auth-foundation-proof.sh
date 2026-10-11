@@ -250,7 +250,7 @@ finish() {
   elif [[ "$phase" == peek || "$phase" == settle || "$phase" == nonce-prune || "$phase" == atomic-issue* ]]; then
     # Fixed labels describe the last assertion, not a proven failure cause.
     [[ "$phase" == atomic-issue-02 || "$phase" == atomic-issue-03 ]] || record_migration_failure
-    case "${timed_step:-}" in catalog|acl|negative|seed|holder-launch|holder-backend|target-valid|waiter-launch|waiter-backend|blocked-edge|snapshot|renew|expiry-wait|release-clock|release|join|client-logs|result|immutable|final-catalog|other|guard-operation|guard-sqlstate|guard-rollback|guard-catalog) ;; *) timed_step=unavailable ;; esac
+    case "${timed_step:-}" in catalog|guard-envelope|guard-parent|catalog-install|catalog-exact|null-rollback|acl|negative|seed|holder-launch|holder-backend|target-valid|waiter-launch|waiter-backend|blocked-edge|snapshot|renew|expiry-wait|release-clock|release|join|client-logs|result|immutable|final-catalog|other|guard-operation|guard-sqlstate|guard-rollback|guard-catalog) ;; *) timed_step=unavailable ;; esac
     case "${timed_case:-}" in none|epoch|capacity|cross-prune|reservation|compete-COMMIT|compete-ROLLBACK|expiry-epoch|expiry-advisory|expiry-row|settle-prune-COMMIT|settle-prune-ROLLBACK|prune-settle-COMMIT|prune-settle-ROLLBACK|expired-prune-COMMIT|expired-prune-ROLLBACK|graph-fk|parent-search-path|parent-public-execute|parent-body|nonce-update|nonce-select|executor-membership|reservation-constraint|constraint-pin|parent-fence|parent-peek|parent-reserve|parent-prune|parent-settle|parent-nonce-prune) ;; *) timed_case=unavailable ;; esac
     case "${timed_release:-}" in COMMIT|ROLLBACK|none) ;; *) timed_release=unavailable ;; esac
     case "${timed_failure_kind:-}" in operation|assertion|timeout|unexpected-state) ;; *) timed_failure_kind=unavailable ;; esac
@@ -262,6 +262,10 @@ finish() {
       timed_detail=" step=$timed_step case=$timed_case release=$timed_release failure_kind=$timed_failure_kind guard_client_sqlstate=$atomic_sqlstate guard_client_exit=$atomic_exit drift=$atomic_drift"
     else
       timed_detail=" step=$timed_step case=$timed_case release=$timed_release failure_kind=$timed_failure_kind last_client_sqlstate=$migration_sqlstate last_client_exit=$migration_exit"
+      if [[ "$phase" == nonce-prune ]]; then
+        case "${nonce_catalog_drift:-}" in none|physical-only|logical|unavailable) ;; *) nonce_catalog_drift=unavailable ;; esac
+        timed_detail+=" drift=$nonce_catalog_drift"
+      fi
     fi
   elif [[ "$phase" == durable-enrollment || "$phase" == enrollment-install || "$phase" == enrollment-audit ]]; then
     case "${enrollment_step:-}" in sql002|sql003|sql004|sql005|sql006|sql007|sql008|sql009|sql010|writer-acl|bundle|driver-create|driver-start|driver-wait|driver-exit|driver-custody|driver-result) ;; *) enrollment_step=unavailable ;; esac
@@ -754,7 +758,7 @@ for role in subtrack_runtime subtrack_auth_producer; do
   } > "$tmp/peek-null-fault.sql"
   if owner < "$tmp/peek-null-fault.sql"; then exit 1; fi
   grep -q 'ERROR:  22012' "$client_log" || exit 1
-  assert_owner "(SELECT md5(prosrc)='25e9a0516ed61e024d99e51cd83b2ee0' FROM pg_catalog.pg_proc WHERE oid='$peek_signature'::regprocedure)"
+  assert_owner "(SELECT md5(prosrc)='c6fe8b162102e3a4c4e013b5cfb72f4e' FROM pg_catalog.pg_proc WHERE oid='$peek_signature'::regprocedure)"
   owner < "$tmp/peek-catalog.sql"
   snapshot_private; [[ "$snapshot" == "$before_peek" ]] || exit 1
 done
@@ -974,7 +978,7 @@ for guarded_function in fence peek reserve_bootstrap; do
 prune_step=install prune_failure_kind=operation
 { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat "${inputs[9]}"; } | owner
 cat > "$tmp/prune-catalog.sql" <<'SQL'
-SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=3 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['epoch','manifest_h','observed_ms'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='bool'::regtype AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql') AND md5(p.prosrc)='58f0b2de33474881c5e782826800745e'),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.prune_reservations(text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure;
+SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=3 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['epoch','manifest_h','observed_ms'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='bool'::regtype AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql') AND md5(p.prosrc)='a44ac54074134635e58a6af16c811565'),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.prune_reservations(text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure;
 WITH actual AS (SELECT a.* FROM pg_catalog.pg_proc p,LATERAL pg_catalog.aclexplode(p.proacl) a WHERE p.oid='subtrack_auth.prune_reservations(text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure), expected AS (SELECT 'subtrack_auth_executor'::regrole::oid grantor,r.role::regrole::oid grantee,'EXECUTE'::text privilege_type,false is_grantable FROM (VALUES ('subtrack_auth_executor'),('subtrack_runtime')) r(role)), delta AS ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) SELECT 1/(NOT EXISTS(SELECT 1 FROM delta))::integer;
 SELECT 1/(count(*)=4)::integer FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace;
 SQL
@@ -1087,7 +1091,8 @@ for direction in prune-first reserve-first; do
   printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s\n" "$holder_assertion" >&"$writer"
   observer=$(mktemp "$tmp/observer.XXXXXX"); waiter_pid=''
    prune_step=race-holder-observe prune_failure_kind=timeout
-  observe_clients "SELECT count(*)=1 FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';" '^ t *$' || exit 1
+  holder_observe_ms=10000; [[ "$direction" != prune-first ]] || holder_observe_ms=25000
+  observe_clients "SELECT count(*)=1 FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';" '^ t *$' "$holder_observe_ms" || exit 1
    prune_step=race-holder-backend prune_failure_kind=assertion
   printf "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='%s' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';\n" "$db" > "$observer"
   launch_client st233a_fixture_owner "$observer" st233b-observer; join_client "$client_pid" 2000 || exit 1
@@ -1175,7 +1180,7 @@ for sf_parent in fence peek reserve_bootstrap prune_reservations; do
  done
 { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat "${inputs[10]}"; } | owner
 cat > "$tmp/settle-catalog.sql" <<'SQL'
-SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=9 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['key_h','owner_h','authority_h','request_h','origin','epoch','manifest_h','observed_ms','outcome'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='bool'::regtype AND p.proargtypes=ARRAY['subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,25::oid,25::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.ms'::regtype::oid,25::oid]::oidvector AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql') AND md5(p.prosrc)='80a414cdd61ae6f5504aa99f67f3f46c'),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.settle_bootstrap(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,subtrack_auth.h,subtrack_auth.ms,text)'::regprocedure;
+SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=9 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['key_h','owner_h','authority_h','request_h','origin','epoch','manifest_h','observed_ms','outcome'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='bool'::regtype AND p.proargtypes=ARRAY['subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,25::oid,25::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.ms'::regtype::oid,25::oid]::oidvector AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql') AND md5(p.prosrc)='df2662587e5f794177d07b5e6473da33'),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.settle_bootstrap(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,subtrack_auth.h,subtrack_auth.ms,text)'::regprocedure;
 WITH actual AS (SELECT a.* FROM pg_catalog.pg_proc p,LATERAL pg_catalog.aclexplode(p.proacl) a WHERE p.oid='subtrack_auth.settle_bootstrap(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,subtrack_auth.h,subtrack_auth.ms,text)'::regprocedure), expected AS (SELECT 'subtrack_auth_executor'::regrole::oid grantor,r.role::regrole::oid grantee,'EXECUTE'::text privilege_type,false is_grantable FROM (VALUES ('subtrack_auth_executor'),('subtrack_runtime')) r(role)), delta AS ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) SELECT 1/(NOT EXISTS(SELECT 1 FROM delta))::integer;
 SELECT 1/(count(*)=5)::integer FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace;
 SQL
@@ -1307,7 +1312,7 @@ for sf_case in compete-COMMIT compete-ROLLBACK expiry-epoch expiry-advisory expi
  done
 owner < "$tmp/settle-catalog.sql"
 
-phase=nonce-prune timed_step=catalog timed_case=none timed_release=none timed_failure_kind=assertion
+phase=nonce-prune nonce_catalog_drift=unavailable timed_step=catalog timed_case=none timed_release=none timed_failure_kind=assertion
 gn_signature='subtrack_auth.prune_nonces(text,subtrack_auth.h,subtrack_auth.ms)'
 gn_args="'fixture',repeat('a',64),0"
 positive_gn_sql() { printf 'SELECT 1/COALESCE(subtrack_auth.prune_nonces(%s),false)::integer;' "$1"; }
@@ -1363,18 +1368,32 @@ probe_atomic_catalog_retained() {
   [[ "$gn_catalog_logical" == "$probe_logical" ]] || return 1
   atomic_drift=none
 }
-snapshot_gn_catalog; gn_catalog_before=$gn_catalog
+nonce_full_catalog_unchanged() {
+  # Classify privately; retain the full snapshot equality as the failing gate.
+  nonce_catalog_drift=unavailable
+  atomic_catalog_unchanged "$1" "$2" "$3" "$4" || true
+  nonce_catalog_drift=$atomic_drift
+  if [[ "$1" == "$3" ]]; then
+    # A successful comparison must not label an unrelated later failure.
+    nonce_catalog_drift=unavailable
+    return 0
+  fi
+  return 1
+}
+snapshot_gn_catalog; gn_catalog_before=$gn_catalog gn_catalog_logical_before=$gn_catalog_logical
 snapshot_private; gn_before=$snapshot
 snapshot_gn_others; gn_others_baseline=$gn_others
 # Every accepted parent body/configuration/ACL plus complete existing envelope rejects atomically.
+timed_step=guard-envelope
 for gn_fault in "CREATE SCHEMA gn_graph; CREATE TABLE gn_graph.edge(nonce_h subtrack_auth.h REFERENCES subtrack_auth.nonce(nonce_h) ON DELETE CASCADE);" "GRANT UPDATE(chain) ON subtrack_auth.nonce TO subtrack_auth_executor;" "SET st233a.head='invalid';" "SET st233a.marker='invalid';" "SET st233c.constraints='invalid';" "ALTER TABLE subtrack_auth.reservation DROP CONSTRAINT reservation_check;" "ALTER DOMAIN subtrack_auth.h DROP CONSTRAINT h_check;" "GRANT UPDATE(state) ON subtrack_auth.reservation TO subtrack_runtime;" "GRANT subtrack_auth_executor TO subtrack_dev_auth_login;"; do
   { printf "BEGIN; SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s'; %s\n" "$source_head" "$marker" "$constraints_pin" "$gn_fault"; sed '/^BEGIN;$/d;/^COMMIT;$/d' "${inputs[11]}"; } > "$tmp/gn-guard.sql"
   if owner < "$tmp/gn-guard.sql"; then exit 1; fi
   grep -q 'ERROR:  22012' "$client_log" || exit 1
   assert_owner "NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='gn_graph') AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace AND proname='prune_nonces')"
-  snapshot_gn_catalog; [[ "$gn_catalog" == "$gn_catalog_before" ]] || exit 1
+  snapshot_gn_catalog; nonce_full_catalog_unchanged "$gn_catalog_before" "$gn_catalog_logical_before" "$gn_catalog" "$gn_catalog_logical" || exit 1
   snapshot_private; [[ "$snapshot" == "$gn_before" ]] || exit 1
  done
+timed_step=guard-parent
 for gn_parent in fence peek reserve_bootstrap prune_reservations settle_bootstrap; do
   case "$gn_parent" in
     fence) gn_parent_signature='subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms)'; gn_parent_declaration='epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms'; gn_returns=boolean ;;
@@ -1389,25 +1408,28 @@ for gn_parent in fence peek reserve_bootstrap prune_reservations settle_bootstra
     grep -q 'ERROR:  22012' "$client_log" || exit 1
     assert_owner "(SELECT count(*)=5 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace)"
     assert_owner "NOT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='gn_graph') AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace AND proname='prune_nonces')"
-    snapshot_gn_catalog; [[ "$gn_catalog" == "$gn_catalog_before" ]] || exit 1
+    snapshot_gn_catalog; nonce_full_catalog_unchanged "$gn_catalog_before" "$gn_catalog_logical_before" "$gn_catalog" "$gn_catalog_logical" || exit 1
     snapshot_private; [[ "$snapshot" == "$gn_before" ]] || exit 1
   done
  done
+timed_step=catalog-install
 { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat "${inputs[11]}"; } | owner
 cat > "$tmp/gn-catalog.sql" <<'SQL'
-SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=3 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['epoch','manifest_h','observed_ms'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='bool'::regtype AND p.proargtypes=ARRAY[25::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.ms'::regtype::oid]::oidvector AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql') AND md5(p.prosrc)='60dcc3ba286393565ad9385631b3c7fd'),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.prune_nonces(text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure;
+SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=3 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['epoch','manifest_h','observed_ms'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='bool'::regtype AND p.proargtypes=ARRAY[25::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.ms'::regtype::oid]::oidvector AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql') AND md5(p.prosrc)='06153a3c948324734a95ce00eccce79a'),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.prune_nonces(text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure;
 WITH actual AS (SELECT a.* FROM pg_catalog.pg_proc p,LATERAL pg_catalog.aclexplode(p.proacl) a WHERE p.oid='subtrack_auth.prune_nonces(text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure), expected AS (SELECT 'subtrack_auth_executor'::regrole::oid grantor,r.role::regrole::oid grantee,'EXECUTE'::text privilege_type,false is_grantable FROM (VALUES ('subtrack_auth_executor'),('subtrack_runtime')) r(role)), delta AS ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) SELECT 1/(NOT EXISTS(SELECT 1 FROM delta))::integer;
 SELECT 1/(count(*)=6)::integer FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace;
 SQL
+timed_step=catalog-exact
 owner < "$tmp/gn-catalog.sql"
-snapshot_gn_catalog; gn_catalog_installed=$gn_catalog
+snapshot_gn_catalog; gn_catalog_installed=$gn_catalog gn_catalog_logical_installed=$gn_catalog_logical
 deny_executor "UPDATE subtrack_auth.nonce SET chain=chain;" || exit 1
 for gn_prefix in '' 'SET ROLE subtrack_identity_provisioner;' 'SET ROLE subtrack_auth_producer;'; do deny_actor "$gn_prefix SELECT subtrack_auth.prune_nonces($gn_args);" || exit 1; done
+timed_step=null-rollback
 # Real NULL-return fault hits the SAME positive assertion; all state and body/ACL roll back.
 { printf "BEGIN; CREATE OR REPLACE FUNCTION subtrack_auth.prune_nonces(epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER VOLATILE PARALLEL UNSAFE CALLED ON NULL INPUT SET search_path=pg_catalog AS 'BEGIN RETURN NULL; END'; SET LOCAL ROLE subtrack_runtime;\n"; positive_gn_sql "$gn_args"; } > "$tmp/gn-null.sql"
 if owner < "$tmp/gn-null.sql"; then exit 1; fi
 grep -q 'ERROR:  22012' "$client_log" || exit 1
-owner < "$tmp/gn-catalog.sql"; snapshot_gn_catalog; [[ "$gn_catalog" == "$gn_catalog_installed" ]] || exit 1; snapshot_private; [[ "$snapshot" == "$gn_before" ]] || exit 1
+owner < "$tmp/gn-catalog.sql"; snapshot_gn_catalog; nonce_full_catalog_unchanged "$gn_catalog_installed" "$gn_catalog_logical_installed" "$gn_catalog" "$gn_catalog_logical" || exit 1; snapshot_private; [[ "$snapshot" == "$gn_before" ]] || exit 1
 for gn_test_args in "NULL,repeat('a',64),0" "'fixture',NULL,0" "'fixture',repeat('a',64),NULL" "'',repeat('a',64),0" "'absent',repeat('a',64),0" "'retired',repeat('a',64),0" "'regression',repeat('a',64),0" "'fixture',repeat('b',64),0" "'fixture',repeat('a',64),9007199254740991"; do
   printf 'BEGIN; SET LOCAL ROLE subtrack_runtime; SELECT 1/COALESCE(NOT subtrack_auth.prune_nonces(%s),false)::integer; COMMIT; %s\n' "$gn_test_args" "$reset_sql" | actor
  done
@@ -1565,7 +1587,7 @@ phase=atomic-issue-04
 { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat "${inputs[12]}"; } | owner
 phase=atomic-issue-05
 cat > "$tmp/ak-catalog.sql" <<'SQL'
-SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=12 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['key_h','owner_h','authority_h','request_h','nonce_h','binding_h','chain','purpose','origin','epoch','manifest_h','observed_ms'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='bool'::regtype AND p.proargtypes=ARRAY['subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,25::oid,25::oid,25::oid,25::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.ms'::regtype::oid]::oidvector AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql') AND md5(p.prosrc)='b695f67d7b09e08ddc236f1f119fe622'),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.issue_bootstrap_nonce(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,text,text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure;
+SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=12 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['key_h','owner_h','authority_h','request_h','nonce_h','binding_h','chain','purpose','origin','epoch','manifest_h','observed_ms'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='bool'::regtype AND p.proargtypes=ARRAY['subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,25::oid,25::oid,25::oid,25::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.ms'::regtype::oid]::oidvector AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql') AND md5(p.prosrc)='feb353f05db140b00e02fefaa4c3930e'),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.issue_bootstrap_nonce(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,text,text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure;
 WITH actual AS (SELECT a.* FROM pg_catalog.pg_proc p,LATERAL pg_catalog.aclexplode(p.proacl) a WHERE p.oid='subtrack_auth.issue_bootstrap_nonce(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,text,text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure), expected AS (SELECT 'subtrack_auth_executor'::regrole::oid grantor,r.role::regrole::oid grantee,'EXECUTE'::text privilege_type,false is_grantable FROM (VALUES ('subtrack_auth_executor'),('subtrack_runtime')) r(role)), delta AS ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) SELECT 1/(NOT EXISTS(SELECT 1 FROM delta))::integer;
 SELECT 1/(count(*)=7)::integer FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace;
 SQL

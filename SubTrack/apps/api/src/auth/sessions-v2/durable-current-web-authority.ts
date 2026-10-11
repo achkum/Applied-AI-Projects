@@ -30,6 +30,7 @@ export type DurableCurrentWebConfig = Readonly<{
   pool: Pick<Pool, 'connect'>;
   accessTokens: V2AccessToken;
   origin: string;
+  database?: string;
   epoch: string;
   manifestHash: string;
   /** Audited parameterized SQL literals supplied by trusted server composition, never request data. */
@@ -45,20 +46,27 @@ function observed(clock: () => number): number {
   return value;
 }
 
-function clean(row: QueryResultRow | undefined): boolean {
+function clean(row: QueryResultRow | undefined, database: string): boolean {
   return row?.session_user === ROLE && row.current_user === ROLE &&
+    row.database_name === database &&
     (row.user_id === null || row.user_id === '') &&
     (row.current_user_id === null || row.current_user_id === '');
 }
 
 const CLEAN_SQL = `SELECT session_user::text AS session_user, current_user::text AS current_user,
+  pg_catalog.current_database()::text AS database_name,
   pg_catalog.current_setting('app.user_id', true) AS user_id,
   pg_catalog.current_setting('app.current_user_id', true) AS current_user_id`;
 
 /** No session-level role or GUC state may be carried between requests. */
-export async function assertCleanCurrentWebConnection(client: PoolClient): Promise<void> {
+export async function assertCleanCurrentWebConnection(client: PoolClient, database = 'st233a_development_auth_foundation_proof'): Promise<void> {
   const state = await client.query(CLEAN_SQL);
-  if (state.rows.length !== 1 || !clean(state.rows[0])) unavailable();
+  if (state.rows.length !== 1 || !clean(state.rows[0], database)) unavailable();
+}
+
+async function assertTransactionDatabase(client: PoolClient, database: string): Promise<void> {
+  const result = await client.query<{ database_name: string }>('SELECT pg_catalog.current_database()::text AS database_name');
+  if (result.command !== 'SELECT' || result.rows.length !== 1 || result.rows[0]?.database_name !== database) unavailable();
 }
 
 type Witness = Readonly<{
@@ -73,7 +81,11 @@ export class DurableCurrentWebAuthority {
   private readonly businessStatements: Readonly<Record<string, string>>;
 
   constructor(config: DurableCurrentWebConfig) {
-    if (process.env.NODE_ENV !== 'development' || config.origin !== 'https://st233a.invalid' ||
+    const oldTuple = config.origin === 'https://st233a.invalid' &&
+      (config.database === undefined || config.database === 'st233a_development_auth_foundation_proof');
+    const privateTuple = config.origin === 'https://localhost:3443' &&
+      config.database === 'st237_private_https_profile' && config.epoch === 'st237_private_https_v1';
+    if (process.env.NODE_ENV !== 'development' || !(oldTuple || privateTuple) ||
       !config.epoch || !DIGEST.test(config.manifestHash) ||
       !config.pool || typeof config.pool.connect !== 'function' || !config.accessTokens ||
       typeof config.accessTokens.verify !== 'function' ||
@@ -135,11 +147,12 @@ export class DurableCurrentWebAuthority {
     let released = false;
     try {
       client = await this.config.pool.connect();
-      await assertCleanCurrentWebConnection(client);
+      await assertCleanCurrentWebConnection(client, this.config.database);
       await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
       begun = true;
       await client.query('SET LOCAL ROLE subtrack_runtime');
       await this.fence(client);
+      await assertTransactionDatabase(client, this.config.database ?? 'st233a_development_auth_foundation_proof');
       await client.query(`SELECT pg_catalog.set_config('app.user_id',$1,true),
         pg_catalog.set_config('app.current_user_id',$1,true)`, [witness.identityId]);
       const owner = await client.query('SELECT id FROM public.identity WHERE id=$1::uuid AND deleted_at IS NULL FOR UPDATE', [witness.identityId]);
@@ -147,11 +160,12 @@ export class DurableCurrentWebAuthority {
       this.verifyToken(witness.accessToken);
       const result = await action(client, witness);
       await this.fence(client);
+      await assertTransactionDatabase(client, this.config.database ?? 'st233a_development_auth_foundation_proof');
       this.verifyToken(witness.accessToken);
       commitAttempted = true;
       const commit = await client.query('COMMIT');
       if (commit.command !== 'COMMIT') unavailable();
-      await assertCleanCurrentWebConnection(client);
+      await assertCleanCurrentWebConnection(client, this.config.database);
       client.release();
       released = true;
       return result;

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'vitest';
+import './profile-business-schema.integration';
 
 // This entrypoint runs only against the script's newly created PostgreSQL 16.
 test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
@@ -70,7 +71,7 @@ test('full-chain catalog and ordinary LOGIN privacy proof', async () => {
     const rls = await owner.$queryRaw<{ name:string; rls:boolean }[]>`
       SELECT relname AS name, relrowsecurity AS rls FROM pg_class
       WHERE relnamespace='public'::regnamespace AND relkind='r'`;
-    const protectedTables = ['identity','session','household','household_member','invitation','consent','audit_log',
+    const protectedTables = ['identity','identity_profile','session','household','household_member','invitation','consent','audit_log',
       'subscription','subscription_share','bank_connection','bank_account','raw_transaction','subscription_charge'];
     for (const name of protectedTables) assert.equal(rls.find(r => r.name === name)?.rls, true);
     assert.equal(rls.find(r => r.name === 'otp_challenge')?.rls, false);

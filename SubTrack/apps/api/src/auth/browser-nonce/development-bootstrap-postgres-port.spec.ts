@@ -13,8 +13,8 @@ vi.mock('pg', () => ({ Client: class {
   getTransactionStatus() { return 'I'; }
   async query(sql: string, params?: unknown[]) {
     driver.calls.push(sql);
-    if (sql.startsWith('SELECT current_user')) return { command: 'SELECT', rowCount: 1,
-      rows: [{ role_ok: true, isolation_ok: true, user_ok: true, current_ok: true }] };
+    if (sql.startsWith('SELECT current_database()')) return { command: 'SELECT', rowCount: 1,
+      rows: [{ database_ok: true, session_ok: true, role_ok: true, isolation_ok: true, user_ok: true, current_ok: true }] };
     if (sql.startsWith('SELECT subtrack_auth.')) {
       const values = params ?? [];
       assert.equal(values.length, sql.includes('reserve_bootstrap') ? 9 : sql.includes('issue_bootstrap_nonce') ? 12 : 9);
@@ -43,6 +43,15 @@ beforeEach(() => { vi.stubEnv('NODE_ENV', 'development'); driver.calls.length = 
 afterEach(() => vi.unstubAllEnvs());
 
 describe('fixed development PostgreSQL bootstrap port', () => {
+  it('accepts only the exact new database-Origin-epoch pair with a private loopback port', () => {
+    const privateConfig = { ...config(), database: 'st237_private_https_profile', origin: 'https://localhost:3443',
+      epoch: 'st237_private_https_v1', manifestHash: 'b'.repeat(64), port: 35432 };
+    assert.doesNotThrow(() => createDevelopmentBootstrapPostgresPort(privateConfig));
+    assert.throws(() => createDevelopmentBootstrapPostgresPort({ ...privateConfig, origin: 'https://st233a.invalid' }));
+    assert.throws(() => createDevelopmentBootstrapPostgresPort({ ...privateConfig, epoch: 'fixture' }));
+    assert.throws(() => createDevelopmentBootstrapPostgresPort({ ...privateConfig, database: config().database }));
+    assert.throws(() => createDevelopmentBootstrapPostgresPort({ ...privateConfig, port: 0 }));
+  });
   it('requires exact descriptor-safe private config and frozen complete witness', async () => {
     const bad = { ...config(), query: () => true };
     assert.throws(() => createDevelopmentBootstrapPostgresPort(bad));

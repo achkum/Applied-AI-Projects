@@ -3,6 +3,11 @@
 import * as z from 'zod';
 
 /**
+ * Exact empty JSON object; current session CSRF remains required.
+ */
+export const zProfileReadRequest = z.record(z.string(), z.never());
+
+/**
  * Private profile data patch; no identity, owner, contact, provider, session or household authority. A later writer must scope it from trusted context.
  */
 export const zProfilePatch = z.object({
@@ -68,6 +73,34 @@ export const zProfileView = z.object({
     ]),
     defaultCurrency: z.literal('SEK'),
     profileComplete: z.boolean()
+}).strict();
+
+/**
+ * Closed generic RFC 9457 profile failure. Code is fixed by status; no private detail or owner existence.
+ */
+export const zBrowserProfileProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.enum([
+        'Bad Request',
+        'Unauthorized',
+        'Forbidden',
+        'Conflict',
+        'Internal Server Error'
+    ]),
+    status: z.union([
+        z.literal(400),
+        z.literal(401),
+        z.literal(403),
+        z.literal(409),
+        z.literal(500)
+    ]),
+    code: z.enum([
+        'INVALID_PROFILE_REQUEST',
+        'AUTHENTICATION_REQUIRED',
+        'PROFILE_REQUEST_REJECTED',
+        'PROFILE_CONFLICT',
+        'INTERNAL_ERROR'
+    ])
 }).strict();
 
 /**
@@ -1133,6 +1166,30 @@ export const zVerifyV2DeleteOtpReauthHeaders = z.object({
  * Deletion-only proof; no-store.
  */
 export const zVerifyV2DeleteOtpReauthResponse = zDeleteOtpVerifyResponse;
+
+export const zReadV2BrowserProfileBody = zProfileReadRequest;
+
+export const zReadV2BrowserProfileHeaders = z.object({
+    Origin: z.url().optional(),
+    'X-Session-CSRF': z.string().optional()
+});
+
+/**
+ * Fresh persisted, owner-scoped closed profile view after successful current authority.
+ */
+export const zReadV2BrowserProfileResponse = zProfileView;
+
+export const zPatchV2BrowserProfileBody = zProfilePatch;
+
+export const zPatchV2BrowserProfileHeaders = z.object({
+    Origin: z.url().optional(),
+    'X-Session-CSRF': z.string().optional()
+});
+
+/**
+ * Fresh persisted, owner-scoped closed profile view after successful current authority.
+ */
+export const zPatchV2BrowserProfileResponse = zProfileView;
 
 export const zDeleteV2MeBody = zDeleteMeRequest;
 

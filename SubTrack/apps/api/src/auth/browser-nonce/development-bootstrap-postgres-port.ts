@@ -10,7 +10,7 @@ const chain = /^[A-Za-z0-9_-]{43}$/;
 const purposes = new Set(['enroll_identifier', 'otp_step_up', 'session']);
 const burnKeys = ['keyHash', 'ownerHash', 'authorityHash', 'requestHash', 'operation', 'authorityKind', 'transport', 'origin', 'epoch', 'manifestHash', 'purpose', 'retentionMs'];
 const nonceKeys = ['nonceHash', 'bindingHash', 'chainId', 'transport', 'origin', 'epoch', 'manifestHash', 'purpose', 'authorityHash'];
-const configKeys = ['enabled', 'origin', 'epoch', 'manifestHash', 'database', 'password'];
+const configKeys = ['enabled', 'origin', 'epoch', 'manifestHash', 'database', 'password', 'port'];
 const reserveSql = 'SELECT subtrack_auth.reserve_bootstrap($1,$2,$3,$4,$5,$6,$7,$8,$9) AS value';
 const operationSql = 'SELECT subtrack_auth.issue_bootstrap_nonce($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) AS value';
 const failSql = 'SELECT subtrack_auth.settle_bootstrap($1,$2,$3,$4,$5,$6,$7,$8,$9) AS value';
@@ -43,11 +43,16 @@ function same(a: Record<string, unknown>, b: Record<string, unknown>) {
 export function createDevelopmentBootstrapPostgresPort(config: unknown): TrustedBootstrapTransactionPort {
   if (arguments.length !== 1 || process.env.NODE_ENV !== 'development') throw fail();
   // Config is the sole connection source: pg ambient variables and URL defaults have no authority.
-  const c = fields(config, configKeys, false);
-  if (c.enabled !== true || c.origin !== 'https://st233a.invalid' ||
+  const c = fields(config, Reflect.ownKeys(config ?? {}).includes('port') ? configKeys : configKeys.slice(0, -1), false);
+  const oldTuple = c.database === 'st233a_development_auth_foundation_proof' &&
+    c.origin === 'https://st233a.invalid' && c.epoch === 'fixture' && c.manifestHash === 'a'.repeat(64);
+  const privateTuple = c.database === 'st237_private_https_profile' &&
+    c.origin === 'https://localhost:3443' && c.epoch === 'st237_private_https_v1';
+  if (c.enabled !== true || !(oldTuple || privateTuple) ||
     typeof c.epoch !== 'string' || !c.epoch || c.epoch !== c.epoch.trim() ||
     typeof c.manifestHash !== 'string' || !hex.test(c.manifestHash) ||
-    c.database !== 'st233a_development_auth_foundation_proof' ||
+    (privateTuple && (!Number.isInteger(c.port) || (c.port as number) < 1 || (c.port as number) > 65535) ||
+      oldTuple && c.port !== undefined && c.port !== 5432) ||
     typeof c.password !== 'string' || !/^[a-f0-9]{48}$/.test(c.password)) throw fail();
   if (Object.keys(process.env).some(key => /^(?:PG[A-Z_]*|DATABASE_URL|DIRECT_URL|DOCKER_[A-Z_]*)$/.test(key))) throw fail();
   let state: 'empty' | 'busy' | 'reserved' | 'rollback' | 'done' = 'empty';
@@ -71,7 +76,7 @@ export function createDevelopmentBootstrapPostgresPort(config: unknown): Trusted
     return n;
   };
   async function transact(sql: string, args: readonly unknown[], mode: 'reserve' | 'operation' | 'fail') {
-    const client = new Client({ host: '127.0.0.1', port: 5432, database: c.database as string,
+    const client = new Client({ host: '127.0.0.1', port: c.port === undefined ? 5432 : c.port as number, database: c.database as string,
       user: 'subtrack_dev_auth_login', password: c.password as string, ssl: false,
       connectionTimeoutMillis: 3000, query_timeout: 3000, statement_timeout: 2000,
       lock_timeout: 1000, idle_in_transaction_session_timeout: 4000, application_name: 'st233m-port' });
@@ -82,9 +87,9 @@ export function createDevelopmentBootstrapPostgresPort(config: unknown): Trusted
       if (client.getTransactionStatus() !== 'I') throw fail();
       exact(await client.query('BEGIN ISOLATION LEVEL READ COMMITTED'), 'BEGIN', 0);
       exact(await client.query('SET LOCAL ROLE subtrack_runtime'), 'SET', 0);
-      const role = await client.query("SELECT current_user = 'subtrack_runtime' AS role_ok, current_setting('transaction_isolation') = 'read committed' AS isolation_ok, coalesce(current_setting('app.user_id',true),'') = '' AS user_ok, coalesce(current_setting('app.current_user_id',true),'') = '' AS current_ok");
+      const role = await client.query("SELECT current_database() = $1::text AS database_ok, session_user = 'subtrack_dev_auth_login' AS session_ok, current_user = 'subtrack_runtime' AS role_ok, current_setting('transaction_isolation') = 'read committed' AS isolation_ok, coalesce(current_setting('app.user_id',true),'') = '' AS user_ok, coalesce(current_setting('app.current_user_id',true),'') = '' AS current_ok", [c.database]);
       exact(role, 'SELECT', 1);
-      if (Object.keys(role.rows[0]).length !== 4 || Object.values(role.rows[0]).some(v => v !== true)) throw fail();
+      if (Object.keys(role.rows[0]).length !== 6 || Object.values(role.rows[0]).some(v => v !== true)) throw fail();
       const result = await client.query(sql, args.map(value => value === null ? observed() : value));
       exact(result, 'SELECT', 1);
       if (Object.keys(result.rows[0]).length !== 1) throw fail();

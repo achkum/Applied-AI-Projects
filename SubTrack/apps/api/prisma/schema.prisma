@@ -26,6 +26,9 @@ model Identity {
   email      String?  @unique @db.VarChar(320)
   /// Optional Swedish mobile number in E.164 format for SMS OTP.
   phone      String?  @unique @db.VarChar(20)
+  verifiedAt DateTime? @map("verified_at") @db.Timestamptz(6)
+  givenName  String?   @map("given_name") @db.VarChar(120)
+  surname    String?   @db.VarChar(120)
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   /// Soft-delete: set when account is deactivated; row kept for audit trail.
@@ -44,8 +47,26 @@ model Identity {
   bankAccounts          BankAccount[]
   rawTransactions       RawTransaction[]
   subscriptionCharges   SubscriptionCharge[]
+  profile               IdentityProfile?
 
   @@map("identity")
+}
+
+model IdentityProfile {
+  identityId       String   @id @map("identity_id") @db.Uuid
+  displayName      String?  @map("display_name") @db.VarChar(120)
+  avatarColor      String?  @map("avatar_color") @db.VarChar(32)
+  avatarEmoji      String?  @map("avatar_emoji") @db.VarChar(32)
+  language         String   @default("en") @db.VarChar(2)
+  theme            String   @default("system") @db.VarChar(16)
+  defaultCurrency  String   @default("SEK") @map("default_currency") @db.Char(3)
+  profileComplete  Boolean  @default(false) @map("profile_complete")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  identity Identity @relation(fields: [identityId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "identity_profile_identity_id_fkey")
+
+  @@map("identity_profile")
 }
 
 enum AuthMethod {

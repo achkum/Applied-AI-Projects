@@ -22,6 +22,15 @@
     "charge_matched_by": ["ENGINE", "USER"]
   },
   "tables": {
+    "identity_profile": {
+      "model": "IdentityProfile",
+      "columns": ["identity_id uuid!", "display_name varchar(120)?", "avatar_color varchar(32)?", "avatar_emoji varchar(32)?", "language varchar(2)!", "theme varchar(16)!", "default_currency char(3)!", "profile_complete boolean!", "created_at timestamptz!", "updated_at timestamptz!"],
+      "keys": ["PK(identity_id)"],
+      "foreignKeys": ["identity_id -> identity(id)"],
+      "checks": ["language in ('sv','en')", "theme in ('system','light','dark')", "default_currency = 'SEK'"],
+      "rls": "FORCE RLS; subtrack_runtime owner-only SELECT, INSERT and UPDATE through equal dual principal GUCs",
+      "grants": "PUBLIC none; runtime SELECT, INSERT and exact column UPDATE; no profile rights for provisioner or executor"
+    },
     "household_member": {
       "model": "HouseholdMember",
       "columns": ["id uuid!", "household_id uuid!", "identity_id uuid?", "display_name varchar(120)?", "role member_role!", "joined_at timestamptz!", "left_at timestamptz?"],

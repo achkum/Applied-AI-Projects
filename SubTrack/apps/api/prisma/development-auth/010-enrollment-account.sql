@@ -2,7 +2,7 @@
 -- Apply with psql ON_ERROR_STOP after SQL001-009. All application transitions use READ COMMITTED.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
-SELECT 1 / COALESCE((pg_catalog.current_database() = 'st233a_development_auth_foundation_proof'
+SELECT 1 / COALESCE((pg_catalog.current_database() IN ('st233a_development_auth_foundation_proof','st237_private_https_profile')
   AND SESSION_USER = 'st233a_fixture_owner'
   AND pg_catalog.current_setting('server_version_num')::pg_catalog.int4 BETWEEN 160000 AND 169999
   AND EXISTS (SELECT 1 FROM public.st233a_fixture_control c WHERE c.task='ST-233a'
@@ -69,7 +69,7 @@ CREATE TABLE subtrack_auth.otp (
   challenge_h subtrack_auth.h PRIMARY KEY, code_h subtrack_auth.h NOT NULL,
   identifier_h subtrack_auth.h NOT NULL, channel pg_catalog.text NOT NULL CHECK (channel IN ('email','sms')),
   contact pg_catalog.text NOT NULL CHECK (pg_catalog.length(contact) BETWEEN 3 AND 320),
-  origin pg_catalog.text NOT NULL CHECK (origin='https://st233a.invalid'), chain pg_catalog.text NOT NULL CHECK (chain<>''),
+  origin pg_catalog.text NOT NULL CHECK (origin=(CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END)), chain pg_catalog.text NOT NULL CHECK (chain<>''),
   binding_h subtrack_auth.h NOT NULL, session_binding_h subtrack_auth.h NOT NULL,
   epoch pg_catalog.text NOT NULL REFERENCES subtrack_auth.epoch(id),
   issued_ms subtrack_auth.ms NOT NULL, expires_ms subtrack_auth.ms NOT NULL,
@@ -79,7 +79,7 @@ CREATE TABLE subtrack_auth.otp (
 CREATE TABLE subtrack_auth.restricted_proof (
   proof_h subtrack_auth.h PRIMARY KEY, challenge_h subtrack_auth.h NOT NULL REFERENCES subtrack_auth.otp(challenge_h),
   purpose pg_catalog.text NOT NULL CHECK (purpose='enrollment'),
-  origin pg_catalog.text NOT NULL CHECK (origin='https://st233a.invalid'), chain pg_catalog.text NOT NULL CHECK (chain<>''),
+  origin pg_catalog.text NOT NULL CHECK (origin=(CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END)), chain pg_catalog.text NOT NULL CHECK (chain<>''),
   binding_h subtrack_auth.h NOT NULL, session_binding_h subtrack_auth.h NOT NULL,
   epoch pg_catalog.text NOT NULL REFERENCES subtrack_auth.epoch(id),
   issued_ms subtrack_auth.ms NOT NULL, expires_ms subtrack_auth.ms NOT NULL,
@@ -88,7 +88,7 @@ CREATE TABLE subtrack_auth.restricted_proof (
 CREATE TABLE subtrack_auth.pending_enrollment (
   pending_h subtrack_auth.h PRIMARY KEY, challenge_h subtrack_auth.h NOT NULL REFERENCES subtrack_auth.otp(challenge_h),
   identifier_h subtrack_auth.h NOT NULL, channel pg_catalog.text NOT NULL CHECK (channel IN ('email','sms')),
-  contact pg_catalog.text NOT NULL, origin pg_catalog.text NOT NULL CHECK (origin='https://st233a.invalid'),
+  contact pg_catalog.text NOT NULL, origin pg_catalog.text NOT NULL CHECK (origin=(CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END)),
   chain pg_catalog.text NOT NULL CHECK (chain<>''), binding_h subtrack_auth.h NOT NULL,
   session_binding_h subtrack_auth.h NOT NULL,
   epoch pg_catalog.text NOT NULL REFERENCES subtrack_auth.epoch(id),
@@ -103,7 +103,7 @@ CREATE TABLE subtrack_auth.verified_enrollment (
   surname pg_catalog.text NOT NULL CHECK (pg_catalog.length(surname) BETWEEN 1 AND 120),
   terminal_nonce_h subtrack_auth.h NOT NULL UNIQUE REFERENCES subtrack_auth.nonce(nonce_h)
     DEFERRABLE INITIALLY DEFERRED,
-  identity_id pg_catalog.uuid UNIQUE, origin pg_catalog.text NOT NULL CHECK (origin='https://st233a.invalid'),
+  identity_id pg_catalog.uuid UNIQUE, origin pg_catalog.text NOT NULL CHECK (origin=(CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END)),
   chain pg_catalog.text NOT NULL CHECK (chain<>''), binding_h subtrack_auth.h NOT NULL,
   session_binding_h subtrack_auth.h NOT NULL,
   epoch pg_catalog.text NOT NULL REFERENCES subtrack_auth.epoch(id),
@@ -203,7 +203,7 @@ BEGIN
   IF pg_catalog.current_setting('transaction_isolation') <> 'read committed'
     OR s IS NULL OR (s).key_h IS NULL OR (s).owner_h IS NULL OR (s).authority_h IS NULL
     OR (s).request_h IS NULL OR (s).nonce_h IS NULL OR (s).binding_h IS NULL
-    OR (s).origin IS NULL OR (s).origin <> 'https://st233a.invalid'
+    OR (s).origin IS NULL OR (s).origin <> (CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END)
     OR (s).chain IS NULL OR (s).chain = '' OR (s).epoch IS NULL OR (s).epoch = ''
     OR (s).manifest_h IS NULL OR (s).observed_ms IS NULL THEN RETURN NULL; END IF;
   SELECT x.* INTO e FROM subtrack_auth.epoch x WHERE x.id=(s).epoch FOR UPDATE;
@@ -240,7 +240,7 @@ DECLARE e subtrack_auth.epoch%ROWTYPE; t pg_catalog.numeric; expiry pg_catalog.n
 BEGIN
   IF pg_catalog.current_setting('transaction_isolation')<>'read committed'
     OR key_h IS NULL OR owner_h IS NULL OR authority_h IS NULL OR request_h IS NULL
-    OR origin IS NULL OR origin<>'https://st233a.invalid' OR epoch IS NULL OR epoch=''
+    OR origin IS NULL OR origin<>(CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END) OR epoch IS NULL OR epoch=''
     OR manifest_h IS NULL OR observed_ms IS NULL
     OR operation IS NULL OR operation NOT IN ('startV2Otp','verifyV2Otp','admitEnrollment',
       'verifyEnrollmentPerson','completeEnrollment') THEN RETURN NULL; END IF;
@@ -656,7 +656,7 @@ BEGIN
   IF pg_catalog.current_setting('transaction_isolation')<>'read committed'
     OR scope IS NULL OR (scope).key_h IS NULL OR (scope).owner_h IS NULL
     OR (scope).authority_h IS NULL OR (scope).request_h IS NULL OR (scope).origin IS NULL
-    OR (scope).origin<>'https://st233a.invalid' OR (scope).epoch IS NULL
+    OR (scope).origin<>(CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END) OR (scope).epoch IS NULL
     OR (scope).manifest_h IS NULL OR (scope).observed_ms IS NULL THEN RETURN false; END IF;
   SELECT x.* INTO e FROM subtrack_auth.epoch x WHERE x.id=(scope).epoch FOR UPDATE;
   IF NOT FOUND THEN RETURN false; END IF;
@@ -689,7 +689,7 @@ BEGIN
   IF NOT FOUND THEN RETURN false; END IF;
   t:=pg_catalog.floor(EXTRACT(EPOCH FROM pg_catalog.clock_timestamp())*1000::pg_catalog.numeric)::pg_catalog.int8;
   IF t<0 OR t>9007199254740991 OR t<e.watermark_ms OR observed_ms>t
-    OR e.state<>'active' OR e.manifest_h<>manifest_h OR e.origin<>'https://st233a.invalid' THEN RETURN false; END IF;
+    OR e.state<>'active' OR e.manifest_h<>manifest_h OR e.origin<>(CASE pg_catalog.current_database() WHEN 'st233a_development_auth_foundation_proof' THEN 'https://st233a.invalid' WHEN 'st237_private_https_profile' THEN 'https://localhost:3443' ELSE NULL END) THEN RETURN false; END IF;
   PERFORM pg_catalog.pg_advisory_xact_lock(236::pg_catalog.int4,1::pg_catalog.int4);
   PERFORM pg_catalog.pg_advisory_xact_lock(236::pg_catalog.int4,2::pg_catalog.int4);
   PERFORM pg_catalog.pg_advisory_xact_lock(236::pg_catalog.int4,3::pg_catalog.int4);
