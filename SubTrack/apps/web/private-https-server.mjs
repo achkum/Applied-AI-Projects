@@ -549,17 +549,33 @@ async function assertStartup() {
         'pending_enrollment','verified_enrollment','enrollment_intent','identity_birth']]);
     if (rls.rows.length !== 14 || rls.rows.some(item => item.enabled !== true || item.forced !== true)) fail();
     gate('EPOCH');
-    const fence = await client.query('SELECT subtrack_auth.fence($1::text,$2::subtrack_auth.h,$3::subtrack_auth.ms) AS ok',
-      [epoch.epoch, epoch.manifestHash, Date.now()]);
-    if (fence.rows.length !== 1 || fence.rows[0].ok !== true) fail();
-    await client.query('COMMIT');
+    let fence;
+    try {
+      fence = await client.query('SELECT subtrack_auth.fence($1::text,$2::subtrack_auth.h,$3::subtrack_auth.ms) AS ok',
+        [epoch.epoch, epoch.manifestHash, Date.now()]);
+    } catch (error) {
+      gate('FENCE_QUERY_FAILED');
+      throw error;
+    }
+    if (fence.rows.length !== 1 || fence.rows[0].ok !== true) {
+      gate('FENCE_REJECTED');
+      fail();
+    }
+    gate('FENCE_ACCEPTED');
+    try { await client.query('COMMIT'); }
+    catch (error) { gate('COMMIT_FAILED'); throw error; }
+    gate('COMMIT_CLEAN');
     const after = await client.query(`SELECT pg_catalog.current_database()::text AS database_name,
       session_user::text AS session_user, current_user::text AS current_user,
       pg_catalog.current_setting('app.user_id',true) AS user_id,
       pg_catalog.current_setting('app.current_user_id',true) AS current_user_id`);
     if (after.rows.length !== 1 || after.rows[0].database_name !== epoch.database ||
       after.rows[0].session_user !== epoch.login || after.rows[0].current_user !== epoch.login ||
-      ![null, ''].includes(after.rows[0].user_id) || ![null, ''].includes(after.rows[0].current_user_id)) fail();
+      ![null, ''].includes(after.rows[0].user_id) || ![null, ''].includes(after.rows[0].current_user_id)) {
+      gate('RESET_REJECTED');
+      fail();
+    }
+    gate('RESET_CLEAN');
     complete = true;
   } catch (error) {
     try { await client.query('ROLLBACK'); } catch { /* Discard the unclean connection below. */ }
@@ -569,6 +585,7 @@ async function assertStartup() {
 
 async function main() {
   await assertStartup();
+  gate('COMPOSITION');
   const tokens = new V2AccessToken({ environment: 'development', enabled: true,
     ...epoch.accessKeyPair, clock: Date.now });
   const verifier = new DevelopmentEnrollmentPersonVerifier({ environment: 'development', enabled: true,
@@ -587,6 +604,7 @@ async function main() {
       password: env.ST237_PG_PASSWORD, port }));
   const auth = createPrivateEnrollmentHttp({ bootstrap, enrollment, accessTokens: tokens });
   const profile = createPrivateProfileHttp(authority);
+  gate('COMPOSITION_READY');
   class PrivateController {
     async profileRead(req, res) { await profile.handle(req, res); }
     async profilePatch(req, res) { await profile.handle(req, res); }
@@ -606,10 +624,14 @@ async function main() {
   class PrivateModule {}
   Module({ controllers: [PrivateController] })(PrivateModule);
   const api = express();
+  gate('FRAMEWORK');
   const nest = await NestFactory.create(PrivateModule, new ExpressAdapter(api), { logger: false, bodyParser: false });
   await nest.init();
+  gate('FRAMEWORK_READY');
   const nextApp = next({ dev: true, dir: webDir, hostname: 'localhost', port: 3443 });
+  gate('NEXT');
   await nextApp.prepare();
+  gate('NEXT_READY');
   const web = nextApp.getRequestHandler();
   const routes = new Set(['/v2/auth/browser-nonce','/v2/auth/otp/start','/v2/auth/otp/verify',
     '/v2/auth/enrollment/pending','/v2/auth/enrollment/simulator/verify','/v2/auth/enrollment/complete',
@@ -632,6 +654,7 @@ async function main() {
     }
     Promise.resolve(web(req, res)).catch(() => { if (!res.headersSent) res.writeHead(500).end(); });
   });
+  gate('LISTEN');
   server.listen(3443, '127.0.0.1', () => process.stdout.write('ST237_PRIVATE_HTTPS_READY\n'));
   const close = async () => { server.close(); server.closeAllConnections(); await nest.close(); await nextApp.close(); await pool.end(); };
   process.once('SIGTERM', () => { void close().finally(() => process.exit(0)); });
