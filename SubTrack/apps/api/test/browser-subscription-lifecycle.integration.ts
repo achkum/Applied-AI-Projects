@@ -125,9 +125,11 @@ test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', 
         (id,identity_id,merchant_id,custom_name,category_code,cadence,expected_amount_minor,currency,status,source,always_private,updated_at)
         VALUES (${fixture.id}::uuid,${owner}::uuid,${merchant}::uuid,'synthetic','VIDEO_STREAMING','MONTHLY',1,'SEK',
           ${fixture.current}::subscription_status,'DETECTED',true,NOW())`);
-    await settled(ownerDb.$executeRaw`INSERT INTO household (id,name,updated_at) VALUES (${household}::uuid,'synthetic',NOW())`);
-    await settled(ownerDb.$executeRaw`INSERT INTO household_member (household_id,identity_id,role)
-      VALUES (${household}::uuid,${owner}::uuid,'ADMIN'),(${household}::uuid,${peer}::uuid,'MEMBER')`);
+    await settled(ownerDb.$transaction(async tx => {
+      await tx.$executeRaw`INSERT INTO household (id,name,updated_at) VALUES (${household}::uuid,'synthetic',NOW())`;
+      await tx.$executeRaw`INSERT INTO household_member (household_id,identity_id,role)
+        VALUES (${household}::uuid,${owner}::uuid,'ADMIN'),(${household}::uuid,${peer}::uuid,'MEMBER')`;
+    }));
     await settled(ownerDb.$executeRaw`INSERT INTO consent (identity_id,scope_id,scope_type,open_book,updated_at)
       VALUES (${owner}::uuid,${household}::uuid,'HOUSEHOLD',true,NOW())`);
     for (const [id, privateRow] of [[shared, true], [openBook, false]] as const)
