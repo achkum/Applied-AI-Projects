@@ -11,6 +11,7 @@ source_head=$(git rev-parse HEAD)
 source <(sed -n '/^cleanup_container() {/,/^}/p' "$script")
 source <(sed -n '/^classify_launcher_failure() {/,/^}/p' "$script")
 source <(sed -n '/^finish() {/,/^}/p' "$script")
+source <(sed -n '/^run_browser_integration() {/,/^}/p' "$script")
 passed=true
 phase=launcher-integration
 coverage=unavailable
@@ -82,3 +83,25 @@ done
 printf 'Failed Suites 1\n' > "$base/failure.log"
 [[ "$(classify_launcher_failure "$base/failure.log")" == collection ]]
 printf 'ST-226 actual finish negatives and diagnostic allowlist: PASS\n'
+# Execute the production runner/finish gate with verified successful custody removal.
+for browser_case in integration_failure missing_browser_gate; do
+  tmp="$base/st226.$browser_case"
+  mkdir -m 700 "$tmp"
+  printf '%s %s %s %s\n' "$cid" "$label" "$name" "$created" > "$record"
+  passed=true browser_passed=false phase=browser-integration
+  failure_subphase=unavailable failure_cleanup=unavailable
+  docker() {
+    if [[ "$1" == inspect && "$3" == '{{.Id}}' ]]; then printf '%s\n' "$cid"
+    elif [[ "$1" == inspect ]]; then
+      printf '%s|/%s|%s|%s|mirror.gcr.io/library/postgres:16-alpine|1|tmpfs:/var/lib/postgresql/data|1|1|127.0.0.1|1|1|127.0.0.1|35001|true\n' "$cid" "$name" "$label" "$created"
+    elif [[ "$1" != rm && "$1" != ps ]]; then return 1; fi
+  }
+  corepack() { printf 'synthetic integration failure\n'; return 1; }
+  status=0
+  (trap finish EXIT
+   if [[ "$browser_case" == integration_failure ]]; then run_browser_integration || exit 1; fi
+   exit 0) || status=$?
+  [[ "$status" == 1 && ! -e "$tmp" && ! -e "$record" ]]
+  grep -q 'proof: FAIL .*phase=browser-integration .*fixture_cleanup=false ' "$receipt"
+done
+printf 'ST-227a actual browser runner and absent proof gate negatives: PASS\n'

@@ -1,0 +1,408 @@
+import 'reflect-metadata';
+import assert from 'node:assert/strict';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
+import { request as httpsRequest } from 'node:https';
+import { resolve } from 'node:path';
+import { PrismaClient } from '@prisma/client';
+import { test } from 'vitest';
+import { inspectOwnedFixture, privateFile } from '../src/subscriptions/browser-subscription-lifecycle.local';
+
+type Credential = { handle: 'owner' | 'peer'; access: string; binding: string; csrf: string };
+const root = resolve(__dirname, '../../..');
+const origin = 'https://127.0.0.1:35426';
+interface BrowserRequest { allHeaders(): Promise<Record<string, string>>; method(): string; url(): string }
+interface BrowserPage {
+  goto(url: string): Promise<unknown>;
+  route(url: string, handler: (route: { request(): BrowserRequest; fulfill(options: object): Promise<void> }) => Promise<void>): Promise<void>;
+  evaluate<T, R>(fn: (input: T) => Promise<R>, input: T): Promise<R>;
+  on(event: 'request', handler: (request: BrowserRequest) => void): void;
+  off(event: 'request', handler: (request: BrowserRequest) => void): void;
+}
+interface BrowserContext {
+  addCookies(cookies: object[]): Promise<void>; newPage(): Promise<BrowserPage>; close(): Promise<void>;
+  cookies(): Promise<{ name: string; httpOnly: boolean; secure: boolean; sameSite: string; path: string; domain: string }[]>;
+}
+interface Browser { newContext(options: object): Promise<BrowserContext>; close(): Promise<void> }
+const requireUi = createRequire(resolve(root, 'packages/ui/package.json'));
+const { chromium } = requireUi('playwright') as { chromium: { launch(): Promise<Browser> } };
+const statuses = ['DETECTED', 'TRIAL', 'ACTIVE', 'PAUSED', 'CANCELLED', 'ARCHIVED', 'REJECTED'] as const;
+const targets = ['ACTIVE', 'PAUSED', 'CANCELLED', 'ARCHIVED'] as const;
+const allowed = new Set(['ACTIVE:PAUSED', 'ACTIVE:CANCELLED', 'ACTIVE:ARCHIVED',
+  'PAUSED:ACTIVE', 'PAUSED:CANCELLED', 'PAUSED:ARCHIVED', 'CANCELLED:ARCHIVED']);
+const phases = ['fixture', 'compiled_child', 'child_spawn', 'child_bootstrap', 'child_startup_exit',
+  'child_startup_timeout', 'child_pool', 'smoke', 'denials', 'browser', 'matrix', 'visibility', 'authority', 'malformed', 'sigterm_cleanup', 'sigint_cleanup', 'parent_cleanup'] as const;
+type Phase = typeof phases[number];
+type Cleanup = 'none' | 'child_exit' | 'child_timeout' | 'owner_disconnect';
+const failureReceipt = (phase: unknown, cleanup: unknown) =>
+  `ST-227a browser proof failed: ${phases.includes(phase as Phase) ? phase : 'unavailable'}; cleanup: ${
+    ['none', 'child_exit', 'child_timeout', 'owner_disconnect'].includes(cleanup as string) ? cleanup : 'unavailable'}`;
+const childExit = (child: ChildProcess, ms: number): Promise<number | null> => new Promise((done, reject) => {
+  if (child.exitCode !== null || child.signalCode !== null) return done(child.exitCode);
+  const timer = setTimeout(() => { clear(); reject(new Error('timeout')); }, ms);
+  const onExit = (code: number | null) => { clear(); done(code); };
+  const onError = () => { clear(); reject(new Error('child')); };
+  function clear() { clearTimeout(timer); child.off('exit', onExit); child.off('error', onError); }
+  child.once('exit', onExit); child.once('error', onError);
+});
+const request = (id: string, method: 'POST' | 'PATCH', credential?: Credential, status = 'PAUSED') =>
+  new Promise<{ status: number; body: Record<string, unknown>; cache: string | undefined }>((done, reject) => {
+    const body = method === 'POST' ? '{}' : JSON.stringify({ status });
+    const req = httpsRequest(`${origin}/v2/subscriptions/${id}${method === 'POST' ? '/read' : ''}`, {
+      method, rejectUnauthorized: false, headers: { Origin: origin, 'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body), ...(credential ? { 'X-Session-CSRF': credential.csrf,
+          Cookie: `st_v2_access=${credential.access}; st_v2_binding=${credential.binding}` } : {}) },
+    }, result => {
+      let text = '';
+      result.setEncoding('utf8');
+      result.on('data', (chunk: string) => { text += chunk; if (text.length > 16_384) req.destroy(new Error('bound')); });
+      result.once('end', () => { try { done({ status: result.statusCode ?? 0,
+        body: JSON.parse(text) as Record<string, unknown>, cache: result.headers['cache-control'] }); } catch { reject(new Error('response')); } });
+      result.once('error', reject);
+    });
+    req.once('error', reject); req.setTimeout(5_000, () => req.destroy(new Error('timeout'))); req.end(body);
+  });
+const listenerClosed = async (id: string) => {
+  try { await request(id, 'POST'); }
+  catch (error) { assert.equal((error as NodeJS.ErrnoException).code, 'ECONNREFUSED'); return; }
+  assert.fail('listener survived');
+};
+
+test('natural Chromium lifecycle matrix, authority and owned launcher cleanup', async () => {
+  if (process.platform !== 'linux' || process.env['CI'] !== 'true') throw new Error('ST-227a requires Linux CI');
+  let phase: Phase = 'fixture';
+  let failure: Phase | undefined;
+  let cleanup: Cleanup = 'none';
+  let ownerDb: PrismaClient | undefined;
+  let child: ChildProcess | undefined;
+  let credentials: Credential[] = [];
+  let browser: Browser | undefined;
+  const contexts: BrowserContext[] = [];
+  const pending = new Set<Promise<unknown>>();
+  const settled = async <T>(operation: Promise<T>, ms = 5_000): Promise<T> => {
+    pending.add(operation);
+    void operation.then(() => pending.delete(operation), () => pending.delete(operation));
+    let timer: NodeJS.Timeout | undefined;
+    try { return await Promise.race([operation, new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('deadline')), ms);
+    })]); } finally { clearTimeout(timer); }
+  };
+  try {
+    assert(!process.env['DATABASE_URL']);
+    const ownerUrl = process.env['ST226_OWNER_URL'], runtimeUrl = process.env['ST226_RUNTIME_URL'];
+    const custody = () => {
+      inspectOwnedFixture(process.env['ST226_PROVENANCE_FILE'], runtimeUrl);
+      privateFile(process.env['ST226_TLS_KEY_FILE'], 0o600).fill(0);
+      privateFile(process.env['ST226_TLS_CERT_FILE'], 0o600).fill(0);
+      const parent: unknown = JSON.parse(privateFile(process.env['ST226_OWNER_PROVENANCE_FILE'], 0o600).toString());
+      assert(parent && typeof parent === 'object' && Object.keys(parent).join(',') === 'ownerUrl');
+      assert.equal((parent as { ownerUrl: string }).ownerUrl, ownerUrl);
+      assert(ownerUrl && runtimeUrl);
+      const owner = new URL(ownerUrl), runtime = new URL(runtimeUrl);
+      assert.equal(ownerUrl, `postgresql://fixture_owner:${owner.password}@127.0.0.1:${runtime.port}/browser_subscription_lifecycle_proof?connection_limit=1`);
+      assert.match(owner.password, /^[a-f0-9]{48}$/);
+    };
+    custody();
+    ownerDb = new PrismaClient({ datasources: { db: { url: ownerUrl! } }, log: [] });
+    const owner = randomUUID(), peer = randomUUID(), smoke = randomUUID(), unrelated = randomUUID(), missing = randomUUID();
+    await settled(ownerDb.$executeRaw`SET statement_timeout = 5000`);
+    const fixtures = statuses.flatMap(current => targets.map(target => ({ id: randomUUID(), current, target })));
+    const shared = randomUUID(), openBook = randomUUID(), sharedHousehold = randomUUID(), openHousehold = randomUUID();
+    for (const identity of [owner, peer])
+      await ownerDb.$executeRaw`INSERT INTO identity (id,auth_method,updated_at) VALUES (${identity}::uuid,'MOCK',NOW())`;
+    const merchant = randomUUID();
+    await ownerDb.$executeRaw`INSERT INTO merchant
+      (id,canonical_name,slug,category_code,aliases,country,created_at,updated_at)
+      VALUES (${merchant}::uuid,'Synthetic Merchant','st227a-synthetic','VIDEO_STREAMING','[]'::jsonb,'SE',NOW(),NOW())`;
+    for (const [id, identity] of [[smoke, owner], [unrelated, peer]] as const)
+      await ownerDb.$executeRaw`INSERT INTO subscription
+        (id,identity_id,merchant_id,custom_name,category_code,cadence,expected_amount_minor,currency,status,source,always_private,updated_at)
+        VALUES (${id}::uuid,${identity}::uuid,${merchant}::uuid,'synthetic','VIDEO_STREAMING','MONTHLY',9007199254740993,'SEK',
+          'ACTIVE'::subscription_status,'DETECTED',true,NOW())`;
+    for (const fixture of fixtures)
+      await settled(ownerDb.$executeRaw`INSERT INTO subscription
+        (id,identity_id,merchant_id,custom_name,category_code,cadence,expected_amount_minor,currency,status,source,always_private,updated_at)
+        VALUES (${fixture.id}::uuid,${owner}::uuid,${merchant}::uuid,'synthetic','VIDEO_STREAMING','MONTHLY',1,'SEK',
+          ${fixture.current}::subscription_status,'DETECTED',true,NOW())`);
+    for (const household of [sharedHousehold, openHousehold]) {
+      await settled(ownerDb.$executeRaw`INSERT INTO household (id,name,updated_at) VALUES (${household}::uuid,'synthetic',NOW())`);
+      await settled(ownerDb.$executeRaw`INSERT INTO household_member (household_id,identity_id,role)
+        VALUES (${household}::uuid,${owner}::uuid,'ADMIN'),(${household}::uuid,${peer}::uuid,'MEMBER')`);
+    }
+    await settled(ownerDb.$executeRaw`INSERT INTO consent (identity_id,scope_id,scope_type,open_book,updated_at)
+      VALUES (${owner}::uuid,${openHousehold}::uuid,'HOUSEHOLD',true,NOW())`);
+    for (const [id, privateRow] of [[shared, true], [openBook, false]] as const)
+      await settled(ownerDb.$executeRaw`INSERT INTO subscription
+        (id,identity_id,merchant_id,custom_name,category_code,cadence,expected_amount_minor,currency,status,source,always_private,updated_at)
+        VALUES (${id}::uuid,${owner}::uuid,${merchant}::uuid,'synthetic','VIDEO_STREAMING','MONTHLY',1,'SEK',
+          'ACTIVE'::subscription_status,'DETECTED',${privateRow},NOW())`);
+    await settled(ownerDb.$executeRaw`INSERT INTO subscription_share (id,subscription_id,household_id,shared_by)
+      VALUES (${randomUUID()}::uuid,${shared}::uuid,${sharedHousehold}::uuid,${owner}::uuid)`);
+    const connections = async () => (await ownerDb!.$queryRaw<{ count: number }[]>`
+      SELECT count(*)::integer AS count FROM pg_stat_activity
+      WHERE datname=current_database() AND usename='st_browser_lifecycle_runtime'`)[0]!.count;
+    const baseline = await connections(); assert.equal(baseline, 0);
+    const waitForConnections = async (expected: number) => {
+      const deadline = Date.now() + 5_000;
+      while (Date.now() < deadline) {
+        if (await connections() === expected) return;
+        await new Promise(done => setTimeout(done, 50));
+      }
+      assert.equal(await connections(), expected);
+    };
+    const snapshot = async () => ({
+      subscriptions: await ownerDb!.$queryRaw<Record<string, unknown>[]>`SELECT * FROM subscription ORDER BY id`,
+      shares: await ownerDb!.$queryRaw`SELECT * FROM subscription_share ORDER BY id`,
+      identities: await ownerDb!.$queryRaw`SELECT * FROM identity ORDER BY id`,
+      households: await ownerDb!.$queryRaw`SELECT * FROM household ORDER BY id`,
+      members: await ownerDb!.$queryRaw`SELECT * FROM household_member ORDER BY identity_id`,
+      consents: await ownerDb!.$queryRaw`SELECT * FROM consent ORDER BY identity_id`,
+      merchants: await ownerDb!.$queryRaw`SELECT * FROM merchant ORDER BY id`,
+      audit: await ownerDb!.$queryRaw`SELECT * FROM audit_log ORDER BY id`,
+    });
+    await settled(snapshot());
+    phase = 'compiled_child';
+    const startChild = async () => {
+      custody();
+      phase = 'child_spawn';
+      child = spawn(process.execPath, [resolve(root, 'apps/api/dist/subscriptions/browser-subscription-lifecycle.local.js')], {
+        cwd: resolve(root, 'apps/api'), stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+        env: { ...process.env, DATABASE_URL: '', NODE_ENV: 'development', ST226_ENABLED: '1', ST226_HOST: '127.0.0.1',
+          ST226_PORT: '35426', ST226_OWNER_ID: owner, ST226_PEER_ID: peer, ST226_RUNTIME_URL: runtimeUrl,
+          ST226_OWNER_URL: '', ST226_OWNER_PROVENANCE_FILE: '' },
+      });
+      phase = 'child_bootstrap';
+      const current = child;
+      credentials = await new Promise<Credential[]>((done, reject) => {
+        const finish = (error?: Error, result?: Credential[]) => {
+          clearTimeout(timer); current.off('message', ready); current.off('error', failed); current.off('exit', exited);
+          if (error) reject(error); else done(result!);
+        };
+        const failed = () => { phase = 'child_spawn'; finish(new Error('startup')); };
+        const exited = () => { phase = 'child_startup_exit'; finish(new Error('startup')); };
+        const timer = setTimeout(() => { phase = 'child_startup_timeout'; finish(new Error('timeout')); }, 20_000);
+        const ready = (raw: unknown) => {
+          clearTimeout(timer);
+          if (!raw || typeof raw !== 'object' || Array.isArray(raw) ||
+              Object.keys(raw).sort().join(',') !== 'credentials,id,kind' ||
+              (raw as { kind?: string }).kind !== 'ready' || (raw as { id?: number }).id !== 0)
+            return finish(new Error('bootstrap'));
+          const result = (raw as { credentials?: Credential[] }).credentials;
+          if (!Array.isArray(result) || result.length !== 2 || result[0]?.handle !== 'owner' || result[1]?.handle !== 'peer' ||
+              !result.every(item => item && Object.keys(item).sort().join(',') === 'access,binding,csrf,handle' &&
+                typeof item.access === 'string' && item.access.length > 16 && item.access.length < 8192 &&
+                typeof item.binding === 'string' && /^[A-Za-z0-9_-]{43}$/.test(item.binding) &&
+                typeof item.csrf === 'string' && item.csrf.length > 16 && item.csrf.length < 512))
+            return finish(new Error('bootstrap'));
+          finish(undefined, result);
+        };
+        current.once('message', ready); current.once('error', failed); current.once('exit', exited);
+      });
+      phase = 'child_pool';
+      await waitForConnections(baseline + 1);
+    };
+    let nextId = 1;
+    let startupPid: number | undefined;
+    const observe = (handle: 'owner' | 'peer') => new Promise<void>((done, reject) => {
+      const id = nextId++;
+      const current = child!;
+      const finish = (error?: Error) => { clearTimeout(timer); current.off('message', listener); if (error) reject(error); else done(); };
+      const timer = setTimeout(() => finish(new Error('observe timeout')), 5_000);
+      const listener = (raw: unknown) => {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+        const ack = raw as { kind: string; id: number; action: string; handle: string; pid: number; canonicalClean: boolean; historicalClean: boolean };
+        if (ack.kind !== 'controlled' || ack.id !== id) return;
+        if (Object.keys(raw).sort().join(',') !== 'action,canonicalClean,handle,historicalClean,id,kind,pid' ||
+            ack.action !== 'pool-observe' || ack.handle !== handle || !Number.isSafeInteger(ack.pid) || ack.pid < 1 ||
+            ack.pid > 2147483647 || ack.canonicalClean !== true || ack.historicalClean !== true ||
+            (startupPid !== undefined && startupPid !== ack.pid)) return finish(new Error('pool evidence'));
+        startupPid = ack.pid; finish();
+      };
+      current.on('message', listener);
+      try { current.send({ kind: 'control', id, action: 'pool-observe', handle }, error => { if (error) finish(new Error('send')); }); }
+      catch { finish(new Error('send')); }
+    });
+    const stopChild = async (signal: 'SIGTERM' | 'SIGINT') => {
+      assert(child); child.kill(signal);
+      assert.equal(await childExit(child, 15_000), 0); child = undefined; credentials.length = 0;
+      await listenerClosed(smoke); await waitForConnections(baseline);
+    };
+    await startChild();
+    phase = 'browser';
+    browser = await settled(chromium.launch(), 10_000);
+    const pageFor = async (credential: Credential, options: { access?: string | null; binding?: string | null; refresh?: boolean } = {}) => {
+      custody();
+      const context = await settled(browser!.newContext({ ignoreHTTPSErrors: true })); contexts.push(context);
+      const cookies = [
+        { name: 'st_v2_access', value: options.access === undefined ? credential.access : options.access },
+        { name: 'st_v2_binding', value: options.binding === undefined ? credential.binding : options.binding },
+        ...(options.refresh ? [{ name: 'st_v2_refresh', value: 'synthetic' }] : []),
+      ].filter(cookie => cookie.value !== null);
+      await settled(context.addCookies(cookies.map(cookie => ({ ...cookie, domain: '127.0.0.1', path: '/v2',
+        secure: true, httpOnly: true, sameSite: 'Lax' }))));
+      const properties = await settled(context.cookies());
+      assert.equal(properties.length, cookies.length);
+      assert(properties.every(cookie => cookie.httpOnly && cookie.secure && cookie.sameSite === 'Lax' && cookie.path === '/v2' && cookie.domain === '127.0.0.1'));
+      const page = await settled(context.newPage());
+      await settled(page.route(`${origin}/v2/proof`, route => {
+        assert.equal(route.request().method(), 'GET'); assert.equal(route.request().url(), `${origin}/v2/proof`);
+        return route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Synthetic proof</title>' });
+      }));
+      await settled(page.goto(`${origin}/v2/proof`));
+      assert.equal(await settled(page.evaluate(async () => (globalThis as unknown as { document: { cookie: string } }).document.cookie, {})), '');
+      return { page, cookieNames: cookies.map(cookie => cookie.name).sort() };
+    };
+    type Client = Awaited<ReturnType<typeof pageFor>>;
+    const fetchCase = async (client: Client, credential: Credential, id: string, options: {
+      read?: boolean; body?: string; query?: string; csrf?: string | null; headers?: Record<string, string>
+    } = {}) => {
+      const method = options.read ? 'POST' : 'PATCH';
+      const url = `${origin}/v2/subscriptions/${id}${options.read ? '/read' : ''}${options.query ?? ''}`;
+      let listener!: (request: BrowserRequest) => void;
+      let cancelObservation!: () => void;
+      let timer: NodeJS.Timeout | undefined;
+      const emitted = new Promise<BrowserRequest>((done, reject) => {
+        cancelObservation = () => reject(new Error('observation cancelled'));
+        timer = setTimeout(() => reject(new Error('observation')), 5_000);
+        listener = request => { if (request.method() === method && request.url() === url) { clearTimeout(timer); done(request); } };
+        client.page.on('request', listener);
+      });
+      // Attach rejection handling before the fetch; neither header values nor errors escape memory.
+      const headersEvidence = emitted.then(async request => {
+        const headers = await settled(request.allHeaders());
+        assert.equal(headers.origin, origin);
+        assert.deepEqual((headers.cookie ?? '').split(';').filter(Boolean).map(part => part.trim().split('=')[0]!).sort(), client.cookieNames);
+      });
+      pending.add(headersEvidence);
+      void headersEvidence.then(() => pending.delete(headersEvidence), () => pending.delete(headersEvidence));
+      try {
+        const result = await settled(client.page.evaluate(async input => {
+          const controller = new AbortController(); const deadline = setTimeout(() => controller.abort(), 5_000);
+          try {
+            const response = await fetch(input.url, { method: input.method, credentials: 'include', signal: controller.signal,
+              body: input.body, headers: input.headers });
+            return { status: response.status, body: await response.json() as Record<string, unknown>,
+              cache: response.headers.get('cache-control'), contentType: response.headers.get('content-type') };
+          } finally { clearTimeout(deadline); }
+        }, { url, method, body: options.body ?? (options.read ? '{}' : '{"status":"PAUSED"}'),
+          headers: { 'Content-Type': 'application/json', ...(options.csrf === null ? {} : { 'X-Session-CSRF': options.csrf ?? credential.csrf }), ...options.headers } }), 7_000);
+        await settled(headersEvidence); assert.equal(result.cache, 'no-store');
+        await settled(observe(credential.handle)); return result;
+      } finally { clearTimeout(timer); client.page.off('request', listener); cancelObservation(); }
+    };
+    const ownerClient = await pageFor(credentials[0]!), peerClient = await pageFor(credentials[1]!);
+    // Literal expectations follow the accepted browser READ/PATCH contract, independently of adapter constants.
+    const expectedProblems = {
+      400: { type: 'about:blank', title: 'Bad Request', status: 400, code: 'INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST' },
+      401: { type: 'about:blank', title: 'Unauthorized', status: 401, code: 'AUTHENTICATION_REQUIRED' },
+      403: { type: 'about:blank', title: 'Forbidden', status: 403, code: 'AUTH_CSRF_UNAVAILABLE' },
+      404: { type: 'about:blank', title: 'Not Found', status: 404, code: 'SUBSCRIPTION_NOT_FOUND' },
+      409: { type: 'about:blank', title: 'Conflict', status: 409, code: 'LIFECYCLE_CONFLICT' },
+    };
+    const problem = (result: Awaited<ReturnType<typeof fetchCase>>, status: keyof typeof expectedProblems, read = false) => {
+      assert.equal(result.status, status); assert.equal(result.body.status, status);
+      assert.deepEqual(Object.keys(result.body).sort(), ['code', 'status', 'title', 'type']);
+      assert.equal(result.body.type, 'about:blank'); assert.equal(typeof result.body.title, 'string');
+      assert.equal(typeof result.body.code, 'string'); assert.match(result.contentType ?? '', /^application\/problem\+json/);
+      assert.deepEqual(result.body, status === 400 && read
+        ? { type: 'about:blank', title: 'Bad Request', status: 400, code: 'INVALID_SUBSCRIPTION_QUERY' }
+        : expectedProblems[status]);
+    };
+    await settled(observe('owner'));
+    phase = 'matrix';
+    let successes = 0, denials = 0;
+    for (const fixture of fixtures) {
+      const prior = await settled(snapshot());
+      const result = await fetchCase(ownerClient, credentials[0]!, fixture.id, { body: JSON.stringify({ status: fixture.target }) });
+      if (allowed.has(`${fixture.current}:${fixture.target}`)) {
+        successes++; assert.equal(result.status, 200); assert.deepEqual(result.body, { id: fixture.id, status: fixture.target });
+        const read = await fetchCase(ownerClient, credentials[0]!, fixture.id, { read: true });
+        assert.equal(read.status, 200); assert.equal(read.body.id, fixture.id); assert.equal(read.body.status, fixture.target);
+        const committed = await settled(snapshot()); assert.equal(committed.subscriptions.find(row => row.id === fixture.id)?.status, fixture.target);
+        const normalized = committed.subscriptions.map(row => row.id === fixture.id
+          ? prior.subscriptions.find(original => original.id === fixture.id)! : row);
+        assert.deepEqual({ ...committed, subscriptions: normalized }, prior);
+      } else {
+        denials++; problem(result, 409); assert.equal(result.body.code, 'LIFECYCLE_CONFLICT');
+        assert.deepEqual(await settled(snapshot()), prior);
+      }
+    }
+    assert.equal(successes, 7); assert.equal(denials, 21);
+    phase = 'visibility';
+    const unchanged = await settled(snapshot());
+    for (const id of [shared, openBook]) {
+      const read = await fetchCase(peerClient, credentials[1]!, id, { read: true });
+      assert.equal(read.status, 200); assert.equal(read.body.visibility, 'household');
+    }
+    let absentBody: Record<string, unknown> | undefined;
+    for (const id of [shared, openBook, smoke, unrelated, missing]) {
+      // unrelated is owned by peer; use owner for that identifier, otherwise peer.
+      const credential = id === unrelated ? credentials[0]! : credentials[1]!;
+      const result = await fetchCase(id === unrelated ? ownerClient : peerClient, credential, id);
+      problem(result, 404); if (absentBody) assert.deepEqual(result.body, absentBody); else absentBody = result.body;
+      assert.deepEqual(await settled(snapshot()), unchanged);
+    }
+    phase = 'authority';
+    for (const options of [{ access: null }, { access: 'invalid' }, { binding: null }, { binding: 'invalid' },
+      { binding: 'A'.repeat(43) }, { binding: credentials[1]!.binding }]) {
+      const client = await pageFor(credentials[0]!, options);
+      for (const read of [false, true]) problem(await fetchCase(client, credentials[0]!, smoke, { read }), 401);
+      assert.deepEqual(await settled(snapshot()), unchanged);
+    }
+    for (const csrf of [null, 'A'.repeat(43), credentials[1]!.csrf])
+      for (const read of [false, true]) {
+        problem(await fetchCase(ownerClient, credentials[0]!, smoke, { read, csrf }), 403);
+        assert.deepEqual(await settled(snapshot()), unchanged);
+      }
+    phase = 'malformed';
+    const malformed = [
+      { id: 'not-a-uuid' }, { body: '{' }, { body: '{"status":"PAUSED","extra":true}' },
+      { body: '{"status":"PAUSED","status":"PAUSED"}' }, { body: '{"status":"TRIAL"}' },
+      { query: `?identityId=${peer}` }, { headers: { Authorization: 'Bearer synthetic' } },
+      { headers: { 'Idempotency-Key': 'synthetic' } },
+      ...['X-Identity-Id', 'X-Owner-Id', 'X-User-Id', 'X-Household-Id', 'X-Session-Id', 'X-Scope', 'X-Transport']
+        .map(name => ({ headers: { [name]: peer } })),
+      { body: '{"status":"PAUSED"}'.padEnd(257, ' ') },
+    ];
+    for (const options of malformed) {
+      problem(await fetchCase(ownerClient, credentials[0]!, 'id' in options ? options.id : smoke, options), 400);
+      assert.deepEqual(await settled(snapshot()), unchanged);
+    }
+    for (const body of ['{}'.padEnd(65, ' '), '{"extra":true}']) {
+      problem(await fetchCase(ownerClient, credentials[0]!, smoke, { read: true, body }), 400, true);
+      assert.deepEqual(await settled(snapshot()), unchanged);
+    }
+    // Exact byte boundaries admit a legal PATCH and a READ, rather than merely rejecting malformed oversized bodies.
+    const boundary = await fetchCase(ownerClient, credentials[0]!, smoke, { body: '{"status":"PAUSED"}'.padEnd(256, ' ') });
+    assert.equal(boundary.status, 200); assert.deepEqual(boundary.body, { id: smoke, status: 'PAUSED' });
+    const boundaryRead = await fetchCase(ownerClient, credentials[0]!, smoke, { read: true, body: '{}'.padEnd(64, ' ') });
+    assert.equal(boundaryRead.status, 200); assert.equal(boundaryRead.body.status, 'PAUSED');
+    const finalState = await settled(snapshot());
+    assert.deepEqual({ ...finalState, subscriptions: finalState.subscriptions.map(row => row.id === smoke
+      ? unchanged.subscriptions.find(original => original.id === smoke)! : row) }, unchanged);
+    const refreshClient = await pageFor(credentials[0]!, { refresh: true });
+    for (const read of [false, true]) problem(await fetchCase(refreshClient, credentials[0]!, smoke, { read }), 400, read);
+    assert.deepEqual(await settled(snapshot()), finalState);
+    for (const context of contexts) await settled(context.close(), 10_000);
+    contexts.length = 0; await settled(browser.close(), 10_000); browser = undefined;
+    assert.equal(pending.size, 0);
+    phase = 'sigterm_cleanup'; await stopChild('SIGTERM');
+    phase = 'sigint_cleanup'; nextId = 1; startupPid = undefined;
+    await startChild(); phase = 'sigint_cleanup'; await observe('peer'); await stopChild('SIGINT');
+  } catch { failure = phase; }
+  finally {
+    credentials.length = 0;
+    for (const context of contexts) { try { await settled(context.close(), 10_000); } catch { cleanup = 'owner_disconnect'; } }
+    try { if (browser) await settled(browser.close(), 10_000); } catch { cleanup = 'owner_disconnect'; }
+    if (child) {
+      child.kill('SIGTERM');
+      try { if (await childExit(child, 15_000) !== 0) cleanup = 'child_exit'; }
+      catch { child.kill('SIGKILL'); try { await childExit(child, 5_000); } catch { /* retain failure */ } cleanup = 'child_timeout'; }
+    }
+    const childStopped = !child || child.exitCode !== null || child.signalCode !== null;
+    if (pending.size !== 0 || !childStopped) cleanup = 'owner_disconnect';
+    try { if (pending.size === 0 && childStopped) await settled(ownerDb?.$disconnect() ?? Promise.resolve(), 10_000); } catch { cleanup = 'owner_disconnect'; }
+  }
+  if (failure || cleanup !== 'none') throw new Error(failureReceipt(failure ?? 'parent_cleanup', cleanup));
+}, 180_000);

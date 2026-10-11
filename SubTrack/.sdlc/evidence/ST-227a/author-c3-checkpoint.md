@@ -1,0 +1,8 @@
+CHECKPOINT/v1; ST227a C3 frozen; original2026-10-11T00:20:05Z L240attempt1 retained; sole LOCAL token returned; no running jobs.
+Client first REQUEST_CHANGES/P2/count1 and C2 handoff preserved; correction only integration literal denial expectations/call-site READ400 selection; no runtime/wrapper/workflow/control edits.
+Accepted contracts BrowserSubscriptionLifecycleProblem/BrowserSubscriptionReadProblem and browser adapters/composition establish complete literal401/403/404/409 plus PATCH400 INVALID_SUBSCRIPTION_LIFECYCLE_REQUEST and READ400 INVALID_SUBSCRIPTION_QUERY.
+Existing key/type/content-type/409-code checks, no-store, 7allowed/21denied/28total matrices, privacy masking and identical404 snapshots retained; no implementation constants imported.
+LOCAL targeted integration ESLint and API tsc --noEmit PASS; diff-check PASS; actual Linux Node22/pinned Chromium/PG16 proof remains CI-only and unrun here.
+Frozen integration2bf12fbbc634abe7c645bd05827fb68568986e13; unchanged configee3f65f877df2ffc94a869e5c94ffb424397f9f5/wrapper32dcd2aa7b32a6a644df46da14c536932701b71c/negative2f91edeb4355bad6f9ddc344f94f26f856f4b558/workflowab909dd2e9c079777d5dd30be551314775ebbf79.
+Before-edit estimate<=497author; actual implementation458+readiness12+C2handoff10+C3checkpoint8=488/750; four existing reviews42 give source/evidence530/1000, root-owned metadata/control accounting separate; C3<=20calls/<30min STOP.
+Tool-read failure1 wrong repository root corrected; prior C2 parser-only failure1 retained; test/build failures0/repair0; freeze now, root renews client/platform/security/devops/QA and owns task/status/backlog/stage/commit/push/merge.

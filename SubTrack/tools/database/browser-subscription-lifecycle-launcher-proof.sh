@@ -73,6 +73,15 @@ classify_launcher_failure() {
   printf '%s\n' "$fallback"
 }
 
+run_browser_integration() {
+  phase=browser-integration
+  if ! (cd apps/api && corepack pnpm exec vitest run --config test/vitest.browser-subscription-lifecycle.config.ts) >"$tmp/browser.log" 2>&1; then
+    failure_subphase=unavailable
+    failure_cleanup=unavailable
+    return 1
+  fi
+  browser_passed=true
+}
 if [[ "${1:-}" == --cleanup ]]; then cleanup_container; exit; fi
 [[ ! -e "$record" && ! -L "$record" ]] || { echo 'ST-226 existing fixture requires verified cleanup' >&2; exit 1; }
 printf 'ST-226 proof: FAIL source_head=%s phase=starting code=unavailable\n' "$source_head" > "$receipt"
@@ -80,6 +89,7 @@ tmp=$(mktemp -d "$base/st226.XXXXXX")
 chmod 700 "$tmp"
 phase=starting
 passed=false
+browser_passed=false
 coverage=unavailable
 failure_subphase=unavailable
 failure_cleanup=unavailable
@@ -99,13 +109,14 @@ finish() {
     [[ ! -e "$tmp_real" ]] || bad=true
   else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; phase=cleanup; fi
-  case "$phase" in starting|fixture|migration|role|tls|build|launcher-coverage|launcher-integration|cleanup) ;; *) phase=starting; status=1 ;; esac
+  case "$phase" in starting|fixture|migration|role|tls|build|launcher-coverage|launcher-integration|browser-integration|cleanup) ;; *) phase=starting; status=1 ;; esac
   case "$failure_subphase" in unavailable|fixture|compiled_child|child_spawn|child_bootstrap|child_startup_exit|child_startup_timeout|child_pool|smoke|denials|sigterm_cleanup|sigint_cleanup|parent_cleanup|collection) ;; *) failure_subphase=unavailable; status=1 ;; esac
   case "$failure_cleanup" in unavailable|none|child_exit|child_timeout|owner_disconnect) ;; *) failure_cleanup=unavailable; status=1 ;; esac
   [[ "$coverage" == unavailable || "$coverage" =~ ^statements:[0-9]+([.][0-9]+)?,branches:[0-9]+([.][0-9]+)?,functions:[0-9]+([.][0-9]+)?,lines:[0-9]+([.][0-9]+)?$ ]] || { coverage=unavailable; status=1; }
-  if [[ "$status" -eq 0 && "$passed" == true ]]; then
-    printf 'ST-226 browser subscription lifecycle launcher proof: PASS source_head=%s coverage=%s cases=READ,PATCH,reread,persistence,peer404,missing404,conflict409,pool-PID,dual-GUC,SIGTERM,SIGINT,listener-reuse,pool-baseline fixture=removed child=stopped secrets=destroyed\n' "$source_head" "$coverage" > "$receipt"
+  if [[ "$status" -eq 0 && "$passed" == true && "${browser_passed:-false}" == true ]]; then
+    printf 'ST-226 browser subscription lifecycle launcher proof: PASS source_head=%s coverage=%s cases=READ,PATCH,reread,persistence,peer404,missing404,conflict409,pool-PID,dual-GUC,SIGTERM,SIGINT,listener-reuse,pool-baseline browser=natural-Chromium allowed=7 denied=21 total=28 fixture=removed child=stopped secrets=destroyed\n' "$source_head" "$coverage" > "$receipt"
   else
+    status=1
     printf 'ST-226 browser subscription lifecycle launcher proof: FAIL source_head=%s phase=%s subphase=%s parent_cleanup=%s fixture_cleanup=%s code=unavailable\n' "$source_head" "$phase" "$failure_subphase" "$failure_cleanup" "$bad" > "$receipt"
   fi
   exit "$status"
@@ -199,4 +210,5 @@ if ! (cd apps/api && corepack pnpm exec vitest run --config test/vitest.browser-
   failure_cleanup=$(classify_launcher_failure "$tmp/test.log" cleanup)
   exit 1
 fi
+run_browser_integration || exit 1
 passed=true

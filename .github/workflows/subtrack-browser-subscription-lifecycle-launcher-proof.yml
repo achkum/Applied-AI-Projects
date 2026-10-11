@@ -16,6 +16,9 @@ on:
       - 'SubTrack/apps/api/src/database/**'
       - 'SubTrack/apps/api/prisma/**'
       - 'SubTrack/apps/api/test/browser-subscription-lifecycle-launcher.integration.ts'
+      - 'SubTrack/apps/api/test/browser-subscription-lifecycle.integration.ts'
+      - 'SubTrack/apps/api/test/vitest.browser-subscription-lifecycle.config.ts'
+      - 'SubTrack/packages/ui/package.json'
       - 'SubTrack/apps/api/test/vitest.browser-subscription-lifecycle-launcher.config.ts'
       - 'SubTrack/apps/api/vitest.config.ts'
       - 'SubTrack/tools/database/browser-subscription-lifecycle-launcher-proof.sh'
@@ -40,6 +43,8 @@ jobs:
           node-version: 22
       - run: corepack enable && corepack prepare pnpm@12.6.0 --activate
       - run: corepack pnpm install --frozen-lockfile
+      - name: Install lockfile-pinned Chromium
+        run: corepack pnpm --filter @subtrack/ui exec playwright install --with-deps chromium
       - name: Missing ownership record denies proof PASS
         run: bash tools/database/test-browser-subscription-lifecycle-launcher-proof.sh
       - name: Owned PG16, compiled Node HTTPS persistence proof
