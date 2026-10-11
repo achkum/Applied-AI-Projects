@@ -19,7 +19,9 @@ const theme = process.env.ST237_BROWSER_THEME;
 assert(['sv', 'en'].includes(locale));
 assert(['light', 'dark'].includes(theme));
 assert(require('playwright/package.json').version === '1.63.0');
-const copy = JSON.parse(fs.readFileSync(path.join(webDir, '../../packages/i18n/catalogs', `${locale}.json`), 'utf8')).onboarding;
+const catalog = JSON.parse(fs.readFileSync(path.join(webDir, '../../packages/i18n/catalogs', `${locale}.json`), 'utf8'));
+const copy = catalog.onboarding;
+const preferenceCopy = catalog.preferences;
 const handshake = process.env.ST237_HANDSHAKE_DIR;
 assert(handshake && fs.statSync(handshake).isDirectory());
 const ca = fs.readFileSync(path.join(handshake, 'ca.crt'));
@@ -94,7 +96,10 @@ try {
   const first = await page.goto(`${origin}/${locale}/register?st237_probe=${randomUUID()}`, { waitUntil: 'domcontentloaded' });
   navigationStatus = first && [200, 304, 400, 404, 500].includes(first.status()) ? String(first.status()) : 'OTHER';
   assert.equal(first?.status(), 200);
-  await page.evaluate(selected => { globalThis.document.documentElement.setAttribute('data-theme', selected); }, theme);
+  const themeButton = page.getByRole('navigation', { name: preferenceCopy.label, exact: true })
+    .getByRole('button', { name: preferenceCopy.themes[theme], exact: true });
+  await themeButton.click();
+  await page.waitForFunction(selected => globalThis.localStorage.getItem('theme-preference') === selected, theme);
   phase = 'IDENTIFIER_READY';
   await page.getByRole('heading', { name: copy.registration.title, exact: true }).waitFor();
   await capture('identifier');
@@ -111,18 +116,19 @@ try {
   await capture('simulator');
   await page.getByRole('button', { name: copy.registration.simulatorAction, exact: true }).click();
   phase = 'PROFILE';
-  await page.getByLabel(copy.profile.displayName, { exact: true }).waitFor();
+  const profileRegion = page.getByRole('region', { name: copy.profile.title, exact: true });
+  await profileRegion.getByLabel(copy.profile.displayName, { exact: true }).waitFor();
   await capture('profile');
   phase = 'PROFILE_EDIT';
-  await page.getByLabel(copy.profile.displayName, { exact: true }).fill('Private Proof');
-  await page.getByLabel(copy.profile.language, { exact: true }).selectOption(locale);
-  await page.getByLabel(copy.profile.theme, { exact: true }).selectOption(theme);
+  await profileRegion.getByLabel(copy.profile.displayName, { exact: true }).fill('Private Proof');
+  await profileRegion.getByLabel(copy.profile.language, { exact: true }).selectOption(locale);
+  await profileRegion.getByLabel(copy.profile.theme, { exact: true }).selectOption(theme);
   phase = 'PROFILE_SAVE';
-  await page.getByRole('button', { name: copy.profile.save, exact: true }).click();
-  await page.getByText(copy.profile.saved, { exact: true }).waitFor();
+  await profileRegion.getByRole('button', { name: copy.profile.save, exact: true }).click();
+  await profileRegion.getByText(copy.profile.saved, { exact: true }).waitFor();
   phase = 'PROFILE_SAVED';
   await capture('saved');
-  assert.equal(await page.getByLabel(copy.profile.displayName, { exact: true }).inputValue(), 'Private Proof');
+  assert.equal(await profileRegion.getByLabel(copy.profile.displayName, { exact: true }).inputValue(), 'Private Proof');
   phase = 'PROFILE_WIRE';
   assert(safeWire);
   const paths = ['/v2/auth/browser-nonce', '/v2/auth/otp/start', '/v2/auth/otp/verify',
@@ -196,9 +202,9 @@ try {
     assert.equal(committed.status(), 200);
     await route.abort('failed');
   });
-  await page.getByLabel(copy.profile.displayName, { exact: true }).fill('Private Proof Updated');
-  await page.getByRole('button', { name: copy.profile.save, exact: true }).dblclick();
-  await page.getByText(copy.profile.uncertain, { exact: true }).waitFor();
+  await profileRegion.getByLabel(copy.profile.displayName, { exact: true }).fill('Private Proof Updated');
+  await profileRegion.getByRole('button', { name: copy.profile.save, exact: true }).dblclick();
+  await profileRegion.getByText(copy.profile.uncertain, { exact: true }).waitFor();
   assert.equal(committedPatchCount, 1);
   const afterLostResponse = await request(baseHeaders);
   assert.equal(afterLostResponse.status, 200);
@@ -208,7 +214,7 @@ try {
   phase = 'RELOAD';
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByText(copy.registration.verifiedLoginRequired, { exact: true }).waitFor();
-  assert.equal(await page.getByLabel(copy.profile.displayName, { exact: true }).count(), 0);
+  assert.equal(await profileRegion.getByLabel(copy.profile.displayName, { exact: true }).count(), 0);
   await capture('reload-stop');
   phase = 'PARTIAL_TERMINAL';
   await context.clearCookies();
@@ -252,7 +258,8 @@ try {
   assert.deepEqual(Object.keys(deniedBody).sort(), ['code', 'status', 'title', 'type']);
   assert.equal(deniedBody.code, 'PROFILE_REQUEST_REJECTED');
   await partialPage.getByText(copy.registration.verifiedLoginRequired, { exact: true }).waitFor();
-  assert.equal(await partialPage.getByLabel(copy.profile.displayName, { exact: true }).count(), 0);
+  assert.equal(await partialPage.getByRole('region', { name: copy.profile.title, exact: true })
+    .getByLabel(copy.profile.displayName, { exact: true }).count(), 0);
   const retained = await context.cookies();
   assert(retained.some(cookie => cookie.name === 'st_v2_access'));
   assert(retained.some(cookie => cookie.name === 'st_v2_binding'));
