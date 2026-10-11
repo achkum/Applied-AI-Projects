@@ -1,0 +1,36 @@
+name: SubTrack development auth SQL foundation proof
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'SubTrack/apps/api/prisma/**'
+      - 'SubTrack/tools/database/*development-auth-foundation-proof.sh'
+      - '.github/workflows/subtrack-development-auth-foundation-proof.yml'
+permissions:
+  contents: read
+jobs:
+  owned-pg16-foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: SubTrack
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Actual custody and cleanup negatives
+        run: bash tools/database/test-development-auth-foundation-proof.sh
+      - name: Actual owned PG16 SCRAM role and constraint proof
+        run: bash tools/database/development-auth-foundation-proof.sh
+      - name: Remove exact recorded fixture
+        if: always()
+        run: bash tools/database/development-auth-foundation-proof.sh --cleanup
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: st233a-foundation-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/st233a-proof-receipt.txt
+          if-no-files-found: error
+          retention-days: 7
