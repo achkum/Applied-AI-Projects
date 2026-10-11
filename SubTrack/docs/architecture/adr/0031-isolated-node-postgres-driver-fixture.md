@@ -1,5 +1,5 @@
 # ADR 0031: Isolated Node PostgreSQL driver fixture
-- Status: Proposed Type 2a for ST-233l; proof-only, pending actual Linux PG16 qualification.
+- Status: Accepted Type 2a for ST-233l; private driver fixture qualified at PR277, full product adapter remains separate.
 - The owned PG16 fixture keeps `--network none`, no published ports, and its existing mount custody.
 - A separate pinned Node image joins only that container network namespace and runs as the host runner UID.
 - Its root is read-only, capabilities are dropped, and only a curated bundled driver and private config are mounted read-only.
