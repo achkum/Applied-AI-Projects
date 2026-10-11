@@ -1168,7 +1168,7 @@ for ak_parent in 'subtrack_auth.fence(text,subtrack_auth.h,subtrack_auth.ms)' "$
 done
 { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat "${inputs[12]}"; } | owner
 cat > "$tmp/ak-catalog.sql" <<'SQL'
-SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=12 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['key_h','owner_h','authority_h','request_h','nonce_h','binding_h','chain','purpose','origin','epoch','manifest_h','observed_ms'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='bool'::regtype AND p.proargtypes=ARRAY['subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,25::oid,25::oid,25::oid,25::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.ms'::regtype::oid]::oidvector AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql') AND md5(p.prosrc)='b695f67d7b09e08ddc236f1f119fe622'),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.issue_bootstrap_nonce(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,text,text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure;
+SELECT 1/COALESCE((p.prokind='f' AND NOT p.proretset AND p.pronargs=12 AND p.pronargdefaults=0 AND p.proargnames=ARRAY['key_h','owner_h','authority_h','request_h','nonce_h','binding_h','chain','purpose','origin','epoch','manifest_h','observed_ms'] AND p.proallargtypes IS NULL AND p.proargmodes IS NULL AND p.proowner='subtrack_auth_executor'::regrole AND p.prorettype='bool'::regtype AND p.proargtypes=ARRAY['subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.h'::regtype::oid,25::oid,25::oid,25::oid,25::oid,'subtrack_auth.h'::regtype::oid,'subtrack_auth.ms'::regtype::oid]::oidvector AND p.prosecdef AND NOT p.proisstrict AND p.provolatile='v' AND p.proparallel='u' AND p.proconfig=ARRAY['search_path=pg_catalog'] AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='plpgsql') AND md5(p.prosrc)='b695f67d7b09e08ddc236f1f119fe622'),false)::integer FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.issue_bootstrap_nonce(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,text,text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure;
 WITH actual AS (SELECT a.* FROM pg_catalog.pg_proc p,LATERAL pg_catalog.aclexplode(p.proacl) a WHERE p.oid='subtrack_auth.issue_bootstrap_nonce(subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,subtrack_auth.h,text,text,text,text,subtrack_auth.h,subtrack_auth.ms)'::regprocedure), expected AS (SELECT 'subtrack_auth_executor'::regrole::oid grantor,r.role::regrole::oid grantee,'EXECUTE'::text privilege_type,false is_grantable FROM (VALUES ('subtrack_auth_executor'),('subtrack_runtime')) r(role)), delta AS ((SELECT * FROM actual EXCEPT SELECT * FROM expected) UNION ALL (SELECT * FROM expected EXCEPT SELECT * FROM actual)) SELECT 1/(NOT EXISTS(SELECT 1 FROM delta))::integer;
 SELECT 1/(count(*)=7)::integer FROM pg_catalog.pg_proc WHERE pronamespace='subtrack_auth'::regnamespace;
 SQL
@@ -1203,8 +1203,9 @@ if owner < "$tmp/ak-postinsert.sql"; then exit 1; fi
 grep -q 'ERROR:  42501' "$client_log" || exit 1
 assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.nonce) AND (SELECT state='pending' FROM subtrack_auth.reservation WHERE key_h=repeat('a',64))"
 owner < "$tmp/ak-catalog.sql"
-IFS=, read -r -a ak_fields <<< "$ak_args_current"
+ak_fields=("repeat('a',64)" "repeat('2',64)" "repeat('3',64)" "'${ak_hashes[2]}'" "repeat('b',64)" "repeat('5',64)" "'private-chain'" "'session'" "'https://st233a.invalid'" "'fixture'" "repeat('a',64)" "0")
 [[ ${#ak_fields[@]} == 12 ]] || exit 1
+[[ "$(IFS=,; printf '%s' "${ak_fields[*]}")" == "$ak_args_current" ]] || exit 1
 for ak_index in "${!ak_fields[@]}"; do
   ak_null=("${ak_fields[@]}"); ak_null[$ak_index]=NULL
   ak_joined=$(IFS=,; printf '%s' "${ak_null[*]}")
@@ -1212,6 +1213,12 @@ for ak_index in "${!ak_fields[@]}"; do
 done
 for ak_change in "UPDATE subtrack_auth.reservation SET owner_h=repeat('8',64)" "UPDATE subtrack_auth.reservation SET authority_h=repeat('8',64)" "UPDATE subtrack_auth.reservation SET request_h=repeat('8',64)" "UPDATE subtrack_auth.reservation SET epoch='retired'" "UPDATE subtrack_auth.reservation SET operation='other'" "UPDATE subtrack_auth.reservation SET authority_kind='other'" "UPDATE subtrack_auth.reservation SET state='failed'" "UPDATE subtrack_auth.reservation SET issued_ms=0,expires_ms=1" "UPDATE subtrack_auth.reservation SET issued_ms=9007199254640991,expires_ms=9007199254700991" "UPDATE subtrack_auth.epoch SET state='retired' WHERE id='fixture'" "UPDATE subtrack_auth.epoch SET manifest_h=repeat('b',64) WHERE id='fixture'" "UPDATE subtrack_auth.epoch SET watermark_ms=9007199254740991 WHERE id='fixture'"; do
   printf 'BEGIN; %s; SET LOCAL ROLE subtrack_runtime; %s ROLLBACK; %s\n' "$ak_change" "$(ak_call 'NOT ' "$ak_args_current")" "$reset_sql" | owner
+  assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.nonce) AND (SELECT state='pending' FROM subtrack_auth.reservation WHERE key_h=repeat('a',64))"
+done
+snapshot_private; ak_corruption_before=$snapshot
+for ak_change in "ALTER TABLE subtrack_auth.reservation DROP CONSTRAINT reservation_transport_check; UPDATE subtrack_auth.reservation SET transport='mobile' WHERE key_h=repeat('a',64);" "ALTER TABLE subtrack_auth.epoch DROP CONSTRAINT epoch_origin_check; UPDATE subtrack_auth.epoch SET origin='https://foreign.invalid' WHERE id='fixture';"; do
+  printf 'BEGIN; %s SET LOCAL ROLE subtrack_runtime; %s ROLLBACK; %s\n' "$ak_change" "$(ak_call 'NOT ' "$ak_args_current")" "$reset_sql" | owner
+  snapshot_private; [[ "$snapshot" == "$ak_corruption_before" ]] || exit 1
   assert_owner "NOT EXISTS(SELECT 1 FROM subtrack_auth.nonce) AND (SELECT state='pending' FROM subtrack_auth.reservation WHERE key_h=repeat('a',64))"
 done
 printf "BEGIN; SET LOCAL ROLE subtrack_runtime; %s ROLLBACK; %s\n" "$(ak_call 'NOT ' "$(ak_args a "${ak_hashes[2]}" b session | sed "s/'fixture'/'retired'/")")" "$reset_sql" | actor
