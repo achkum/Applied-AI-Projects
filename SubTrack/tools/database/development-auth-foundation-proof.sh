@@ -499,18 +499,34 @@ peek_args="repeat('1',64),repeat('c',64),'https://st233a.invalid','fixture',repe
 for prefix in '' 'SET ROLE subtrack_identity_provisioner;'; do deny_actor "$prefix SELECT subtrack_auth.peek($peek_args);" || exit 1; done
 # Fresh actual rows; fixed digest values are synthetic fixtures, not session-cookie digest substitutes.
 printf "INSERT INTO subtrack_auth.nonce SELECT repeat(i::text,64),'web','https://st233a.invalid','peek-chain-'||p,repeat('c',64),'fixture',t.ms,t.ms+300000,p,NULL FROM (VALUES (1,'session'),(2,'enroll_identifier'),(3,'otp_step_up')) v(i,p) CROSS JOIN (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint-1000 ms) t;\n" | owner
+positive_peek_sql() {
+  printf "SELECT 1/COALESCE((subtrack_auth.peek(%s)='%s'),false)::integer;" "$1" "$2"
+}
 snapshot_private() {
   printf "SELECT md5(jsonb_build_array((SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM subtrack_auth.epoch e),(SELECT jsonb_agg(to_jsonb(n) ORDER BY nonce_h) FROM subtrack_auth.nonce n),(SELECT jsonb_agg(to_jsonb(r) ORDER BY key_h) FROM subtrack_auth.reservation r))::text);\n" | owner
   snapshot=$(sed -n '/^[ ]*[a-f0-9]\{32\}[ ]*$/s/ //gp' "$client_log")
   [[ "$snapshot" =~ ^[a-f0-9]{32}$ ]]
 }
 snapshot_private; before_peek=$snapshot
+# Real SQL NULL-return mutation, transaction-local and rolled back on the exact assertion error.
+# Both positive paths use the identical generated assertion, not a NULL transcript/shell stub.
+for role in subtrack_runtime subtrack_auth_producer; do
+  {
+    printf "BEGIN; CREATE OR REPLACE FUNCTION subtrack_auth.peek(nonce_h subtrack_auth.h,binding_h subtrack_auth.h,origin text,epoch text,manifest_h subtrack_auth.h,observed_ms subtrack_auth.ms,purpose text) RETURNS text LANGUAGE plpgsql SECURITY DEFINER VOLATILE PARALLEL UNSAFE CALLED ON NULL INPUT SET search_path=pg_catalog AS 'BEGIN RETURN NULL; END'; SET LOCAL ROLE %s;\n" "$role"
+    positive_peek_sql "$peek_args" 'peek-chain-session'
+  } > "$tmp/peek-null-fault.sql"
+  if owner < "$tmp/peek-null-fault.sql"; then exit 1; fi
+  grep -q 'ERROR:  22012' "$client_log" || exit 1
+  assert_owner "(SELECT md5(prosrc)='25e9a0516ed61e024d99e51cd83b2ee0' FROM pg_catalog.pg_proc WHERE oid='$peek_signature'::regprocedure)"
+  owner < "$tmp/peek-catalog.sql"
+  snapshot_private; [[ "$snapshot" == "$before_peek" ]] || exit 1
+done
 for role in subtrack_runtime subtrack_auth_producer; do
   for pair in '1 session' '2 enroll_identifier' '3 otp_step_up'; do
     read -r digit purpose <<< "$pair"
     # Independent SCRAM reconnects, commit and rollback, altered caller search_path and both GUCs.
     for outcome in COMMIT ROLLBACK; do
-      printf "BEGIN; SET LOCAL ROLE %s; SET LOCAL search_path=public; SET LOCAL app.user_id='fault'; SET LOCAL app.current_user_id='fault'; SELECT 1/(subtrack_auth.peek(repeat('%s',64),repeat('c',64),'https://st233a.invalid','fixture',repeat('a',64),0,'%s')='peek-chain-%s')::integer; %s; %s\n" "$role" "$digit" "$purpose" "$purpose" "$outcome" "$reset_sql" | actor
+      printf "BEGIN; SET LOCAL ROLE %s; SET LOCAL search_path=public; SET LOCAL app.user_id='fault'; SET LOCAL app.current_user_id='fault'; %s %s; %s\n" "$role" "$(positive_peek_sql "repeat('$digit',64),repeat('c',64),'https://st233a.invalid','fixture',repeat('a',64),0,'$purpose'" "peek-chain-$purpose")" "$outcome" "$reset_sql" | actor
     done
   done
   values=("repeat('1',64)" "repeat('c',64)" "'https://st233a.invalid'" "'fixture'" "repeat('a',64)" 0 "'session'")
@@ -544,7 +560,7 @@ for outcome in COMMIT ROLLBACK; do
   snapshot_private; before_peek=$snapshot
   fifo=$(mktemp -u "$tmp/holder.XXXXXX"); mkfifo -m 600 "$fifo"; exec {writer}<>"$fifo"; writers[holder]=$writer
   launch_client subtrack_dev_auth_login "$fifo" st233b-holder; holder_pid=$client_pid holder_log=$client_log
-  printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; SELECT 1/(subtrack_auth.peek(repeat('4',64),repeat('c',64),'https://st233a.invalid','peek-lock',repeat('a',64),0,'session')='peek-locked')::integer;\n" >&"$writer"
+  printf "BEGIN; SET LOCAL ROLE subtrack_runtime; SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'; %s\n" "$(positive_peek_sql "repeat('4',64),repeat('c',64),'https://st233a.invalid','peek-lock',repeat('a',64),0,'session'" 'peek-locked')" >&"$writer"
   observer=$(mktemp "$tmp/observer.XXXXXX"); waiter_pid=''
   observe_clients "SELECT count(*)=1 FROM pg_catalog.pg_stat_activity WHERE datname='$db' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';" '^ t *$' || exit 1
   printf "SELECT pid FROM pg_catalog.pg_stat_activity WHERE datname='%s' AND usename='subtrack_dev_auth_login' AND application_name='st233b-holder' AND state='idle in transaction';\n" "$db" > "$observer"
