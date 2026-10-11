@@ -218,12 +218,15 @@ try {
     await page.getByRole('heading', { name: copy.ownerSubscriptions.title, exact: true }).waitFor();
     const ownerRegion = page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true });
     assert.equal(await ownerRegion.getByRole('listitem').count(), 50);
+    await capture('owner-list-first-page');
     await page.getByRole('button', { name: copy.ownerSubscriptions.loadMore, exact: true }).click();
     await page.waitForFunction(() => globalThis.document.querySelectorAll('li button[aria-label]').length === 51);
     assert.equal(await page.getByRole('button', { name: copy.ownerSubscriptions.loadMore, exact: true }).count(), 0);
+    await capture('owner-list-loaded');
     const firstRow = ownerRegion.getByRole('listitem').first().getByRole('button');
     await firstRow.focus();
     assert.equal(await firstRow.evaluate(element => globalThis.document.activeElement === element), true);
+    await capture('focused-owner-row');
     await firstRow.press('Enter');
     phase = 'SUBSCRIPTION_DETAIL';
     await page.getByRole('heading', { name: copy.ownerSubscriptions.detail, exact: true }).waitFor();

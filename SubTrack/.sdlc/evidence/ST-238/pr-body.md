@@ -15,3 +15,5 @@ Validation currently completed:
 - The required actual proof exercises natural profile, partial credential stop, empty owner list, paginated list/detail/status, and uncertain mode/status responses in separate fresh fixtures for all four sv/en light/dark variants. These new private cases have not yet passed hosted execution.
 
 Required before merge: final proof source review, actual PostgreSQL/HTTPS/browser results and synthetic screenshots at this head, independent actual QA and visual acceptance, all applicable CI and Conductor exact-head audit. This draft is not ready to merge and does not claim unrun proofs passed.
+
+C6 exact execution now independently APPROVED: all five fresh cases in each of four variants with matching source/build/SQL custody and cleanup; all sixteen applicable checks including foundation SUCCESS. Client/design actual review inspected 24 frames but holds missing populated-list/pagination/focused-row images. C7 adds only three awaited captures at already asserted states, independently source-approved; no product/assertion/fixture changes. Fresh C7 execution/checks and visual review remain required before merge.
