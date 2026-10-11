@@ -1,0 +1,9 @@
+# ST232 independent security source review — BLOCK
+REVIEW/v1; reviewer security-privacy; baseline25b1767012db0226bf7cc32218a73ab6a807d457; readinessfd65c8c789d08c9bb968d3b5ae73c8e0c4e1aafb; original2026-10-11T00:49:04Z M120attempt1 retained.
+Exact reviewed pins: simulator a2d542a965aba43036b84c215e0927db571fb93f; simulator spec 93201202bdc5e962e79437d56098fcb6c699878a; verifier 1da63265c44adb65df4ddcddfcfe5649825ca844; verifier spec abf73b101337f9177593833d6f0a4ad9ef524c26.
+MAJOR: development-enrollment-person-verifier.ts:36-38 validates input byteLength only; a 31-byte Uint8Array with own data property byteLength:32 passes, while Buffer.from copies only31 bytes. This violates the independently copied >=32-byte key gate.
+Required fix: snapshot the key into a Buffer, validate copiedKey.length>=32 after copying, then encode; add a meaningful forged-byteLength short-key denial test with generic failure. Existing login producer already validates copiedKey.length.
+Otherwise fixed frozen synthetic names, zero-argument authority, plain own-data options/results, immutable output, name consistency and generic diagnostics preserve the reviewed private boundary; finite bounded instance-monotonic pre/post-await clocks cover concurrency and inclusive five-minute limits.
+Only additive simulator exports changed legacy source; no real provider/client identity/full-name split, OTP/login conversion, persistence/account/session mutation, barrel or registration found.
+Inspected meaningful tests and private author V8 artifact:75 targeted tests reported PASS,53/53 statements50/50 branches7/7 functions45/45 lines; verifier has no uncovered recorded arms, but the missing copied-key guard requires new source/test evidence.
+No tests/heavy jobs run; source approval withheld pending fix and exact-pin rereview. Fresh independent QA and applicable exact-head CI remain mandatory; no account/public/deployment readiness approval.

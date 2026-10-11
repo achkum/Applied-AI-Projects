@@ -6,7 +6,8 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-231, title: 'Source-preserving refresh-CSRF and erasure semantics proposal', owner: architect-platform, size: M, status: IN_REVIEW, deps: [ST-230, ST-229, ST-228]}
+  - {id: ST-232, title: 'Trusted development simulator enrollment person result', owner: dev-backend, size: M, status: IN_REVIEW, deps: [ST-228, ST-229, ST-230, ST-231]}
+  - {id: ST-231, title: 'Source-preserving refresh-CSRF and erasure semantics proposal', owner: architect-platform, size: M, status: DONE, deps: [ST-230, ST-229, ST-228]}
   - {id: ST-230, title: 'Exact durable development auth-state SQL access proposal', owner: architect-platform, size: M, status: DONE, deps: [ST-228, ST-229]}
   - {id: ST-227, title: 'Natural-browser lifecycle proof decomposition', owner: architect-platform, size: M, status: IN_REVIEW, deps: [ST-226, ST-225, ST-224, ST-081c]}
   - {id: ST-229, title: 'Contract-first private web enrollment and account completion', owner: architect-platform, size: L, status: DONE, deps: [ST-228, ST-207, ST-210, ST-170a]}
