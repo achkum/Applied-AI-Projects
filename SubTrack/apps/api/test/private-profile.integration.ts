@@ -115,11 +115,13 @@ async function prove(): Promise<void> {
     assert(untouched.every(row => row.display_name === null && row.profile_complete === false));
     phase = 'SUBSCRIPTION_OWNER';
     const household = randomUUID(), foreignId = randomUUID(), missingId = randomUUID();
-    subscriptionSubstep = 'household';
-    await owner.$executeRaw`INSERT INTO public.household(id,name,updated_at) VALUES (${household}::uuid,'Proof',now())`;
-    subscriptionSubstep = 'member';
-    await owner.$executeRaw`INSERT INTO public.household_member(household_id,identity_id,role)
-      VALUES (${household}::uuid,${a}::uuid,'ADMIN'),(${household}::uuid,${b}::uuid,'MEMBER')`;
+    await owner.$transaction(async tx => {
+      subscriptionSubstep = 'household';
+      await tx.$executeRaw`INSERT INTO public.household(id,name,updated_at) VALUES (${household}::uuid,'Proof',now())`;
+      subscriptionSubstep = 'member';
+      await tx.$executeRaw`INSERT INTO public.household_member(household_id,identity_id,role)
+        VALUES (${household}::uuid,${a}::uuid,'ADMIN'),(${household}::uuid,${b}::uuid,'MEMBER')`;
+    });
     subscriptionSubstep = 'subscription';
     await owner.$executeRaw`INSERT INTO public.subscription(id,identity_id,custom_name,category_code,cadence,
       expected_amount_minor,currency,status,source,always_private,updated_at)
