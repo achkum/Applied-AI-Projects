@@ -1,0 +1,5 @@
+# ST234 client/design final PRECODE decision (recorded by conductor from specialist message)
+APPROVE exact eight-literal 🙂 😀 😎 🌟 🌿 🐱 🦊 🦉 picker as Assumed contract precision; no UI activation. Exact token01-08, strict patch/view/completion and explicit future persisted-complete Just me timing approved.
+Display names require already NFC/trim-stable 1-80 Unicode scalar values, no Cc/Cf or unpaired surrogate; exported decoder must replace generated UTF16 limit without rejecting valid astral names, with strict and cross-field parity tests.
+Explicit sv/en wins; otherwise sv only for private hint equal sv or beginning sv- ASCII case-insensitively, else en. Do not persist/log raw hint. Theme system/SEK/null avatar remain projections; advisory trusted-name prefill confers no authority.
+Initial conditional evidence retained separately. Specialist follow-up3calls stopped after failed delete/add evidence patch; this conductor record preserves exact final decision and locale correction. Generated footprint and independent platform/security/QA/root GO still required before source.
