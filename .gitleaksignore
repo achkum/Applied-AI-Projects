@@ -17,3 +17,6 @@ f22f4f79546a920829df0f845c1a2757701012a4:SubTrack/apps/api/src/auth/otp-v2/mobil
 2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/.sdlc/evidence/ST-228/client-review.md:generic-api-key:15
 2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/.sdlc/evidence/ST-228/source-pins.md:generic-api-key:20
 2c65d1eadcb55a5f36dfdeceb52a0465f64aa08c:SubTrack/.sdlc/evidence/ST-228/source-pins.md:generic-api-key:21
+
+# ST227: independently reviewed public contracts Git source pin; exact historical finding only.
+fb0b0a96faf37d56aae8478162b867aed65a0e44:SubTrack/.sdlc/evidence/ST-227/source-pins.md:generic-api-key:13
