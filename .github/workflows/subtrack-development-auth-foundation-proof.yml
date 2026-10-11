@@ -8,6 +8,9 @@ on:
       - 'SubTrack/apps/api/src/auth/browser-nonce/development-bootstrap-postgres-port.ts'
       - 'SubTrack/apps/api/src/auth/browser-nonce/development-bootstrap-postgres-port.spec.ts'
       - 'SubTrack/apps/api/src/auth/sessions-v2/durable-current-web-*.ts'
+      - 'SubTrack/apps/api/src/auth/enrollment-v2/durable-development-enrollment*.ts'
+      - 'SubTrack/apps/api/test/durable-development-enrollment.integration.ts'
+      - 'SubTrack/apps/api/test/vitest.durable-development-enrollment.config.ts'
       - 'SubTrack/apps/api/src/auth/session-csrf/durable-session-csrf*.ts'
       - 'SubTrack/apps/api/test/durable-current-web-authority.integration.ts'
       - 'SubTrack/apps/api/test/vitest.durable-current-web-authority.config.ts'
@@ -40,7 +43,7 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
       - name: Actual custody and bounded client lifecycle negatives
         run: bash tools/database/test-development-auth-foundation-proof.sh
-      - name: Actual owned PG16 SCRAM foundation and private bootstrap port proof
+      - name: Actual owned PG16 SCRAM foundation, current web and durable enrollment proof
         run: bash tools/database/development-auth-foundation-proof.sh
       - name: Remove exact recorded fixture
         if: always()

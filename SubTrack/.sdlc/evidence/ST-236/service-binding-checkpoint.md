@@ -1,0 +1,7 @@
+# ST-236 service binding correction checkpoint — 2026-10-11
+
+Service and focused spec implement the independently classified binding correction within the original ST-236 attempt and source limits. The trusted issuance path validates the canonical raw browser cookie, derives `hashBrowserBindingCookie(cookie)`, and appends it as the last `issue_enrollment_otp` argument after `source_expires_ms`. Existing bootstrap nonce and burn digest semantics remain separate. SQL author confirmed the matching fixed signature and propagation from stored verified state to session insertion; the terminal service call accepts no digest parameter.
+
+Terminal completion mints a canonical `v2r.` refresh token and hashes its complete wire form with the accepted refresh domain. It uses `mintDurableSessionCsrf()` for the token and stored digest. Constructor capture of the trusted verifier uses a checked `DevelopmentEnrollmentPersonVerifier` cast after the existing instance and method guards, resolving the prior TS unknown-property error.
+
+Focused tests assert the accepted session-binding digest is the last OTP parameter and differs from the bootstrap binding digest; they assert exact refresh and CSRF digest compatibility at session issuance. Targeted `corepack pnpm exec vitest run src/auth/enrollment-v2/durable-development-enrollment.spec.ts` passed 11/11 at 2026-10-11 ~12:13 local. This mock test is not actual-PG acceptance. Root owns integrated API typecheck/lint and the qualified actual-PG proof lane; no broader readiness or usability claim follows.

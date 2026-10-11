@@ -203,10 +203,10 @@ finish() {
   if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
   if cleanup_container; then cleanup_temp || bad=true; else bad=true; fi
   if [[ "$bad" == true ]]; then status=1; cleanup_result=failed; fi
-  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|prune|settle|nonce-prune|atomic-issue|atomic-issue-0[1-9]|atomic-issue-1[0-9]|driver|driver-cleanup|port-durable-state|durable-current|pins|cleanup) ;; *) status=1; phase=starting ;; esac
+  case "$phase" in starting|fixture|migration|foundation|actor|constraints|catalog|fence|peek|reserve|prune|settle|nonce-prune|atomic-issue|atomic-issue-0[1-9]|atomic-issue-1[0-9]|driver|driver-cleanup|port-durable-state|durable-current|durable-enrollment|pins|cleanup) ;; *) status=1; phase=starting ;; esac
   [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" || exit 1
   if [[ "$status" == 0 && "$passed" == true && "$bad" == false ]]; then
-    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,private-atomic-issue,postlock-clock,rollback,reconnect,bounded-clients,durable-current-web fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
+    printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,private-atomic-issue,postlock-clock,rollback,reconnect,bounded-clients,durable-current-web,durable-enrollment fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
   else
     status=1
     printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s\n' "$source_head" "$phase" "$cleanup_result" >> "$receipt"
@@ -241,7 +241,8 @@ inputs=(apps/api/prisma/migrations/0001_canonical_schema/migration.sql apps/api/
   apps/api/prisma/development-auth/002-epoch-fence.sql apps/api/prisma/development-auth/003-nonce-binding-lookup.sql apps/api/prisma/development-auth/004-bootstrap-reservation.sql apps/api/prisma/development-auth/005-expired-reservation-prune.sql apps/api/prisma/development-auth/006-owned-bootstrap-settlement.sql apps/api/prisma/development-auth/007-expired-nonce-prune.sql apps/api/prisma/development-auth/008-atomic-bootstrap-nonce-issue.sql apps/api/package.json pnpm-lock.yaml docs/architecture/adr/0031-isolated-node-postgres-driver-fixture.md
   apps/api/src/auth/browser-nonce/development-bootstrap-postgres-port.ts apps/api/src/auth/browser-nonce/development-bootstrap-postgres-port.spec.ts docs/architecture/adr/0032-private-development-bootstrap-postgres-port.md
   apps/api/src/auth/browser-nonce/development-bootstrap-transaction.ts apps/api/src/auth/browser-nonce/development-bootstrap-material.ts apps/api/src/auth/idempotency/development-bootstrap-burn-material.ts
-  apps/api/prisma/development-auth/009-current-web-session-csrf.sql apps/api/src/auth/sessions-v2/durable-current-web-authority.ts apps/api/src/auth/sessions-v2/durable-current-web-fixture.ts apps/api/src/auth/session-csrf/durable-session-csrf.ts apps/api/test/durable-current-web-authority.integration.ts apps/api/test/vitest.durable-current-web-authority.config.ts)
+  apps/api/prisma/development-auth/009-current-web-session-csrf.sql apps/api/src/auth/sessions-v2/durable-current-web-authority.ts apps/api/src/auth/sessions-v2/durable-current-web-fixture.ts apps/api/src/auth/session-csrf/durable-session-csrf.ts apps/api/test/durable-current-web-authority.integration.ts apps/api/test/vitest.durable-current-web-authority.config.ts
+  apps/api/prisma/development-auth/010-enrollment-account.sql apps/api/prisma/schema.prisma apps/api/src/auth/enrollment-v2/durable-development-enrollment.ts apps/api/src/auth/enrollment-v2/durable-development-enrollment.spec.ts apps/api/test/durable-development-enrollment.integration.ts apps/api/test/vitest.durable-development-enrollment.config.ts)
 : > "$receipt"
 for path in "${inputs[@]}"; do
   blob=$(git hash-object "$path")
@@ -1605,6 +1606,38 @@ driver_custody exited || exit 1
 [[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
 driver_result=$(docker logs "$driver_cid" 2>/dev/null) || exit 1
 [[ "$driver_result" == 'ST-235 durable current web: PASS' ]] || exit 1
+printf '%s\n' "$driver_result" >> "$receipt"
+driver_cleanup || exit 1
+phase=durable-enrollment
+# Prior fixture cases deliberately fill nonce capacity. Retire only this owned,
+# disposable database's completed test state before the next isolated proof.
+printf 'DELETE FROM subtrack_auth.nonce; DELETE FROM subtrack_auth.reservation;\n' | owner
+{ printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$source_head" "$marker" "$constraints_pin"; cat apps/api/prisma/development-auth/010-enrollment-account.sql; } | owner
+# SQL010 must not open an unrelated legacy/session/deletion writer in the fixture.
+assert_owner "NOT pg_catalog.has_table_privilege('subtrack_dev_auth_login','public.identity','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_dev_auth_login','subtrack_auth.session','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_auth_producer','public.identity','INSERT,UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_identity_provisioner','public.identity','UPDATE,DELETE') AND NOT pg_catalog.has_table_privilege('subtrack_runtime','public.identity','DELETE')"
+node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],logLevel:"silent"})' apps/api/test/durable-development-enrollment.integration.ts "$tmp/driver.cjs" || exit 1
+driver_bundle_hash=$(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1)
+docker create --name "$driver_name" --label "subtrack.task=ST-233l:$marker" --label "subtrack.head=$source_head" \
+  --network "container:$cid" --user "$UID" --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 128m -e NODE_ENV=development \
+  --mount "type=bind,src=$tmp/driver.cjs,dst=/fixture.cjs,readonly" --mount "type=bind,src=$tmp/driver.json,dst=/fixture.json,readonly" \
+  "$driver_image" node /fixture.cjs > "$tmp/driver-cid" 2> "$tmp/driver-create.log" || exit 1
+driver_cid=$(cat "$tmp/driver-cid")
+[[ "$driver_cid" =~ ^[a-f0-9]{64}$ ]] || exit 1
+driver_custody created || exit 1
+docker start "$driver_cid" >/dev/null 2>&1 || exit 1
+driver_custody running || exit 1
+[[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
+driver_deadline=$(( $(monotonic) + 90000 ))
+while [[ $(monotonic) -lt "$driver_deadline" ]]; do
+  driver_state=$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}}' "$driver_cid" 2>/dev/null) || exit 1
+  [[ "$driver_state" != 'running 0' ]] && break
+  sleep .1
+done
+[[ "$driver_state" == 'exited 0' ]] || exit 1
+driver_custody exited || exit 1
+[[ $(sha256sum "$tmp/driver.cjs" | cut -d ' ' -f1) == "$driver_bundle_hash" ]] || exit 1
+driver_result=$(docker logs "$driver_cid" 2>/dev/null) || exit 1
+[[ "$driver_result" == 'ST-236 durable enrollment: PASS' ]] || exit 1
 printf '%s\n' "$driver_result" >> "$receipt"
 driver_cleanup || exit 1
 phase=pins
