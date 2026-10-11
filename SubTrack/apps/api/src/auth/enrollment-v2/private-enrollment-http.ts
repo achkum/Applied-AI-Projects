@@ -28,6 +28,17 @@ export function privateJson(response: ServerResponse, status: number, body: obje
 export function privateProblem(response: ServerResponse, status: number, loginRequired = false): void {
   privateJson(response, status, loginRequired ? { ...PROBLEM[409]!, code: 'ENROLLMENT_LOGIN_REQUIRED' } : PROBLEM[status] ?? PROBLEM[500]!, true);
 }
+// The accepted durable core deliberately collapses invalid, spent and uncertain
+// authority to AUTH_RESTART_REQUIRED. Never infer a sensitive cause from SQL or
+// exception text. Unexpected adapter/token-issuer faults stay generic 500.
+export function privateEnrollmentFailure(error: unknown): Readonly<{status:number;loginRequired:boolean}> {
+  if (error instanceof Error) {
+    if (error.message === 'wire') return {status:400,loginRequired:false};
+    if (error.message === 'ENROLLMENT_LOGIN_REQUIRED') return {status:409,loginRequired:true};
+    if (error.message === 'AUTH_RESTART_REQUIRED') return {status:409,loginRequired:false};
+  }
+  return {status:500,loginRequired:false};
+}
 export function rawHeader(request: IncomingMessage, name: string): string | null {
   const found: string[] = [];
   for (let i = 0; i < request.rawHeaders.length; i += 2) {
@@ -160,8 +171,8 @@ export function createPrivateEnrollmentHttp(deps: Readonly<{ bootstrap: () => Bo
       }
       privateProblem(response, 404);
     } catch (error) {
-      privateProblem(response, error instanceof Error && error.message === 'wire' ? 400 : 409,
-        error instanceof Error && error.message === 'ENROLLMENT_LOGIN_REQUIRED');
+      const failure = privateEnrollmentFailure(error);
+      privateProblem(response, failure.status, failure.loginRequired);
     }
   } });
 }
