@@ -1,0 +1,55 @@
+name: SubTrack private HTTPS profile preflight
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'SubTrack/apps/web/test/private-https-preflight.mjs'
+      - 'SubTrack/tools/browser/private-https-preflight.sh'
+      - 'SubTrack/apps/web/package.json'
+      - 'SubTrack/pnpm-lock.yaml'
+      - '.github/workflows/subtrack-private-https-profile-proof.yml'
+permissions:
+  contents: read
+jobs:
+  private-https-profile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: SubTrack
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: corepack enable && corepack prepare pnpm@12.6.0 --activate
+      - run: corepack pnpm install --frozen-lockfile
+      - name: Install task Firefox and NSS tooling
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libnss3-tools
+          corepack pnpm --filter @subtrack/web exec playwright install firefox --with-deps
+          test "$(corepack pnpm --filter @subtrack/web exec node -p "require('playwright/package.json').version")" = 1.63.0
+          command -v certutil >/dev/null
+      - name: Build real Next register page
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: corepack pnpm --filter @subtrack/web build
+      - name: Direct TLS, Firefox trust and negative browser proof
+        env:
+          ST237_EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          code=0
+          bash tools/browser/private-https-preflight.sh > "$RUNNER_TEMP/st237-private-https-receipt.txt" 2>&1 || code=$?
+          cat "$RUNNER_TEMP/st237-private-https-receipt.txt"
+          exit "$code"
+      - name: Publish sanitized preflight receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: st237-private-https-receipt
+          path: ${{ runner.temp }}/st237-private-https-receipt.txt
+          if-no-files-found: ignore
