@@ -83,7 +83,8 @@ let partialCompletionCount = 'ZERO', partialRoute = 'NONE';
 let negativeCase = 'NONE', negativeStatus = 'NONE', negativeNetwork = 'NONE';
 const safeStatus = value => [200, 400, 401, 403, 409, 421, 500].includes(value) ? String(value) : 'OTHER';
 try {
-  context = await firefox.launchPersistentContext(process.env.ST237_TRUSTED_PROFILE, { headless: true });
+  context = await firefox.launchPersistentContext(process.env.ST237_TRUSTED_PROFILE,
+    { headless: true, locale: locale === 'sv' ? 'sv-SE' : 'en-GB' });
   screenshotDir = path.resolve(process.env.ST237_SCREENSHOT_DIR);
   fs.mkdirSync(screenshotDir, { mode: 0o700 });
   if (browserCase === 'profile' || browserCase === 'subscriptions' || browserCase === 'empty' || browserCase === 'uncertainty' || browserCase === 'login') {
@@ -259,16 +260,20 @@ try {
         phase = `${prefix}_FIXTURE`;
         await page.getByLabel(copy.login.fixtureLabel, { exact: true }).selectOption(identity);
         const profileRead = page.waitForResponse(response => new URL(response.url()).pathname === '/v2/me/profile/read' &&
-          response.request().method() === 'POST' && response.status() === 200);
+          response.request().method() === 'POST' && response.status() === 200)
+          .then(response => ({ response }), error => ({ error }));
         const modeRead = page.waitForResponse(response => new URL(response.url()).pathname === '/v2/me/mode/read' &&
-          response.request().method() === 'POST' && response.status() === 200);
+          response.request().method() === 'POST' && response.status() === 200)
+          .then(response => ({ response }), error => ({ error }));
         phase = `${prefix}_SUBMIT`;
         await page.getByRole('button', { name: copy.login.simulatorAction, exact: true }).click();
         phase = `${prefix}_PROFILE_RESPONSE`;
-        const profileResponse = await profileRead;
+        const profileResult = await profileRead;
+        if ('error' in profileResult) throw profileResult.error;
         phase = `${prefix}_MODE_RESPONSE`;
-        const modeResponse = await modeRead;
-        return { profile: await profileResponse.json(), mode: await modeResponse.json() };
+        const modeResult = await modeRead;
+        if ('error' in modeResult) throw modeResult.error;
+        return { profile: await profileResult.response.json(), mode: await modeResult.response.json() };
       };
       phase = 'ALICE_EXISTING_SUBJECT_ENROLLMENT_STOP';
       await context.clearCookies();
