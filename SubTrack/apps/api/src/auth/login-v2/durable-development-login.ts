@@ -28,6 +28,22 @@ export type DurableDevelopmentLoginConfig = Readonly<{
 type Witness = Readonly<{ keyH: string; ownerH: string; authorityH: string; requestH: string;
   nonceH: string; bindingH: string; sessionBindingH: string; origin: string; chain: string; epoch: string; manifestH: string }>;
 type Tx<T> = Readonly<{ state: 'committed'; value: T } | { state: 'rolledBack' | 'unknown' }>;
+type VerifyStage = 'INPUT' | 'PEEK' | 'RESERVE' | 'VERIFIER' | 'SUBJECT_LOOKUP' | 'ISSUE' | 'COMPLETE';
+type VerifyOutcome = 'REJECT' | 'RETURN_FALSE' | 'ROLLED_BACK' | 'UNKNOWN_TX' | 'UNKNOWN_COMMIT';
+type VerifySqlstate = 'NONE' | 'PRIVILEGE_42501' | 'FK_23503' | 'CHECK_23514' | 'DIVZERO_22012' | 'OTHER';
+type TxDiagnostic = (error: unknown, state: 'rolledBack' | 'unknown', commitAttempted: boolean) => void;
+const verifySqlstate = (error: unknown): VerifySqlstate => {
+  if (error === null || typeof error !== 'object') return 'NONE';
+  const descriptor = Object.getOwnPropertyDescriptor(error, 'code');
+  if (!descriptor || !Object.hasOwn(descriptor, 'value')) return 'NONE';
+  switch (descriptor.value) {
+    case '42501': return 'PRIVILEGE_42501';
+    case '23503': return 'FK_23503';
+    case '23514': return 'CHECK_23514';
+    case '22012': return 'DIVZERO_22012';
+    default: return 'OTHER';
+  }
+};
 const fail = (): never => { throw new Error(FAIL); };
 const own = (input: unknown, names: readonly string[]): Record<string, unknown> => {
   if (!input || typeof input !== 'object' || Array.isArray(input) || Object.getPrototypeOf(input) !== Object.prototype ||
@@ -112,7 +128,7 @@ export class DurableDevelopmentLogin {
     const result=await client.query('SELECT current_user::text AS role');
     if (result.rows.length!==1 || result.rows[0]?.role!==role) fail();
   }
-  private async tx<T>(role: Role, work: (client: PoolClient) => Promise<T>): Promise<Tx<T>> {
+  private async tx<T>(role: Role, work: (client: PoolClient) => Promise<T>, diagnostic?: TxDiagnostic): Promise<Tx<T>> {
     let client: PoolClient|undefined, begun=false, commitAttempted=false, released=false;
     let state: 'rolledBack'|'unknown'='unknown';
     try {
@@ -124,10 +140,11 @@ export class DurableDevelopmentLogin {
       if ((await client.query('COMMIT')).command!=='COMMIT') fail();
       await this.clean(client); client.release(); released=true;
       return {state:'committed',value};
-    } catch {
+    } catch (error) {
       if (client && begun && !commitAttempted) try {
         if ((await client.query('ROLLBACK')).command==='ROLLBACK') { await this.clean(client); state='rolledBack'; }
       } catch { state='unknown'; }
+      if (diagnostic) try { diagnostic(error,state,commitAttempted); } catch { /* Diagnostics cannot change transaction failure. */ }
       return {state};
     } finally { if (client && !released) try { client.release(new Error(FAIL)); } catch { /* Discard. */ } }
   }
@@ -143,12 +160,13 @@ export class DurableDevelopmentLogin {
   private scope(w: Witness): unknown[] {
     return [w.keyH,w.ownerH,w.authorityH,w.requestH,w.nonceH,w.bindingH,w.origin,w.chain,w.epoch,w.manifestH,this.now()];
   }
-  private async witness(web: EnrollmentWeb,key:string,operation:Operation,parts:readonly string[],proofH?:string):Promise<Witness> {
+  private async witness(web: EnrollmentWeb,key:string,operation:Operation,parts:readonly string[],proofH?:string,
+    diagnostic?:TxDiagnostic):Promise<Witness> {
     if (typeof key!=='string' || !KEY.test(key)) fail();
     const w=this.web(web);
     const peek=await this.tx('subtrack_auth_producer',client=>this.one<{value:string|null}>(client,
       'SELECT subtrack_auth.peek($1::subtrack_auth.h,$2::subtrack_auth.h,$3::text,$4::text,$5::subtrack_auth.h,$6::subtrack_auth.ms,$7::text) AS value',
-      [w.nonceH,w.bindingH,ORIGIN,EPOCH,this.manifestH,this.now(),'session']));
+      [w.nonceH,w.bindingH,ORIGIN,EPOCH,this.manifestH,this.now(),'session']),diagnostic);
     const chainValue=peek.state==='committed' ? peek.value.value : fail();
     const chain=typeof chainValue==='string' && canonical(chainValue) ? chainValue : fail();
     if (w.chainHint!=='' && w.chainHint!==chain) fail();
@@ -159,59 +177,74 @@ export class DurableDevelopmentLogin {
       requestH:this.h('request',operation,[...parts,chain,w.nonceH,w.bindingH]),nonceH:w.nonceH,bindingH:w.bindingH,
       sessionBindingH:w.sessionBindingH,origin:ORIGIN,chain,epoch:EPOCH,manifestH:this.manifestH});
   }
-  private async reserve(w:Witness,operation:Operation):Promise<void> {
+  private async reserve(w:Witness,operation:Operation,diagnostic?:TxDiagnostic):Promise<void> {
     const outcome=await this.tx('subtrack_auth_producer',async client=>{
       const row=await this.one<{value:string|null}>(client,
         'SELECT subtrack_auth.reserve_login($1::subtrack_auth.h,$2::subtrack_auth.h,$3::subtrack_auth.h,$4::subtrack_auth.h,$5::text,$6::text,$7::text,$8::subtrack_auth.h,$9::subtrack_auth.ms) AS value',
         [w.keyH,w.ownerH,w.authorityH,w.requestH,operation,ORIGIN,EPOCH,this.manifestH,this.now()]);
       if (typeof row.value!=='string' || !/^[1-9][0-9]*$/.test(row.value) ||
         BigInt(row.value)>BigInt(Number.MAX_SAFE_INTEGER)) fail();
-    });
+    },diagnostic);
     if (outcome.state!=='committed') fail();
   }
   private async failBurn(w:Witness,role:Role):Promise<void> {
     try { await this.tx(role,client=>this.bool(client,`SELECT subtrack_auth.fail_login_burn(${SCOPE}) AS value`,this.scope(w))); }
     catch { /* Global key remains burned. */ }
   }
-  private async operate<T>(w:Witness,role:Role,work:(client:PoolClient)=>Promise<T>):Promise<T> {
-    const outcome=await this.tx(role,work);
+  private async operate<T>(w:Witness,role:Role,work:(client:PoolClient)=>Promise<T>,diagnostic?:TxDiagnostic):Promise<T> {
+    const outcome=await this.tx(role,work,diagnostic);
     if (outcome.state==='committed') return outcome.value;
     if (outcome.state==='rolledBack') await this.failBurn(w,role);
     return fail();
   }
   async verifySimulatorLogin(web:EnrollmentWeb,input:Readonly<{demoIdentity:'alice'|'bob'}>,key:string):
     Promise<Readonly<{loginProof:string;nextBrowserNonce:string}>> {
+    let stage:VerifyStage='INPUT', outcome:VerifyOutcome='REJECT', sqlstate:VerifySqlstate='NONE';
+    const diagnostic:TxDiagnostic=(error,state,commitAttempted)=>{
+      outcome=state==='rolledBack' ? 'ROLLED_BACK' : commitAttempted ? 'UNKNOWN_COMMIT' : 'UNKNOWN_TX';
+      sqlstate=verifySqlstate(error);
+    };
     try {
       const body=own(input,['demoIdentity']);
       if (body.demoIdentity!=='alice' && body.demoIdentity!=='bob') fail();
       const choice=body.demoIdentity as 'alice'|'bob';
-      const w=await this.witness(web,key,'verifySimulatorLogin',[choice]);
-      await this.reserve(w,'verifySimulatorLogin');
+      stage='PEEK';
+      const w=await this.witness(web,key,'verifySimulatorLogin',[choice],undefined,diagnostic);
+      stage='RESERVE';
+      await this.reserve(w,'verifySimulatorLogin',diagnostic);
       // The simulator and provisioner lookup precede the issue transaction's locks.
+      stage='VERIFIER';
       const raw=own(await this.verifyEvidence(choice),['method','personnummerHmac','verifiedAt','givenName','surname']);
       const at=typeof raw.verifiedAt==='string' ? Date.parse(raw.verifiedAt) : NaN;
       if (raw.method!=='BANKID' || typeof raw.personnummerHmac!=='string' || !HEX.test(raw.personnummerHmac) ||
         typeof raw.verifiedAt!=='string' || !Number.isSafeInteger(at) || new Date(at).toISOString()!==raw.verifiedAt ||
         at>this.now() || this.now()-at>=TTL || typeof raw.givenName!=='string' || typeof raw.surname!=='string') fail();
       const subjectH=this.h('person','subject',[raw.personnummerHmac as string]);
+      stage='SUBJECT_LOOKUP';
       const found=await this.tx('subtrack_identity_provisioner',async client=>{
         const result=await client.query<{id:string;external_id:string}>(
           'SELECT id,external_id FROM public.identity WHERE external_id=$1::text',[subjectH]);
         if (result.rows.length!==1 || result.rowCount!==1 || result.rows[0]?.external_id!==subjectH ||
           !UUID.test(result.rows[0]!.id)) fail();
         return result.rows[0]!.id;
-      });
+      },diagnostic);
       const identityId=found.state==='committed' ? found.value : fail();
       const proof=secret(),nextBrowserNonce=secret();
+      stage='ISSUE';
       const issued=await this.operate(w,'subtrack_auth_producer',async client=>{
         await client.query(`SELECT set_config('app.user_id',$1,true),set_config('app.current_user_id',$1,true)`,[identityId]);
         return this.bool(client,`SELECT subtrack_auth.issue_login(${SCOPE},$12::subtrack_auth.h,
           $13::subtrack_auth.h,$14::uuid,$15::subtrack_auth.h,$16::subtrack_auth.h,$17::subtrack_auth.ms) AS value`,
           [...this.scope(w),this.h('proof','login',[proof]),sha('nonce',nextBrowserNonce),identityId,subjectH,w.sessionBindingH,at]);
-      });
-      if (!issued) fail();
+      },diagnostic);
+      if (!issued) { outcome='RETURN_FALSE'; fail(); }
+      stage='COMPLETE';
       return Object.freeze({loginProof:`v2.${proof}`,nextBrowserNonce});
-    } catch { return fail(); }
+    } catch {
+      try { console.error(`ST239_VERIFY_DIAGNOSTIC stage=${stage} outcome=${outcome} sqlstate=${sqlstate}`); }
+      catch { /* Log failure must not mask authentication failure. */ }
+      return fail();
+    }
   }
   async createV2Session(web:EnrollmentWeb,input:Readonly<{loginProof:string}>,key:string):
     Promise<Readonly<{identityId:string;sessionId:string;refreshToken:string;csrfToken:string;browserChainId:string}>> {

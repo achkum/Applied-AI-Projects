@@ -18,7 +18,7 @@ function fixture() {
   const calls:{sql:string;values:unknown[]}[]=[];
   const releases:unknown[]=[];
   let role='subtrack_dev_auth_login', userId:string|null=null, commits=0, failCommit=-1, dirtyAfterCommit=false;
-  let now=NOW, ownerFound=true, ownerLive=true, transitionFalse='', browserChain=token(5);
+  let now=NOW, ownerFound=true, ownerLive=true, transitionFalse='', transitionReject='', rejectCode='', rollbackReject=false, browserChain=token(5);
   const verifier=new DevelopmentEnrollmentPersonVerifier({environment:'development',enabled:true,
     simulatorHmacKey:new Uint8Array(32).fill(51),clock:()=>now});
   const client={
@@ -30,7 +30,8 @@ function fixture() {
       if (sql.startsWith('BEGIN')) {role='subtrack_dev_auth_login';userId=null;return reply('BEGIN');}
       if (sql.startsWith('SET LOCAL ROLE ')) {role=sql.slice('SET LOCAL ROLE '.length);return reply('SET');}
       if (sql==='SELECT current_user::text AS role') return reply('SELECT',[{role}]);
-      if (sql==='ROLLBACK') {role='subtrack_dev_auth_login';userId=null;return reply('ROLLBACK');}
+      if (sql==='ROLLBACK') {if (rollbackReject) throw new Error('rollback unavailable');
+        role='subtrack_dev_auth_login';userId=null;return reply('ROLLBACK');}
       if (sql==='COMMIT') {commits++;if (commits===failCommit) throw new Error('unknown commit');
         role='subtrack_dev_auth_login';userId=null;return reply('COMMIT');}
       if (sql.includes("set_config('app.user_id'")) {userId=String(values[0]);return reply('SELECT',[{set_config:userId}]);}
@@ -40,6 +41,10 @@ function fixture() {
         return reply('SELECT',ownerFound?[{id:OWNER,external_id:values[0]}]:[]);
       if (sql.includes('subtrack_auth.login_material(')) return reply('SELECT',[{value:OWNER}]);
       if (sql.includes('FROM public.identity WHERE id=')) return reply('SELECT',ownerLive?[{id:OWNER,deleted_at:null}]:[]);
+      if (transitionReject && sql.includes(`subtrack_auth.${transitionReject}(`)) {
+        const error=Object.assign(new Error('private query and fixture content'),{code:rejectCode});
+        throw error;
+      }
       if (sql.includes('subtrack_auth.')) return reply('SELECT',[{value:!sql.includes(`subtrack_auth.${transitionFalse}(`)}]);
       throw new Error(`unexpected SQL: ${sql}`);
     }),
@@ -53,13 +58,19 @@ function fixture() {
     time:(value:number)=>{now=value;}, chain:(value:string)=>{browserChain=value;},
     missingOwner:()=>{ownerFound=false;}, deletedOwner:()=>{ownerLive=false;},
     failNthCommit:(value:number)=>{failCommit=value;}, dirtyAfterCommit:()=>{dirtyAfterCommit=true;},
-    falseTransition:(value:string)=>{transitionFalse=value;}};
+    falseTransition:(value:string)=>{transitionFalse=value;},
+    rejectTransition:(value:string,code:string)=>{transitionReject=value;rejectCode=code;},
+    failRollback:()=>{rollbackReject=true;}};
 }
 async function denied(promise:Promise<unknown>) {
   const error=await promise.catch((value:unknown)=>value);
   expect(error).toBeInstanceOf(Error);
   expect((error as Error).message).toBe('AUTH_RESTART_REQUIRED');
   expect(Object.keys(error as object)).toEqual([]);
+}
+function verified(f:ReturnType<typeof fixture>):void {
+  vi.spyOn(f.verifier,'verify').mockResolvedValue({method:'BANKID',personnummerHmac:'a'.repeat(64),
+    verifiedAt:new Date(NOW).toISOString(),givenName:'Test',surname:'Owner'});
 }
 beforeEach(()=>{vi.stubEnv('NODE_ENV','development');});
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();});
@@ -134,6 +145,51 @@ describe('private durable returning login',()=>{
     expect(f.calls.some(c=>c.sql==='ROLLBACK')).toBe(false);
     expect(f.calls.some(c=>c.sql.includes('subtrack_auth.fail_login_burn('))).toBe(false);
     expect(f.releases.at(-1)).toBeInstanceOf(Error);
+  });
+
+  it('reports closed verify stage and false result while keeping the masked failure and committed burn',async()=>{
+    const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+    const f=fixture();verified(f);f.falseTransition('issue_login');
+    await denied(f.service().verifySimulatorLogin(web,{demoIdentity:'bob'},'verify-key-1234567'));
+    expect(log).toHaveBeenCalledExactlyOnceWith('ST239_VERIFY_DIAGNOSTIC stage=ISSUE outcome=RETURN_FALSE sqlstate=NONE');
+    expect(f.calls.filter(c=>c.sql==='COMMIT')).toHaveLength(4);
+    expect(f.calls.some(c=>c.sql.includes('subtrack_auth.fail_login_burn('))).toBe(false);
+  });
+
+  it('classifies only allowlisted SQLSTATE and preserves rollback and fail burn on rejected issue',async()=>{
+    const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+    const f=fixture();verified(f);f.rejectTransition('issue_login','42501');
+    await denied(f.service().verifySimulatorLogin(web,{demoIdentity:'bob'},'verify-key-1234567'));
+    expect(log).toHaveBeenCalledExactlyOnceWith('ST239_VERIFY_DIAGNOSTIC stage=ISSUE outcome=ROLLED_BACK sqlstate=PRIVILEGE_42501');
+    expect(f.calls.filter(c=>c.sql.includes('subtrack_auth.issue_login('))).toHaveLength(1);
+    expect(f.calls.some(c=>c.sql==='ROLLBACK')).toBe(true);
+    expect(f.calls.some(c=>c.sql.includes('subtrack_auth.fail_login_burn('))).toBe(true);
+    expect(JSON.stringify(log.mock.calls)).not.toContain('private query');
+  });
+
+  it('keeps unknown commit distinct and diagnostics local to each verify invocation',async()=>{
+    const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+    const f=fixture();verified(f);f.failNthCommit(4);
+    await denied(f.service().verifySimulatorLogin(web,{demoIdentity:'alice'},'verify-key-1234567'));
+    expect(log).toHaveBeenCalledExactlyOnceWith('ST239_VERIFY_DIAGNOSTIC stage=ISSUE outcome=UNKNOWN_COMMIT sqlstate=NONE');
+    await denied(f.service().verifySimulatorLogin(web,{demoIdentity:'invalid'} as never,'verify-key-1234567'));
+    expect(log.mock.calls[1]).toEqual(['ST239_VERIFY_DIAGNOSTIC stage=INPUT outcome=REJECT sqlstate=NONE']);
+    expect(f.calls.some(c=>c.sql.includes('subtrack_auth.fail_login_burn('))).toBe(false);
+  });
+
+  it('reports precommit rollback uncertainty separately without replaying the issue',async()=>{
+    const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+    const f=fixture();verified(f);f.rejectTransition('issue_login','22012');f.failRollback();
+    await denied(f.service().verifySimulatorLogin(web,{demoIdentity:'alice'},'verify-key-1234567'));
+    expect(log).toHaveBeenCalledExactlyOnceWith('ST239_VERIFY_DIAGNOSTIC stage=ISSUE outcome=UNKNOWN_TX sqlstate=DIVZERO_22012');
+    expect(f.calls.filter(c=>c.sql.includes('subtrack_auth.issue_login('))).toHaveLength(1);
+    expect(f.calls.some(c=>c.sql.includes('subtrack_auth.fail_login_burn('))).toBe(false);
+    expect(f.releases.at(-1)).toBeInstanceOf(Error);
+  });
+
+  it('does not allow a failed diagnostic writer to replace masked authentication failure',async()=>{
+    vi.spyOn(console,'error').mockImplementation(()=>{throw new Error('log unavailable');});
+    await denied(fixture().service().verifySimulatorLogin(web,{demoIdentity:'invalid'} as never,'verify-key-1234567'));
   });
 
   it('locks live owner and consumes proof with new session and CSRF in one transaction',async()=>{
