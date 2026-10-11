@@ -6,7 +6,7 @@
 milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
-  - {id: ST-233i, title: 'Private trusted development bootstrap burn material producer', owner: architect-platform, size: M, status: IN_PROGRESS, deps: [ST-233h]}
+  - {id: ST-233i, title: 'Private trusted development bootstrap burn material producer', owner: architect-platform, size: M, status: IN_REVIEW, deps: [ST-233h]}
   - {id: ST-233h, title: 'Private trusted development bootstrap material producer', owner: architect-platform, size: M, status: DONE, deps: [ST-233g]}
   - {id: ST-233g, title: 'Private development expired global nonce cleanup SQL function', owner: architect-platform, size: L, status: DONE, deps: [ST-233f]}
   - {id: ST-233f, title: 'Private development owned bootstrap reservation settlement SQL function', owner: architect-platform, size: L, status: DONE, deps: [ST-233e]}
