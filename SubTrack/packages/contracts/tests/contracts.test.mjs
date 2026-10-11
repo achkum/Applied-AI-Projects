@@ -10,7 +10,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -22,7 +22,6 @@ function run(name, args) {
 }
 
 function artifacts(directory) {
-  const root = join(packageRoot, directory);
   const files = [];
   function visit(path) {
     for (const entry of readdirSync(path, { withFileTypes: true })) {
@@ -31,12 +30,12 @@ function artifacts(directory) {
       else if (entry.name.endsWith('.ts')) files.push(child);
     }
   }
-  visit(root);
+  visit(directory);
   return Object.fromEntries(
     files
       .sort()
       .map((file) => [
-        relative(root, file),
+        relative(directory, file),
         createHash('sha256').update(readFileSync(file)).digest('hex'),
       ]),
   );
@@ -47,21 +46,32 @@ test('production and fixture generation remain stable on a second run', () => {
     ['openapi-ts.config.mjs', 'generated'],
     ['openapi-ts.fixture.config.mjs', 'fixtures/generated'],
   ]) {
-    const args = ['-f', `./${config}`, '--no-log-file'];
-    const first = run('openapi-ts', args);
-    assert.equal(first.status, 0, first.stderr || first.stdout);
-    const snapshot = artifacts(output);
-    assert.ok(
-      Object.keys(snapshot).length > 0,
-      `${output} must contain generated TypeScript`,
-    );
-    const second = run('openapi-ts', args);
-    assert.equal(second.status, 0, second.stderr || second.stdout);
-    assert.deepEqual(
-      artifacts(output),
-      snapshot,
-      `${output} changed on repeat generation`,
-    );
+    // Keep the wrapper inside this package so plugin dependency discovery matches
+    // the canonical config, while generation cannot clean a consumer's live files.
+    const directory = mkdtempSync(join(packageRoot, '.contracts-test-'));
+    try {
+      const generated = join(directory, 'generated');
+      const wrapper = join(directory, 'openapi-ts.config.mjs');
+      writeFileSync(wrapper, `import config from ${JSON.stringify(pathToFileURL(join(packageRoot, config)).href)};\nexport default { ...config, output: ${JSON.stringify(generated)} };\n`);
+      const args = ['-f', wrapper, '--no-log-file'];
+      const first = run('openapi-ts', args);
+      assert.equal(first.status, 0, first.stderr || first.stdout);
+      const snapshot = artifacts(generated);
+      assert.ok(
+        Object.keys(snapshot).length > 0,
+        `${output} must contain generated TypeScript`,
+      );
+      const second = run('openapi-ts', args);
+      assert.equal(second.status, 0, second.stderr || second.stdout);
+      assert.deepEqual(
+        artifacts(generated),
+        snapshot,
+        `${output} changed on repeat generation`,
+      );
+    } finally {
+      assert.equal(dirname(directory), packageRoot);
+      rmSync(directory, { recursive: true, force: true });
+    }
   }
 });
 
