@@ -284,7 +284,7 @@ async function assertProfileCatalog(client) {
     ['identity_profile','profile_complete','boolean',false,'false'],
     ['identity_profile','created_at','timestamp with time zone',false,'now()'],
     ['identity_profile','updated_at','timestamp with time zone',false,'now()'],
-    ['identity_profile','onboarding_mode','character varying(16)',true,null],
+    ['identity_profile','onboarding_mode','character varying(16)',true,'NULL::character varying'],
   ];
   const columnMatches = columns.rows.map((row, i) =>
     JSON.stringify([row.table_name,row.name,row.type,row.nullable,row.default_value]) ===
