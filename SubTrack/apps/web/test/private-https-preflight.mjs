@@ -1,6 +1,7 @@
 // ST-237 feasibility only: a real Nest/Express route and a real Next page share one TLS listener.
 import fs from 'node:fs';
 import https from 'node:https';
+import { randomUUID } from 'node:crypto';
 import console from 'node:console';
 import process from 'node:process';
 import { TLSSocket } from 'node:tls';
@@ -118,7 +119,8 @@ async function browser() {
       const page = await trusted.newPage();
       try {
         browserPhase = 'TRUSTED_NAVIGATE';
-        const response = await page.goto(`${origin}/sv/register`, { waitUntil: 'domcontentloaded' });
+        const response = await page.goto(`${origin}/sv/register?st237_probe=${randomUUID()}`,
+          { waitUntil: 'domcontentloaded' });
         browserPhase = 'TRUSTED_RESPONSE';
         const status = response?.status();
         browserObserved = Number.isInteger(status) && status >= 100 && status <= 599
