@@ -138,9 +138,12 @@ CREATE POLICY otp_delete ON subtrack_auth.otp FOR DELETE TO subtrack_auth_execut
 CREATE POLICY proof_select ON subtrack_auth.restricted_proof FOR SELECT TO subtrack_auth_executor USING (true);
 CREATE POLICY proof_insert ON subtrack_auth.restricted_proof FOR INSERT TO subtrack_auth_executor WITH CHECK (true);
 CREATE POLICY proof_delete ON subtrack_auth.restricted_proof FOR DELETE TO subtrack_auth_executor USING (true);
+-- Permit executor row locks while rejecting every resulting row UPDATE.
+CREATE POLICY proof_update ON subtrack_auth.restricted_proof FOR UPDATE TO subtrack_auth_executor USING (true) WITH CHECK (false);
 CREATE POLICY pending_select ON subtrack_auth.pending_enrollment FOR SELECT TO subtrack_auth_executor USING (true);
 CREATE POLICY pending_insert ON subtrack_auth.pending_enrollment FOR INSERT TO subtrack_auth_executor WITH CHECK (true);
 CREATE POLICY pending_delete ON subtrack_auth.pending_enrollment FOR DELETE TO subtrack_auth_executor USING (true);
+CREATE POLICY pending_update ON subtrack_auth.pending_enrollment FOR UPDATE TO subtrack_auth_executor USING (true) WITH CHECK (false);
 CREATE POLICY verified_select ON subtrack_auth.verified_enrollment FOR SELECT TO subtrack_auth_executor USING (true);
 CREATE POLICY verified_insert ON subtrack_auth.verified_enrollment FOR INSERT TO subtrack_auth_executor WITH CHECK (true);
 CREATE POLICY verified_update ON subtrack_auth.verified_enrollment FOR UPDATE TO subtrack_auth_executor USING (true) WITH CHECK (true);
@@ -156,6 +159,8 @@ REVOKE ALL ON subtrack_auth.otp,subtrack_auth.restricted_proof,subtrack_auth.pen
 GRANT SELECT,INSERT,DELETE ON subtrack_auth.otp,subtrack_auth.restricted_proof,
   subtrack_auth.pending_enrollment,subtrack_auth.verified_enrollment TO subtrack_auth_executor;
 GRANT UPDATE(attempts) ON subtrack_auth.otp TO subtrack_auth_executor;
+GRANT UPDATE(proof_h) ON subtrack_auth.restricted_proof TO subtrack_auth_executor;
+GRANT UPDATE(pending_h) ON subtrack_auth.pending_enrollment TO subtrack_auth_executor;
 GRANT UPDATE(identity_id) ON subtrack_auth.verified_enrollment TO subtrack_auth_executor;
 GRANT SELECT,INSERT,DELETE ON subtrack_auth.enrollment_intent,subtrack_auth.identity_birth TO subtrack_auth_executor;
 RESET ROLE;

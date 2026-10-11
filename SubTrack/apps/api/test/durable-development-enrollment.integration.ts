@@ -183,6 +183,127 @@ async function noBirthResidue(label: string) {
     (SELECT count(*)::int FROM subtrack_auth.identity_birth) AS births`);
   if (result.rows[0]?.intents !== 0 || result.rows[0]?.births !== 0) throw Error(`${label}:birth-residue`);
 }
+async function rowLockAuthority() {
+  const tables = [
+    { table: 'restricted_proof', key: 'proof_h', policy: 'proof_update' },
+    { table: 'pending_enrollment', key: 'pending_h', policy: 'pending_update' }
+  ] as const;
+  const otherRoles = ['subtrack_dev_auth_login','subtrack_runtime','subtrack_auth_producer',
+    'subtrack_identity_provisioner'] as const;
+  for (const { table, key, policy } of tables) {
+    const relation = `subtrack_auth.${table}`;
+    const acl = await query(`SELECT c.relrowsecurity AND c.relforcerowsecurity
+        AND c.relowner<>'subtrack_auth_executor'::regrole::oid AS forced,
+        NOT has_table_privilege('subtrack_auth_executor',c.oid,'UPDATE') AS no_table_update,
+        (SELECT array_agg(a.attname ORDER BY a.attnum) FROM pg_attribute a
+          WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND has_column_privilege('subtrack_auth_executor',c.oid,a.attname,'UPDATE'))
+          =ARRAY[$2]::name[] AS exact_columns,
+        NOT EXISTS (SELECT 1 FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x
+          WHERE x.grantee=0 AND x.privilege_type='UPDATE') AS no_public_update,
+        NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid=c.oid
+          AND NOT t.tgisinternal AND (t.tgtype & 16)<>0) AS no_update_trigger
+      FROM pg_class c WHERE c.oid=$1::regclass`, [relation, key]);
+    if (acl.rowCount !== 1 || Object.values(acl.rows[0] as Record<string, unknown>).some(v => v !== true))
+      throw Error(`rowlock-acl:${table}`);
+    const policies = await query(`SELECT count(*)=1 AND bool_and(polname=$2 AND polroles=ARRAY['subtrack_auth_executor'::regrole::oid]
+        AND pg_get_expr(polqual,polrelid)='true' AND pg_get_expr(polwithcheck,polrelid)='false') AS exact
+      FROM pg_policy WHERE polrelid=$1::regclass AND polcmd='w'`, [relation, policy]);
+    if (policies.rows[0]?.exact !== true) throw Error(`rowlock-policy:${table}`);
+    for (const role of otherRoles) {
+      const denied = await query(`SELECT NOT pg_has_role($1,'subtrack_auth_executor','SET') AS no_executor_set,
+        NOT EXISTS (SELECT 1 FROM pg_attribute a
+        WHERE a.attrelid=$2::regclass AND a.attnum>0 AND NOT a.attisdropped
+          AND has_column_privilege($1,a.attrelid,a.attname,'UPDATE')) AS denied`, [role, relation]);
+      if (denied.rows[0]?.denied !== true || denied.rows[0]?.no_executor_set !== true)
+        throw Error(`rowlock-other-role-acl:${role}:${table}`);
+    }
+  }
+  const executor = await query(`SELECT NOT rolcanlogin AND NOT rolbypassrls AS restricted
+    FROM pg_roles WHERE rolname='subtrack_auth_executor'`);
+  if (executor.rowCount !== 1 || executor.rows[0]?.restricted !== true) throw Error('rowlock-executor-role');
+
+  const challenge = randomUUID().replaceAll('-', '').repeat(2);
+  const proof = randomUUID().replaceAll('-', '').repeat(2);
+  const pending = randomUUID().replaceAll('-', '').repeat(2);
+  const seeded = await owner.connect();
+  try {
+    await seeded.query('BEGIN');
+    await seeded.query(`INSERT INTO subtrack_auth.otp
+      (challenge_h,code_h,identifier_h,channel,contact,origin,chain,binding_h,session_binding_h,epoch,issued_ms,expires_ms)
+      SELECT $1::subtrack_auth.h,repeat('a',64),repeat('b',64),'email','rowlock@example.invalid',$2,
+        'rowlock-chain',repeat('c',64),repeat('d',64),$3,t.ms,t.ms+300000
+      FROM (SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint AS ms) t`,
+    [challenge, origin, epoch]);
+    await seeded.query(`INSERT INTO subtrack_auth.restricted_proof
+      (proof_h,challenge_h,purpose,origin,chain,binding_h,session_binding_h,epoch,issued_ms,expires_ms)
+      SELECT $1::subtrack_auth.h,$2::subtrack_auth.h,'enrollment',$3,'rowlock-chain',
+        repeat('c',64),repeat('d',64),$4,o.issued_ms,o.expires_ms
+      FROM subtrack_auth.otp o WHERE o.challenge_h=$2`, [proof, challenge, origin, epoch]);
+    await seeded.query(`INSERT INTO subtrack_auth.pending_enrollment
+      (pending_h,challenge_h,identifier_h,channel,contact,origin,chain,binding_h,session_binding_h,epoch,issued_ms,expires_ms)
+      SELECT $1::subtrack_auth.h,$2::subtrack_auth.h,o.identifier_h,o.channel,o.contact,o.origin,o.chain,
+        o.binding_h,o.session_binding_h,o.epoch,o.issued_ms,o.expires_ms
+      FROM subtrack_auth.otp o WHERE o.challenge_h=$2`, [pending, challenge]);
+    for (const { table, key } of tables) {
+      const value = table === 'restricted_proof' ? proof : pending;
+      const existing = await seeded.query(`SELECT row_to_json(t) AS snapshot FROM subtrack_auth.${table} t WHERE ${key}=$1`, [value]);
+      if (existing.rowCount !== 1) throw Error(`rowlock-seed:${table}`);
+      const snapshot = JSON.stringify(existing.rows[0]?.snapshot);
+      await seeded.query('SET LOCAL ROLE subtrack_auth_executor');
+      const locked = await seeded.query(`SELECT ${key} FROM subtrack_auth.${table} WHERE ${key}=$1 FOR UPDATE`, [value]);
+      if (locked.rowCount !== 1 || locked.rows[0]?.[key] !== value) throw Error(`rowlock-existing:${table}`);
+      const attempts = [
+        { kind: 'same', sql: `UPDATE subtrack_auth.${table} SET ${key}=${key} WHERE ${key}=$1`, values: [value] },
+        { kind: 'key', sql: `UPDATE subtrack_auth.${table} SET ${key}=$2 WHERE ${key}=$1`,
+          values: [value, randomUUID().replaceAll('-', '').repeat(2)] },
+        { kind: 'other-column', sql: `UPDATE subtrack_auth.${table} SET origin=origin WHERE ${key}=$1`, values: [value] }
+      ];
+      for (const attempt of attempts) {
+        await seeded.query('SAVEPOINT rowlock_denial');
+        let code = 'accepted';
+        try { await seeded.query(attempt.sql, attempt.values); }
+        catch (error) {
+          const candidate = typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
+          code = typeof candidate === 'string' && /^[0-9A-Z]{5}$/.test(candidate) ? candidate : 'unavailable';
+        }
+        await seeded.query('ROLLBACK TO SAVEPOINT rowlock_denial');
+        if (code !== '42501') throw Error(`rowlock-update:${table}:${attempt.kind}:${code}`);
+        const after = await seeded.query(`SELECT row_to_json(t) AS snapshot FROM subtrack_auth.${table} t WHERE ${key}=$1`, [value]);
+        if (after.rowCount !== 1 || JSON.stringify(after.rows[0]?.snapshot) !== snapshot)
+          throw Error(`rowlock-changed:${table}:${attempt.kind}`);
+      }
+      await seeded.query('RESET ROLE');
+      for (const role of otherRoles) {
+        await seeded.query(`SET LOCAL ROLE ${role}`);
+        for (const operation of [`SELECT ${key} FROM subtrack_auth.${table} WHERE ${key}=$1 FOR UPDATE`,
+          `UPDATE subtrack_auth.${table} SET ${key}=${key} WHERE ${key}=$1`]) {
+          await seeded.query('SAVEPOINT rowlock_denial');
+          let denied = false;
+          try { await seeded.query(operation, [value]); }
+          catch (error) {
+            denied = typeof error === 'object' && error !== null && 'code' in error && error.code === '42501';
+          }
+          await seeded.query('ROLLBACK TO SAVEPOINT rowlock_denial');
+          if (!denied) throw Error(`rowlock-caller:${table}:${role}`);
+        }
+        await seeded.query('RESET ROLE');
+      }
+      const final = await seeded.query(`SELECT row_to_json(t) AS snapshot FROM subtrack_auth.${table} t WHERE ${key}=$1`, [value]);
+      if (final.rowCount !== 1 || JSON.stringify(final.rows[0]?.snapshot) !== snapshot)
+        throw Error(`rowlock-caller-changed:${table}`);
+    }
+    await seeded.query('ROLLBACK');
+  } catch (error) { await seeded.query('ROLLBACK').catch(() => undefined); throw error; }
+  finally { seeded.release(); }
+  const remaining = await query(`SELECT
+    (SELECT count(*)::int FROM subtrack_auth.otp WHERE challenge_h=$1) AS otp,
+    (SELECT count(*)::int FROM subtrack_auth.restricted_proof WHERE proof_h=$2) AS proof,
+    (SELECT count(*)::int FROM subtrack_auth.pending_enrollment WHERE pending_h=$3) AS pending`,
+    [challenge, proof, pending]);
+  if (remaining.rows[0]?.otp !== 0 || remaining.rows[0]?.proof !== 0 || remaining.rows[0]?.pending !== 0)
+    throw Error('rowlock-fixture-residue');
+}
 async function catalog() {
   // This disposable database admits only the harness and this private sidecar.
   // A legacy route, deletion worker or refresh writer would invalidate the
@@ -261,6 +382,7 @@ async function catalog() {
     FROM pg_catalog.pg_attribute WHERE attrelid='public.identity_profile'::regclass
       AND attname='default_currency' AND attnum>0 AND NOT attisdropped`);
   if (currencyType.rows[0]?.correct !== true) throw Error('profile-currency-type');
+  await rowLockAuthority();
   const c = await actor.connect();
   try {
     for (const sql of ['SET ROLE subtrack_auth_executor','SELECT * FROM subtrack_auth.otp',
