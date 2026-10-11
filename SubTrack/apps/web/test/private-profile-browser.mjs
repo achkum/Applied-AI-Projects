@@ -19,7 +19,7 @@ const theme = process.env.ST237_BROWSER_THEME;
 const browserCase = process.env.ST237_BROWSER_CASE;
 assert(['sv', 'en'].includes(locale));
 assert(['light', 'dark'].includes(theme));
-assert(['profile', 'partial-terminal'].includes(browserCase));
+assert(['profile', 'partial-terminal', 'subscriptions', 'empty', 'uncertainty'].includes(browserCase));
 assert(require('playwright/package.json').version === '1.63.0');
 const catalog = JSON.parse(fs.readFileSync(path.join(webDir, '../../packages/i18n/catalogs', `${locale}.json`), 'utf8'));
 const copy = catalog.onboarding;
@@ -41,10 +41,10 @@ async function awaitMarker(name) {
   for (let i = 0; i < 600; i++) { if (fs.existsSync(path.join(handshake, name))) return; await delay(100); }
   throw new Error('handshake');
 }
-function request(headers, body = '{}', pathname = '/v2/me/profile/read', wrongHostProbe = false) {
+function request(headers, body = '{}', pathname = '/v2/me/profile/read', wrongHostProbe = false, method = 'POST') {
   if (wrongHostProbe) assert(headers.Host === 'other.invalid' && body === '{}' && pathname === '/v2/me/profile/read');
   return new Promise((resolve, reject) => {
-    const req = https.request(`${origin}${pathname}`, { method: 'POST', family: 4, ca,
+    const req = https.request(`${origin}${pathname}`, { method, family: 4, ca,
       // Deliberate HTTP Host denial still verifies TLS against the actual localhost destination.
       ...(wrongHostProbe ? { servername: 'localhost' } : {}), headers: {
       'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...headers } }, res => {
@@ -85,7 +85,7 @@ try {
   context = await firefox.launchPersistentContext(process.env.ST237_TRUSTED_PROFILE, { headless: true });
   const screenshotDir = path.resolve(process.env.ST237_SCREENSHOT_DIR);
   fs.mkdirSync(screenshotDir, { mode: 0o700 });
-  if (browserCase === 'profile') {
+  if (browserCase === 'profile' || browserCase === 'subscriptions' || browserCase === 'empty' || browserCase === 'uncertainty') {
   page = await context.newPage();
   page.setDefaultTimeout(45000);
   page.on('requestfailed', request => {
@@ -159,6 +159,18 @@ try {
   const profileRegion = page.getByRole('region', { name: copy.profile.title, exact: true });
   await profileRegion.getByLabel(copy.profile.displayName, { exact: true }).waitFor();
   await capture('profile');
+  if (browserCase === 'subscriptions') {
+    phase = 'SUBSCRIPTION_INCOMPLETE';
+    for (let i = 0; i < 50 && !csrf; i++) await delay(100);
+    assert(csrf);
+    const cookies = await context.cookies();
+    const cookieHeader = cookies.filter(item => ['st_v2_access', 'st_v2_binding', 'st_v2_chain'].includes(item.name))
+      .map(item => `${item.name}=${item.value}`).join('; ');
+    const headers = { Origin: origin, Cookie: cookieHeader, 'X-Session-CSRF': csrf };
+    closedProblem(await request(headers, '{"mode":"just-me"}', '/v2/me/mode'), 409, 'MODE_CONFLICT');
+    closedProblem(await request(headers, '{}', '/v2/subscriptions/owner/read'), 409, 'MODE_CONFLICT');
+    process.stdout.write('PASS ST238_BROWSER_NATURAL_INCOMPLETE_CHOICE_AND_LIST_DENIED\n');
+  }
   phase = 'PROFILE_EDIT';
   await profileRegion.getByLabel(copy.profile.displayName, { exact: true }).fill('Private Proof');
   await profileRegion.getByLabel(copy.profile.language, { exact: true }).selectOption(locale);
@@ -169,6 +181,134 @@ try {
   phase = 'PROFILE_SAVED';
   await capture('saved');
   assert.equal(await profileRegion.getByLabel(copy.profile.displayName, { exact: true }).inputValue(), 'Private Proof');
+  if (browserCase === 'empty') {
+    phase = 'EMPTY_LIST';
+    await page.getByRole('button', { name: copy.mode.choose, exact: true }).click();
+    const emptyRegion = page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true });
+    await emptyRegion.getByText(copy.ownerSubscriptions.empty, { exact: true }).waitFor();
+    assert.equal(await emptyRegion.getByRole('listitem').count(), 0);
+    assert.equal(await emptyRegion.getByRole('button', { name: copy.ownerSubscriptions.loadMore, exact: true }).count(), 0);
+    assert.equal(wire.filter(x => x.method === 'POST' && x.path === '/v2/me/mode' && x.status === 200).length, 1);
+    assert.equal(wire.filter(x => x.method === 'POST' && x.path === '/v2/me/mode/read' && x.status === 200).length, 1);
+    assert.equal(wire.filter(x => x.method === 'POST' && x.path === '/v2/subscriptions/owner/read' && x.status === 200).length, 1);
+    await capture('owner-empty');
+    process.stdout.write('PASS ST238_BROWSER_NATURAL_OWNER_PERSISTED_EMPTY_LIST\n');
+    process.stdout.write(`PASS ST237_BROWSER_CASE case=empty locale=${locale} theme=${theme}\n`);
+  } else if (browserCase === 'subscriptions' || browserCase === 'uncertainty') {
+    phase = 'SUBSCRIPTION_SEED_BARRIER';
+    fs.writeFileSync(path.join(handshake, 'subscription-seed-ready'), '', { flag: 'wx', mode: 0o600 });
+    await awaitMarker('subscription-seeded');
+    phase = 'MODE_CHOICE';
+    let modeWrites = 0;
+    if (browserCase === 'uncertainty') await page.route('**/v2/me/mode', async route => {
+      if (route.request().method() !== 'POST') { await route.continue(); return; }
+      modeWrites++;
+      const committed = await route.fetch();
+      assert.equal(committed.status(), 200);
+      await route.abort('failed');
+    });
+    await page.getByRole('button', { name: copy.mode.choose, exact: true }).click();
+    if (browserCase === 'uncertainty') {
+      await page.getByRole('heading', { name: copy.ownerSubscriptions.title, exact: true }).waitFor();
+      assert.equal(modeWrites, 1);
+      assert.equal(wire.filter(x => x.method === 'POST' && x.path === '/v2/me/mode/read' && x.status === 200).length, 1);
+      await page.unroute('**/v2/me/mode');
+    }
+    phase = 'SUBSCRIPTION_LIST';
+    await page.getByRole('heading', { name: copy.ownerSubscriptions.title, exact: true }).waitFor();
+    const ownerRegion = page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true });
+    assert.equal(await ownerRegion.getByRole('listitem').count(), 50);
+    await page.getByRole('button', { name: copy.ownerSubscriptions.loadMore, exact: true }).click();
+    await page.waitForFunction(() => globalThis.document.querySelectorAll('li button[aria-label]').length === 51);
+    assert.equal(await page.getByRole('button', { name: copy.ownerSubscriptions.loadMore, exact: true }).count(), 0);
+    const firstRow = ownerRegion.getByRole('listitem').first().getByRole('button');
+    await firstRow.focus();
+    assert.equal(await firstRow.evaluate(element => globalThis.document.activeElement === element), true);
+    await firstRow.press('Enter');
+    phase = 'SUBSCRIPTION_DETAIL';
+    await page.getByRole('heading', { name: copy.ownerSubscriptions.detail, exact: true }).waitFor();
+    let statusWrites = 0;
+    let selectedId = '';
+    if (browserCase === 'uncertainty') await page.route('**/v2/subscriptions/*', async route => {
+      if (route.request().method() !== 'PATCH') { await route.continue(); return; }
+      statusWrites++;
+      selectedId = new URL(route.request().url()).pathname.split('/').at(-1);
+      const committed = await route.fetch();
+      assert.equal(committed.status(), 200);
+      await route.abort('failed');
+    });
+    await page.getByRole('button', { name: copy.ownerSubscriptions.actions.PAUSED, exact: true }).click();
+    phase = 'SUBSCRIPTION_STATUS';
+    if (browserCase === 'uncertainty') {
+      await page.getByText(copy.ownerSubscriptions.rechecked, { exact: true }).waitFor();
+      assert.equal(statusWrites, 1);
+      assert.equal(await page.getByText(copy.ownerSubscriptions.confirmed, { exact: true }).count(), 0);
+      assert(wire.some(x => x.method === 'POST' && x.path === `/v2/subscriptions/${selectedId}/read` && x.status === 200));
+      await page.unroute('**/v2/subscriptions/*');
+      phase = 'SUBSCRIPTION_RESTART';
+      fs.writeFileSync(path.join(handshake, 'ready'), '', { flag: 'wx', mode: 0o600 });
+      await awaitMarker('resume');
+      const cookies = await context.cookies();
+      const cookieHeader = cookies.filter(item => ['st_v2_access', 'st_v2_binding', 'st_v2_chain'].includes(item.name))
+        .map(item => `${item.name}=${item.value}`).join('; ');
+      const headers = { Origin: origin, Cookie: cookieHeader, 'X-Session-CSRF': csrf };
+      const mode = await request(headers, '{}', '/v2/me/mode/read');
+      assert.equal(mode.status, 200);
+      assert.deepEqual(mode.body, { mode: 'just-me' });
+      const pageAfterRestart = await request(headers, '{}', '/v2/subscriptions/owner/read');
+      assert.equal(pageAfterRestart.status, 200);
+      assert.equal(pageAfterRestart.body.items.length, 50);
+      assert.equal(typeof pageAfterRestart.body.nextCursor, 'string');
+      const detail = await request(headers, '{}', `/v2/subscriptions/${selectedId}/read`);
+      assert.equal(detail.status, 200);
+      assert.equal(detail.body.status, 'PAUSED');
+      assert(safeWire);
+      await capture('uncertain-status');
+      process.stdout.write('PASS ST238_BROWSER_NATURAL_COMMITTED_MODE_STATUS_LOST_RESPONSE_NO_RETRY_RESTART\n');
+      process.stdout.write(`PASS ST237_BROWSER_CASE case=uncertainty locale=${locale} theme=${theme}\n`);
+    } else await page.getByText(copy.ownerSubscriptions.confirmed, { exact: true }).waitFor();
+    if (browserCase === 'subscriptions') {
+    phase = 'SUBSCRIPTION_NEGATIVES';
+    const cookies = await context.cookies();
+    const cookieHeader = cookies.filter(item => ['st_v2_access', 'st_v2_binding', 'st_v2_chain'].includes(item.name))
+      .map(item => `${item.name}=${item.value}`).join('; ');
+    const headers = { Origin: origin, Cookie: cookieHeader, 'X-Session-CSRF': csrf };
+    const detailPath = wire.find(x => x.method === 'POST' && /^\/v2\/subscriptions\/[0-9a-f-]+\/read$/.test(x.path))?.path;
+    assert(detailPath);
+    const selectedId = detailPath.split('/')[3];
+    const foreignId = fs.readFileSync(path.join(handshake, 'foreign-id'), 'utf8');
+    assert(/^[0-9a-f-]{36}$/.test(foreignId));
+    const missingId = randomUUID();
+    const repeat = await request(headers, '{"mode":"just-me"}', '/v2/me/mode');
+    assert.equal(repeat.status, 200);
+    assert.deepEqual(repeat.body, { mode: 'just-me' });
+    closedProblem(await request(headers, '{"mode":"just-me","mode":"just-me"}', '/v2/me/mode'), 400, 'INVALID_MODE_REQUEST');
+    closedProblem(await request(headers, '{"cursor":"bad"}', '/v2/subscriptions/owner/read'), 400, 'INVALID_SUBSCRIPTION_REQUEST');
+    closedProblem(await request(headers, '{"cursor":"x","cursor":"x"}', '/v2/subscriptions/owner/read'), 400, 'INVALID_SUBSCRIPTION_REQUEST');
+    closedProblem(await request(headers, '{"owner":"foreign"}', '/v2/subscriptions/owner/read'), 400, 'INVALID_SUBSCRIPTION_REQUEST');
+    closedProblem(await request({ ...headers, Origin: 'https://other.invalid' }, '{}', '/v2/subscriptions/owner/read'), 403, 'SUBSCRIPTION_REQUEST_REJECTED');
+    closedProblem(await request({ ...headers, Cookie: `${cookieHeader}; st_v2_chain=duplicate` }, '{}', '/v2/subscriptions/owner/read'), 400, 'INVALID_SUBSCRIPTION_REQUEST');
+    const missing = await request(headers, '{}', `/v2/subscriptions/${missingId}/read`);
+    const foreign = await request(headers, '{}', `/v2/subscriptions/${foreignId}/read`);
+    closedProblem(missing, 404, 'SUBSCRIPTION_NOT_FOUND');
+    closedProblem(foreign, 404, 'SUBSCRIPTION_NOT_FOUND');
+    assert.deepEqual(foreign.body, missing.body);
+    closedProblem(await request(headers, '{"status":"PAUSED"}', `/v2/subscriptions/${selectedId}`, false, 'PATCH'), 409, 'LIFECYCLE_CONFLICT');
+    closedProblem(await request(headers, '{"status":"ARCHIVED","status":"ARCHIVED"}', `/v2/subscriptions/${selectedId}`, false, 'PATCH'), 400, 'INVALID_SUBSCRIPTION_REQUEST');
+    closedProblem(await request(headers, '{"status":"PAUSED"}', `/v2/subscriptions/${foreignId}`, false, 'PATCH'), 404, 'SUBSCRIPTION_NOT_FOUND');
+    closedProblem(await request(headers, '{"status":"PAUSED"}', `/v2/subscriptions/${missingId}`, false, 'PATCH'), 404, 'SUBSCRIPTION_NOT_FOUND');
+    process.stdout.write('PASS ST238_BROWSER_OWNER_HTTPS_MODE_LIST_DETAIL_STATUS_NEGATIVES\n');
+    assert(wire.some(x => x.method === 'POST' && x.path === '/v2/me/mode' && x.status === 200));
+    assert(wire.some(x => x.method === 'POST' && x.path === '/v2/me/mode/read' && x.status === 200));
+    assert.equal(wire.filter(x => x.method === 'POST' && x.path === '/v2/subscriptions/owner/read' && x.status === 200).length, 2);
+    assert(wire.some(x => x.method === 'PATCH' && /^\/v2\/subscriptions\/[0-9a-f-]+$/.test(x.path) && x.status === 200));
+    assert(wire.filter(x => x.method === 'POST' && /^\/v2\/subscriptions\/[0-9a-f-]+\/read$/.test(x.path) && x.status === 200).length >= 2);
+    assert(safeWire);
+    await capture('subscription-status');
+    process.stdout.write(`PASS ST238_BROWSER_NATURAL_OWNER_MODE_LIST_51_DETAIL_STATUS locale=${locale} theme=${theme}\n`);
+    process.stdout.write(`PASS ST237_BROWSER_CASE case=subscriptions locale=${locale} theme=${theme}\n`);
+    }
+  } else {
   phase = 'PROFILE_WIRE';
   assert(safeWire);
   const paths = ['/v2/auth/browser-nonce', '/v2/auth/otp/start', '/v2/auth/otp/verify',
@@ -315,6 +455,7 @@ try {
   process.stdout.write(`PASS ST237_BROWSER_ENROLLMENT_PROFILE locale=${locale} theme=${theme}\n`);
   process.stdout.write('PASS ST237_BROWSER_CURRENT_AUTHORITY_NEGATIVES\nPASS ST237_BROWSER_RELOAD_STOP\n');
   process.stdout.write(`PASS ST237_BROWSER_CASE case=profile locale=${locale} theme=${theme}\n`);
+  }
   }
   if (browserCase === 'partial-terminal') {
   phase = 'PARTIAL_SETUP';

@@ -1,0 +1,12 @@
+After saving a complete profile, the private HTTPS enrollment flow previously stopped. This slice adds an explicit persisted Just me choice, confirms it with a separate authoritative read, and opens a paginated owner subscription list. Users select a displayed row, view owner detail, change an allowed status once, and see a separately reread result.
+
+Mode, list, detail and status share the existing durable current-web session authority and volatile CSRF. Every subscription operation requires a presently complete profile and persisted Just me choice. Fixed owner predicates narrow existing RLS visibility. New ordinary migration 0004 and separately pinned qualified SQL011 add nullable mode and subscription FORCE RLS; old auth SQL, keys, tuple and peer policies remain unchanged. A narrow UI facade exposes the existing deterministic money formatter while preserving client package boundaries.
+
+Default routes remain unavailable; the opt-in loopback TLS graph is private development only. Reload or partial credentials stop at verified login. Household/peer activation, provider delivery, login recovery and public/production release remain outside this slice. Synthetic subscriptions are inserted only in disposable proof databases for naturally enrolled owners.
+
+Validation currently completed:
+- Focused API handler and strict contract tests, client journey/decoder/UI tests, public money formatter test, TypeScript checks, lint and bilingual catalog parity passed.
+- Independent client/design, platform/security and QA source reviews approved the scoped source; actual acceptance remains pending.
+- Actual proof covers natural profile, partial credential stop, empty owner list, paginated list/detail/status, and uncertain mode/status responses in separate fresh fixtures for all four sv/en light/dark variants.
+
+Required before merge: final proof source review, actual PostgreSQL/HTTPS/browser results and synthetic screenshots at this head, independent actual QA and visual acceptance, all applicable CI and Conductor exact-head audit. This draft is not ready to merge and does not claim unrun proofs passed.

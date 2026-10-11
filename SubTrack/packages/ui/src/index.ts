@@ -1,5 +1,6 @@
 export { Button } from './components/Button/Button';
 export type { ButtonProps } from './components/Button/Button';
+export { formatMinorUnits } from '@subtrack/money';
 
 export { Orbit } from './components/Orbit/Orbit';
 export type { OrbitProps } from './components/Orbit/Orbit';

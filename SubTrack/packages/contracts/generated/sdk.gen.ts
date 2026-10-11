@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { AdmitV2WebEnrollmentData, AdmitV2WebEnrollmentErrors, AdmitV2WebEnrollmentResponses, CompleteV2WebEnrollmentData, CompleteV2WebEnrollmentErrors, CompleteV2WebEnrollmentResponses, CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PatchV2BrowserProfileData, PatchV2BrowserProfileErrors, PatchV2BrowserProfileResponses, PatchV2BrowserSubscriptionLifecycleData, PatchV2BrowserSubscriptionLifecycleErrors, PatchV2BrowserSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadV2BrowserProfileData, ReadV2BrowserProfileErrors, ReadV2BrowserProfileResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses, VerifyV2WebSimulatorEnrollmentData, VerifyV2WebSimulatorEnrollmentErrors, VerifyV2WebSimulatorEnrollmentResponses } from './types.gen.js';
+import type { AdmitV2WebEnrollmentData, AdmitV2WebEnrollmentErrors, AdmitV2WebEnrollmentResponses, ChooseV2BrowserJustMeData, ChooseV2BrowserJustMeErrors, ChooseV2BrowserJustMeResponses, CompleteV2WebEnrollmentData, CompleteV2WebEnrollmentErrors, CompleteV2WebEnrollmentResponses, CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PatchV2BrowserProfileData, PatchV2BrowserProfileErrors, PatchV2BrowserProfileResponses, PatchV2BrowserSubscriptionLifecycleData, PatchV2BrowserSubscriptionLifecycleErrors, PatchV2BrowserSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadV2BrowserModeData, ReadV2BrowserModeErrors, ReadV2BrowserModeResponses, ReadV2BrowserProfileData, ReadV2BrowserProfileErrors, ReadV2BrowserProfileResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, ReadV2PrivateOwnerSubscriptionsData, ReadV2PrivateOwnerSubscriptionsErrors, ReadV2PrivateOwnerSubscriptionsResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses, VerifyV2WebSimulatorEnrollmentData, VerifyV2WebSimulatorEnrollmentErrors, VerifyV2WebSimulatorEnrollmentResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -166,7 +166,7 @@ export const listReviewInbox = <ThrowOnError extends boolean = false>(options?: 
 /**
  * Request an owner-only lifecycle transition from the current browser session
  *
- * Contract only; this route is unavailable in the default application graph. Require direct HTTPS, exactly one Origin matching the configured allowlist, exactly one st_v2_access cookie and one distinct deployment-configured browser binding cookie, and exactly one session-bound X-Session-CSRF. Reject duplicate credentials or headers, Authorization (including Bearer and Refresh), st_v2_refresh, Idempotency-Key, mixed modes, and every query parameter with 400 before reading owner data. Reject any body other than JSON with exactly one status target; no caller identity, owner, household, scope, action, transport or edit selector is accepted. Verify the v2 access token to derive sid/sub, hash the observed binding cookie, call webContextForCurrentSession(sid,{userId:sub},bindingCookieHash,exactOrigin,observedAt), then DevelopmentV2PrincipalResolver.resolve with the trusted browser chain and exact Origin. Compare its current owner/session with verified sub/sid; recheck current session, binding and chain after asynchronous resolution, then verify SessionCsrfGuard for that identity/session before creating the server-only subscription RequestContext. The owner-scoped private writer uses a locked current row under transaction-local ordinary-role PostgreSQL RLS. Only ACTIVE to PAUSED/CANCELLED/ARCHIVED, PAUSED to ACTIVE/CANCELLED/ARCHIVED, and CANCELLED to ARCHIVED are accepted. All other pairs, including same-status, conflict. The target determines the action: ACTIVE=resume, PAUSED=pause, CANCELLED=cancel, ARCHIVED=archive; no unlocked read drives dispatch. Missing and foreign IDs return the identical 404 problem. After 409 or an uncertain PATCH response, perform an authenticated authoritative POST /v2/subscriptions/{id}/read; never infer success, optimistically mutate, automatically retry PATCH, fall back to V1 authority or convert tokens. If re-read fails, clear the private view and disable lifecycle actions until a fresh authenticated read. This PATCH has no replay receipt, nonce mutation, mutating-POST idempotency reservation or exactly-once guarantee.
+ * Contract only; this route is unavailable in the default application graph. The ST-238 private HTTPS opt-in graph requires a presently complete persisted profile and explicit persisted just-me mode, and restricts reads and writes to the current owner under durable authority. Require direct HTTPS, exactly one Origin matching the configured allowlist, exactly one st_v2_access cookie and one distinct deployment-configured browser binding cookie, and exactly one session-bound X-Session-CSRF. Reject duplicate credentials or headers, Authorization (including Bearer and Refresh), st_v2_refresh, Idempotency-Key, mixed modes, and every query parameter with 400 before reading owner data. Reject any body other than JSON with exactly one status target; no caller identity, owner, household, scope, action, transport or edit selector is accepted. Verify the v2 access token to derive sid/sub, hash the observed binding cookie, call webContextForCurrentSession(sid,{userId:sub},bindingCookieHash,exactOrigin,observedAt), then DevelopmentV2PrincipalResolver.resolve with the trusted browser chain and exact Origin. Compare its current owner/session with verified sub/sid; recheck current session, binding and chain after asynchronous resolution, then verify SessionCsrfGuard for that identity/session before creating the server-only subscription RequestContext. The owner-scoped private writer uses a locked current row under transaction-local ordinary-role PostgreSQL RLS. Only ACTIVE to PAUSED/CANCELLED/ARCHIVED, PAUSED to ACTIVE/CANCELLED/ARCHIVED, and CANCELLED to ARCHIVED are accepted. All other pairs, including same-status, conflict. The target determines the action: ACTIVE=resume, PAUSED=pause, CANCELLED=cancel, ARCHIVED=archive; no unlocked read drives dispatch. Missing and foreign IDs return the identical 404 problem. After 409 or an uncertain PATCH response, perform an authenticated authoritative POST /v2/subscriptions/{id}/read; never infer success, optimistically mutate, automatically retry PATCH, fall back to V1 authority or convert tokens. If re-read fails, clear the private view and disable lifecycle actions until a fresh authenticated read. This PATCH has no replay receipt, nonce mutation, mutating-POST idempotency reservation or exactly-once guarantee.
  *
  */
 export const patchV2BrowserSubscriptionLifecycle = <ThrowOnError extends boolean = false>(options: Options<PatchV2BrowserSubscriptionLifecycleData, ThrowOnError>): RequestResult<PatchV2BrowserSubscriptionLifecycleResponses, PatchV2BrowserSubscriptionLifecycleErrors, ThrowOnError> => (options.client ?? client).patch<PatchV2BrowserSubscriptionLifecycleResponses, PatchV2BrowserSubscriptionLifecycleErrors, ThrowOnError>({
@@ -186,7 +186,7 @@ export const patchV2BrowserSubscriptionLifecycle = <ThrowOnError extends boolean
 /**
  * Read one subscription visible to the current browser session
  *
- * Contract only; this route is unavailable in the default application graph. Require direct HTTPS, exactly one Origin matching the configured allowlist, exactly one st_v2_access cookie and one distinct deployment-configured browser binding cookie, and exactly one session-bound X-Session-CSRF. Reject duplicate credentials or headers, Authorization (including Bearer and Refresh), st_v2_refresh, mixed modes, every query parameter and every body other than JSON {} before reading owner data. No caller identity, owner, scope or transport selector is accepted. Verify the v2 access token to derive sid/sub, hash the observed binding cookie, call webContextForCurrentSession(sid,{userId:sub},bindingCookieHash,exactOrigin,observedAt), then DevelopmentV2PrincipalResolver.resolve with the trusted browser chain and exact Origin. Compare its current owner/session with verified sub/sid; verify SessionCsrfGuard for that identity/session before creating the server-only subscription RequestContext. Apply the same current RLS and owner/household visibility predicate as V1 detail: owner or peer-safe projection only, with canonical string minor units; no transaction, charge, bank or detection evidence. Missing and foreign IDs have the identical 404 problem, with no owner or share metadata. This POST is a pure read: no nonce, session, CSRF or subscription mutation or rotation, and no idempotency reservation or Idempotency-Key. ADR-0010 requires idempotency only for mutating POSTs. Never fall back to V1 authority.
+ * Contract only; this route is unavailable in the default application graph. The ST-238 private HTTPS opt-in graph requires a presently complete persisted profile and explicit persisted just-me mode and returns only SubscriptionOwnerView for a current-owner row. Require direct HTTPS, exactly one Origin matching the configured allowlist, exactly one st_v2_access cookie and one distinct deployment-configured browser binding cookie, and exactly one session-bound X-Session-CSRF. Reject duplicate credentials or headers, Authorization (including Bearer and Refresh), st_v2_refresh, mixed modes, every query parameter and every body other than JSON {} before reading owner data. No caller identity, owner, scope or transport selector is accepted. Verify the v2 access token to derive sid/sub, hash the observed binding cookie, call webContextForCurrentSession(sid,{userId:sub},bindingCookieHash,exactOrigin,observedAt), then DevelopmentV2PrincipalResolver.resolve with the trusted browser chain and exact Origin. Compare its current owner/session with verified sub/sid; verify SessionCsrfGuard for that identity/session before creating the server-only subscription RequestContext. Apply the same current RLS and owner/household visibility predicate as V1 detail: owner or peer-safe projection only, with canonical string minor units; no transaction, charge, bank or detection evidence. Missing and foreign IDs have the identical 404 problem, with no owner or share metadata. This POST is a pure read: no nonce, session, CSRF or subscription mutation or rotation, and no idempotency reservation or Idempotency-Key. ADR-0010 requires idempotency only for mutating POSTs. Never fall back to V1 authority.
  *
  */
 export const readV2BrowserSubscription = <ThrowOnError extends boolean = false>(options: Options<ReadV2BrowserSubscriptionData, ThrowOnError>): RequestResult<ReadV2BrowserSubscriptionResponses, ReadV2BrowserSubscriptionErrors, ThrowOnError> => (options.client ?? client).post<ReadV2BrowserSubscriptionResponses, ReadV2BrowserSubscriptionErrors, ThrowOnError>({
@@ -405,6 +405,66 @@ export const verifyV2DeleteOtpReauth = <ThrowOnError extends boolean = false>(op
             type: 'http'
         }],
     url: '/v2/me/reauth/otp/verify',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Explicitly choose persisted Just me mode in the private HTTPS graph
+ *
+ * Private opt-in current-web authority only. Requires a presently complete persisted profile. The exact JustMeChoice is written once; an identical repeat is a side-effect-free committed readback. Other states conflict. Requires the exact current Origin, three private cookies, browser chain, binding and X-Session-CSRF. Reject queries, extra fields, alternate credentials and Idempotency-Key. An uncertain result is never retried.
+ *
+ */
+export const chooseV2BrowserJustMe = <ThrowOnError extends boolean = false>(options: Options<ChooseV2BrowserJustMeData, ThrowOnError>): RequestResult<ChooseV2BrowserJustMeResponses, ChooseV2BrowserJustMeErrors, ThrowOnError> => (options.client ?? client).post<ChooseV2BrowserJustMeResponses, ChooseV2BrowserJustMeErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'st_v2_access',
+            type: 'apiKey'
+        }],
+    url: '/v2/me/mode',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read the current owner's persisted onboarding mode
+ *
+ * Private opt-in current-web authority only. Exact empty JSON request and the same current session envelope as mode choice. Null means no explicit choice. This read has no mode or session write side effect.
+ *
+ */
+export const readV2BrowserMode = <ThrowOnError extends boolean = false>(options: Options<ReadV2BrowserModeData, ThrowOnError>): RequestResult<ReadV2BrowserModeResponses, ReadV2BrowserModeErrors, ThrowOnError> => (options.client ?? client).post<ReadV2BrowserModeResponses, ReadV2BrowserModeErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'st_v2_access',
+            type: 'apiKey'
+        }],
+    url: '/v2/me/mode/read',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read one bounded page of the current owner's persisted subscriptions
+ *
+ * Private opt-in current-web authority only. Every page requires a presently complete profile and persisted just-me choice. Owner is derived from the current session. Initial request is {}; continuation contains only a canonical opaque cursor of at most 512 characters. Results are ordered by immutable created_at DESC,id DESC. Server queries 51 and returns at most 50; nextCursor is null only at exhaustion. Cursor grants no authority. Re-evaluation on each page is not snapshot pagination. The exact current Origin, three-cookie roster, chain, binding and X-Session-CSRF apply.
+ *
+ */
+export const readV2PrivateOwnerSubscriptions = <ThrowOnError extends boolean = false>(options: Options<ReadV2PrivateOwnerSubscriptionsData, ThrowOnError>): RequestResult<ReadV2PrivateOwnerSubscriptionsResponses, ReadV2PrivateOwnerSubscriptionsErrors, ThrowOnError> => (options.client ?? client).post<ReadV2PrivateOwnerSubscriptionsResponses, ReadV2PrivateOwnerSubscriptionsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'st_v2_access',
+            type: 'apiKey'
+        }],
+    url: '/v2/subscriptions/owner/read',
     ...options,
     headers: {
         'Content-Type': 'application/json',

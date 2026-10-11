@@ -18,7 +18,7 @@ permissions:
 jobs:
   private-https-profile:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: SubTrack
@@ -60,7 +60,7 @@ jobs:
           if-no-files-found: ignore
   enrollment-profile-browser:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -104,12 +104,12 @@ jobs:
         run: |
           code=0
           : > "$RUNNER_TEMP/st237-profile-receipt.txt"
-          for proof_case in profile partial-terminal; do
+          for proof_case in profile partial-terminal empty subscriptions uncertainty; do
             bash tools/database/private-profile-proof.sh --case "$proof_case" >> "$RUNNER_TEMP/st237-profile-receipt.txt" 2>&1 || code=$?
             (( code == 0 )) || break
           done
           if (( code == 0 )); then
-            for proof_case in profile partial-terminal; do
+            for proof_case in profile partial-terminal empty subscriptions uncertainty; do
               grep -qx "PASS ST237_PRIVATE_CASE case=$proof_case" "$RUNNER_TEMP/st237-profile-receipt.txt" || code=1
             done
           fi
@@ -137,5 +137,29 @@ jobs:
         with:
           name: st237-partial-terminal-screenshots-${{ matrix.locale }}-${{ matrix.theme }}
           path: ${{ runner.temp }}/st237-profile-screenshots/partial-terminal/*.png
+          if-no-files-found: error
+          retention-days: 7
+      - name: Publish synthetic owner subscription review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: st238-subscriptions-screenshots-${{ matrix.locale }}-${{ matrix.theme }}
+          path: ${{ runner.temp }}/st237-profile-screenshots/subscriptions/*.png
+          if-no-files-found: error
+          retention-days: 7
+      - name: Publish synthetic empty owner list review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: st238-empty-owner-screenshots-${{ matrix.locale }}-${{ matrix.theme }}
+          path: ${{ runner.temp }}/st237-profile-screenshots/empty/*.png
+          if-no-files-found: error
+          retention-days: 7
+      - name: Publish uncertain commit review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: st238-uncertainty-screenshots-${{ matrix.locale }}-${{ matrix.theme }}
+          path: ${{ runner.temp }}/st237-profile-screenshots/uncertainty/*.png
           if-no-files-found: error
           retention-days: 7

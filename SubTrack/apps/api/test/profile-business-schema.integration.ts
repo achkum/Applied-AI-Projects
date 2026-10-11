@@ -27,6 +27,7 @@ test('ordinary profile business catalog and owner RLS', async () => {
       ['language',['character varying(2)','NO']], ['theme',['character varying(16)','NO']],
       ['default_currency',['character(3)','NO']], ['profile_complete',['boolean','NO']],
       ['created_at',['timestamp with time zone','NO']], ['updated_at',['timestamp with time zone','NO']],
+      ['onboarding_mode',['character varying(16)','YES']],
     ]);
     assert.equal(columns.length, expected.size);
     for (const c of columns) assert.deepEqual([c.type,c.nullable], expected.get(c.name));
@@ -39,7 +40,7 @@ test('ordinary profile business catalog and owner RLS', async () => {
         (SELECT count(*) FROM pg_constraint WHERE conrelid=c.oid AND contype='f' AND confdeltype='r' AND confupdtype='r') AS fk,
         (SELECT count(*) FROM pg_constraint WHERE conrelid=c.oid AND contype='c') AS checks
       FROM pg_class c WHERE c.oid='public.identity_profile'::regclass`;
-    assert.deepEqual(catalog,[{rls:true,force_rls:true,policy_count:3n,pk:1n,fk:1n,checks:3n}]);
+    assert.deepEqual(catalog,[{rls:true,force_rls:true,policy_count:3n,pk:1n,fk:1n,checks:4n}]);
     const policies = await owner.$queryRaw<{name:string; command:string; roles:string[]; using_expr:string|null; check_expr:string|null}[]>`
       SELECT p.polname AS name,p.polcmd AS command,
         ARRAY(SELECT rolname FROM pg_roles WHERE oid=ANY(p.polroles)) AS roles,
@@ -53,15 +54,16 @@ test('ordinary profile business catalog and owner RLS', async () => {
       if (p.command !== 'a') assert.equal(p.using_expr,'subtrack_principal_matches(identity_id)');
       if (p.command !== 'r') assert.equal(p.check_expr,'subtrack_principal_matches(identity_id)');
     }
-    const grants = await owner.$queryRaw<{runtime_select:boolean;runtime_insert:boolean;public_select:boolean;identity_select:boolean;otp_select:boolean;currency_update:boolean;identity_update:boolean}[]>`
+    const grants = await owner.$queryRaw<{runtime_select:boolean;runtime_insert:boolean;public_select:boolean;identity_select:boolean;otp_select:boolean;currency_update:boolean;mode_update:boolean;identity_update:boolean}[]>`
       SELECT has_table_privilege('subtrack_runtime','public.identity_profile','SELECT') AS runtime_select,
         has_table_privilege('subtrack_runtime','public.identity_profile','INSERT') AS runtime_insert,
         EXISTS (SELECT 1 FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) acl WHERE c.oid='public.identity_profile'::regclass AND acl.grantee=0 AND acl.privilege_type='SELECT') AS public_select,
         has_table_privilege('subtrack_identity_provisioner','public.identity_profile','SELECT') AS identity_select,
         has_table_privilege('subtrack_otp_service','public.identity_profile','SELECT') AS otp_select,
         has_column_privilege('subtrack_runtime','public.identity_profile','default_currency','UPDATE') AS currency_update,
+        has_column_privilege('subtrack_runtime','public.identity_profile','onboarding_mode','UPDATE') AS mode_update,
         has_column_privilege('subtrack_runtime','public.identity_profile','identity_id','UPDATE') AS identity_update`;
-    assert.deepEqual(grants,[{runtime_select:true,runtime_insert:true,public_select:false,identity_select:false,otp_select:false,currency_update:true,identity_update:false}]);
+    assert.deepEqual(grants,[{runtime_select:true,runtime_insert:true,public_select:false,identity_select:false,otp_select:false,currency_update:true,mode_update:true,identity_update:false}]);
     const a=randomUUID(), b=randomUUID();
     await owner.$executeRaw`INSERT INTO identity(id,auth_method,updated_at) VALUES (${a}::uuid,'MOCK',now()),(${b}::uuid,'MOCK',now())`;
     await owner.$executeRaw`INSERT INTO identity_profile(identity_id) VALUES (${a}::uuid),(${b}::uuid)`;
@@ -87,9 +89,13 @@ test('ordinary profile business catalog and owner RLS', async () => {
       assert(runnerTemp);
       assert.equal(catalogOutput, resolve(runnerTemp,'st237-ordinary-profile-catalog.json'));
       const catalog = await readProfileBusinessCatalog(owner);
-      assert.equal(catalog.columns.length, 13);
+      assert.equal(catalog.columns.length, 14);
       assert.equal(catalog.relation.length, 1);
       assert.equal(catalog.policies.length, 3);
+      assert.deepEqual(catalog.subscription,[{kind:'r',rls:true,force_rls:true,runtime_not_owner:true,
+        runtime_bypass_rls:false,runtime_select:true,runtime_update:true,merchant_select:true}]);
+      assert.deepEqual(catalog.subscriptionPolicies.map(p => p.name),
+        ['subscription_delete','subscription_insert','subscription_select','subscription_update']);
       writeFileSync(catalogOutput, JSON.stringify({catalog}), {flag:'wx',mode:0o600});
     }
   } finally {

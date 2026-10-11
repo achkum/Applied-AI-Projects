@@ -97,4 +97,36 @@ describe('mounted private enrollment and profile', () => {
     expect(otp.getAttribute('aria-invalid')).toBe('true');
     expect(otp.getAttribute('aria-describedby')).toBe('registration-otp-error');
   });
+
+  it('continues from confirmed profile through explicit mode, owner row and reread status without a second PATCH', async () => {
+    const id = '123e4567-e89b-42d3-a456-426614174000';
+    const owner = { visibility: 'owner', id, customName: 'Synthetic Subscription', merchantId: null, merchantName: null,
+      categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', status: 'ACTIVE', expectedAmountMinor: '12345',
+      currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
+    const fetchMock = startMocks()
+      .mockImplementationOnce(() => response(200, { ...view, displayName: 'Synthetic Owner', profileComplete: true }))
+      .mockImplementationOnce(() => response(200, { ...view, displayName: 'Synthetic Owner', profileComplete: true }))
+      .mockImplementationOnce(() => response(200, { mode: 'just-me' }))
+      .mockImplementationOnce(() => response(200, { mode: 'just-me' }))
+      .mockImplementationOnce(() => response(200, { items: [owner], nextCursor: null }))
+      .mockImplementationOnce(() => response(200, owner))
+      .mockImplementationOnce(() => response(200, { id, status: 'PAUSED' }))
+      .mockImplementationOnce(() => response(200, { ...owner, status: 'PAUSED' }));
+    render(<RegistrationFlow locale="en" />); await reachProfile();
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Synthetic Owner' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+    const choose = await screen.findByRole('button', { name: 'Just me' });
+    fireEvent.click(choose);
+    expect(await screen.findByRole('heading', { name: 'Your subscriptions' })).toBe(document.activeElement);
+    fireEvent.click(screen.getByRole('button', { name: /Synthetic Subscription, Active/ }));
+    expect(await screen.findByRole('heading', { name: 'Subscription details' })).toBe(document.activeElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    expect(await screen.findByText('Saved status confirmed.')).toBeTruthy();
+    expect(screen.getByText('Paused · Monthly')).toBeTruthy();
+    expect(fetchMock.mock.calls.map(([url]) => url).slice(-5)).toEqual([
+      '/v2/me/mode/read', '/v2/subscriptions/owner/read', `/v2/subscriptions/${id}/read`,
+      `/v2/subscriptions/${id}`, `/v2/subscriptions/${id}/read`,
+    ]);
+    expect(fetchMock.mock.calls.filter(([url, options]) => url === `/v2/subscriptions/${id}` && options?.method === 'PATCH')).toHaveLength(1);
+  });
 });

@@ -3,15 +3,18 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '@subtrack/ui';
 import { catalogs, type Locale } from '@subtrack/i18n';
-import type { ProfilePatch, ProfileView } from '@subtrack/contracts';
+import type { ProfilePatch, ProfileView, SubscriptionLifecycleTarget, SubscriptionOwnerView } from '@subtrack/contracts';
 import { IdentifierEntry, type IdentifierEntryValue } from './identifier-entry';
 import { ProfileEditor } from './profile-editor';
+import { PrivateSubscriptions } from './private-subscriptions';
 import { RegistrationApiError, startRegistration, verifyRegistration, admitPendingRegistration, verifySimulatorRegistration, completeRegistration, type RegistrationIdentifier } from '@/lib/registration-api';
 import { readProfile, patchProfile, ProfileApiError } from '@/lib/profile-api';
+import { chooseJustMe, readMode, readOwnerSubscriptions, readOwnerSubscription, patchOwnerSubscription, PrivateOnboardingApiError } from '@/lib/private-onboarding-api';
 import styles from './registration-flow.module.css';
 
 type Step = 'identifier' | 'otp' | 'pending-admission' | 'simulator-verification' | 'terminal-completion' |
   'profile-loading' | 'profile-editing' | 'profile-saving' | 'profile-confirming' | 'profile-saved' |
+  'mode-saving' | 'mode-confirming' | 'subscriptions-loading' | 'subscriptions-list' | 'subscriptions-detail' |
   'restart-required' | 'verified-login-required' | 'unavailable';
 
 export function RegistrationFlow({ locale }: { locale: Locale }) {
@@ -26,6 +29,10 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
   const [identifier, setIdentifier] = useState<RegistrationIdentifier | null>(null);
   const [profile, setProfile] = useState<ProfileView | null>(null);
   const [uncertain, setUncertain] = useState(false);
+  const [items, setItems] = useState<SubscriptionOwnerView[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [selected, setSelected] = useState<SubscriptionOwnerView | null>(null);
+  const [statusConfirmed, setStatusConfirmed] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const generation = useRef(0);
   const requestPending = useRef(false);
@@ -54,7 +61,10 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
     return () => { generation.current += 1; controller.current?.abort(); clearPrivate(); };
   }, []);
 
-  function clearPrivate() { continuation.current = ''; rotatedNonce.current = ''; csrf.current = ''; }
+  function clearPrivate() {
+    continuation.current = ''; rotatedNonce.current = ''; csrf.current = '';
+    setItems([]); setNextCursor(null); setSelected(null); setStatusConfirmed(false);
+  }
   function beginRequest() {
     requestPending.current = true;
     controller.current?.abort();
@@ -74,7 +84,8 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
   function fail(caught: unknown, request: { signal: AbortSignal; generation: number }, terminal = false) {
     if (!current(request)) return;
     if (terminal || caught instanceof RegistrationApiError && caught.code === 'login-required' ||
-        caught instanceof ProfileApiError && caught.code === 'login-required') stop('verified-login-required');
+        caught instanceof ProfileApiError && caught.code === 'login-required' ||
+        caught instanceof PrivateOnboardingApiError && caught.code === 'login-required') stop('verified-login-required');
     else if (caught instanceof RegistrationApiError && caught.code === 'restart-required') stop('restart-required', copy.restartRequired);
     else stop('unavailable', copy.unavailable);
   }
@@ -153,6 +164,76 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
       } catch { if (current(request)) stop('verified-login-required'); }
     }
   }
+  async function chooseMode() {
+    if (requestPending.current || !csrf.current || !profile?.profileComplete || step !== 'profile-saved') return;
+    const request = beginRequest(); setError(''); setStep('mode-saving');
+    try {
+      await chooseJustMe(csrf.current, request.signal);
+      if (!current(request)) return;
+    } catch (caught) {
+      if (!current(request)) return;
+      if (caught instanceof PrivateOnboardingApiError && caught.code !== 'conflict' && caught.code !== 'unavailable' && caught.code !== 'login-required') {
+        stop('verified-login-required'); return;
+      }
+    }
+    try {
+      setStep('mode-confirming');
+      const mode = await readMode(csrf.current, request.signal);
+      if (!current(request)) return;
+      if (mode !== 'just-me') { stop('verified-login-required'); return; }
+      setStep('subscriptions-loading');
+      const page = await readOwnerSubscriptions(csrf.current, request.signal);
+      if (!current(request)) return;
+      setItems(page.items); setNextCursor(page.nextCursor); setStep('subscriptions-list'); finish();
+    } catch { if (current(request)) stop('verified-login-required'); }
+  }
+  async function loadMore() {
+    if (requestPending.current || !csrf.current || !nextCursor || step !== 'subscriptions-list') return;
+    const request = beginRequest(); setError('');
+    try {
+      const page = await readOwnerSubscriptions(csrf.current, request.signal, nextCursor);
+      if (!current(request)) return;
+      const ids = new Set(items.map((item) => item.id));
+      if (page.items.some((item) => ids.has(item.id)) || page.nextCursor === nextCursor) throw new PrivateOnboardingApiError('unavailable');
+      setItems([...items, ...page.items]); setNextCursor(page.nextCursor); finish();
+    } catch { if (current(request)) stop('verified-login-required'); }
+  }
+  async function selectSubscription(id: string) {
+    if (requestPending.current || !csrf.current || step !== 'subscriptions-list' || !items.some((item) => item.id === id)) return;
+    const request = beginRequest(); setError(''); setStatusConfirmed(false);
+    try {
+      const detail = await readOwnerSubscription(id, csrf.current, request.signal);
+      if (!current(request)) return;
+      setSelected(detail); setStep('subscriptions-detail'); finish();
+    } catch { if (current(request)) stop('verified-login-required'); }
+  }
+  async function transition(status: SubscriptionLifecycleTarget) {
+    if (requestPending.current || !csrf.current || !selected || step !== 'subscriptions-detail') return;
+    const allowed: Record<string, SubscriptionLifecycleTarget[]> = {
+      ACTIVE: ['PAUSED', 'CANCELLED', 'ARCHIVED'], PAUSED: ['ACTIVE', 'CANCELLED', 'ARCHIVED'], CANCELLED: ['ARCHIVED'],
+    };
+    if (!(allowed[selected.status] ?? []).includes(status)) return;
+    const request = beginRequest(); setError(''); setStatusConfirmed(false);
+    let knownCommitted = false;
+    try {
+      await patchOwnerSubscription(selected.id, status, csrf.current, request.signal);
+      if (!current(request)) return;
+      knownCommitted = true;
+    } catch (caught) {
+      if (!current(request)) return;
+      if (!(caught instanceof PrivateOnboardingApiError)) { stop('verified-login-required'); return; }
+    }
+    try {
+      const detail = await readOwnerSubscription(selected.id, csrf.current, request.signal);
+      if (!current(request)) return;
+      setSelected(detail);
+      setItems((prior) => prior.map((item) => item.id === detail.id ? detail : item));
+      setStatusConfirmed(detail.status === status && knownCommitted);
+      if (!knownCommitted) setError(catalogs[locale].onboarding.ownerSubscriptions.rechecked);
+      else if (detail.status !== status) setError(catalogs[locale].onboarding.ownerSubscriptions.conflict);
+      finish();
+    } catch { if (current(request)) stop('verified-login-required'); }
+  }
   function goBack() {
     generation.current += 1; controller.current?.abort(); clearPrivate(); requestPending.current = false;
     setBusy(false); setCode(''); setOtpError(''); setNonce(''); setChallengeId(''); setProfile(null); setError('');
@@ -184,10 +265,22 @@ export function RegistrationFlow({ locale }: { locale: Locale }) {
       {profile && ['profile-editing', 'profile-saving', 'profile-confirming', 'profile-saved'].includes(step) ?
         <ProfileEditor key={profile.displayName ?? 'new'} locale={locale} view={profile} busy={busy} saved={step === 'profile-saved'}
           uncertain={uncertain} onSave={saveProfile} /> : null}
+      {step === 'profile-saved' && profile ? <section aria-labelledby="mode-title">
+        <h2 id="mode-title">{catalogs[locale].onboarding.mode.title}</h2>
+        <p>{profile.profileComplete ? catalogs[locale].onboarding.mode.description : catalogs[locale].onboarding.mode.incomplete}</p>
+        {profile.profileComplete ? <Button type="button" disabled={busy} onClick={chooseMode}>{catalogs[locale].onboarding.mode.choose}</Button> : null}
+      </section> : null}
+      {step === 'mode-saving' || step === 'mode-confirming' ? <p data-step-focus tabIndex={-1} role="status">
+        {step === 'mode-saving' ? catalogs[locale].onboarding.mode.saving : catalogs[locale].onboarding.mode.confirming}</p> : null}
+      {step === 'subscriptions-loading' ? <p data-step-focus tabIndex={-1} role="status">{catalogs[locale].onboarding.ownerSubscriptions.loading}</p> : null}
+      {step === 'subscriptions-list' || step === 'subscriptions-detail' ? <PrivateSubscriptions locale={locale} items={items} nextCursor={nextCursor}
+        selected={step === 'subscriptions-detail' ? selected : null} busy={busy} confirmed={statusConfirmed} onMore={loadMore}
+        onSelect={selectSubscription} onBack={() => { setSelected(null); setStatusConfirmed(false); setStep('subscriptions-list'); }} onTransition={transition} /> : null}
       {step === 'verified-login-required' ? <p data-step-focus tabIndex={-1} role="alert">{copy.verifiedLoginRequired}</p> : null}
       {error && step !== 'restart-required' ? <p ref={errorMessage} tabIndex={-1} role="alert">{error}</p> : null}
       <div className={styles.actions}>
-        {step !== 'identifier' && step !== 'verified-login-required' && step !== 'profile-saved' ?
+        {step !== 'identifier' && step !== 'verified-login-required' && step !== 'profile-saved' &&
+          !step.startsWith('subscriptions-') && !step.startsWith('mode-') ?
           <Button variant="secondary" type="button" onClick={goBack}>{copy.backLabel}</Button> : null}
         {step === 'identifier' ? <p className={styles.unavailable}>{copy.loginUnavailable}</p> : null}
       </div>

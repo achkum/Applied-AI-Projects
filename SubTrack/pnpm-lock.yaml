@@ -565,6 +565,9 @@ importers:
       '@subtrack/i18n':
         specifier: workspace:*
         version: link:../i18n
+      '@subtrack/money':
+        specifier: workspace:*
+        version: link:../money
       framer-motion:
         specifier: ^13.4.6
         version: 13.4.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -587,9 +590,6 @@ importers:
       '@subtrack/config':
         specifier: workspace:*
         version: link:../config
-      '@subtrack/money':
-        specifier: workspace:*
-        version: link:../money
       '@subtrack/synthetic':
         specifier: workspace:*
         version: link:../synthetic

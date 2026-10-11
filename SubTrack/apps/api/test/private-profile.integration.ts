@@ -7,6 +7,7 @@ import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { readProfileBusinessCatalog } from './profile-business-catalog';
 import { PRIVATE_PROFILE_STATEMENTS } from '../src/profile/private-profile-statements';
+import { PRIVATE_ONBOARDING_STATEMENTS } from '../src/profile/private-onboarding-statements';
 import { loadPrivateAuthEpoch } from '../src/auth/private-auth-epoch';
 import { V2AccessToken } from '../src/auth/sessions-v2/v2-access-token';
 import { DurableCurrentWebAuthority } from '../src/auth/sessions-v2/durable-current-web-authority';
@@ -106,6 +107,111 @@ async function prove(): Promise<void> {
       SELECT display_name,profile_complete FROM identity_profile WHERE identity_id IN (${a}::uuid,${b}::uuid)`;
     assert.equal(untouched.length, 2);
     assert(untouched.every(row => row.display_name === null && row.profile_complete === false));
+    phase = 'SUBSCRIPTION_OWNER';
+    const household = randomUUID(), foreignId = randomUUID(), missingId = randomUUID();
+    await owner.$executeRaw`INSERT INTO public.household(id,name,updated_at) VALUES (${household}::uuid,'Proof',now())`;
+    await owner.$executeRaw`INSERT INTO public.household_member(household_id,identity_id,role)
+      VALUES (${household}::uuid,${a}::uuid,'ADMIN'),(${household}::uuid,${b}::uuid,'MEMBER')`;
+    await owner.$executeRaw`INSERT INTO public.subscription(id,identity_id,custom_name,category_code,cadence,
+      expected_amount_minor,currency,status,source,always_private,updated_at)
+      VALUES (${foreignId}::uuid,${b}::uuid,'Peer proof','OTHER_SUBSCRIPTION','MONTHLY',100,'SEK','ACTIVE','MANUAL',false,now())`;
+    await owner.$executeRaw`INSERT INTO public.subscription_share(subscription_id,household_id,shared_by)
+      VALUES (${foreignId}::uuid,${household}::uuid,${b}::uuid)`;
+    const inspectAs = async (principal: string, sql: string, values: unknown[]): Promise<{ rows: Record<string, unknown>[]; rowCount: number | null }> => {
+      const c = await actor.connect();
+      try {
+        await c.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+        await c.query('SET LOCAL ROLE subtrack_runtime');
+        await c.query("SELECT set_config('app.user_id',$1,true),set_config('app.current_user_id',$1,true)", [principal]);
+        const result = await c.query(sql, values);
+        await c.query('ROLLBACK');
+        return { rows: result.rows as Record<string, unknown>[], rowCount: result.rowCount };
+      } finally { c.release(); }
+    };
+    // Compare peer visibility with the same installed policies on either side of FORCE.
+    await owner.$executeRaw`ALTER TABLE public.subscription NO FORCE ROW LEVEL SECURITY`;
+    try {
+      const peerBefore = await inspectAs(a, 'SELECT id::text FROM public.subscription WHERE id=$1::uuid', [foreignId]);
+      assert.equal(peerBefore.rowCount, 1);
+      await owner.$executeRaw`ALTER TABLE public.subscription FORCE ROW LEVEL SECURITY`;
+      const peerAfter = await inspectAs(a, 'SELECT id::text FROM public.subscription WHERE id=$1::uuid', [foreignId]);
+      assert.deepEqual(peerAfter, peerBefore);
+    } finally { await owner.$executeRaw`ALTER TABLE public.subscription FORCE ROW LEVEL SECURITY`; }
+    assert.equal((await inspectAs(a, PRIVATE_ONBOARDING_STATEMENTS.ownerDetail,
+      [a, foreignId, 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'])).rowCount, 0);
+    assert.equal((await inspectAs(a, PRIVATE_ONBOARDING_STATEMENTS.ownerDetail,
+      [a, missingId, 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'])).rowCount, 0);
+    assert.equal((await inspectAs(a, PRIVATE_ONBOARDING_STATEMENTS.ownerStatusLock, [a, foreignId])).rowCount, 0);
+    assert.equal((await inspectAs(a, PRIVATE_ONBOARDING_STATEMENTS.ownerStatusLock, [a, missingId])).rowCount, 0);
+    process.stdout.write('PASS ST238_ACTUAL_PG_PEER_POLICY_FORCE_BEFORE_AFTER_OWNER_PREDICATE\n');
+    phase = 'SUBSCRIPTION_MODE';
+    assert.equal((await inspectAs(a, PRIVATE_ONBOARDING_STATEMENTS.modeChoose, [a, 'just-me'])).rowCount, 0);
+    const incomplete = await owner.$queryRaw<{ onboarding_mode: string | null }[]>`
+      SELECT onboarding_mode FROM public.identity_profile WHERE identity_id=${a}::uuid`;
+    assert.deepEqual(incomplete, [{ onboarding_mode: null }]);
+    await owner.$executeRaw`UPDATE public.identity_profile SET profile_complete=true WHERE identity_id=${a}::uuid`;
+    const modeClient = await actor.connect();
+    try {
+      await modeClient.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+      await modeClient.query('SET LOCAL ROLE subtrack_runtime');
+      await modeClient.query("SELECT set_config('app.user_id',$1,true),set_config('app.current_user_id',$1,true)", [a]);
+      assert.equal((await modeClient.query(PRIVATE_ONBOARDING_STATEMENTS.modeChoose, [a, 'just-me'])).rowCount, 1);
+      assert.equal((await modeClient.query(PRIVATE_ONBOARDING_STATEMENTS.modeChoose, [a, 'just-me'])).rowCount, 0);
+      await modeClient.query('COMMIT');
+    } finally { modeClient.release(); }
+    const modeRows = await owner.$queryRaw<{ onboarding_mode: string | null }[]>`
+      SELECT onboarding_mode FROM public.identity_profile WHERE identity_id=${a}::uuid`;
+    assert.deepEqual(modeRows, [{ onboarding_mode: 'just-me' }]);
+    process.stdout.write('PASS ST238_ACTUAL_PG_INCOMPLETE_MODE_AND_REPEAT_NO_UPDATE\n');
+    phase = 'SUBSCRIPTION_CURSOR';
+    await owner.$executeRaw`INSERT INTO public.subscription(identity_id,custom_name,category_code,cadence,
+      expected_amount_minor,currency,status,source,always_private,created_at,updated_at)
+      SELECT ${a}::uuid,'Page proof '||g.i,'OTHER_SUBSCRIPTION','MONTHLY',g.i,'SEK','ACTIVE','MANUAL',true,
+        '2026-01-01 00:00:00.123456+00'::timestamptz,now()
+      FROM pg_catalog.generate_series(1,103) AS g(i)`;
+    const format = 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"';
+    const list = async (id: string, at: string | null, afterId: string | null) =>
+      inspectAs(id, PRIVATE_ONBOARDING_STATEMENTS.ownerList, [id, at, afterId, 'UTC', format]);
+    const firstPage = await list(a, null, null);
+    assert.equal(firstPage.rowCount, 51);
+    assert(firstPage.rows.every(row => row.identity_id === a && row.created_at === '2026-01-01T00:00:00.123456Z'));
+    const secondPage = await list(a, firstPage.rows[49]!.created_at as string, firstPage.rows[49]!.id as string);
+    assert.equal(secondPage.rowCount, 51);
+    const thirdPage = await list(a, secondPage.rows[49]!.created_at as string, secondPage.rows[49]!.id as string);
+    assert.equal(thirdPage.rowCount, 3);
+    assert.equal(new Set([...firstPage.rows.slice(0, 50), ...secondPage.rows.slice(0, 50), ...thirdPage.rows]
+      .map(row => row.id)).size, 103);
+    assert.equal((await list(b, firstPage.rows[49]!.created_at as string, firstPage.rows[49]!.id as string)).rowCount, 0);
+    assert.equal((await list(b, null, null)).rowCount, 1);
+    for (const count of [1, 50, 51] as const) {
+      const page = await list(a, '2026-01-01T00:00:00.123456Z', firstPage.rows[count - 1]!.id as string);
+      assert.equal(page.rowCount, Math.min(51, 103 - count));
+    }
+    process.stdout.write('PASS ST238_ACTUAL_PG_OWNER_CURSOR_50_51_103_TIED_MICROSECONDS\n');
+    phase = 'SUBSCRIPTION_STATUS';
+    const targetId = firstPage.rows[0]!.id as string;
+    const statusClient = await actor.connect();
+    try {
+      await statusClient.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+      await statusClient.query('SET LOCAL ROLE subtrack_runtime');
+      await statusClient.query("SELECT set_config('app.user_id',$1,true),set_config('app.current_user_id',$1,true)", [a]);
+      const locked = await statusClient.query(PRIVATE_ONBOARDING_STATEMENTS.ownerStatusLock, [a, targetId]);
+      assert.equal(locked.rows[0]?.status, 'ACTIVE');
+      assert.equal((await statusClient.query(PRIVATE_ONBOARDING_STATEMENTS.ownerStatusCompareUpdate,
+        [a, targetId, 'ACTIVE', 'PAUSED'])).rowCount, 1);
+      assert.equal((await statusClient.query(PRIVATE_ONBOARDING_STATEMENTS.ownerStatusCompareUpdate,
+        [a, targetId, 'ACTIVE', 'CANCELLED'])).rowCount, 0);
+      assert.equal((await statusClient.query(PRIVATE_ONBOARDING_STATEMENTS.ownerStatusCompareUpdate,
+        [a, foreignId, 'ACTIVE', 'PAUSED'])).rowCount, 0);
+      await statusClient.query('COMMIT');
+    } finally { statusClient.release(); }
+    const statusRead = await inspectAs(a, PRIVATE_ONBOARDING_STATEMENTS.ownerDetail, [a, targetId, 'UTC', format]);
+    assert.equal(statusRead.rows[0]?.status, 'PAUSED');
+    process.stdout.write('PASS ST238_ACTUAL_PG_LOCKED_STATUS_STALE_COMPARE_AND_READBACK\n');
+    await owner.$executeRaw`DELETE FROM public.subscription_share WHERE subscription_id=${foreignId}::uuid`;
+    await owner.$executeRaw`DELETE FROM public.subscription WHERE identity_id IN (${a}::uuid,${b}::uuid)`;
+    await owner.$executeRaw`DELETE FROM public.household_member WHERE household_id=${household}::uuid`;
+    await owner.$executeRaw`DELETE FROM public.household WHERE id=${household}::uuid`;
     await owner.$executeRaw`DELETE FROM identity_profile WHERE identity_id IN (${a}::uuid,${b}::uuid)`;
     await owner.$executeRaw`DELETE FROM identity WHERE id IN (${a}::uuid,${b}::uuid)`;
     process.stdout.write('PASS ST237_PRIVATE_PROFILE_SECOND_OWNER_DUAL_GUC_ROLLBACK_POOL_RESET\n');
