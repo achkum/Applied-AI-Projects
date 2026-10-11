@@ -11,9 +11,35 @@ image=mirror.gcr.io/library/postgres:16-alpine
 cid=$(printf '%064d' 0) marker=$(printf '%032d' 0) name="st233a-$(printf '%032d' 0)" created=''
 declare -A clients=() writers=()
 driver_cid='' driver_name='' driver_env='' driver_image='node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
-for function in private_file custody custody_diagnostic terminate_container cleanup_container cleanup_temp finish monotonic registry launch_client observe_clients live_client poll_client join_client close_writers terminate_clients driver_custody driver_cleanup; do
+for function in private_file custody custody_diagnostic terminate_container cleanup_container cleanup_temp finish record_migration_failure monotonic registry launch_client observe_clients live_client poll_client join_client close_writers terminate_clients driver_custody driver_cleanup; do
   source <(sed -n "/^$function() {/,/^}/p" "$script")
 done
+# Run the production parser and receipt writer against private client-log fixtures.
+# Raw psql text must never become a receipt field, even when it resembles SQLSTATE.
+diagnostic_cid=$cid; cid=''
+for diagnostic_case in undefined_table insufficient_privilege embedded_error malformed_code invalid_exit timeout missing_log; do
+  tmp=$(mktemp -d "$base/st233a.XXXXXX")
+  client_log="$tmp/client.log"; migration_step=parent-0001 phase=migration passed=false
+  client_exit_status=1; expected_state=unavailable; expected_exit=1
+  case "$diagnostic_case" in
+    undefined_table) printf 'ERROR:  42P01: private-sentinel\n' > "$client_log"; expected_state=42P01 ;;
+    insufficient_privilege) printf 'ERROR:  42501: private-sentinel\n' > "$client_log"; expected_state=42501 ;;
+    embedded_error) printf 'NOTICE: prefix ERROR:  42P01: private-sentinel\n' > "$client_log" ;;
+    malformed_code) printf 'ERROR:  42P01 private-sentinel\n' > "$client_log" ;;
+    invalid_exit) printf 'ERROR:  42P01: private-sentinel\n' > "$client_log"; client_exit_status=999; expected_state=42P01; expected_exit=unavailable ;;
+    timeout) printf 'private-sentinel timeout\n' > "$client_log"; client_exit_status=unavailable; expected_exit=unavailable ;;
+    missing_log) client_log="$tmp/missing" ;;
+  esac
+  : > "$receipt"
+  record_migration_failure
+  [[ "$migration_sqlstate" == "$expected_state" && "$migration_exit" == "$expected_exit" ]]
+  status=0; (trap finish EXIT; false) || status=$?
+  [[ "$status" != 0 && ! -e "$tmp" ]]
+  grep -Eq "^ST-233a foundation: FAIL source_head=$source_head phase=migration cleanup=removed step=parent-0001 sqlstate=$expected_state client_exit=$expected_exit$" "$receipt"
+  ! grep -q 'private-sentinel' "$receipt"
+  printf 'ST-236 migration diagnostic case=%s: expected result verified\n' "$diagnostic_case"
+done
+cid=$diagnostic_cid
 custody_cases() {
 for case_name in "$@"; do
   created=$(python3 -c 'import datetime; print(datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"))')

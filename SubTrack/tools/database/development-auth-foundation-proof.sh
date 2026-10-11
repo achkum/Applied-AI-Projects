@@ -6,7 +6,7 @@ shopt -s lastpipe
 declare -A clients=() writers=()
 driver_cid='' driver_name='' driver_env='' driver_image='node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32'
 driver_result=''
-registering=false interrupted=false sequence=0 client_log='' client_pid=''
+registering=false interrupted=false sequence=0 client_log='' client_pid='' client_exit_status=unavailable
 monotonic() { python3 -c 'import time; print(int(time.monotonic()*1000))'; }
 registry() {
   local pid
@@ -21,8 +21,9 @@ poll_client() {
 }
 join_client() {
   local pid=$1 status=0
-  [[ -n "${clients[$pid]:-}" ]] && poll_client "$pid" "${2:-25000}" || return 1
+  [[ -n "${clients[$pid]:-}" ]] && poll_client "$pid" "${2:-25000}" || { client_exit_status=unavailable; return 1; }
   wait "$pid" || status=$?
+  client_exit_status=$status
   [[ "$status" != 127 ]] || return 1
   unset 'clients[$pid]'
   registry || return 1
@@ -30,6 +31,7 @@ join_client() {
 }
 launch_client() {
   local user=$1 input=$2 app=$3
+  client_exit_status=unavailable
   [[ "$app" =~ ^st233b-(holder|waiter|observer|sync-[0-9]+)$ ]] || return 1
   private_file "$input" || { [[ -p "$input" && ! -L "$input" && $(stat -c %u "$input") == "$UID" && $(stat -c %a "$input") == 600 ]] || return 1; }
   client_log=$(mktemp "$tmp/client.XXXXXX")
@@ -191,13 +193,16 @@ cleanup_temp() {
   [[ ! -e "$target" && ! -L "$target" ]]
 }
 finish() {
-  local status=$? bad=false cleanup_result=removed
+  local status=$? bad=false cleanup_result=removed migration_detail=''
   trap - EXIT
+  if [[ "$phase" == migration ]]; then
+    migration_detail=" step=${migration_step:-unavailable} sqlstate=${migration_sqlstate:-unavailable} client_exit=${migration_exit:-unavailable}"
+  fi
   if [[ ${#clients[@]} != 0 ]]; then status=1; terminate_clients || bad=true; fi
   if [[ -n "${driver_cid:-}" ]]; then driver_cleanup || bad=true; fi
   if [[ "$bad" == true || ${#clients[@]} != 0 ]]; then
     printf 'ST-233b lifecycle: FAIL recovery=retained\n' >&2
-    [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" && printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=failed\n' "$source_head" "$phase" >> "$receipt"
+    [[ "$source_head" =~ ^[a-f0-9]{40}$ ]] && private_file "$receipt" && printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=failed%s\n' "$source_head" "$phase" "$migration_detail" >> "$receipt"
     exit 1
   fi
   if [[ -n "$tmp" && -e "$tmp/clients" ]]; then private_file "$tmp/clients" && [[ ! -s "$tmp/clients" ]] || exit 1; fi
@@ -209,7 +214,7 @@ finish() {
     printf 'ST-233a foundation: PASS source_head=%s cases=PG16,SCRAM,roles,RLS,ACL,domains,immutability,business-isolation,dual-GUC-reset,private-fence,private-peek,private-bootstrap-reservation,private-expired-reservation-prune,private-owned-bootstrap-settlement,private-expired-nonce-prune,private-atomic-issue,postlock-clock,rollback,reconnect,bounded-clients,durable-current-web,durable-enrollment fixture=removed secrets=destroyed\n' "$source_head" >> "$receipt"
   else
     status=1
-    printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s\n' "$source_head" "$phase" "$cleanup_result" >> "$receipt"
+    printf 'ST-233a foundation: FAIL source_head=%s phase=%s cleanup=%s%s\n' "$source_head" "$phase" "$cleanup_result" "$migration_detail" >> "$receipt"
   fi
   exit "$status"
 }
@@ -266,7 +271,7 @@ custody || exit 1
 docker start "$cid" >/dev/null 2>&1
 ready=false
 for attempt in {1..60}; do
-  if docker exec "$cid" pg_isready -U st233a_fixture_owner -d "$db" >/dev/null 2>&1; then ready=true; break; fi
+  if docker exec "$cid" pg_isready -h 127.0.0.1 -U st233a_fixture_owner -d "$db" >/dev/null 2>&1; then ready=true; break; fi
   sleep 1
 done
 [[ "$ready" == true ]] || exit 1
@@ -290,9 +295,23 @@ deny_executor() {
   if printf 'SET ROLE subtrack_auth_executor; %s\n' "$1" | owner; then return 1; fi
   grep -q "ERROR:  ${2:-42501}" "$client_log"
 }
-phase=migration
-for path in "${inputs[@]:0:2}"; do owner < "$path" || exit 1; done
-printf "REVOKE TEMPORARY, CREATE ON DATABASE %s FROM PUBLIC; CREATE TABLE public.st233a_fixture_control(task text, head text, marker text); REVOKE ALL ON public.st233a_fixture_control FROM PUBLIC; INSERT INTO public.st233a_fixture_control VALUES ('ST-233a','%s','%s');\n" "$db" "$source_head" "$marker" | owner
+record_migration_failure() {
+  migration_exit=$client_exit_status
+  [[ "$migration_exit" =~ ^([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])$ ]] || migration_exit=unavailable
+  migration_sqlstate=unavailable
+  if [[ -n "$client_log" ]] && private_file "$client_log"; then
+    local match
+    match=$(grep -Eom1 '^ERROR:[[:space:]]+[0-9A-Z]{5}:' "$client_log" 2>/dev/null || true)
+    [[ "$match" =~ ^ERROR:[[:space:]]+([0-9A-Z]{5}):$ ]] && migration_sqlstate=${BASH_REMATCH[1]}
+  fi
+  return 0
+}
+phase=migration migration_step=parent-0001 migration_sqlstate=unavailable migration_exit=unavailable
+if owner < "${inputs[0]}"; then :; else record_migration_failure; exit 1; fi
+migration_step=parent-0002
+if owner < "${inputs[1]}"; then :; else record_migration_failure; exit 1; fi
+migration_step=fixture-control
+if printf "REVOKE TEMPORARY, CREATE ON DATABASE %s FROM PUBLIC; CREATE TABLE public.st233a_fixture_control(task text, head text, marker text); REVOKE ALL ON public.st233a_fixture_control FROM PUBLIC; INSERT INTO public.st233a_fixture_control VALUES ('ST-233a','%s','%s');\n" "$db" "$source_head" "$marker" | owner; then :; else record_migration_failure; exit 1; fi
 phase=foundation
 for bad in head marker; do
   badhead="$source_head" badmarker="$marker"

@@ -173,7 +173,7 @@ async function catalog() {
       =ARRAY['xid','verified_h','expires_ms']::text[] AS intent_ok,
     (SELECT array_agg(attname ORDER BY attnum)::text[] FROM pg_attribute
       WHERE attrelid='subtrack_auth.identity_birth'::regclass AND attnum>0 AND NOT attisdropped)
-      =ARRAY['identity_id','xid','expires_ms']::text[] AS birth_ok`);
+      =ARRAY['identity_id','xid']::text[] AS birth_ok`);
   if (sidecarShape.rows[0]?.intent_ok !== true || sidecarShape.rows[0]?.birth_ok !== true) throw Error('birth-shape');
   const trigger = await query(`SELECT count(*)=1 AND bool_and(NOT t.tgisinternal AND t.tgenabled='O'
     AND p.proname='attest_enrollment_birth' AND p.prosecdef AND p.proowner='subtrack_auth_executor'::regrole::oid)
@@ -202,35 +202,47 @@ async function catalog() {
       'SELECT * FROM public.identity_profile', 'INSERT INTO public.identity(id) VALUES (gen_random_uuid())'])
       await deny(`login-direct:${sql.slice(0,20)}`, () => c.query(sql), '');
   } finally { c.release(true); }
-  const scoped = await actor.connect();
-  try {
-    await scoped.query('BEGIN');
-    await scoped.query('SET LOCAL ROLE subtrack_runtime');
-    await scoped.query("SELECT set_config('app.user_id',$1,true),set_config('app.current_user_id',$2,true)",
-      [randomUUID(), randomUUID()]);
-    await scoped.query('ROLLBACK');
-  } finally { scoped.release(); }
-  await cleanPool();
   const unqualifiedId = randomUUID();
+  const foreignId = randomUUID();
   const unqualified = await actor.connect();
   try {
     await unqualified.query('BEGIN');
     await unqualified.query('SET LOCAL ROLE subtrack_identity_provisioner');
     await unqualified.query("INSERT INTO public.identity(id,external_id,auth_method) VALUES($1::uuid,$2::text,'BANKID')",
       [unqualifiedId, 'unqualified-' + randomUUID()]);
+    await unqualified.query("INSERT INTO public.identity(id,external_id,auth_method) VALUES($1::uuid,$2::text,'BANKID')",
+      [foreignId, 'foreign-' + randomUUID()]);
     await unqualified.query('COMMIT');
   } catch (error) { await unqualified.query('ROLLBACK').catch(() => undefined); throw error; }
   finally { unqualified.release(); }
+  for (const [role, pool] of [['subtrack_runtime', actor], ['subtrack_auth_executor', owner]] as const) {
+    const scoped = await pool.connect();
+    try {
+      await scoped.query('BEGIN');
+      await scoped.query(`SET LOCAL ROLE ${role}`);
+      await scoped.query("SELECT set_config('app.user_id',$1,true),set_config('app.current_user_id',$1,true)", [unqualifiedId]);
+      const own = await scoped.query('SELECT id,external_id,deleted_at FROM public.identity WHERE id=$1', [unqualifiedId]);
+      const foreign = await scoped.query('SELECT id,external_id,deleted_at FROM public.identity WHERE id=$1', [foreignId]);
+      if (own.rowCount !== 1 || own.rows[0]?.id !== unqualifiedId || foreign.rowCount !== 0)
+        throw Error(`${role}:cross-owner-read`);
+      await scoped.query("SELECT set_config('app.current_user_id',$1,true)", [foreignId]);
+      const mismatched = await scoped.query('SELECT id,external_id,deleted_at FROM public.identity WHERE id=$1', [unqualifiedId]);
+      if (mismatched.rowCount !== 0) throw Error(`${role}:dual-owner-read`);
+      await scoped.query('ROLLBACK');
+    } catch (error) { await scoped.query('ROLLBACK').catch(() => undefined); throw error; }
+    finally { scoped.release(); }
+  }
+  await cleanPool();
   const noUnqualifiedBirth = await query('SELECT count(*)::int AS n FROM subtrack_auth.identity_birth WHERE identity_id=$1',
     [unqualifiedId]);
   if (noUnqualifiedBirth.rows[0]?.n !== 0) throw Error('unqualified-birth');
-  await query('DELETE FROM public.identity WHERE id=$1', [unqualifiedId]);
+  await query('DELETE FROM public.identity WHERE id=ANY($1::uuid[])', [[unqualifiedId, foreignId]]);
   await noBirthResidue('catalog');
   const staleXid = '900000000000' + String(Math.floor(Math.random() * 1000000)).padStart(6, '0');
   await query(`INSERT INTO subtrack_auth.enrollment_intent(xid,verified_h,expires_ms)
     VALUES($1::xid8,repeat('f',64),(extract(epoch FROM clock_timestamp())*1000)::bigint-1)`, [staleXid]);
-  await query(`INSERT INTO subtrack_auth.identity_birth(identity_id,xid,expires_ms)
-    VALUES($1::uuid,$2::xid8,(extract(epoch FROM clock_timestamp())*1000)::bigint-1)`, [randomUUID(), staleXid]);
+  await query(`INSERT INTO subtrack_auth.identity_birth(identity_id,xid)
+    VALUES($1::uuid,$2::xid8)`, [randomUUID(), staleXid]);
   const pruner = await actor.connect();
   try {
     await pruner.query('BEGIN');
