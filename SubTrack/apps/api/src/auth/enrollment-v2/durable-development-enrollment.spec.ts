@@ -51,7 +51,14 @@ function fixture() {
       if (sql.includes('pg_advisory_xact_lock')) return reply('SELECT', [{ locked: null }]);
       if (sql.includes('FROM public.identity WHERE external_id=')) return reply('SELECT', activeSubject ? [{ id: '00000000-0000-4000-8000-000000000001', external_id: 'a'.repeat(64) }] : []);
       if (sql.includes('FROM public.identity WHERE id=')) return reply('SELECT', activeSubject ? [{ deleted_at: null }] : [{ id: values[0] }]);
-      if (sql.startsWith('INSERT INTO public.identity(')) return reply('INSERT', [{ id: values[0] }]);
+      if (sql.startsWith('INSERT INTO public.identity(')) {
+        const insert = /^INSERT INTO public\.identity\(([^)]+)\) VALUES\((.*)\) RETURNING id$/.exec(sql);
+        const columns = insert?.[1]?.split(',').map(column => column.trim());
+        const expressions = insert?.[2]?.split(',').map(expression => expression.trim());
+        if (!columns || !expressions || expressions[columns.indexOf('updated_at')] !== 'pg_catalog.clock_timestamp()')
+          throw Object.assign(new Error('identity-updated-at-required'), { code: '23502' });
+        return reply('INSERT', [{ id: values[0] }]);
+      }
       if (sql.startsWith('UPDATE public.identity ')) return { command: 'UPDATE', rowCount: 1, rows: [] };
       if (sql.startsWith('INSERT INTO public.identity_profile(')) return { command: 'INSERT', rowCount: 1, rows: [] };
       if (sql.includes('subtrack_auth.')) return reply('SELECT', [{ value: !sql.includes(`subtrack_auth.${transitionFalse}(`) }]);
@@ -167,6 +174,9 @@ describe('private durable enrollment service', () => {
 
   it('commits one owner-scoped identity, profile, session and consume before disclosing credentials', async () => {
     const f = fixture();
+    await expect(f.client.query("INSERT INTO public.identity(id,external_id,auth_method) VALUES($1::uuid,$2::text,'BANKID') RETURNING id",
+      ['00000000-0000-4000-8000-000000000002', 'a'.repeat(64)]))
+      .rejects.toMatchObject({ code: '23502' });
     const result = await f.service().complete(web, { verified: token(7) }, 'complete-key-12345', 'sv-SE');
     expect(result.profile).toEqual({ displayName: null, avatarColourToken: null, avatarEmoji: null,
       language: 'sv', theme: 'system', defaultCurrency: 'SEK', profileComplete: false });

@@ -378,7 +378,7 @@ export class DurableDevelopmentEnrollment {
           fail();
         }
         const inserted = await client.query<{ id: string }>(
-          "INSERT INTO public.identity(id,external_id,auth_method) VALUES($1::uuid,$2::text,'BANKID') RETURNING id",
+          "INSERT INTO public.identity(id,external_id,auth_method,updated_at) VALUES($1::uuid,$2::text,'BANKID',pg_catalog.clock_timestamp()) RETURNING id",
           [identityId, material.subject_h]);
         if (inserted.rowCount !== 1 || inserted.rows[0]?.id !== identityId) fail();
         await this.role(client, 'subtrack_runtime');

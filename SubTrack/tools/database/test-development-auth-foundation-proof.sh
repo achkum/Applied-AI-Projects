@@ -50,6 +50,7 @@ for checkpoint_case in valid missing duplicate malicious wrongcase; do
   [[ "$enrollment_checkpoint" == "$expected_checkpoint" ]]
   rm -rf -- "$tmp"
 done
+scoped_original_cid=$cid
 for diagnostic_case in install node malformed cleanup pass; do
   tmp=$(mktemp -d "$base/st236e.XXXXXX")
   : > "$tmp/clients"
@@ -90,6 +91,8 @@ for diagnostic_case in install node malformed cleanup pass; do
   fi
   ! grep -q 'private-sentinel' "$receipt"
 done
+cid=$scoped_original_cid
+[[ "$cid" == "$(printf '%064d' 0)" ]]
 scope=foundation fixture_prefix=st233a fixture_label=ST-233a driver_prefix=st233l driver_fixture_label=ST-233l scope_title='ST-233a foundation'
 record=$foundation_record receipt=$foundation_receipt
 # Run the production parser and receipt writer against private client-log fixtures.

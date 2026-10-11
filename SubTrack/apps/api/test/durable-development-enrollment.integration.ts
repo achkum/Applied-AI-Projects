@@ -217,9 +217,9 @@ async function catalog() {
   try {
     await unqualified.query('BEGIN');
     await unqualified.query('SET LOCAL ROLE subtrack_identity_provisioner');
-    await unqualified.query("INSERT INTO public.identity(id,external_id,auth_method) VALUES($1::uuid,$2::text,'BANKID')",
+    await unqualified.query("INSERT INTO public.identity(id,external_id,auth_method,updated_at) VALUES($1::uuid,$2::text,'BANKID',pg_catalog.clock_timestamp())",
       [unqualifiedId, 'unqualified-' + randomUUID()]);
-    await unqualified.query("INSERT INTO public.identity(id,external_id,auth_method) VALUES($1::uuid,$2::text,'BANKID')",
+    await unqualified.query("INSERT INTO public.identity(id,external_id,auth_method,updated_at) VALUES($1::uuid,$2::text,'BANKID',pg_catalog.clock_timestamp())",
       [foreignId, 'foreign-' + randomUUID()]);
     await unqualified.query('COMMIT');
   } catch (error) { await unqualified.query('ROLLBACK').catch(() => undefined); throw error; }
@@ -265,7 +265,7 @@ async function catalog() {
   await noBirthResidue('prune');
 }
 async function graph(identityId: string, contact: string) {
-  const result = await query(`SELECT i.id,i.external_id,i.email,i.verified_at,i.given_name,i.surname,
+  const result = await query(`SELECT i.id,i.external_id,i.email,i.verified_at,i.given_name,i.surname,i.updated_at,
     p.identity_id,p.display_name,p.avatar_color,p.avatar_emoji,p.language,p.theme,p.default_currency,p.profile_complete,
     (SELECT count(*) FROM subtrack_auth.family f WHERE f.identity_id=i.id) AS families,
     (SELECT count(*) FROM subtrack_auth.session s WHERE s.identity_id=i.id) AS sessions,
@@ -274,6 +274,7 @@ async function graph(identityId: string, contact: string) {
     FROM public.identity i JOIN public.identity_profile p ON p.identity_id=i.id WHERE i.id=$1`, [identityId]);
   const row = result.rows[0] as Record<string, unknown> | undefined;
   if (result.rowCount !== 1 || !row || row.email !== contact || row.given_name !== 'Alice' || row.surname !== 'Andersson' ||
+      !(row.updated_at instanceof Date) || !Number.isFinite(row.updated_at.getTime()) ||
       row.verified_at === null || row.display_name !== null || row.avatar_color !== null || row.avatar_emoji !== null ||
       row.language !== 'en' || row.theme !== 'system' || row.default_currency?.toString().trim() !== 'SEK' ||
       row.profile_complete !== false || row.families !== '1' || row.sessions !== '1' ||

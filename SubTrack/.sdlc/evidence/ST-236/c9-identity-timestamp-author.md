@@ -1,0 +1,7 @@
+# C9 identity timestamp correction — author receipt
+
+Scope: `durable-development-enrollment.ts`, its focused spec, and `durable-development-enrollment.integration.ts` only. Parent canonical migration 0001 requires `public.identity.updated_at TIMESTAMPTZ(6) NOT NULL` without a default. SQL010 and the existing role, trigger, RLS, transaction, and terminal behavior were not changed.
+
+The terminal provisioner `INSERT` and both unqualified catalog seed `INSERT`s now supply explicit `updated_at` from `pg_catalog.clock_timestamp()`. The focused fixture rejects a terminal identity insert missing the trusted database timestamp with simulated SQLSTATE `23502`; the successful completion test passes through this guard. The actual PG integration graph reads the completed identity's `updated_at` and requires a valid PostgreSQL timestamp.
+
+Local verification: focused Vitest enrollment spec 11/11 passed; ESLint on the three changed TypeScript files passed; `git diff --check` passed (line-ending notices only). The actual PG16 proof was not run in this author lane. C8's `fixture-qualification` failure was observed only at the bounded checkpoint; its first failing statement and SQLSTATE remain unobserved. The source omission is deterministic on the accepted parent schema, but this local receipt does not convert the prior C8 actual failure into a pass. Both exact-head PG jobs, independent reviews, QA, and applicable CI remain required before acceptance.
