@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assertOwnedFixture, createWriterRollbackDelegate, main, ROLLBACK_BASELINE, ROLLBACK_FIXTURE, type Provenance } from './browser-subscription-lifecycle.local';
+import { AUTHORITY_CASES, assertOwnedFixture, createAuthorityBarrier, createFixtureClock, createWriterRollbackDelegate, main, ROLLBACK_BASELINE, ROLLBACK_FIXTURE, type Provenance } from './browser-subscription-lifecycle.local';
 import type { Prisma, PrismaClient } from '@prisma/client';
+import type { BrowserSubscriptionLifecycleCompositionOptions } from './browser-subscription-lifecycle.composition';
 
 const runtime = vi.hoisted(() => ({
   record: '', inspected: '', url: '', appFailure: false, ready: false,
   disconnects: 0, closes: 0, listens: 0, transactions: 0, order: [] as string[], queryFailure: false, listenFailure: false, fileMode: 0o600,
   queryGate: undefined as Promise<void> | undefined, badFile: '', symlink: '',
   writerUpdated: false, writer: undefined as (() => Promise<unknown>) | undefined,
+  resolveCredential: undefined as ((credential: { access: string; binding: string }) => Promise<unknown>) | undefined,
 }));
 vi.mock('node:fs', async importOriginal => ({ ...await importOriginal<typeof import('node:fs')>(),
   lstatSync: (path: string) => ({ isFile: () => !path.endsWith('private'), isDirectory: () => path.endsWith('private'),
@@ -30,7 +32,15 @@ vi.mock('@prisma/client', () => ({ PrismaClient: class {
   };
   $disconnect = async () => { runtime.disconnects++; runtime.order.push('disconnect'); };
 } }));
-vi.mock('./browser-subscription-lifecycle.composition.js', () => ({ createBrowserSubscriptionLifecycleApp: async (options: { prisma: PrismaClient }) => {
+vi.mock('./browser-subscription-lifecycle.composition.js', () => ({ createBrowserSubscriptionLifecycleApp: async (options: BrowserSubscriptionLifecycleCompositionOptions) => {
+  runtime.resolveCredential = async credential => {
+    const claims = options.accessTokens.verify(credential.access);
+    const { hashBrowserBindingCookie } = await import('../auth/sessions-v2/v2-web-session-binding.js');
+    const context = options.repository.webContextForCurrentSession(claims.sid, { userId: claims.sub },
+      hashBrowserBindingCookie(credential.binding), options.exactOrigin, options.clock());
+    if (!context) throw new Error('initial authority');
+    return options.principal.resolve(credential.access, context);
+  };
   runtime.writer = () => options.prisma.$transaction(async () => ({ id: 'wrong', status: 'PAUSED' }));
   if (runtime.appFailure) throw new Error('synthetic startup failure');
   return { listen: async () => { runtime.listens++; if (runtime.listenFailure) throw new Error('listen failed'); }, close: async () => { runtime.closes++; runtime.order.push('close'); } };
@@ -50,6 +60,73 @@ const fixture = () => ({
   Mounts: [{ Type: 'tmpfs', Destination: '/var/lib/postgresql/data' }],
   HostConfig: { PortBindings: { '5432/tcp': [{ HostIp: '127.0.0.1', HostPort: '' }] } },
   NetworkSettings: { Ports: { '5432/tcp': [{ HostIp: '127.0.0.1', HostPort: '35001' }] } },
+});
+
+describe('awaited actual authority custody', () => {
+  const transport = { transport: 'web', exactOrigin: 'https://127.0.0.1:35426', browserChainId: 'synthetic' } as const;
+  function model() {
+    const actual: Readonly<{ identityId: string; sessionId: string }> = Object.freeze({ identityId: 'owner', sessionId: 'sid' });
+    const resolve = vi.fn(async () => actual), mutate = vi.fn(async () => undefined), arrived = vi.fn(async () => undefined), stop = vi.fn();
+    let count = 0;
+    const proof = createAuthorityBarrier({ resolve }, new Map(AUTHORITY_CASES.map(handle => [handle, 'sid'])), mutate, arrived, () => count, stop);
+    return { actual, resolve, mutate, arrived, stop, proof, dispatch: () => { count++; } };
+  }
+  it.each(AUTHORITY_CASES)('forwards the exact real result in a native Promise after separate %s release', async handle => {
+    const m = model(); m.proof.arm(handle);
+    const request = m.proof.principal.resolve('signed', transport);
+    expect(Object.getPrototypeOf(request)).toBe(Promise.prototype); expect(Reflect.ownKeys(request)).toEqual([]);
+    await vi.waitFor(() => expect(m.arrived).toHaveBeenCalledWith(handle));
+    expect(m.resolve).toHaveBeenCalledWith('signed', transport); expect(m.mutate).not.toHaveBeenCalled();
+    await m.proof.release(handle); expect(await request).toBe(m.actual);
+    expect(m.proof.observe(handle)).toBe(0); expect(() => m.proof.observe(handle)).toThrow();
+    expect(() => m.proof.arm(handle)).toThrow(); expect(m.stop).not.toHaveBeenCalled(); await m.proof.settle();
+  });
+  it('preserves unarmed values and actual resolver failure', async () => {
+    const m = model(); expect(await m.proof.principal.resolve('signed', transport)).toBe(m.actual);
+    const error = new Error('actual failure'); m.resolve.mockRejectedValueOnce(error);
+    await expect(m.proof.principal.resolve('signed', transport)).rejects.toBe(error); await m.proof.settle();
+    await expect(m.proof.principal.resolve('signed', transport)).rejects.toThrow();
+  });
+  it('rejects premature/replayed/concurrent arms and releases, dispatch and mutation failure', async () => {
+    const m = model(); await expect(m.proof.release('read-missing')).rejects.toThrow();
+    m.proof.arm('read-missing'); expect(() => m.proof.arm('patch-missing')).toThrow();
+    await expect(m.proof.release('read-missing')).rejects.toThrow();
+    const request = m.proof.principal.resolve('signed', transport);
+    await vi.waitFor(() => expect(m.arrived).toHaveBeenCalled());
+    await expect(m.proof.release('patch-missing')).rejects.toThrow();
+    await m.proof.release('read-missing'); await request; m.dispatch();
+    expect(() => m.proof.observe('read-missing')).toThrow(); expect(m.stop).toHaveBeenCalled(); await m.proof.settle();
+    const broken = model(); broken.mutate.mockRejectedValueOnce(new Error('mutation'));
+    broken.proof.arm('read-revoked'); const failed = broken.proof.principal.resolve('signed', transport); void failed.catch(() => undefined);
+    await vi.waitFor(() => expect(broken.arrived).toHaveBeenCalled());
+    await expect(broken.proof.release('read-revoked')).rejects.toThrow(); await expect(failed).rejects.toThrow(); await broken.proof.settle();
+  });
+  it('fails wrong actual session and waits for the real resolver during stop', async () => {
+    const m = model(); m.resolve.mockResolvedValueOnce({ identityId: 'owner', sessionId: 'wrong' });
+    m.proof.arm('read-missing'); await expect(m.proof.principal.resolve('signed', transport)).rejects.toThrow(); await m.proof.settle();
+    const late = model(); let finish!: (value: typeof late.actual) => void;
+    late.resolve.mockReturnValueOnce(new Promise(done => { finish = done; })); late.proof.arm('patch-missing');
+    const request = late.proof.principal.resolve('signed', transport); void request.catch(() => undefined);
+    let drained = false; const drain = late.proof.settle().then(() => { drained = true; });
+    await Promise.resolve(); expect(drained).toBe(false); finish(late.actual);
+    await expect(request).rejects.toThrow(); await drain; expect(late.proof.failed).toBe(true);
+  });
+  it('fails arrival and held deadlines without treating timeout as underlying settlement', async () => {
+    vi.useFakeTimers(); const m = model(); let finish!: () => void;
+    m.arrived.mockReturnValueOnce(new Promise<undefined>(done => { finish = () => done(undefined); }));
+    m.proof.arm('read-expired'); const request = m.proof.principal.resolve('signed', transport); void request.catch(() => undefined);
+    await vi.advanceTimersByTimeAsync(5_001); await expect(request).rejects.toThrow();
+    let drained = false; const drain = m.proof.settle().then(() => { drained = true; });
+    await Promise.resolve(); expect(drained).toBe(false); finish(); await drain; expect(m.stop).toHaveBeenCalled(); vi.useRealTimers();
+  });
+  it('permits only safe forward fixture time and rejects wall regression/overflow', () => {
+    let wall = 100_000_000; const clock = createFixtureClock(() => wall);
+    expect(clock.advance(wall + 60_000)).toBe(wall + 60_000); wall++;
+    expect(clock.now()).toBe(wall + 60_000);
+    for (const target of [0, NaN, Infinity, 1.5, Number.MAX_SAFE_INTEGER]) expect(() => clock.advance(target)).toThrow();
+    wall--; expect(() => clock.now()).toThrow();
+    for (const invalid of [-1, NaN, Infinity, Number.MAX_SAFE_INTEGER]) expect(() => createFixtureClock(() => invalid)).toThrow();
+  });
 });
 
 describe('ST-227b real-transaction delegate contract', () => {
@@ -207,6 +284,7 @@ function prepareMain(onSend: (message: Record<string, unknown>) => void): void {
     appFailure: false, ready: false, disconnects: 0, closes: 0, listens: 0, transactions: 0, order: [], queryFailure: false, listenFailure: false, fileMode: 0o600, queryGate: undefined, badFile: '', symlink: '' });
   delete process.env['DATABASE_URL'];
   delete process.env['ST227B_ENABLED'];
+  delete process.env['ST227C1_ENABLED'];
   Object.assign(process.env, { NODE_ENV: 'development', ST226_ENABLED: '1', ST226_HOST: '127.0.0.1',
     ST226_PORT: '35426', ST226_OWNER_ID: '11111111-1111-4111-8111-111111111111',
     ST226_PEER_ID: '22222222-2222-4222-8222-222222222222',
@@ -221,6 +299,33 @@ function prepareMain(onSend: (message: Record<string, unknown>) => void): void {
 }
 
 describe('ST-226 compiled launcher lifecycle', () => {
+  it('uses accepted real session ports for all eight one-use cases, including valid-token session expiry', async () => {
+    const sent: Record<string, unknown>[] = [];
+    prepareMain(message => { sent.push({ ...message,
+      ...(message.kind === 'ready' ? { credentials: [...message.credentials as object[]] } : {}) }); }); process.env['ST227C1_ENABLED'] = '1';
+    const running = main(); void running.catch(() => undefined);
+    await vi.waitFor(() => expect(sent.some(message => message.kind === 'ready')).toBe(true));
+    const credentials = sent.find(message => message.kind === 'ready')!.credentials as { handle: string; access: string; binding: string }[];
+    // Copy the simulated IPC envelope before the child's memory-only array is cleared.
+    expect(runtime.resolveCredential).toBeDefined();
+    let id = 1;
+    const command = async (action: string) => {
+      const expectedId = id++; process.emit('message', { kind: 'control', id: expectedId, action });
+      await vi.waitFor(() => expect(sent.some(message => message.kind === 'controlled' && message.id === expectedId && message.verified === true)).toBe(true));
+    };
+    for (const handle of AUTHORITY_CASES) {
+      const credential = credentials.find(item => item.handle === handle)!;
+      process.emit('message', { kind: 'control', id, action: `arm-${handle}`, owner: 'arbitrary' });
+      await command(`arm-${handle}`);
+      const request = runtime.resolveCredential!(credential);
+      void request.catch(() => undefined);
+      await vi.waitFor(() => expect(sent.some(message => message.kind === 'arrived' && message.handle === handle)).toBe(true));
+      await command(`release-${handle}`); await expect(request).resolves.toMatchObject({ sessionId: expect.any(String) });
+      await command(`observe-${handle}`);
+    }
+    process.emit('SIGTERM'); await running; expect(runtime.order).toEqual(['close', 'disconnect']);
+    prepareMain(() => undefined); process.env['ST227C1_ENABLED'] = 'invalid'; await expect(main()).rejects.toThrow();
+  });
   it('rejects invalid enabled values and legacy rollback controls without changing the graph', async () => {
     prepareMain(() => undefined); process.env['ST227B_ENABLED'] = 'other';
     await expect(main()).rejects.toThrow('ST-226 local proof denied'); expect(runtime.disconnects).toBe(0);
