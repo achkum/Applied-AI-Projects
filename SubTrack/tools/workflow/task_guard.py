@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Persistent maintenance/dispatch budgets; counters never imply billed usage."""
+"""Persistent dispatch safety and planning estimates; counters are not billed usage."""
 import argparse
 from collections import Counter
+from contextlib import contextmanager
 from datetime import datetime, timezone
-import fcntl
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -13,13 +14,35 @@ import time
 BUDGETS = {"S": 30, "M": 120, "L": 240}
 
 
+@contextmanager
+def state_lock(path):
+    # Both platforms lock the same persistent file across processes.
+    with path.open("a+b") as lock:
+        if os.name == "nt":
+            import msvcrt
+            if lock.seek(0, 2) == 0:
+                lock.write(b"0")
+                lock.flush()
+            lock.seek(0)
+            msvcrt.locking(lock.fileno(), msvcrt.LK_LOCK, 1)
+            try:
+                yield
+            finally:
+                lock.seek(0)
+                msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            yield
+
+
 def validate_dispatch(dispatch, task, state):
     if not isinstance(dispatch, dict) or dispatch.get("contract") != "DISPATCH/v1" or dispatch.get("task_id") != task:
         raise ValueError("a task-matched dispatch envelope is required")
-    if dispatch.get("fork_turns") != "none" or dispatch.get("model_tier") != "luna":
-        raise ValueError("specialists require fresh task-only Luna context")
-    if len(json.dumps(dispatch, ensure_ascii=False)) > 8000:
-        raise ValueError("dispatch exceeds 8000 characters; link artifacts instead")
+    if dispatch.get("fork_turns") not in {"none", "all"}:
+        raise ValueError("dispatch requires a supported context mode")
+    if dispatch.get("model_tier", "inherited") not in {"luna", "sol", "default", "inherited"}:
+        raise ValueError("dispatch requires a supported model tier")
     session_id = dispatch.get("session_id")
     if not isinstance(session_id, str) or not 1 <= len(session_id) <= 100:
         raise ValueError("unique session_id required")
@@ -30,8 +53,6 @@ def validate_dispatch(dispatch, task, state):
 
 def blockers(session, now):
     reasons = []
-    if now - session["started"] >= BUDGETS[session["size"]] * 60:
-        reasons.append("task time budget exhausted")
     if now - session["progress_at"] >= 45 * 60 or session["calls_without_progress"] >= 25:
         reasons.append("no-progress limit reached")
     if max(session["failures"].values(), default=0) >= 3:
@@ -49,21 +70,25 @@ def start(state, task, size, role, mode, now, paused=False, dispatch=None):
         raise ValueError("task already active; checkpoint instead of resetting counters")
     if role == "specialist" and sum(s["role"] == role for s in active) >= 4:
         raise ValueError("four-specialist concurrency limit reached")
-    attempt = state.get(task, {}).get("attempt", 0) + 1
-    if attempt > 3:
-        raise ValueError("three dispatches exhausted; founder decision required")
-    if state.get(task, {}).get("status") == "BLOCKED" and attempt > 2:
-        raise ValueError("narrower redispatch also blocked; founder decision required")
+    previous = state.get(task, {})
+    if previous.get("status") == "BLOCKED":
+        raise ValueError("blocked task requires Conductor diagnosis; redispatch cannot erase safety history")
+    attempt = previous.get("attempt", 0) + 1
     session_id = validate_dispatch(dispatch, task, state) if role == "specialist" else None
     state[task] = {
         "task": task, "size": size, "role": role, "mode": mode,
-        "model_tier": "luna" if role == "specialist" else "main",
-        "attempt": attempt, "status": "ACTIVE", "started": now,
-        "progress_at": now, "calls_without_progress": 0, "tool_calls": 0,
-        "failures": {}, "rejections": {}, "heavy": False,
-        "input_tokens": None, "output_tokens": None, "blocked_reasons": [],
-        "context_sessions": state.get(task, {}).get("context_sessions", []) + ([session_id] if session_id else []),
-        "context_started": now, "context_start_calls": 0,
+        "model_tier": dispatch.get("model_tier", "inherited") if role == "specialist" else "main",
+        "attempt": attempt, "status": "ACTIVE", "started": previous.get("started", now),
+        # Exclude idle time without erasing active time since the last progress.
+        "progress_at": previous.get("progress_at", now) + now - previous.get("finished", now),
+        "calls_without_progress": previous.get("calls_without_progress", 0),
+        "tool_calls": previous.get("tool_calls", 0),
+        "failures": dict(previous.get("failures", {})),
+        "rejections": dict(previous.get("rejections", {})), "heavy": False,
+        "input_tokens": previous.get("input_tokens"), "output_tokens": previous.get("output_tokens"),
+        "blocked_reasons": [],
+        "context_sessions": previous.get("context_sessions", []) + ([session_id] if session_id else []),
+        "context_started": now, "context_start_calls": previous.get("tool_calls", 0),
     }
     return state[task]
 
@@ -95,10 +120,6 @@ def checkpoint(state, task, now, calls=0, progress=False, failure=None,
     reasons = blockers(session, now)
     if reasons:
         session.update(status="BLOCKED", blocked_reasons=reasons, heavy=False)
-    elif session["role"] == "specialist" and (
-            session["tool_calls"] - session.get("context_start_calls", 0) >= 20
-            or now - session.get("context_started", session["started"]) >= 30 * 60):
-        session.update(status="CONTEXT_REFRESH_REQUIRED", heavy=False)
     return session
 
 
@@ -110,11 +131,12 @@ def rotate_context(state, task, now, dispatch, checkpoint_text):
     if reasons:
         session.update(status="BLOCKED", blocked_reasons=reasons, heavy=False)
         return session
-    if not checkpoint_text.strip() or len(checkpoint_text) > 4000 or len(checkpoint_text.splitlines()) > 40:
-        raise ValueError("checkpoint must be nonempty and <=40 lines/4000 characters")
+    if not checkpoint_text.strip():
+        raise ValueError("checkpoint must be nonempty")
     session_id = validate_dispatch(dispatch, task, state)
     session["context_sessions"].append(session_id)
-    session.update(status="ACTIVE", context_started=now, context_start_calls=session["tool_calls"])
+    session.update(status="ACTIVE", context_started=now, context_start_calls=session["tool_calls"],
+                   model_tier=dispatch.get("model_tier", "inherited"))
     return session
 
 
@@ -177,8 +199,7 @@ def main():
         print(json.dumps({"completed": result["completed_task_count"], "source_head": head}))
         return 0
     args.state.parent.mkdir(parents=True, exist_ok=True)
-    with args.state.with_suffix(".lock").open("w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with state_lock(args.state.with_suffix(".lock")):
         state = json.loads(args.state.read_text()) if args.state.exists() else {}
         try:
             if args.command == "start":

@@ -1,10 +1,12 @@
 # Maintenance workflow helpers
 
-Feature development remains paused by the user. These helpers enforce existing execution limits and check browser tooling. They do not approve feature work or a release. Run from repository root; no package installation is needed for Python/Node helper tests.
+Feature development continues under the user's standing authorization. These helpers preserve explicit pause state, meaningful failure history and local resource coordination; they do not authorize delivery, spending or public/production release. Run from repository root; no package installation is needed for Python/Node helper tests.
 
 ## Task guard
 
-Persist state outside tracked source. Register every dispatched task with its actual size and role; specialists stay on Luna and the Conductor on the main model under the user's routing instruction.
+Persist state outside tracked source. Register dispatched tasks with their actual size and role. S/M/L estimates are planning data, not elapsed-time stops. Model/context selection follows current user and applicable agent instructions; the guard accepts Luna, Sol, default or inherited routing without forcing replacement of productive agents.
+
+The CLI locks its shared state across processes using native Windows byte-range locking or POSIX `flock`. Python tests run without a fake locking module on either platform. A busy Windows lock may time out before any state is read or changed; report the contention instead of bypassing the lock.
 
 ```sh
 python SubTrack/tools/workflow/task_guard.py --state /workspace/.setup/workflow-sessions.json start ST-168 --size M --role conductor --mode maintenance --pause-file /workspace/.setup/subtrack-development-paused.json
@@ -15,7 +17,7 @@ python SubTrack/tools/workflow/task_guard.py --state /workspace/.setup/workflow-
 python SubTrack/tools/workflow/task_guard.py --state /workspace/.setup/workflow-sessions.json finish ST-168
 ```
 
-Checkpoint before retries, review cycles and heavy jobs; count tools since the last checkpoint. `--progress` means a new passing check, artifact or narrowed diagnosis, not merely another status message. Record stable failure/rejection signatures. Exit 2 means stop and return to the Conductor. Do not delete state or rename a task to bypass a limit. A failed narrower redispatch requires a founder decision. Completion here means a session ended, not that the task passed QA or was merged. The helper controls registered sessions; it cannot intercept unregistered tools or agent sessions.
+Checkpoint before retries, review cycles and heavy jobs; count tools since the last checkpoint. `--progress` means a new passing check, artifact or narrowed diagnosis, not merely another status message. Record stable failure/rejection signatures. Three occurrences of the same failure, two of the same review rejection, 45 active minutes without progress or 25 calls without progress require a Conductor diagnosis. Exit 2 means stop and return to the Conductor. Do not delete state or rename a task to bypass these safety limits. Redispatch cannot erase a blocked task's history; elapsed size estimates and generic dispatch counts do not create founder decisions. Completion here means a session ended, not that the task passed QA or was merged. The helper controls registered sessions; it cannot intercept unregistered tools or agent sessions.
 
 Refresh board metrics with an explicit Git ref. `origin/main` excludes unmerged work; a maintenance-branch ref includes its planning/status corrections. Parent/child counts overlap. Historical and provider measurements remain null unless actually measured; tool calls are not tokens.
 
@@ -44,20 +46,20 @@ node --test SubTrack/tools/workflow/qa-common.test.cjs
 
 Use completion notifications instead of repeated short polls. One canonical task handoff should link evidence and blockers; do not copy whole logs or conversation histories into specialists. Inspect existing PRs before dispatching implementation. Delete only exact merged-head branches after live-head comparison; preserve holding and unaccepted work.
 
-## Fresh specialist context
+## Optional specialist handoff
 
-Every new specialist task uses a new Luna agent with `fork_turns: none`; do not follow up a completed agent with a different task. Before spawning, save and validate a small JSON envelope and pass those same values to the actual collaboration tool:
+Before dispatching, save and validate a task-matched JSON envelope and use matching values in the actual collaboration tool. Inherited/default routing is supported; agent reuse and context inheritance follow applicable agent instructions. Keep handoffs concise when useful, without artificial character or line caps:
 
 ```json
-{"contract":"DISPATCH/v1","task_id":"ST-123","model_tier":"luna","fork_turns":"none","session_id":"ST-123-context-1","task_file":"SubTrack/.sdlc/tasks/ST-123.md"}
+{"contract":"DISPATCH/v1","task_id":"ST-123","model_tier":"inherited","fork_turns":"all","session_id":"ST-123-context-1","task_file":"SubTrack/.sdlc/tasks/ST-123.md"}
 ```
 
-Add `--dispatch-file /workspace/.setup/dispatch.json` to specialist `start`. Envelopes over 8000 characters, reused session ids and inherited-conversation forks are rejected. This validates requested policy; the Conductor must use it in the actual spawn call. These limits are characters, not measured tokens.
+Add `--dispatch-file /workspace/.setup/dispatch.json` to specialist `start`. Missing/task-mismatched envelopes, unsupported routing/context modes and reused session IDs are rejected. This validates the envelope; the Conductor must apply it to the actual dispatch. Unknown/missing development authorization fails closed, and an explicit user pause still blocks feature dispatch.
 
-A registered specialist gets `CONTEXT_REFRESH_REQUIRED` (exit2) after 20 reported calls or 30 minutes even with progress. Save a nonempty <=40-line/4000-character checkpoint containing goal, constraints, current SHA, evidence, blockers and next action. Stop owned jobs/end the old agent, then:
+A productive specialist continues beyond 20 calls, 30 minutes and the task-size estimate. Handoff is optional when useful: save a nonempty checkpoint containing goal, constraints, current SHA, evidence, blockers and next action, release any owned heavy job, then:
 
 ```sh
 python SubTrack/tools/workflow/task_guard.py --state /workspace/.setup/workflow-sessions.json rotate-context ST-123 --dispatch-file /workspace/.setup/fresh-dispatch.json --checkpoint-file /workspace/.setup/ST-123-checkpoint.md
 ```
 
-Spawn a fresh Luna agent using the validated new session id and task/checkpoint links. Rotation retains elapsed task budget, attempt number, tool-call totals and failure/review history. A BLOCKED task needs existing Conductor loop resolution; rotation cannot unblock it. Completing a task at a context boundary does not require spawning an unnecessary replacement. Keep a compact Conductor checkpoint at accepted task/milestone boundaries; archive long history and load only current context in a new conversation. No tool can clear/compact this current Conductor conversation, and no provider token totals are available.
+Use the validated session ID and task/checkpoint links for the receiving specialist. Rotation retains original start time, attempt number, tool-call/no-progress totals and failure/review history. Finished-session redispatch retains these counters and excludes idle time between sessions from the active no-progress clock. A BLOCKED task needs Conductor loop resolution; rotation cannot unblock it. Keep a compact Conductor checkpoint at accepted feature/milestone boundaries. No tool can clear/compact this current Conductor conversation, and no provider token totals are available.
