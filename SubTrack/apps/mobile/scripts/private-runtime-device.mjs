@@ -27,7 +27,10 @@ import {
   fixtureDiagnosticSecrets,
   fatalBuildExcerpt,
 } from './private-runtime-fatal-excerpt.mjs';
-import { identifierToolDiagnostic } from './private-runtime-identifier-diagnostic.mjs';
+import {
+  identifierToolDiagnostic,
+  enrollmentToolDiagnostic,
+} from './private-runtime-identifier-diagnostic.mjs';
 import { initialIdentifierFlow } from './private-runtime-flow-policy.mjs';
 import { graphStatus } from './private-runtime-bundle-policy.mjs';
 
@@ -344,6 +347,44 @@ async function main() {
       else
         console.error(
           `ST244_NATIVE identifier_diagnostic=fixed commands=${diagnostic.commands.join(',') || 'none'} reasons=${diagnostic.reasons.join(',') || 'none'} targets=${diagnostic.targets.join(',') || 'none'} metro=${diagnostic.metro.join(',') || 'none'} modules=${diagnostic.modules.join(',') || 'none'}`,
+        );
+    }
+    if (currentPhase === 'flow-enroll-add') {
+      const readTool = (name) => {
+        try {
+          return readFileSync(join(privateDir, name), 'utf8');
+        } catch {
+          return '';
+        }
+      };
+      // Only the exact enrollment child tool log and Metro. Never API output,
+      // other flows, raw excerpts, typed values or failed screenshots.
+      const diagnostic = enrollmentToolDiagnostic({
+        phase: currentPhase,
+        enrollment: readTool('enroll-add.log'),
+        metro: readTool('metro.log'),
+        labels: {
+          otp: labels.MAESTRO_OTP_LABEL,
+          verifyOtp: labels.MAESTRO_VERIFY_OTP,
+          verifyBankId: labels.MAESTRO_VERIFY_BANKID,
+          profileName: labels.MAESTRO_PROFILE_NAME,
+          saveProfile: labels.MAESTRO_SAVE_PROFILE,
+          justMe: labels.MAESTRO_JUST_ME,
+          add: labels.MAESTRO_ADD,
+          subscriptionName: labels.MAESTRO_SUBSCRIPTION_NAME,
+          category: labels.MAESTRO_CATEGORY,
+          amount: labels.MAESTRO_AMOUNT,
+          saveSubscription: labels.MAESTRO_SAVE_SUBSCRIPTION,
+          saved: labels.MAESTRO_SAVED,
+        },
+      });
+      if (diagnostic.withheld)
+        console.error(
+          `ST244_NATIVE enrollment_diagnostic=withheld reason=${diagnostic.withheld}`,
+        );
+      else
+        console.error(
+          `ST244_NATIVE enrollment_diagnostic=fixed commands=${diagnostic.commands.join(',') || 'none'} reasons=${diagnostic.reasons.join(',') || 'none'} targets=${diagnostic.targets.join(',') || 'none'} metro=${diagnostic.metro.join(',') || 'none'} modules=${diagnostic.modules.join(',') || 'none'}`,
         );
     }
     // Raw API/tool errors can contain credentials: retain privately, never print them.
