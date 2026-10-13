@@ -132,3 +132,13 @@ export function datesBetween(start: Date, end: Date): Date[] {
 export function businessDaysBetween(start: Date, end: Date): Date[] {
   return datesBetween(start, end).filter(isSwedishBusinessDay);
 }
+/** UTC civil-date variant for persisted Synthetic bank billing windows. */
+export function nextSwedishBusinessDayUtc(date: Date): Date {
+  if (!Number.isFinite(date.getTime())) throw new Error('Invalid billing date');
+  const result = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  while (result.getUTCDay() === 0 || result.getUTCDay() === 6 ||
+    getHolidaySet(result.getUTCFullYear()).has(result.toISOString().slice(0, 10))) {
+    result.setUTCDate(result.getUTCDate() + 1);
+  }
+  return result;
+}

@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { AdmitV2WebEnrollmentData, AdmitV2WebEnrollmentErrors, AdmitV2WebEnrollmentResponses, ChangePrivateMobileSubscriptionStatusData, ChangePrivateMobileSubscriptionStatusErrors, ChangePrivateMobileSubscriptionStatusResponses, ChoosePrivateMobileModeData, ChoosePrivateMobileModeErrors, ChoosePrivateMobileModeResponses, ChooseV2BrowserJustMeData, ChooseV2BrowserJustMeErrors, ChooseV2BrowserJustMeResponses, CompletePrivateMobileEnrollmentData, CompletePrivateMobileEnrollmentErrors, CompletePrivateMobileEnrollmentResponses, CompleteV2WebEnrollmentData, CompleteV2WebEnrollmentErrors, CompleteV2WebEnrollmentResponses, CreatePrivateMobileManualSubscriptionData, CreatePrivateMobileManualSubscriptionErrors, CreatePrivateMobileManualSubscriptionResponses, CreatePrivateMobileSessionData, CreatePrivateMobileSessionErrors, CreatePrivateMobileSessionResponses, CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2PrivateManualSubscriptionData, CreateV2PrivateManualSubscriptionErrors, CreateV2PrivateManualSubscriptionResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, EditPrivateMobileManualSubscriptionData, EditPrivateMobileManualSubscriptionErrors, EditPrivateMobileManualSubscriptionResponses, EditV2PrivateManualSubscriptionData, EditV2PrivateManualSubscriptionErrors, EditV2PrivateManualSubscriptionResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, LogoutPrivateMobileSessionData, LogoutPrivateMobileSessionErrors, LogoutPrivateMobileSessionResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PatchV2BrowserProfileData, PatchV2BrowserProfileErrors, PatchV2BrowserProfileResponses, PatchV2BrowserSubscriptionLifecycleData, PatchV2BrowserSubscriptionLifecycleErrors, PatchV2BrowserSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadPrivateMobileModeData, ReadPrivateMobileModeErrors, ReadPrivateMobileModeResponses, ReadPrivateMobileOwnerSubscriptionsData, ReadPrivateMobileOwnerSubscriptionsErrors, ReadPrivateMobileOwnerSubscriptionsResponses, ReadPrivateMobileProfileData, ReadPrivateMobileProfileErrors, ReadPrivateMobileProfileResponses, ReadV2BrowserModeData, ReadV2BrowserModeErrors, ReadV2BrowserModeResponses, ReadV2BrowserProfileData, ReadV2BrowserProfileErrors, ReadV2BrowserProfileResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, ReadV2PrivateOwnerSubscriptionsData, ReadV2PrivateOwnerSubscriptionsErrors, ReadV2PrivateOwnerSubscriptionsResponses, RefreshPrivateMobileSessionData, RefreshPrivateMobileSessionErrors, RefreshPrivateMobileSessionResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SavePrivateMobileProfileData, SavePrivateMobileProfileErrors, SavePrivateMobileProfileResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyPrivateMobileLoginData, VerifyPrivateMobileLoginErrors, VerifyPrivateMobileLoginResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses, VerifyV2PrivateSimulatorLoginData, VerifyV2PrivateSimulatorLoginErrors, VerifyV2PrivateSimulatorLoginResponses, VerifyV2WebSimulatorEnrollmentData, VerifyV2WebSimulatorEnrollmentErrors, VerifyV2WebSimulatorEnrollmentResponses } from './types.gen.js';
+import type { AdmitV2WebEnrollmentData, AdmitV2WebEnrollmentErrors, AdmitV2WebEnrollmentResponses, ChangePrivateMobileSubscriptionStatusData, ChangePrivateMobileSubscriptionStatusErrors, ChangePrivateMobileSubscriptionStatusResponses, ChoosePrivateMobileModeData, ChoosePrivateMobileModeErrors, ChoosePrivateMobileModeResponses, ChooseV2BrowserJustMeData, ChooseV2BrowserJustMeErrors, ChooseV2BrowserJustMeResponses, CompletePrivateMobileEnrollmentData, CompletePrivateMobileEnrollmentErrors, CompletePrivateMobileEnrollmentResponses, CompleteV2WebEnrollmentData, CompleteV2WebEnrollmentErrors, CompleteV2WebEnrollmentResponses, ConnectPrivateMobileSyntheticBankData, ConnectPrivateMobileSyntheticBankErrors, ConnectPrivateMobileSyntheticBankResponses, CreatePrivateMobileManualSubscriptionData, CreatePrivateMobileManualSubscriptionErrors, CreatePrivateMobileManualSubscriptionResponses, CreatePrivateMobileSessionData, CreatePrivateMobileSessionErrors, CreatePrivateMobileSessionResponses, CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2PrivateManualSubscriptionData, CreateV2PrivateManualSubscriptionErrors, CreateV2PrivateManualSubscriptionResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DisconnectPrivateMobileSyntheticBankData, DisconnectPrivateMobileSyntheticBankErrors, DisconnectPrivateMobileSyntheticBankResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, EditPrivateMobileManualSubscriptionData, EditPrivateMobileManualSubscriptionErrors, EditPrivateMobileManualSubscriptionResponses, EditV2PrivateManualSubscriptionData, EditV2PrivateManualSubscriptionErrors, EditV2PrivateManualSubscriptionResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, LogoutPrivateMobileSessionData, LogoutPrivateMobileSessionErrors, LogoutPrivateMobileSessionResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PatchV2BrowserProfileData, PatchV2BrowserProfileErrors, PatchV2BrowserProfileResponses, PatchV2BrowserSubscriptionLifecycleData, PatchV2BrowserSubscriptionLifecycleErrors, PatchV2BrowserSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadPrivateMobileModeData, ReadPrivateMobileModeErrors, ReadPrivateMobileModeResponses, ReadPrivateMobileOwnerSubscriptionsData, ReadPrivateMobileOwnerSubscriptionsErrors, ReadPrivateMobileOwnerSubscriptionsResponses, ReadPrivateMobileProfileData, ReadPrivateMobileProfileErrors, ReadPrivateMobileProfileResponses, ReadPrivateMobileSyntheticBankData, ReadPrivateMobileSyntheticBankErrors, ReadPrivateMobileSyntheticBankResponses, ReadV2BrowserModeData, ReadV2BrowserModeErrors, ReadV2BrowserModeResponses, ReadV2BrowserProfileData, ReadV2BrowserProfileErrors, ReadV2BrowserProfileResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, ReadV2PrivateOwnerSubscriptionsData, ReadV2PrivateOwnerSubscriptionsErrors, ReadV2PrivateOwnerSubscriptionsResponses, RefreshPrivateMobileSessionData, RefreshPrivateMobileSessionErrors, RefreshPrivateMobileSessionResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SavePrivateMobileProfileData, SavePrivateMobileProfileErrors, SavePrivateMobileProfileResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, SyncPrivateMobileSyntheticBankData, SyncPrivateMobileSyntheticBankErrors, SyncPrivateMobileSyntheticBankResponses, VerifyPrivateMobileLoginData, VerifyPrivateMobileLoginErrors, VerifyPrivateMobileLoginResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses, VerifyV2PrivateSimulatorLoginData, VerifyV2PrivateSimulatorLoginErrors, VerifyV2PrivateSimulatorLoginResponses, VerifyV2WebSimulatorEnrollmentData, VerifyV2WebSimulatorEnrollmentErrors, VerifyV2WebSimulatorEnrollmentResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -821,6 +821,86 @@ export const changePrivateMobileSubscriptionStatus = <ThrowOnError extends boole
             type: 'http'
         }],
     url: '/v2/private/mobile/subscriptions/owner/status',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development owner Synthetic bank read
+ *
+ * Direct TLS and explicit development opt-in only. Current verified session, complete profile and Just me precede current-owner authority and immutable receipt lookup. Reject Cookie, Origin, CSRF, forwarded/mixed credentials, query, duplicate headers, client owner, persona, account identifiers and time ranges. All responses no-store. Idempotency-Key is forbidden. Read all retained generations (up to 50). Purged tombstones remain stored but are excluded. Connect is refused at 50 retained generations; purge older retained generations first. Synthetic demo only; no real bank connection, tokens, raw transactions or auto-created subscriptions. Sync cannot revive revoked or purged generations. Disconnect with purge removes only current owned Synthetic transaction/account rows in one fenced transaction; retains connection tombstone/receipts and refuses subscription dependencies atomically.
+ *
+ */
+export const readPrivateMobileSyntheticBank = <ThrowOnError extends boolean = false>(options: Options<ReadPrivateMobileSyntheticBankData, ThrowOnError>): RequestResult<ReadPrivateMobileSyntheticBankResponses, ReadPrivateMobileSyntheticBankErrors, ThrowOnError> => (options.client ?? client).post<ReadPrivateMobileSyntheticBankResponses, ReadPrivateMobileSyntheticBankErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/banks/synthetic/read',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development owner Synthetic bank connect
+ *
+ * Direct TLS and explicit development opt-in only. Current verified session, complete profile and Just me precede current-owner authority and immutable receipt lookup. Reject Cookie, Origin, CSRF, forwarded/mixed credentials, query, duplicate headers, client owner, persona, account identifiers and time ranges. All responses no-store. UUID-v4 Idempotency-Key is mandatory. Canonical body/operation/current owner bind an immutable result snapshot; replay returns that snapshot. Fresh authenticated read is current truth. Unknown commit requires re-verification, never automatic retry. Connect is refused at 50 retained generations; purge older retained generations first. Synthetic demo only; no real bank connection, tokens, raw transactions or auto-created subscriptions. Sync cannot revive revoked or purged generations. Disconnect with purge removes only current owned Synthetic transaction/account rows in one fenced transaction; retains connection tombstone/receipts and refuses subscription dependencies atomically.
+ *
+ */
+export const connectPrivateMobileSyntheticBank = <ThrowOnError extends boolean = false>(options: Options<ConnectPrivateMobileSyntheticBankData, ThrowOnError>): RequestResult<ConnectPrivateMobileSyntheticBankResponses, ConnectPrivateMobileSyntheticBankErrors, ThrowOnError> => (options.client ?? client).post<ConnectPrivateMobileSyntheticBankResponses, ConnectPrivateMobileSyntheticBankErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/banks/synthetic/connect',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development owner Synthetic bank sync
+ *
+ * Direct TLS and explicit development opt-in only. Current verified session, complete profile and Just me precede current-owner authority and immutable receipt lookup. Reject Cookie, Origin, CSRF, forwarded/mixed credentials, query, duplicate headers, client owner, persona, account identifiers and time ranges. All responses no-store. UUID-v4 Idempotency-Key is mandatory. Canonical body/operation/current owner bind an immutable result snapshot; replay returns that snapshot. Fresh authenticated read is current truth. Unknown commit requires re-verification, never automatic retry. Connect is refused at 50 retained generations; purge older retained generations first. Synthetic demo only; no real bank connection, tokens, raw transactions or auto-created subscriptions. Sync cannot revive revoked or purged generations. Disconnect with purge removes only current owned Synthetic transaction/account rows in one fenced transaction; retains connection tombstone/receipts and refuses subscription dependencies atomically.
+ *
+ */
+export const syncPrivateMobileSyntheticBank = <ThrowOnError extends boolean = false>(options: Options<SyncPrivateMobileSyntheticBankData, ThrowOnError>): RequestResult<SyncPrivateMobileSyntheticBankResponses, SyncPrivateMobileSyntheticBankErrors, ThrowOnError> => (options.client ?? client).post<SyncPrivateMobileSyntheticBankResponses, SyncPrivateMobileSyntheticBankErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/banks/synthetic/sync',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development owner Synthetic bank disconnect
+ *
+ * Direct TLS and explicit development opt-in only. Current verified session, complete profile and Just me precede current-owner authority and immutable receipt lookup. Reject Cookie, Origin, CSRF, forwarded/mixed credentials, query, duplicate headers, client owner, persona, account identifiers and time ranges. All responses no-store. UUID-v4 Idempotency-Key is mandatory. Canonical body/operation/current owner bind an immutable result snapshot; replay returns that snapshot. Fresh authenticated read is current truth. Unknown commit requires re-verification, never automatic retry. Connect is refused at 50 retained generations; purge older retained generations first. Synthetic demo only; no real bank connection, tokens, raw transactions or auto-created subscriptions. Sync cannot revive revoked or purged generations. Disconnect with purge removes only current owned Synthetic transaction/account rows in one fenced transaction; retains connection tombstone/receipts and refuses subscription dependencies atomically.
+ *
+ */
+export const disconnectPrivateMobileSyntheticBank = <ThrowOnError extends boolean = false>(options: Options<DisconnectPrivateMobileSyntheticBankData, ThrowOnError>): RequestResult<DisconnectPrivateMobileSyntheticBankResponses, DisconnectPrivateMobileSyntheticBankErrors, ThrowOnError> => (options.client ?? client).post<DisconnectPrivateMobileSyntheticBankResponses, DisconnectPrivateMobileSyntheticBankErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/banks/synthetic/disconnect',
     ...options,
     headers: {
         'Content-Type': 'application/json',

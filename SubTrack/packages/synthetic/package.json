@@ -7,13 +7,24 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./bank-runtime": {
+      "types": "./dist/bank-provider.d.ts",
+      "import": "./dist/bank-provider.js",
+      "require": "./dist/bank-provider.js"
+    },
+    "./personas-runtime": {
+      "types": "./dist/personas.d.ts",
+      "import": "./dist/personas.js",
+      "require": "./dist/personas.js"
     }
   },
   "scripts": {
     "build": "tsc --noEmit",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:bank": "tsc -p tsconfig.runtime-bank.json"
   },
   "dependencies": {
     "@subtrack/domain": "workspace:*"

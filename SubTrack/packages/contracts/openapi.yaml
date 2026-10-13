@@ -1840,8 +1840,268 @@ paths:
         '409': { $ref: '#/components/responses/PrivateMobileProblem' }
         '429': { $ref: '#/components/responses/PrivateMobileProblem' }
         '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/banks/synthetic/read:
+    post:
+      operationId: readPrivateMobileSyntheticBank
+      x-runtime-availability: unavailable-default
+      summary: Private development owner Synthetic bank read
+      description: >
+        Direct TLS and explicit development opt-in only. Current verified session, complete
+        profile and Just me precede current-owner authority and immutable receipt lookup.
+        Reject Cookie, Origin, CSRF, forwarded/mixed credentials, query, duplicate headers,
+        client owner, persona, account identifiers and time ranges. All responses no-store.
+        Idempotency-Key is forbidden. Read all retained generations (up to 50). Purged tombstones remain stored but are excluded.
+        Connect is refused at 50 retained generations; purge older retained generations first.
+        Synthetic demo only; no real bank connection, tokens, raw transactions or auto-created
+        subscriptions. Sync cannot revive revoked or purged generations. Disconnect with purge
+        removes only current owned Synthetic transaction/account rows in one fenced transaction;
+        retains connection tombstone/receipts and refuses subscription dependencies atomically.
+      security:
+        - V2AccessBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileBankRead' }
+      responses:
+        '200':
+          description: Known current read or immutable committed mutation result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileBankReadResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/banks/synthetic/connect:
+    post:
+      operationId: connectPrivateMobileSyntheticBank
+      x-runtime-availability: unavailable-default
+      summary: Private development owner Synthetic bank connect
+      description: >
+        Direct TLS and explicit development opt-in only. Current verified session, complete
+        profile and Just me precede current-owner authority and immutable receipt lookup.
+        Reject Cookie, Origin, CSRF, forwarded/mixed credentials, query, duplicate headers,
+        client owner, persona, account identifiers and time ranges. All responses no-store.
+        UUID-v4 Idempotency-Key is mandatory. Canonical body/operation/current owner bind an immutable result snapshot; replay returns that snapshot. Fresh authenticated read is current truth. Unknown commit requires re-verification, never automatic retry.
+        Connect is refused at 50 retained generations; purge older retained generations first.
+        Synthetic demo only; no real bank connection, tokens, raw transactions or auto-created
+        subscriptions. Sync cannot revive revoked or purged generations. Disconnect with purge
+        removes only current owned Synthetic transaction/account rows in one fenced transaction;
+        retains connection tombstone/receipts and refuses subscription dependencies atomically.
+      security:
+        - V2AccessBearer: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileBankConnect' }
+      responses:
+        '200':
+          description: Known current read or immutable committed mutation result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileBankMutationResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/banks/synthetic/sync:
+    post:
+      operationId: syncPrivateMobileSyntheticBank
+      x-runtime-availability: unavailable-default
+      summary: Private development owner Synthetic bank sync
+      description: >
+        Direct TLS and explicit development opt-in only. Current verified session, complete
+        profile and Just me precede current-owner authority and immutable receipt lookup.
+        Reject Cookie, Origin, CSRF, forwarded/mixed credentials, query, duplicate headers,
+        client owner, persona, account identifiers and time ranges. All responses no-store.
+        UUID-v4 Idempotency-Key is mandatory. Canonical body/operation/current owner bind an immutable result snapshot; replay returns that snapshot. Fresh authenticated read is current truth. Unknown commit requires re-verification, never automatic retry.
+        Connect is refused at 50 retained generations; purge older retained generations first.
+        Synthetic demo only; no real bank connection, tokens, raw transactions or auto-created
+        subscriptions. Sync cannot revive revoked or purged generations. Disconnect with purge
+        removes only current owned Synthetic transaction/account rows in one fenced transaction;
+        retains connection tombstone/receipts and refuses subscription dependencies atomically.
+      security:
+        - V2AccessBearer: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileBankSync' }
+      responses:
+        '200':
+          description: Known current read or immutable committed mutation result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileBankMutationResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/banks/synthetic/disconnect:
+    post:
+      operationId: disconnectPrivateMobileSyntheticBank
+      x-runtime-availability: unavailable-default
+      summary: Private development owner Synthetic bank disconnect
+      description: >
+        Direct TLS and explicit development opt-in only. Current verified session, complete
+        profile and Just me precede current-owner authority and immutable receipt lookup.
+        Reject Cookie, Origin, CSRF, forwarded/mixed credentials, query, duplicate headers,
+        client owner, persona, account identifiers and time ranges. All responses no-store.
+        UUID-v4 Idempotency-Key is mandatory. Canonical body/operation/current owner bind an immutable result snapshot; replay returns that snapshot. Fresh authenticated read is current truth. Unknown commit requires re-verification, never automatic retry.
+        Connect is refused at 50 retained generations; purge older retained generations first.
+        Synthetic demo only; no real bank connection, tokens, raw transactions or auto-created
+        subscriptions. Sync cannot revive revoked or purged generations. Disconnect with purge
+        removes only current owned Synthetic transaction/account rows in one fenced transaction;
+        retains connection tombstone/receipts and refuses subscription dependencies atomically.
+      security:
+        - V2AccessBearer: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileBankDisconnect' }
+      responses:
+        '200':
+          description: Known current read or immutable committed mutation result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileBankMutationResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
 components:
   schemas:
+    PrivateMobileBankRead:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+    PrivateMobileBankConnect:
+      type: object
+      additionalProperties: false
+      required: [institutionId]
+      properties:
+        institutionId: { type: string, const: synthetic-demo-v1 }
+    PrivateMobileBankSync:
+      type: object
+      additionalProperties: false
+      required: [connectionId]
+      properties:
+        connectionId: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+    PrivateMobileBankDisconnect:
+      type: object
+      additionalProperties: false
+      required: [connectionId, purge]
+      properties:
+        connectionId: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+        purge: { type: boolean }
+    PrivateMobileBankSummary:
+      type: object
+      additionalProperties: false
+      required: [connectionId, provider, institutionId, status, disposition, accountCount, transactionCount, lastSyncAt]
+      description: >
+        Counts are nonnegative safe integers capped at 1000000. A purged generation must
+        be REVOKED with both counts zero. No money values or private banking rows.
+      properties:
+        connectionId: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+        provider: { type: string, const: SYNTHETIC }
+        institutionId: { type: string, const: synthetic-demo-v1 }
+        status: { type: string, enum: [ACTIVE, REVOKED] }
+        disposition: { type: string, enum: [retained, purged] }
+        accountCount: { type: integer, minimum: 0, maximum: 1000000 }
+        transactionCount: { type: integer, minimum: 0, maximum: 1000000 }
+        lastSyncAt:
+          type: [string, 'null']
+          format: date-time
+          pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$'
+          description: Nullable canonical real UTC instant, millisecond precision, years 0001-9999.
+      allOf:
+        - if:
+            properties:
+              disposition: { const: purged }
+          then:
+            properties:
+              status: { const: REVOKED }
+              accountCount: { const: 0 }
+              transactionCount: { const: 0 }
+    PrivateMobileBankReadResult:
+      type: object
+      additionalProperties: false
+      required: [connections]
+      description: All retained generations, at most one ACTIVE, unique connection UUIDs. Purged generations excluded; empty is truthful.
+      properties:
+        connections:
+          type: array
+          maxItems: 50
+          items:
+            allOf:
+              - { $ref: '#/components/schemas/PrivateMobileBankSummary' }
+              - type: object
+                properties:
+                  disposition: { const: retained }
+    PrivateMobileBankMutationResult:
+      type: object
+      additionalProperties: false
+      required: [operation, connection]
+      description: Immutable receipt snapshot. Connect/sync require ACTIVE; disconnect requires REVOKED. Fresh read gives current truth after replay.
+      properties:
+        operation: { type: string, enum: [connect, sync, disconnect] }
+        connection: { $ref: '#/components/schemas/PrivateMobileBankSummary' }
+      allOf:
+        - if:
+            properties:
+              operation: { const: disconnect }
+          then:
+            properties:
+              connection:
+                properties:
+                  status: { const: REVOKED }
+          else:
+            properties:
+              connection:
+                properties:
+                  status: { const: ACTIVE }
     PrivateMobileManualEdit:
       type: object
       additionalProperties: false
@@ -1898,7 +2158,7 @@ components:
         type: { type: string, const: 'about:blank' }
         title: { type: string, enum: [Bad Request, Unauthorized, Forbidden, Not Found, Conflict, Too Many Requests, Internal Server Error] }
         status: { type: integer, enum: [400, 401, 403, 404, 409, 429, 500] }
-        code: { type: string, enum: [INVALID_MOBILE_REQUEST, AUTHENTICATION_REQUIRED, MOBILE_REQUEST_REJECTED, MOBILE_UNAVAILABLE, AUTH_RESTART_REQUIRED, ENROLLMENT_LOGIN_REQUIRED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, SUBSCRIPTION_NOT_FOUND, MANUAL_EDIT_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_CONFLICT, LIFECYCLE_CONFLICT, INTERNAL_ERROR] }
+        code: { type: string, enum: [INVALID_MOBILE_REQUEST, AUTHENTICATION_REQUIRED, MOBILE_REQUEST_REJECTED, MOBILE_UNAVAILABLE, AUTH_RESTART_REQUIRED, ENROLLMENT_LOGIN_REQUIRED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, SUBSCRIPTION_NOT_FOUND, MANUAL_EDIT_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_CONFLICT, LIFECYCLE_CONFLICT, BANK_STATE_CONFLICT, BANK_IDEMPOTENCY_CONFLICT, INTERNAL_ERROR] }
     ProfileReadRequest:
       type: object
       additionalProperties: false

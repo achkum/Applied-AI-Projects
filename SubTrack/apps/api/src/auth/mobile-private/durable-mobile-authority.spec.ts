@@ -1,10 +1,11 @@
+import {PRIVATE_BANK_PURGE_STATEMENTS} from '../../banks/private-mobile-bank-statements.js';
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import type {Pool,PoolClient} from 'pg';
 import type {V2AccessToken} from '../sessions-v2/v2-access-token.js';
 import type {OwnerTx} from '../sessions-v2/durable-current-web-authority.js';
 import {DurablePrivateMobileAuthority} from './durable-mobile-authority.js';
 const ID='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',SID='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-function fixture(options:{badClean?:boolean;badRoles?:boolean;badFence?:boolean;ownerDeleted?:boolean;sessionGone?:boolean;workFault?:boolean;badCommit?:boolean;badRollback?:boolean;wrongRollback?:boolean;logoutLost?:boolean;releaseFault?:boolean;rejectTokenAt?:number;foreignClaimAt?:number}={}){
+function fixture(options:{badClean?:boolean;badRoles?:boolean;badFence?:boolean;ownerDeleted?:boolean;sessionGone?:boolean;workFault?:boolean;badCommit?:boolean;badRollback?:boolean;wrongRollback?:boolean;logoutLost?:boolean;releaseFault?:boolean;rejectTokenAt?:number;foreignClaimAt?:number}={},statements:Readonly<Record<string,string>>={ownerRead:'SELECT owner_data'}){
  vi.stubEnv('NODE_ENV','development');let now=1000;let verifies=0;const calls:string[]=[];const release=vi.fn(()=>{if(options.releaseFault)throw new Error('release');});
  const query=vi.fn(async(sql:string)=>{calls.push(sql);const q=(command:string,rows:Record<string,unknown>[],rowCount=rows.length)=>({command,rows,rowCount});
   if(sql.startsWith('SELECT session_user'))return q('SELECT',[{login:options.badClean?'foreign':'subtrack_dev_auth_login',role:'subtrack_dev_auth_login',db:'st237_private_https_profile',one:'',two:''}]);
@@ -19,7 +20,7 @@ function fixture(options:{badClean?:boolean;badRoles?:boolean;badFence?:boolean;
  });
  const pool={connect:async()=>({query,release} as unknown as PoolClient)} as unknown as Pick<Pool,'connect'>;
  const tokens={verify:vi.fn(()=>{verifies++;if(options.rejectTokenAt===verifies)throw new Error('expired');return {sub:options.foreignClaimAt===verifies?'foreign':ID,sid:SID};})} as unknown as V2AccessToken;
- const authority=new DurablePrivateMobileAuthority(pool,tokens,()=>now,'a'.repeat(64),{ownerRead:'SELECT owner_data'},true);
+ const authority=new DurablePrivateMobileAuthority(pool,tokens,()=>now,'a'.repeat(64),statements,true);
  return {authority,pool,tokens,calls,query,release,setNow:(n:number)=>{now=n;}};
 }
 afterEach(()=>vi.unstubAllEnvs());
@@ -35,4 +36,29 @@ describe('durable current native owner authority',()=>{
  it.each([NaN,-1,Number.MAX_SAFE_INTEGER,999])('rejects invalid/backwards clock %s before work',n=>{const f=fixture();f.authority.now();f.setNow(n);expect(()=>f.authority.now()).toThrow();});
  it('default-disabled, malformed manifest, and unsafe named SQL cannot construct authority',()=>{const f=fixture();for(const [enabled,manifest,statements] of [[false,'a'.repeat(64),{}],[true,'bad',{}],[true,'a'.repeat(64),{unsafe:'SELECT x; COMMIT'}],[true,'a'.repeat(64),{'bad-name':'SELECT x'}],[true,'a'.repeat(64),{unsafe:'DELETE x'}]] as const)expect(()=>new DurablePrivateMobileAuthority(f.pool,f.tokens,()=>1000,manifest,statements,enabled)).toThrow();});
  it('logout rejects deleted/current-revoked/late expired authority and retains denial privacy',async()=>{for(const options of [{ownerDeleted:true},{sessionGone:true},{rejectTokenAt:3},{logoutLost:true}]){const f=fixture(options);await expect(f.authority.logout('access')).rejects.toMatchObject({kind:'denied'});expect(f.calls).toContain('ROLLBACK');}});
+});
+
+describe('frozen owner Synthetic purge capability',()=>{
+ it('accepts only the exact approved name AND entire constant, never SQL normalization',()=>{
+  const f=fixture();
+  expect(()=>new DurablePrivateMobileAuthority(f.pool,f.tokens,()=>1000,'a'.repeat(64),PRIVATE_BANK_PURGE_STATEMENTS,true)).not.toThrow();
+  for(const [name,sql] of Object.entries(PRIVATE_BANK_PURGE_STATEMENTS)){
+   for(const statements of [{[name]:sql+' '},{[name]:sql.replace('$2','$3')},{[name+'Other']:sql},{[name]:sql.replace('REVOKED','ACTIVE')},{[name]:sql+' -- comment'},{[name]:'SELECT owner_data'}]){
+    expect(()=>new DurablePrivateMobileAuthority(f.pool,f.tokens,()=>1000,'a'.repeat(64),statements,true)).toThrow();
+   }
+  }
+  for(const sql of ["SELECT 'quoted'",'DELETE FROM public.raw_transaction','SELECT x -- comment'])expect(()=>new DurablePrivateMobileAuthority(f.pool,f.tokens,()=>1000,'a'.repeat(64),{other:sql},true)).toThrow();
+ });
+ it('rejects wrong arity, foreign owner and invalid connection before touching approved DELETE',async()=>{
+  for(const values of [[],[ID],[SID,SID],[ID,'not-uuid'],[ID,SID,'extra']]){
+   const f=fixture({},PRIVATE_BANK_PURGE_STATEMENTS);
+   await expect(f.authority.withCurrentMobileAuthority('access',async tx=>tx.execute('bankPurgeAccounts',values))).rejects.toMatchObject({kind:'unavailable'});
+   expect(f.calls).not.toContain(PRIVATE_BANK_PURGE_STATEMENTS.bankPurgeAccounts);
+  }
+ });
+ it('executes approved text with only two validated current-owner values',async()=>{
+  const f=fixture({},PRIVATE_BANK_PURGE_STATEMENTS);
+  await f.authority.withCurrentMobileAuthority('access',async tx=>tx.execute('bankPurgeAccounts',[ID,SID]));
+  expect(f.query).toHaveBeenCalledWith(PRIVATE_BANK_PURGE_STATEMENTS.bankPurgeAccounts,[ID,SID]);
+ });
 });

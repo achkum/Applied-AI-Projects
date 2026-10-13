@@ -1,3 +1,4 @@
+import {PRIVATE_BANK_PURGE_STATEMENTS} from '../../banks/private-mobile-bank-statements.js';
 import type {Pool,PoolClient,QueryResultRow} from 'pg';
 import type {V2AccessToken} from '../sessions-v2/v2-access-token.js';
 import type {OwnerTx} from '../sessions-v2/durable-current-web-authority.js';
@@ -17,7 +18,7 @@ export class DurablePrivateMobileAuthority{
  constructor(pool:Pick<Pool,'connect'>,private readonly tokens:Pick<V2AccessToken,'verify'>,private readonly clock:()=>number,private readonly manifestHash:string,statements:Readonly<Record<string,string>>,enabled=false){
   if(enabled!==true||process.env.NODE_ENV!=='development'||typeof pool?.connect!=='function'||typeof tokens?.verify!=='function'||typeof clock!=='function'||!/^[a-f0-9]{64}$/.test(manifestHash))unavailable();
   const copy:Record<string,string>={};
-  for(const [name,sql]of Object.entries(statements)){if(!/^[A-Za-z][A-Za-z0-9]{0,63}$/.test(name)||typeof sql!=='string'||!/^(SELECT|INSERT|UPDATE)\b/.test(sql)||/;|--|["'`]|\b(?:commit|rollback|set_config|set_role)\b/i.test(sql))unavailable();copy[name]=sql;}
+  for(const [name,sql]of Object.entries(statements)){const reserved=Object.hasOwn(PRIVATE_BANK_PURGE_STATEMENTS,name);const purge=reserved&&sql===PRIVATE_BANK_PURGE_STATEMENTS[name as keyof typeof PRIVATE_BANK_PURGE_STATEMENTS];if(reserved&&!purge)unavailable();if(!purge&&(!/^[A-Za-z][A-Za-z0-9]{0,63}$/.test(name)||typeof sql!=='string'||!/^(SELECT|INSERT|UPDATE)\b/.test(sql)||/;|--|["'`]|\b(?:commit|rollback|set_config|set_role)\b/i.test(sql)))unavailable();copy[name]=sql;}
   this.statements=Object.freeze(copy);this.pool=Object.freeze({connect:pool.connect.bind(pool)});this.tokens=Object.freeze({verify:tokens.verify.bind(tokens)});
  }
  now():number{const value=this.clock();if(process.env.NODE_ENV!=='development'||!Number.isSafeInteger(value)||value<0||value<this.lastNow||value>Number.MAX_SAFE_INTEGER-86400000)unavailable();this.lastNow=value;return value;}
@@ -57,7 +58,8 @@ export class DurablePrivateMobileAuthority{
    const active=await client.query('SELECT id::text AS id FROM public.identity WHERE id=$1::uuid AND deleted_at IS NULL FOR UPDATE',[owner.identityId]);if(active.rowCount!==1||active.rows[0]?.id!==owner.identityId)deny();
    await this.check(client,accessToken,owner);let open=true,pending=0;
    const tx:OwnerTx=Object.freeze({execute:async<R extends QueryResultRow=QueryResultRow>(name:string,values:readonly unknown[])=>{
-    if(!open||!Object.hasOwn(this.statements,name)||!Array.isArray(values))unavailable();pending++;
+    if(!open||!Object.hasOwn(this.statements,name)||!Array.isArray(values))unavailable();
+    if(Object.hasOwn(PRIVATE_BANK_PURGE_STATEMENTS,name)&&(values.length!==2||values[0]!==owner.identityId||typeof values[1]!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(values[1])))unavailable();pending++;
     try{return await client.query<R>(this.statements[name]!,[...values]);}finally{pending--;}
    }});
    let value:T;try{value=await action(tx,owner);}catch{return unavailable();}finally{open=false;}

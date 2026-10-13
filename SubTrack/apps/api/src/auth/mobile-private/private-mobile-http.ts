@@ -1,3 +1,5 @@
+import {createPrivateMobileBank} from '../../banks/private-mobile-bank.js';
+import type {PrivateMobileBankOperation} from '@subtrack/contracts/private-mobile-bank';
 import type {IncomingMessage,ServerResponse} from 'node:http';
 import {TLSSocket} from 'node:tls';
 import {createRequire} from 'node:module';
@@ -11,6 +13,7 @@ const {PRIVATE_MOBILE_PATHS:PATHS,parsePrivateMobileEnrollmentComplete,parsePriv
  parsePrivateMobileLoginVerify(value:unknown):{transport:'mobile'};
  parsePrivateMobileSessionRequest(value:unknown):{loginProof:string};
 };
+const {PRIVATE_MOBILE_BANK_PATHS:BANK_PATHS}=createRequire(__filename)('@subtrack/contracts/private-mobile-bank') as typeof import('@subtrack/contracts/private-mobile-bank');
 const HEADERS=new Set(['host','connection','accept','accept-encoding','user-agent','content-type','content-length','authorization','idempotency-key']);
 export function privateMobileWire(request:IncomingMessage):void{
  if(process.env.NODE_ENV!=='development'||!(request.socket instanceof TLSSocket)||request.socket.encrypted!==true||request.socket.remoteAddress!=='127.0.0.1'||request.method!=='POST'||request.url?.includes('?')||rawHeader(request,'host')!=='localhost:3443'||request.rawHeaders.length%2!==0)throw new Error('wire');
@@ -26,15 +29,15 @@ function problem(response:ServerResponse,status:number,code?:string):void{
  privateJson(response,status,{type:'about:blank',title:titles[status]!,status,code:code??({400:'INVALID_MOBILE_REQUEST',401:'AUTHENTICATION_REQUIRED',403:'MOBILE_REQUEST_REJECTED',404:'MOBILE_UNAVAILABLE',409:'AUTH_RESTART_REQUIRED',429:'AUTH_RESTART_REQUIRED',500:'INTERNAL_ERROR'} as Record<number,string>)[status]!},true);
 }
 export function createPrivateMobileHttp(authority:DurablePrivateMobileAuthority,sessions:DurablePrivateMobileSessions){
- const business=createPrivateMobileBusiness(authority);
+ const business=createPrivateMobileBusiness(authority);const banks=createPrivateMobileBank(authority);
  return Object.freeze({async handle(request:IncomingMessage,response:ServerResponse):Promise<void>{
   try{
    privateMobileWire(request);const path=request.url;
-   if(!Object.values(PATHS).includes(path??'')){problem(response,404);return;}
+   if(![...Object.values(PATHS),...Object.values(BANK_PATHS)].includes(path??'')){problem(response,404);return;}
    let body:Record<string,unknown>={};if(path===PATHS.refresh){for await(const chunk of request)if(Buffer.from(chunk as Uint8Array).length!==0)throw new Error('wire');}
    else body={...await privateBody(request)};
    const key=rawHeader(request,'idempotency-key');const authorization=rawHeader(request,'authorization');
-   const needsKey=[PATHS.complete,PATHS.verifyLogin,PATHS.session,PATHS.refresh,PATHS.manual,PATHS.manualEdit].includes(path);
+   const needsKey=[PATHS.complete,PATHS.verifyLogin,PATHS.session,PATHS.refresh,PATHS.manual,PATHS.manualEdit,BANK_PATHS.connect,BANK_PATHS.sync,BANK_PATHS.disconnect].includes(path);
    if(needsKey?(!key||!/^[\x21-\x7e]{16,255}$/.test(key)):key!==null)throw new Error('wire');
    if([PATHS.complete,PATHS.verifyLogin,PATHS.session].includes(path)){
     if(authorization!==null)throw new Error('wire');
@@ -49,6 +52,8 @@ export function createPrivateMobileHttp(authority:DurablePrivateMobileAuthority,
    if(!authorization||!/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(authorization)){problem(response,401);return;}
    const accessToken=authorization.slice(7);
    if(path===PATHS.logout){if(Object.keys(body).length!==0)throw new Error('wire');await authority.logout(accessToken);response.setHeader('Cache-Control','no-store');response.setHeader('Pragma','no-cache');response.statusCode=204;response.end();return;}
+   const bankOperation=(Object.entries(BANK_PATHS).find(([,value])=>value===path)?.[0]) as PrivateMobileBankOperation|undefined;
+   if(bankOperation){const result=await banks.execute(accessToken,bankOperation,body,key??undefined);if('code'in result){problem(response,result.status,result.code);return;}privateJson(response,result.status,result.value);return;}
    const operations:Record<string,PrivateMobileBusinessOperation>={
     [PATHS.profileRead!]:'profile-read',[PATHS.profile!]:'profile',[PATHS.modeRead!]:'mode-read',[PATHS.mode!]:'mode',[PATHS.ownerRead!]:'owner-read',[PATHS.manual!]:'manual',[PATHS.manualEdit!]:'manual-edit',[PATHS.status!]:'status',
    };

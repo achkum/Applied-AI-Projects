@@ -7,7 +7,7 @@ current_delivery: ST-086
 current_slice: ST-247
 execution_phase: combined_native_runtime_qualification
 source_pipeline_slice: ST-245
-source_pipeline_slices: [ST-245, ST-246, ST-247]
+source_pipeline_slices: [ST-245, ST-246, ST-247, ST-248]
 approved_native_design: docs/product/BILLING_MONTH_ADOPTION.md
 approved_template: docs/product/references/subtrack-billing-month.html
 approved_template_sha256: 4b2de0a2c4a1ce22a05cea087a8db5f0a561dd14a13c0829acd99afe676859c5
@@ -17,7 +17,7 @@ delivery_plan: .sdlc/delivery-plan.md
 items:
   - {id: ST-086, title: "Native personal subscriptions: account, profile, Just me and persisted management", milestone: "M1/M3", owner: conductor, size: delivery_group, status: IN_PROGRESS, scope_ids: [ST-086, ST-051, ST-170b, ST-170c, ST-052, ST-085], outcome: "First slice: verified development login/enrollment, profile, list/Add and restart readback on Android/iOS. Then Edit/status and full native core parity. Reuse accepted storage; implement durable mobile bearer authority, not browser cookies."}
   - {id: ST-082, title: "Native Billing Month, renewals, subscription detail and history", milestone: "M3", owner: conductor, size: delivery_group, status: IN_PROGRESS, scope_ids: [ST-082, ST-083], outcome: "Scope-aware exact totals and upcoming renewals from persisted subscriptions, charges/history and deterministic price events. ST-085 native screen criteria apply here too."}
-  - {id: ST-069, title: "Synthetic bank connection, sync and later Tink sandbox", milestone: "M2", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-061, ST-066, ST-069], outcome: "Deliver Synthetic connect/sync/disconnect/purge first; real Tink discovery/provider remains separate credential-dependent acceptance. No account creation or real bank calls authorized."}
+  - {id: ST-069, title: "Synthetic bank connection, sync and later Tink sandbox", milestone: "M2", owner: conductor, size: delivery_group, status: IN_PROGRESS, scope_ids: [ST-061, ST-066, ST-069], outcome: "Deliver Synthetic connect/sync/disconnect/purge first; real Tink discovery/provider remains separate credential-dependent acceptance. No account creation or real bank calls authorized."}
   - {id: ST-081, title: "Native detection inbox, review and feedback", milestone: "M3", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-081, ST-087], outcome: "Persist detections from the Synthetic flow; confirm/reject/edit/merge, explicit undo and minimal feedback, with real end-to-end detection quality evidence. Existing accepted cores are reused."}
   - {id: ST-055, title: "Native household, invitations and privacy", milestone: "M1", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-055, ST-140], outcome: "Create/join household, membership/dependants, invite return links and privacy controls. Retain household criteria from ST-051/ST-052; validate together, not as separate proof-only tickets."}
   - {id: ST-043, title: "BankID test-provider integration and auth security sign-off", milestone: "M1", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-043, ST-045], outcome: "Documented test adapter, QR/autostart/return and mandatory identity verification. Simulator remains explicitly development-only; provider credentials/accounts and actual provider qualification are not presumed."}

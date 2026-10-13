@@ -36,6 +36,9 @@ const privatePostPaths = [
 ];
 const privateMobilePostPaths = ['enrollment/complete','login/verify','session','refresh','logout','profile/read','profile','mode/read','mode','subscriptions/owner/read','subscriptions/owner/manual','subscriptions/owner/manual/edit','subscriptions/owner/status'].map(path=>`/v2/private/mobile/${path}`);
 
+const privateMobileBankReadPaths = ['/v2/private/mobile/banks/synthetic/read'];
+const privateMobileBankMutationPaths = ['connect','sync','disconnect'].map(operation=>`/v2/private/mobile/banks/synthetic/${operation}`);
+
 function assertRequiredBrowserHeaders(operation, label) {
   const origin = operation.parameters.find((parameter) => parameter.name === 'Origin');
   const csrf = operation.parameters.find((parameter) => parameter.name === 'X-Session-CSRF');
@@ -48,7 +51,7 @@ function classifiedPosts(document) {
   const paths = Object.entries(document.paths)
     .filter(([path, item]) => path.startsWith('/v2/') && item.post)
     .map(([path]) => path);
-  assert.deepEqual(paths.sort(), [...idempotentPostPaths, ...privatePostPaths, ...privateBusinessIdempotentPostPaths, ...privateMobilePostPaths].sort(),
+  assert.deepEqual(paths.sort(), [...idempotentPostPaths, ...privatePostPaths, ...privateBusinessIdempotentPostPaths, ...privateMobilePostPaths, ...privateMobileBankReadPaths, ...privateMobileBankMutationPaths].sort(),
     'every v2 POST must have an explicit reviewed idempotency classification');
   return idempotentPostPaths.map((path) => [path, document.paths[path].post]);
 }
@@ -213,6 +216,39 @@ test('v2 POST recovery contract stays generic and explains restart after referen
         `${path} describes a recovery action`);
     }
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('native Synthetic bank reads and immutable mutations have separate current-owner classification', () => {
+  const {dir,document}=bundle();
+  try {
+    assert.equal(classifiedPosts(document).length,11,'authentication recovery remains unchanged');
+    for(const path of [...privateMobileBankReadPaths,...privateMobileBankMutationPaths]) {
+      const operation=document.paths[path].post;
+      assert.equal(operation['x-runtime-availability'],'unavailable-default');
+      assert.deepEqual(operation.security,[{V2AccessBearer:[]}]);
+      const parameters=operation.parameters??[];
+      assert.equal(parameters.some(parameter=>['Origin','X-Session-CSRF','X-Browser-Nonce','X-Caller-Id'].includes(parameter.name)),false);
+      const keys=parameters.filter(parameter=>parameter.name==='Idempotency-Key');
+      if(privateMobileBankReadPaths.includes(path)) {
+        assert.equal(keys.length,0);
+        assert.match(operation.description,/Idempotency-Key is forbidden/);
+        assert.equal(operation.requestBody.content['application/json'].schema.maxProperties,0);
+      } else {
+        assert.equal(keys.length,1);
+        assert.equal(keys[0].required,true);
+        const pattern=new RegExp(keys[0].schema.pattern);
+        assert.ok(pattern.test('123e4567-e89b-42d3-a456-426614174000'));
+        assert.equal(pattern.test('123e4567-e89b-72d3-a456-426614174000'),false);
+        assert.match(operation.description,/immutable result snapshot/);
+        assert.match(operation.description,/never automatic retry/);
+      }
+      assert.deepEqual(Object.keys(operation.responses),['200','400','401','403','404','409','429','500']);
+      assert.equal(operation.responses['200'].headers['Cache-Control'].schema.const,'no-store');
+      assert.equal(operation.responses['200'].headers.Pragma.schema.const,'no-cache');
+      assert.match(operation.description,/Current verified session, complete profile and Just me/);
+      assert.equal(operation.requestBody.content['application/json'].schema.additionalProperties,false);
+    }
+  } finally {rmSync(dir,{recursive:true,force:true});}
 });
 
 test('generated v2 Zod schemas validate transport envelopes and reject mixed or extra fields', () => {

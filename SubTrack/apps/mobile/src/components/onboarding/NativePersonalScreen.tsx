@@ -129,6 +129,7 @@ export function NativePersonalScreen() {
       }); }) : null}
       {profile?.profileComplete && mode === 'just-me' ? <>
         {button(t('onboarding.billingMonth.open'), () => router.push('/personal-billing-month'))}
+        {button(t('onboarding.nativeBank.open'), () => router.push('/personal-bank'))}
         {button(t('onboarding.nativeRenewals.open'), () => router.push('/personal-home'))}
         {items.length === 0 && !loading ? <Text style={text}>{t('onboarding.ownerSubscriptions.empty')}</Text> : null}
         {items.map(item => <View key={item.id} style={styles.field}><Text style={text}>{item.customName ?? item.merchantName ?? t('onboarding.ownerSubscriptions.categoryFallback')}</Text>

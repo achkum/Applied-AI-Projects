@@ -32,6 +32,16 @@
     "./clustering": {
       "types": "./clustering/index.ts",
       "import": "./clustering/index.ts"
+    },
+    "./bank-runtime": {
+      "types": "./dist/bank/index.d.ts",
+      "import": "./dist/bank/index.js",
+      "require": "./dist/bank/index.js"
+    },
+    "./ingestion-runtime": {
+      "types": "./dist/ingestion/index.d.ts",
+      "import": "./dist/ingestion/index.js",
+      "require": "./dist/ingestion/index.js"
     }
   },
   "scripts": {
@@ -40,7 +50,8 @@
     "lint": "eslint \"policy/**/*.ts\" \"bank/**/*.ts\" \"ingestion/**/*.ts\" \"merchant/**/*.ts\" \"detection/**/*.ts\" \"clustering/**/*.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "build:bank": "tsc -p tsconfig.bank-runtime.json"
   },
   "dependencies": {
     "@subtrack/money": "workspace:*"

@@ -4,6 +4,58 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type PrivateMobileBankRead = {
+    [key: string]: never;
+};
+
+export type PrivateMobileBankConnect = {
+    institutionId: 'synthetic-demo-v1';
+};
+
+export type PrivateMobileBankSync = {
+    connectionId: string;
+};
+
+export type PrivateMobileBankDisconnect = {
+    connectionId: string;
+    purge: boolean;
+};
+
+/**
+ * Counts are nonnegative safe integers capped at 1000000. A purged generation must be REVOKED with both counts zero. No money values or private banking rows.
+ *
+ */
+export type PrivateMobileBankSummary = unknown & {
+    connectionId: string;
+    provider: 'SYNTHETIC';
+    institutionId: 'synthetic-demo-v1';
+    status: 'ACTIVE' | 'REVOKED';
+    disposition: 'retained' | 'purged';
+    accountCount: number;
+    transactionCount: number;
+    /**
+     * Nullable canonical real UTC instant, millisecond precision, years 0001-9999.
+     */
+    lastSyncAt: string | null;
+};
+
+/**
+ * All retained generations, at most one ACTIVE, unique connection UUIDs. Purged generations excluded; empty is truthful.
+ */
+export type PrivateMobileBankReadResult = {
+    connections: Array<PrivateMobileBankSummary & {
+        disposition?: 'retained';
+    }>;
+};
+
+/**
+ * Immutable receipt snapshot. Connect/sync require ACTIVE; disconnect requires REVOKED. Fresh read gives current truth after replay.
+ */
+export type PrivateMobileBankMutationResult = unknown & {
+    operation: 'connect' | 'sync' | 'disconnect';
+    connection: PrivateMobileBankSummary;
+};
+
 export type PrivateMobileManualEdit = {
     id: string;
     /**
@@ -53,7 +105,7 @@ export type PrivateMobileError = {
     type: 'about:blank';
     title: 'Bad Request' | 'Unauthorized' | 'Forbidden' | 'Not Found' | 'Conflict' | 'Too Many Requests' | 'Internal Server Error';
     status: 400 | 401 | 403 | 404 | 409 | 429 | 500;
-    code: 'INVALID_MOBILE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MOBILE_REQUEST_REJECTED' | 'MOBILE_UNAVAILABLE' | 'AUTH_RESTART_REQUIRED' | 'ENROLLMENT_LOGIN_REQUIRED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'SUBSCRIPTION_NOT_FOUND' | 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_CONFLICT' | 'LIFECYCLE_CONFLICT' | 'INTERNAL_ERROR';
+    code: 'INVALID_MOBILE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MOBILE_REQUEST_REJECTED' | 'MOBILE_UNAVAILABLE' | 'AUTH_RESTART_REQUIRED' | 'ENROLLMENT_LOGIN_REQUIRED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'SUBSCRIPTION_NOT_FOUND' | 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_CONFLICT' | 'LIFECYCLE_CONFLICT' | 'BANK_STATE_CONFLICT' | 'BANK_IDEMPOTENCY_CONFLICT' | 'INTERNAL_ERROR';
 };
 
 /**
@@ -3393,3 +3445,208 @@ export type ChangePrivateMobileSubscriptionStatusResponses = {
 };
 
 export type ChangePrivateMobileSubscriptionStatusResponse = ChangePrivateMobileSubscriptionStatusResponses[keyof ChangePrivateMobileSubscriptionStatusResponses];
+
+export type ReadPrivateMobileSyntheticBankData = {
+    body: PrivateMobileBankRead;
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/banks/synthetic/read';
+};
+
+export type ReadPrivateMobileSyntheticBankErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ReadPrivateMobileSyntheticBankError = ReadPrivateMobileSyntheticBankErrors[keyof ReadPrivateMobileSyntheticBankErrors];
+
+export type ReadPrivateMobileSyntheticBankResponses = {
+    /**
+     * Known current read or immutable committed mutation result.
+     */
+    200: PrivateMobileBankReadResult;
+};
+
+export type ReadPrivateMobileSyntheticBankResponse = ReadPrivateMobileSyntheticBankResponses[keyof ReadPrivateMobileSyntheticBankResponses];
+
+export type ConnectPrivateMobileSyntheticBankData = {
+    body: PrivateMobileBankConnect;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/banks/synthetic/connect';
+};
+
+export type ConnectPrivateMobileSyntheticBankErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ConnectPrivateMobileSyntheticBankError = ConnectPrivateMobileSyntheticBankErrors[keyof ConnectPrivateMobileSyntheticBankErrors];
+
+export type ConnectPrivateMobileSyntheticBankResponses = {
+    /**
+     * Known current read or immutable committed mutation result.
+     */
+    200: PrivateMobileBankMutationResult;
+};
+
+export type ConnectPrivateMobileSyntheticBankResponse = ConnectPrivateMobileSyntheticBankResponses[keyof ConnectPrivateMobileSyntheticBankResponses];
+
+export type SyncPrivateMobileSyntheticBankData = {
+    body: PrivateMobileBankSync;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/banks/synthetic/sync';
+};
+
+export type SyncPrivateMobileSyntheticBankErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type SyncPrivateMobileSyntheticBankError = SyncPrivateMobileSyntheticBankErrors[keyof SyncPrivateMobileSyntheticBankErrors];
+
+export type SyncPrivateMobileSyntheticBankResponses = {
+    /**
+     * Known current read or immutable committed mutation result.
+     */
+    200: PrivateMobileBankMutationResult;
+};
+
+export type SyncPrivateMobileSyntheticBankResponse = SyncPrivateMobileSyntheticBankResponses[keyof SyncPrivateMobileSyntheticBankResponses];
+
+export type DisconnectPrivateMobileSyntheticBankData = {
+    body: PrivateMobileBankDisconnect;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/banks/synthetic/disconnect';
+};
+
+export type DisconnectPrivateMobileSyntheticBankErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type DisconnectPrivateMobileSyntheticBankError = DisconnectPrivateMobileSyntheticBankErrors[keyof DisconnectPrivateMobileSyntheticBankErrors];
+
+export type DisconnectPrivateMobileSyntheticBankResponses = {
+    /**
+     * Known current read or immutable committed mutation result.
+     */
+    200: PrivateMobileBankMutationResult;
+};
+
+export type DisconnectPrivateMobileSyntheticBankResponse = DisconnectPrivateMobileSyntheticBankResponses[keyof DisconnectPrivateMobileSyntheticBankResponses];

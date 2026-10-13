@@ -1,6 +1,8 @@
+import {PrivateMobileSubjectVerifier} from '../src/auth/mobile-private/verified-subject-binding.js';
+import {DevelopmentEnrollmentPersonVerifier} from '../src/auth/identity-provider/development-enrollment-person-verifier.js';
 import {privateMobileRenewalsReceipt,type PrivateMobileRenewalsReceipt} from './private-mobile-renewals-receipt.js';
 import {privateMobileTrackingReceipt,type PrivateMobileTrackingReceipt} from './private-mobile-tracking-receipt.js';
-import {createHash,createPrivateKey,createPublicKey} from 'node:crypto';
+import {createHash,createPrivateKey,createPublicKey,randomUUID} from 'node:crypto';
 import {readFile,lstat,realpath} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';
 import {Pool} from 'pg';
@@ -41,7 +43,7 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
    const value=Reflect.get(target,property);return typeof value==='function'?value.bind(target):value;
   }});
  }} as Pick<Pool,'connect'>;
- let graph:ReturnType<typeof createPrivateMobileServer>|undefined;let disposed=false;
+ let graph:ReturnType<typeof createPrivateMobileServer>|undefined;let secondOwnerSubjects:PrivateMobileSubjectVerifier|undefined;let disposed=false;
  async function fence():Promise<void>{
   const value=await owner.query("SELECT current_database() AS db,session_user AS role,current_setting('server_version_num')::int4 AS version,(SELECT count(*)::int4 FROM public.st233a_fixture_control WHERE task='ST-233a' AND head=$1 AND marker=$2) AS n,(SELECT count(*)::int4 FROM st244_mobile.epoch WHERE id='st244-mobile-private-v1' AND manifest_h=$3 AND active=true) AS epoch",[config.head,config.marker,config.manifestHash]);
   const r=value.rows[0];if(value.rowCount!==1||r?.db!==config.database||r.role!=='st233a_fixture_owner'||r.version<160000||r.version>=170000||r.n!==1||r.epoch!==1)throw new Error('Fixture custody rejected');
@@ -62,10 +64,12 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
    accessTokens:new V2AccessToken({environment:'development',enabled:true,privateKey,publicKey:createPublicKey(privateKey),clock:Date.now}),
    ...(options.onOtpIssued?{onSyntheticOtpIssued:options.onOtpIssued}:{})};
   const next=createPrivateMobileServer(serverConfig);
-  try{await new Promise<void>((ok,no)=>{next.server.once('error',no);next.server.listen(3443,'127.0.0.1',()=>{next.server.removeListener('error',no);ok();});});graph=next;}
+  const fixtureSubjects=new PrivateMobileSubjectVerifier(new DevelopmentEnrollmentPersonVerifier({environment:'development',enabled:true,simulatorHmacKey:keys.simulator,clock:Date.now}),Date.now,config.manifestHash,keys.subject,
+   [keys.otp,keys.rate,keys.idempotency,keys.anonymous,keys.person,keys.simulator,...keys.credentialKeys],keys.person);
+  try{await new Promise<void>((ok,no)=>{next.server.once('error',no);next.server.listen(3443,'127.0.0.1',()=>{next.server.removeListener('error',no);ok();});});graph=next;secondOwnerSubjects=fixtureSubjects;}
   catch(error){next.server.close();throw error;}
  }
- async function stop():Promise<void>{const old=graph;graph=undefined;if(old)await new Promise<void>((ok,no)=>{old.server.close(error=>error?no(error):ok());old.server.closeAllConnections();});}
+ async function stop():Promise<void>{const old=graph;graph=undefined;secondOwnerSubjects=undefined;if(old)await new Promise<void>((ok,no)=>{old.server.close(error=>error?no(error):ok());old.server.closeAllConnections();});}
  async function readbackReceipt():Promise<PrivateMobileReceipt>{
   if(disposed)throw new Error('Fixture unavailable');await fence();const client=await owner.connect();
   try{
@@ -92,7 +96,61 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
    const result=privateMobileRenewalsReceipt(config.marker,rows.rows,candidate);await client.query('COMMIT');return result;
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }
- return Object.freeze({start,stop,restart:async()=>{fault=undefined;await stop();await start();},readbackReceipt,readbackTrackingReceipt,readbackRenewalsReceipt,
+ async function readbackBankReceipt(){
+  if(disposed)throw new Error('Fixture unavailable');await fence();const client=await owner.connect();
+  try{
+   await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+   const counts=await client.query(`SELECT (SELECT count(*)::int4 FROM public.bank_connection) AS connections,
+    (SELECT count(*)::int4 FROM public.bank_account) AS accounts,(SELECT count(*)::int4 FROM public.raw_transaction) AS transactions,
+    (SELECT count(*)::int4 FROM st248_bank.generation) AS generations,(SELECT count(*)::int4 FROM st248_bank.generation WHERE purged_at IS NOT NULL) AS purged,
+    (SELECT count(*)::int4 FROM st248_bank.receipt) AS receipts`);
+   const rows=await client.query('SELECT id::text,account_id::text,identity_id::text,provider_transaction_id,amount_minor::text,currency,transaction_date::text,status::text,raw_description,dedupe_hash FROM public.raw_transaction ORDER BY id');
+   await client.query('COMMIT');return Object.freeze({version:1,...counts.rows[0],transactionDigest:createHash('sha256').update(JSON.stringify(rows.rows)).digest('hex')});
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }
+ /** Fixture RAM only: a fixed second verified development subject; never an HTTP/persona selector or signer. */
+ async function secondOwnerSession(){
+  if(arguments.length!==0||disposed||!graph||!secondOwnerSubjects||process.env.NODE_ENV!=='development')throw new Error('Fixture unavailable');
+  await fence();const current=graph,subjects=secondOwnerSubjects,binding=await subjects.verify('bob');subjects.validate(binding);
+  await current.authority.transaction('subtrack_identity_provisioner',async client=>{
+   subjects.validate(binding);
+   const existing=await client.query('SELECT id::text AS id FROM public.identity WHERE external_id=$1::text',[binding.subjectHmac]);
+   if(existing.rowCount!==existing.rows.length||existing.rows.length>1)throw new Error('Fixture unavailable');
+   if(existing.rows.length===0){
+    if(!binding.givenName||!binding.surname)throw new Error('Fixture unavailable');const id=randomUUID();
+    const saved=await client.query('INSERT INTO public.identity(id,external_id,auth_method,verified_at,given_name,surname,updated_at) VALUES($1::uuid,$2::text,$3::public.auth_method,$4::timestamptz,$5::text,$6::text,pg_catalog.clock_timestamp())',[id,binding.subjectHmac,'BANKID',binding.verifiedAtIso,binding.givenName,binding.surname]);
+    if(saved.command!=='INSERT'||saved.rowCount!==1)throw new Error('Fixture unavailable');
+    await client.query('SET LOCAL ROLE subtrack_runtime');
+    await client.query("SELECT pg_catalog.set_config('app.user_id',$1,true),pg_catalog.set_config('app.current_user_id',$1,true)",[id]);
+    const profile=await client.query('INSERT INTO public.identity_profile(identity_id,display_name,avatar_color,avatar_emoji,language,theme,default_currency,profile_complete) VALUES($1::uuid,NULL,NULL,NULL,$2::text,$3::text,$4::char(3),false)',[id,'en','system','SEK']);
+    if(profile.command!=='INSERT'||profile.rowCount!==1)throw new Error('Fixture unavailable');
+   }
+   subjects.validate(binding);
+  },()=>subjects.validate(binding));
+  if(graph!==current||secondOwnerSubjects!==subjects||disposed)throw new Error('Fixture unavailable');
+  const verified=await current.sessions.verifyLogin('bob',randomUUID());
+  return current.sessions.session(verified.loginProof,randomUUID());
+ }
+ /** Closed owner-specific state/receipt digests remain inside the owned proof; no raw values leave this harness. */
+ async function readbackBankOwnerReceipt(identityId:string){
+  if(arguments.length!==1||disposed||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(identityId))throw new Error('Fixture unavailable');
+  await fence();const client=await owner.connect();
+  try{
+   await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+   const statements=[
+    'SELECT id::text,identity_id::text,provider::text,institution_id,status::text,last_synced_at,revoked_at FROM public.bank_connection WHERE identity_id=$1::uuid ORDER BY id',
+    'SELECT id::text,connection_id::text,provider_account_id,currency FROM public.bank_account WHERE identity_id=$1::uuid ORDER BY id',
+    'SELECT id::text,account_id::text,provider_transaction_id,amount_minor::text,currency,transaction_date::text,status::text,raw_description,dedupe_hash FROM public.raw_transaction WHERE identity_id=$1::uuid ORDER BY id',
+    'SELECT connection_id::text,fixture_version,purged_at FROM st248_bank.generation WHERE identity_id=$1::uuid ORDER BY connection_id',
+    'SELECT key_h,request_h,operation,connection_id::text,status,disposition,account_count,transaction_count,last_sync_at FROM st248_bank.receipt WHERE identity_id=$1::uuid ORDER BY key_h',
+   ];
+   const snapshots=[];
+   for(const sql of statements){const observed=await client.query(sql,[identityId]);if(observed.command!=='SELECT'||observed.rowCount!==observed.rows.length)throw new Error('Fixture unavailable');snapshots.push(observed.rows);}
+   await client.query('COMMIT');return Object.freeze({version:1,connectionCount:snapshots[0]!.length,accountCount:snapshots[1]!.length,transactionCount:snapshots[2]!.length,
+    bankDigest:createHash('sha256').update(JSON.stringify(snapshots.slice(0,4))).digest('hex'),receiptDigest:createHash('sha256').update(JSON.stringify(snapshots[4])).digest('hex')});
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }
+ return Object.freeze({start,stop,restart:async()=>{fault=undefined;await stop();await start();},readbackReceipt,readbackTrackingReceipt,readbackRenewalsReceipt,readbackBankReceipt,secondOwnerSession,readbackBankOwnerReceipt,
   injectCommitFault(kind:'before'|'after',skip=0){if(disposed||fault||!['before','after'].includes(kind)||!Number.isInteger(skip)||skip<0||skip>3)throw new Error('Fixture unavailable');fault={kind,skip};},
   dispose:async()=>{if(disposed)return;fault=undefined;await stop();disposed=true;await Promise.all([actor.end(),owner.end()]);}});
 }

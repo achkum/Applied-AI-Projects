@@ -129,7 +129,7 @@ pin="$(printf "SELECT md5(string_agg(format('%%s:%%s:%%s:%%s:%%s',c.conname,c.co
 for sql in apps/api/prisma/development-auth/{002,003,004,005,006,007,008,009,010,011,012,013,014}-*.sql;do
  { printf "SET st233a.head='%s';SET st233a.marker='%s';SET st233c.constraints='%s';\n" "$head" "$marker" "$pin";cat "$sql"; } | owner
 done
-{ printf "SET st233a.head='%s';SET st233a.marker='%s';SET st244.manifest='%s';\n" "$head" "$marker" "$manifest";cat apps/api/prisma/development-auth/015-private-mobile-session.sql; } | owner
+{ printf "SET st233a.head='%s';SET st233a.marker='%s';SET st244.manifest='%s';\n" "$head" "$marker" "$manifest";cat apps/api/prisma/development-auth/015-private-mobile-session.sql;cat apps/api/prisma/development-auth/016-private-mobile-bank.sql; } | owner
 printf "ALTER ROLE subtrack_dev_auth_login PASSWORD '%s';\n" "$actor_pass" | owner
 [[ "$(printf 'SELECT count(*) FROM public.identity;' | owner)" == 0 ]]
 phase=TLS

@@ -2,6 +2,57 @@
 
 import * as z from 'zod';
 
+export const zPrivateMobileBankRead = z.record(z.string(), z.never());
+
+export const zPrivateMobileBankConnect = z.object({
+    institutionId: z.literal('synthetic-demo-v1')
+}).strict();
+
+export const zPrivateMobileBankSync = z.object({
+    connectionId: z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+}).strict();
+
+export const zPrivateMobileBankDisconnect = z.object({
+    connectionId: z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
+    purge: z.boolean()
+}).strict();
+
+/**
+ * Counts are nonnegative safe integers capped at 1000000. A purged generation must be REVOKED with both counts zero. No money values or private banking rows.
+ *
+ */
+export const zPrivateMobileBankSummary = z.intersection(z.unknown(), z.object({
+    connectionId: z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
+    provider: z.literal('SYNTHETIC'),
+    institutionId: z.literal('synthetic-demo-v1'),
+    status: z.enum(['ACTIVE', 'REVOKED']),
+    disposition: z.enum(['retained', 'purged']),
+    accountCount: z.int().gte(0).lte(1000000),
+    transactionCount: z.int().gte(0).lte(1000000),
+    lastSyncAt: z.iso.datetime().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$/).nullable()
+}).strict());
+
+/**
+ * All retained generations, at most one ACTIVE, unique connection UUIDs. Purged generations excluded; empty is truthful.
+ */
+export const zPrivateMobileBankReadResult = z.object({
+    connections: z.array(zPrivateMobileBankSummary.and(z.object({
+        disposition: z.literal('retained').optional()
+    }))).max(50)
+}).strict();
+
+/**
+ * Immutable receipt snapshot. Connect/sync require ACTIVE; disconnect requires REVOKED. Fresh read gives current truth after replay.
+ */
+export const zPrivateMobileBankMutationResult = z.intersection(z.unknown(), z.object({
+    operation: z.enum([
+        'connect',
+        'sync',
+        'disconnect'
+    ]),
+    connection: zPrivateMobileBankSummary
+}).strict());
+
 export const zPrivateMobileStatusRequest = z.object({
     id: z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
     status: z.enum([
@@ -66,6 +117,8 @@ export const zPrivateMobileError = z.object({
         'MANUAL_EDIT_IDEMPOTENCY_CONFLICT',
         'MANUAL_EDIT_CONFLICT',
         'LIFECYCLE_CONFLICT',
+        'BANK_STATE_CONFLICT',
+        'BANK_IDEMPOTENCY_CONFLICT',
         'INTERNAL_ERROR'
     ])
 }).strict();
@@ -1809,3 +1862,43 @@ export const zChangePrivateMobileSubscriptionStatusBody = zPrivateMobileStatusRe
  * Known committed private mobile result.
  */
 export const zChangePrivateMobileSubscriptionStatusResponse = zSubscriptionLifecycleResult;
+
+export const zReadPrivateMobileSyntheticBankBody = zPrivateMobileBankRead;
+
+/**
+ * Known current read or immutable committed mutation result.
+ */
+export const zReadPrivateMobileSyntheticBankResponse = zPrivateMobileBankReadResult;
+
+export const zConnectPrivateMobileSyntheticBankBody = zPrivateMobileBankConnect;
+
+export const zConnectPrivateMobileSyntheticBankHeaders = z.object({
+    'Idempotency-Key': z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+});
+
+/**
+ * Known current read or immutable committed mutation result.
+ */
+export const zConnectPrivateMobileSyntheticBankResponse = zPrivateMobileBankMutationResult;
+
+export const zSyncPrivateMobileSyntheticBankBody = zPrivateMobileBankSync;
+
+export const zSyncPrivateMobileSyntheticBankHeaders = z.object({
+    'Idempotency-Key': z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+});
+
+/**
+ * Known current read or immutable committed mutation result.
+ */
+export const zSyncPrivateMobileSyntheticBankResponse = zPrivateMobileBankMutationResult;
+
+export const zDisconnectPrivateMobileSyntheticBankBody = zPrivateMobileBankDisconnect;
+
+export const zDisconnectPrivateMobileSyntheticBankHeaders = z.object({
+    'Idempotency-Key': z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+});
+
+/**
+ * Known current read or immutable committed mutation result.
+ */
+export const zDisconnectPrivateMobileSyntheticBankResponse = zPrivateMobileBankMutationResult;

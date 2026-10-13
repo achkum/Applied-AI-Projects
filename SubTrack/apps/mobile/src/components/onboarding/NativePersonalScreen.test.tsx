@@ -38,7 +38,9 @@ it('reads current private rows only after fresh verification and clears them imm
   await waitFor(() => expect(screen.getByRole('button', { name: copy.nativePersonal.verify }).props.accessibilityState.disabled).toBe(false));
   expect(screen.queryByText(row.customName)).toBeNull(); fireEvent.press(screen.getByRole('button', { name: copy.nativePersonal.verify }));
   await screen.findByText(row.customName); expect(api.readNativeProfile).toHaveBeenCalledWith(credentials.accessToken, expect.any(AbortSignal));
+  fireEvent.press(screen.getByRole('button', { name: copy.nativeBank.open })); expect(mockPush).toHaveBeenCalledWith('/personal-bank');
   fireEvent.press(screen.getByRole('button', { name: copy.nativePersonal.logout })); expect(screen.queryByText(row.customName)).toBeNull();
+  expect(screen.queryByRole('button', { name: copy.nativeBank.open })).toBeNull();
   await screen.findByText(copy.nativePersonal.logoutLocal);
 });
 it('uses exact localized Money input and displays authoritative reread rather than the submitted draft', async () => {
