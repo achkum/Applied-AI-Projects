@@ -82,6 +82,7 @@ let partialNavigation = 'NONE', partialCompletion = 'NONE', partialRead = 'NONE'
 let partialCompletionCount = 'ZERO', partialRoute = 'NONE';
 let negativeCase = 'NONE', negativeStatus = 'NONE', negativeNetwork = 'NONE';
 let loginDiagnostic = null;
+let aliceSessionDiagnostic = 'NONE';
 const loginDiagnosticPaths = Object.freeze({
   '/v2/auth/browser-nonce': 'nonce',
   '/v2/auth/login/simulator/verify': 'verify',
@@ -436,7 +437,14 @@ try {
             assert.equal((await verified.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie').length, 0);
             await route.fulfill({ response: verified });
           } else if (routePattern.includes('/auth/session')) {
-            await route.continue();
+            try {
+              const created = await route.fetch({ timeout: 30000 });
+              aliceSessionDiagnostic = [201, 409, 400, 401, 403, 500].includes(created.status()) ? String(created.status()) : 'OTHER';
+              await route.fulfill({ response: created });
+            } catch (error) {
+              if (aliceSessionDiagnostic === 'NONE') aliceSessionDiagnostic = error instanceof Error && error.name === 'TimeoutError' ? 'TIMEOUT' : 'OTHER';
+              try { await route.abort('failed'); } catch { /* Keep the closed browser failure. */ }
+            }
           } else if (routePattern.includes('/profile/read')) {
             const read = await route.fetch();
             assert.equal(read.status(), 200);
@@ -893,6 +901,7 @@ try {
   }
   if (phase === 'AUTHORITY_NEGATIVES') process.stderr.write(`ST237_NEGATIVE_GATE case=${negativeCase} status=${negativeStatus} network=${negativeNetwork}\n`);
   if (browserCase === 'login') {
+    if (aliceSessionDiagnostic !== 'NONE') process.stderr.write(`ST239_ALICE_SESSION_DIAGNOSTIC status=${aliceSessionDiagnostic}\n`);
     const diagnostic = loginDiagnostic?.active ? loginDiagnostic :
       { nonce: 'NONE', verify: 'NONE', session: 'NONE', profile: 'NONE', mode: 'NONE' };
     process.stderr.write(`ST239_LOGIN_AUTH_DIAGNOSTIC nonce=${diagnostic.nonce} verify=${diagnostic.verify} session=${diagnostic.session} profile=${diagnostic.profile} mode=${diagnostic.mode}\n`);
