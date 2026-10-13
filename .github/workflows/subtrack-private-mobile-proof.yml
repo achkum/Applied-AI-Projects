@@ -37,6 +37,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: st244-private-mobile-postgresql-receipt
+          name: st244-private-mobile-postgresql-receipt-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/st244-private-mobile-receipt.json
           if-no-files-found: ignore

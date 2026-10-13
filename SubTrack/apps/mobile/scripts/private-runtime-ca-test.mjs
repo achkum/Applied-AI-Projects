@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
+import { X509Certificate } from 'node:crypto';
 const require = createRequire(import.meta.url);
 const plugin = require('../plugins/private-runtime-ca.cjs');
 const root = mkdtempSync(join(tmpdir(), 'subtrack-ca-test-'));
@@ -32,6 +33,10 @@ try {
   assert.throws(() => plugin(config), /absolute CA certificate path/);
   const key = join(root, 'key.pem');
   const cert = join(root, 'ca.pem');
+  const opensslConfig = join(root, 'ca.cnf');
+  // Isolate from platform OpenSSL defaults: CA:TRUE alone can inherit key usage
+  // that excludes signing, causing Node's strict X509 CA predicate to reject it.
+  writeFileSync(opensslConfig, '[req]\ndistinguished_name=dn\nx509_extensions=proof_ca\nprompt=no\n[dn]\nCN=SubTrack ephemeral synthetic proof CA\n[proof_ca]\nbasicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\n', { mode: 0o600 });
   execFileSync(
     'openssl',
     [
@@ -42,10 +47,10 @@ try {
       '-nodes',
       '-days',
       '1',
-      '-subj',
-      '/CN=SubTrack ephemeral synthetic proof CA',
-      '-addext',
-      'basicConstraints=critical,CA:TRUE',
+      '-config',
+      opensslConfig,
+      '-extensions',
+      'proof_ca',
       '-keyout',
       key,
       '-out',
@@ -53,6 +58,7 @@ try {
     ],
     { stdio: 'ignore' },
   );
+  assert.equal(new X509Certificate(readFileSync(cert)).ca, true, 'Explicit signing CA extensions must qualify on every runner');
   const android = join(root, 'android');
   mkdirSync(join(android, 'app/src/main'), { recursive: true });
   writeFileSync(

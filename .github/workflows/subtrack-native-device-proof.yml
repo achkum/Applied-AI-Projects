@@ -62,8 +62,14 @@ jobs:
         if: matrix.platform == 'android'
         run: |
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
-          sdkmanager 'system-images;android-34;google_apis;x86_64' 'platforms;android-34' 'build-tools;34.0.0'
-          printf 'no\n' | avdmanager create avd --name subtrack-proof --package 'system-images;android-34;google_apis;x86_64' --device pixel_6
+          proof_sdk_bin="${ANDROID_HOME:?}/cmdline-tools/latest/bin"
+          test -x "$proof_sdk_bin/sdkmanager"
+          test -x "$proof_sdk_bin/avdmanager"
+          test -x "$ANDROID_HOME/platform-tools/adb"
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          printf '%s\n' "$ANDROID_HOME/platform-tools" "$ANDROID_HOME/emulator" >> "$GITHUB_PATH"
+          "$proof_sdk_bin/sdkmanager" 'system-images;android-34;google_apis;x86_64' 'platforms;android-34' 'build-tools;34.0.0'
+          printf 'no\n' | "$proof_sdk_bin/avdmanager" create avd --name subtrack-proof --package 'system-images;android-34;google_apis;x86_64' --device pixel_6
           mkdir -p "$RUNNER_TEMP/subtrack-native-proof/private"
           "$ANDROID_HOME/emulator/emulator" -avd subtrack-proof -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > "$RUNNER_TEMP/subtrack-native-proof/private/emulator.log" 2>&1 &
           adb wait-for-device

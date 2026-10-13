@@ -1,4 +1,5 @@
 import React from 'react';
+import { Pressable, ScrollView, Text, TextInput } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { NativePersonalScreen } from './NativePersonalScreen';
 import { NativeSessionProvider } from '@/state/NativeSession';
@@ -18,6 +19,13 @@ const profile = { displayName: 'Synthetic', avatarColourToken: null, avatarEmoji
 const row = { id: credentials.sessionId, revision: '1', source: 'MANUAL' as const, visibility: 'owner' as const, customName: 'Current database name', merchantId: null, merchantName: null,
   categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY' as const, status: 'ACTIVE' as const, expectedAmountMinor: '9007199254740993', currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
 const copy = catalogs.en.onboarding;
+// Cold native host/Babel initialization took 4429 ms in the first workflow.
+// Prepare only generic hosts; every behavioral test retains its 5000 ms deadline.
+beforeAll(() => {
+  const fixture = render(<ScrollView><Text>host ready</Text><Pressable><Text>host button</Text></Pressable><TextInput /></ScrollView>);
+  expect(fixture.getByText('host ready')).toBeTruthy();
+  fixture.unmount();
+}, 60_000);
 beforeEach(() => { jest.resetAllMocks(); mockSetLocale.mockResolvedValue(undefined); mockSetMode.mockResolvedValue(undefined); jest.mocked(api.verifiedNativeLogin).mockResolvedValue(credentials);
   jest.mocked(api.readNativeProfile).mockResolvedValue(profile); jest.mocked(api.readNativeMode).mockResolvedValue({ mode: 'just-me' }); });
 function mount() { const store: NativeBundleStore = { read: jest.fn().mockResolvedValue(null), write: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) };
