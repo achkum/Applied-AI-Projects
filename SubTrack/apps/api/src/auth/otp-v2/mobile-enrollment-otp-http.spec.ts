@@ -8,6 +8,7 @@ import { InMemoryOtpChallengeRepository, OtpProofProducer } from '../proofs-v2/o
 import { InMemoryProofRepository, ProofStore } from '../proofs-v2/proof-store.js';
 import { OtpRateLimiter } from './otp-http.js';
 import { DevelopmentMobileEnrollmentOtpHttpService, copySeparatedBindingKey, type MobileEnrollmentOtpHttpConfig } from './mobile-enrollment-otp-http.js';
+import {PrivateMobileEnrollmentAdmission} from '../mobile-private/enrollment-admission.js';
 
 const NOW = 1_800_000_000_000;
 const TTL = 300_000;
@@ -29,7 +30,7 @@ function response(throwOnSend = false): Response & { statusCode: number; payload
     send(value: unknown) { if (throwOnSend) throw new Error('broken response'); this.payload = value; this.headersSent = true; return this; } };
   return result as unknown as Response & typeof result;
 }
-function fixture(capacity = 10_000) {
+function fixture(capacity = 10_000, withAdmission=false) {
   let now = NOW;
   const clock = () => now;
   const keys = { anonymousBindingKey: new Uint8Array(32).fill(1), otpKey: new Uint8Array(32).fill(2),
@@ -41,7 +42,8 @@ function fixture(capacity = 10_000) {
   const proofStore = new ProofStore(new InMemoryProofRepository(), clock);
   const producer = new OtpProofProducer(keys.otpKey, new InMemoryOtpChallengeRepository(), proofStore, clock);
   const rates = new OtpRateLimiter(keys.rateKey, clock);
-  const service = new DevelopmentMobileEnrollmentOtpHttpService(config, { challenges, idempotency, producer, rates });
+  const admission=withAdmission?new PrivateMobileEnrollmentAdmission(proofStore,clock,capacity):undefined;
+  const service = new DevelopmentMobileEnrollmentOtpHttpService(config, { challenges, idempotency, producer, rates,...(admission?{admission}:{}) });
   const start = async (body = startBody(), key?: string, broken = false) => {
     const res = response(broken); await service.start(body, request('/v2/auth/otp/start', body, key), res); return res;
   };
@@ -49,12 +51,52 @@ function fixture(capacity = 10_000) {
     const body = { challengeId, code, transport: 'mobile' };
     const res = response(); await service.verify(body, request('/v2/auth/otp/verify', body, key), res); return res;
   };
-  return { config, challenges, idempotency, proofStore, producer, rates, service, start, verify,
+  return { config, challenges, idempotency, proofStore, producer, rates, service, admission,start, verify,
     setNow(value: number) { now = value; } };
 }
 function accepted(value: unknown): { challengeId: string } { return value as { challengeId: string }; }
 
 describe('standalone mobile enrollment OTP transitions', () => {
+  it('prepares producer admission before retirement and publishes only after completed settlement',async()=>{
+    const f=fixture(10_000,true);const id=accepted((await f.start()).payload).challengeId;const metadata=f.challenges.lookup(id)!;
+    const events:string[]=[];
+    for(const name of ['reserve','prepare','publish'] as const){const method=f.admission![name].bind(f.admission!);vi.spyOn(f.admission!,name).mockImplementation((...args:unknown[])=>{events.push(name);return Reflect.apply(method,f.admission,args);});}
+    const settle=f.idempotency.settle.bind(f.idempotency);vi.spyOn(f.idempotency,'settle').mockImplementation((...args)=>{events.push('settle');return settle(...args);});
+    const retire=f.challenges.retire.bind(f.challenges);vi.spyOn(f.challenges,'retire').mockImplementation(claim=>{events.push('retire');return retire(claim);});
+    const result=await f.verify(id,f.challenges.peekCodeForTest(id)!);expect(result.statusCode).toBe(200);
+    expect(events).toEqual(['reserve','prepare','settle','retire','publish']);
+    const proof=(result.payload as {proof:string}).proof;expect(await f.admission!.consume(proof)).toEqual(metadata);
+    await expect(f.admission!.consume(proof)).rejects.toThrow();expect(await f.proofStore.consumeLogin(proof,{transport:'mobile'})).toEqual({valid:false});
+  });
+  it.each(['prepare','publish'] as const)('admission %s fault burns key, retires metadata and discloses no proof',async stage=>{
+    const f=fixture(10_000,true);const id=accepted((await f.start()).payload).challengeId;const code=f.challenges.peekCodeForTest(id)!;
+    vi.spyOn(f.admission!,stage).mockImplementationOnce(()=>{throw new Error('private-fault');});
+    const result=await f.verify(id,code,'st244-admission-fault-key');expect(result.statusCode).toBe(500);expect(result.payload).not.toHaveProperty('proof');expect(f.challenges.lookup(id)).toBeNull();
+    expect((await f.verify(id,code,'st244-admission-fault-key')).statusCode).toBe(409);
+  });
+  it('settlement failure abandons prepared admission; incorrect code abandons slot but retains metadata',async()=>{
+    const f=fixture(10_000,true);const id=accepted((await f.start()).payload).challengeId;const code=f.challenges.peekCodeForTest(id)!;
+    const abandoned=vi.spyOn(f.admission!,'abandon');const publish=vi.spyOn(f.admission!,'publish');
+    expect((await f.verify(id,code==='000000'?'999999':'000000')).statusCode).toBe(401);expect(abandoned).toHaveBeenCalledOnce();expect(f.challenges.lookup(id)).not.toBeNull();
+    vi.spyOn(f.idempotency,'settle').mockImplementationOnce(()=>{throw new Error('settlement unavailable');});
+    const result=await f.verify(id,code);expect(result.statusCode).toBe(500);expect(publish).not.toHaveBeenCalled();expect(abandoned).toHaveBeenCalledTimes(2);expect(f.challenges.lookup(id)).toBeNull();
+  });
+  it('admission capacity/reservation failure occurs before proof mutation and burns request without proof',async()=>{
+    const f=fixture(10_000,true);const id=accepted((await f.start()).payload).challengeId;const code=f.challenges.peekCodeForTest(id)!;
+    const mutate=vi.spyOn(f.producer,'verifyMobileEnrollment');vi.spyOn(f.admission!,'reserve').mockImplementationOnce(()=>{throw new Error('capacity');});
+    const result=await f.verify(id,code);expect(result.statusCode).toBe(500);expect(result.payload).not.toHaveProperty('proof');expect(mutate).not.toHaveBeenCalled();expect(f.challenges.lookup(id)).toBeNull();
+  });
+  it('terminal wrong code retires metadata and abandons its unpublished admission',async()=>{
+    const f=fixture(10_000,true);const id=accepted((await f.start()).payload).challengeId;const code=f.challenges.peekCodeForTest(id)!;const wrong=code==='000000'?'999999':'000000';
+    const abandoned=vi.spyOn(f.admission!,'abandon');const publish=vi.spyOn(f.admission!,'publish');
+    for(let n=0;n<5;n++)expect((await f.verify(id,wrong)).statusCode).toBe(401);
+    expect(abandoned).toHaveBeenCalledTimes(5);expect(publish).not.toHaveBeenCalled();expect(f.challenges.lookup(id)).toBeNull();
+  });
+  it('failed unpublished-admission cleanup cannot disclose proof or reuse retired challenge',async()=>{
+    const f=fixture(10_000,true);const id=accepted((await f.start()).payload).challengeId;const code=f.challenges.peekCodeForTest(id)!;
+    vi.spyOn(f.admission!,'prepare').mockImplementationOnce(()=>{throw new Error('prepare');});vi.spyOn(f.admission!,'abandon').mockImplementationOnce(()=>{throw new Error('cleanup');});
+    const result=await f.verify(id,code);expect(result.statusCode).toBe(500);expect(result.payload).not.toHaveProperty('proof');expect(f.challenges.lookup(id)).toBeNull();expect((await f.verify(id,code)).statusCode).toBe(409);
+  });
   it('requires a copied, distinct binding key and development opt-in', () => {
     const f = fixture(); const copy = copySeparatedBindingKey(f.config);
     f.config.anonymousBindingKey.fill(8);

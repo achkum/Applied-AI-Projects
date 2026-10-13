@@ -4,6 +4,34 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type PrivateMobileEnrollmentComplete = {
+    transport: 'mobile';
+    enrollmentProof: string;
+    locale?: 'sv' | 'en';
+};
+
+export type PrivateMobileLoginVerify = {
+    transport: 'mobile';
+};
+
+export type PrivateMobileLoginVerified = {
+    transport: 'mobile';
+    loginProof: string;
+    status: 'verified';
+};
+
+export type PrivateMobileSessionRequest = {
+    transport: 'mobile';
+    loginProof: string;
+};
+
+export type PrivateMobileError = {
+    type: 'about:blank';
+    title: 'Bad Request' | 'Unauthorized' | 'Forbidden' | 'Not Found' | 'Conflict' | 'Too Many Requests' | 'Internal Server Error';
+    status: 400 | 401 | 403 | 404 | 409 | 429 | 500;
+    code: 'INVALID_MOBILE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MOBILE_REQUEST_REJECTED' | 'MOBILE_UNAVAILABLE' | 'AUTH_RESTART_REQUIRED' | 'ENROLLMENT_LOGIN_REQUIRED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'INTERNAL_ERROR';
+};
+
 /**
  * Exact empty JSON object; current session CSRF remains required.
  */
@@ -2680,3 +2708,563 @@ export type DeleteV2MeResponses = {
 };
 
 export type DeleteV2MeResponse = DeleteV2MeResponses[keyof DeleteV2MeResponses];
+
+export type CompletePrivateMobileEnrollmentData = {
+    body: PrivateMobileEnrollmentComplete;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/enrollment/complete';
+};
+
+export type CompletePrivateMobileEnrollmentErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type CompletePrivateMobileEnrollmentError = CompletePrivateMobileEnrollmentErrors[keyof CompletePrivateMobileEnrollmentErrors];
+
+export type CompletePrivateMobileEnrollmentResponses = {
+    /**
+     * Known committed private mobile result.
+     */
+    201: MobileSessionResponse;
+};
+
+export type CompletePrivateMobileEnrollmentResponse = CompletePrivateMobileEnrollmentResponses[keyof CompletePrivateMobileEnrollmentResponses];
+
+export type VerifyPrivateMobileLoginData = {
+    body: PrivateMobileLoginVerify;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/login/verify';
+};
+
+export type VerifyPrivateMobileLoginErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type VerifyPrivateMobileLoginError = VerifyPrivateMobileLoginErrors[keyof VerifyPrivateMobileLoginErrors];
+
+export type VerifyPrivateMobileLoginResponses = {
+    /**
+     * Known committed private mobile result.
+     */
+    200: PrivateMobileLoginVerified;
+};
+
+export type VerifyPrivateMobileLoginResponse = VerifyPrivateMobileLoginResponses[keyof VerifyPrivateMobileLoginResponses];
+
+export type CreatePrivateMobileSessionData = {
+    body: PrivateMobileSessionRequest;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/session';
+};
+
+export type CreatePrivateMobileSessionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type CreatePrivateMobileSessionError = CreatePrivateMobileSessionErrors[keyof CreatePrivateMobileSessionErrors];
+
+export type CreatePrivateMobileSessionResponses = {
+    /**
+     * Known committed private mobile result.
+     */
+    201: MobileSessionResponse;
+};
+
+export type CreatePrivateMobileSessionResponse = CreatePrivateMobileSessionResponses[keyof CreatePrivateMobileSessionResponses];
+
+export type RefreshPrivateMobileSessionData = {
+    body?: never;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/refresh';
+};
+
+export type RefreshPrivateMobileSessionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type RefreshPrivateMobileSessionError = RefreshPrivateMobileSessionErrors[keyof RefreshPrivateMobileSessionErrors];
+
+export type RefreshPrivateMobileSessionResponses = {
+    /**
+     * Known committed private mobile result.
+     */
+    200: MobileRefreshResponse;
+};
+
+export type RefreshPrivateMobileSessionResponse = RefreshPrivateMobileSessionResponses[keyof RefreshPrivateMobileSessionResponses];
+
+export type LogoutPrivateMobileSessionData = {
+    body: {
+        [key: string]: never;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/logout';
+};
+
+export type LogoutPrivateMobileSessionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type LogoutPrivateMobileSessionError = LogoutPrivateMobileSessionErrors[keyof LogoutPrivateMobileSessionErrors];
+
+export type LogoutPrivateMobileSessionResponses = {
+    /**
+     * Known committed private mobile result.
+     */
+    204: void;
+};
+
+export type LogoutPrivateMobileSessionResponse = LogoutPrivateMobileSessionResponses[keyof LogoutPrivateMobileSessionResponses];
+
+export type ReadPrivateMobileProfileData = {
+    body: {
+        [key: string]: never;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/profile/read';
+};
+
+export type ReadPrivateMobileProfileErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ReadPrivateMobileProfileError = ReadPrivateMobileProfileErrors[keyof ReadPrivateMobileProfileErrors];
+
+export type ReadPrivateMobileProfileResponses = {
+    /**
+     * Known committed private mobile result.
+     */
+    200: ProfileView;
+};
+
+export type ReadPrivateMobileProfileResponse = ReadPrivateMobileProfileResponses[keyof ReadPrivateMobileProfileResponses];
+
+export type SavePrivateMobileProfileData = {
+    body: ProfilePatch;
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/profile';
+};
+
+export type SavePrivateMobileProfileErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type SavePrivateMobileProfileError = SavePrivateMobileProfileErrors[keyof SavePrivateMobileProfileErrors];
+
+export type SavePrivateMobileProfileResponses = {
+    /**
+     * Known committed private mobile result.
+     */
+    200: ProfileView;
+};
+
+export type SavePrivateMobileProfileResponse = SavePrivateMobileProfileResponses[keyof SavePrivateMobileProfileResponses];
+
+export type ReadPrivateMobileModeData = {
+    body: {
+        [key: string]: never;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/mode/read';
+};
+
+export type ReadPrivateMobileModeErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ReadPrivateMobileModeError = ReadPrivateMobileModeErrors[keyof ReadPrivateMobileModeErrors];
+
+export type ReadPrivateMobileModeResponses = {
+    /**
+     * Known committed private mobile result.
+     */
+    200: ModeView;
+};
+
+export type ReadPrivateMobileModeResponse = ReadPrivateMobileModeResponses[keyof ReadPrivateMobileModeResponses];
+
+export type ChoosePrivateMobileModeData = {
+    body: JustMeChoice;
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/mode';
+};
+
+export type ChoosePrivateMobileModeErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ChoosePrivateMobileModeError = ChoosePrivateMobileModeErrors[keyof ChoosePrivateMobileModeErrors];
+
+export type ChoosePrivateMobileModeResponses = {
+    /**
+     * Known committed private mobile result.
+     */
+    200: ModeView;
+};
+
+export type ChoosePrivateMobileModeResponse = ChoosePrivateMobileModeResponses[keyof ChoosePrivateMobileModeResponses];
+
+export type ReadPrivateMobileOwnerSubscriptionsData = {
+    body: PrivateOwnerPageRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/subscriptions/owner/read';
+};
+
+export type ReadPrivateMobileOwnerSubscriptionsErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ReadPrivateMobileOwnerSubscriptionsError = ReadPrivateMobileOwnerSubscriptionsErrors[keyof ReadPrivateMobileOwnerSubscriptionsErrors];
+
+export type ReadPrivateMobileOwnerSubscriptionsResponses = {
+    /**
+     * Known committed private mobile result.
+     */
+    200: PrivateOwnerPage;
+};
+
+export type ReadPrivateMobileOwnerSubscriptionsResponse = ReadPrivateMobileOwnerSubscriptionsResponses[keyof ReadPrivateMobileOwnerSubscriptionsResponses];
+
+export type CreatePrivateMobileManualSubscriptionData = {
+    body: PrivateManualCreate;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/subscriptions/owner/manual';
+};
+
+export type CreatePrivateMobileManualSubscriptionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type CreatePrivateMobileManualSubscriptionError = CreatePrivateMobileManualSubscriptionErrors[keyof CreatePrivateMobileManualSubscriptionErrors];
+
+export type CreatePrivateMobileManualSubscriptionResponses = {
+    /**
+     * Known committed private mobile result.
+     */
+    201: PrivateManualCreated;
+};
+
+export type CreatePrivateMobileManualSubscriptionResponse = CreatePrivateMobileManualSubscriptionResponses[keyof CreatePrivateMobileManualSubscriptionResponses];

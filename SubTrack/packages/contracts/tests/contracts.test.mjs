@@ -157,6 +157,7 @@ test('production contract preserves approved operational and privacy routes', ()
       ['POST /v2/auth/login/simulator/verify', 'unavailable-default'],
       ['POST /v2/me/mode', 'unavailable-default'],
       ['POST /v2/me/mode/read', 'unavailable-default'],
+      ...['enrollment/complete','login/verify','logout','mode','mode/read','profile','profile/read','refresh','session','subscriptions/owner/manual','subscriptions/owner/read'].map(path=>[`POST /v2/private/mobile/${path}`,'unavailable-default']),
       ['POST /v2/subscriptions/{id}/read', 'unavailable-default'],
       ['POST /v2/subscriptions/owner/manual', 'unavailable-default'],
       ['POST /v2/subscriptions/owner/manual/{id}/edit', 'unavailable-default'],

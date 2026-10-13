@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useI18n } from '@/context/I18nContext';
@@ -6,6 +6,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { getColorByTheme } from '@/utils/colors';
 import { IdentifierEntry } from './IdentifierEntry';
 import { useEnrollment } from '@/state/EnrollmentFlow';
+import { useNativeSession } from '@/state/NativeSession';
 
 export type RegistrationMode = 'register' | 'login';
 
@@ -18,6 +19,8 @@ export function RegistrationScreen({
   const { t } = useI18n();
   const { theme, isDark } = useTheme();
   const { flow, start, reset } = useEnrollment();
+  const session = useNativeSession(); const generation = useRef(0); const pending = useRef(false);
+  const [loginError, setLoginError] = useState(false);
   const color = (key: string) => getColorByTheme(theme, isDark, key);
 
   useEffect(() => {
@@ -26,6 +29,7 @@ export function RegistrationScreen({
     } else if (flow.phase === 'otp') router.replace('/register-otp');
     else if (flow.phase === 'bankid') router.replace('/register-bankid');
   }, [flow.phase, mode, router]);
+  useEffect(() => () => { generation.current++; if (pending.current) void session.logout().catch(() => undefined); }, []);
 
   return (
     <ScrollView
@@ -36,6 +40,7 @@ export function RegistrationScreen({
         accessibilityRole="button"
         accessibilityLabel={t('onboarding.registration.backLabel')}
         onPress={() => {
+          generation.current++; pending.current = false; if (mode === 'login') void session.logout().catch(() => undefined);
           reset();
           router.back();
         }}
@@ -88,8 +93,17 @@ export function RegistrationScreen({
               fontFamily: theme.typography.fontFamily.ui,
             }}
           >
-            {t('onboarding.registration.loginUnavailable')}
+            {t('onboarding.nativePersonal.demo')}
           </Text>
+          <Text style={{ color: color('ink.secondary') }}>{t('onboarding.nativePersonal.restart')}</Text>
+          {loginError ? <Text accessibilityRole="alert" style={{ color: color('ink.primary') }}>{t('onboarding.nativePersonal.unavailable')}</Text> : null}
+          <Pressable accessibilityRole="button" disabled={session.phase === 'busy'} style={styles.back}
+            onPress={async () => {
+              if (pending.current) return;
+              const ticket = ++generation.current; pending.current = true; setLoginError(false);
+              try { await session.login(); if (ticket !== generation.current) return; pending.current = false; router.replace('/personal'); }
+              catch { if (ticket === generation.current) { pending.current = false; setLoginError(true); } }
+            }}><Text style={{ color: color('ink.primary') }}>{t('onboarding.nativePersonal.verify')}</Text></Pressable>
         </View>
       ) : (
         <>

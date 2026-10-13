@@ -1,0 +1,24 @@
+# ST244 conductor checkpoint
+
+Android/iOS are the priority; web application work remains deferred and preserved. Accepted main is `70b3d2c0e1013febf1fd273874916f6b20a7d17b` (PR287). Active source is in `st/native-personal-subscriptions`, preparation commit `87d26782fc46bceee4f1a9e6cd145506db5a5dcc`, with uncommitted integrated implementation. There is no open feature PR or actual native qualification run yet.
+
+## Current executable work
+
+- Core backend: selector-free verifier, bodyless refresh, operation-specific headers, canonical subject derivation, strict cursor, narrow SQL015 privileges, trusted identity fields, final refresh checks and duplicate reservation409 corrections are written. Latest focused145 tests, API typecheck, contracts36 plus generated fixture and affected lint pass. Admission52, binding69, cursor33 and owner business85 branches are fully covered; authority/session/HTTP/server coverage remains incomplete. Core author is adding meaningful orchestration negatives. Final independent security delta review remains required.
+- Native UI/session: language/theme application and wire mismatch corrections passed focused tests. Logout acknowledgement delta passed8 screen tests/typecheck and independent review. The reviewer found the related login rejection and shared awaited storage cleanup class; class-level correction and deferred interleaving tests are now written, unvalidated. Root owns the next focused Core/screen coverage, typecheck and lint run after backend releases the heavy slot. New Core hash `488d5404d941db5b85b1480ea10d939c1f16f672aee05513d3977dd17c2990b0`, screen `bce4d724e51960ed70fe2e46e8d2cd495140e00528b7a2dfd5692788535e810c`. Exact independent client delta review follows; prior Core coverage does not qualify this new delta.
+- Runtime: hosted Android/Linux and iOS/macOS14/Xcode15.4 workflow, pinned tools, compile/install scripts, debug-only CA plugin, loopback Metro listener, natural device flows and sanitized driver are written. Source lint/syntax/CA/labels and actual Node loopback-listener checks pass. Independent runtime/platform/security source review is active. No installed binary or device result is claimed.
+- Fixture: backend stream relinquished its previously unwritten launcher to a separate author. `private-mobile-owned-fixture.ts`, direct-TLS proof and shell provisioning/qualifier now exist; source syntax/lint/API typecheck pass. SQL isolation proof and backend workflow are being finished. Core and fixture authors have disjoint rosters; runtime consumes their frozen harness and receipt ABI. No actual PostgreSQL run is claimed.
+
+## Final source update
+
+All three independent source gates now approve actual qualification: security/platform, native client/design and QA. Final hashes and checks are in `source-review.md`. The login-proof rollback replay gap is corrected with a separately known-committed proof admission before session mutation;47 tests cover103/103 session branches. Actual PG proof rejects old-proof/new-key immediately and after API restart at the fourth-COMMIT fault. Contact role, key manifest, CA constraints, driver development mode, PR-head checkout and truthful API-restart receipt labels are corrected.
+
+Root executed the native class-level tests: Core59 tests/62 branches/all metrics passed. One genuine-error screen regression failed, implementation corrected, unchanged screen tests10 passed, mobile typecheck and scoped lint passed; final client delta independently approved. Initial implementation details above are historical checkpoints, not remaining source blockers.
+
+## Coordination and next gate
+
+Authors and source reviewers have handed back final snapshots. No local heavy job is active. Root is preparing the coherent feature PR and hosted actual qualification; independent reviewers will consume the same-head run evidence and installed screenshots.
+
+Next: create one coherent feature PR and run actual PG16 plus compiled/installed Android/iOS verification → profile → Just me → Add → API/app restart → fresh verified login → same persisted subscription. Qualify logout denial and refresh reuse/revocation through PG, storage failures through unit/mounted checks, and installed normal behavior/visuals at the same head. Installed fault scenarios are not claimed. All applicable CI and required reviews remain blocking for acceptance/merge. Do not stage coverage, generated native projects, credentials, OTPs, binaries or private logs.
+
+No user action is required. First native build attempts are a planning estimate of two to four further active hours, low confidence until the older Expo51 toolchain and hosted builds execute. This estimate covers first attempts, not acceptance of the complete app or backlog. Full native completion has no defensible date yet. Hourly automation remains ACTIVE with the same schedule, mobile-first scope and no release/spending/accounts/real delivery authorization.

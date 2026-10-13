@@ -1,0 +1,15 @@
+appId: se.subtrack.app
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: ${MAESTRO_CREATE_ACCOUNT}
+    timeout: 120000
+- tapOn: ${MAESTRO_CREATE_ACCOUNT}
+- tapOn: ${MAESTRO_EMAIL_LABEL}
+- inputText: native-proof@example.test
+- hideKeyboard
+- tapOn: ${MAESTRO_CONTINUE}
+- extendedWaitUntil:
+    visible: ${MAESTRO_OTP_LABEL}
+    timeout: 30000

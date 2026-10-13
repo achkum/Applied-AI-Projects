@@ -8,17 +8,19 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#F7F4EE"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTabletMode": true,
-      "bundleIdentifier": "se.subtrack.app"
+      "bundleIdentifier": "se.subtrack.app",
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#F7F4EE"
       },
       "package": "se.subtrack.app"
     },
@@ -27,7 +29,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "./plugins/private-runtime-ca.cjs"
     ],
     "scheme": "subtrack"
   }
