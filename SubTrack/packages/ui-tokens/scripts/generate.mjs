@@ -1,9 +1,14 @@
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const prettierCli = createRequire(import.meta.url).resolve(
+  'prettier/bin/prettier.cjs',
+);
 const tokens = JSON.parse(
   await readFile(path.join(root, 'src/tokens.json'), 'utf8'),
 );
@@ -81,14 +86,14 @@ const theme = {
   ),
 };
 const cssText = execFileSync(
-  path.join(root, '../../node_modules/.bin/prettier'),
-  ['--stdin-filepath', path.join(out, 'tokens.css')],
+  process.execPath,
+  [prettierCli, '--stdin-filepath', path.join(out, 'tokens.css')],
   { input: `${css.join('\n')}\n`, encoding: 'utf8' },
 );
 await writeFile(path.join(out, 'tokens.css'), cssText);
 const nativeJson = execFileSync(
-  path.join(root, '../../node_modules/.bin/prettier'),
-  ['--stdin-filepath', path.join(out, 'theme.native.json')],
+  process.execPath,
+  [prettierCli, '--stdin-filepath', path.join(out, 'theme.native.json')],
   { input: `${JSON.stringify(theme, null, 2)}\n`, encoding: 'utf8' },
 );
 await writeFile(path.join(out, 'theme.native.json'), nativeJson);

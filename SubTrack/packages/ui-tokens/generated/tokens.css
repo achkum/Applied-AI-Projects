@@ -6,8 +6,10 @@
   --bg-sunken: #efeae1;
   --ink-primary: #15161c;
   --ink-secondary: #5b5e6b;
+  --ink-on-accent: #ffffff;
   --aurora-green: #0e9f6e;
   --aurora-violet: #6a58f0;
+  --aurora-violet-hover: #5946d2;
   --aurora-teal: #0b8fb0;
   --ember-amber: #c77700;
   --ember-coral: #d83a3a;
@@ -19,8 +21,10 @@
   --bg-sunken: #070810;
   --ink-primary: #f2efe8;
   --ink-secondary: #a5a9be;
+  --ink-on-accent: #0a0c14;
   --aurora-green: #3de0a3;
   --aurora-violet: #9b8cff;
+  --aurora-violet-hover: #aa9bff;
   --aurora-teal: #35c7e6;
   --ember-amber: #ffb547;
   --ember-coral: #ff6b6b;
