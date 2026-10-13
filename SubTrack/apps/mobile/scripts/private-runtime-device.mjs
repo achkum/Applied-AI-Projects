@@ -27,6 +27,7 @@ import {
   fixtureDiagnosticSecrets,
   fatalBuildExcerpt,
 } from './private-runtime-fatal-excerpt.mjs';
+import { identifierToolDiagnostic } from './private-runtime-identifier-diagnostic.mjs';
 
 let currentPhase = 'runtime-preconditions';
 const driverPhases = new Set([
@@ -285,6 +286,34 @@ async function main() {
       else
         for (const line of excerpt.lines)
           console.error(`ST244_NATIVE fatal_excerpt=${line}`);
+    }
+    if (currentPhase === 'flow-identifier') {
+      const readTool = (name) => {
+        try {
+          return readFileSync(join(privateDir, name), 'utf8');
+        } catch {
+          return '';
+        }
+      };
+      // Fixed first-flow child-tool files only. Never API/other-flow output,
+      // excerpts, failed screenshots or arbitrary artifact discovery.
+      const diagnostic = identifierToolDiagnostic({
+        phase: currentPhase,
+        identifier: readTool('identifier.log'),
+        metro: readTool('metro.log'),
+        labels: {
+          createAccount: labels.MAESTRO_CREATE_ACCOUNT,
+          otp: labels.MAESTRO_OTP_LABEL,
+        },
+      });
+      if (diagnostic.withheld)
+        console.error(
+          `ST244_NATIVE identifier_diagnostic=withheld reason=${diagnostic.withheld}`,
+        );
+      else
+        console.error(
+          `ST244_NATIVE identifier_diagnostic=fixed commands=${diagnostic.commands.join(',') || 'none'} reasons=${diagnostic.reasons.join(',') || 'none'} targets=${diagnostic.targets.join(',') || 'none'} metro=${diagnostic.metro.join(',') || 'none'} modules=${diagnostic.modules.join(',') || 'none'}`,
+        );
     }
     // Raw API/tool errors can contain credentials: retain privately, never print them.
     console.error(

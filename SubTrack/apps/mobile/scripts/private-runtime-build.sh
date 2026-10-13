@@ -19,7 +19,10 @@ if [[ "$platform" == android ]]; then
   # pnpm. Match its already-scoped final includeBuild; no dependency/SDK change.
   node --input-type=module -e "import {readFileSync,writeFileSync} from 'node:fs'; import {scopeGradlePluginResolution} from './scripts/private-runtime-native-resolve.mjs'; const file='android/settings.gradle'; writeFileSync(file,scopeGradlePluginResolution(readFileSync(file,'utf8')));"
   set_build_phase android-compile
-  (cd android && ./gradlew :app:assembleDebug --no-daemon --stacktrace) > "$proof_root/private/build.log" 2>&1
+  # C9 JetifyTransform exhausted the template's 2GiB heap. Bound concurrency
+  # while allocating 4GiB for this hosted debug compile; transforms/ABIs intact.
+  (cd android && ./gradlew :app:assembleDebug --no-daemon --stacktrace --max-workers=2 \
+    '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m') > "$proof_root/private/build.log" 2>&1
   set_build_phase android-install
   adb install -r android/app/build/outputs/apk/debug/app-debug.apk > "$proof_root/private/install.log" 2>&1
   set_build_phase android-loopback
