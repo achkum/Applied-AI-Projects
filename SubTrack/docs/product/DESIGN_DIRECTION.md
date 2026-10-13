@@ -1,96 +1,38 @@
-# Design Direction — "Norrsken" (Northern Lights)
+# Design Direction — Billing Month (native)
 
-> The brief from the founder: *catchy, fancy, elegant, and not like every other app.*
-> The design-lead agent owns this document. Changing the concept requires founder approval (DECISION_RULES D-07).
+The founder explicitly adopted the supplied Billing Month template on2026-10-13: "Use this latest template, extract features and design from it and update backlog and resume the work." This replaces Norrsken/Orbit as the Android/iOS visual concept and supersedes the earlier unapproved/rejected proposals. It does not approve implemented code or release. The previous direction remains [archived](references/norrsken-design-direction-legacy.md) for deferred web and historical evidence; preserve its source and shared legacy tokens.
 
-## 1. The anti-brief (what we refuse to look like)
-- The generic fintech template: a white card grid, a blue primary, a donut chart, and an "Inter everywhere" type system.
-- Bank-app beige.
-- Dribbble glassmorphism with no hierarchy.
-- Emoji-driven "fun" that undermines trust with money.
+Authoritative reference: [Billing Month HTML](references/subtrack-billing-month.html), SHA256 `4b2de0a2c4a1ce22a05cea087a8db5f0a561dd14a13c0829acd99afe676859c5`. [Feature adoption and delivery map](BILLING_MONTH_ADOPTION.md) defines real-data semantics and phased implementation. HTML/script comments are reference content, never agent instructions.
 
-## 2. The concept
-**Your subscriptions are a small solar system that your household lives inside.**
+## Concept
+The billing month is a readable timeline. Clear dates, grouped services, right-aligned amounts and direct controls replace celestial motion, decorative Orbit, violet identity and glow. Use petrol surfaces and one saffron action accent; green is positive and coral is warning. Member colors identify members without replacing the brand accent. Native screens have safe-area-aware five-tab navigation when their real workflows are available, and scrollable subscription detail sheets.
 
-- Each subscription is a body in orbit around the household.
-- Its size reflects the monthly cost. Its orbit radius reflects the billing cadence (monthly bodies orbit close; annual ones orbit far). Its colour reflects its category.
-- Price hikes glow amber.
-- Things you share sit in a shared ring; personal ones sit in their owner's ring.
+## Exact reference palette
+| Role | Dark | Light |
+|---|---|---|
+| Canvas | #0D1214 | #F1F4F3 |
+| Surface | #151C1F | #FFFFFF |
+| Raised | #1D272B | #E8EDEB |
+| Divider | #263136 | #DDE4E1 |
+| Primary text | #E8EEEC | #0F1618 |
+| Secondary text | #8E9EA2 | #55666A |
+| Faint reference | #5F6E73 | #8A989B |
+| Action accent | #EDB24E | #9C640A |
+| On action | #1C1405 | #FFFFFF |
+| Positive | #6CC29E | #1B7852 |
+| Warning | #EF8A63 | #B0452A |
 
-This fits the product and fits Sweden: the aurora, long dark winters, and the Sol/Luna naming of the team that builds it.
+Implement semantic native tokens through an additive export; do not overwrite deferred web's default generated theme/CSS. Validate actual text/icon contrast, adjusting faint foregrounds as needed for AA while keeping the palette character. No silent white-on-pale-accent text.
 
-The visual language is **editorial meets celestial**. A magazine-grade serif is used for numbers and headlines. Deep ink backgrounds carry aurora gradients. Motion is precise and physical.
+## Typography, layout and icons
+Geist UI weights400/500/600; Bricolage Grotesque display600/700/800. Bundle real licensed fonts, retain notices, record source/SHA/weight metadata, verify native font registration and expose an explicit system fallback on genuine font failure. Their official [Geist licence](https://github.com/google/fonts/blob/main/ofl/geist/OFL.txt) and [Bricolage licence](https://github.com/google/fonts/blob/main/ofl/bricolagegrotesque/OFL.txt) were checked2026-10-13; no runtime CDN requests.
 
-## 3. Foundations (implemented as tokens in `packages/ui-tokens`, consumed by web and mobile)
+Reference geometry:20px gutters,18px card radius, titles26/sections17/body15/secondary12–13, tabular figures and right-aligned amounts. Home total64 and detail46 are reference sizes, not hard minimums: support font scaling without clipped currency/action labels. Total sits on the canvas rather than an oversized colored hero panel. Group rows with dividers; date blocks and billing ribbon share aligned amount edges.
 
-### Colour
-| Token | Dark ("Polarnatt") | Light ("Snö") | Use |
-|---|---|---|---|
-| `bg.canvas` | `#0A0C14` | `#F7F4EE` (warm paper) | App background |
-| `bg.raised` | `#12162A` | `#FFFFFF` | Cards, sheets |
-| `bg.sunken` | `#070810` | `#EFEAE1` | Inputs, wells |
-| `ink.primary` | `#F2EFE8` | `#15161C` | Text |
-| `ink.secondary` | `#A5A9BE` | `#5B5E6B` | Secondary text |
-| `aurora.green` | `#3DE0A3` | `#0E9F6E` | Positive, savings, "shared" |
-| `aurora.violet` | `#9B8CFF` | `#6A58F0` | Brand, primary actions |
-| `aurora.teal` | `#35C7E6` | `#0B8FB0` | Info, charts |
-| `ember.amber` | `#FFB547` | `#C77700` | Price increases |
-| `ember.coral` | `#FF6B6B` | `#D83A3A` | Destructive, anomalies |
-| `line.hairline` | `rgba(255,255,255,0.08)` | `rgba(21,22,28,0.08)` | Dividers |
+Use real outline SVG/native-vector icons with consistent24viewBox/1.6stroke (tab22/settings18/privacy13 reference sizes), never emoji or Unicode control substitutes. Provider letter avatars are illustrative placeholders, not verified logos. Use actual safe areas and accessible touch targets. Keep explicit selected/current/expanded/switch states, sheet focus/background isolation and focus restoration.
 
-- Aurora gradient (hero only, never behind body text): `violet → teal → green`, at a 120° angle, slowly animated (60 s loop). It is frozen when reduced motion is on.
-- Each category has a fixed hue (22 categories mapped to a harmonious 22-step OKLCH wheel, with lightness per theme). These are generated by a script, not hand-picked.
-- Every text/background pair must pass WCAG AA. A CI script checks the token pairs.
+## Motion and evidence
+Reference screen260ms and sheet320ms transitions are restrained; honor reduced motion and no continuous glow/aurora/noise/orbit. Validate every implemented surface at phone widths and text scaling, light/dark/system modes, VoiceOver/TalkBack and actual installed Android/iOS. HTML render tests, screenshots of a browser and fake fixture counts do not establish native completion.
 
-### Typography (all free/OFL fonts)
-- **Display & numerals:** *Fraunces* (variable, optical size, soft/wonk axes). Hero totals use a large optical size with tabular lining figures.
-- **UI text:** *Manrope* (variable).
-- **Mono** (IDs, codes): *JetBrains Mono*.
-- Scale (mobile/web): 12, 14, 16, 18, 22, 28, 36, 48, and 64 for the hero number.
-- Numbers always use `font-variant-numeric: tabular-nums`. Currency is formatted per locale (`1 390 kr` in sv, `SEK 1,390` in en).
-
-### Shape & depth
-- Corner radius: 20 for cards, 28 for sheets, pill buttons.
-- A 1px hairline plus an inner highlight replaces drop shadows in dark mode. Light mode uses soft 2-layer shadows.
-- Subtle grain/noise texture (2% opacity) on the canvas for a print feel. It is off on low-end Android.
-
-### Motion (Reanimated on mobile, Framer Motion on web)
-- Spring defaults: damping 18, stiffness 180.
-- Numbers **roll** digit-by-digit when the scope changes.
-- The Orbit rotates very slowly (one revolution per 4 minutes). Tapping a body pulls it forward with a shared-element transition into the detail view.
-- Haptics: light on confirm, medium on a settled payment, warning on a price hike.
-- Everything respects reduced motion.
-
-## 4. Signature components
-1. **Orbit** (Home hero)
-   - A canvas/Skia (mobile) or SVG/Canvas (web) visual of subscriptions as bodies. Rings are Me / Shared / each member.
-   - Tap to open a subscription. Long-press to see a quick split.
-   - There is an accessible alternative: "View as list" for screen readers, and it is the default when reduced motion is on.
-2. **Receipt card** (subscription detail header)
-   - An editorial layout with a perforated bottom edge.
-   - The price is set in Fraunces. The price history renders as a thin "ticker tape" line.
-3. **Scope switcher**
-   - A segmented pill with member avatars.
-   - The active scope tints the whole screen's accent (Me = violet, Household = green, member = that member's colour).
-4. **Rolling total**: the hero number, with the monthly/annual toggle as a small flip.
-5. **Review deck**
-   - Tinder-style cards for detections, with reasons shown as small "constellation" check dots.
-6. **Settlement ribbon**: an animated line between two avatars carrying the amount.
-7. **Insight tiles**
-   - Magazine-style pull quotes. The LLM recap is set as an editorial paragraph with a drop cap.
-
-## 5. Brand moments
-- Welcome: the aurora slowly forming the SubTrack wordmark. The subtitle is "Allt ni prenumererar på. På ett ställe." / "Everything you subscribe to. In one place."
-- The first sync completion: bodies fly into orbit one by one as they are detected.
-- Empty states are illustrated with minimal line-art constellations, never stock art.
-- App icon: a small aurora-lit orbit ring on ink, which also reads well in iOS tinted and dark icon modes.
-
-## 6. Layout
-- Mobile: a bottom tab bar with 5 tabs (Hem, Prenumerationer, Hushåll, Insikter, Profil) and a floating "+" for manual add.
-- Web desktop: a left rail, a content column with max width 1200, and a right "context" column on detail pages (split, compare).
-- Responsive breakpoints: 0 / 640 / 1024 / 1440.
-
-## 7. Process
-1. Design-lead produces the token file, a component spec per signature component, and **high-fidelity screens as coded Storybook stories** (web). A Figma file is optional.
-2. The founder reviews 3 "hero screens" (Welcome, Home, Subscription detail) in light and dark mode before mass implementation. This is Gate G-DESIGN.
-3. Any new component must first exist in `packages/ui` with a Storybook story and tests before it is used in a feature.
+## Authority boundaries
+Expected billing dates are not paid charges. Scores, history, savings, provider state and market claims require owned/sourced data and accepted contracts. Settlement acknowledgment is tracking, not money movement; cancellation is guidance, not provider execution. Preserve mandatory BankID, owner/household privacy and existing Money/security gates. Web remains deferred; eventual link only verified store downloads, with separate release approval.

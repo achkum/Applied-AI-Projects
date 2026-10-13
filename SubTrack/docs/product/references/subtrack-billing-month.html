@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SubTrack Billing Month</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Geist:wght@400;500;600&display=swap">
+<style>
+/* Layout: the month as a timeline. One 20px gutter, 18px cards, every amount right-aligned on the card's inner edge. Petrol dark first, saffron as the only accent. */
+:root {
+  --desk: #070A0B; --bg: #0D1214; --surface: #151C1F; --raise: #1D272B; --line: #263136; --ink: #E8EEEC; --muted: #8E9EA2; --faint: #5F6E73;
+  --accent: #EDB24E; --on-accent: #1C1405; --good: #6CC29E; --warn: #EF8A63; --scrim: rgb(0 0 0 / .6); --on-av: #0D1214;
+  --m-sara: #7FB3E8; --m-johan: #E39C80; --m-elin: #86C9A5; --m-axel: #C9C1AE;
+  --display: "Bricolage Grotesque", "Arial Narrow", Arial, sans-serif;
+  --sans: "Geist", "Helvetica Neue", Arial, sans-serif;
+  --g: 20px; --r: 18px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --desk: #D7DEDB; --bg: #F1F4F3; --surface: #FFFFFF; --raise: #E8EDEB; --line: #DDE4E1; --ink: #0F1618; --muted: #55666A; --faint: #8A989B;
+  --accent: #9C640A; --on-accent: #FFFFFF; --good: #1B7852; --warn: #B0452A; --scrim: rgb(10 16 18 / .4); --on-av: #FFFFFF;
+  --m-sara: #2F6CB4; --m-johan: #B2563A; --m-elin: #2A8A5C; --m-axel: #7A7466; color-scheme: light; } }
+:root[data-theme="light"] {
+  --desk: #D7DEDB; --bg: #F1F4F3; --surface: #FFFFFF; --raise: #E8EDEB; --line: #DDE4E1; --ink: #0F1618; --muted: #55666A; --faint: #8A989B;
+  --accent: #9C640A; --on-accent: #FFFFFF; --good: #1B7852; --warn: #B0452A; --scrim: rgb(10 16 18 / .4); --on-av: #FFFFFF;
+  --m-sara: #2F6CB4; --m-johan: #B2563A; --m-elin: #2A8A5C; --m-axel: #7A7466; color-scheme: light; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; background: var(--desk); color: var(--ink); font: 15px/1.45 var(--sans); -webkit-font-smoothing: antialiased;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding-block: 20px; padding-inline: 16px; }
+button, input { font: inherit; color: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.caption { margin: 0; font-size: 12px; color: var(--muted); }
+.device { position: relative; width: 390px; max-width: 100%; height: min(844px, calc(100% - 40px)); background: var(--bg);
+  border-radius: 38px; overflow: hidden; border: 1px solid var(--line); display: flex; flex-direction: column; }
+@media (max-width: 480px) { body { padding-block: 0; padding-inline: 0; gap: 0; } .caption { display: none; } .device { width: 100%; height: 100%; border-radius: 0; border: 0; } }
+.screens, .screen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.scroll { flex: 1; overflow-y: auto; padding: 18px var(--g) 32px; scrollbar-width: none; }
+.scroll::-webkit-scrollbar { display: none; }
+
+/* tab bar */
+.tabbar { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--bg); padding: 6px 4px calc(10px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
+.tab { appearance: none; border: 0; background: none; color: var(--faint); font-size: 10.5px; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 0 3px; cursor: pointer; }
+.tab-ic { position: relative; width: 24px; height: 24px; display: grid; place-items: center; }
+.tab svg { width: 22px; height: 22px; }
+.tab[aria-current="page"] { color: var(--accent); }
+.tab-badge { position: absolute; top: -3px; right: -9px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--warn); color: var(--bg); font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }
+
+/* page header */
+.hdr { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hdr > div { min-width: 0; }
+.dateline { margin: 0; color: var(--muted); font-size: 13px; }
+.title { margin: 2px 0 0; font: 700 26px/1.12 var(--display); letter-spacing: -.02em; }
+.sec { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 28px 0 12px; }
+.sec h2 { margin: 0; font: 700 17px/1.2 var(--display); letter-spacing: -.01em; }
+.link { appearance: none; border: 0; background: none; color: var(--accent); font-size: 13.5px; font-weight: 500; cursor: pointer; padding: 2px 0; }
+.empty { margin: 0; padding: 14px 16px; color: var(--muted); font-size: 14px; }
+.card { background: var(--surface); border-radius: var(--r); padding: 16px; }
+.card + .card { margin-top: 10px; }
+.list { background: var(--surface); border-radius: var(--r); padding: 0 16px; list-style: none; margin: 0; }
+.list > li + li { border-top: 1px solid var(--line); }
+
+/* avatars */
+.av { width: 28px; height: 28px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 10.5px; font-weight: 700; color: var(--on-av); background: var(--c); flex: none; box-shadow: 0 0 0 2px var(--surface); }
+.av.lg { width: 52px; height: 52px; font-size: 16px; box-shadow: none; }
+.av.me { width: 36px; height: 36px; font-size: 12px; box-shadow: none; border: 0; cursor: pointer; }
+.avs { display: inline-flex; padding-left: 6px; }
+.avs .av { margin-left: -6px; }
+
+/* chips + segmented */
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 16px calc(var(--g) * -1) 0; padding: 0 var(--g); }
+.chips::-webkit-scrollbar { display: none; }
+.chips::after { content: ""; flex: 0 0 calc(var(--g) - 6px); }
+.chip { appearance: none; border: 1px solid var(--line); background: none; border-radius: 999px; height: 34px; padding: 0 14px; font-size: 13.5px; font-weight: 500; white-space: nowrap; cursor: pointer; color: var(--muted); display: inline-flex; align-items: center; gap: 7px; flex: none; }
+.chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--raise); border-radius: 12px; padding: 3px; }
+.seg button { appearance: none; border: 0; background: none; border-radius: 9px; height: 32px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; padding: 0 12px; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .18); }
+
+/* home hero (open, no card) */
+.hero { display: flex; align-items: flex-end; flex-wrap: wrap; column-gap: 12px; row-gap: 4px; margin-top: 16px; }
+.big { font: 800 64px/0.9 var(--display); letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+.hero-side { display: flex; flex-direction: column; gap: 3px; padding-bottom: 3px; }
+.unit { font-size: 15px; color: var(--muted); line-height: 1.2; }
+.delta { font-size: 12.5px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.per-toggle { appearance: none; border: 0; background: none; color: var(--accent); font-size: 13.5px; font-weight: 500; cursor: pointer; padding: 0 0 4px; margin-left: auto; }
+.hero-sub { margin: 10px 0 0; font-size: 13.5px; color: var(--muted); }
+.hero-sub b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.lbl { font-size: 13px; color: var(--muted); }
+.up { color: var(--warn); } .good { color: var(--good); } .flat { color: var(--muted); }
+
+/* month ribbon */
+.mo-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 16px; }
+.mo-name { font: 700 16px var(--display); }
+.mo-left { font-size: 13px; color: var(--muted); }
+.mo-left b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.rib { display: grid; grid-template-columns: repeat(31, minmax(0, 1fr)); column-gap: 2px; }
+.rb { height: 84px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.rb-bar { appearance: none; border: 0; padding: 0; width: 100%; max-width: 7px; border-radius: 3px; background: var(--accent); cursor: pointer; }
+.rb.past .rb-bar { background: var(--faint); }
+.rb-tick { width: 3px; height: 3px; border-radius: 50%; background: var(--line); }
+.rb.today .rb-tick { width: 7px; height: 7px; background: var(--accent); }
+.rnums { display: grid; grid-template-columns: repeat(31, minmax(0, 1fr)); column-gap: 2px; margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; }
+.rnums span { font-size: 10.5px; color: var(--faint); text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: visible; display: flex; justify-content: center; }
+.rnums span.today { color: var(--accent); font-weight: 700; }
+.mo-key { display: flex; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--muted); }
+.mo-key span { display: inline-flex; align-items: center; gap: 6px; }
+.mo-key i { width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
+
+/* dated rows */
+.tl-row { appearance: none; border: 0; background: none; width: 100%; text-align: left; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 0; cursor: pointer; }
+.tl-date { display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
+.tl-date b { font: 700 21px var(--display); font-variant-numeric: tabular-nums; }
+.tl-date small { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+.tl-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.tl-name { font-weight: 500; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-name i { width: 8px; height: 8px; border-radius: 50%; background: var(--b); flex: none; }
+.tl-meta { font-size: 13px; color: var(--muted); }
+.soon .tl-meta { color: var(--accent); }
+.amt { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+
+/* savings + compare */
+.save-n { display: block; font: 800 34px/1 var(--display); color: var(--good); letter-spacing: -.035em; font-variant-numeric: tabular-nums; margin: 6px 0 14px; }
+.save-n small { font: 500 15px var(--sans); color: var(--muted); letter-spacing: 0; margin-left: 4px; }
+.cmp { display: grid; width: 100%; grid-template-columns: 74px minmax(0, 1fr) 72px; gap: 10px 10px; align-items: center; font-size: 12.5px; }
+.cmp .k { color: var(--muted); }
+.cmp .track { height: 8px; border-radius: 4px; background: var(--raise); overflow: hidden; }
+.cmp .track i { display: block; height: 100%; border-radius: 4px; background: var(--c); }
+.cmp .v { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tap { appearance: none; border: 0; width: 100%; text-align: left; cursor: pointer; display: block; color: inherit; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.stat { appearance: none; border: 0; background: var(--surface); border-radius: 14px; padding: 12px 4px 10px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.stat b { font: 700 20px/1.1 var(--display); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.stat span { font-size: 11px; line-height: 1.25; color: var(--muted); }
+
+/* subscriptions */
+.search { display: flex; align-items: center; gap: 10px; background: var(--surface); border-radius: 14px; height: 46px; padding: 0 14px; color: var(--muted); margin-top: 16px; }
+.search:focus-within { box-shadow: 0 0 0 2px var(--accent); }
+.search svg { width: 18px; height: 18px; flex: none; }
+.search input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font-size: 15px; color: var(--ink); }
+.search input::placeholder { color: var(--faint); }
+.group-h { display: flex; justify-content: space-between; align-items: baseline; margin: 24px 0 10px; }
+.group-h b { font: 700 16px var(--display); }
+.group-h span { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.row { appearance: none; border: 0; background: none; width: 100%; text-align: left; display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; cursor: pointer; }
+.logo { width: 38px; height: 38px; border-radius: 50%; background: var(--b); color: #fff; display: grid; place-items: center; font: 800 15px var(--display); }
+.logo.lg { width: 52px; height: 52px; font-size: 22px; }
+.row-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.row-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-meta { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+.row-end { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.row-end small { font-size: 12px; color: var(--faint); white-space: nowrap; }
+.lock { width: 13px; height: 13px; flex: none; }
+.total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; background: var(--raise); border-radius: 14px; padding: 14px 16px; }
+.total span { font-size: 13px; color: var(--muted); }
+.total b { font: 700 18px var(--display); font-variant-numeric: tabular-nums; }
+
+/* household */
+.hh-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.kv { margin: 0; }
+.kv > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0; }
+.kv > div + div { border-top: 1px solid var(--line); }
+.kv dt { color: var(--muted); font-size: 14px; } .kv dd { margin: 0; font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+.stack { display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px; margin: 4px 0 16px; }
+.stack i { display: block; background: var(--c); }
+.legend { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+.lgd { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.lgd i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.lgd b { font-weight: 500; } .lgd span { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.owe { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.owe-t { font-size: 14.5px; font-weight: 500; }
+.owe-t small { display: block; color: var(--muted); font-size: 12.5px; font-weight: 400; margin-top: 1px; }
+.owe-amt { font: 700 19px var(--display); font-variant-numeric: tabular-nums; }
+.owe-act { margin-top: 14px; }
+.is-done .owe-amt { color: var(--faint); text-decoration: line-through; }
+.btn { appearance: none; border: 1px solid transparent; border-radius: 12px; height: 42px; padding: 0 18px; font-size: 14px; font-weight: 600; cursor: pointer; background: var(--accent); color: var(--on-accent); transition: transform .12s; }
+.btn:active { transform: scale(.98); }
+.btn.full { width: 100%; }
+.btn-quiet { background: var(--raise); color: var(--ink); }
+.btn-danger { background: transparent; border-color: var(--warn); color: var(--warn); }
+
+/* insights */
+.score { display: grid; grid-template-columns: 64px minmax(0, 1fr) 16px; gap: 16px; align-items: center; }
+.ring { position: relative; width: 64px; height: 64px; }
+.ring svg { width: 64px; height: 64px; transform: rotate(-90deg); }
+.ring .tr { fill: none; stroke: var(--raise); stroke-width: 6; }
+.ring .fg { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; }
+.ring-v { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; line-height: 1; }
+.ring-v b { font: 800 20px var(--display); display: block; }
+.ring-v small { font-size: 9.5px; color: var(--muted); }
+.sc-t { display: block; margin: 0 0 2px; font-size: 15.5px; font-weight: 600; }
+.sc-p { display: block; font-size: 13px; color: var(--muted); }
+.bar1 { height: 6px; border-radius: 3px; background: var(--raise); overflow: hidden; margin-top: 10px; }
+.bar1 i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+.chev { color: var(--faint); transition: transform .2s; width: 16px; height: 16px; }
+.open .chev { transform: rotate(90deg); }
+.parts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.part { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 8px; background: color-mix(in srgb, var(--c) 14%, transparent); color: var(--c); font-variant-numeric: tabular-nums; }
+.parts p { width: 100%; margin: 4px 0 0; font-size: 12.5px; color: var(--muted); }
+.sum-lbl { font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
+.sum-body { margin: 0; font-size: 14.5px; line-height: 1.55; }
+.sum-body strong { font-weight: 600; }
+.ic-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ic-t { margin: 0; font-size: 15.5px; font-weight: 600; }
+.badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; flex: none; }
+.badge.save, .badge.good { color: var(--good); } .badge.warn { color: var(--warn); } .badge.review { color: var(--accent); }
+.ic-stat { font: 800 26px/1.1 var(--display); letter-spacing: -.03em; margin-top: 10px; font-variant-numeric: tabular-nums; }
+.ic-sub { font-size: 12.5px; color: var(--muted); margin: 3px 0 0; }
+.ic-body { font-size: 14px; color: var(--muted); margin: 10px 0 0; line-height: 1.5; }
+.ic-body strong { color: var(--ink); font-weight: 600; }
+.boxes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 14px; }
+.boxes.two { grid-template-columns: 1fr 1fr; }
+.box { background: var(--raise); border-radius: 10px; padding: 9px 10px; }
+.box span { display: block; font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.box b { display: block; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; white-space: nowrap; }
+.box.pos { background: color-mix(in srgb, var(--good) 14%, transparent); }
+.box.pos span, .box.pos b { color: var(--good); }
+.box.neg b { color: var(--warn); }
+.ic .cmp { margin-top: 14px; grid-template-columns: 92px minmax(0, 1fr) 76px; }
+.ic-links { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.mini { appearance: none; border: 1px solid var(--line); background: none; border-radius: 999px; height: 30px; padding: 0 12px; font-size: 12.5px; cursor: pointer; }
+.chart { width: 100%; height: auto; display: block; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .area { fill: color-mix(in srgb, var(--accent) 16%, transparent); }
+.chart .ln { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.chart .pt { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.chart .pt-end { fill: var(--accent); }
+.chart text { font: 500 10.5px var(--sans); fill: var(--muted); }
+.chart .lbl { font-weight: 700; fill: var(--ink); font-size: 11.5px; }
+.ch-foot { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+.ch-foot b { color: var(--warn); font-weight: 600; }
+
+/* profile */
+.prof { display: flex; align-items: center; gap: 14px; }
+.prof .title { font-size: 23px; }
+.set { appearance: none; border: 0; background: none; width: 100%; text-align: left; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; cursor: pointer; }
+.set-ic { width: 34px; height: 34px; border-radius: 10px; background: var(--raise); display: grid; place-items: center; color: var(--muted); }
+.set-ic svg { width: 18px; height: 18px; }
+.set-t { font-weight: 500; } .set-t small { display: block; font-size: 13px; color: var(--muted); font-weight: 400; }
+.set-end { color: var(--faint); font-size: 13.5px; display: flex; align-items: center; gap: 6px; }
+.set-end svg { width: 16px; height: 16px; }
+.set .seg { min-width: 150px; }
+.sw-t { width: 44px; height: 26px; border-radius: 999px; background: var(--raise); position: relative; flex: none; transition: background .2s; }
+.sw-t::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--muted); transition: transform .2s, background .2s; }
+[aria-checked="true"] .sw-t { background: var(--accent); }
+[aria-checked="true"] .sw-t::after { transform: translateX(18px); background: var(--on-accent); }
+.ok { color: var(--good); }
+.foot { margin: 18px 0 0; text-align: center; font-size: 12px; color: var(--faint); }
+
+/* sheet */
+.scrim { position: absolute; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 20; }
+.scrim.open { opacity: 1; pointer-events: auto; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--bg); border-radius: 26px 26px 0 0; transform: translateY(102%); transition: transform .32s cubic-bezier(.2, .8, .2, 1); z-index: 21; max-height: 92%; overflow-y: auto; padding: 8px var(--g) calc(22px + env(safe-area-inset-bottom, 0px)); }
+.sheet.open { transform: none; }
+.grip { width: 36px; height: 4px; border-radius: 2px; background: var(--line); margin: 4px auto 16px; }
+.sh-head { display: grid; grid-template-columns: 52px minmax(0, 1fr) 36px; gap: 14px; align-items: center; }
+.sh-name { margin: 0; font: 700 22px/1.15 var(--display); }
+.sh-plan { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+.icon-btn { appearance: none; border: 0; background: var(--raise); width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
+.icon-btn svg { width: 16px; height: 16px; }
+.sh-price { display: flex; align-items: baseline; gap: 8px; margin: 20px 0 16px; }
+.sh-n { font: 800 46px/1 var(--display); letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+.sh-per { color: var(--muted); }
+.diff { margin-left: auto; font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 8px; background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); white-space: nowrap; }
+.spark-l { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+.spark { width: 100%; height: 40px; display: block; }
+.spark .ln { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.spark .end { fill: var(--accent); }
+.spark .area { fill: color-mix(in srgb, var(--accent) 14%, transparent); }
+.sh-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+.cx { margin-top: 12px; }
+.cx p { margin: 0 0 12px; font-size: 14px; }
+@keyframes in-r { from { transform: translateX(28px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes in-l { from { transform: translateX(-28px); opacity: 0; } to { transform: none; opacity: 1; } }
+.screen.in-r { animation: in-r .26s cubic-bezier(.2, .8, .2, 1); }
+.screen.in-l { animation: in-l .26s cubic-bezier(.2, .8, .2, 1); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+</head>
+<body>
+<p class="caption">SubTrack, direction B: Billing month (sample data)</p>
+<div id="app" class="device"></div>
+
+<script>
+/* ---------- Language ---------- */
+let lang = 'en';
+const L = (en, sv) => lang === 'sv' ? sv : en;
+const tx = a => Array.isArray(a) ? a[lang === 'sv' ? 1 : 0] : a;
+const locale = () => lang === 'sv' ? 'sv-SE' : 'en-GB';
+
+/* ---------- Sample household ---------- */
+const TODAY = 13; // Tuesday 13 October 2026
+const MEMBERS = [
+  { id: 'sara', name: 'Sara', full: 'Sara Lindqvist', ini: 'SL' },
+  { id: 'johan', name: 'Johan', full: 'Johan Lindqvist', ini: 'JL' },
+  { id: 'elin', name: 'Elin', full: 'Elin Lindqvist', ini: 'EL' },
+  { id: 'axel', name: 'Axel', full: 'Axel Lindqvist', ini: 'AL' }
+];
+const CATS = { video: ['Film & series', 'Film & serier'], music: ['Music', 'Musik'], software: ['Software', 'Programvara'], storage: ['Storage', 'Lagring'], fitness: ['Fitness', 'Träning'] };
+const flat = (p, n = 9) => Array(n).fill(p);
+const SUBS = [
+  { id: 'icloud', name: 'iCloud+', plan: ['200 GB storage', '200 GB lagring'], price: 39, day: 4, cat: 'storage', payer: 'sara', users: ['sara'], shared: false, brand: '#6E6E73', mark: 'i', hist: flat(39) },
+  { id: 'claude', name: 'Claude Pro', plan: ['Pro, monthly', 'Pro, månadsvis'], price: 179, day: 8, cat: 'software', payer: 'sara', users: ['sara'], shared: false, brand: '#B05A3B', mark: 'C', hist: [0, 0, 0, 0, 179, 179, 179, 179, 179], started: ['June 2026', 'juni 2026'] },
+  { id: 'netflix', name: 'Netflix', plan: ['Standard with ads', 'Standard med annonser'], price: 179, prev: 149, change: ['March 2026', 'mars 2026'], day: 15, cat: 'video', payer: 'sara', users: ['sara', 'johan', 'elin', 'axel'], shared: true, brand: '#D2232A', mark: 'N', hist: [149, 179, 179, 179, 179, 179, 179, 179, 179] },
+  { id: 'sats', name: 'SATS', plan: ['Flex, monthly', 'Rörligt, månadsvis'], price: 499, day: 16, cat: 'fitness', payer: 'elin', users: ['elin'], shared: false, brand: '#DC5A1E', mark: 'S', hist: flat(499) },
+  { id: 'spotify', name: 'Spotify Family', plan: ['Family, up to 6 accounts', 'Family, upp till 6 konton'], price: 219, day: 18, cat: 'music', payer: 'sara', users: ['sara', 'johan', 'elin', 'axel'], shared: true, brand: '#178F42', mark: 'S', hist: flat(219) },
+  { id: 'viaplay', name: 'Viaplay', plan: ['Viaplay Total', 'Viaplay Total'], price: 149, prev: 129, change: ['October 2026', 'oktober 2026'], day: 21, cat: 'video', payer: 'sara', users: ['sara', 'johan'], shared: true, brand: '#A8123A', mark: 'V', hist: [129, 129, 129, 129, 129, 129, 129, 129, 149] },
+  { id: 'ms365', name: 'Microsoft 365', plan: ['Family, up to 6 devices', 'Family, upp till 6 enheter'], price: 109, day: 28, cat: 'software', payer: 'johan', users: ['sara', 'johan', 'axel'], shared: true, brand: '#0F6CBD', mark: 'M', hist: flat(109) }
+];
+const HIST_M = [['Feb', 'feb'], ['Mar', 'mar'], ['Apr', 'apr'], ['May', 'maj'], ['Jun', 'jun'], ['Jul', 'jul'], ['Aug', 'aug'], ['Sep', 'sep'], ['Oct', 'okt']];
+const HISTORY = [[3, 1174], [4, 1353], [5, 1353], [6, 1353], [7, 1353], [8, 1373]]; // [month index in HIST_M, total]
+const SETTLE = [
+  { id: 'johan-sara', from: 'johan', to: 'sara', amount: 174, why: ['Netflix, Spotify, Viaplay', 'Netflix, Spotify, Viaplay'] },
+  { id: 'axel-johan', from: 'axel', to: 'johan', amount: 36, why: ['Microsoft 365', 'Microsoft 365'] }
+];
+const SAVINGS = 2138, SAVED_YEAR = 2340;
+const SCORE = { now: 68, target: 91, parts: [
+  [12, ['Shared family plans', 'Delade familjeplaner'], 'good'],
+  [-9, ['Two video services', 'Dubbel videostreaming'], 'warn'],
+  [-6, ['Price rise not handled', 'Prisökning ej åtgärdad'], 'warn'],
+  [-4, ['Paying monthly', 'Betalar månadsvis'], 'warn'],
+  [-4, ['Trial turned paid', 'Provperiod blev betald'], 'warn'] ] };
+
+/* ---------- Helpers ---------- */
+const fmt = n => new Intl.NumberFormat('sv-SE').format(n);
+const kr = n => fmt(n) + ' kr';
+const sum = a => a.reduce((t, s) => t + s.price, 0);
+const byId = id => SUBS.find(s => s.id === id);
+const member = id => MEMBERS.find(m => m.id === id);
+const paid = s => s.day < TODAY;
+const wd = (d, long) => new Date(2026, 9, d).toLocaleDateString(locale(), { weekday: long ? 'long' : 'short' }).replace('.', '');
+const ord = d => lang === 'sv' ? d + ([1, 2, 21, 22, 31].includes(d) ? ':a' : ':e') : d + (d % 10 === 1 && d !== 11 ? 'st' : d % 10 === 2 && d !== 12 ? 'nd' : d % 10 === 3 && d !== 13 ? 'rd' : 'th');
+function rel(d) { const n = d - TODAY; return n === 0 ? L('Today', 'I dag') : n === 1 ? L('Tomorrow', 'I morgon') : L(`In ${n} days`, `Om ${n} dagar`); }
+function nextCharge(s) {
+  if (paid(s)) { const n = 31 - TODAY + s.day; return L(`${s.day} Nov, in ${n} days`, `${s.day} nov, om ${n} dagar`); }
+  return L(`${s.day} Oct`, `${s.day} okt`) + ', ' + rel(s.day).toLowerCase();
+}
+const cap = t => t[0].toUpperCase() + t.slice(1);
+const mc = id => `var(--m-${id})`;
+const av = (m, c = '') => `<span class="av ${c}" style="--c:${mc(m.id)}" title="${m.name}">${m.ini}</span>`;
+const logo = (s, c = '') => `<span class="logo ${c}" style="--b:${s.brand}" aria-hidden="true">${s.mark}</span>`;
+const ICONS = {
+  home: '<path d="M4 10.5 12 4l8 6.5V20H4z"/><path d="M10 20v-6h4v6"/>',
+  list: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M8 15h4"/>',
+  people: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9.5" r="2.4"/><path d="M15.8 14.6c2.3-.2 4.1 1.3 4.7 4.4"/>',
+  chart: '<path d="M5 19v-7M10 19V5M15 19v-5M20 19V9"/>',
+  user: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/>',
+  search: '<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  chev: '<path d="m9 6 6 6-6 6"/>',
+  lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  share: '<circle cx="9" cy="9" r="3"/><circle cx="16" cy="10" r="2.4"/><path d="M4 19c.5-2.8 2.4-4.5 5-4.5s4.5 1.7 5 4.5M14.5 14.6c2-.3 3.8.9 4.5 3.4"/>',
+  theme: '<circle cx="12" cy="12" r="7.5"/><path d="M12 4.5v15a7.5 7.5 0 0 0 0-15z" fill="currentColor"/>',
+  globe: '<circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.2 2.3 3.2 5 3.2 8s-1 5.7-3.2 8c-2.2-2.3-3.2-5-3.2-8s1-5.7 3.2-8z"/>',
+  shield: '<path d="M12 4 5 7v5c0 4 3 7 7 8 4-1 7-4 7-8V7z"/>',
+  bank: '<path d="M4 10h16M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3.5 20h17M12 4l8 4H4z"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+  help: '<circle cx="12" cy="12" r="8"/><path d="M9.8 9.8a2.3 2.3 0 1 1 3.2 2.1c-.6.3-1 .8-1 1.5v.4M12 16.6v.2"/>'
+};
+const svg = (p, c = '') => `<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+
+/* ---------- State ---------- */
+const state = { scope: 'all', period: 'month', cat: 'all', q: '', theme: 'system', settled: {}, remind: {}, asking: null, open: null, scoreOpen: false,
+  notify: { renewal: true, price: true, trial: true } };
+const scoped = () => state.scope === 'all' ? SUBS : SUBS.filter(s => s.payer === state.scope);
+const deltaVsSep = list => list.filter(s => s.prev && s.change[0] === 'October 2026').reduce((t, s) => t + s.price - s.prev, 0);
+
+/* ---------- Insights content ---------- */
+function actionCards() {
+  const nf = byId('netflix'), vp = byId('viaplay'), sats = byId('sats');
+  const individual = 1713, family = 1373, pct = Math.round(sats.price / sum(SUBS) * 100);
+  return [
+    { badge: 'warn', label: L('Action', 'Åtgärda'), title: L('Price rise', 'Prisjustering'), stat: '+20 kr' + L('/mo', '/mån'), statC: 'up',
+      sub: L('+15% · Viaplay · from October 2026', '+15% · Viaplay · från oktober 2026'),
+      body: L('You paid 129 kr, now 149 kr.', 'Ni betalade 129 kr, nu 149 kr.'), links: ['viaplay'] },
+    { badge: 'save', label: L('Save', 'Spara'), title: L('Two video services', 'Dubbel videostreaming'), stat: '1 788 kr' + L('/yr', '/år'), statC: 'good',
+      sub: L('if you keep Netflix or Viaplay', 'om ni behåller Netflix eller Viaplay'),
+      extra: `<div class="boxes"><div class="box"><span>Netflix</span><b>${kr(nf.price)}</b></div><div class="box"><span>Viaplay</span><b>${kr(vp.price)}</b></div><div class="box pos"><span>${L('Save', 'Spara')}</span><b>${kr(vp.price)}</b></div></div>`, links: ['netflix', 'viaplay'] },
+    { badge: 'good', label: L('Good', 'Bra'), title: L('Shared plans are saving', 'Delade planer sparar'), stat: '340 kr' + L('/mo', '/mån'), statC: 'good',
+      sub: L('vs individual plans · 4 of 7 subscriptions', 'mot individuella planer · 4 av 7 prenumerationer'),
+      extra: `<div class="cmp"><span class="k">${L('Individual', 'Individuellt')}</span><span class="track"><i style="--c:var(--faint);width:100%"></i></span><span class="v">${kr(individual)}</span><span class="k">${L('Family plans', 'Familjeplaner')}</span><span class="track"><i style="--c:var(--good);width:${family / individual * 100}%"></i></span><span class="v good">${kr(family)}</span></div>` },
+    { badge: 'review', label: L('Review', 'Se över'), title: L('Largest single cost', 'Störst enskild kostnad'), stat: '499 kr' + L('/mo', '/mån'),
+      sub: L(`SATS · Elin · ${pct}% of household total`, `SATS · Elin · ${pct}% av hushållets total`),
+      extra: `<div class="bar1"><i style="width:${pct}%;background:var(--accent)"></i></div>`,
+      body: L('Check if the gym offers a cheaper student or company plan.', 'Kolla om gymmet har ett billigare student- eller företagsabonnemang.'), links: ['sats'] },
+    { badge: 'save', label: L('Save', 'Spara'), title: L('Switch to annual billing', 'Byt till årsbetalning'), stat: '350 kr' + L('/yr', '/år'), statC: 'good',
+      sub: L('Microsoft 365 + iCloud+ · pay upfront', 'Microsoft 365 + iCloud+ · betala i förskott'), links: ['ms365', 'icloud'] },
+    { badge: 'warn', label: L('Action', 'Åtgärda'), title: L('Trial ended', 'Provperiod avslutad'), stat: '716 kr',
+      sub: L('Claude Pro · 4 months since the trial ended', 'Claude Pro · 4 månader sedan provperioden slutade'),
+      body: L('The trial turned into a paid plan in June 2026.', 'Provperioden övergick till betald plan i juni 2026.'), links: ['claude'] }
+  ];
+}
+function marketCards() {
+  return [
+    { badge: 'review', label: L('Review', 'Se över'), title: L('Similar households pay less', 'Liknande hushåll betalar mindre'), stat: '+233 kr' + L('/mo', '/mån'), statC: 'up',
+      sub: L('Similar households in Sweden pay 1 140 kr a month on average', 'Liknande hushåll i Sverige betalar i snitt 1 140 kr i månaden'),
+      extra: `<div class="boxes"><div class="box neg"><span>${L('You', 'Ni')}</span><b>1 373 kr</b></div><div class="box"><span>${L('Average', 'Snitt')}</span><b>1 140 kr</b></div><div class="box pos"><span>${L('Top 25%', 'Topp 25%')}</span><b>890 kr</b></div></div>` },
+    { badge: 'save', label: L('Save', 'Spara'), title: L('Max is cheaper than Viaplay', 'Max är billigare än Viaplay'),
+      body: L('Max costs <strong>99 kr a month</strong> against your 149 kr for Viaplay. That is 600 kr a year less.', 'Max kostar <strong>99 kr i månaden</strong> mot era 149 kr för Viaplay. Det är 600 kr mindre per år.'),
+      extra: `<div class="boxes two"><div class="box"><span>${L('You pay', 'Ni betalar')}</span><b>149 kr${L('/mo', '/mån')}</b></div><div class="box pos"><span>${L('Alternative', 'Alternativ')}</span><b>99 kr${L('/mo', '/mån')}</b></div></div>` },
+    { badge: 'save', label: L('Save', 'Spara'), title: L('YouTube Premium could replace Spotify', 'YouTube Premium kan ersätta Spotify'),
+      body: L('YouTube Premium Family (189 kr a month) includes YouTube Music for the whole household and removes ads. It could replace Spotify Family (219 kr), saving <strong>30 kr a month</strong>.', 'YouTube Premium Family (189 kr i månaden) inkluderar YouTube Music för hela hushållet och tar bort reklam. Det kan ersätta Spotify Family (219 kr) och spara <strong>30 kr i månaden</strong>.') },
+    { badge: 'warn', label: L('Action', 'Åtgärda'), title: L('Netflix may raise prices again', 'Netflix kan höja priset igen'),
+      body: L('Netflix raised prices in six European markets in Q3 2026. If Sweden follows, expect <strong>20 to 30 kr more a month</strong>.', 'Netflix höjde priset på sex europeiska marknader under Q3 2026. Om Sverige följer efter, räkna med <strong>20 till 30 kr mer i månaden</strong>.') },
+    { badge: 'review', label: L('Review', 'Se över'), title: L('Cheaper gyms near you', 'Billigare gym nära er'),
+      body: L('Fitness24Seven (299 kr a month) and Actic (319 kr a month) are nearby. Elin pays 499 kr at SATS, so switching could save <strong>up to 2 400 kr a year</strong>.', 'Fitness24Seven (299 kr i månaden) och Actic (319 kr i månaden) finns i närheten. Elin betalar 499 kr på SATS, så ett byte kan spara <strong>upp till 2 400 kr per år</strong>.') }
+  ];
+}
+const ACTIONS = 4;
+function icard(c) {
+  return `<article class="card ic"><div class="ic-top"><h3 class="ic-t">${c.title}</h3><span class="badge ${c.badge}">${c.label}</span></div>
+    ${c.stat ? `<div class="ic-stat ${c.statC || ''}">${c.stat}</div>` : ''}${c.sub ? `<p class="ic-sub">${c.sub}</p>` : ''}
+    ${c.extra || ''}${c.body ? `<p class="ic-body">${c.body}</p>` : ''}
+    ${c.links ? `<div class="ic-links">${c.links.map(id => `<button class="mini" data-act="sub" data-v="${id}">${L('Open', 'Öppna')} ${byId(id).name}</button>`).join('')}</div>` : ''}</article>`;
+}
+function chartLine() {
+  const W = 330, H = 168, Lp = 40, R = 14, T = 20, B = 26, lo = 1100, hi = 1400, n = HISTORY.length;
+  const x = i => Lp + i * (W - Lp - R) / (n - 1), y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  const pts = HISTORY.map(([, v], i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const last = n - 1, lv = HISTORY[last][1];
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${L('Monthly total, May to October', 'Månadstotal, maj till oktober')}">
+    ${[1100, 1200, 1300, 1400].map(g => `<line class="grid" x1="${Lp}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}"/><text x="${Lp - 8}" y="${y(g) + 3.5}" text-anchor="end">${fmt(g)}</text>`).join('')}
+    <polygon class="area" points="${x(0)},${H - B} ${pts} ${x(last)},${H - B}"/><polyline class="ln" points="${pts}"/>
+    ${HISTORY.map(([mi, v], i) => `<circle class="pt ${i === last ? 'pt-end' : ''}" cx="${x(i)}" cy="${y(v)}" r="${i === last ? 4.5 : 3}"/><text x="${x(i)}" y="${H - 8}" text-anchor="middle">${tx(HIST_M[mi])}</text>`).join('')}
+    <text class="lbl" x="${x(last) - 10}" y="${y(lv) - 10}" text-anchor="end">${kr(lv)}</text></svg>`;
+}
+function spark(s) {
+  const W = 300, H = 40, n = s.hist.length, mx = Math.max(...s.hist), mn = Math.min(...s.hist);
+  const x = i => 4 + i * (W - 8) / (n - 1), y = v => mx === mn ? H / 2 : 6 + (mx - v) / (mx - mn) * (H - 12);
+  const pts = s.hist.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><polygon class="area" points="${x(0)},${H} ${pts} ${x(n - 1)},${H}"/><polyline class="ln" points="${pts}"/><circle class="end" cx="${x(n - 1)}" cy="${y(s.hist[n - 1])}" r="3.5"/></svg>`;
+}
+const sparkLabel = s => s.prev ? L(`Price rise +${s.price - s.prev} kr (${tx(s.change)})`, `Prisökning +${s.price - s.prev} kr (${tx(s.change)})`)
+  : s.started ? L(`New subscription (${tx(s.started)})`, `Ny prenumeration (${tx(s.started)})`) : L('Same price since February', 'Samma pris sedan februari');
+
+/* ---------- Screens ---------- */
+const UI = {
+  subsHead() {
+    return `<p class="dateline">${SUBS.length} ${L('active', 'aktiva')}</p><h1 class="title">${L('Subscriptions', 'Prenumerationer')}</h1>
+      <label class="search">${svg(ICONS.search)}<input id="q" type="search" placeholder="${L('Search subscriptions', 'Sök prenumeration')}" autocomplete="off" aria-label="${L('Search subscriptions', 'Sök prenumeration')}"></label>`;
+  },
+  home() {
+    const list = scoped(), total = sum(list), yr = state.period === 'year', mul = yr ? 12 : 1;
+    const left = list.filter(s => !paid(s)), done = sum(list.filter(paid));
+    const who = state.scope === 'all' ? null : member(state.scope);
+    const week = list.filter(s => s.day >= TODAY && s.day < TODAY + 7).sort((a, b) => a.day - b.day);
+    const delta = deltaVsSep(list), maxP = 500, H = 72;
+    const opt = total - Math.round(SAVINGS / 12);
+    const sharePct = who ? Math.round(total / sum(SUBS) * 100) : 0;
+    return `
+    <div class="hdr"><div><p class="dateline">${cap(wd(TODAY, true))} ${TODAY} ${L('October', 'oktober')}</p><h1 class="title">${L('Lindqvist household', 'Hushållet Lindqvist')}</h1></div><button class="av me" style="--c:${mc('sara')}" data-act="tab" data-v="profile" aria-label="${L('Profile', 'Profil')}">SL</button></div>
+    <div class="hero">
+      <span class="big">${fmt(total * mul)}</span>
+      <span class="hero-side"><span class="unit">${yr ? L('kr a year', 'kr per år') : L('kr a month', 'kr i månaden')}</span>
+        <span class="delta ${delta ? 'up' : 'flat'}">${delta ? `↑ ${kr(delta * mul)} ${L('vs Sep', 'mot sep')}` : L('No change vs Sep', 'Oförändrat mot sep')}</span></span>
+      <button class="per-toggle" data-act="period" data-v="${yr ? 'month' : 'year'}">${yr ? L('Show per month', 'Visa per månad') : L('Show per year', 'Visa per år')}</button>
+    </div>
+    <p class="hero-sub">${list.length} ${list.length === 1 ? L('active subscription', 'aktiv prenumeration') : L('active subscriptions', 'aktiva prenumerationer')}${who ? ' · ' + L(`${sharePct}% of the household`, `${sharePct}% av hushållet`) : ` · ${L('Saved this year', 'Sparat i år')} <b class="good">${kr(SAVED_YEAR)}</b>`}</p>
+    <div class="chips" role="group" aria-label="${L('Show costs for', 'Visa kostnader för')}">
+      <button class="chip" data-act="scope" data-v="all" aria-pressed="${!who}">${L('Everyone', 'Alla')}</button>
+      ${MEMBERS.map(m => `<button class="chip" data-act="scope" data-v="${m.id}" aria-pressed="${state.scope === m.id}"><i style="--c:${mc(m.id)}"></i>${m.name}</button>`).join('')}</div>
+    <section class="card" style="margin-top:16px" aria-label="${L('October billing days', 'Dragningar i oktober')}">
+      <div class="mo-head"><span class="mo-name">${L('October', 'Oktober')}</span><span class="mo-left">${left.length ? L(`<b>${kr(total - done)}</b> left in ${left.length} charges`, `<b>${kr(total - done)}</b> kvar i ${left.length} dragningar`) : L('All paid', 'Allt betalt')}</span></div>
+      <div class="rib">${[...Array(31)].map((_, i) => { const d = i + 1, c = list.filter(s => s.day === d), a = sum(c);
+        return `<div class="rb ${d < TODAY ? 'past' : ''} ${d === TODAY ? 'today' : ''}">${a ? `<button class="rb-bar" style="height:${Math.max(10, a / maxP * H)}px" data-act="sub" data-v="${c[0].id}" aria-label="${c[0].name}, ${a} kr, ${d} ${L('October', 'oktober')}"></button>` : '<span class="rb-tick"></span>'}</div>`; }).join('')}</div>
+      <div class="rnums">${[...Array(31)].map((_, i) => { const d = i + 1; return `<span class="${d === TODAY ? 'today' : ''}">${[1, 8, 22, 29].includes(d) || d === TODAY ? d : ''}</span>`; }).join('')}</div>
+      <div class="mo-key"><span><i style="--c:var(--faint)"></i>${L('Paid', 'Betalt')} ${kr(done)}</span><span><i style="--c:var(--accent)"></i>${L('Coming', 'Kommande')}</span><span><i style="--c:var(--accent);border-radius:50%"></i>${L('Today', 'I dag')}</span></div>
+    </section>
+    <div class="sec"><h2>${L('This week', 'Denna vecka')}</h2><button class="link" data-act="tab" data-v="subs">${L('See all', 'Se alla')}</button></div>
+    ${week.length ? `<ul class="list">${week.map(s => `<li class="${s.day - TODAY <= 3 ? 'soon' : ''}"><button class="tl-row" data-act="sub" data-v="${s.id}"><span class="tl-date"><b>${s.day}</b><small>${wd(s.day)}</small></span><span class="tl-main"><span class="tl-name"><i style="--b:${s.brand}"></i>${s.name}</span><span class="tl-meta">${rel(s.day)} · ${L(`${member(s.payer).name}'s card`, `${member(s.payer).name}s kort`)}</span></span><span class="amt">${kr(s.price)}</span></button></li>`).join('')}</ul>`
+      : `<div class="list"><p class="empty">${who ? L(`Nothing is billed to ${who.name} this week.`, `Inget dras från ${who.name} denna vecka.`) : L('Nothing renews this week.', 'Inget förnyas denna vecka.')}</p></div>`}
+    <div class="sec"><h2>${L('Insights', 'Insikter')}</h2><button class="link" data-act="tab" data-v="insights">${L('See all', 'Se alla')}</button></div>
+    <button class="card tap" data-act="tab" data-v="insights">
+      <span class="lbl">${L('Possible savings', 'Möjlig besparing')}</span>
+      <span class="save-n">${kr(SAVINGS)}<small>${L('/yr', '/år')}</small></span>
+      <span class="cmp"><span class="k">${L('Now', 'Nu')}</span><span class="track"><i style="--c:var(--faint);width:100%"></i></span><span class="v">${kr(sum(SUBS))}</span>
+        <span class="k">${L('Optimised', 'Optimerat')}</span><span class="track"><i style="--c:var(--good);width:${(sum(SUBS) - Math.round(SAVINGS / 12)) / sum(SUBS) * 100}%"></i></span><span class="v good">${kr(sum(SUBS) - Math.round(SAVINGS / 12))}</span></span>
+    </button>
+    <div class="stats">
+      <button class="stat" data-act="tab" data-v="insights"><b class="up">2</b><span>${L('Price rises', 'Prisökningar')}</span></button>
+      <button class="stat" data-act="tab" data-v="insights"><b class="up">↑17%</b><span>${L('Since May', 'Sedan maj')}</span></button>
+      <button class="stat" data-act="tab" data-v="household"><b class="good">${SUBS.filter(s => s.shared).length}</b><span>${L('Shared plans', 'Delade planer')}</span></button>
+      <button class="stat" data-act="tab" data-v="insights"><b>${ACTIONS}</b><span>${L('Actions', 'Åtgärder')}</span></button>
+    </div>`;
+  },
+  subs() {
+    const cats = [['all', ['All', 'Alla']], ...Object.entries(CATS)];
+    const list = SUBS.filter(s => (state.cat === 'all' || s.cat === state.cat) && (!state.q || s.name.toLowerCase().includes(state.q)));
+    const groups = Object.keys(CATS).map(c => [c, list.filter(s => s.cat === c)]).filter(([, a]) => a.length);
+    return `<div class="chips" role="group" aria-label="${L('Category', 'Kategori')}">${cats.map(([k, l]) => `<button class="chip" data-act="cat" data-v="${k}" aria-pressed="${state.cat === k}">${tx(l)}</button>`).join('')}</div>
+    ${groups.length ? groups.map(([c, a]) => `<div class="group-h"><b>${tx(CATS[c])}</b><span>${kr(sum(a))}${L('/mo', '/mån')}</span></div>
+      <ul class="list">${a.map(s => `<li><button class="row" data-act="sub" data-v="${s.id}">${logo(s)}<span class="row-main"><span class="row-name">${s.name}</span><span class="row-meta">${s.shared ? svg(ICONS.share, 'lock') + L(`Shared, ${s.users.length} people`, `Delad, ${s.users.length} personer`) : svg(ICONS.lock, 'lock') + L(`${member(s.payer).name} only`, `Bara ${member(s.payer).name}`)}</span></span><span class="row-end"><span class="amt">${kr(s.price)}</span><small>${paid(s) ? L(`paid ${s.day} Oct`, `betald ${s.day} okt`) : L(`on the ${ord(s.day)}`, `den ${ord(s.day)}`)}</small></span></button></li>`).join('')}</ul>`).join('')
+      + `<div class="total"><span>${list.length === SUBS.length ? L('Household total', 'Totalt hushållet') : L('Shown total', 'Visad total')}</span><b>${kr(sum(list))}${L('/mo', '/mån')}</b></div>`
+      : `<div class="list" style="margin-top:16px"><p class="empty">${L(`No subscription matches "${state.q}".`, `Ingen prenumeration matchar "${state.q}".`)}</p></div>`}`;
+  },
+  household() {
+    const payers = MEMBERS.map(m => [m, sum(SUBS.filter(s => s.payer === m.id))]);
+    return `<p class="dateline">${L('Lindqvist household', 'Hushållet Lindqvist')}</p><h1 class="title">${L('Household', 'Hushåll')}</h1>
+    <section class="card" style="margin-top:16px">
+      <div class="hh-top"><span class="avs">${MEMBERS.map(m => av(m)).join('')}</span></div>
+      <dl class="kv"><div><dt>${L('Members', 'Medlemmar')}</dt><dd>${MEMBERS.length}</dd></div><div><dt>${L('Subscriptions', 'Prenumerationer')}</dt><dd>${SUBS.length}</dd></div><div><dt>${L('Per month', 'Per månad')}</dt><dd>${kr(sum(SUBS))}</dd></div></dl>
+    </section>
+    <div class="sec"><h2>${L('Who pays the bills', 'Vem betalar')}</h2></div>
+    <section class="card"><div class="stack" role="img" aria-label="${L('Share of the monthly total by who is billed', 'Andel av månadskostnaden per betalare')}">${payers.filter(([, a]) => a).map(([m, a]) => `<i style="--c:${mc(m.id)};flex:${a}"></i>`).join('')}</div>
+      <div class="legend">${payers.map(([m, a]) => `<div class="lgd"><i style="--c:${mc(m.id)}"></i><b>${m.name}</b><span>${a ? kr(a) : L('None', 'Inget')}</span></div>`).join('')}</div></section>
+    <div class="sec"><h2>${L('Settlements this month', 'Uppgörelser denna månad')}</h2></div>
+    ${SETTLE.map(x => { const done = state.settled[x.id], f = member(x.from), t = member(x.to);
+      return `<section class="card ${done ? 'is-done' : ''}"><div class="owe"><span class="avs">${av(f)}${av(t)}</span><span class="owe-t">${L(`${f.name} pays ${t.name}`, `${f.name} betalar ${t.name}`)}<small>${tx(x.why)}</small></span><span class="owe-amt">${kr(x.amount)}</span></div>
+        <div class="owe-act"><button class="btn full ${done ? 'btn-quiet' : ''}" data-act="settle" data-v="${x.id}">${done ? L('Marked as paid. Undo', 'Markerad som betald. Ångra') : L('Mark as paid', 'Markera som betald')}</button></div></section>`; }).join('')}
+    <div class="sec"><h2>${L('Shared subscriptions', 'Delade prenumerationer')}</h2></div>
+    <ul class="list">${SUBS.filter(s => s.shared).map(s => `<li><button class="row" data-act="sub" data-v="${s.id}">${logo(s)}<span class="row-main"><span class="row-name">${s.name}</span><span class="row-meta">${L('Paid by', 'Betalas av')} ${member(s.payer).name}</span></span><span class="row-end"><span class="amt">${kr(s.price)}</span><small>${kr(Math.round(s.price / s.users.length))} ${L('each', 'per person')}</small></span></button></li>`).join('')}</ul>`;
+  },
+  insights() {
+    const circ = 2 * Math.PI * 26, dash = SCORE.now / 100 * circ;
+    return `<p class="dateline">${L('May to October', 'Maj till oktober')}</p><h1 class="title">${L('Insights', 'Insikter')}</h1>
+    <section class="card ${state.scoreOpen ? 'open' : ''}" style="margin-top:16px">
+      <button class="tap score" data-act="score" aria-expanded="${state.scoreOpen}" style="background:none">
+        <span class="ring"><svg viewBox="0 0 64 64"><circle class="tr" cx="32" cy="32" r="26"/><circle class="fg" cx="32" cy="32" r="26" stroke-dasharray="${dash} ${circ}"/></svg><span class="ring-v"><span><b>${SCORE.now}</b><small>/100</small></span></span></span>
+        <span><span class="sc-t">${L('Subscription score', 'Prenumerationsscore')}</span><span class="sc-p">${L(`${ACTIONS} actions can raise your score to ${SCORE.target}`, `${ACTIONS} åtgärder kan höja din score till ${SCORE.target}`)}</span><span class="bar1" style="display:block"><i style="width:${SCORE.now}%"></i></span></span>
+        ${svg(ICONS.chev, 'chev')}</button>
+      ${state.scoreOpen ? `<div class="parts">${SCORE.parts.map(([v, l, k]) => `<span class="part" style="--c:var(--${k})">${v > 0 ? '+' : '−'}${Math.abs(v)} ${tx(l)}</span>`).join('')}<p>${L('Fixing the four warnings raises the score to 91.', 'Om ni åtgärdar de fyra varningarna blir scoren 91.')}</p></div>` : ''}
+    </section>
+    <section class="card">
+      <div class="sum-lbl">${L('Summary', 'Sammanfattning')}</div>
+      <p class="sum-body">${L(`This household spends <strong>${kr(sum(SUBS))}</strong> a month on subscriptions. Netflix and Viaplay overlap, so keeping one of them saves <strong>149 kr a month</strong>.`, `Hushållet lägger <strong>${kr(sum(SUBS))}</strong> i månaden på prenumerationer. Netflix och Viaplay överlappar, så om ni behåller en av dem sparar ni <strong>149 kr i månaden</strong>.`)}</p>
+    </section>
+    <div class="sec"><h2>${L('Action items', 'Åtgärdspunkter')}</h2></div>
+    ${actionCards().map(icard).join('')}
+    <div class="sec"><h2>${L('Market updates', 'Marknadsnyheter')}</h2></div>
+    ${marketCards().map(icard).join('')}
+    <div class="sec"><h2>${L('Spending trend', 'Utgiftstrend')}</h2></div>
+    <section class="card">${chartLine()}<div class="ch-foot"><span>${L('Last 6 months', 'Senaste 6 månaderna')}</span><b>↑ 17%</b></div></section>`;
+  },
+  profile() {
+    const row = (ic, title, end, act = '', extra = '') => `<li><div class="set" ${act}><span class="set-ic">${svg(ICONS[ic])}</span><span class="set-t">${title}</span><span class="set-end">${end}</span></div>${extra}</li>`;
+    const chev = svg(ICONS.chev);
+    return `<div class="prof">${av(MEMBERS[0], 'lg')}<div><h1 class="title">${L('Lindqvist household', 'Hushållet Lindqvist')}</h1><p class="dateline">Sara Lindqvist · ${L('Household admin', 'Hushållets admin')}</p></div></div>
+    <div class="sec"><h2>${L('Settings', 'Inställningar')}</h2></div>
+    <ul class="list">
+      ${row('theme', L('Theme', 'Tema'), `<span class="seg" role="group" aria-label="${L('Theme', 'Tema')}">${['system', 'light', 'dark'].map(t => `<button data-act="theme" data-v="${t}" aria-pressed="${state.theme === t}">${{ system: L('Auto', 'Auto'), light: L('Light', 'Ljust'), dark: L('Dark', 'Mörkt') }[t]}</button>`).join('')}</span>`)}
+      ${row('globe', L('Language', 'Språk'), `<span class="seg" role="group" aria-label="${L('Language', 'Språk')}"><button data-act="lang" data-v="sv" aria-pressed="${lang === 'sv'}">Svenska</button><button data-act="lang" data-v="en" aria-pressed="${lang === 'en'}">English</button></span>`)}
+      ${row('shield', L('Privacy', 'Integritet'), chev)}
+    </ul>
+    <div class="sec"><h2>${L('Notifications', 'Notifikationer')}</h2></div>
+    <ul class="list">
+      ${row('bank', `${L('Bank updates', 'Bankuppdateringar')}<small>Tink · 2 ${L('accounts', 'konton')}</small>`, `<span class="ok">${L('Active', 'Aktiv')}</span>`)}
+      ${[['renewal', L('Before a renewal', 'Före en förnyelse'), L('Two days ahead', 'Två dagar innan')], ['price', L('Price changes', 'Prisändringar'), L('Compared with last month', 'Jämfört med förra månaden')], ['trial', L('Trial ending', 'Provperiod slutar'), L('Before it turns paid', 'Innan den blir betald')]].map(([k, t, d]) => `<li><button class="set" role="switch" aria-checked="${state.notify[k]}" data-act="notify" data-v="${k}"><span class="set-ic">${svg(ICONS.bell)}</span><span class="set-t">${t}<small>${d}</small></span><span class="sw-t" aria-hidden="true"></span></button></li>`).join('')}
+    </ul>
+    <div class="sec"><h2>${L('Support', 'Support')}</h2></div>
+    <ul class="list">${row('help', L('Help', 'Hjälp'), chev)}</ul>
+    <button class="btn full btn-danger" style="margin-top:24px">${L('Log out', 'Logga ut')}</button>
+    <p class="foot">${L('Prototype with sample data', 'Prototyp med exempeldata')}</p>`;
+  },
+  sheet(s) {
+    const on = state.remind[s.id], due = paid(s) ? L(`${s.day} November`, `${s.day} november`) : L(`${s.day} October`, `${s.day} oktober`), before = paid(s) ? L(`${s.day - 1} Nov`, `${s.day - 1} nov`) : L(`${s.day - 1} Oct`, `${s.day - 1} okt`);
+    return `<div class="sh-head">${logo(s, 'lg')}<div><h2 class="sh-name">${s.name}</h2><p class="sh-plan">${tx(s.plan)}</p></div><button class="icon-btn" data-act="close" aria-label="${L('Close', 'Stäng')}">${svg(ICONS.close)}</button></div>
+    <div class="sh-price"><span class="sh-n">${fmt(s.price)}</span><span class="sh-per">${L('kr/mo', 'kr/mån')}</span>${s.prev ? `<span class="diff">${L('was', 'var')} ${kr(s.prev)}</span>` : ''}</div>
+    <section class="card"><dl class="kv">
+      <div><dt>${L('Next renewal', 'Nästa förnyelse')}</dt><dd>${nextCharge(s)}</dd></div>
+      <div><dt>${L('Annual cost', 'Årsutgift')}</dt><dd>${kr(s.price * 12)}</dd></div>
+      <div><dt>${L('Category', 'Kategori')}</dt><dd>${tx(CATS[s.cat])}</dd></div>
+      <div><dt>${L('Paid by', 'Betalar')}</dt><dd>${member(s.payer).name}</dd></div>
+      <div><dt>${L('Used by', 'Används av')}</dt><dd>${s.users.map(u => member(u).name).join(', ')}</dd></div>
+      ${s.users.length > 1 ? `<div><dt>${L('Per person', 'Per person')}</dt><dd>${kr(Math.round(s.price / s.users.length))}</dd></div>` : ''}
+    </dl></section>
+    <section class="card"><div class="spark-l">${sparkLabel(s)}</div>${spark(s)}</section>
+    <div class="sh-actions"><button class="btn btn-danger" data-act="ask" data-v="${s.id}">${L('Cancel', 'Avsluta')}</button><button class="btn btn-quiet" data-act="share" data-v="${s.id}">${s.shared ? L('Mark private', 'Markera privat') : L('Share with household', 'Dela med hushållet')}</button></div>
+    ${state.asking === s.id ? `<section class="card cx" role="status"><p>${L(`SubTrack can't cancel for you. Cancel in your ${s.name} account before ${due} to stop the next charge.`, `SubTrack kan inte avsluta åt er. Avsluta i ert ${s.name}-konto före ${due} för att stoppa nästa dragning.`)}</p>
+      <button class="btn full ${on ? 'btn-quiet' : ''}" data-act="remind" data-v="${s.id}" aria-pressed="${!!on}">${on ? L(`Reminder set for ${before}`, `Påminnelse satt till ${before}`) : L(`Remind me on ${before}`, `Påminn mig ${before}`)}</button></section>` : ''}`;
+  }
+};
+
+/* ---------- Shell ---------- */
+const app = document.getElementById('app');
+const TABS = [['home', ['Home', 'Hem'], 'home'], ['subs', ['Subscriptions', 'Prenumerationer'], 'list'], ['household', ['Household', 'Hushåll'], 'people'], ['insights', ['Insights', 'Insikter'], 'chart'], ['profile', ['Profile', 'Profil'], 'user']];
+let current = 'home';
+function scaffold() {
+  app.innerHTML = `<main class="screens">${TABS.map(([k]) => `<section class="screen" data-screen="${k}" hidden><div class="scroll">${k === 'subs' ? '<div data-slot="subsHead"></div>' : ''}<div data-slot="${k}"></div></div></section>`).join('')}</main>
+  <nav class="tabbar" aria-label="Main"></nav>
+  <div class="scrim" data-act="close"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-hidden="true"><div class="grip"></div><div class="sheet-body"></div></div>`;
+}
+const slot = k => app.querySelector(`[data-slot="${k}"]`);
+const renderSlot = k => { const el = slot(k); if (el) el.innerHTML = UI[k](); };
+function renderTabs() {
+  app.querySelector('.tabbar').innerHTML = TABS.map(([k, l, i]) => `<button class="tab" data-act="tab" data-v="${k}" aria-current="${k === current ? 'page' : 'false'}"><span class="tab-ic">${svg(ICONS[i])}${k === 'insights' ? `<b class="tab-badge">${ACTIONS}</b>` : ''}</span><span>${tx(l)}</span></button>`).join('');
+}
+function renderAll() { renderSlot('subsHead'); TABS.forEach(([k]) => renderSlot(k)); renderTabs(); fillSheet(); document.documentElement.lang = lang; }
+function go(tab) {
+  const order = TABS.map(t => t[0]), dir = order.indexOf(tab) >= order.indexOf(current) ? 'in-r' : 'in-l', changed = tab !== current;
+  current = tab;
+  app.querySelectorAll('[data-screen]').forEach(el => { el.hidden = el.dataset.screen !== tab; });
+  app.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-current', b.dataset.v === tab ? 'page' : 'false'));
+  const scr = app.querySelector(`[data-screen="${tab}"]`);
+  if (changed) { scr.classList.remove('in-r', 'in-l'); void scr.offsetWidth; scr.classList.add(dir); }
+  const sc = scr.querySelector('.scroll'); if (sc) sc.scrollTop = 0;
+}
+function fillSheet() { if (state.open) app.querySelector('.sheet-body').innerHTML = UI.sheet(byId(state.open)); }
+function openSheet(id) {
+  state.open = id; state.asking = null; fillSheet();
+  const sh = app.querySelector('.sheet'); sh.scrollTop = 0;
+  sh.classList.add('open'); app.querySelector('.scrim').classList.add('open'); sh.setAttribute('aria-hidden', 'false');
+  sh.setAttribute('aria-label', byId(id).name);
+  const c = sh.querySelector('[data-act="close"]'); if (c) c.focus({ preventScroll: true });
+}
+function closeSheet() {
+  state.open = null;
+  const sh = app.querySelector('.sheet');
+  sh.classList.remove('open'); app.querySelector('.scrim').classList.remove('open'); sh.setAttribute('aria-hidden', 'true');
+}
+app.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]'); if (!t) return;
+  const v = t.dataset.v;
+  switch (t.dataset.act) {
+    case 'tab': closeSheet(); go(v); break;
+    case 'scope': state.scope = state.scope === v && v !== 'all' ? 'all' : v; renderSlot('home'); break;
+    case 'period': state.period = v; renderSlot('home'); break;
+    case 'cat': state.cat = v; renderSlot('subs'); break;
+    case 'sub': openSheet(v); break;
+    case 'close': closeSheet(); break;
+    case 'theme': state.theme = v; if (v === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v); renderSlot('profile'); break;
+    case 'lang': lang = v; { const q = app.querySelector('#q'); const qv = q ? q.value : ''; renderAll(); const q2 = app.querySelector('#q'); if (q2) q2.value = qv; } break;
+    case 'settle': state.settled[v] = !state.settled[v]; renderSlot('household'); break;
+    case 'notify': state.notify[v] = !state.notify[v]; renderSlot('profile'); break;
+    case 'score': state.scoreOpen = !state.scoreOpen; renderSlot('insights'); break;
+    case 'ask': state.asking = state.asking === v ? null : v; fillSheet(); break;
+    case 'remind': state.remind[v] = !state.remind[v]; fillSheet(); break;
+    case 'share': { const s = byId(v); s.shared = !s.shared; renderAll(); break; }
+  }
+});
+app.addEventListener('input', e => { if (e.target.id === 'q') { state.q = e.target.value.trim().toLowerCase(); renderSlot('subs'); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.open) closeSheet(); });
+scaffold(); renderAll(); go('home');
+</script>
+
+</body>
+</html>
