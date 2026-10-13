@@ -23,6 +23,7 @@ import { flowEnvironment } from './private-runtime-flow-env.mjs';
 import {
   nativeFailureCategory,
   buildFailureDiagnostic,
+  podParserPresence,
 } from './private-runtime-loader-diagnostics.mjs';
 import {
   failingBuildLog,
@@ -35,6 +36,8 @@ import {
 } from './private-runtime-identifier-diagnostic.mjs';
 import { initialIdentifierFlow } from './private-runtime-flow-policy.mjs';
 import { graphStatus } from './private-runtime-bundle-policy.mjs';
+import { identifierProbes } from './private-runtime-identifier-probe.mjs';
+import { failedSaveObservations } from './private-runtime-save-probe.mjs';
 
 let currentPhase = 'runtime-preconditions';
 const driverPhases = new Set([
@@ -291,6 +294,10 @@ async function main() {
       const childLog = failingBuildLog(phaseJson);
       const log = childLog ? readPrivate(childLog) : '';
       const diagnostic = buildFailureDiagnostic(phaseJson, log);
+      const parserPresence = podParserPresence({ nativeBuild: currentPhase === 'native-build', phaseJson, log });
+      if (parserPresence)
+        for (const [pattern, present] of Object.entries(parserPresence))
+          console.error(`ST244_NATIVE pods_pattern=${pattern} present=${present}`);
       if (diagnostic)
         console.error(
           `ST244_NATIVE build_phase=${diagnostic.phase} event=failed exit_code=${diagnostic.exitCode} category=${diagnostic.category} reason_list=${diagnostic.reasons.join(',') || 'none'} known_specs=${diagnostic.specs.join(',') || 'none'} known_ruby_methods=${diagnostic.rubyMethods.join(',') || 'none'} known_ruby_keywords=${diagnostic.rubyKeywords.join(',') || 'none'} podfile_lines=${diagnostic.podfileLines.join(',') || 'none'} known_ruby_sources=${diagnostic.rubySources.join(',') || 'none'}`,
@@ -335,6 +342,45 @@ async function main() {
       );
     }
     if (currentPhase === 'flow-identifier') {
+      const syntheticOtpIssued = code !== null;
+      console.error(`ST244_NATIVE identifier_otp_issued=${syntheticOtpIssued}`);
+      const observations = await identifierProbes({
+        phase: currentPhase,
+        issued: syntheticOtpIssued,
+        labels,
+        run: async (name, label) => {
+          const logPath = join(privateDir, `identifier-probe-${name}.log`);
+          const fd = openSync(logPath, 'w', 0o600);
+          let exitCode = null;
+          let timedOut = false;
+          try {
+            await new Promise((accept) => {
+              const child = spawn('timeout', [
+                '--signal=TERM', '--kill-after=5s', '20s',
+                'maestro', 'test', '--test-output-dir',
+                join(privateDir, `identifier-probe-${name}`),
+                join(app, 'e2e/private-runtime-identifier-probe.yaml'),
+              ], {
+                cwd: app,
+                env: { ...process.env, MAESTRO_IDENTIFIER_PROBE_LABEL: label },
+                stdio: ['ignore', fd, fd],
+              });
+              child.on('error', () => accept());
+              child.on('close', (status) => {
+                exitCode = status;
+                timedOut = status === 124 || status === 137;
+                accept();
+              });
+            });
+          } finally {
+            closeSync(fd);
+          }
+          return { exitCode, timedOut, log: readFileSync(logPath, 'utf8') };
+        },
+      });
+      if (observations)
+        for (const [target, result] of Object.entries(observations))
+          console.error(`ST244_NATIVE identifier_probe=${target} observation=${result}`);
       const readTool = (name) => {
         try {
           return readFileSync(join(privateDir, name), 'utf8');
@@ -399,6 +445,36 @@ async function main() {
         console.error(
           `ST244_NATIVE enrollment_diagnostic=fixed commands=${diagnostic.commands.join(',') || 'none'} reasons=${diagnostic.reasons.join(',') || 'none'} targets=${diagnostic.targets.join(',') || 'none'} metro=${diagnostic.metro.join(',') || 'none'} modules=${diagnostic.modules.join(',') || 'none'}`,
         );
+      const saveProbe = async (label, header, fileName) => {
+        const logPath = join(privateDir, `${fileName}.log`);
+        const fd = openSync(logPath, 'w', 0o600);
+        let exitCode = null;
+        let timedOut = false;
+        try {
+          await new Promise((accept) => {
+            const child = spawn('timeout', [
+              '--signal=TERM', '--kill-after=1s', '4s',
+              'maestro', 'test', '--test-output-dir', join(privateDir, fileName),
+              join(app, header ? 'e2e/private-runtime-save-header.yaml' : 'e2e/private-runtime-save-probe.yaml'),
+            ], { cwd: app, env: { ...process.env, MAESTRO_SAVE_PROBE_LABEL: label, MAESTRO_PERSONAL_TITLE: labels.MAESTRO_PERSONAL_TITLE }, stdio: ['ignore', fd, fd] });
+            child.on('error', () => accept());
+            child.on('close', status => { exitCode = status; timedOut = status === 124 || status === 137; accept(); });
+          });
+        } finally { closeSync(fd); }
+        return { exitCode, timedOut, log: readFileSync(logPath, 'utf8') };
+      };
+      const saveObservations = await failedSaveObservations({
+        phase: currentPhase, diagnostic, labels,
+        observe: () => harness.readbackReceipt(),
+        run: (stage, name, label) => saveProbe(label, false, `save-probe-${stage}-${name}`),
+        scroll: label => saveProbe(label, true, 'save-probe-header'),
+      });
+      if (saveObservations) {
+        console.error(`ST244_NATIVE failed_save_count=${saveObservations.count} header=${saveObservations.header}`);
+        for (const stage of ['before', 'after'])
+          for (const [target, observation] of Object.entries(saveObservations[stage] ?? {}))
+            console.error(`ST244_NATIVE failed_save_probe=${target} stage=${stage} observation=${observation}`);
+      }
     }
     // Raw API/tool errors can contain credentials: retain privately, never print them.
     console.error(

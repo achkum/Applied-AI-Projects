@@ -268,6 +268,25 @@ const buildPhases = new Set([
   'ios-ca-trust',
   'metro',
 ]);
+export function podParserPresence({ nativeBuild, phaseJson, log }) {
+  if (nativeBuild !== true || typeof log !== 'string' || log.length > 4_000_000) return null;
+  try {
+    const phase = JSON.parse(phaseJson);
+    if (!phase || Object.keys(phase).sort().join(',') !== 'exitCode,phase' ||
+        phase.phase !== 'ios-pods' || !Number.isInteger(phase.exitCode) || phase.exitCode < 1 || phase.exitCode > 255) return null;
+    // eslint-disable-next-line no-control-regex
+    const plain = log.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '');
+    const source = (name) => new RegExp(`(?:^|[\\s/\\\\])${name}:[1-9][0-9]{0,3}(?=[:\\s]|$)`, 'm').test(plain);
+    return {
+      'json-parser-class': /(?:^|\s|`)JSON::ParserError(?=\s*[-:]|\s*$)/m.test(plain),
+      'json-common': source('json/common\\.rb'),
+      'autolinking-manager': source('autolinking_manager\\.rb'),
+      'native-modules': source('native_modules\\.rb'),
+      podfile: source('Podfile'),
+    };
+  } catch { return null; }
+}
+
 export function buildFailureDiagnostic(phaseJson, log) {
   try {
     const value = JSON.parse(phaseJson);
