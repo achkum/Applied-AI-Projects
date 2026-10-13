@@ -673,6 +673,11 @@ try {
       const originalViewport = page.viewportSize();
       assert(originalViewport);
       const capturePrimary = async (state, width) => {
+        assert(['normal', 'hover', 'focus', 'disabled'].includes(state));
+        await page.waitForFunction(({ name, disabled }) => [...globalThis.document.querySelectorAll('button')]
+          .some(button => button.textContent === name && button.disabled === disabled &&
+            globalThis.getComputedStyle(button).opacity === (disabled ? '0.4' : '1')),
+        { name: copy.ownerSubscriptions.actions.PAUSED, disabled: state === 'disabled' });
         const visual = await pauseButton.evaluate((element, expectedState) => {
           const style = globalThis.getComputedStyle(element);
           const rgb = value => {
@@ -740,8 +745,6 @@ try {
         if (route.request().method() !== 'PATCH') { await route.continue(); return; }
         primaryStatusWrites++;
         try {
-          await page.waitForFunction(name => [...globalThis.document.querySelectorAll('button')]
-            .some(button => button.textContent === name && button.disabled), copy.ownerSubscriptions.actions.PAUSED);
           await page.mouse.move(0, 0);
           for (const width of [1280, 390]) {
             await page.setViewportSize({ width, height: originalViewport.height });
