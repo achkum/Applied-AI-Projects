@@ -250,7 +250,7 @@ BEGIN
   INSERT INTO subtrack_auth.csrf VALUES (sid,fid,identity_id,(scope).epoch,csrf_h,
     t::subtrack_auth.ms,(t+86400000)::subtrack_auth.ms);
   DELETE FROM subtrack_auth.login_proof x WHERE x.proof_h=consume_login.proof_h
-    AND x.identity_id=identity_id AND x.expires_ms>t;
+    AND x.identity_id=consume_login.identity_id AND x.expires_ms>t;
   GET DIAGNOSTICS changed=ROW_COUNT;
   IF changed<>1 THEN RAISE EXCEPTION USING ERRCODE='22012',MESSAGE='login proof consumption'; END IF;
   DELETE FROM subtrack_auth.nonce x WHERE x.nonce_h=(scope).nonce_h

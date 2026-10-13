@@ -87,7 +87,7 @@ const qualifiedSqlPins = Object.freeze({
   '009-current-web-session-csrf.sql': 'f7c026ee9dac458bbfbbea13e1774d3bd392fdab8e5c4659185dc769ecab2c9b',
   '010-enrollment-account.sql': '954be5c4ae1c018aac161a5ec7e59d2bd1bc478df5310a7a15f968f8bfd90a4a',
   '011-just-me-owner-subscriptions.sql': 'c846c43da9f37c18739d0dbc5f9633f24d0b4e14327e607d94f1f0344602bd43',
-  '012-returning-login.sql': 'bbaf931e5303b2fc3c7bc7b4d376f66ee52c15b9b16fc380efe6cbb336e8dca2',
+  '012-returning-login.sql': '1825e9770adf4c9127c0d8f774b8b0c0311137d51dfec952f6d300b00e6d9241',
 });
 const privacyMigrationPin = 'b2ef9ebbdce9f9dddff9f43b6679e0fdac58324c2a6ef060af33662ec89a2f9a';
 const justMeMigrationPin = '0472642ea4182b0818c7230d0285d6fab620738b17124268dce5e5d891b3ca29';
