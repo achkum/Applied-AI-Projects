@@ -49,6 +49,11 @@ async function main() {
   const platform = process.argv[2];
   assert.ok(platform === 'android' || platform === 'ios');
   const app = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const mobileRequire = createRequire(join(app, 'package.json'));
+  const installedNativeVersion = mobileRequire(
+    'react-native/package.json',
+  ).version;
+  assert.equal(installedNativeVersion, '0.74.5');
   const repo = resolve(app, '../..');
   const root = join(process.env.RUNNER_TEMP, 'subtrack-native-proof');
   const privateDir = join(root, 'private');
@@ -215,7 +220,7 @@ async function main() {
           bundleId: 'se.subtrack.app',
           binaryIdentity,
           expo: '51',
-          reactNative: '0.74.0',
+          reactNative: installedNativeVersion,
           developmentSimulatorOnly: true,
           freshLoginAfterStartup: true,
           appRestartReadback: true,
@@ -259,7 +264,7 @@ async function main() {
       );
       if (diagnostic)
         console.error(
-          `ST244_NATIVE build_phase=${diagnostic.phase} event=failed exit_code=${diagnostic.exitCode} category=${diagnostic.category} reason_list=${diagnostic.reasons.join(',') || 'none'} known_specs=${diagnostic.specs.join(',') || 'none'} known_ruby_methods=${diagnostic.rubyMethods.join(',') || 'none'}`,
+          `ST244_NATIVE build_phase=${diagnostic.phase} event=failed exit_code=${diagnostic.exitCode} category=${diagnostic.category} reason_list=${diagnostic.reasons.join(',') || 'none'} known_specs=${diagnostic.specs.join(',') || 'none'} known_ruby_methods=${diagnostic.rubyMethods.join(',') || 'none'} known_ruby_keywords=${diagnostic.rubyKeywords.join(',') || 'none'} podfile_lines=${diagnostic.podfileLines.join(',') || 'none'}`,
         );
     }
     // Raw API/tool errors can contain credentials: retain privately, never print them.

@@ -55,8 +55,29 @@ export function nativeFailureReasons(text) {
   if (/EAI_AGAIN|ENOTFOUND|Could not resolve host/i.test(text))
     reasons.push('network-resolution');
   if (/ETIMEDOUT|timed out/i.test(text)) reasons.push('deadline');
-  if (/undefined method\s+[`'‘]/i.test(text))
+  if (/undefined (?:local variable or )?method\s+[`'‘]/i.test(text))
     reasons.push('pods-ruby-missing-method');
+  if (/unknown keyword:/i.test(text)) reasons.push('pods-unknown-keyword');
+  if (
+    /JSON::ParserError|unexpected token at|JSON[^\n]*(parse|invalid)/i.test(
+      text,
+    )
+  )
+    reasons.push('pods-ruby-json');
+  if (
+    /SyntaxError|syntax error|unexpected (tCONSTANT|tIDENTIFIER|end-of-input|keyword_end)/i.test(
+      text,
+    )
+  )
+    reasons.push('pods-ruby-syntax');
+  if (/uninitialized constant|NameError[^\n]*constant/i.test(text))
+    reasons.push('pods-ruby-missing-constant');
+  if (
+    /Pod::Executable|Failed to execute|command[^\n]*(failed|exit)|Invalid[^\n]{0,40}Podfile[^\n]{0,40}file:\s*exit/i.test(
+      text,
+    )
+  )
+    reasons.push('pods-command-failure');
   if (/cannot load such file|LoadError/.test(text))
     reasons.push('pods-ruby-load-error');
   if (
@@ -135,10 +156,15 @@ const knownRubyMethods = new Set([
   'use_expo_modules!',
   'install_modules_dependencies',
 ]);
+const knownRubyKeywords = new Set(['privacy_file_aggregation_enabled']);
 export function knownPodFailureContext(text) {
   const specs = new Set();
   const rubyMethods = new Set();
+  const podfileLines = new Set();
+  const rubyKeywords = new Set();
   for (const line of text.split(/\r?\n/)) {
+    for (const match of line.matchAll(/\bPodfile:([1-9][0-9]{0,3})\b/g))
+      podfileLines.add(Number(match[1]));
     if (
       /specification for|versions for pod|Error installing|depends on/i.test(
         line,
@@ -149,10 +175,21 @@ export function knownPodFailureContext(text) {
       const unquoted = /Error installing\s+([A-Za-z0-9_-]+)/i.exec(line);
       if (unquoted && knownSpecs.has(unquoted[1])) specs.add(unquoted[1]);
     }
-    const method = /undefined method\s+[`'‘]([^`'’]+)[`'’]/i.exec(line);
+    const method =
+      /undefined (?:local variable or )?method\s+[`'‘]([^`'’]+)[`'’]/i.exec(
+        line,
+      );
     if (method && knownRubyMethods.has(method[1])) rubyMethods.add(method[1]);
+    const keyword = /unknown keyword:\s*:([a-z_]+)/i.exec(line);
+    if (keyword && knownRubyKeywords.has(keyword[1]))
+      rubyKeywords.add(keyword[1]);
   }
-  return { specs: [...specs], rubyMethods: [...rubyMethods] };
+  return {
+    specs: [...specs],
+    rubyMethods: [...rubyMethods],
+    rubyKeywords: [...rubyKeywords],
+    podfileLines: [...podfileLines].slice(0, 8),
+  };
 }
 
 const buildPhases = new Set([

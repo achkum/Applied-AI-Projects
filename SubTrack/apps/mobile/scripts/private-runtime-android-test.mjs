@@ -41,6 +41,7 @@ try {
     ANDROID_HOME: normalized(sdk),
     RUNNER_TEMP: normalized(runner),
     GITHUB_PATH: normalized(join(root, 'path')),
+    GITHUB_ENV: normalized(join(root, 'env')),
   };
   function sdkPhase(extraEnv = {}) {
     return spawnSync(bash, [normalized(script), 'sdk'], {
@@ -56,6 +57,10 @@ try {
   const positive = sdkPhase();
   assert.equal(positive.status, 0);
   assert.match(positive.stdout, /event=sdk-installed/);
+  assert.match(
+    readFileSync(join(root, 'env'), 'utf8'),
+    /ANDROID_AVD_HOME=.*subtrack-native-proof\/avd/,
+  );
   assert.equal(positive.stdout.includes('private-tool-canary'), false);
   assert.match(
     readFileSync(
@@ -78,6 +83,17 @@ try {
   });
   assert.equal(missingEmulator.status, 1);
   assert.match(missingEmulator.stdout, /event=emulator-unavailable/);
+  executable(
+    join(sdk, 'cmdline-tools/latest/bin/avdmanager'),
+    '[[ "$ANDROID_SDK_ROOT" == "$ANDROID_HOME" ]] || exit 42\n[[ "$ANDROID_AVD_HOME" == "$RUNNER_TEMP/subtrack-native-proof/avd" ]] || exit 43\n[[ "$5" == "--path" && "$6" == "$ANDROID_AVD_HOME/subtrack-proof.avd" ]] || exit 44\nmkdir -p "$6"\nprintf "path=%s\\n" "$6" > "$ANDROID_AVD_HOME/subtrack-proof.ini"\nprintf fixture > "$6/config.ini"',
+  );
+  const avd = spawnSync(bash, [normalized(script), 'avd'], {
+    env,
+    encoding: 'utf8',
+    timeout: 10000,
+  });
+  assert.equal(avd.status, 0);
+  assert.match(avd.stdout, /event=avd-created/);
   console.log(
     'Android SDK phase: checked tool paths, exact packages, closed stdin, child failure and sanitized diagnostics PASS',
   );

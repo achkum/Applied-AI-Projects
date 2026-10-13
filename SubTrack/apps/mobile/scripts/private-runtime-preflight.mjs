@@ -27,7 +27,7 @@ for (const profile of ['preview','production']) {
   assert.equal(eas.build[profile].env.EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL,undefined);
 }
 const pkg = JSON.parse(fs.readFileSync(path.join(app, 'package.json'), 'utf8'));
-assert.equal(pkg.dependencies.expo,'~51.0.0');assert.equal(pkg.dependencies['react-native'],'0.74.0');
+assert.equal(pkg.dependencies.expo,'~51.0.0');assert.equal(pkg.dependencies['react-native'],'0.74.5');
 process.stdout.write('PASS ST244_NATIVE_CONFIG_AND_ASSET_INPUTS\n');
 for (const [name,args] of [['java',['-version']],['adb',['version']],['emulator',['-version']],['xcodebuild',['-version']]]) {
   const result = spawnSync(name,args,{windowsHide:true,stdio:'ignore',timeout:5000});

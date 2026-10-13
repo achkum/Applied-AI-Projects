@@ -4,7 +4,17 @@ ST-244 runtime handoff, verified 2026-10-13. Android and iOS are the current pro
 
 ## Existing SDK and build profiles
 
-The locked Expo SDK51 / React Native0.74 / React18.2 stack matches the [official SDK51 release](https://expo.dev/changelog/2024-05-07-sdk-51). No SDK or dependency upgrade is included. App assets are rasterizations of `docs/design/branding/orbit-light.svg`, preserving the established brand. `ios.supportsTablet` replaces the unrecognized `supportsTabletMode` key, using the [documented Expo configuration field](https://docs.expo.dev/versions/latest/config/app/#supportstablet).
+Compatibility evidence verified 2026-10-13: installed Expo 51.0.39 declares
+React Native 0.74.5 in `bundledNativeModules.json`. Its locked CLI selects the
+official SDK 51 template (51.0.56), which passes
+`privacy_file_aggregation_enabled` to `use_react_native!`. The old 0.74.0
+signature accepts neither that keyword nor arbitrary keyword arguments;
+[Meta's 0.74.5 implementation](https://raw.githubusercontent.com/facebook/react-native/v0.74.5/packages/react-native/scripts/react_native_pods.rb)
+supports it. The exact patch alignment preserves privacy aggregation, Expo
+SDK 51, React 18.2 and unrelated dependency pins. Actual installed native
+qualification is still required after this compatibility correction.
+
+The locked Expo SDK 51 / React Native 0.74.5 / React 18.2 stack matches the [official SDK 51 release](https://expo.dev/changelog/2024-05-07-sdk-51). React Native aligns to Expo 51.0.39's own bundled declaration of 0.74.5; the SDK and unrelated dependencies remain unchanged. App assets are rasterizations of `docs/design/branding/orbit-light.svg`, preserving the established brand. `ios.supportsTablet` replaces the unrecognized `supportsTabletMode` key, using the [documented Expo configuration field](https://docs.expo.dev/versions/latest/config/app/#supportstablet).
 
 The existing `development` profile produces Android `assembleDebug` and an iOS simulator artifact. It defaults private API access OFF. It does not claim an installed `expo-dev-client`: that dependency is absent. The [EAS configuration reference](https://docs.expo.dev/eas/json/) requires that dependency before setting `developmentClient:true`. The `preview`/`production` API_BASE_URL values and `submit` IDs/credential paths remain inactive legacy scaffolding, without verification or runtime consumption. They are not private native API fallbacks or approved store destinations. No build has been submitted, no account created and no public distribution authorized.
 
@@ -42,6 +52,14 @@ node apps/mobile/scripts/private-runtime-assets.mjs
 The generator pins the existing SVG input and produces `icon.png`1024square, `splash.png`512square and transparent `adaptive-icon.png`1024square. A brand input change requires design review before repinning. A pre-existing absolute Sharp module path may be passed for isolated worktree regeneration; no downloaded image or added package is required.
 # Installed private native qualification (ST-244)
 
+The standalone emulator and AVD manager share one runner-owned
+`ANDROID_AVD_HOME`, an explicit AVD data path and the actual Android SDK root.
+Boot also checks and supplies the API 34 system-image directory. These
+[documented process-local controls](https://developer.android.com/tools/variables)
+avoid SDK/AVD discovery from the standalone tool's TEMP location; they change
+no API level, tool version or trust configuration. AVD index/config checks and
+bounded child-liveness waits precede installation.
+
 The separate `subtrack-native-device-proof.yml` workflow compiles and installs
 debug builds on Android API 34 (standard Linux runner) and iOS 17.5/Xcode 15.4
 (standard macOS 14 runner). It uses the locked Expo 51/React Native 0.74 source,
@@ -65,7 +83,7 @@ and archive size 349654171 bytes. An independent download matching both
 produced SHA256 `b08fc43d8608d2955f607f1b287beb525041e730086bdca3af152accac3af9c1`;
 the script checks all three and the executed tool version. This provisions a
 missing build tool; Android API 34, build-tools 34.0.0, Expo 51 and React Native
-0.74 remain unchanged. No global installation or service is created. Official
+0.74 patch baseline remain unchanged. No global installation or service is created. Official
 metadata: [Google Android repository](https://dl.google.com/android/repository/repository2-3.xml),
 verified 2026-10-13; the package names the existing Android SDK license.
 The Ubuntu runner also installs only the `libpulse0` client-library prerequisite:

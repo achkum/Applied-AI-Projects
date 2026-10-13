@@ -95,6 +95,21 @@ const classificationCases = [
     'pods-source-unavailable',
   ],
   ['SSL_connect: certificate verify failed private-canary', 'tls-validation'],
+  [
+    'unknown keyword: :privacy_file_aggregation_enabled',
+    'pods-unknown-keyword',
+  ],
+  ['JSON::ParserError unexpected token at private-canary', 'pods-ruby-json'],
+  [
+    'SyntaxError syntax error unexpected keyword_end private-canary',
+    'pods-ruby-syntax',
+  ],
+  ['uninitialized constant PrivateCanary', 'pods-ruby-missing-constant'],
+  ['Pod::Executable command failed private-canary', 'pods-command-failure'],
+  [
+    "undefined local variable or method `use_expo_modules!'",
+    'pods-ruby-missing-method',
+  ],
 ];
 for (const [text, category] of classificationCases)
   assert.equal(nativeFailureCategory(text), category);
@@ -115,6 +130,8 @@ assert.deepEqual(
     reasons: ['pods-failure'],
     specs: [],
     rubyMethods: [],
+    rubyKeywords: [],
+    podfileLines: [],
   },
 );
 assert.deepEqual(
@@ -127,19 +144,49 @@ assert.deepEqual(
   knownPodFailureContext(
     'Error installing boost\nUnable to find a specification for `RCT-Folly`\nCocoaPods could not find compatible versions for pod "ReactCodegen"\nundefined method `exists?\' for File:Class',
   ),
-  { specs: ['boost', 'RCT-Folly', 'ReactCodegen'], rubyMethods: ['exists?'] },
+  {
+    specs: ['boost', 'RCT-Folly', 'ReactCodegen'],
+    rubyMethods: ['exists?'],
+    rubyKeywords: [],
+    podfileLines: [],
+  },
 );
 const privateLog =
   "Error installing private-canary\nUnable to find a specification for `/private/secret-path`\nundefined method `private-canary'\nprivate-password-token";
 assert.deepEqual(knownPodFailureContext(privateLog), {
   specs: [],
   rubyMethods: [],
+  rubyKeywords: [],
+  podfileLines: [],
 });
 assert.deepEqual(
   knownPodFailureContext(
     "Error installing boost_private\nundefined method `exists?private'",
   ),
-  { specs: [], rubyMethods: [] },
+  { specs: [], rubyMethods: [], rubyKeywords: [], podfileLines: [] },
+);
+assert.deepEqual(
+  knownPodFailureContext(
+    'from /private/canary/Podfile:43\nfrom Podfile:43\nunknown keyword: :privacy_file_aggregation_enabled',
+  ),
+  {
+    specs: [],
+    rubyMethods: [],
+    rubyKeywords: ['privacy_file_aggregation_enabled'],
+    podfileLines: [43],
+  },
+);
+assert.deepEqual(
+  knownPodFailureContext(
+    'from MyPodfile:12\nPodfile:0\nPodfile:10000\nPodfile:-1\nunknown keyword: :privacy_file_aggregation_enabled_private\nunknown keyword: :private_canary',
+  ),
+  { specs: [], rubyMethods: [], rubyKeywords: [], podfileLines: [] },
+);
+assert.equal(
+  knownPodFailureContext(
+    Array.from({ length: 20 }, (_, i) => `Podfile:${i + 1}`).join('\n'),
+  ).podfileLines.length,
+  8,
 );
 assert.equal(
   JSON.stringify(

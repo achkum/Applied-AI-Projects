@@ -7,6 +7,13 @@ chmod 700 "$proof_private"
 sdk_bin="${ANDROID_HOME:?}/cmdline-tools/latest/bin"
 adb_bin="$ANDROID_HOME/platform-tools/adb"
 emulator_bin="${SUBTRACK_PRIVATE_EMULATOR_BIN:-$ANDROID_HOME/emulator/emulator}"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export ANDROID_AVD_HOME="$RUNNER_TEMP/subtrack-native-proof/avd"
+export ANDROID_EMULATOR_HOME="$RUNNER_TEMP/subtrack-native-proof/emulator-home"
+mkdir -p "$ANDROID_AVD_HOME" "$ANDROID_EMULATOR_HOME"
+chmod 700 "$ANDROID_AVD_HOME" "$ANDROID_EMULATOR_HOME"
+avd_data="$ANDROID_AVD_HOME/subtrack-proof.avd"
+system_images="$ANDROID_HOME/system-images/android-34/google_apis/x86_64"
 serial=emulator-5554
 phase_start=$SECONDS
 diagnostic() { printf 'ST244_ANDROID phase=%s event=%s elapsed_seconds=%s\n' "$phase" "$1" "$((SECONDS-phase_start))"; }
@@ -16,7 +23,8 @@ fail() {
     # Only fixed categories leave private logs; no arbitrary tool text or paths.
     if grep -Eiq 'Could not load the Qt platform plugin|no Qt platform plugin could be initialized' "$proof_private/emulator.log"; then diagnostic emulator-qt-plugin-failure;
     elif grep -Eiq 'KVM.*(not available|not installed|permission denied)|requires hardware acceleration' "$proof_private/emulator.log"; then diagnostic emulator-acceleration-unavailable;
-    elif grep -Eiq 'Unknown AVD name|Cannot find AVD system path' "$proof_private/emulator.log"; then diagnostic emulator-avd-unavailable;
+    elif grep -Eiq 'Unknown AVD name' "$proof_private/emulator.log"; then diagnostic emulator-avd-name-unavailable;
+    elif grep -Eiq 'Cannot find AVD system path' "$proof_private/emulator.log"; then diagnostic emulator-sdk-system-path-unavailable;
     elif grep -Eiq 'Not enough (disk space|space)|No space left on device' "$proof_private/emulator.log"; then diagnostic emulator-storage-unavailable;
     else diagnostic emulator-no-known-error-signature; fi
   fi
@@ -60,6 +68,7 @@ case "$phase" in
     [[ -x "$adb_bin" ]] || fail adb-unavailable
     [[ -x "$emulator_bin" ]] || fail emulator-unavailable
     printf '%s\n' "$ANDROID_HOME/platform-tools" >> "${GITHUB_PATH:?}"
+    printf 'ANDROID_SDK_ROOT=%s\nANDROID_AVD_HOME=%s\nANDROID_EMULATOR_HOME=%s\n' "$ANDROID_SDK_ROOT" "$ANDROID_AVD_HOME" "$ANDROID_EMULATOR_HOME" >> "${GITHUB_ENV:?}"
     if timeout --signal=TERM --kill-after=15s 600s "$sdk_bin/sdkmanager" \
       'system-images;android-34;google_apis;x86_64' 'platforms;android-34' 'build-tools;34.0.0' \
       </dev/null > "$proof_private/sdk-install.log" 2>&1; then diagnostic sdk-installed;
@@ -73,15 +82,19 @@ case "$phase" in
   avd)
     [[ -x "$sdk_bin/avdmanager" ]] || fail avd-tool-unavailable
     if printf 'no\n' | timeout --signal=TERM --kill-after=10s 60s "$sdk_bin/avdmanager" \
-      create avd --name subtrack-proof --package 'system-images;android-34;google_apis;x86_64' --device pixel_6 \
+      create avd --name subtrack-proof --path "$avd_data" --package 'system-images;android-34;google_apis;x86_64' --device pixel_6 \
       > "$proof_private/avd-create.log" 2>&1; then diagnostic avd-created;
     else fail avd-create-failed-or-deadline; fi
+    [[ -f "$ANDROID_AVD_HOME/subtrack-proof.ini" && -f "$avd_data/config.ini" ]] || fail avd-index-or-config-missing
+    grep -Fqx "path=$avd_data" "$ANDROID_AVD_HOME/subtrack-proof.ini" || fail avd-path-mismatch
     ;;
   boot)
     [[ -x "$adb_bin" && -x "$emulator_bin" ]] || fail boot-tool-unavailable
+    [[ -f "$ANDROID_AVD_HOME/subtrack-proof.ini" && -f "$avd_data/config.ini" ]] || fail boot-avd-config-missing
+    [[ -f "$system_images/system.img" ]] || fail boot-sdk-system-image-missing
     if [[ -f "$proof_private/emulator.pid" ]]; then fail duplicate-emulator-launch; fi
     timeout --signal=TERM --kill-after=5s 15s "$adb_bin" start-server > "$proof_private/adb-start.log" 2>&1 || fail adb-start-failed-or-deadline
-    "$emulator_bin" -avd subtrack-proof -port 5554 -no-window -no-audio -no-boot-anim \
+    "$emulator_bin" -avd subtrack-proof -sysdir "$system_images" -port 5554 -no-window -no-audio -no-boot-anim \
       -no-snapshot -gpu swiftshader_indirect > "$proof_private/emulator.log" 2>&1 &
     emulator_pid=$!
     printf '%s' "$emulator_pid" > "$proof_private/emulator.pid"
