@@ -438,11 +438,14 @@ try {
             await route.fulfill({ response: verified });
           } else if (routePattern.includes('/auth/session')) {
             try {
+              fs.writeSync(2, 'ST239_ALICE_SESSION_DIAGNOSTIC status=REQUEST\n');
               const created = await route.fetch({ timeout: 30000 });
               aliceSessionDiagnostic = [201, 409, 400, 401, 403, 500].includes(created.status()) ? String(created.status()) : 'OTHER';
+              fs.writeSync(2, `ST239_ALICE_SESSION_DIAGNOSTIC status=${aliceSessionDiagnostic}\n`);
               await route.fulfill({ response: created });
             } catch (error) {
               if (aliceSessionDiagnostic === 'NONE') aliceSessionDiagnostic = error instanceof Error && error.name === 'TimeoutError' ? 'TIMEOUT' : 'OTHER';
+              fs.writeSync(2, `ST239_ALICE_SESSION_DIAGNOSTIC status=${aliceSessionDiagnostic}\n`);
               try { await route.abort('failed'); } catch { /* Keep the closed browser failure. */ }
             }
           } else if (routePattern.includes('/profile/read')) {
