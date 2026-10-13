@@ -185,7 +185,7 @@ async function manualDiagnosticDelegation() {
   nodeAssert(start >= 0 && end > start);
   // Exercise the exact source factory, without starting the private launcher.
   const factory = new Function(`return (${source.slice(start, end).trim()});`)();
-  const { PRIVATE_MANUAL_CREATE_STATEMENTS: statements } = await import(new URL('../../api/src/subscriptions/private-manual-create-statements.ts', import.meta.url));
+  const { PRIVATE_MANUAL_CREATE_STATEMENTS: statements } = await import(new globalThis.URL('../../api/src/subscriptions/private-manual-create-statements.ts', import.meta.url));
   const messages = []; const calls = []; const releases = []; let connects = 0;
   const original = { private: 'test-only-value' };
   const permission = Object.assign(new Error('test-only-private-error'), { code: '42501' });
