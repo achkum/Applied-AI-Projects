@@ -12,6 +12,11 @@ export function flowEnvironment(locale = 'en') {
   );
   const onboarding = catalog.onboarding;
   return {
+    MAESTRO_DATE: onboarding.nativePersonal.date,
+    MAESTRO_RENEWALS_OPEN: onboarding.nativeRenewals.open,
+    MAESTRO_RENEWALS_TITLE: onboarding.nativeRenewals.title,
+    MAESTRO_RENEWALS_REFRESH: onboarding.nativeRenewals.refresh,
+    MAESTRO_RENEWALS_EMPTY: onboarding.nativeRenewals.empty,
     MAESTRO_EDIT: onboarding.nativeSubscriptionEdit.edit,
     MAESTRO_SAVE_EDIT: onboarding.nativeSubscriptionEdit.save,
     MAESTRO_EDIT_SAVED: onboarding.nativeSubscriptionEdit.saved,

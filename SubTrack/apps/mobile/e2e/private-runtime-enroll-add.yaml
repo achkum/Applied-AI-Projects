@@ -44,6 +44,12 @@ appId: se.subtrack.app
 - inputText: '129.90'
 - hideKeyboard
 - scrollUntilVisible:
+    element: ${MAESTRO_DATE}
+    direction: DOWN
+- tapOn: ${MAESTRO_DATE}
+- inputText: ${MAESTRO_RENEWAL_DATE}
+- hideKeyboard
+- scrollUntilVisible:
     element: ${MAESTRO_SAVE_SUBSCRIPTION}
     direction: DOWN
 - tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}
