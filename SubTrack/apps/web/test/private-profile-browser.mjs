@@ -260,18 +260,23 @@ try {
     let manualRequests = 0; let sentKey = ''; let sentBody = ''; let createdId = ''; let releaseManualResponse;
     manualPhase('MANUAL_INTERCEPT_SETUP');
     await page.route('**/v2/subscriptions/owner/manual', async route => {
+      process.stderr.write('ST240_MANUAL_ROUTE stage=REQUEST status=NONE\n');
       manualRequests++;
       const headers = await route.request().allHeaders();
       const body = route.request().postData();
       if (manualRequests === 1) { sentKey = headers['idempotency-key']; sentBody = body; }
       else { assert.equal(headers['idempotency-key'], sentKey); assert.equal(body, sentBody); }
       assert.match(sentKey, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      process.stderr.write('ST240_MANUAL_ROUTE stage=FETCH_PENDING status=NONE\n');
       const committed = await route.fetch();
+      const routeStatus = [201, 400, 401, 403, 409, 500].includes(committed.status()) ? String(committed.status()) : 'OTHER';
+      process.stderr.write(`ST240_MANUAL_ROUTE stage=FETCH_RESULT status=${routeStatus}\n`);
       assert.equal(committed.status(), 201);
       const response = await committed.json();
       assert.deepEqual(Object.keys(response), ['id']);
       if (manualRequests === 1) createdId = response.id;
       else assert.equal(response.id, createdId);
+      process.stderr.write('ST240_MANUAL_ROUTE stage=COMMITTED_HOLD status=201\n');
       // Hold the committed response until the pending-state capture finishes.
       await new Promise(resolve => { releaseManualResponse = resolve; });
       if (manualRequests === 1) await route.abort('failed'); else await route.fulfill({ response: committed });

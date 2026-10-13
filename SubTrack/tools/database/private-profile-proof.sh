@@ -83,6 +83,7 @@ cleanup() {
   # Preserve the last closed manual subphase even if the main browser catch has not run.
   if [[ "$proof_case" == manual && -f "$work/browser.log" ]] && (( code != 0 )); then
     grep -E '^ST240_MANUAL_PHASE phase=(MANUAL_CANCEL_CLICK|MANUAL_ADD_WAIT|MANUAL_CANCEL_FOCUS|MANUAL_REOPEN|MANUAL_FILL_NAME|MANUAL_FILL_CATEGORY|MANUAL_FILL_CADENCE|MANUAL_FILL_AMOUNT|MANUAL_FILL_DATE|MANUAL_INTERCEPT_SETUP|MANUAL_FIRST_SAVE_CLICK|MANUAL_FIRST_SAVE_PENDING)$' "$work/browser.log" | tail -n 1 >&3 || true
+    grep -E '^ST240_MANUAL_ROUTE stage=(REQUEST|FETCH_PENDING) status=NONE$|^ST240_MANUAL_ROUTE stage=FETCH_RESULT status=(201|400|401|403|409|500|OTHER)$|^ST240_MANUAL_ROUTE stage=COMMITTED_HOLD status=201$' "$work/browser.log" | tail -n 1 >&3 || true
   fi
   if [[ "$proof_case" == login && -f "$work/browser.log" && -f "$ST237_SCREENSHOT_DIR/login-session-progress.png" ]] && (( code != 0 )); then
     grep -E '^ST239_ALICE_SESSION_DIAGNOSTIC status=(REQUEST|201|409|400|401|403|500|TIMEOUT|OTHER|FULFILLED)$' "$work/browser.log" | tail -n 1 >&3 || true
