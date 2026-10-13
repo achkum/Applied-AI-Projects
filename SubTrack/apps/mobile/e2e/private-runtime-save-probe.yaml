@@ -1,0 +1,3 @@
+appId: se.subtrack.app
+---
+- assertVisible: ${MAESTRO_SAVE_PROBE_LABEL}
