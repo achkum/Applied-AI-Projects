@@ -218,3 +218,26 @@ test('positive fatal selection is capped, no tail fallback, unrelated or unavail
   assert.ok(capped.lines.every((line) => line.length <= 240));
   assert.ok(capped.lines.reduce((sum, line) => sum + line.length, 0) <= 1800);
 });
+test('structured CocoaPods JSON failure wins over support footer without broadening selection', () => {
+  const result = excerpt({
+    log: [
+      '[!] Oh no, an error occurred.',
+      'Search for existing GitHub issues similar to yours:',
+      'https://private-support.invalid/path',
+      '### Error',
+      '\u001b[31mJSON::ParserError - unexpected token at owner-canary-password\u001b[0m',
+      '/private/canary/cdn_source.rb:123:in parse',
+    ].join('\n'),
+  });
+  assert.equal(result.withheld, null);
+  assert.match(result.lines[0], /^JSON::ParserError/);
+  assert.ok(!result.lines.join('\n').includes('Search for existing'));
+  assert.ok(!JSON.stringify(result).includes('owner-canary-password'));
+  assert.ok(!JSON.stringify(result).includes('/private/canary'));
+  for (const log of [
+    'private-canary JSON::ParserError',
+    'JSON::ParserErrorPrivateCanary: unknown',
+    'normal compiler tail private-canary',
+  ])
+    assert.equal(excerpt({ log }).withheld, 'fatal-block-unavailable');
+});

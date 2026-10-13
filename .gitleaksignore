@@ -44,3 +44,7 @@ be13f1367de1802aee83144e9309233682569a72:SubTrack/.sdlc/evidence/ST-227c1/accept
 # ST244: independently verified invalid synthetic PEM envelope in redaction tests.
 # Exact historical finding only; current canary constructs markers and scan stays enabled.
 1dd27a4bf2db68a64dcf69c63eec3ad4855d0412:SubTrack/apps/mobile/scripts/private-runtime-fatal-excerpt-test.mjs:private-key:28
+
+# ST245: independently verified static UUID idempotency input in a fake OwnerTx unit test.
+# Exact historical finding only; scanning remains enabled.
+effe056ccce9eb5bbaee8fd4cbd04b51af92df34:SubTrack/apps/api/src/subscriptions/private-mobile-lifecycle.spec.ts:generic-api-key:7
