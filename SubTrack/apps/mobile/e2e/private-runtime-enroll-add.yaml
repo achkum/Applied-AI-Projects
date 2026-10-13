@@ -53,6 +53,9 @@ appId: se.subtrack.app
     element: ${MAESTRO_SAVE_SUBSCRIPTION}
     direction: DOWN
 - tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}
+- scrollUntilVisible:
+    element: ${MAESTRO_PERSONAL_TITLE}
+    direction: UP
 - extendedWaitUntil:
     visible: ${MAESTRO_SAVED}
     timeout: 30000

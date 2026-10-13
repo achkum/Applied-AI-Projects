@@ -353,6 +353,8 @@ async function main() {
     }
     if (currentPhase === 'flow-identifier') {
       const syntheticOtpIssued = code !== null;
+      const requestObservation = harness.otpStartObservation();
+      console.error(`ST244_NATIVE identifier_request_arrivals=${requestObservation.arrivals} accepted202=${requestObservation.accepted202} rejected4xx=${requestObservation.rejected4xx} failed5xx=${requestObservation.failed5xx} other=${requestObservation.other} incomplete=${requestObservation.incomplete}`);
       console.error(`ST244_NATIVE identifier_otp_issued=${syntheticOtpIssued}`);
       const observations = await identifierProbes({
         phase: currentPhase,
@@ -463,7 +465,7 @@ async function main() {
         try {
           await new Promise((accept) => {
             const child = spawn('timeout', [
-              '--signal=TERM', '--kill-after=1s', '4s',
+              '--signal=TERM', '--kill-after=5s', '20s',
               'maestro', 'test', '--test-output-dir', join(privateDir, fileName),
               join(app, header ? 'e2e/private-runtime-save-header.yaml' : 'e2e/private-runtime-save-probe.yaml'),
             ], { cwd: app, env: { ...process.env, MAESTRO_SAVE_PROBE_LABEL: label, MAESTRO_PERSONAL_TITLE: labels.MAESTRO_PERSONAL_TITLE }, stdio: ['ignore', fd, fd] });

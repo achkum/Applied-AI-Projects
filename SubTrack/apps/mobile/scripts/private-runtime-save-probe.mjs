@@ -28,7 +28,7 @@ export async function failedSaveObservations({ phase, diagnostic, labels, observ
     const results = {};
     for (const [name, key] of roster) {
       try { results[name] = probeResult(await run(stage, name, labels[key])); }
-      catch { results[name] = 'unavailable'; }
+      catch { results[name] = 'launch-error'; }
     }
     return results;
   }
@@ -36,8 +36,8 @@ export async function failedSaveObservations({ phase, diagnostic, labels, observ
   let header = 'unavailable';
   try {
     const result = await scroll(labels.MAESTRO_PERSONAL_TITLE);
-    if (result?.exitCode === 0 && result.timedOut === false && typeof result.log === 'string' && result.log.length <= 4_000_000) header = 'visible';
-  } catch { /* Failed scroll is inconclusive. */ }
+    header = probeResult(result);
+  } catch { header = 'launch-error'; }
   const after = header === 'visible' ? await probes('after-scroll') : null;
   return { count, before, header, after };
 }
