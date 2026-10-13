@@ -42,9 +42,9 @@ try {
     RUNNER_TEMP: normalized(runner),
     GITHUB_PATH: normalized(join(root, 'path')),
   };
-  function sdkPhase() {
+  function sdkPhase(extraEnv = {}) {
     return spawnSync(bash, [normalized(script), 'sdk'], {
-      env,
+      env: { ...env, ...extraEnv },
       encoding: 'utf8',
       timeout: 10000,
     });
@@ -73,6 +73,11 @@ try {
   const license = sdkPhase();
   assert.equal(license.status, 1);
   assert.match(license.stdout, /event=sdk-license-unaccepted/);
+  const missingEmulator = sdkPhase({
+    SUBTRACK_PRIVATE_EMULATOR_BIN: normalized(join(root, 'missing-emulator')),
+  });
+  assert.equal(missingEmulator.status, 1);
+  assert.match(missingEmulator.stdout, /event=emulator-unavailable/);
   console.log(
     'Android SDK phase: checked tool paths, exact packages, closed stdin, child failure and sanitized diagnostics PASS',
   );

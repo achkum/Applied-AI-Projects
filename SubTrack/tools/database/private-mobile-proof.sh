@@ -114,7 +114,8 @@ else
  initdb -D "$cluster" -Ust233a_fixture_owner --pwfile="$work/password" --auth-local=scram-sha-256 --auth-host=scram-sha-256 >/dev/null
  port="$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()')"
  printf "listen_addresses='127.0.0.1'\nport=%s\nunix_socket_directories='%s'\n" "$port" "$work" >> "$cluster/postgresql.conf"
- pg_ctl -D "$cluster" -l "$work/pg.log" -w start >/dev/null
+ # The daemon must not retain the caller's captured readiness/diagnostic pipes.
+ pg_ctl -D "$cluster" -l "$work/pg.log" -w start >/dev/null 3>&- 4>&-
  PGPASSWORD="$owner_pass" createdb -h127.0.0.1 -p"$port" -Ust233a_fixture_owner "$db"
 fi
 [[ "$port" =~ ^[0-9]+$ && "$port" -gt 0 && "$port" -lt 65536 ]]

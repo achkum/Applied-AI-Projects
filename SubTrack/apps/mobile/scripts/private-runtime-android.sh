@@ -6,7 +6,7 @@ mkdir -p "$proof_private"
 chmod 700 "$proof_private"
 sdk_bin="${ANDROID_HOME:?}/cmdline-tools/latest/bin"
 adb_bin="$ANDROID_HOME/platform-tools/adb"
-emulator_bin="$ANDROID_HOME/emulator/emulator"
+emulator_bin="${SUBTRACK_PRIVATE_EMULATOR_BIN:-$ANDROID_HOME/emulator/emulator}"
 serial=emulator-5554
 phase_start=$SECONDS
 diagnostic() { printf 'ST244_ANDROID phase=%s event=%s elapsed_seconds=%s\n' "$phase" "$1" "$((SECONDS-phase_start))"; }
@@ -55,8 +55,11 @@ stop_owned_emulator() {
 diagnostic started
 case "$phase" in
   sdk)
-    [[ -x "$sdk_bin/sdkmanager" && -x "$sdk_bin/avdmanager" && -x "$adb_bin" && -x "$emulator_bin" ]] || fail sdk-tool-unavailable
-    printf '%s\n' "$ANDROID_HOME/platform-tools" "$ANDROID_HOME/emulator" >> "${GITHUB_PATH:?}"
+    [[ -x "$sdk_bin/sdkmanager" ]] || fail sdkmanager-unavailable
+    [[ -x "$sdk_bin/avdmanager" ]] || fail avdmanager-unavailable
+    [[ -x "$adb_bin" ]] || fail adb-unavailable
+    [[ -x "$emulator_bin" ]] || fail emulator-unavailable
+    printf '%s\n' "$ANDROID_HOME/platform-tools" >> "${GITHUB_PATH:?}"
     if timeout --signal=TERM --kill-after=15s 600s "$sdk_bin/sdkmanager" \
       'system-images;android-34;google_apis;x86_64' 'platforms;android-34' 'build-tools;34.0.0' \
       </dev/null > "$proof_private/sdk-install.log" 2>&1; then diagnostic sdk-installed;

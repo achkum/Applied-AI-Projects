@@ -31,6 +31,8 @@ jobs:
         env:
           DATABASE_URL: postgresql://unused:unused@127.0.0.1:5432/unused
         run: corepack pnpm --filter @subtrack/api typecheck
+      - name: Validate local daemon readiness descriptor custody
+        run: bash tools/database/private-mobile-descriptor.spec.sh
       - name: Actual owned PG16 direct TLS mobile behavior
         run: bash tools/database/private-mobile-qualify.sh
       - name: Publish sanitized backend proof and verified cleanup receipt

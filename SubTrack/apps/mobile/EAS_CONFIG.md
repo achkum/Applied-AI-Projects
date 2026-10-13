@@ -57,6 +57,18 @@ is used. Screenshots of accepted Add/restart/logout states and a closed build
 receipt are the only uploaded artifacts; OTP, keys, credentials, raw tool logs
 and native binaries remain private to the disposable runner.
 
+Ubuntu's hosted SDK inventory does not include an emulator executable. The
+Android proof therefore provisions Google Emulator 37.2.12 into runner TEMP,
+using the exact official HTTPS archive `emulator-linux_x64-16428233.zip`.
+Google's repository publishes SHA1 `cd7362ea55dfb86a418958138dc396e74165dd01`
+and archive size 349654171 bytes. An independent download matching both
+produced SHA256 `b08fc43d8608d2955f607f1b287beb525041e730086bdca3af152accac3af9c1`;
+the script checks all three and the executed tool version. This provisions a
+missing build tool; Android API 34, build-tools 34.0.0, Expo 51 and React Native
+0.74 remain unchanged. No global installation or service is created. Official
+metadata: [Google Android repository](https://dl.google.com/android/repository/repository2-3.xml),
+verified 2026-10-13; the package names the existing Android SDK license.
+
 This workflow source does not establish native acceptance. Acceptance requires
 successful installed flows and independent review at the exact source head.
 Installed evidence covers normal enrollment, profile, Just me, Add, app/API
