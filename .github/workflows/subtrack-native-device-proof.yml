@@ -19,7 +19,7 @@ jobs:
     name: Installed ${{ matrix.platform }} restart readback
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 2
       matrix:
         include:
           - platform: android
@@ -58,26 +58,21 @@ jobs:
           corepack pnpm install --frozen-lockfile
           bash apps/mobile/scripts/private-runtime-tools.sh
           node apps/mobile/scripts/private-runtime-ca-test.mjs
-      - name: Android emulator (loopback only)
+      - name: Android SDK package installation (bounded)
+        if: matrix.platform == 'android'
+        run: |
+          bash apps/mobile/scripts/private-runtime-android.sh sdk
+      - name: Android startup orchestration checks
+        if: matrix.platform == 'android'
+        run: node apps/mobile/scripts/private-runtime-android-test.mjs
+      - name: Android AVD creation (bounded)
+        if: matrix.platform == 'android'
+        run: bash apps/mobile/scripts/private-runtime-android.sh avd
+      - name: Android emulator boot (bounded, loopback only)
         if: matrix.platform == 'android'
         run: |
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
-          proof_sdk_bin="${ANDROID_HOME:?}/cmdline-tools/latest/bin"
-          test -x "$proof_sdk_bin/sdkmanager"
-          test -x "$proof_sdk_bin/avdmanager"
-          test -x "$ANDROID_HOME/platform-tools/adb"
-          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
-          printf '%s\n' "$ANDROID_HOME/platform-tools" "$ANDROID_HOME/emulator" >> "$GITHUB_PATH"
-          "$proof_sdk_bin/sdkmanager" 'system-images;android-34;google_apis;x86_64' 'platforms;android-34' 'build-tools;34.0.0'
-          printf 'no\n' | "$proof_sdk_bin/avdmanager" create avd --name subtrack-proof --package 'system-images;android-34;google_apis;x86_64' --device pixel_6
-          mkdir -p "$RUNNER_TEMP/subtrack-native-proof/private"
-          "$ANDROID_HOME/emulator/emulator" -avd subtrack-proof -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > "$RUNNER_TEMP/subtrack-native-proof/private/emulator.log" 2>&1 &
-          adb wait-for-device
-          for attempt in $(seq 1 120); do
-            if [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == 1 ]]; then break; fi
-            sleep 2
-          done
-          [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == 1 ]]
+          bash apps/mobile/scripts/private-runtime-android.sh boot
       - name: iOS 17.5 / Xcode 15.4 simulator (Expo SDK51)
         if: matrix.platform == 'ios'
         run: |
@@ -111,6 +106,9 @@ jobs:
       - name: Owned fixture and debug server cleanup
         if: always()
         run: |
+          if [[ '${{ matrix.platform }}' == android ]]; then
+            bash apps/mobile/scripts/private-runtime-android.sh cleanup
+          fi
           if [[ -n "${SUBTRACK_PRIVATE_FIXTURE_CONFIG:-}" ]]; then
             bash tools/database/private-mobile-proof.sh stop --config "$SUBTRACK_PRIVATE_FIXTURE_CONFIG"
           fi

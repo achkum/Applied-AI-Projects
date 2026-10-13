@@ -6,7 +6,7 @@ Root found a concrete client/server mismatch: native generic POST adds Idempoten
 
 Native correction handoff: all 12 focused tests passed (seven mounted screen tests and five API-wire tests), plus mobile typecheck, full lint and catalog parity. Required keys now appear only on completion/login/session/refresh/Add; business/logout omit them. Refresh has no body or Content-Type. Authoritative profile reads apply language/theme through existing providers with stale-response guards. The technical rotation control is removed; defensive category rendering does not widen the closed server decoder. Session Core is unchanged from its prior coverage result. Independent native client/design source review is dispatched; these are author-reported source checks, not installed app acceptance.
 
-Corrected API SHA256: `fe89f2d1b80755f670c1f4c6825c8c08bd48a2930179ff579aede0d53d849099`. Corrected screen SHA256: `865308af67a9e350f15dcaceb2ded3232d2846085b4113e50d0839b990b4826c`.
+Networking source digest: `fe89f2d1b80755f670c1f4c6825c8c08bd48a2930179ff579aede0d53d849099`. Screen source digest: `865308af67a9e350f15dcaceb2ded3232d2846085b4113e50d0839b990b4826c`.
 
 Root and independent security review found refresh sends/requires `{}` while accepted refresh semantics forbid a body. Both authors are aligning the private route to bodyless Refresh authorization. Stable session ID across refresh is consistent with accepted family semantics and is not a defect.
 
