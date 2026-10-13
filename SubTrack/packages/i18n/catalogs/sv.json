@@ -220,6 +220,24 @@
       "list": "Tillbaka till abonnemang",
       "open": "Visa förväntade förnyelser"
     },
+    "billingMonth": {
+      "title": "Faktureringsmånad",
+      "open": "Öppna faktureringsmånad",
+      "previous": "Föregående månad",
+      "next": "Nästa månad",
+      "expected": "Sparade förväntade datum och belopp, inte bekräftade debiteringar. Uppdatera för att läsa aktuella abonnemang.",
+      "empty": "Inga aktiva sparade datum den här månaden. Saknade datum är fortfarande okända.",
+      "subtotal": "Delsumma av sparade förväntade datum, per valuta",
+      "day": "Förväntade förnyelser %{date}",
+      "details": "Visa detaljer för %{name}",
+      "savedDate": "Sparat förväntat datum: %{date}",
+      "manage": "Hantera abonnemang",
+      "refresh": "Uppdatera faktureringsmånad",
+      "manual": "Manuellt tillagt abonnemang",
+      "detected": "Identifierat abonnemang",
+      "private": "Alltid privat",
+      "owner": "Ditt abonnemang"
+    },
     "nativePersonal": {
       "title": "Dina personliga abonnemang",
       "demo": "Utvecklingssimulator: ny BankID-verifiering använder det syntetiska Alice-kontot. Detta är inte riktigt BankID.",

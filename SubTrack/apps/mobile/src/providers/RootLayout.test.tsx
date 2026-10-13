@@ -7,6 +7,7 @@ import * as SplashScreen from 'expo-splash-screen';
 
 jest.mock('@/utils/secureSessionBundle', () => ({ ...jest.requireActual('@/utils/secureSessionBundle'), secureSessionBundle: { read: jest.fn().mockResolvedValue(null), write: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) } }));
 const mockUseFonts = jest.fn();
+jest.mock('react-native-safe-area-context',()=>jest.requireActual('react-native-safe-area-context/jest/mock').default);
 jest.mock('expo-font', () => ({ useFonts: (...args: unknown[]) => mockUseFonts(...args) }));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -77,6 +78,7 @@ describe('root layout startup imports', () => {
     });
 
     expect(SplashScreen.preventAutoHideAsync).toHaveBeenCalledTimes(1);
+    expect(Object.keys(mockUseFonts.mock.calls[0]![0])).toEqual(['Geist400','Geist500','Geist600','Bricolage600','Bricolage700','Bricolage800']);
     expect(await screen.findByTestId('router-stack')).toBeTruthy();
     expect(screen.getByTestId('provider-state').props.children).toBe('en|Me|system');
     expect(mockStorage.getItem).toHaveBeenCalledWith('theme-mode-preference');
@@ -93,7 +95,7 @@ describe('root layout startup imports', () => {
     mockUseFonts.mockReturnValue([true, null]);
     await act(async () => app.rerender(<RootLayout />));
     expect(await screen.findByTestId('router-stack')).toBeTruthy();
-    expect(screen.getByTestId('font-state').props.children).toBe('Manrope|Fraunces');
+    expect(screen.getByTestId('font-state').props.children).toBe('Geist400|Bricolage700');
     expect(SplashScreen.hideAsync).toHaveBeenCalledTimes(1);
     await act(async () => app.rerender(<RootLayout />));
     expect(SplashScreen.hideAsync).toHaveBeenCalledTimes(1);

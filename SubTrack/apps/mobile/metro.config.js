@@ -18,4 +18,6 @@ config.transformer.assetRegistryPath = require.resolve('@react-native/assets-reg
   paths: [path.dirname(require.resolve('react-native/package.json'))],
 });
 
+const {createNativeMoneyResolver}=require('./scripts/billing-month-resolver.cjs');
+config.resolver.resolveRequest=createNativeMoneyResolver({origin:path.join(monorepoRoot,'packages/money/src/money.ts'),target:path.join(monorepoRoot,'packages/money/src/formatter.ts'),previous:config.resolver.resolveRequest});
 module.exports = config;

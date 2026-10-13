@@ -1,0 +1,14 @@
+# ST-247 author checkpoint
+Functional source ready for independent source/design/client/platform/security review; no installed Android/iOS acceptance claimed.
+
+Expected calendar month uses current local year/month, ACTIVE canonical saved dates, complete owner pagination, fixed date/ID ordering, all same-day rows, read-only details and existing management links. Currency-specific exact totals use unchanged shared Money constructors/add/formatter. Original thirty-day source unchanged. Boundary navigation disabled. Genuine current faults retire Core; obsolete rejected reads after blur/logout cannot publish feedback/private projection.
+
+Native palette and six licensed static Geist/Bricolage weights bundled. System-font failure remains. Legacy token/default/CSS/web assets byte-identical per baseline hash test. Personal screen adopts native theme plus safe area and rounded controls. Month provides outline SVG icons, safe area, scalable text, scrollable isolated detail sheet with focus handling, no modal animation.
+
+Validation: affected Month mounted8/personal24/startup3 tests PASS (35 total); calendar-month policy5 tests PASS at 100% statement/branch/function/line coverage (48 branches); mobile typecheck PASS; affected mobile lint PASS; bilingual parity PASS; native token AA contrast/additive exports/legacy SHA test PASS; six font metadata/output/license hash checks PASS.
+
+Resolver: actual pinned metro-resolver0.80.12 reproduces original ./formatter.js failure and extensionless control success. Narrow origin/request/native platform bridge plus Jest directory equivalent preserve all unrelated delegation. Four meaningful helper/config tests PASS; actual loaded Expo Metro config resolves client->Money->formatter on Android/iOS, helper/config all coverage100. Config bootstrap in test process exposes Expo pinned transitive node_modules through NODE_PATH, no dependency or filesystem linkage changes. Full private fixture/app bundle and installed native journey remain root final-head gates; source edge/config graph proof is not whole-app installed acceptance.
+
+No API/SQL/shared Money/pin/runtime qualification changes. No Git actions. Root owns final metadata, reviews, combined parent corrections and installed qualification.
+
+Independent source review corrections: Modal visibility/body and background accessibility isolation synchronously require active session; mounted regression holds focus cleanup while external session rotation retires authority, proving no private details render in the gap. Month mounted9 PASS; ThemeContext3 PASS including native roles/all-role native fallback and explicit unchanged web/default/fallback behavior. Affected types/lint PASS after corrections. Heavy slot released again; source hashes refreshed.

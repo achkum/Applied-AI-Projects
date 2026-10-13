@@ -20,6 +20,7 @@
     "./member-accent": {
       "types": "./src/member-accent.d.mts",
       "default": "./src/member-accent.mjs"
-    }
+    },
+    "./billing-month": "./generated/billing-month.native.json"
   }
 }

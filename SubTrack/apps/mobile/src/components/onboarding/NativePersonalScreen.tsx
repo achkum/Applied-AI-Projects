@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import type { ProfileView, PrivateOwnerSubscriptionView } from '../../../../../packages/contracts/generated/types.gen';
 import { parseProfilePatch } from '@subtrack/contracts/profile';
@@ -95,7 +96,7 @@ export function NativePersonalScreen() {
   const field = (label: string, value: string, onChangeText: (value: string) => void, decimal = false) => <View key={label} style={styles.field}>
     <Text style={text}>{label}</Text><TextInput accessibilityLabel={label} value={value} editable={!loading} onChangeText={onChangeText}
       autoCorrect={false} autoCapitalize="none" keyboardType={decimal ? 'decimal-pad' : 'default'} style={input} /></View>;
-  return <ScrollView style={{ backgroundColor: color('bg.canvas') }} contentContainerStyle={styles.content}>
+  return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView style={{ backgroundColor: color('bg.canvas') }} contentContainerStyle={styles.content}>
     <Text accessibilityRole="header" style={[text, { fontFamily: theme.typography.fontFamily.display, fontSize: theme.typography.fontSize['2xl'] }]}>{t('onboarding.nativePersonal.title')}</Text>
     <Text style={text}>{t('onboarding.nativePersonal.demo')}</Text>
     {session.phase === 'storage-error' ? <Text accessibilityRole="alert" style={text}>{t('onboarding.nativePersonal.storageError')}</Text> : null}
@@ -127,6 +128,7 @@ export function NativePersonalScreen() {
         return () => { setMode(current.mode); setItems(page.items); setNextCursor(page.nextCursor); };
       }); }) : null}
       {profile?.profileComplete && mode === 'just-me' ? <>
+        {button(t('onboarding.billingMonth.open'), () => router.push('/personal-billing-month'))}
         {button(t('onboarding.nativeRenewals.open'), () => router.push('/personal-home'))}
         {items.length === 0 && !loading ? <Text style={text}>{t('onboarding.ownerSubscriptions.empty')}</Text> : null}
         {items.map(item => <View key={item.id} style={styles.field}><Text style={text}>{item.customName ?? item.merchantName ?? t('onboarding.ownerSubscriptions.categoryFallback')}</Text>
@@ -205,7 +207,7 @@ export function NativePersonalScreen() {
     {button(t('onboarding.nativePersonal.logout'), () => { const ticket = ++feedbackGeneration.current; generation.current++; pending.current = false; setLoading(false); clear(); setMessage('');
       void session.logout().then(ack => { if (ticket === feedbackGeneration.current) setMessage(ack ? 'logoutConfirmed' : 'logoutLocal'); })
         .catch(() => { if (ticket === feedbackGeneration.current) setMessage('storageError'); }); }, false)}
-  </ScrollView>;
+  </ScrollView></SafeAreaView>;
 }
 const styles = StyleSheet.create({ content: { flexGrow: 1, padding: 24, gap: 16 }, field: { gap: 8 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  input: { borderWidth: 1, padding: 12, minHeight: 48 }, button: { borderWidth: 1, padding: 12, minHeight: 48, justifyContent: 'center' } });
+  input: { borderWidth: 1, padding: 12, minHeight: 48 }, button: { borderWidth: 1, borderRadius:18, padding: 12, minHeight: 48, justifyContent: 'center' } });

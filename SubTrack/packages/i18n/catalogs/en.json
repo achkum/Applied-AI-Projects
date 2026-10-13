@@ -220,6 +220,24 @@
       "list": "Back to subscriptions",
       "open": "View expected renewals"
     },
+    "billingMonth": {
+      "title": "Billing month",
+      "open": "Open billing month",
+      "previous": "Previous month",
+      "next": "Next month",
+      "expected": "Saved expected dates and amounts, not confirmed charges. Refresh to read current subscriptions.",
+      "empty": "No active saved dates in this month. Missing dates remain unknown.",
+      "subtotal": "Subtotal of saved expected dates, by currency",
+      "day": "Expected renewals on %{date}",
+      "details": "View details for %{name}",
+      "savedDate": "Saved expected date: %{date}",
+      "manage": "Manage subscriptions",
+      "refresh": "Refresh billing month",
+      "manual": "Manually added subscription",
+      "detected": "Detected subscription",
+      "private": "Always private",
+      "owner": "Your subscription"
+    },
     "nativePersonal": {
       "title": "Your personal subscriptions",
       "demo": "Development simulator: fresh BankID verification uses the synthetic Alice account. This is not real BankID.",
