@@ -56,6 +56,7 @@ jobs:
         run: |
           corepack enable
           corepack pnpm install --frozen-lockfile
+          corepack pnpm --filter @subtrack/domain build:lifecycle
           bash apps/mobile/scripts/private-runtime-tools.sh
           node apps/mobile/scripts/private-runtime-ca-test.mjs
           node apps/mobile/scripts/private-runtime-loader-diagnostics-test.mjs
@@ -138,3 +139,4 @@ jobs:
             xcrun simctl shutdown "$SUBTRACK_SIMULATOR_UDID" || true
             xcrun simctl delete "$SUBTRACK_SIMULATOR_UDID"
           fi
+
