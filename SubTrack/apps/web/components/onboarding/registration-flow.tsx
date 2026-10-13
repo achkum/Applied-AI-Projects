@@ -288,7 +288,7 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
         </select>
         {step === 'login-restart' ? <p role="alert">{loginCopy.restart}</p> : null}
         {step === 'login-unavailable' ? <p role="alert">{loginCopy.unavailable}</p> : null}
-        <Button type="button" disabled={busy} onClick={runLogin}>{step === 'login' ? loginCopy.simulatorAction : loginCopy.freshLogin}</Button>
+        <Button type="button" variant="secondary" disabled={busy} onClick={runLogin}>{step === 'login' ? loginCopy.simulatorAction : loginCopy.freshLogin}</Button>
       </section> : null}
       {step === 'login-verifying' || step === 'login-session' || step === 'login-mode-loading' ? <p data-step-focus tabIndex={-1} role="status">
         {step === 'login-verifying' ? loginCopy.verifying : step === 'login-session' ? loginCopy.creatingSession : loginCopy.loadingMode}</p> : null}
