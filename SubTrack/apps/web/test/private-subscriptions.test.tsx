@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PrivateSubscriptions } from '../components/onboarding/private-subscriptions';
 
 const id = '123e4567-e89b-42d3-a456-426614174000';
-const owner = { source: 'MANUAL' as const, visibility: 'owner' as const, id, customName: 'Synthetic', merchantId: null, merchantName: null,
+const owner = { revision: '1', source: 'MANUAL' as const, visibility: 'owner' as const, id, customName: 'Synthetic', merchantId: null, merchantName: null,
   categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY' as const, status: 'ACTIVE' as const,
   expectedAmountMinor: '9007199254740993', currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
 function props(locale: 'en' | 'sv') {
@@ -33,5 +33,22 @@ describe('private owner subscriptions', () => {
     expect(screen.queryByRole('button', { name: 'Pause' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
     expect((await axe(container)).violations).toEqual([]);
+  });
+});
+
+
+describe('private Edit eligibility', () => {
+  it.each(['en','sv'] as const)('offers only manual SEK ordinary cadence Edit in %s', locale => {
+    const callbacks = {...props(locale), selected:owner, onEdit:vi.fn()};
+    const {rerender}=render(<PrivateSubscriptions {...callbacks} />);
+    const title=locale==='en'?'Edit manual subscription':'Redigera manuellt abonnemang';
+    fireEvent.click(screen.getByRole('button',{name:title})); expect(callbacks.onEdit).toHaveBeenCalledOnce();
+    for(const selected of [{...owner,currency:'EUR'},{...owner,cadence:'CUSTOM' as const}]) {
+      rerender(<PrivateSubscriptions {...callbacks} selected={selected} />);
+      expect(screen.queryByRole('button',{name:title})).toBeNull();
+      expect(screen.getByText(locale==='en'?'This manual subscription uses a currency or cadence that cannot be edited here.':'Detta manuella abonnemang har en valuta eller period som inte kan redigeras här.')).toBeTruthy();
+    }
+    rerender(<PrivateSubscriptions {...callbacks} selected={{...owner,source:'DETECTED'}} />);
+    expect(screen.queryByRole('button',{name:title})).toBeNull();
   });
 });

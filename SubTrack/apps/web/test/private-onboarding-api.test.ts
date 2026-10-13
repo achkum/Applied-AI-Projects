@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { chooseJustMe, readMode, readOwnerSubscriptions, readOwnerSubscription, patchOwnerSubscription } from '../lib/private-onboarding-api';
 
 const id = '123e4567-e89b-42d3-a456-426614174000';
-const row = { source: 'MANUAL' as const, visibility: 'owner', id, customName: 'Synthetic', merchantId: null, merchantName: null,
+const row = { revision: '1', source: 'MANUAL' as const, visibility: 'owner', id, customName: 'Synthetic', merchantId: null, merchantName: null,
   categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', status: 'ACTIVE', expectedAmountMinor: '9007199254740993',
   currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
 const signal = new AbortController().signal;
@@ -31,6 +31,7 @@ describe('private current-session API', () => {
       { items: [{ ...row, nextChargeDate: '2026-02-31' }], nextCursor: null },
       { items: [{ ...row, source: undefined }], nextCursor: null },
       { items: [{ ...row, source: 'PAYMENT' }], nextCursor: null },
+      ...[undefined, '0', '-1', '01', '9223372036854775808', 1].map(revision => ({ items: [{ ...row, revision }], nextCursor: null })),
     ];
     for (const body of cases) {
       vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(success(body));

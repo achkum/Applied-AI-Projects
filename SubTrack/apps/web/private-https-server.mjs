@@ -61,11 +61,13 @@ const { V2AccessToken } = apiRequire('./dist/auth/sessions-v2/v2-access-token.js
 const { DurableCurrentWebAuthority } = apiRequire('./dist/auth/sessions-v2/durable-current-web-authority.js');
 const { PRIVATE_PROFILE_STATEMENTS } = apiRequire('./dist/profile/private-profile-statements.js');
 const { PRIVATE_ONBOARDING_STATEMENTS } = apiRequire('./dist/profile/private-onboarding-statements.js');
+const { PRIVATE_MANUAL_EDIT_STATEMENTS } = apiRequire('./dist/subscriptions/private-manual-edit-statements.js');
 const { PRIVATE_MANUAL_CREATE_STATEMENTS } = apiRequire('./dist/subscriptions/private-manual-create-statements.js');
 const { createPrivateEnrollmentHttp, privateProblem, privateJson } = apiRequire('./dist/auth/enrollment-v2/private-enrollment-http.js');
 const { createPrivateLoginHttp, privateLoginProblem } = apiRequire('./dist/auth/login-v2/private-login-http.js');
 const { createPrivateProfileHttp } = apiRequire('./dist/profile/private-profile-http.js');
 const { createPrivateOnboardingHttp } = apiRequire('./dist/profile/private-onboarding-http.js');
+const { createPrivateManualEditHttp } = apiRequire('./dist/subscriptions/private-manual-edit-http.js');
 const { createPrivateManualCreateHttp } = apiRequire('./dist/subscriptions/private-manual-create-http.js');
 const epoch = loadPrivateAuthEpoch(env.ST237_PRIVATE_CONFIG);
 const port = Number(env.ST237_PG_PORT);
@@ -128,6 +130,7 @@ const qualifiedSqlPins = Object.freeze({
   '011-just-me-owner-subscriptions.sql': 'c846c43da9f37c18739d0dbc5f9633f24d0b4e14327e607d94f1f0344602bd43',
   '012-returning-login.sql': '1825e9770adf4c9127c0d8f774b8b0c0311137d51dfec952f6d300b00e6d9241',
   '013-manual-owner-create.sql': 'af2724a3cfa5e7efa413958211b3641d006c49f816246ce717e68764a84ff689',
+  '014-manual-owner-edit.sql': 'ae9e7cb8a921967a21bd41e72fc8daad8a257a648f4a072c659ee059b0802655',
 });
 const privacyMigrationPin = 'b2ef9ebbdce9f9dddff9f43b6679e0fdac58324c2a6ef060af33662ec89a2f9a';
 const justMeMigrationPin = '0472642ea4182b0818c7230d0285d6fab620738b17124268dce5e5d891b3ca29';
@@ -470,10 +473,12 @@ async function assertSubscriptionCatalog(client) {
     JSON.stringify(sortAcl(expectedAcl))) fail();
 }
 
-async function assertManualReceiptCatalog(client) {
+async function assertManualReceiptCatalog(client, editing = false) {
   if (digest(JSON.stringify(PRIVATE_MANUAL_CREATE_STATEMENTS)) !== '5acb0cd9119af260e82f88b4c0ff03a0c4bc089b22246e796cd80bac388b75de') fail();
+  if (editing && digest(JSON.stringify(PRIVATE_MANUAL_EDIT_STATEMENTS)) !== '66338cf97fd6bd49bc9ab4fc8eac5bc59faca8eff5c330a99c3612728df1fc99') fail();
   gate('MANUAL_RECEIPT');
-  const table = 'public.manual_subscription_create_receipt';
+  const table = editing ? 'public.manual_subscription_edit_receipt' : 'public.manual_subscription_create_receipt';
+  const receiptName = editing ? 'manual_subscription_edit_receipt' : 'manual_subscription_create_receipt';
   const relation = await client.query(`SELECT c.relkind::text AS kind,c.relrowsecurity AS rls,
       c.relforcerowsecurity AS forced,r.rolname::text AS owner
     FROM pg_catalog.pg_class c JOIN pg_catalog.pg_roles r ON r.oid=c.relowner
@@ -490,7 +495,8 @@ async function assertManualReceiptCatalog(client) {
   const expectedColumns = [
     ['identity_id',1,'uuid',true,null,'',''],['key_hash',2,'bytea',true,null,'',''],
     ['request_hash',3,'bytea',true,null,'',''],['subscription_id',4,'uuid',true,null,'',''],
-    ['created_at',5,'timestamp with time zone',true,'now()','',''],
+    ...(editing ? [['result_revision',5,'bigint',true,null,'','']] : []),
+    ['created_at',editing ? 6 : 5,'timestamp with time zone',true,'now()','',''],
   ];
   if (JSON.stringify(columns.rows.map(x => [x.name,x.position,x.type,x.required,x.default_value,x.identity,x.generated])) !==
       JSON.stringify(expectedColumns)) fail();
@@ -503,8 +509,8 @@ async function assertManualReceiptCatalog(client) {
   const principal = 'subtrack_principal_matches(identity_id)';
   if (JSON.stringify(policies.rows.map(x => [x.name,x.command,x.permissive,x.roles,x.using_expr,x.check_expr])) !==
       JSON.stringify([
-        ['manual_subscription_create_receipt_insert','a',true,['subtrack_runtime'],null,principal],
-        ['manual_subscription_create_receipt_select','r',true,['subtrack_runtime'],principal,null],
+        [receiptName+'_insert','a',true,['subtrack_runtime'],null,principal],
+        [receiptName+'_select','r',true,['subtrack_runtime'],principal,null],
       ])) fail();
   const acl = await client.query(`SELECT 'table'::text AS scope,NULL::text AS name,
       CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE pg_catalog.pg_get_userbyid(x.grantee) END AS grantee,
@@ -527,12 +533,13 @@ async function assertManualReceiptCatalog(client) {
       CASE WHEN k.confrelid=0 THEN NULL ELSE k.confrelid::pg_catalog.regclass::text END AS target,
       k.conkey AS columns,k.confkey AS target_columns
     FROM pg_catalog.pg_constraint k WHERE k.conrelid=$1::pg_catalog.regclass ORDER BY k.conname`, [table]);
-  const base = 'manual_subscription_create_receipt_';
+  const base = receiptName+'_';
   const expectedConstraints = [
     [base+'identity_id_fkey','f','FOREIGN KEY (identity_id) REFERENCES identity(id) ON UPDATE RESTRICT ON DELETE CASCADE',true,false,false,'r','c','s','identity',[1],[1]],
     [base+'key_hash_check','c','CHECK ((octet_length(key_hash) = 32))',true,false,false,' ',' ',' ',null,[2],null],
     [base+'pkey','p','PRIMARY KEY (identity_id, key_hash)',true,false,false,' ',' ',' ',null,[1,2],null],
     [base+'request_hash_check','c','CHECK ((octet_length(request_hash) = 32))',true,false,false,' ',' ',' ',null,[3],null],
+    ...(editing ? [[base+'result_revision_check','c','CHECK ((result_revision > 0))',true,false,false,' ',' ',' ',null,[5],null]] : []),
   ];
   if (JSON.stringify(constraints.rows.map(x => [x.name,x.kind,x.definition,x.validated,x.deferrable,x.deferred,
     x.update_action,x.delete_action,x.match_type,x.target,x.columns,x.target_columns])) !== JSON.stringify(expectedConstraints)) fail();
@@ -545,10 +552,78 @@ async function assertManualReceiptCatalog(client) {
     JOIN pg_catalog.pg_am am ON am.oid=ci.relam WHERE i.indrelid=$1::pg_catalog.regclass ORDER BY ci.relname`, [table]);
   if (JSON.stringify(indexes.rows) !== JSON.stringify([{name:base+'pkey',method:'btree',unique:true,primary:true,
     valid:true,ready:true,keys:2,attributes:2,columns:'1 2',predicate:null,expressions:null,
-    definition:'CREATE UNIQUE INDEX manual_subscription_create_receipt_pkey ON public.manual_subscription_create_receipt USING btree (identity_id, key_hash)'}])) fail();
+    definition:`CREATE UNIQUE INDEX ${receiptName}_pkey ON public.${receiptName} USING btree (identity_id, key_hash)`}])) fail();
   const triggers = await client.query(`SELECT count(*)::pg_catalog.int4 AS total FROM pg_catalog.pg_trigger
     WHERE tgrelid=$1::pg_catalog.regclass AND NOT tgisinternal`, [table]);
   if (triggers.rows[0]?.total !== 0) fail();
+}
+
+async function assertRevisionCatalog(client) {
+  gate('MANUAL_EDIT_REVISION');
+  if (digest(JSON.stringify({ ...PRIVATE_PROFILE_STATEMENTS, ...PRIVATE_ONBOARDING_STATEMENTS,
+    ...PRIVATE_MANUAL_CREATE_STATEMENTS, ...PRIVATE_MANUAL_EDIT_STATEMENTS })) !==
+      'e5232ce459a24f691218a36240d2f3e70af3b2abbd0544ad7ccbeb8ab70c4986') fail();
+  const source = fs.readFileSync(path.resolve(apiDir, 'prisma/development-auth/014-manual-owner-edit.sql'), 'utf8');
+  const body = /AS \$revision\$([\s\S]*?)\$revision\$;/.exec(source)?.[1];
+  const privacySql = fs.readFileSync(path.resolve(apiDir, 'prisma/migrations/0002_privacy_constraints/migration.sql'), 'utf8');
+  const ownerBody = /CREATE FUNCTION public\.subtrack_immutable_owner\(\) RETURNS trigger[\s\S]*?AS \$\$([\s\S]*?)\$\$;/.exec(privacySql)?.[1];
+  if (!body || !ownerBody || digest(privacySql) !== privacyMigrationPin) fail();
+  const functions = await client.query(`SELECT p.oid::text AS oid,p.prosrc::text AS body,
+      p.prosecdef AS security_definer,p.provolatile::text AS volatility,p.proparallel::text AS parallel,
+      p.proisstrict AS strict,p.proretset AS returns_set,p.pronargs AS args,
+      pg_catalog.format_type(p.prorettype,NULL) AS result,p.proconfig::text[] AS config,
+      l.lanname::text AS language,r.rolname::text AS owner,
+      ARRAY(SELECT pg_catalog.format('%s:%s:%s:%s',
+        CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_catalog.pg_get_userbyid(a.grantee) END,
+        pg_catalog.pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable::text)
+        FROM pg_catalog.aclexplode(p.proacl) a ORDER BY a.grantee,a.grantor,a.privilege_type) AS acl
+    FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_language l ON l.oid=p.prolang
+      JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+    WHERE p.oid IN (pg_catalog.to_regprocedure('public.subtrack_immutable_owner()'),
+      pg_catalog.to_regprocedure('public.subtrack_subscription_revision()')) ORDER BY p.proname`);
+  if (functions.rows.length !== 2) fail();
+  const old = functions.rows[0];
+  const row = functions.rows[1];
+  const expectedAcl = ['st233a_fixture_owner:st233a_fixture_owner:EXECUTE:false',
+    'subtrack_runtime:st233a_fixture_owner:EXECUTE:false'].sort();
+  if (row.body !== body || row.security_definer || row.volatility !== 'v' || row.parallel !== 'u' ||
+      row.strict || row.returns_set || row.args !== 0 || row.result !== 'trigger' ||
+      row.language !== 'plpgsql' || row.owner !== 'st233a_fixture_owner' ||
+      JSON.stringify(row.config) !== '["search_path=pg_catalog"]' ||
+      JSON.stringify([...row.acl].sort()) !== JSON.stringify(expectedAcl)) fail();
+  if (old.body !== ownerBody || old.security_definer || old.volatility !== 'v' || old.parallel !== 'u' ||
+      old.strict || old.returns_set || old.args !== 0 || old.result !== 'trigger' ||
+      old.language !== 'plpgsql' || old.owner !== 'st233a_fixture_owner' ||
+      JSON.stringify(old.config) !== '["search_path=pg_catalog"]' ||
+      JSON.stringify(old.acl) !== '["st233a_fixture_owner:st233a_fixture_owner:EXECUTE:false"]') fail();
+  const triggers = await client.query(`SELECT t.tgname::text AS name,t.tgfoid::text AS function_oid,
+      t.tgenabled::text AS enabled,t.tgtype AS type,t.tgnargs AS args,t.tgattr::text AS columns,
+      t.tgqual IS NULL AS no_condition,t.tgdeferrable AS deferrable,t.tginitdeferred AS deferred,
+      t.tgconstraint=0 AS no_constraint,t.tgoldtable IS NULL AS no_old_table,t.tgnewtable IS NULL AS no_new_table
+    FROM pg_catalog.pg_trigger t WHERE t.tgrelid='public.subscription'::pg_catalog.regclass
+      AND NOT t.tgisinternal ORDER BY t.tgname`);
+  if (JSON.stringify(triggers.rows) !== JSON.stringify([{name:'subscription_owner_immutable',
+    function_oid:old.oid,enabled:'O',type:19,args:0,columns:'',no_condition:true,deferrable:false,
+    deferred:false,no_constraint:true,no_old_table:true,no_new_table:true},
+    {name:'subscription_revision_before_write',
+    function_oid:row.oid,enabled:'O',type:23,args:0,columns:'',no_condition:true,deferrable:false,
+    deferred:false,no_constraint:true,no_old_table:true,no_new_table:true}])) fail();
+  const column = await client.query(`SELECT a.attnum AS position,
+      pg_catalog.format_type(a.atttypid,a.atttypmod) AS type,a.attnotnull AS required,
+      pg_catalog.pg_get_expr(d.adbin,d.adrelid) AS default_value,
+      a.attidentity::text AS identity,a.attgenerated::text AS generated,a.attacl IS NULL AS no_column_acl
+    FROM pg_catalog.pg_attribute a LEFT JOIN pg_catalog.pg_attrdef d
+      ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+    WHERE a.attrelid='public.subscription'::pg_catalog.regclass AND a.attname='revision' AND NOT a.attisdropped`);
+  if (JSON.stringify(column.rows) !== JSON.stringify([{position:19,type:'bigint',required:true,
+    default_value:'1',identity:'',generated:'',no_column_acl:true}])) fail();
+  const check = await client.query(`SELECT pg_catalog.pg_get_constraintdef(k.oid,false) AS definition,
+      k.contype::text AS type,k.convalidated AS validated,k.condeferrable AS deferrable,
+      k.condeferred AS deferred,k.conkey AS columns
+    FROM pg_catalog.pg_constraint k WHERE k.conrelid='public.subscription'::pg_catalog.regclass
+      AND k.conname='subscription_revision_check'`);
+  if (JSON.stringify(check.rows) !== JSON.stringify([{definition:'CHECK ((revision > 0))',
+    type:'c',validated:true,deferrable:false,deferred:false,columns:[19]}])) fail();
 }
 
 async function assertAuthCatalog(client, approved) {
@@ -838,6 +913,8 @@ async function assertStartup() {
     await assertProfileCatalog(client);
     await assertSubscriptionCatalog(client);
     await assertManualReceiptCatalog(client);
+    await assertManualReceiptCatalog(client, true);
+    await assertRevisionCatalog(client);
     await assertAuthCatalog(client, approved);
     const rls = await client.query(`SELECT n.nspname::text AS schema_name,c.relname::text AS table_name,
       c.relrowsecurity AS enabled,c.relforcerowsecurity AS forced
@@ -897,7 +974,7 @@ async function main() {
     pool, clock: Date.now, verifier, keys: epoch.enrollmentKeys });
   const authority = new DurableCurrentWebAuthority({ pool, accessTokens: tokens, origin: epoch.origin,
     database: epoch.database, epoch: epoch.epoch, manifestHash: epoch.manifestHash,
-    businessStatements: { ...PRIVATE_PROFILE_STATEMENTS, ...PRIVATE_ONBOARDING_STATEMENTS, ...PRIVATE_MANUAL_CREATE_STATEMENTS } });
+    businessStatements: { ...PRIVATE_PROFILE_STATEMENTS, ...PRIVATE_ONBOARDING_STATEMENTS, ...PRIVATE_MANUAL_CREATE_STATEMENTS, ...PRIVATE_MANUAL_EDIT_STATEMENTS } });
   const bootstrap = () => createDevelopmentBootstrapTransaction({ enabled: true, origin: epoch.origin,
     epoch: epoch.epoch, manifestHash: epoch.manifestHash, retentionMs: 86_400_000,
     idempotencyKey: epoch.bootstrapKeys.idempotencyKey, originKey: epoch.bootstrapKeys.originKey },
@@ -911,17 +988,21 @@ async function main() {
   const manualAuthority = new DurableCurrentWebAuthority({ pool: createManualDiagnosticPool(pool, PRIVATE_MANUAL_CREATE_STATEMENTS,
     line => process.stderr.write(`${line}\n`)), accessTokens: tokens, origin: epoch.origin,
     database: epoch.database, epoch: epoch.epoch, manifestHash: epoch.manifestHash,
-    businessStatements: { ...PRIVATE_PROFILE_STATEMENTS, ...PRIVATE_ONBOARDING_STATEMENTS, ...PRIVATE_MANUAL_CREATE_STATEMENTS } });
+    businessStatements: { ...PRIVATE_PROFILE_STATEMENTS, ...PRIVATE_ONBOARDING_STATEMENTS, ...PRIVATE_MANUAL_CREATE_STATEMENTS, ...PRIVATE_MANUAL_EDIT_STATEMENTS } });
   const manual = createPrivateManualCreateHttp(manualAuthority);
+  const manualEdit = createPrivateManualEditHttp(authority);
   gate('COMPOSITION_READY');
   class PrivateController {
     async manualCreate(req, res) { await manual.handle(req, res); }
+    async manualEdit(req, res) { await manualEdit.handle(req, res); }
     async profileRead(req, res) { await profile.handle(req, res); }
     async profilePatch(req, res) { await profile.handle(req, res); }
   }
   Controller('v2')(PrivateController);
   Post('subscriptions/owner/manual')(PrivateController.prototype, 'manualCreate', Object.getOwnPropertyDescriptor(PrivateController.prototype, 'manualCreate'));
   Req()(PrivateController.prototype, 'manualCreate', 0); Res()(PrivateController.prototype, 'manualCreate', 1);
+  Post('subscriptions/owner/manual/:id/edit')(PrivateController.prototype, 'manualEdit', Object.getOwnPropertyDescriptor(PrivateController.prototype, 'manualEdit'));
+  Req()(PrivateController.prototype, 'manualEdit', 0); Res()(PrivateController.prototype, 'manualEdit', 1);
   for (const [index, route] of ['auth/browser-nonce', 'auth/otp/start', 'auth/otp/verify',
     'auth/enrollment/pending', 'auth/enrollment/simulator/verify', 'auth/enrollment/complete'].entries()) {
     const method = `auth${index}`;
@@ -978,11 +1059,14 @@ async function main() {
       res.setHeader('Cache-Control', 'no-store'); res.setHeader('Pragma', 'no-cache');
       const profilePath = req.url.startsWith('/v2/me/profile');
       const manualPath = req.url.startsWith('/v2/subscriptions/owner/manual');
+      const editPath = /^\/v2\/subscriptions\/owner\/manual\/[^/?]+\/edit$/.test(req.url);
+      const editPrefix = req.url.startsWith('/v2/subscriptions/owner/manual/') && req.url !== '/v2/subscriptions/owner/manual/';
       const onboardingPath = req.url.startsWith('/v2/me/mode') || req.url.startsWith('/v2/subscriptions/');
       const detailPath = /^\/v2\/subscriptions\/[^/?]+(?:\/read)?$/.test(req.url);
       const expectedMethod = req.url === '/v2/me/profile' || (detailPath && !req.url.endsWith('/read')) ? 'PATCH' : 'POST';
-      if (!(routes.has(req.url) || detailPath) || req.method !== expectedMethod) {
-        if (manualPath) privateJson(res, 400, { type: 'about:blank', title: 'Bad Request', status: 400, code: 'INVALID_MANUAL_REQUEST' }, true);
+      if (!(routes.has(req.url) || detailPath || editPath) || req.method !== expectedMethod) {
+        if (editPrefix) privateJson(res, 400, { type: 'about:blank', title: 'Bad Request', status: 400, code: 'INVALID_MANUAL_EDIT_REQUEST' }, true);
+        else if (manualPath) privateJson(res, 400, { type: 'about:blank', title: 'Bad Request', status: 400, code: 'INVALID_MANUAL_REQUEST' }, true);
         else if (profilePath) privateJson(res, 400, { type: 'about:blank', title: 'Bad Request', status: 400, code: 'INVALID_PROFILE_REQUEST' }, true);
         else if (onboardingPath) privateJson(res, 400, { type: 'about:blank', title: 'Bad Request', status: 400,
           code: req.url.startsWith('/v2/me/mode') ? 'INVALID_MODE_REQUEST' : 'INVALID_SUBSCRIPTION_REQUEST' }, true);

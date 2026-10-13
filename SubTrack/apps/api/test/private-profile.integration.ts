@@ -201,7 +201,7 @@ async function prove(): Promise<void> {
     subscriptionSubstep = 'cursor_page';
     const firstPage = await list(a, null, null);
     assert.equal(firstPage.rowCount, 51);
-    assert(firstPage.rows.every(row => row.identity_id === a && row.created_at === '2026-01-01T00:00:00.123456Z'));
+    assert(firstPage.rows.every(row => row.identity_id === a && row.revision === '1' && row.created_at === '2026-01-01T00:00:00.123456Z'));
     const secondPage = await list(a, firstPage.rows[49]!.created_at as string, firstPage.rows[49]!.id as string);
     assert.equal(secondPage.rowCount, 51);
     const thirdPage = await list(a, secondPage.rows[49]!.created_at as string, secondPage.rows[49]!.id as string);
@@ -238,6 +238,7 @@ async function prove(): Promise<void> {
     subscriptionSubstep = 'status_readback';
     const statusRead = await inspectAs(a, PRIVATE_ONBOARDING_STATEMENTS.ownerDetail, [a, targetId, 'UTC', format]);
     assert.equal(statusRead.rows[0]?.status, 'PAUSED');
+    assert.equal(statusRead.rows[0]?.revision, '2');
     process.stdout.write('PASS ST238_ACTUAL_PG_LOCKED_STATUS_STALE_COMPARE_AND_READBACK\n');
     await owner.$executeRaw`DELETE FROM public.subscription_share WHERE subscription_id=${foreignId}::uuid`;
     await owner.$executeRaw`DELETE FROM public.subscription WHERE identity_id IN (${a}::uuid,${b}::uuid)`;

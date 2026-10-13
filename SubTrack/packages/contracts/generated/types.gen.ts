@@ -86,6 +86,41 @@ export type PrivateManualCreate = {
     nextChargeDate?: string | null;
 };
 
+/**
+ * Canonical positive bigint text 1..9223372036854775807; never a JavaScript Number.
+ */
+export type PositiveSubscriptionRevision = string;
+
+export type PrivateManualEdit = {
+    /**
+     * After trimming 1-120 UTF16 units; valid Unicode without Cc/Cf/unpaired surrogates. Canonical trimmed name stored and hashed.
+     */
+    customName: string;
+    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION';
+    cadence: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
+    /**
+     * Positive canonical minor-unit text, maximum 9223372036854775807; BigInt only.
+     */
+    expectedAmountMinor: string;
+    /**
+     * Required nullable real YYYY-MM-DD year 0001-9999.
+     */
+    nextChargeDate: string | null;
+    expectedRevision: PositiveSubscriptionRevision;
+};
+
+export type PrivateManualEdited = {
+    id: string;
+    revision: PositiveSubscriptionRevision;
+};
+
+export type PrivateManualEditError = {
+    type: 'about:blank';
+    title: 'Bad Request' | 'Unauthorized' | 'Forbidden' | 'Not Found' | 'Conflict' | 'Internal Server Error';
+    status: 400 | 401 | 403 | 404 | 409 | 500;
+    code: 'INVALID_MANUAL_EDIT_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MANUAL_EDIT_REQUEST_REJECTED' | 'SUBSCRIPTION_NOT_FOUND' | 'MODE_CONFLICT' | 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_CONFLICT' | 'INTERNAL_ERROR';
+};
+
 export type PrivateManualCreated = {
     id: string;
 };
@@ -98,6 +133,7 @@ export type PrivateManualError = {
 };
 
 export type PrivateOwnerSubscriptionView = {
+    revision: PositiveSubscriptionRevision;
     source: 'MANUAL' | 'DETECTED';
     visibility: 'owner';
     id: string;
@@ -2372,6 +2408,64 @@ export type CreateV2PrivateManualSubscriptionResponses = {
 };
 
 export type CreateV2PrivateManualSubscriptionResponse = CreateV2PrivateManualSubscriptionResponses[keyof CreateV2PrivateManualSubscriptionResponses];
+
+export type EditV2PrivateManualSubscriptionData = {
+    body: PrivateManualEdit;
+    headers: {
+        /**
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+         */
+        Origin: string;
+        /**
+         * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
+         */
+        'X-Session-CSRF': string;
+        'Idempotency-Key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/v2/subscriptions/owner/manual/{id}/edit';
+};
+
+export type EditV2PrivateManualSubscriptionErrors = {
+    /**
+     * 400 INVALID_MANUAL_EDIT_REQUEST; 401 AUTHENTICATION_REQUIRED; 403 MANUAL_EDIT_REQUEST_REJECTED; 404 SUBSCRIPTION_NOT_FOUND; 409 MODE_CONFLICT, MANUAL_EDIT_IDEMPOTENCY_CONFLICT or MANUAL_EDIT_CONFLICT; 500 INTERNAL_ERROR.
+     */
+    400: PrivateManualEditError;
+    /**
+     * 400 INVALID_MANUAL_EDIT_REQUEST; 401 AUTHENTICATION_REQUIRED; 403 MANUAL_EDIT_REQUEST_REJECTED; 404 SUBSCRIPTION_NOT_FOUND; 409 MODE_CONFLICT, MANUAL_EDIT_IDEMPOTENCY_CONFLICT or MANUAL_EDIT_CONFLICT; 500 INTERNAL_ERROR.
+     */
+    401: PrivateManualEditError;
+    /**
+     * 400 INVALID_MANUAL_EDIT_REQUEST; 401 AUTHENTICATION_REQUIRED; 403 MANUAL_EDIT_REQUEST_REJECTED; 404 SUBSCRIPTION_NOT_FOUND; 409 MODE_CONFLICT, MANUAL_EDIT_IDEMPOTENCY_CONFLICT or MANUAL_EDIT_CONFLICT; 500 INTERNAL_ERROR.
+     */
+    403: PrivateManualEditError;
+    /**
+     * 400 INVALID_MANUAL_EDIT_REQUEST; 401 AUTHENTICATION_REQUIRED; 403 MANUAL_EDIT_REQUEST_REJECTED; 404 SUBSCRIPTION_NOT_FOUND; 409 MODE_CONFLICT, MANUAL_EDIT_IDEMPOTENCY_CONFLICT or MANUAL_EDIT_CONFLICT; 500 INTERNAL_ERROR.
+     */
+    404: PrivateManualEditError;
+    /**
+     * 400 INVALID_MANUAL_EDIT_REQUEST; 401 AUTHENTICATION_REQUIRED; 403 MANUAL_EDIT_REQUEST_REJECTED; 404 SUBSCRIPTION_NOT_FOUND; 409 MODE_CONFLICT, MANUAL_EDIT_IDEMPOTENCY_CONFLICT or MANUAL_EDIT_CONFLICT; 500 INTERNAL_ERROR.
+     */
+    409: PrivateManualEditError;
+    /**
+     * 400 INVALID_MANUAL_EDIT_REQUEST; 401 AUTHENTICATION_REQUIRED; 403 MANUAL_EDIT_REQUEST_REJECTED; 404 SUBSCRIPTION_NOT_FOUND; 409 MODE_CONFLICT, MANUAL_EDIT_IDEMPOTENCY_CONFLICT or MANUAL_EDIT_CONFLICT; 500 INTERNAL_ERROR.
+     */
+    500: PrivateManualEditError;
+};
+
+export type EditV2PrivateManualSubscriptionError = EditV2PrivateManualSubscriptionErrors[keyof EditV2PrivateManualSubscriptionErrors];
+
+export type EditV2PrivateManualSubscriptionResponses = {
+    /**
+     * Original known committed edit snapshot or exact replay; reread current detail/list.
+     */
+    200: PrivateManualEdited;
+};
+
+export type EditV2PrivateManualSubscriptionResponse = EditV2PrivateManualSubscriptionResponses[keyof EditV2PrivateManualSubscriptionResponses];
 
 export type ReadV2PrivateOwnerSubscriptionsData = {
     body: PrivateOwnerPageRequest;

@@ -1221,6 +1221,55 @@ paths:
         '403': { $ref: '#/components/responses/PrivateManualProblem' }
         '409': { $ref: '#/components/responses/PrivateManualProblem' }
         '500': { $ref: '#/components/responses/PrivateManualProblem' }
+  /v2/subscriptions/owner/manual/{id}/edit:
+    post:
+      operationId: editV2PrivateManualSubscription
+      x-runtime-availability: unavailable-default
+      summary: Edit five manual fields under current owner authority and an exact revision
+      description: >
+        Opt-in private loopback HTTPS only; default graph unavailable. Exact Origin,
+        current access/binding/chain cookies, X-Session-CSRF and lowercase UUIDv4
+        Idempotency-Key. Full replacement of five manual fields plus positive bigint
+        expectedRevision; nextChargeDate is required nullable. No selectors or query.
+        Current complete profile and just-me gate before owner/key edit receipt lookup.
+        Exact receipt replay precedes target existence, eligibility and staleness;
+        deleted-target replay returns original committed id/revision, never recreates.
+        Absent, foreign, detected, non-SEK or CUSTOM targets share generic 404.
+        Lock owner MANUAL SEK five-cadence target, compare revision, update only five
+        manual fields and record immutable receipt in one current-authority transaction.
+        Separate edit namespace unique(owner,key) across all targets. SHA256 UTF8
+        JSON.stringify order {v:'manual-edit-v1',id,expectedRevision,customName:trimmed,categoryCode,cadence,expectedAmountMinor,nextChargeDate}.
+        No Unicode normalization. Known commit/exact replay return original 200
+        {id,revision}; client rereads current truth. Changed intent 409
+        MANUAL_EDIT_IDEMPOTENCY_CONFLICT; stale revision 409 MANUAL_EDIT_CONFLICT.
+        Explicit authority denial 401; storage/overflow/unknown commit masked 500.
+        No automatic replay, compensation or privileged writer; protected fields unchanged.
+      parameters:
+        - $ref: '#/components/parameters/ExactOrigin'
+        - $ref: '#/components/parameters/BrowserSessionCsrf'
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+      security:
+        - V2WebAccessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateManualEdit' }
+      responses:
+        '200': { $ref: '#/components/responses/PrivateManualEdited' }
+        '400': { $ref: '#/components/responses/PrivateManualEditProblem' }
+        '401': { $ref: '#/components/responses/PrivateManualEditProblem' }
+        '403': { $ref: '#/components/responses/PrivateManualEditProblem' }
+        '404': { $ref: '#/components/responses/PrivateManualEditProblem' }
+        '409': { $ref: '#/components/responses/PrivateManualEditProblem' }
+        '500': { $ref: '#/components/responses/PrivateManualEditProblem' }
   /v2/subscriptions/owner/read:
     post:
       operationId: readV2PrivateOwnerSubscriptions
@@ -1412,6 +1461,37 @@ components:
         cadence: { type: string, enum: [WEEKLY, MONTHLY, QUARTERLY, SEMIANNUAL, ANNUAL] }
         expectedAmountMinor: { type: string, pattern: '^[1-9][0-9]{0,18}$', description: 'Positive canonical minor-unit text, maximum 9223372036854775807; BigInt only.' }
         nextChargeDate: { type: [string, 'null'], format: date, description: 'Real YYYY-MM-DD year 0001-9999; omitted becomes null.' }
+    PositiveSubscriptionRevision:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+      description: 'Canonical positive bigint text 1..9223372036854775807; never a JavaScript Number.'
+    PrivateManualEdit:
+      type: object
+      additionalProperties: false
+      required: [customName, categoryCode, cadence, expectedAmountMinor, nextChargeDate, expectedRevision]
+      properties:
+        customName: { $ref: '#/components/schemas/PrivateManualCreate/properties/customName' }
+        categoryCode: { $ref: '#/components/schemas/PrivateManualCreate/properties/categoryCode' }
+        cadence: { $ref: '#/components/schemas/PrivateManualCreate/properties/cadence' }
+        expectedAmountMinor: { $ref: '#/components/schemas/PrivateManualCreate/properties/expectedAmountMinor' }
+        nextChargeDate: { type: [string, 'null'], format: date, description: 'Required nullable real YYYY-MM-DD year 0001-9999.' }
+        expectedRevision: { $ref: '#/components/schemas/PositiveSubscriptionRevision' }
+    PrivateManualEdited:
+      type: object
+      additionalProperties: false
+      required: [id, revision]
+      properties:
+        id: { type: string, format: uuid }
+        revision: { $ref: '#/components/schemas/PositiveSubscriptionRevision' }
+    PrivateManualEditError:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, enum: [Bad Request, Unauthorized, Forbidden, Not Found, Conflict, Internal Server Error] }
+        status: { type: integer, enum: [400, 401, 403, 404, 409, 500] }
+        code: { type: string, enum: [INVALID_MANUAL_EDIT_REQUEST, AUTHENTICATION_REQUIRED, MANUAL_EDIT_REQUEST_REJECTED, SUBSCRIPTION_NOT_FOUND, MODE_CONFLICT, MANUAL_EDIT_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_CONFLICT, INTERNAL_ERROR] }
     PrivateManualCreated:
       type: object
       additionalProperties: false
@@ -1430,8 +1510,9 @@ components:
     PrivateOwnerSubscriptionView:
       type: object
       additionalProperties: false
-      required: [visibility, id, customName, merchantId, merchantName, categoryCode, cadence, status, expectedAmountMinor, currency, nextChargeDate, alwaysPrivate, source]
+      required: [visibility, id, customName, merchantId, merchantName, categoryCode, cadence, status, expectedAmountMinor, currency, nextChargeDate, alwaysPrivate, source, revision]
       properties:
+        revision: { $ref: '#/components/schemas/PositiveSubscriptionRevision' }
         source: { type: string, enum: [MANUAL, DETECTED] }
         visibility: { type: string, const: owner }
         id: { type: string, format: uuid }
@@ -2481,6 +2562,22 @@ components:
       name: Authorization
       description: Mobile only, exact form `Refresh <opaque-secret>`; custom auth scheme, never body/query.
   responses:
+    PrivateManualEdited:
+      description: Original known committed edit snapshot or exact replay; reread current detail/list.
+      headers:
+        Cache-Control: { required: true, schema: { type: string, const: no-store } }
+        Pragma: { required: true, schema: { type: string, const: no-cache } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PrivateManualEdited' }
+    PrivateManualEditProblem:
+      description: '400 INVALID_MANUAL_EDIT_REQUEST; 401 AUTHENTICATION_REQUIRED; 403 MANUAL_EDIT_REQUEST_REJECTED; 404 SUBSCRIPTION_NOT_FOUND; 409 MODE_CONFLICT, MANUAL_EDIT_IDEMPOTENCY_CONFLICT or MANUAL_EDIT_CONFLICT; 500 INTERNAL_ERROR.'
+      headers:
+        Cache-Control: { required: true, schema: { type: string, const: no-store } }
+        Pragma: { required: true, schema: { type: string, const: no-cache } }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/PrivateManualEditError' }
     PrivateManualCreated:
       description: 'Known committed create or exact replay; original immutable id only.'
       headers:

@@ -197,6 +197,20 @@
       "status": { "DETECTED": "Upptäckt", "TRIAL": "Provperiod", "ACTIVE": "Aktiv", "PAUSED": "Pausad", "CANCELLED": "Avslutad", "ARCHIVED": "Arkiverad", "REJECTED": "Avvisad" },
       "cadence": { "WEEKLY": "Varje vecka", "MONTHLY": "Varje månad", "QUARTERLY": "Varje kvartal", "SEMIANNUAL": "Var sjätte månad", "ANNUAL": "Varje år", "CUSTOM": "Anpassat intervall" },
       "actions": { "ACTIVE": "Aktivera", "PAUSED": "Pausa", "CANCELLED": "Avsluta", "ARCHIVED": "Arkivera" }
+    },
+    "manualEdit": {
+      "title": "Redigera manuellt abonnemang",
+      "introduction": "Uppdatera de förväntade uppgifterna. Abonnemangets status behålls.",
+      "save": "Spara ändringar",
+      "stop": "Avsluta redigering och återgå till verifierad inloggning",
+      "cancel": "Avbryt redigering",
+      "confirmed": "Ändringarna har sparats och bekräftats med aktuella abonnemangsuppgifter.",
+      "readOnly": "Detta manuella abonnemang har en valuta eller period som inte kan redigeras här.",
+      "positiveRequired": "Ange ett positivt förväntat belopp i SEK för att ersätta det befintliga icke-positiva beloppet.",
+      "conflict": "Abonnemanget ändrades medan du redigerade. Ditt utkast finns kvar. Granska aktuella uppgifter innan du försöker igen.",
+      "review": "Använd granskad aktuell version",
+      "current": "Aktuella abonnemangsuppgifter",
+      "gone": "Abonnemanget är inte längre tillgängligt. Återgå till den aktuella listan."
     }
   },
   "hero": {

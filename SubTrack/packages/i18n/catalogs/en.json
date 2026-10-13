@@ -197,6 +197,20 @@
       "status": { "DETECTED": "Detected", "TRIAL": "Trial", "ACTIVE": "Active", "PAUSED": "Paused", "CANCELLED": "Cancelled", "ARCHIVED": "Archived", "REJECTED": "Rejected" },
       "cadence": { "WEEKLY": "Weekly", "MONTHLY": "Monthly", "QUARTERLY": "Quarterly", "SEMIANNUAL": "Every six months", "ANNUAL": "Yearly", "CUSTOM": "Custom schedule" },
       "actions": { "ACTIVE": "Activate", "PAUSED": "Pause", "CANCELLED": "Cancel", "ARCHIVED": "Archive" }
+    },
+    "manualEdit": {
+      "title": "Edit manual subscription",
+      "introduction": "Update the expected details. Your subscription status stays as it is.",
+      "save": "Save changes",
+      "stop": "Stop editing and return to verified login",
+      "cancel": "Cancel editing",
+      "confirmed": "Changes saved and confirmed from current subscription data.",
+      "readOnly": "This manual subscription uses a currency or cadence that cannot be edited here.",
+      "positiveRequired": "Enter a positive expected SEK amount to replace the existing nonpositive amount.",
+      "conflict": "This subscription changed while you were editing. Your draft is preserved. Review the current details before trying again.",
+      "review": "Use reviewed current revision",
+      "current": "Current subscription details",
+      "gone": "This subscription is no longer available. Return to the current list."
     }
   },
   "hero": {
