@@ -329,7 +329,9 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
         selected={step === 'subscriptions-detail' ? selected : null} busy={busy} confirmed={statusConfirmed} onMore={loadMore}
         onSelect={selectSubscription} onBack={() => { setSelected(null); setStatusConfirmed(false); setStep('subscriptions-list'); }} onTransition={transition} /> : null}
       {step === 'verified-login-required' ? <><p data-step-focus tabIndex={-1} role="alert">{copy.verifiedLoginRequired}</p>
-        <Link href={`/${locale}/login`}>{loginCopy.freshLogin}</Link></> : null}
+        {initialEntry === 'login'
+          ? <Button type="button" disabled={busy} onClick={goBack}>{loginCopy.freshLogin}</Button>
+          : <Link href={`/${locale}/login`}>{loginCopy.freshLogin}</Link>}</> : null}
       {error && step !== 'restart-required' ? <p ref={errorMessage} tabIndex={-1} role="alert">{error}</p> : null}
       <div className={styles.actions}>
         {step !== 'identifier' && step !== 'verified-login-required' && step !== 'profile-saved' && step !== 'mode-choice' &&

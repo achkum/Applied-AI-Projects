@@ -41,6 +41,49 @@ async function reachProfile(locale: 'en' | 'sv' = 'en') {
 afterEach(() => vi.restoreAllMocks());
 
 describe('mounted private enrollment and profile', () => {
+  it.each(['en', 'sv'] as const)('requires an explicit fresh %s login after a reload stop', async (locale) => {
+    vi.spyOn(performance, 'getEntriesByType').mockReturnValue([
+      { type: 'reload' } as PerformanceNavigationTiming,
+    ]);
+    const freshNonce = 'B'.repeat(43);
+    const sessionNonce = 'C'.repeat(43);
+    const freshProof = `v2.${'D'.repeat(43)}`;
+    const persisted = { ...view, language: locale, displayName: 'Returning owner', profileComplete: true };
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(() => response(200, { nonce: freshNonce }))
+      .mockImplementationOnce(() => response(200, { transport: 'web', loginProof: freshProof, status: 'verified', nextBrowserNonce: sessionNonce }))
+      .mockImplementationOnce(() => response(201, { transport: 'web', sessionId: '123e4567-e89b-42d3-a456-426614174000', csrfToken: 'fresh-reload-csrf' }))
+      .mockImplementationOnce(() => response(200, persisted))
+      .mockImplementationOnce(() => response(200, { mode: 'just-me' }))
+      .mockImplementationOnce(() => response(200, { items: [], nextCursor: null }));
+    const copy = catalogs[locale].onboarding;
+    render(<RegistrationFlow locale={locale} initialEntry="login" />);
+    const freshEntry = await screen.findByRole('button', { name: copy.login.freshLogin });
+    expect(screen.getByRole('alert').textContent).toBe(copy.registration.verifiedLoginRequired);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: copy.login.simulatorAction })).toBeNull();
+    fireEvent.click(freshEntry);
+    const heading = screen.getByRole('heading', { name: copy.login.title });
+    expect(document.activeElement).toBe(heading);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: copy.login.simulatorAction }));
+    expect(await screen.findByText(copy.ownerSubscriptions.empty)).toBeTruthy();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/v2/auth/browser-nonce', '/v2/auth/login/simulator/verify', '/v2/auth/session',
+      '/v2/me/profile/read', '/v2/me/mode/read', '/v2/subscriptions/owner/read',
+    ]);
+    expect((fetchMock.mock.calls[1]?.[1]?.headers as Record<string, string>)['X-Browser-Nonce']).toBe(freshNonce);
+    expect((fetchMock.mock.calls[2]?.[1]?.headers as Record<string, string>)['X-Browser-Nonce']).toBe(sessionNonce);
+    expect(JSON.parse(fetchMock.mock.calls[2]?.[1]?.body as string)).toEqual({ transport: 'web', loginProof: freshProof });
+    expect(fetchMock.mock.calls.slice(0, 3).every(([, options]) =>
+      !Object.hasOwn(options?.headers ?? {}, 'X-Session-CSRF'))).toBe(true);
+    expect(fetchMock.mock.calls.slice(3).every(([, options]) =>
+      (options?.headers as Record<string, string>)['X-Session-CSRF'] === 'fresh-reload-csrf')).toBe(true);
+    expect(document.body.textContent).not.toContain('fresh-reload-csrf');
+    expect(document.body.textContent).not.toContain(freshProof);
+  });
+
   it('returns through verified login and reads persisted profile and mode before owner list without writes', async () => {
     const persisted = { ...view, displayName: 'Existing owner', profileComplete: true };
     const fetchMock = vi.spyOn(globalThis, 'fetch')

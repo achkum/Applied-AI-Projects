@@ -606,11 +606,11 @@ try {
     if (browserCase === 'login') {
       phase = 'LOGIN_RELOAD';
       await page.reload({ waitUntil: 'domcontentloaded' });
-      await page.getByRole('link', { name: copy.login.freshLogin, exact: true }).waitFor();
+      await page.getByRole('button', { name: copy.login.freshLogin, exact: true }).waitFor();
       assert.equal(await page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true }).count(), 0);
       await capture('login-reload-stop');
       phase = 'LOGIN_UNCERTAIN_RETURN';
-      await page.getByRole('link', { name: copy.login.freshLogin, exact: true }).click();
+      await page.getByRole('button', { name: copy.login.freshLogin, exact: true }).click();
       await page.getByRole('heading', { name: copy.login.title, exact: true }).waitFor();
       await capture('login-fresh-after-reload');
       let uncertainSessions = 0;
