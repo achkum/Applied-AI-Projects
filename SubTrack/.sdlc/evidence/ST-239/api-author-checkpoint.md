@@ -1,0 +1,7 @@
+# ST-239 API author checkpoint
+
+2026-10-11 source attempt 1, original deadline 22:18:06.654Z. Contract-first OpenAPI now records private simulator verify, closed Alice/Bob choice, one-use proof/successor nonce, exact private problem matrix, and existing 201 session shape. New durable login and private HTTP files expose `DurableDevelopmentLogin` and `createPrivateLoginHttp`. Enrollment verifier and endpoint accept optional demoIdentity with Alice default. The storage author has the precise six-call SQL placeholder shape, including terminal `authority_h=proof_h` and server-derived owner GUCs before issue.
+
+This is **unfinished source**, not QA or acceptance. First focused `tsc --noEmit -p apps/api/tsconfig.json` failed on new login typing; the listed errors were patched but the check has not been rerun. No contract tests, generated output, API unit tests, docs or qualified PG proof have run. The new files are untracked until Conductor handles Git. The SQL and client authors are writing in parallel; no independent source review has occurred.
+
+Next API continuation: rerun TypeScript, correct any failures; complete exact closed problem schema and contract tests, generated bindings and API_CONTRACT text; add focused durable/HTTP/verifier/enrollment tests; reconcile SQL012 transaction semantics (especially failure burn, authority digest, lock order, and live owner); then request independent review. Avoid claiming known-commit disclosure if token issue can fail postcommit without a safe response; test that path. Preserve original clock/counters.

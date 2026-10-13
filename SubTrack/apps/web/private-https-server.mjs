@@ -56,11 +56,13 @@ const { createDevelopmentBootstrapPostgresPort } = apiRequire('./dist/auth/brows
 const { createDevelopmentBootstrapTransaction } = apiRequire('./dist/auth/browser-nonce/development-bootstrap-transaction.js');
 const { DevelopmentEnrollmentPersonVerifier } = apiRequire('./dist/auth/identity-provider/development-enrollment-person-verifier.js');
 const { DurableDevelopmentEnrollment } = apiRequire('./dist/auth/enrollment-v2/durable-development-enrollment.js');
+const { DurableDevelopmentLogin } = apiRequire('./dist/auth/login-v2/durable-development-login.js');
 const { V2AccessToken } = apiRequire('./dist/auth/sessions-v2/v2-access-token.js');
 const { DurableCurrentWebAuthority } = apiRequire('./dist/auth/sessions-v2/durable-current-web-authority.js');
 const { PRIVATE_PROFILE_STATEMENTS } = apiRequire('./dist/profile/private-profile-statements.js');
 const { PRIVATE_ONBOARDING_STATEMENTS } = apiRequire('./dist/profile/private-onboarding-statements.js');
 const { createPrivateEnrollmentHttp, privateProblem, privateJson } = apiRequire('./dist/auth/enrollment-v2/private-enrollment-http.js');
+const { createPrivateLoginHttp, privateLoginProblem } = apiRequire('./dist/auth/login-v2/private-login-http.js');
 const { createPrivateProfileHttp } = apiRequire('./dist/profile/private-profile-http.js');
 const { createPrivateOnboardingHttp } = apiRequire('./dist/profile/private-onboarding-http.js');
 const epoch = loadPrivateAuthEpoch(env.ST237_PRIVATE_CONFIG);
@@ -85,6 +87,7 @@ const qualifiedSqlPins = Object.freeze({
   '009-current-web-session-csrf.sql': 'f7c026ee9dac458bbfbbea13e1774d3bd392fdab8e5c4659185dc769ecab2c9b',
   '010-enrollment-account.sql': '954be5c4ae1c018aac161a5ec7e59d2bd1bc478df5310a7a15f968f8bfd90a4a',
   '011-just-me-owner-subscriptions.sql': 'c846c43da9f37c18739d0dbc5f9633f24d0b4e14327e607d94f1f0344602bd43',
+  '012-returning-login.sql': '1825e9770adf4c9127c0d8f774b8b0c0311137d51dfec952f6d300b00e6d9241',
 });
 const privacyMigrationPin = 'b2ef9ebbdce9f9dddff9f43b6679e0fdac58324c2a6ef060af33662ec89a2f9a';
 const justMeMigrationPin = '0472642ea4182b0818c7230d0285d6fab620738b17124268dce5e5d891b3ca29';
@@ -153,7 +156,7 @@ function approvedFunctions() {
         grants: granted ? granted[2].split(',').sort() : [] });
     }
   }
-  if (expected.size !== 25 || policies.length !== 43 || columns.length !== 115) fail();
+  if (expected.size !== 31 || policies.length !== 48 || columns.length !== 126) fail();
   return { functions: expected, policies, columns };
 }
 
@@ -430,7 +433,7 @@ async function assertSubscriptionCatalog(client) {
 async function assertAuthCatalog(client, approved) {
   gate('AUTH_TABLES');
   const authTables = ['credential','csrf','enrollment_intent','epoch','family','identity_birth',
-    'nonce','otp','pending_enrollment','reservation','restricted_proof','session','verified_enrollment'];
+    'login_proof','nonce','otp','pending_enrollment','reservation','restricted_proof','session','verified_enrollment'];
   const tables = await client.query(`SELECT c.relname::text AS name,c.relkind::text AS kind,
       c.relrowsecurity AS rls,c.relforcerowsecurity AS force_rls,r.rolname::text AS owner
     FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
@@ -520,6 +523,24 @@ async function assertAuthCatalog(client, approved) {
     JSON.stringify(scopeType.rows[0].grants) !== JSON.stringify([
       'subtrack_auth_executor:USAGE:false','subtrack_auth_producer:USAGE:false',
       'subtrack_runtime:USAGE:false'])) fail();
+  const loginScope = await client.query(`SELECT r.rolname::text AS owner,
+      ARRAY(SELECT pg_catalog.pg_get_userbyid(a.grantee)::text || ':' || a.privilege_type ||
+        ':' || a.is_grantable::text FROM pg_catalog.aclexplode(t.typacl) a
+        WHERE a.grantee<>t.typowner ORDER BY pg_catalog.pg_get_userbyid(a.grantee)) AS grants,
+      ARRAY(SELECT a.attname::text || ':' || pg_catalog.format_type(a.atttypid,a.atttypmod)
+        FROM pg_catalog.pg_attribute a WHERE a.attrelid=t.typrelid AND a.attnum>0
+          AND NOT a.attisdropped ORDER BY a.attnum) AS fields
+    FROM pg_catalog.pg_type t JOIN pg_catalog.pg_roles r ON r.oid=t.typowner
+    WHERE t.oid='subtrack_auth.login_scope'::pg_catalog.regtype`);
+  if (loginScope.rows.length !== 1 || loginScope.rows[0].owner !== 'subtrack_auth_owner' ||
+    JSON.stringify(loginScope.rows[0].grants) !== JSON.stringify([
+      'subtrack_auth_executor:USAGE:false','subtrack_auth_producer:USAGE:false',
+      'subtrack_runtime:USAGE:false']) ||
+    JSON.stringify(loginScope.rows[0].fields) !== JSON.stringify([
+      'key_h:subtrack_auth.h','owner_h:subtrack_auth.h','authority_h:subtrack_auth.h',
+      'request_h:subtrack_auth.h','nonce_h:subtrack_auth.h','binding_h:subtrack_auth.h',
+      'origin:text','chain:text','epoch:text','manifest_h:subtrack_auth.h',
+      'observed_ms:subtrack_auth.ms'])) fail();
 
   gate('AUTH_POLICIES');
   const policies = await client.query(`SELECT c.relname::text AS table_name,p.polname::text AS name,
@@ -558,14 +579,16 @@ async function assertAuthCatalog(client, approved) {
     ...tableGrant(['reservation','nonce'],['SELECT','INSERT','DELETE']),
     ...tableGrant(['family','session','credential'],['SELECT','INSERT']),
     ...tableGrant(['csrf'],['SELECT','INSERT','DELETE']),
-    ...tableGrant(['otp','restricted_proof','pending_enrollment','verified_enrollment',
+    ...tableGrant(['otp','restricted_proof','pending_enrollment','verified_enrollment','login_proof',
       'enrollment_intent','identity_birth'],['SELECT','INSERT','DELETE']),
     ...columnGrant('epoch',['watermark_ms']),...columnGrant('reservation',['state']),
     ...columnGrant('family',['revoked_ms']),...columnGrant('session',['revoked_ms']),
     ...columnGrant('csrf',['token_h','issued_ms','expires_ms']),
     ...columnGrant('otp',['attempts']),...columnGrant('restricted_proof',['proof_h']),
+    ...columnGrant('nonce',['nonce_h']),
     ...columnGrant('pending_enrollment',['pending_h']),
     ...columnGrant('verified_enrollment',['identity_id']),
+    ...columnGrant('login_proof',['proof_h']),
   ];
   const actualAcl = acl.rows.map(a =>
     [a.table_name,a.scope,a.column_name,a.grantee,a.privilege,a.grantable]);
@@ -577,15 +600,17 @@ async function assertAuthCatalog(client, approved) {
   const constraints = await client.query(`SELECT pg_catalog.md5(pg_catalog.string_agg(
       pg_catalog.format('%s:%s:%s:%s:%s',c.conname,c.contype,c.convalidated,c.condeferrable,
         pg_catalog.pg_get_constraintdef(c.oid)),E'\\n' ORDER BY c.conname,c.oid)) AS pin
-    FROM pg_catalog.pg_constraint c WHERE c.connamespace='subtrack_auth'::pg_catalog.regnamespace`);
+    FROM pg_catalog.pg_constraint c WHERE c.connamespace='subtrack_auth'::pg_catalog.regnamespace
+      AND c.conrelid<>'subtrack_auth.login_proof'::pg_catalog.regclass`);
   if (constraints.rows.length !== 1 || constraints.rows[0].pin !== '20d5868b5252c03b0d54b691938e860c') fail();
   const constraintCounts = await client.query(`SELECT c.relname::text AS table_name,
       pg_catalog.count(*)::pg_catalog.int4 AS total,
       pg_catalog.bool_and(k.convalidated AND
         (k.condeferrable=k.condeferred) AND
         (NOT k.condeferrable OR
-          (c.relname='verified_enrollment' AND
-           k.conname='verified_enrollment_terminal_nonce_h_fkey'))) AS strict
+          ((c.relname='verified_enrollment' AND
+           k.conname='verified_enrollment_terminal_nonce_h_fkey') OR
+           (c.relname='login_proof' AND k.conname='login_proof_terminal_nonce_h_fkey')))) AS strict
     FROM pg_catalog.pg_constraint k JOIN pg_catalog.pg_class c ON c.oid=k.conrelid
     JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
     WHERE n.nspname='subtrack_auth' GROUP BY c.relname ORDER BY c.relname`);
@@ -593,9 +618,69 @@ async function assertAuthCatalog(client, approved) {
     ['credential',5],['csrf',3],['enrollment_intent',1],['epoch',5],['family',5],
     ['identity_birth',1],['nonce',8],['otp',8],['pending_enrollment',7],
     ['reservation',8],['restricted_proof',7],['session',9],['verified_enrollment',12],
+    ['login_proof',7],
   ]);
   if (constraintCounts.rows.length !== expectedCounts.size || constraintCounts.rows.some(c =>
     c.total !== expectedCounts.get(c.table_name) || c.strict !== true)) fail();
+  gate('LOGIN_IDENTITY_LOCK');
+  const identityAcl = await client.query(`SELECT 'table' AS scope,NULL::text AS name,
+      CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE pg_catalog.pg_get_userbyid(x.grantee) END AS grantee,
+      x.privilege_type AS privilege,x.is_grantable AS grantable
+    FROM pg_catalog.pg_class c CROSS JOIN LATERAL pg_catalog.aclexplode(c.relacl) x
+    WHERE c.oid='public.identity'::pg_catalog.regclass AND x.grantee<>c.relowner
+    UNION ALL
+    SELECT 'column' AS scope,a.attname::text AS name,
+      CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE pg_catalog.pg_get_userbyid(x.grantee) END AS grantee,
+      x.privilege_type AS privilege,x.is_grantable AS grantable
+    FROM pg_catalog.pg_class c JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid
+      AND a.attnum>0 AND NOT a.attisdropped
+    CROSS JOIN LATERAL pg_catalog.aclexplode(a.attacl) x
+    WHERE c.oid='public.identity'::pg_catalog.regclass AND x.grantee<>c.relowner`);
+  const expectedIdentityAcl = [
+    ...['SELECT','INSERT','UPDATE','DELETE'].map(privilege =>
+      ['table',null,'subtrack_runtime',privilege,false]),
+    ...['id','deleted_at'].map(name => ['column',name,'subtrack_visibility_lookup','SELECT',false]),
+    ...['id','external_id'].map(name => ['column',name,'subtrack_identity_provisioner','SELECT',false]),
+    ['table',null,'subtrack_identity_provisioner','INSERT',false],
+    ...['id','email','phone'].map(name => ['column',name,'subtrack_invitation_service','SELECT',false]),
+    ...['id','external_id','deleted_at'].map(name => ['column',name,'subtrack_auth_executor','SELECT',false]),
+    ['column','id','subtrack_auth_executor','UPDATE',false],
+  ];
+  if (JSON.stringify(sortRows(identityAcl.rows.map(x =>
+    [x.scope,x.name,x.grantee,x.privilege,x.grantable]))) !==
+    JSON.stringify(sortRows(expectedIdentityAcl))) fail();
+  const identityPolicies = await client.query(`SELECT p.polname::text AS name,p.polcmd::text AS command,
+      p.polpermissive AS permissive,
+      ARRAY(SELECT r.rolname::text FROM pg_catalog.pg_roles r WHERE r.oid=ANY(p.polroles)
+        ORDER BY r.rolname) AS roles,
+      pg_catalog.pg_get_expr(p.polqual,p.polrelid) AS using_expr,
+      pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid) AS check_expr
+    FROM pg_catalog.pg_policy p WHERE p.polrelid='public.identity'::pg_catalog.regclass
+    ORDER BY p.polname`);
+  const ownerIdentity = 'subtrack_principal_matches(id)';
+  const executorOwner = identityPolicies.rows.find(p =>
+    p.name==='identity_enrollment_executor_select')?.using_expr;
+  if (!executorOwner || JSON.stringify(identityPolicies.rows.map(p =>
+    [p.name,p.command,p.permissive,p.roles,p.using_expr,p.check_expr])) !==
+    JSON.stringify([
+      ['identity_delete','d',true,['subtrack_runtime'],ownerIdentity,null],
+      ['identity_enrollment_executor_select','r',true,['subtrack_auth_executor'],executorOwner,null],
+      ['identity_insert','a',true,['subtrack_runtime'],null,ownerIdentity],
+      ['identity_invitation_service_select','r',true,['subtrack_invitation_service'],'true',null],
+      ['identity_login_executor_lock','w',true,['subtrack_auth_executor'],executorOwner,'false'],
+      ['identity_provisioner_insert','a',true,['subtrack_identity_provisioner'],null,'true'],
+      ['identity_provisioner_select','r',true,['subtrack_identity_provisioner'],'true',null],
+      ['identity_select','r',true,['subtrack_runtime'],ownerIdentity,null],
+      ['identity_update','w',true,['subtrack_runtime'],ownerIdentity,ownerIdentity],
+    ]) || executorOwner.replace(/[()\s]/g,'') !==
+      "id::text=current_setting'app.user_id'::text,trueANDid::text=current_setting'app.current_user_id'::text,true") fail();
+  const identityLock = await client.query(`SELECT
+      (SELECT c.relrowsecurity AND NOT c.relforcerowsecurity FROM pg_catalog.pg_class c
+       WHERE c.oid='public.identity'::pg_catalog.regclass) AS exact_rls,
+      (SELECT k.confdeltype='c' AND k.condeferrable AND k.condeferred
+       FROM pg_catalog.pg_constraint k WHERE k.conrelid='subtrack_auth.login_proof'::pg_catalog.regclass
+         AND k.conname='login_proof_terminal_nonce_h_fkey') AS nonce_cascade`);
+  if (identityLock.rowCount!==1 || Object.values(identityLock.rows[0]).some(value=>value!==true)) fail();
 }
 
 async function assertStartup() {
@@ -638,8 +723,8 @@ async function assertStartup() {
       WHERE (n.nspname='subtrack_auth' AND c.relname=ANY($1::text[]))
          OR (n.nspname='public' AND c.relname IN ('identity_profile','subscription'))`,
       [['epoch','reservation','nonce','family','session','credential','csrf','otp','restricted_proof',
-        'pending_enrollment','verified_enrollment','enrollment_intent','identity_birth']]);
-    if (rls.rows.length !== 15 || rls.rows.some(item => item.enabled !== true || item.forced !== true)) fail();
+        'pending_enrollment','verified_enrollment','enrollment_intent','identity_birth','login_proof']]);
+    if (rls.rows.length !== 16 || rls.rows.some(item => item.enabled !== true || item.forced !== true)) fail();
     gate('EPOCH');
     let fence;
     try {
@@ -685,6 +770,9 @@ async function main() {
   const enrollment = new DurableDevelopmentEnrollment({ environment: 'development', enabled: true,
     origin: epoch.origin, database: epoch.database, epoch: epoch.epoch, manifestHash: epoch.manifestHash,
     pool, clock: Date.now, verifier, keys: epoch.enrollmentKeys, developmentOtpCode: () => '123456' });
+  const login = new DurableDevelopmentLogin({ environment: 'development', enabled: true,
+    origin: epoch.origin, database: epoch.database, epoch: epoch.epoch, manifestHash: epoch.manifestHash,
+    pool, clock: Date.now, verifier, keys: epoch.enrollmentKeys });
   const authority = new DurableCurrentWebAuthority({ pool, accessTokens: tokens, origin: epoch.origin,
     database: epoch.database, epoch: epoch.epoch, manifestHash: epoch.manifestHash,
     businessStatements: { ...PRIVATE_PROFILE_STATEMENTS, ...PRIVATE_ONBOARDING_STATEMENTS } });
@@ -695,6 +783,7 @@ async function main() {
       epoch: epoch.epoch, manifestHash: epoch.manifestHash, database: epoch.database,
       password: env.ST237_PG_PASSWORD, port }));
   const auth = createPrivateEnrollmentHttp({ bootstrap, enrollment, accessTokens: tokens });
+  const loginHttp = createPrivateLoginHttp({ login, accessTokens: tokens });
   const profile = createPrivateProfileHttp(authority);
   const onboarding = createPrivateOnboardingHttp(authority);
   gate('COMPOSITION_READY');
@@ -707,6 +796,12 @@ async function main() {
     'auth/enrollment/pending', 'auth/enrollment/simulator/verify', 'auth/enrollment/complete'].entries()) {
     const method = `auth${index}`;
     Object.defineProperty(PrivateController.prototype, method, { value: async (req, res) => auth.handle(req, res) });
+    Post(route)(PrivateController.prototype, method, Object.getOwnPropertyDescriptor(PrivateController.prototype, method));
+    Req()(PrivateController.prototype, method, 0); Res()(PrivateController.prototype, method, 1);
+  }
+  for (const [index, route] of ['auth/login/simulator/verify','auth/session'].entries()) {
+    const method = `login${index}`;
+    Object.defineProperty(PrivateController.prototype, method, { value: async (req, res) => loginHttp.handle(req, res) });
     Post(route)(PrivateController.prototype, method, Object.getOwnPropertyDescriptor(PrivateController.prototype, method));
     Req()(PrivateController.prototype, method, 0); Res()(PrivateController.prototype, method, 1);
   }
@@ -740,8 +835,10 @@ async function main() {
   const web = nextApp.getRequestHandler();
   const routes = new Set(['/v2/auth/browser-nonce','/v2/auth/otp/start','/v2/auth/otp/verify',
     '/v2/auth/enrollment/pending','/v2/auth/enrollment/simulator/verify','/v2/auth/enrollment/complete',
+    '/v2/auth/login/simulator/verify','/v2/auth/session',
     '/v2/me/profile/read','/v2/me/profile', '/v2/me/mode','/v2/me/mode/read',
     '/v2/subscriptions/owner/read']);
+  const loginRoutes = new Set(['/v2/auth/login/simulator/verify','/v2/auth/session']);
   const server = https.createServer({ key, cert }, (req, res) => {
     if (!(req.socket instanceof TLSSocket) || !req.socket.encrypted ||
       req.socket.remoteAddress !== '127.0.0.1' || req.headers.host !== 'localhost:3443') {
@@ -757,6 +854,7 @@ async function main() {
         if (profilePath) privateJson(res, 400, { type: 'about:blank', title: 'Bad Request', status: 400, code: 'INVALID_PROFILE_REQUEST' }, true);
         else if (onboardingPath) privateJson(res, 400, { type: 'about:blank', title: 'Bad Request', status: 400,
           code: req.url.startsWith('/v2/me/mode') ? 'INVALID_MODE_REQUEST' : 'INVALID_SUBSCRIPTION_REQUEST' }, true);
+        else if (loginRoutes.has(req.url)) privateLoginProblem(res, 400);
         else privateProblem(res, routes.has(req.url) ? 400 : 404);
         return;
       }

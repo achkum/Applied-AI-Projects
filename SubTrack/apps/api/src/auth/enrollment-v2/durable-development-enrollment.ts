@@ -308,18 +308,20 @@ export class DurableDevelopmentEnrollment {
       return Object.freeze({ pending, nextBrowserNonce });
     } catch { return fail(); }
   }
-  async verifyPerson(web: EnrollmentWeb, input: Readonly<{ pending: string }>, key: string):
+  async verifyPerson(web: EnrollmentWeb, input: Readonly<{ pending: string; demoIdentity?: 'alice' | 'bob' }>, key: string):
     Promise<Readonly<{ verified: string; nextBrowserNonce: string }>> {
     try {
-      const request = own(input, ['pending']);
+      const request = own(input, Object.hasOwn(input, 'demoIdentity') ? ['pending', 'demoIdentity'] : ['pending']);
       if (!canonical(request.pending)) fail();
-      const w = await this.witness(web, key, 'verifyEnrollmentPerson', [request.pending as string], 'otp_step_up');
+      if (request.demoIdentity !== undefined && request.demoIdentity !== 'alice' && request.demoIdentity !== 'bob') fail();
+      const demoIdentity = (request.demoIdentity ?? 'alice') as 'alice' | 'bob';
+      const w = await this.witness(web, key, 'verifyEnrollmentPerson', [request.pending as string, demoIdentity], 'otp_step_up');
       await this.reserve(w, 'verifyEnrollmentPerson');
       const pendingH = this.h('proof', 'pending', [request.pending as string]);
       const preflight = await this.operate(w, 'subtrack_auth_producer', client =>
         this.transition(client, 'pending_enrollment', w, [pendingH], ['subtrack_auth.h']));
       if (!preflight) fail();
-      const person = await this.verifyPersonEvidence();
+      const person = await this.verifyPersonEvidence(demoIdentity);
       const result = own(person, ['method', 'personnummerHmac', 'verifiedAt', 'givenName', 'surname']);
       if (result.method !== 'BANKID' || typeof result.personnummerHmac !== 'string' ||
         !HEX.test(result.personnummerHmac) || typeof result.verifiedAt !== 'string' ||

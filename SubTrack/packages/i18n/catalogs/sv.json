@@ -53,6 +53,21 @@
       "logIn": "Logga in",
       "exploreDemo": "Utforska demohushåll"
     },
+    "login": {
+      "title": "Logga in",
+      "introduction": "Använd den betrodda simulatorn för att verifiera ett registrerat konto i privat utveckling.",
+      "fixtureLabel": "Utvecklingskonto",
+      "alice": "Alice",
+      "bob": "Bob",
+      "simulatorAction": "Verifiera med utvecklingssimulatorn",
+      "verifying": "Verifierar ditt konto…",
+      "creatingSession": "Skapar din privata session…",
+      "loadingMode": "Läser in ditt sparade läge…",
+      "restart": "Verifieringen måste startas om.",
+      "unavailable": "Inloggning är inte tillgänglig just nu. Starta en ny verifiering och försök igen.",
+      "freshLogin": "Starta ny inloggning",
+      "logInInstead": "Logga in i stället"
+    },
     "identifier": {
       "channelLabel": "Välj kontaktmetod",
       "emailChannel": "E-post",

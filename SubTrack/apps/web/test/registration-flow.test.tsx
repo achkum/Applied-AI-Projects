@@ -41,6 +41,90 @@ async function reachProfile(locale: 'en' | 'sv' = 'en') {
 afterEach(() => vi.restoreAllMocks());
 
 describe('mounted private enrollment and profile', () => {
+  it.each(['en', 'sv'] as const)('requires an explicit fresh %s login after a reload stop', async (locale) => {
+    vi.spyOn(performance, 'getEntriesByType').mockReturnValue([
+      { type: 'reload' } as PerformanceNavigationTiming,
+    ]);
+    const freshNonce = 'B'.repeat(43);
+    const sessionNonce = 'C'.repeat(43);
+    const freshProof = `v2.${'D'.repeat(43)}`;
+    const persisted = { ...view, language: locale, displayName: 'Returning owner', profileComplete: true };
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(() => response(200, { nonce: freshNonce }))
+      .mockImplementationOnce(() => response(200, { transport: 'web', loginProof: freshProof, status: 'verified', nextBrowserNonce: sessionNonce }))
+      .mockImplementationOnce(() => response(201, { transport: 'web', sessionId: '123e4567-e89b-42d3-a456-426614174000', csrfToken: 'fresh-reload-csrf' }))
+      .mockImplementationOnce(() => response(200, persisted))
+      .mockImplementationOnce(() => response(200, { mode: 'just-me' }))
+      .mockImplementationOnce(() => response(200, { items: [], nextCursor: null }));
+    const copy = catalogs[locale].onboarding;
+    render(<RegistrationFlow locale={locale} initialEntry="login" />);
+    const freshEntry = await screen.findByRole('button', { name: copy.login.freshLogin });
+    expect(screen.getByRole('alert').textContent).toBe(copy.registration.verifiedLoginRequired);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: copy.login.simulatorAction })).toBeNull();
+    fireEvent.click(freshEntry);
+    const heading = screen.getByRole('heading', { name: copy.login.title });
+    expect(document.activeElement).toBe(heading);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: copy.login.simulatorAction }));
+    expect(await screen.findByText(copy.ownerSubscriptions.empty)).toBeTruthy();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/v2/auth/browser-nonce', '/v2/auth/login/simulator/verify', '/v2/auth/session',
+      '/v2/me/profile/read', '/v2/me/mode/read', '/v2/subscriptions/owner/read',
+    ]);
+    expect((fetchMock.mock.calls[1]?.[1]?.headers as Record<string, string>)['X-Browser-Nonce']).toBe(freshNonce);
+    expect((fetchMock.mock.calls[2]?.[1]?.headers as Record<string, string>)['X-Browser-Nonce']).toBe(sessionNonce);
+    expect(JSON.parse(fetchMock.mock.calls[2]?.[1]?.body as string)).toEqual({ transport: 'web', loginProof: freshProof });
+    expect(fetchMock.mock.calls.slice(0, 3).every(([, options]) =>
+      !Object.hasOwn(options?.headers ?? {}, 'X-Session-CSRF'))).toBe(true);
+    expect(fetchMock.mock.calls.slice(3).every(([, options]) =>
+      (options?.headers as Record<string, string>)['X-Session-CSRF'] === 'fresh-reload-csrf')).toBe(true);
+    expect(document.body.textContent).not.toContain('fresh-reload-csrf');
+    expect(document.body.textContent).not.toContain(freshProof);
+  });
+
+  it('returns through verified login and reads persisted profile and mode before owner list without writes', async () => {
+    const persisted = { ...view, displayName: 'Existing owner', profileComplete: true };
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(() => response(200, { nonce: token }))
+      .mockImplementationOnce(() => response(200, { transport: 'web', loginProof: `v2.${token}`, status: 'verified', nextBrowserNonce: token }))
+      .mockImplementationOnce(() => response(201, { transport: 'web', sessionId: '123e4567-e89b-42d3-a456-426614174000', csrfToken: 'new-csrf' }))
+      .mockImplementationOnce(() => response(200, persisted))
+      .mockImplementationOnce(() => response(200, { mode: 'just-me' }))
+      .mockImplementationOnce(() => response(200, { items: [], nextCursor: null }));
+    render(<RegistrationFlow locale="en" initialEntry="login" />);
+    fireEvent.click(screen.getByRole('button', { name: catalogs.en.onboarding.login.simulatorAction }));
+    expect(await screen.findByText(catalogs.en.onboarding.ownerSubscriptions.empty)).toBeTruthy();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/v2/auth/browser-nonce', '/v2/auth/login/simulator/verify', '/v2/auth/session',
+      '/v2/me/profile/read', '/v2/me/mode/read', '/v2/subscriptions/owner/read',
+    ]);
+    expect(fetchMock.mock.calls.slice(3).every(([, options]) =>
+      (options?.headers as Record<string, string>)['X-Session-CSRF'] === 'new-csrf')).toBe(true);
+    expect(document.body.textContent).not.toContain('new-csrf');
+  });
+
+  it('resumes incomplete profile and absent mode without an early owner read or mutation', async () => {
+    const setup = (profileComplete: boolean) => vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(() => response(200, { nonce: token }))
+      .mockImplementationOnce(() => response(200, { transport: 'web', loginProof: `v2.${token}`, status: 'verified', nextBrowserNonce: token }))
+      .mockImplementationOnce(() => response(201, { transport: 'web', sessionId: '123e4567-e89b-42d3-a456-426614174000', csrfToken: 'csrf' }))
+      .mockImplementationOnce(() => response(200, { ...view, displayName: 'Already entered', profileComplete }))
+      .mockImplementationOnce(() => response(200, { mode: null }));
+    const incomplete = setup(false);
+    const first = render(<RegistrationFlow locale="en" initialEntry="login" />);
+    fireEvent.click(screen.getByRole('button', { name: catalogs.en.onboarding.login.simulatorAction }));
+    expect(await screen.findByDisplayValue('Already entered')).toBeTruthy();
+    expect(incomplete).toHaveBeenCalledTimes(5);
+    first.unmount(); vi.restoreAllMocks();
+    const complete = setup(true);
+    render(<RegistrationFlow locale="en" initialEntry="login" />);
+    fireEvent.click(screen.getByRole('button', { name: catalogs.en.onboarding.login.simulatorAction }));
+    expect(await screen.findByRole('button', { name: catalogs.en.onboarding.mode.choose })).toBeTruthy();
+    expect(complete).toHaveBeenCalledTimes(5);
+    expect(screen.queryByText(catalogs.en.onboarding.profile.saved)).toBeNull();
+  });
   it('awaits trusted simulator and shows only separately reread profile after save', async () => {
     const fetchMock = startMocks()
       .mockImplementationOnce(() => response(200, { ...view, displayName: 'Synthetic Owner', profileComplete: true }))
@@ -57,6 +141,26 @@ describe('mounted private enrollment and profile', () => {
     expect(fetchMock.mock.calls.map(([url]) => url).slice(-3)).toEqual(['/v2/me/profile/read', '/v2/me/profile', '/v2/me/profile/read']);
     expect(JSON.parse(fetchMock.mock.calls[7]?.[1]?.body as string)).toEqual({ displayName: 'Synthetic Owner' });
     expect(document.body.textContent).not.toContain('private-csrf');
+  });
+
+  it('offers the finite Bob enrollment simulator choice in both locales', async () => {
+    for (const locale of ['en', 'sv'] as const) {
+      const fetchMock = startMocks();
+      const mounted = render(<RegistrationFlow locale={locale} />);
+      await reachOtp(locale);
+      const registration = catalogs[locale].onboarding.registration;
+      fireEvent.change(screen.getByLabelText(registration.otpLabel), { target: { value: '123456' } });
+      fireEvent.click(screen.getByRole('button', { name: registration.verifyLabel }));
+      await screen.findByRole('button', { name: registration.simulatorAction });
+      const fixture = screen.getByLabelText(catalogs[locale].onboarding.login.fixtureLabel);
+      fireEvent.change(fixture, { target: { value: 'bob' } });
+      fireEvent.click(screen.getByRole('button', { name: registration.simulatorAction }));
+      await screen.findByLabelText(catalogs[locale].onboarding.profile.displayName);
+      expect(JSON.parse(fetchMock.mock.calls[4]![1]!.body as string)).toEqual({
+        transport: 'web', continuation: `wep.${token}`, demoIdentity: 'bob',
+      });
+      mounted.unmount(); vi.restoreAllMocks();
+    }
   });
 
   it('shows uncertain save after lost PATCH and never announces saved', async () => {

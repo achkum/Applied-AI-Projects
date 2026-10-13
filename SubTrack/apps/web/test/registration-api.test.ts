@@ -53,6 +53,15 @@ describe('private enrollment API', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('sends Bob only as the finite selected enrollment simulator fixture', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(response(200,
+      { transport: 'web', verifiedEnrollment: `wev.${token}`, status: 'verified', nextBrowserNonce: token }));
+    await verifySimulatorRegistration(`wep.${token}`, token, signal(), 'bob');
+    expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({
+      transport: 'web', continuation: `wep.${token}`, demoIdentity: 'bob',
+    });
+  });
+
   it('rejects oversized and malformed terminal responses', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(response(201, { transport: 'web', sessionId: 'bad', csrfToken: 'x' }))
       .mockResolvedValueOnce(response(201, { transport: 'web', sessionId: '123e4567-e89b-42d3-a456-426614174000', csrfToken: 'x', extra: true }))
