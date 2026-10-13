@@ -17,21 +17,22 @@ test('only completed success or exact clean assertion-negative are observations'
   assert.equal(result({ exitCode: 0, log: 'Assert that private-canary is visible COMPLETED' }), 'visible');
   assert.equal(result(), 'not-confirmed');
   assert.equal(result({ log: `\u001b[31m${negative}\u001b[0m` }), 'not-confirmed');
-  for (const overrides of [
-    { timedOut: true }, { log: null }, { log: 'x'.repeat(4_000_001) },
-    { exitCode: null }, { exitCode: 2 }, { exitCode: 124 }, { exitCode: 137 },
-    { log: '' }, { log: 'Other FAILED\nAssertion is false: x is visible' },
-    { log: 'Assert that x is visible FAILED\nunknown failure' },
-    { log: `${negative}Connection refused` }, { log: `${negative}Unable to parse configuration` },
-    { log: `${negative}No devices found` }, { log: `${negative}Failed to launch` },
-    { log: `${negative}Permission denied` }, { log: `${negative}unknown private-canary` },
-  ]) assert.equal(result(overrides), 'unavailable');
+  const cases = [
+    [{ timedOut: true }, 'timeout'], [{ exitCode: null }, 'launch-error'],
+    [{ log: null }, 'negative-unparsed'], [{ log: 'x'.repeat(4_000_001) }, 'negative-unparsed'],
+    [{ exitCode: 2 }, 'exit-other'], [{ exitCode: 124 }, 'exit-other'], [{ exitCode: 137 }, 'exit-other'],
+    [{ log: '' }, 'negative-unparsed'],
+    [{ log: 'Other FAILED\nAssertion is false: x is visible' }, 'negative-unparsed'],
+    [{ log: 'Assert that x is visible FAILED\nunknown failure' }, 'negative-unparsed'],
+    ...['Connection refused', 'Unable to parse configuration', 'No devices found', 'Failed to launch', 'Permission denied', 'unknown private-canary'].map(line => [{ log: `${negative}${line}` }, 'negative-unparsed']),
+  ];
+  for (const [overrides, category] of cases) assert.equal(result(overrides), category);
 });
 
-test('only issued identifier failure with all trusted labels can run probes', async () => {
+test('only exact failed identifier phase and strict issuance boolean with all trusted labels can run probes', async () => {
   const run = () => { throw new Error('Must not run'); };
   for (const overrides of [
-    { phase: 'flow-enroll-add' }, { issued: false }, { issued: 'true' },
+    { phase: 'flow-enroll-add' }, { issued: null }, { issued: 'true' },
     { labels: null }, { labels: {} },
     { labels: { ...labels, MAESTRO_OTP_LABEL: '' } },
     { labels: { ...labels, MAESTRO_EMAIL_LABEL: 42 } },
@@ -42,7 +43,7 @@ test('fixed sequential roster, inconclusive child errors, and private data never
   const calls = [];
   let active = false;
   const observations = await identifierProbes({
-    phase: 'flow-identifier', issued: true, labels,
+    phase: 'flow-identifier', issued: false, labels,
     run: async (name, label) => {
       assert.equal(active, false);
       active = true;
@@ -61,18 +62,22 @@ test('fixed sequential roster, inconclusive child errors, and private data never
     ['email-field', labels.MAESTRO_EMAIL_LABEL],
     ['otp-field', labels.MAESTRO_OTP_LABEL],
   ]);
-  assert.deepEqual(observations, { 'request-unavailable': 'visible', loading: 'unavailable', 'email-field': 'unavailable', 'otp-field': 'not-confirmed' });
+  assert.deepEqual(observations, { 'request-unavailable': 'visible', loading: 'launch-error', 'email-field': 'timeout', 'otp-field': 'not-confirmed' });
   assert.equal(/private-canary|123456|person@example/.test(JSON.stringify(observations)), false);
 });
 
 test('runtime integration uses only bounded read-only probe and retains failure cleanup', () => {
   const yaml = readFileSync(new URL('../e2e/private-runtime-identifier-probe.yaml', import.meta.url), 'utf8');
-  assert.equal(yaml, 'appId: se.subtrack.app\n---\n- assertVisible: ${MAESTRO_IDENTIFIER_PROBE_LABEL}\n');
+  assert.equal(yaml.replace(/\r\n/g, '\n'), 'appId: se.subtrack.app\n---\n- assertVisible: ${MAESTRO_IDENTIFIER_PROBE_LABEL}\n');
   const source = readFileSync(new URL('./private-runtime-device.mjs', import.meta.url), 'utf8');
   assert.ok(source.includes("spawn('timeout', ["));
   assert.ok(source.includes("'--signal=TERM', '--kill-after=5s', '20s'"));
   assert.ok(source.includes('const syntheticOtpIssued = code !== null;'));
   assert.ok(source.includes('issued: syntheticOtpIssued'));
+  assert.ok(source.includes('harness.otpStartObservation()'));
+  const addFlow = readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml', import.meta.url), 'utf8');
+  assert.ok(addFlow.includes('- tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}\n- scrollUntilVisible:\n    element: ${MAESTRO_PERSONAL_TITLE}\n    direction: UP\n- extendedWaitUntil:\n    visible: ${MAESTRO_SAVED}\n    timeout: 30000'));
+  assert.equal(addFlow.match(/tapOn: \$\{MAESTRO_SAVE_SUBSCRIPTION\}/g).length, 1);
   assert.ok(source.includes('process.exitCode = 1;'));
   assert.ok(source.includes('await harness.dispose();'));
 });

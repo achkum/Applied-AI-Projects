@@ -46,11 +46,11 @@ test('invalid receipts and failed tools stay unavailable; unsuccessful header ne
     scroll: async () => ({ ...success, timedOut: true }),
   });
   assert.equal(result.count, 'unavailable');
-  assert.deepEqual(Object.values(result.before), Array(5).fill('unavailable'));
+  assert.deepEqual(Object.values(result.before), Array(5).fill('launch-error'));
   assert.equal(result.after, null);
-  assert.equal(result.header, 'unavailable');
+  assert.equal(result.header, 'timeout');
   const brokenScroll = await failedSaveObservations({ ...options, scroll: async () => { throw Error('private-canary'); } });
-  assert.equal(brokenScroll.header, 'unavailable');
+  assert.equal(brokenScroll.header, 'launch-error');
   assert.equal(brokenScroll.after, null);
 });
 

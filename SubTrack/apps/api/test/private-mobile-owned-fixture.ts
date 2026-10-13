@@ -1,3 +1,4 @@
+import {createOwnedOtpStartObserver} from './private-mobile-owned-fixture-observer.js';
 import {privateMobileRenewalsReceipt,type PrivateMobileRenewalsReceipt} from './private-mobile-renewals-receipt.js';
 import {privateMobileTrackingReceipt,type PrivateMobileTrackingReceipt} from './private-mobile-tracking-receipt.js';
 import {createHash,createPrivateKey,createPublicKey} from 'node:crypto';
@@ -42,6 +43,7 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
   }});
  }} as Pick<Pool,'connect'>;
  let graph:ReturnType<typeof createPrivateMobileServer>|undefined;let disposed=false;
+ const otpObserver=createOwnedOtpStartObserver();
  async function fence():Promise<void>{
   const value=await owner.query("SELECT current_database() AS db,session_user AS role,current_setting('server_version_num')::int4 AS version,(SELECT count(*)::int4 FROM public.st233a_fixture_control WHERE task='ST-233a' AND head=$1 AND marker=$2) AS n,(SELECT count(*)::int4 FROM st244_mobile.epoch WHERE id='st244-mobile-private-v1' AND manifest_h=$3 AND active=true) AS epoch",[config.head,config.marker,config.manifestHash]);
   const r=value.rows[0];if(value.rowCount!==1||r?.db!==config.database||r.role!=='st233a_fixture_owner'||r.version<160000||r.version>=170000||r.n!==1||r.epoch!==1)throw new Error('Fixture custody rejected');
@@ -62,10 +64,11 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
    accessTokens:new V2AccessToken({environment:'development',enabled:true,privateKey,publicKey:createPublicKey(privateKey),clock:Date.now}),
    ...(options.onOtpIssued?{onSyntheticOtpIssued:options.onOtpIssued}:{})};
   const next=createPrivateMobileServer(serverConfig);
+  otpObserver.attach(next.server);
   try{await new Promise<void>((ok,no)=>{next.server.once('error',no);next.server.listen(3443,'127.0.0.1',()=>{next.server.removeListener('error',no);ok();});});graph=next;}
-  catch(error){next.server.close();throw error;}
+  catch(error){otpObserver.stop();next.server.close();throw error;}
  }
- async function stop():Promise<void>{const old=graph;graph=undefined;if(old)await new Promise<void>((ok,no)=>{old.server.close(error=>error?no(error):ok());old.server.closeAllConnections();});}
+ async function stop():Promise<void>{otpObserver.stop();const old=graph;graph=undefined;if(old)await new Promise<void>((ok,no)=>{old.server.close(error=>error?no(error):ok());old.server.closeAllConnections();});}
  async function readbackReceipt():Promise<PrivateMobileReceipt>{
   if(disposed)throw new Error('Fixture unavailable');await fence();const client=await owner.connect();
   try{
@@ -92,7 +95,7 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
    const result=privateMobileRenewalsReceipt(config.marker,rows.rows,candidate);await client.query('COMMIT');return result;
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }
- return Object.freeze({start,stop,restart:async()=>{fault=undefined;await stop();await start();},readbackReceipt,readbackTrackingReceipt,readbackRenewalsReceipt,
+ return Object.freeze({start,stop,otpStartObservation:()=>otpObserver.observation(),restart:async()=>{fault=undefined;await stop();await start();},readbackReceipt,readbackTrackingReceipt,readbackRenewalsReceipt,
   injectCommitFault(kind:'before'|'after',skip=0){if(disposed||fault||!['before','after'].includes(kind)||!Number.isInteger(skip)||skip<0||skip>3)throw new Error('Fixture unavailable');fault={kind,skip};},
   dispose:async()=>{if(disposed)return;fault=undefined;await stop();disposed=true;await Promise.all([actor.end(),owner.end()]);}});
 }
