@@ -7,7 +7,7 @@ milestone_current: M0
 # Accepted main receipts: ST-081a PR219@09bfbc9; ST-081b PR222@1d6b0ea; SEC-FU1c PR224@07e1527.
 items:
   - {id: ST-240, title: 'Private owner manual Add through persisted subscription readback', milestone: M2, owner: architect-platform, size: L, status: IN_REVIEW, deps: [ST-239, ST-238, ST-081a, ST-081c]}
-  - {id: BUG-022, title: 'Shared primary button dark-theme text contrast', milestone: M0, owner: architect-client, size: S, status: BACKLOG, deps: []}
+  - {id: BUG-022, title: 'Shared primary button dark-theme text contrast', milestone: M0, owner: architect-client, size: S, status: IN_REVIEW, deps: []}
   - {id: ST-239, title: 'Private returning-account verified login to persisted owner subscriptions', milestone: M1, owner: architect-platform, size: L, status: DONE, deps: [ST-238]}
   - {id: ST-238, title: 'Private explicit Just me through persisted owner subscription list and lifecycle', owner: architect-platform, size: L, status: DONE, deps: [ST-237]}
   - {id: ST-237, title: 'Executable private HTTPS enrollment through persisted owner profile', owner: architect-platform, size: L, status: DONE, deps: [ST-236]}

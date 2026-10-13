@@ -663,6 +663,95 @@ try {
     await capture('subscription-detail');
     let statusWrites = 0;
     let selectedId = '';
+    let primaryCaptureFailure = null;
+    let primaryStatusWrites = 0;
+    let primaryStatusRoute;
+    let primaryStatusHandler;
+    if (browserCase === 'subscriptions') {
+      const pauseButton = page.getByRole('button', { name: copy.ownerSubscriptions.actions.PAUSED, exact: true });
+      const detailHeading = page.getByRole('heading', { name: copy.ownerSubscriptions.detail, exact: true });
+      const originalViewport = page.viewportSize();
+      assert(originalViewport);
+      const capturePrimary = async (state, width) => {
+        const visual = await pauseButton.evaluate((element, expectedState) => {
+          const style = globalThis.getComputedStyle(element);
+          const rgb = value => {
+            if (/^#[0-9a-f]{6}$/i.test(value)) return [1, 3, 5].map(i => parseInt(value.slice(i, i + 2), 16));
+            const channels = /^rgb\(\s*(\d+),\s*(\d+),\s*(\d+)\s*\)$/.exec(value);
+            if (!channels) throw new Error('Primary color must be opaque RGB');
+            return channels.slice(1).map(Number);
+          };
+          const luminance = value => {
+            const [r, g, b] = rgb(value).map(channel => channel / 255)
+              .map(channel => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          };
+          const foreground = luminance(style.color), background = luminance(style.backgroundColor);
+          const bounds = element.getBoundingClientRect();
+          const expectedBackground = style.getPropertyValue(expectedState === 'hover' ? '--aurora-violet-hover' : '--aurora-violet').trim();
+          return {
+            ratio: (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05),
+            foregroundMatches: rgb(style.color).join(',') === rgb(style.getPropertyValue('--ink-on-accent').trim()).join(','),
+            backgroundMatches: rgb(style.backgroundColor).join(',') === rgb(expectedBackground).join(','),
+            borderMatches: rgb(style.borderTopColor).join(',') === rgb(expectedBackground).join(','),
+            opacity: style.opacity,
+            hover: element.matches(':hover'),
+            focusVisible: element.matches(':focus-visible'),
+            focused: globalThis.document.activeElement === element,
+            outlineVisible: style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0,
+            disabled: element.disabled,
+            noOverflow: globalThis.document.documentElement.scrollWidth <= globalThis.innerWidth &&
+              bounds.left >= 0 && bounds.right <= globalThis.innerWidth,
+          };
+        }, state);
+        assert(visual.foregroundMatches && visual.backgroundMatches && visual.borderMatches);
+        assert(visual.noOverflow);
+        if (state === 'disabled') {
+          assert(visual.disabled);
+          assert.equal(visual.opacity, '0.4');
+        } else {
+          assert(!visual.disabled);
+          assert.equal(visual.opacity, '1');
+          assert(visual.ratio >= 4.5);
+          assert.equal(visual.hover, state === 'hover');
+          if (state === 'focus') assert(visual.focused && visual.focusVisible && visual.outlineVisible);
+        }
+        await capture(`primary-pause-${state}-${width}`);
+      };
+      for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: originalViewport.height });
+        await page.mouse.move(0, 0);
+        await detailHeading.focus();
+        await capturePrimary('normal', width);
+        await pauseButton.hover();
+        await capturePrimary('hover', width);
+        await page.mouse.move(0, 0);
+        await detailHeading.focus();
+        await page.keyboard.press('Tab');
+        await capturePrimary('focus', width);
+      }
+      await page.setViewportSize(originalViewport);
+      await page.mouse.move(0, 0);
+      await detailHeading.focus();
+      const detailPath = wire.find(x => x.method === 'POST' && /^\/v2\/subscriptions\/[0-9a-f-]+\/read$/.test(x.path))?.path;
+      assert(detailPath);
+      primaryStatusRoute = `${origin}${detailPath.slice(0, -'/read'.length)}`;
+      primaryStatusHandler = async route => {
+        if (route.request().method() !== 'PATCH') { await route.continue(); return; }
+        primaryStatusWrites++;
+        try {
+          await page.waitForFunction(name => [...globalThis.document.querySelectorAll('button')]
+            .some(button => button.textContent === name && button.disabled), copy.ownerSubscriptions.actions.PAUSED);
+          await page.mouse.move(0, 0);
+          for (const width of [1280, 390]) {
+            await page.setViewportSize({ width, height: originalViewport.height });
+            await capturePrimary('disabled', width);
+          }
+        } catch (error) { primaryCaptureFailure = error; }
+        finally { await page.setViewportSize(originalViewport); await route.continue(); }
+      };
+      await page.route(primaryStatusRoute, primaryStatusHandler);
+    }
     if (browserCase === 'uncertainty') await page.route('**/v2/subscriptions/*', async route => {
       if (route.request().method() !== 'PATCH') { await route.continue(); return; }
       statusWrites++;
@@ -701,6 +790,12 @@ try {
       process.stdout.write('PASS ST238_BROWSER_NATURAL_COMMITTED_MODE_STATUS_LOST_RESPONSE_NO_RETRY_RESTART\n');
       process.stdout.write(`PASS ST237_BROWSER_CASE case=uncertainty locale=${locale} theme=${theme}\n`);
     } else await page.getByText(copy.ownerSubscriptions.confirmed, { exact: true }).waitFor();
+    if (browserCase === 'subscriptions') {
+      assert.equal(primaryCaptureFailure, null);
+      assert.equal(primaryStatusWrites, 1);
+      await page.unroute(primaryStatusRoute, primaryStatusHandler);
+      process.stdout.write(`PASS BUG022_BROWSER_PRIMARY_PAUSE_NORMAL_HOVER_KEYBOARD_FOCUS_DISABLED_1280_390 locale=${locale} theme=${theme}\n`);
+    }
     if (browserCase === 'subscriptions' || browserCase === 'login') {
     phase = 'SUBSCRIPTION_NEGATIVES';
     const cookies = await context.cookies();
