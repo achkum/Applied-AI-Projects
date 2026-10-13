@@ -70,6 +70,8 @@ function closedProblem(result, status, code) {
   assert.equal(result.body.status, status); assert.equal(result.body.code, code);
 }
 let phase = 'LAUNCH';
+// Literal phase markers survive a shell handshake stop before the main catch runs.
+const manualPhase = value => { phase = value; process.stderr.write(`ST240_MANUAL_PHASE phase=${value}\n`); };
 let context;
 let page;
 let screenshotDir;
@@ -237,16 +239,26 @@ try {
     await editor.getByText(manual.invalidName, { exact: true }).waitFor();
     assert.equal(await page.evaluate(() => globalThis.document.activeElement?.id), 'manual-name');
     await capture('manual-validation-narrow');
+    manualPhase('MANUAL_CANCEL_CLICK');
     await editor.getByRole('button', { name: manual.cancel, exact: true }).click();
+    manualPhase('MANUAL_ADD_WAIT');
     await add.waitFor();
+    manualPhase('MANUAL_CANCEL_FOCUS');
     assert.equal(await page.evaluate(() => globalThis.document.activeElement?.parentElement?.hasAttribute('data-manual-add')), true);
+    manualPhase('MANUAL_REOPEN');
     await page.keyboard.press('Enter');
+    manualPhase('MANUAL_FILL_NAME');
     await editor.getByLabel(manual.name, { exact: true }).fill('Manual Proof');
+    manualPhase('MANUAL_FILL_CATEGORY');
     await editor.getByLabel(manual.category, { exact: true }).selectOption('VIDEO_STREAMING');
+    manualPhase('MANUAL_FILL_CADENCE');
     await editor.getByLabel(manual.cadence, { exact: true }).selectOption('MONTHLY');
+    manualPhase('MANUAL_FILL_AMOUNT');
     await editor.getByLabel(manual.amount, { exact: true }).fill(locale === 'sv' ? '12,34' : '12.34');
+    manualPhase('MANUAL_FILL_DATE');
     await editor.getByLabel(manual.date, { exact: true }).fill('2026-11-15');
     let manualRequests = 0; let sentKey = ''; let sentBody = ''; let createdId = ''; let releaseManualResponse;
+    manualPhase('MANUAL_INTERCEPT_SETUP');
     await page.route('**/v2/subscriptions/owner/manual', async route => {
       manualRequests++;
       const headers = await route.request().allHeaders();
@@ -265,7 +277,9 @@ try {
       if (manualRequests === 1) await route.abort('failed'); else await route.fulfill({ response: committed });
     });
     phase = 'MANUAL_SAVE';
+    manualPhase('MANUAL_FIRST_SAVE_CLICK');
     await editor.getByRole('button', { name: manual.save, exact: true }).click();
+    manualPhase('MANUAL_FIRST_SAVE_PENDING');
     await editor.getByText(manual.saving, { exact: true }).waitFor();
     assert.equal(await editor.getByLabel(manual.name, { exact: true }).isDisabled(), true);
     await capture('manual-saving-narrow');

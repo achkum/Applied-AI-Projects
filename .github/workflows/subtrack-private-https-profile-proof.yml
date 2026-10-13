@@ -105,7 +105,7 @@ jobs:
         run: |
           code=0
           : > "$RUNNER_TEMP/st237-profile-receipt.txt"
-          for proof_case in profile partial-terminal empty subscriptions uncertainty login manual; do
+          for proof_case in manual profile partial-terminal empty subscriptions uncertainty login; do
             bash tools/database/private-profile-proof.sh --case "$proof_case" >> "$RUNNER_TEMP/st237-profile-receipt.txt" 2>&1 || code=$?
             (( code == 0 )) || break
           done
