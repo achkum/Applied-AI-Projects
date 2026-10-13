@@ -75,6 +75,43 @@ const pool = new Pool({ host: '127.0.0.1', port, database: epoch.database, user:
   idle_in_transaction_session_timeout: 4000, application_name: 'st237-private' });
 pool.on('error', () => {});
 
+// BEGIN confined manual diagnostic factory (extracted verbatim by the preflight test).
+function createManualDiagnosticPool(sourcePool, statements, emit) {
+  const safeEmit = (stage, result, state = 'NONE') => {
+    try { emit(`ST240_MANUAL_SQL stage=${stage} result=${result} sqlstate=${state}`); }
+    catch { /* A diagnostic sink must not alter transaction behavior. */ }
+  };
+  const stateOf = error => {
+    const code = error !== null && typeof error === 'object' ? Object.getOwnPropertyDescriptor(error, 'code')?.value : undefined;
+    return ['42501','23503','23514','23502','22P02','22003','42703','42P01','42804','42883','40001','40P01','57014'].includes(code) ? code : 'OTHER';
+  };
+  return Object.freeze({ async connect() {
+    safeEmit('CONNECT', 'START');
+    let client;
+    try { client = await sourcePool.connect.call(sourcePool); }
+    catch (error) { safeEmit('CONNECT', 'ERROR', stateOf(error)); throw error; }
+    safeEmit('CONNECT', 'OK');
+    let checks = 0;
+    const stages = new Map([[statements.manualModeRead,'MODE'],[statements.manualReceiptRead,'RECEIPT_READ'],
+      [statements.manualSubscriptionInsert,'SUBSCRIPTION_INSERT'],[statements.manualReceiptInsert,'RECEIPT_INSERT'],
+      ['COMMIT','COMMIT'],['ROLLBACK','ROLLBACK']]);
+    const currentCheck = 'SELECT subtrack_auth.check_current_web($1::uuid,$2::uuid,$3::text,$4::text,$5::subtrack_auth.h,$6::subtrack_auth.h,$7::text,$8::subtrack_auth.h,$9::subtrack_auth.ms) AS ok';
+    return Object.freeze({ query(...args) {
+      const stage = args[0] === currentCheck ? ++checks === 1 ? 'AUTH_PRE' : 'AUTH_POST' : stages.get(args[0]) ?? 'OTHER';
+      safeEmit(stage, 'START');
+      let result;
+      try { result = client.query.apply(client, args); }
+      catch (error) { safeEmit(stage, 'ERROR', stateOf(error)); throw error; }
+      // Callback/Query overloads retain their original return value and arguments.
+      if (!result || typeof result.then !== 'function') return result;
+      return result.then(value => { safeEmit(stage, 'OK'); return value; },
+        error => { safeEmit(stage, 'ERROR', stateOf(error)); throw error; });
+    }, release(...args) { return client.release.apply(client, args); } });
+  } });
+}
+// END confined manual diagnostic factory.
+
+
 // These are reviewed installation inputs, not values learned from the database being
 // qualified. Keep the file pins in this launcher when changing any qualified SQL.
 const qualifiedSqlPins = Object.freeze({
@@ -871,7 +908,11 @@ async function main() {
   const loginHttp = createPrivateLoginHttp({ login, accessTokens: tokens });
   const profile = createPrivateProfileHttp(authority);
   const onboarding = createPrivateOnboardingHttp(authority);
-  const manual = createPrivateManualCreateHttp(authority);
+  const manualAuthority = new DurableCurrentWebAuthority({ pool: createManualDiagnosticPool(pool, PRIVATE_MANUAL_CREATE_STATEMENTS,
+    line => process.stderr.write(`${line}\n`)), accessTokens: tokens, origin: epoch.origin,
+    database: epoch.database, epoch: epoch.epoch, manifestHash: epoch.manifestHash,
+    businessStatements: { ...PRIVATE_PROFILE_STATEMENTS, ...PRIVATE_ONBOARDING_STATEMENTS, ...PRIVATE_MANUAL_CREATE_STATEMENTS } });
+  const manual = createPrivateManualCreateHttp(manualAuthority);
   gate('COMPOSITION_READY');
   class PrivateController {
     async manualCreate(req, res) { await manual.handle(req, res); }
