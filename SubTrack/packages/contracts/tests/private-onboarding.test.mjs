@@ -13,7 +13,7 @@ function run(code) {
   assert.equal(result.status, 0, result.stderr || result.stdout);
 }
 const id = '123e4567-e89b-42d3-a456-426614174000';
-const owner = { visibility: 'owner', source: 'MANUAL', id, customName: 'Example', merchantId: null, merchantName: null,
+const owner = { visibility: 'owner', source: 'MANUAL', revision: '1', id, customName: 'Example', merchantId: null, merchantName: null,
   categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', status: 'ACTIVE', expectedAmountMinor: '999',
   currency: 'SEK', nextChargeDate: '2026-10-11', alwaysPrivate: false };
 
@@ -81,7 +81,8 @@ test('owner projection rejects peer fields, invalid money, malformed dates and u
     {...row, visibility:'household'}, {...row, rawDescription:'private'}, {...row, expectedAmountMinor:9.99},
     {...row, expectedAmountMinor:'01'}, {...row, expectedAmountMinor:'9223372036854775808'},
     {...row, nextChargeDate:'2026-02-30'}, {...row, categoryCode:'UNKNOWN'}, {...row, id:row.id.toUpperCase()},
-    {...row, merchantId:undefined}, {...row,source:undefined}, {...row,source:'UNKNOWN'}
+    {...row, merchantId:undefined}, {...row,source:undefined}, {...row,source:'UNKNOWN'},
+    {...row,revision:undefined}, {...row,revision:'0'}, {...row,revision:'01'}, {...row,revision:1}, {...row,revision:'9223372036854775808'}
   ]) assert.throws(() => p.parsePrivateOwnerView(bad));
 `));
 
@@ -124,5 +125,32 @@ test('manual wire is closed and default unavailable with exact success/error mat
  assert.deepEqual(schema.required,['customName','categoryCode','cadence','expectedAmountMinor']);assert.equal(schema.properties.categoryCode.enum.length,22);
  assert.deepEqual(doc.components.schemas.PrivateManualCreated.required,['id']);assert.deepEqual(Object.keys(doc.components.schemas.PrivateManualCreated.properties),['id']);
  assert.ok(doc.components.schemas.PrivateOwnerSubscriptionView.required.includes('source'));assert.ok(!doc.components.schemas.SubscriptionOwnerView.properties.source);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('manual Edit requires full replacement and canonical bounded revision without selectors',()=>run(`
+ const row={customName:' Example ',categoryCode:'OTHER_SUBSCRIPTION',cadence:'ANNUAL',expectedAmountMinor:'1',nextChargeDate:null,expectedRevision:'9223372036854775807'};
+ assert.deepEqual(p.parsePrivateManualEdit(row),{...row,customName:'Example'});
+ for(const revision of [undefined,null,0,1,'0','01','-1','+1','1.0','1e3','9223372036854775808','9'.repeat(20)])
+  assert.throws(()=>p.parsePrivateManualEdit({...row,expectedRevision:revision}));
+ const {nextChargeDate,...missing}=row;assert.throws(()=>p.parsePrivateManualEdit(missing));
+ for(const patch of [{nextChargeDate:undefined},{nextChargeDate:'0000-01-01'},{nextChargeDate:'2026-02-29'},{source:'MANUAL'},{status:'PAUSED'},{ownerId:'x'},{currency:'SEK'}])
+  assert.throws(()=>p.parsePrivateManualEdit({...row,...patch}));
+ assert.equal(p.parsePrivateManualEdit({...row,nextChargeDate:'9999-12-31',expectedRevision:'1'}).nextChargeDate,'9999-12-31');
+ assert.deepEqual(p.parsePrivateManualEdited({id:${JSON.stringify(id)},revision:'2'}),{id:${JSON.stringify(id)},revision:'2'});
+ for(const result of [{id:${JSON.stringify(id)},revision:'0'},{id:'bad',revision:'1'},{id:${JSON.stringify(id)},revision:'1',source:'MANUAL'}])assert.throws(()=>p.parsePrivateManualEdited(result));
+`));
+
+test('Edit has exact closed response matrix and private-only revision',()=>{
+ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');const dir=mkdtempSync(join(tmpdir(),'st241-contract-'));
+ try {
+  const output=join(dir,'openapi.json');const result=spawnSync(process.execPath,[join(root,'node_modules/@redocly/cli/bin/cli.js'),'bundle',join(root,'openapi.yaml'),'--output',output],{cwd:root,encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);const doc=JSON.parse(readFileSync(output,'utf8'));const op=doc.paths['/v2/subscriptions/owner/manual/{id}/edit'].post;
+  assert.equal(op['x-runtime-availability'],'unavailable-default');assert.deepEqual(Object.keys(op.responses),['200','400','401','403','404','409','500']);
+  assert.equal(op.responses['200'].$ref,'#/components/responses/PrivateManualEdited');
+  const schema=doc.components.schemas.PrivateManualEdit;assert.equal(schema.additionalProperties,false);
+  assert.deepEqual(schema.required,['customName','categoryCode','cadence','expectedAmountMinor','nextChargeDate','expectedRevision']);
+  assert.equal(doc.components.schemas.PrivateOwnerSubscriptionView.required.length,14);
+  assert.ok(!doc.components.schemas.SubscriptionOwnerView.properties.revision);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });

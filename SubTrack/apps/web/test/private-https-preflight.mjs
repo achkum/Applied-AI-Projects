@@ -145,6 +145,13 @@ async function browser() {
           return response.status;
         });
         assert(manualStatus === 404, 'manual create escaped the private composition');
+        const editStatus = await page.evaluate(async () => {
+          const response = await globalThis.fetch('/v2/subscriptions/owner/manual/00000000-0000-4000-8000-000000000241/edit', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+          });
+          return response.status;
+        });
+        assert(editStatus === 404, 'manual edit escaped the private composition');
       } finally { await page.close(); }
     }
     await healthy();
@@ -233,7 +240,59 @@ async function manualDiagnosticDelegation() {
 }
 
 const mode = process.argv[2];
-if (mode === 'manual-diagnostic') await manualDiagnosticDelegation();
+async function revisionCatalogNegatives() {
+  const source = fs.readFileSync(path.join(webDir, 'private-https-server.mjs'), 'utf8');
+  const start = source.indexOf('async function assertRevisionCatalog(');
+  const end = source.indexOf('async function assertAuthCatalog(', start);
+  nodeAssert(start >= 0 && end > start);
+  const registry = {};
+  for(const [file,key] of [['profile/private-profile-statements','PRIVATE_PROFILE_STATEMENTS'],['profile/private-onboarding-statements','PRIVATE_ONBOARDING_STATEMENTS'],['subscriptions/private-manual-create-statements','PRIVATE_MANUAL_CREATE_STATEMENTS'],['subscriptions/private-manual-edit-statements','PRIVATE_MANUAL_EDIT_STATEMENTS']])
+    registry[key]=(await import(new globalThis.URL(`../../api/src/${file}.ts`,import.meta.url)))[key];
+  const check = new Function('fs','path','apiDir','gate','fail','digest','privacyMigrationPin',...Object.keys(registry),
+    `return (${source.slice(start,end).trim()});`)(fs,path,path.resolve(webDir,'../api'),()=>{},()=>{throw new Error('closed catalog refusal');},
+      value=>apiRequire('node:crypto').createHash('sha256').update(value).digest('hex'),apiRequire('node:crypto').createHash('sha256').update(fs.readFileSync(path.resolve(webDir,'../api/prisma/migrations/0002_privacy_constraints/migration.sql'))).digest('hex'),...Object.values(registry));
+  const sql = fs.readFileSync(path.resolve(webDir,'../api/prisma/development-auth/014-manual-owner-edit.sql'),'utf8');
+  const body = /AS \$revision\$([\s\S]*?)\$revision\$;/.exec(sql)[1];
+  const privacySql = fs.readFileSync(path.resolve(webDir,'../api/prisma/migrations/0002_privacy_constraints/migration.sql'),'utf8');
+  const ownerBody = /CREATE FUNCTION public\.subtrack_immutable_owner\(\) RETURNS trigger[\s\S]*?AS \$\$([\s\S]*?)\$\$;/.exec(privacySql)[1];
+  const rows = [
+    [{oid:'998',body:ownerBody,security_definer:false,volatility:'v',parallel:'u',strict:false,returns_set:false,args:0,
+      result:'trigger',config:['search_path=pg_catalog'],language:'plpgsql',owner:'st233a_fixture_owner',
+      acl:['st233a_fixture_owner:st233a_fixture_owner:EXECUTE:false']},
+      {oid:'999',body,security_definer:false,volatility:'v',parallel:'u',strict:false,returns_set:false,args:0,
+      result:'trigger',config:['search_path=pg_catalog'],language:'plpgsql',owner:'st233a_fixture_owner',
+      acl:['st233a_fixture_owner:st233a_fixture_owner:EXECUTE:false','subtrack_runtime:st233a_fixture_owner:EXECUTE:false']}],
+    [{name:'subscription_owner_immutable',function_oid:'998',enabled:'O',type:19,args:0,columns:'',
+      no_condition:true,deferrable:false,deferred:false,no_constraint:true,no_old_table:true,no_new_table:true},
+      {name:'subscription_revision_before_write',function_oid:'999',enabled:'O',type:23,args:0,columns:'',
+      no_condition:true,deferrable:false,deferred:false,no_constraint:true,no_old_table:true,no_new_table:true}],
+    [{position:19,type:'bigint',required:true,default_value:'1',identity:'',generated:'',no_column_acl:true}],
+    [{definition:'CHECK ((revision > 0))',type:'c',validated:true,deferrable:false,deferred:false,columns:[19]}],
+  ];
+  async function run(mutation) {
+    const fixture=globalThis.structuredClone(rows);mutation?.(fixture);let index=0;
+    await check({query:async()=>({rows:fixture[index++]})});
+    nodeAssert.equal(index,4);
+  }
+  await run();
+  const mutations=[
+    r=>{r[0][1].body+=' ';},r=>{r[0][1].security_definer=true;},r=>{r[0][1].owner='other';},
+    r=>{r[0][1].config=['search_path=public'];},r=>{r[0][1].acl.push('PUBLIC:st233a_fixture_owner:EXECUTE:false');},
+    r=>{r[0][1].acl[1]='subtrack_runtime:st233a_fixture_owner:EXECUTE:true';},r=>{r[0][1].args=1;},
+    r=>{r[1][1].enabled='D';},r=>{r[1][1].type=21;},r=>{r[1][1].columns='1';},
+    r=>{r[1][1].no_condition=false;},r=>{r[1].push({...r[1][1],name:'additional'});},
+    r=>{r[2][0].default_value='2';},r=>{r[2][0].required=false;},r=>{r[2][0].no_column_acl=false;},
+    r=>{r[0].shift();},r=>{r[0][0].body+=' ';},r=>{r[0][0].security_definer=true;},
+    r=>{r[0][0].config=['search_path=public'];},r=>{r[0][0].acl.push('PUBLIC:st233a_fixture_owner:EXECUTE:false');},
+    r=>{r[1].shift();},r=>{r[1][0].enabled='D';},r=>{r[1][0].type=23;},
+    r=>{r[1][0].function_oid='999';},r=>{r[1][0].no_condition=false;},
+    r=>{r[3][0].definition='CHECK ((revision >= 0))';},r=>{r[3][0].validated=false;},
+  ];
+  for(const mutation of mutations) await nodeAssert.rejects(run(mutation),{message:'closed catalog refusal'});
+  console.log('PASS ST241_EXACT_REVISION_CATALOG_POSITIVE_AND_27_DRIFT_REFUSALS');
+}
+if (mode === 'revision-catalog') await revisionCatalogNegatives();
+else if (mode === 'manual-diagnostic') await manualDiagnosticDelegation();
 else if (mode === 'server') await server();
 else if (mode === 'browser') {
   try { await browser(); }

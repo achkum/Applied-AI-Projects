@@ -12,6 +12,10 @@
       "types": "./src/parse-positive-sek-input.ts",
       "import": "./src/parse-positive-sek-input.ts"
     },
+    "./format-positive-sek-input-minor": {
+      "types": "./src/format-positive-sek-input-minor.ts",
+      "import": "./src/format-positive-sek-input-minor.ts"
+    },
     "./formatter": {
       "types": "./src/formatter.ts",
       "import": "./src/formatter.ts"

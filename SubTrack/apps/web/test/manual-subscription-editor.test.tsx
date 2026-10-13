@@ -41,3 +41,29 @@ describe('manual editor', () => {
     fireEvent.click(screen.getByRole('button', { name: copy.reconcile })); expect(props.onReconcile).toHaveBeenCalledOnce();
   });
 });
+
+
+describe('manual Edit exact authoritative initialization', () => {
+  const row = { revision: '1', source: 'MANUAL' as const, visibility: 'owner' as const,
+    id: '123e4567-e89b-42d3-a456-426614174000', customName: 'Exact', merchantId: null, merchantName: null,
+    categoryCode: 'VIDEO_STREAMING', cadence: 'ANNUAL' as const, status: 'PAUSED' as const,
+    expectedAmountMinor: '9007199254740993', currency: 'SEK', nextChargeDate: '2026-11-15', alwaysPrivate: true };
+  const props = { state: 'draft' as const, onSave: vi.fn(), onCancel: vi.fn(), onCheck: vi.fn(), onRead: vi.fn(), onReconcile: vi.fn() };
+  it.each(['sv','en'] as const)('uses exact ungrouped Money input and preserved fields in %s', locale => {
+    const copy = catalogs[locale].onboarding.manualSubscription;
+    render(<ManualSubscriptionEditor {...props} locale={locale} initial={row} />);
+    expect((screen.getByLabelText(copy.amount) as HTMLInputElement).value).toBe(locale === 'sv' ? '90071992547409,93' : '90071992547409.93');
+    expect((screen.getByLabelText(copy.cadence) as HTMLSelectElement).value).toBe('ANNUAL');
+    expect((screen.getByLabelText(copy.date) as HTMLInputElement).value).toBe('2026-11-15');
+  });
+  it.each(['0','-1'])('keeps legacy nonpositive %s blank-invalid with explicit replacement guidance', minor => {
+    const copy = catalogs.en.onboarding.manualSubscription;
+    const onSave = vi.fn();
+    render(<ManualSubscriptionEditor {...props} onSave={onSave} locale="en" initial={{...row,expectedAmountMinor:minor}} />);
+    expect((screen.getByLabelText(copy.amount) as HTMLInputElement).value).toBe('');
+    expect(screen.getByLabelText(copy.amount).getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByText(catalogs.en.onboarding.manualEdit.positiveRequired)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button',{name:catalogs.en.onboarding.manualEdit.save}));
+    expect(onSave).not.toHaveBeenCalled(); expect(document.activeElement).toBe(screen.getByLabelText(copy.amount));
+  });
+});

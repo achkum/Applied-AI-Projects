@@ -29,7 +29,7 @@ const idempotentPostPaths = [
   '/v2/me/reauth/otp/start', '/v2/me/reauth/otp/verify',
 ];
 // Business receipts are separate from authentication credential replay/restart.
-const privateBusinessIdempotentPostPaths = ['/v2/subscriptions/owner/manual'];
+const privateBusinessIdempotentPostPaths = ['/v2/subscriptions/owner/manual', '/v2/subscriptions/owner/manual/{id}/edit'];
 const privatePostPaths = [
   '/v2/me/profile/read', '/v2/me/mode', '/v2/me/mode/read',
   '/v2/subscriptions/owner/read', '/v2/subscriptions/{id}/read',
@@ -146,7 +146,7 @@ test('private business idempotency uses current authority and durable manual rec
   const { dir, document } = bundle();
   try {
     assert.equal(classifiedPosts(document).length, 11, 'authentication recovery group stays unchanged');
-    assert.deepEqual(privateBusinessIdempotentPostPaths, ['/v2/subscriptions/owner/manual']);
+    assert.deepEqual(privateBusinessIdempotentPostPaths, ['/v2/subscriptions/owner/manual', '/v2/subscriptions/owner/manual/{id}/edit']);
     for (const path of privateBusinessIdempotentPostPaths) {
       const operation = document.paths[path].post;
       assert.equal(operation['x-runtime-availability'], 'unavailable-default');
@@ -162,12 +162,21 @@ test('private business idempotency uses current authority and durable manual rec
         '123e4567-e89b-12d3-a456-426614174000', 'a'.repeat(16),
         '123e4567-e89b-42d3-a456-426614174000,123e4567-e89b-42d3-a456-426614174000'])
         assert.equal(keyPattern.test(invalid), false, 'manual key is exactly one lowercase UUIDv4');
-      assert.deepEqual(Object.keys(operation.responses), ['201', '400', '401', '403', '409', '500']);
-      const success = operation.responses['201'];
+      assert.deepEqual(Object.keys(operation.responses), path.endsWith('/edit') ? ['200', '400', '401', '403', '404', '409', '500'] : ['201', '400', '401', '403', '409', '500']);
+      const success = operation.responses[path.endsWith('/edit') ? '200' : '201'];
       assert.equal(success.headers['Cache-Control'].schema.const, 'no-store');
       assert.equal(success.headers.Pragma.schema.const, 'no-cache');
       const result = success.content['application/json'].schema;
       assert.equal(result.additionalProperties, false);
+      if (path.endsWith('/edit')) {
+        assert.deepEqual(result.required, ['id', 'revision']);
+        assert.deepEqual(Object.keys(result.properties), ['id', 'revision']);
+        const codes = operation.responses['409'].content['application/problem+json'].schema.properties.code.enum;
+        for (const code of ['MODE_CONFLICT', 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT', 'MANUAL_EDIT_CONFLICT']) assert.ok(codes.includes(code));
+        assert.match(operation.description, /receipt replay precedes target existence, eligibility and staleness/);
+        assert.match(operation.description, /Separate edit namespace unique\(owner,key\) across all targets/);
+        continue;
+      }
       assert.deepEqual(result.required, ['id']);
       assert.deepEqual(Object.keys(result.properties), ['id']);
       const conflict = operation.responses['409'].content['application/problem+json'].schema;

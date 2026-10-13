@@ -18,7 +18,7 @@ function amount(view: PrivateOwnerSubscriptionView, locale: Locale) {
   return formatMinorUnits(BigInt(view.expectedAmountMinor), view.currency, { locale, display: 'code' });
 }
 
-export function PrivateSubscriptions({ locale, items, nextCursor, selected, busy, confirmed, onMore, onSelect, onBack, onTransition, onAdd, manualConfirmed = false }: {
+export function PrivateSubscriptions({ locale, items, nextCursor, selected, busy, confirmed, onMore, onSelect, onBack, onTransition, onAdd, onEdit, editConfirmed = false, manualConfirmed = false }: {
   locale: Locale;
   items: PrivateOwnerSubscriptionView[];
   nextCursor: string | null;
@@ -26,6 +26,8 @@ export function PrivateSubscriptions({ locale, items, nextCursor, selected, busy
   busy: boolean;
   confirmed: boolean;
   onAdd: () => void;
+  onEdit?: () => void;
+  editConfirmed?: boolean;
   manualConfirmed?: boolean;
   onMore: () => void;
   onSelect: (id: string) => void;
@@ -33,6 +35,7 @@ export function PrivateSubscriptions({ locale, items, nextCursor, selected, busy
   onTransition: (status: SubscriptionLifecycleTarget) => void;
 }) {
   const manual = catalogs[locale].onboarding.manualSubscription;
+  const edit = catalogs[locale].onboarding.manualEdit;
   const copy = catalogs[locale].onboarding.ownerSubscriptions;
   const category = (code: string) => Object.hasOwn(copy.category, code)
     ? copy.category[code as keyof typeof copy.category] : copy.categoryFallback;
@@ -45,8 +48,12 @@ export function PrivateSubscriptions({ locale, items, nextCursor, selected, busy
     <p>{manual.expectedAmount}: {amount(selected, locale)}</p>
     {selected.nextChargeDate ? <p>{manual.expectedDate}: {selected.nextChargeDate}</p> : null}
     {manualConfirmed ? <p role="status">{manual.confirmed}</p> : null}
+    {editConfirmed ? <p role="status">{edit.confirmed}</p> : null}
+    {selected.source === 'MANUAL' && (selected.currency !== 'SEK' || selected.cadence === 'CUSTOM') ? <p>{edit.readOnly}</p> : null}
     {confirmed ? <p role="status">{copy.confirmed}</p> : null}
     <div className={styles.actions}>
+      {selected.source === 'MANUAL' && selected.currency === 'SEK' && selected.cadence !== 'CUSTOM' && onEdit ?
+        <span data-manual-edit><Button type="button" variant="secondary" disabled={busy} onClick={onEdit}>{edit.title}</Button></span> : null}
       {(targets[selected.status] ?? []).map((target) =>
         <Button key={target} type="button" disabled={busy} onClick={() => onTransition(target)}>{copy.actions[target]}</Button>)}
       <Button type="button" variant="secondary" disabled={busy} onClick={onBack}>{copy.back}</Button>

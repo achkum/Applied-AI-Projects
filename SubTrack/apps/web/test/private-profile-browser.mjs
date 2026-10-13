@@ -19,7 +19,7 @@ const theme = process.env.ST237_BROWSER_THEME;
 const browserCase = process.env.ST237_BROWSER_CASE;
 assert(['sv', 'en'].includes(locale));
 assert(['light', 'dark'].includes(theme));
-assert(['profile', 'partial-terminal', 'subscriptions', 'empty', 'uncertainty', 'login', 'manual'].includes(browserCase));
+assert(['profile', 'partial-terminal', 'subscriptions', 'empty', 'uncertainty', 'login', 'manual', 'edit'].includes(browserCase));
 assert(require('playwright/package.json').version === '1.63.0');
 const catalog = JSON.parse(fs.readFileSync(path.join(webDir, '../../packages/i18n/catalogs', `${locale}.json`), 'utf8'));
 const copy = catalog.onboarding;
@@ -99,7 +99,7 @@ try {
     { headless: true, locale: locale === 'sv' ? 'sv-SE' : 'en-GB' });
   screenshotDir = path.resolve(process.env.ST237_SCREENSHOT_DIR);
   fs.mkdirSync(screenshotDir, { mode: 0o700 });
-  if (browserCase === 'profile' || browserCase === 'subscriptions' || browserCase === 'empty' || browserCase === 'uncertainty' || browserCase === 'login' || browserCase === 'manual') {
+  if (browserCase === 'profile' || browserCase === 'subscriptions' || browserCase === 'empty' || browserCase === 'uncertainty' || browserCase === 'login' || browserCase === 'manual' || browserCase === 'edit') {
   page = await context.newPage();
   page.setDefaultTimeout(45000);
   page.on('requestfailed', request => {
@@ -218,7 +218,7 @@ try {
   phase = 'PROFILE_SAVED';
   await capture('saved');
   assert.equal(await profileRegion.getByLabel(copy.profile.displayName, { exact: true }).inputValue(), 'Private Proof');
-  if (browserCase === 'manual') {
+  if (browserCase === 'manual' || browserCase === 'edit') {
     const manual = copy.manualSubscription;
     phase = 'MANUAL_EMPTY';
     await page.getByRole('button', { name: copy.mode.choose, exact: true }).click();
@@ -333,25 +333,134 @@ try {
     await persistedDetail.getByText(`${manual.expectedDate}: 2026-11-15`, { exact: true }).waitFor();
     await capture('manual-relogin-detail');
     phase = 'MANUAL_STATUS';
+    if (browserCase === 'manual') {
     await persistedDetail.getByRole('button', { name: copy.ownerSubscriptions.actions.PAUSED, exact: true }).click();
     await persistedDetail.getByText(copy.ownerSubscriptions.confirmed, { exact: true }).waitFor();
     await capture('manual-relogin-paused');
+    } else await capture('manual-relogin-active');
     assert.equal(manualRequests, 2);
     const currentCookies = (await context.cookies()).filter(item => ['st_v2_access', 'st_v2_binding', 'st_v2_chain'].includes(item.name))
       .map(item => `${item.name}=${item.value}`).join('; ');
     const persisted = await request({ Origin: origin, Cookie: currentCookies, 'X-Session-CSRF': csrf }, '{}', `/v2/subscriptions/${createdId}/read`);
     assert.equal(persisted.status, 200); assert.equal(persisted.body.id, createdId); assert.equal(persisted.body.source, 'MANUAL');
     assert.deepEqual(Object.keys(persisted.body).sort(), ['alwaysPrivate', 'cadence', 'categoryCode', 'currency', 'customName',
-      'expectedAmountMinor', 'id', 'merchantId', 'merchantName', 'nextChargeDate', 'source', 'status', 'visibility']);
-    assert.equal(persisted.body.status, 'PAUSED'); assert.equal(persisted.body.expectedAmountMinor, '1234');
+      'expectedAmountMinor', 'id', 'merchantId', 'merchantName', 'nextChargeDate', 'revision', 'source', 'status', 'visibility']);
+    assert.equal(persisted.body.status, browserCase === 'manual' ? 'PAUSED' : 'ACTIVE'); assert.equal(persisted.body.expectedAmountMinor, '1234');
     assert.equal(persisted.body.nextChargeDate, '2026-11-15'); assert.equal(persisted.body.alwaysPrivate, true);
     assert.equal(persisted.body.merchantId, null); assert.equal(persisted.body.merchantName, null);
+    if (browserCase === 'edit') {
+      const edit = copy.manualEdit;
+      const editPhase = value => { phase = value; process.stderr.write('ST241_EDIT_PHASE phase=' + value + '\n'); };
+      const editPath = '/v2/subscriptions/owner/manual/' + createdId + '/edit';
+      const editRegion = () => page.getByRole('region', { name: edit.title, exact: true });
+      editPhase('EDIT_OPEN');
+      await persistedDetail.getByRole('button', { name: edit.title, exact: true }).focus(); await page.keyboard.press('Enter');
+      await editRegion().getByRole('heading', { name: edit.title, exact: true }).waitFor();
+      assert.equal(await editRegion().getByLabel(manual.amount, { exact: true }).inputValue(), locale === 'sv' ? '12,34' : '12.34');
+      await page.setViewportSize({ width: 390, height: 844 }); await capture('edit-form-narrow');
+      await editRegion().getByRole('button', { name: edit.cancel, exact: true }).click();
+      assert.equal(await page.evaluate(() => globalThis.document.activeElement?.parentElement?.hasAttribute('data-manual-edit')), true);
+      await page.keyboard.press('Enter');
+      await editRegion().getByLabel(manual.amount, { exact: true }).fill('0');
+      await editRegion().getByRole('button', { name: edit.save, exact: true }).click();
+      await editRegion().getByText(manual.invalidAmount, { exact: true }).waitFor();
+      assert.equal(await page.evaluate(() => globalThis.document.activeElement?.id), 'manual-amount');
+      await capture('edit-validation-narrow');
+      await editRegion().getByLabel(manual.name, { exact: true }).fill('Edited Proof');
+      await editRegion().getByLabel(manual.category, { exact: true }).selectOption('MUSIC_AUDIO');
+      await editRegion().getByLabel(manual.cadence, { exact: true }).selectOption('ANNUAL');
+      await editRegion().getByLabel(manual.amount, { exact: true }).fill(locale === 'sv' ? '56,78' : '56.78');
+      await editRegion().getByLabel(manual.date, { exact: true }).fill('2026-12-20');
+      let editRequests = 0; let editKey = ''; let editBody = ''; let releaseEditResponse;
+      await page.route('**' + editPath, async route => {
+        editRequests++; const headers = await route.request().allHeaders(); const body = route.request().postData();
+        if (editRequests === 1) { editKey = headers['idempotency-key']; editBody = body; }
+        else { assert.equal(headers['idempotency-key'], editKey); assert.equal(body, editBody); }
+        assert.equal(JSON.parse(body).expectedRevision, '1');
+        const committed = await route.fetch(); assert.equal(committed.status(), 200);
+        assert.deepEqual(await committed.json(), { id: createdId, revision: '2' });
+        await new Promise(resolve => { releaseEditResponse = resolve; });
+        if (editRequests === 1) await route.abort('failed'); else await route.fulfill({ response: committed });
+      });
+      editPhase('EDIT_SAVE'); await editRegion().getByRole('button', { name: edit.save, exact: true }).click();
+      await editRegion().getByText(manual.saving, { exact: true }).waitFor();
+      assert.equal(await editRegion().getByLabel(manual.name, { exact: true }).isDisabled(), true);
+      await capture('edit-saving-narrow');
+      for (let i = 0; i < 100 && !releaseEditResponse; i++) await delay(50);
+      assert(releaseEditResponse); releaseEditResponse(); releaseEditResponse = undefined;
+      await editRegion().getByText(manual.uncertain, { exact: true }).waitFor(); assert.equal(editRequests, 1);
+      await capture('edit-uncertain-narrow');
+      editPhase('EDIT_CHECK'); await editRegion().getByRole('button', { name: manual.check, exact: true }).focus(); await page.keyboard.press('Enter');
+      await editRegion().getByText(manual.checking, { exact: true }).waitFor(); await capture('edit-checking-narrow');
+      for (let i = 0; i < 100 && !releaseEditResponse; i++) await delay(50);
+      assert(releaseEditResponse); releaseEditResponse(); releaseEditResponse = undefined;
+      await page.getByText(edit.confirmed, { exact: true }).waitFor(); assert.equal(editRequests, 2);
+      await page.unroute('**' + editPath); editKey = ''; editBody = ''; await capture('edit-confirmed-narrow');
+      editPhase('EDIT_STATUS');
+      await page.getByRole('button', { name: copy.ownerSubscriptions.actions.PAUSED, exact: true }).click();
+      await page.getByText(copy.ownerSubscriptions.confirmed, { exact: true }).waitFor(); await capture('edit-paused-narrow');
+      editPhase('EDIT_RELOGIN'); await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.getByText(copy.registration.verifiedLoginRequired, { exact: true }).waitFor(); await capture('edit-reload-login-required');
+      await context.clearCookies(); csrf = ''; await page.close(); page = await context.newPage(); page.setDefaultTimeout(45000); attachWireObserver(page);
+      await page.addInitScript(selected => globalThis.localStorage.setItem('theme-preference', selected), theme);
+      await page.goto(origin + '/' + locale, { waitUntil: 'domcontentloaded' }); await awaitPreferenceInteraction();
+      await page.getByRole('link', { name: copy.welcome.logIn, exact: true }).click();
+      await page.getByRole('button', { name: copy.login.simulatorAction, exact: true }).click();
+      await page.getByRole('button', { name: /Edited Proof/ }).click();
+      await page.getByText(manual.expectedDate + ': 2026-12-20', { exact: true }).waitFor(); await capture('edit-relogin-detail');
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.getByRole('button', { name: edit.title, exact: true }).click();
+      await editRegion().getByLabel(manual.name, { exact: true }).fill('Final Edited Proof');
+      await editRegion().getByLabel(manual.amount, { exact: true }).fill(locale === 'sv' ? '90,12' : '90.12');
+      editPhase('EDIT_CONCURRENT_TAB');
+      const other = await context.newPage(); attachWireObserver(other); await other.goto(origin + '/' + locale, { waitUntil: 'domcontentloaded' });
+      const concurrent = await other.evaluate(async ({ id, csrf }) => {
+        const read = await globalThis.fetch('/v2/subscriptions/' + id + '/read', { method: 'POST', credentials: 'include', cache: 'no-store',
+          headers: { 'Content-Type': 'application/json', 'X-Session-CSRF': csrf }, body: '{}' });
+        if (read.status !== 200) return { status: read.status }; const current = await read.json();
+        const save = await globalThis.fetch('/v2/subscriptions/owner/manual/' + id + '/edit', { method: 'POST', credentials: 'include', cache: 'no-store',
+          headers: { 'Content-Type': 'application/json', 'X-Session-CSRF': csrf, 'Idempotency-Key': globalThis.crypto.randomUUID() },
+          body: JSON.stringify({ customName: 'Concurrent Truth', categoryCode: current.categoryCode, cadence: current.cadence,
+            expectedAmountMinor: current.expectedAmountMinor, nextChargeDate: current.nextChargeDate, expectedRevision: current.revision }) });
+        return { status: save.status, result: await save.json() };
+      }, { id: createdId, csrf });
+      assert.deepEqual(concurrent, { status: 200, result: { id: createdId, revision: '4' } }); await other.close();
+      editPhase('EDIT_STALE'); await editRegion().getByRole('button', { name: edit.save, exact: true }).click();
+      await editRegion().getByText(edit.conflict, { exact: true }).waitFor();
+      assert.equal(await editRegion().getByLabel(manual.name, { exact: true }).inputValue(), 'Final Edited Proof');
+      assert.equal(await editRegion().getByLabel(manual.name, { exact: true }).isDisabled(), true);
+      await editRegion().getByRole('heading', { name: edit.current, exact: true }).waitFor();
+      assert.equal(page.viewportSize().width, 390);
+      assert(await page.evaluate(() => globalThis.innerWidth === 390 && globalThis.document.documentElement.scrollWidth <= globalThis.document.documentElement.clientWidth));
+      await capture('edit-conflict-narrow');
+      editPhase('EDIT_REVIEW'); await editRegion().getByRole('button', { name: edit.review, exact: true }).focus(); await page.keyboard.press('Enter');
+      await editRegion().getByRole('button', { name: edit.save, exact: true }).click();
+      await page.getByText(edit.confirmed, { exact: true }).waitFor();
+      assert.equal(page.viewportSize().width, 390);
+      assert(await page.evaluate(() => globalThis.innerWidth === 390 && globalThis.document.documentElement.scrollWidth <= globalThis.document.documentElement.clientWidth));
+      await capture('edit-final-narrow');
+      await page.setViewportSize({ width: 1280, height: 900 }); await capture('edit-final');
+      const finalCookies = (await context.cookies()).filter(item => ['st_v2_access', 'st_v2_binding', 'st_v2_chain'].includes(item.name))
+        .map(item => item.name + '=' + item.value).join('; ');
+      const final = await request({ Origin: origin, Cookie: finalCookies, 'X-Session-CSRF': csrf }, '{}', '/v2/subscriptions/' + createdId + '/read');
+      assert.equal(final.status, 200);
+      assert.deepEqual({ name: final.body.customName, category: final.body.categoryCode, cadence: final.body.cadence, amount: final.body.expectedAmountMinor,
+        date: final.body.nextChargeDate, status: final.body.status, revision: final.body.revision, source: final.body.source, currency: final.body.currency,
+        private: final.body.alwaysPrivate, merchant: final.body.merchantId }, { name: 'Final Edited Proof', category: 'MUSIC_AUDIO', cadence: 'ANNUAL', amount: '9012',
+        date: '2026-12-20', status: 'PAUSED', revision: '5', source: 'MANUAL', currency: 'SEK', private: true, merchant: null });
+      await assertSafeWire(); sentKey = ''; sentBody = ''; createdId = ''; csrf = '';
+      editPhase('EDIT_PERSISTED_BARRIER'); fs.writeFileSync(path.join(handshake, 'EDIT_PERSISTED_READY'), '', { flag: 'wx', mode: 0o600 });
+      await awaitMarker('EDIT_PERSISTED_CHECKED');
+      process.stdout.write('PASS ST241_BROWSER_NATURAL_MANUAL_EDIT_READBACK_RELOGIN_CONFLICT_CHECK\n');
+      process.stdout.write('PASS ST237_BROWSER_CASE case=edit locale=' + locale + ' theme=' + theme + '\n');
+    } else {
     await assertSafeWire(); sentKey = ''; sentBody = ''; createdId = ''; csrf = '';
     phase = 'MANUAL_PERSISTED_BARRIER';
     fs.writeFileSync(path.join(handshake, 'MANUAL_PERSISTED_READY'), '', { flag: 'wx', mode: 0o600 });
     await awaitMarker('MANUAL_PERSISTED_CHECKED');
     process.stdout.write('PASS ST240_BROWSER_NATURAL_MANUAL_ADD_READBACK_RELOGIN_STATUS\n');
     process.stdout.write(`PASS ST237_BROWSER_CASE case=manual locale=${locale} theme=${theme}\n`);
+    }
   } else if (browserCase === 'empty') {
     phase = 'EMPTY_LIST';
     await page.getByRole('button', { name: copy.mode.choose, exact: true }).click();
@@ -734,6 +843,11 @@ try {
         await page.mouse.move(0, 0);
         await detailHeading.focus();
         await page.keyboard.press('Tab');
+        const editAction = page.getByRole('button', { name: copy.manualEdit.title, exact: true });
+        if (await editAction.count()) {
+          assert.equal(await editAction.evaluate(element => element === globalThis.document.activeElement), true);
+          await page.keyboard.press('Tab');
+        }
         await capturePrimary('focus', width);
       }
       await page.setViewportSize(originalViewport);

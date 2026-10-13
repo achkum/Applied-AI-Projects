@@ -204,7 +204,7 @@ describe('mounted private enrollment and profile', () => {
 
   it('continues from confirmed profile through explicit mode, owner row and reread status without a second PATCH', async () => {
     const id = '123e4567-e89b-42d3-a456-426614174000';
-    const owner = { source: 'MANUAL' as const, visibility: 'owner', id, customName: 'Synthetic Subscription', merchantId: null, merchantName: null,
+    const owner = { revision: '1', source: 'MANUAL' as const, visibility: 'owner', id, customName: 'Synthetic Subscription', merchantId: null, merchantName: null,
       categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', status: 'ACTIVE', expectedAmountMinor: '12345',
       currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
     const fetchMock = startMocks()
@@ -238,7 +238,7 @@ describe('mounted private enrollment and profile', () => {
 
 describe('manual Add intent and authoritative readback', () => {
   const id = '123e4567-e89b-42d3-a456-426614174009';
-  const manualRow = { source: 'MANUAL', visibility: 'owner', id, customName: 'Manual Proof', merchantId: null,
+  const manualRow = { revision: '1', source: 'MANUAL', visibility: 'owner', id, customName: 'Manual Proof', merchantId: null,
     merchantName: null, categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', status: 'ACTIVE',
     expectedAmountMinor: '1234', currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
   const copy = catalogs.en.onboarding;
@@ -336,6 +336,9 @@ describe('manual Add intent and authoritative readback', () => {
     expect(fetch.mock.calls.filter(([url]) => url === '/v2/subscriptions/owner/manual')).toHaveLength(1);
     expect(intentKeys).toHaveBeenCalledTimes(1);
     fireEvent.change(screen.getByLabelText(copy.manualSubscription.amount), { target: { value: '12.35' } });
+    fireEvent.change(screen.getByLabelText(copy.manualSubscription.amount), { target: { value: '12.34' } });
+    expect(rejectedSave.hasAttribute('disabled')).toBe(true);
+    fireEvent.change(screen.getByLabelText(copy.manualSubscription.amount), { target: { value: '12.35' } });
     expect(rejectedSave.hasAttribute('disabled')).toBe(false);
     fetch.mockImplementationOnce(() => response(201, { id })).mockImplementationOnce(() => response(200, manualRow))
       .mockImplementationOnce(() => response(200, { items: [manualRow], nextCursor: null }));
@@ -363,5 +366,120 @@ describe('manual Add intent and authoritative readback', () => {
     await screen.findByRole('button', { name: /Manual Proof/ });
     expect(fetch.mock.calls.slice(-3).map(([url]) => url)).toEqual(['/v2/me/profile/read', '/v2/me/mode/read', '/v2/subscriptions/owner/read']);
     expect(fetch.mock.calls.filter(([url]) => url === '/v2/subscriptions/owner/manual')).toHaveLength(1);
+  });
+});
+
+
+describe('manual Edit persisted revision recovery', () => {
+  const id = '123e4567-e89b-42d3-a456-426614174009';
+  const row = { revision: '1', source: 'MANUAL', visibility: 'owner', id, customName: 'Editable Proof', merchantId: null,
+    merchantName: null, categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', status: 'ACTIVE', expectedAmountMinor: '1234',
+    currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
+  const copy = catalogs.en.onboarding;
+  const editPath = '/v2/subscriptions/owner/manual/' + id + '/edit';
+  const problem = (status: number, code: string) => Promise.resolve(new Response(JSON.stringify({ type: 'about:blank',
+    title: status === 400 ? 'Bad Request' : 'Conflict', status, code }), { status, headers: { 'Content-Type': 'application/problem+json' } }));
+  async function editing() {
+    const fetch = vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(() => response(200, { nonce: token }))
+      .mockImplementationOnce(() => response(200, { transport: 'web', loginProof: 'v2.' + token, status: 'verified', nextBrowserNonce: token }))
+      .mockImplementationOnce(() => response(201, { transport: 'web', sessionId: id, csrfToken: 'edit-csrf' }))
+      .mockImplementationOnce(() => response(200, { ...view, displayName: 'Owner', profileComplete: true }))
+      .mockImplementationOnce(() => response(200, { mode: 'just-me' }))
+      .mockImplementationOnce(() => response(200, { items: [row], nextCursor: null }))
+      .mockImplementationOnce(() => response(200, row));
+    render(<RegistrationFlow locale="en" initialEntry="login" />);
+    fireEvent.click(screen.getByRole('button', { name: copy.login.simulatorAction }));
+    fireEvent.click(await screen.findByRole('button', { name: /Editable Proof/ }));
+    fireEvent.click(await screen.findByRole('button', { name: copy.manualEdit.title }));
+    await screen.findByLabelText(copy.manualSubscription.name);
+    return fetch;
+  }
+  it('initializes exact inputs and restores initiating Edit focus on Cancel', async () => {
+    await editing();
+    expect((screen.getByLabelText(copy.manualSubscription.amount) as HTMLInputElement).value).toBe('12.34');
+    fireEvent.click(screen.getByRole('button', { name: copy.manualEdit.cancel }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: copy.manualEdit.title }));
+  });
+  it('keeps uncertain intent exact and confirms only authoritative current readback', async () => {
+    const fetch = await editing();
+    fireEvent.change(screen.getByLabelText(copy.manualSubscription.name), { target: { value: 'Draft Edit' } });
+    fetch.mockRejectedValueOnce(new Error('lost'));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualEdit.save }));
+    await screen.findByText(copy.manualSubscription.uncertain);
+    expect(fetch.mock.calls.filter(([url]) => url === editPath)).toHaveLength(1);
+    fetch.mockImplementationOnce(() => response(200, { id, revision: '2' }))
+      .mockImplementationOnce(() => response(200, { ...row, revision: '2', customName: 'Current Truth' }))
+      .mockImplementationOnce(() => response(200, { items: [{ ...row, revision: '2', customName: 'Current Truth' }], nextCursor: null }));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualSubscription.check }));
+    await screen.findByText(copy.manualEdit.confirmed);
+    expect(screen.getByRole('heading', { name: 'Current Truth' })).toBeTruthy();
+    expect(screen.queryByText('Draft Edit')).toBeNull();
+    const writes = fetch.mock.calls.filter(([url]) => url === editPath);
+    expect(writes[0]![0]).toBe(writes[1]![0]);
+    expect(writes[0]![1]!.headers).toEqual(writes[1]![1]!.headers);
+    expect(writes[0]![1]!.body).toBe(writes[1]![1]!.body);
+    expect(JSON.parse(writes[0]![1]!.body as string).expectedRevision).toBe('1');
+  });
+  it('preserves stale draft, rereads and requires explicit review before a fresh revision/key', async () => {
+    const fetch = await editing();
+    fireEvent.change(screen.getByLabelText(copy.manualSubscription.name), { target: { value: 'Preserved Draft' } });
+    fetch.mockImplementationOnce(() => problem(409, 'MANUAL_EDIT_CONFLICT'))
+      .mockImplementationOnce(() => response(200, { ...row, revision: '2', status: 'PAUSED' }));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualEdit.save }));
+    await screen.findByText(copy.manualEdit.conflict);
+    expect((screen.getByLabelText(copy.manualSubscription.name) as HTMLInputElement).value).toBe('Preserved Draft');
+    expect(screen.getByLabelText(copy.manualSubscription.name).hasAttribute('disabled')).toBe(true);
+    expect(screen.queryByRole('button', { name: copy.manualEdit.save })).toBeNull();
+    expect(fetch.mock.calls.filter(([url]) => url === editPath)).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: copy.manualEdit.review }));
+    fetch.mockImplementationOnce(() => response(200, { id, revision: '3' }))
+      .mockImplementationOnce(() => response(200, { ...row, revision: '3', status: 'PAUSED', customName: 'Preserved Draft' }))
+      .mockImplementationOnce(() => response(200, { items: [], nextCursor: null }));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualEdit.save }));
+    await screen.findByText(copy.manualEdit.confirmed);
+    const writes = fetch.mock.calls.filter(([url]) => url === editPath);
+    expect(JSON.parse(writes[1]![1]!.body as string).expectedRevision).toBe('2');
+    expect(writes[0]![1]!.headers).not.toEqual(writes[1]![1]!.headers);
+  });
+  it.each([false, true])('rejects wrong-target authoritative readback without confirming or adopting its revision (stale=%s)', async stale => {
+    const fetch = await editing();
+    fetch.mockImplementationOnce(() => stale ? problem(409, 'MANUAL_EDIT_CONFLICT') : response(200, { id, revision: '2' }))
+      .mockImplementationOnce(() => response(200, { ...row, id: '123e4567-e89b-42d3-a456-426614174001', revision: '2' }));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualEdit.save })); await screen.findByText(copy.manualSubscription.readError);
+    expect(screen.queryByText(copy.manualEdit.confirmed)).toBeNull();
+    expect(screen.queryByRole('button', { name: copy.manualEdit.review })).toBeNull();
+    expect(fetch.mock.calls.filter(([url]) => url === editPath)).toHaveLength(1);
+    fetch.mockImplementationOnce(() => response(200, { ...row, revision: '2' }));
+    if (!stale) fetch.mockImplementationOnce(() => response(200, { items: [row], nextCursor: null }));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualSubscription.retryRead }));
+    await screen.findByText(stale ? copy.manualEdit.conflict : copy.manualEdit.confirmed);
+    expect(fetch.mock.calls.filter(([url]) => url === editPath)).toHaveLength(1);
+  });
+  it('clears uncertain intent and draft on Stop without resending', async () => {
+    const fetch = await editing(); fetch.mockRejectedValueOnce(new Error('lost'));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualEdit.save })); await screen.findByText(copy.manualSubscription.uncertain);
+    fireEvent.click(screen.getByRole('button', { name: copy.manualEdit.stop }));
+    expect(screen.queryByLabelText(copy.manualSubscription.name)).toBeNull();
+    expect(screen.queryByRole('button', { name: copy.manualSubscription.check })).toBeNull();
+    expect(fetch.mock.calls.filter(([url]) => url === editPath)).toHaveLength(1);
+    expect(document.body.textContent).not.toContain('edit-csrf');
+  });
+  it('does not rotate known-invalid unchanged draft and reconciles a later committed revision as current truth', async () => {
+    const fetch = await editing(); fetch.mockImplementationOnce(() => problem(400, 'INVALID_MANUAL_EDIT_REQUEST'));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualEdit.save })); await screen.findByText(copy.manualSubscription.invalid);
+    const save = screen.getByRole('button', { name: copy.manualEdit.save });
+    expect(save.hasAttribute('disabled')).toBe(true); fireEvent.click(save);
+    expect(fetch.mock.calls.filter(([url]) => url === editPath)).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText(copy.manualSubscription.amount), { target: { value: '12.35' } });
+    fireEvent.change(screen.getByLabelText(copy.manualSubscription.amount), { target: { value: '12.34' } });
+    expect(save.hasAttribute('disabled')).toBe(true);
+    fireEvent.change(screen.getByLabelText(copy.manualSubscription.amount), { target: { value: '12.35' } });
+    fetch.mockImplementationOnce(() => response(200, { id, revision: '2' }))
+      .mockImplementationOnce(() => response(200, { ...row, revision: '3', customName: 'Later Truth' }))
+      .mockImplementationOnce(() => response(200, { items: [], nextCursor: null }));
+    fireEvent.click(save); await screen.findByRole('heading', { name: 'Later Truth' });
+    expect(screen.queryByText(copy.manualEdit.confirmed)).toBeNull();
+    await screen.findByText(copy.ownerSubscriptions.rechecked);
   });
 });

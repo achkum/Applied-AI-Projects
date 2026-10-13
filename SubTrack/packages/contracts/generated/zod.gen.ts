@@ -176,6 +176,84 @@ export const zPrivateManualCreate = z.object({
     nextChargeDate: z.iso.date().nullish()
 }).strict();
 
+/**
+ * Canonical positive bigint text 1..9223372036854775807; never a JavaScript Number.
+ */
+export const zPositiveSubscriptionRevision = z.string().regex(/^[1-9][0-9]{0,18}$/);
+
+export const zPrivateManualEdit = z.object({
+    customName: z.string(),
+    categoryCode: z.enum([
+        'VIDEO_STREAMING',
+        'MUSIC_AUDIO',
+        'AUDIOBOOKS_EBOOKS',
+        'NEWS_MAGAZINES',
+        'GAMING',
+        'SOFTWARE_PRODUCTIVITY',
+        'CLOUD_STORAGE',
+        'AI_TOOLS',
+        'MOBILE_PLAN',
+        'BROADBAND_TV',
+        'FITNESS_WELLNESS',
+        'FOOD_MEALKITS',
+        'TRANSPORT_MOBILITY',
+        'HOME_SECURITY',
+        'EDUCATION_KIDS',
+        'PETS',
+        'SHOPPING_MEMBERSHIPS',
+        'VPN_SECURITY',
+        'DONATIONS',
+        'DATING_SOCIAL',
+        'APP_STORE_BILLING',
+        'OTHER_SUBSCRIPTION'
+    ]),
+    cadence: z.enum([
+        'WEEKLY',
+        'MONTHLY',
+        'QUARTERLY',
+        'SEMIANNUAL',
+        'ANNUAL'
+    ]),
+    expectedAmountMinor: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    nextChargeDate: z.iso.date().nullable(),
+    expectedRevision: zPositiveSubscriptionRevision
+}).strict();
+
+export const zPrivateManualEdited = z.object({
+    id: z.uuid(),
+    revision: zPositiveSubscriptionRevision
+}).strict();
+
+export const zPrivateManualEditError = z.object({
+    type: z.literal('about:blank'),
+    title: z.enum([
+        'Bad Request',
+        'Unauthorized',
+        'Forbidden',
+        'Not Found',
+        'Conflict',
+        'Internal Server Error'
+    ]),
+    status: z.union([
+        z.literal(400),
+        z.literal(401),
+        z.literal(403),
+        z.literal(404),
+        z.literal(409),
+        z.literal(500)
+    ]),
+    code: z.enum([
+        'INVALID_MANUAL_EDIT_REQUEST',
+        'AUTHENTICATION_REQUIRED',
+        'MANUAL_EDIT_REQUEST_REJECTED',
+        'SUBSCRIPTION_NOT_FOUND',
+        'MODE_CONFLICT',
+        'MANUAL_EDIT_IDEMPOTENCY_CONFLICT',
+        'MANUAL_EDIT_CONFLICT',
+        'INTERNAL_ERROR'
+    ])
+}).strict();
+
 export const zPrivateManualCreated = z.object({
     id: z.uuid()
 }).strict();
@@ -383,6 +461,7 @@ export const zSubscriptionReadCadence = z.enum([
 export const zCanonicalMinorUnits = z.string().regex(/^(0|-?[1-9][0-9]*)$/);
 
 export const zPrivateOwnerSubscriptionView = z.object({
+    revision: zPositiveSubscriptionRevision,
     source: z.enum(['MANUAL', 'DETECTED']),
     visibility: z.literal('owner'),
     id: z.uuid(),
@@ -1441,6 +1520,23 @@ export const zCreateV2PrivateManualSubscriptionHeaders = z.object({
  * Known committed create or exact replay; original immutable id only.
  */
 export const zCreateV2PrivateManualSubscriptionResponse = zPrivateManualCreated;
+
+export const zEditV2PrivateManualSubscriptionBody = zPrivateManualEdit;
+
+export const zEditV2PrivateManualSubscriptionHeaders = z.object({
+    Origin: z.url(),
+    'X-Session-CSRF': z.string().min(1),
+    'Idempotency-Key': z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+});
+
+export const zEditV2PrivateManualSubscriptionPath = z.object({
+    id: z.uuid()
+});
+
+/**
+ * Original known committed edit snapshot or exact replay; reread current detail/list.
+ */
+export const zEditV2PrivateManualSubscriptionResponse = zPrivateManualEdited;
 
 export const zReadV2PrivateOwnerSubscriptionsBody = zPrivateOwnerPageRequest;
 

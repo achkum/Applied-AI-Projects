@@ -9,6 +9,7 @@ import { IdentifierEntry, type IdentifierEntryValue } from './identifier-entry';
 import { ProfileEditor } from './profile-editor';
 import { ManualSubscriptionEditor, type ManualState } from './manual-subscription-editor';
 import { newManualIntent, saveManualSubscription, ManualSubscriptionApiError, type ManualIntent, type ManualSubscriptionBody } from '@/lib/manual-subscription-api';
+import { newManualEditIntent, editManualSubscription, ManualSubscriptionEditApiError, type ManualEditIntent } from '@/lib/manual-subscription-edit-api';
 import { PrivateSubscriptions } from './private-subscriptions';
 import { RegistrationApiError, startRegistration, verifyRegistration, admitPendingRegistration, verifySimulatorRegistration, completeRegistration, type RegistrationIdentifier } from '@/lib/registration-api';
 import { LoginApiError, startLogin, verifyLogin, completeLogin, type DemoIdentity } from '@/lib/login-api';
@@ -20,7 +21,7 @@ type Step = 'identifier' | 'otp' | 'pending-admission' | 'simulator-verification
   'login' | 'login-verifying' | 'login-session' | 'login-mode-loading' | 'login-restart' | 'login-unavailable' |
   'profile-loading' | 'profile-editing' | 'profile-saving' | 'profile-confirming' | 'profile-saved' | 'mode-choice' |
   'mode-saving' | 'mode-confirming' | 'subscriptions-loading' | 'subscriptions-list' | 'subscriptions-detail' |
-  'manual-editor' | 'restart-required' | 'verified-login-required' | 'unavailable';
+  'manual-editor' | 'manual-edit-editor' | 'restart-required' | 'verified-login-required' | 'unavailable';
 
 export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { locale: Locale; initialEntry?: 'enrollment' | 'login' }) {
   const copy = catalogs[locale].onboarding.registration;
@@ -44,6 +45,12 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
   const [manualConfirmed, setManualConfirmed] = useState(false);
   const manualIntent = useRef<ManualIntent | null>(null);
   const manualId = useRef('');
+  const editIntent = useRef<ManualEditIntent | null>(null);
+  const editRevision = useRef('');
+  const editResult = useRef<{ id: string; revision: string } | null>(null);
+  const [editConfirmed, setEditConfirmed] = useState(false);
+  const [conflictView, setConflictView] = useState<PrivateOwnerSubscriptionView | null>(null);
+  const restoreEditFocus = useRef(false);
   const restoreAddFocus = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const generation = useRef(0);
@@ -60,6 +67,9 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
     if (previousStep.current === step) return;
     if (step === 'subscriptions-list' && restoreAddFocus.current) {
       previousStep.current = step; restoreAddFocus.current = false; panel.current?.querySelector<HTMLElement>('[data-manual-add] button')?.focus(); return;
+    }
+    if (step === 'subscriptions-detail' && restoreEditFocus.current) {
+      previousStep.current = step; restoreEditFocus.current = false; panel.current?.querySelector<HTMLElement>('[data-manual-edit] button')?.focus(); return;
     }
     previousStep.current = step;
     if (step === 'profile-saved' || step === 'profile-editing' && uncertain) return;
@@ -78,6 +88,7 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
 
   function clearPrivate() {
     continuation.current = ''; rotatedNonce.current = ''; csrf.current = '';
+    editIntent.current = null; editRevision.current = ''; editResult.current = null; setEditConfirmed(false); setConflictView(null);
     manualIntent.current = null; manualId.current = ''; setManualState('draft'); setManualConfirmed(false);
     setItems([]); setNextCursor(null); setSelected(null); setStatusConfirmed(false);
   }
@@ -245,6 +256,7 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
   async function reconcileManual() {
     if (requestPending.current || !csrf.current) return;
     const request = beginRequest(); manualIntent.current = null; manualId.current = '';
+    editIntent.current = null; editRevision.current = ''; editResult.current = null; setConflictView(null); setEditConfirmed(false);
     try {
       const persisted = await readProfile(csrf.current, request.signal);
       const mode = await readMode(csrf.current, request.signal);
@@ -298,6 +310,74 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
     if (requestPending.current || step !== 'manual-editor' || manualState !== 'read-error' || !manualId.current) return;
     await readManual(beginRequest());
   }
+  function openEdit() {
+    if (requestPending.current || step !== 'subscriptions-detail' || !csrf.current || !selected || selected.source !== 'MANUAL' ||
+        selected.currency !== 'SEK' || selected.cadence === 'CUSTOM') return;
+    editIntent.current = null; editResult.current = null; editRevision.current = selected.revision;
+    setConflictView(null); setManualState('draft'); setEditConfirmed(false); setManualConfirmed(false); setError(''); setStep('manual-edit-editor');
+  }
+  function cancelEdit() {
+    if (requestPending.current || !['draft', 'invalid'].includes(manualState)) return;
+    editIntent.current = null; editRevision.current = ''; editResult.current = null;
+    restoreEditFocus.current = true; setStep('subscriptions-detail');
+  }
+  async function readEdit(request: { signal: AbortSignal; generation: number }, stale = false) {
+    const id = stale ? selected?.id : editResult.current?.id;
+    if (!id) { stop('verified-login-required'); return; }
+    setManualState('reading');
+    try {
+      const detail = await readOwnerSubscription(id, csrf.current, request.signal);
+      if (!current(request)) return;
+      if (detail.id !== id) throw new PrivateOnboardingApiError('unavailable');
+      if (stale) {
+        if (detail.source !== 'MANUAL' || detail.currency !== 'SEK' || detail.cadence === 'CUSTOM') { setManualState('gone'); finish(); return; }
+        setConflictView(detail); setManualState('conflict'); finish(); return;
+      }
+      const page = await readOwnerSubscriptions(csrf.current, request.signal);
+      if (!current(request)) return;
+      setItems(page.items); setNextCursor(page.nextCursor); setSelected(detail); setStatusConfirmed(false);
+      setEditConfirmed(detail.revision === editResult.current?.revision);
+      if (detail.revision !== editResult.current?.revision) setError(catalogs[locale].onboarding.ownerSubscriptions.rechecked);
+      editIntent.current = null; editRevision.current = ''; editResult.current = null; setConflictView(null);
+      setStep('subscriptions-detail'); finish();
+    } catch (caught) {
+      if (!current(request)) return;
+      if (caught instanceof PrivateOnboardingApiError && caught.code === 'login-required') { stop('verified-login-required'); return; }
+      setManualState(caught instanceof PrivateOnboardingApiError && caught.code === 'missing' ? 'gone' : 'read-error'); finish();
+    }
+  }
+  function reviewEdit() {
+    if (requestPending.current || manualState !== 'conflict' || !conflictView) return;
+    editRevision.current = conflictView.revision; editIntent.current = null; editResult.current = null;
+    setConflictView(null); setManualState('draft');
+  }
+  async function saveEdit(body?: ManualSubscriptionBody) {
+    if (requestPending.current || step !== 'manual-edit-editor' || !csrf.current || !selected) return;
+    if (body && !['draft', 'invalid'].includes(manualState) || !body && manualState !== 'uncertain') return;
+    if (body) editIntent.current = newManualEditIntent(selected.id, { ...body, expectedRevision: editRevision.current });
+    if (!editIntent.current) return;
+    const request = beginRequest(); setManualState(body ? 'saving' : 'checking');
+    try {
+      editResult.current = await editManualSubscription(editIntent.current, csrf.current, request.signal);
+      if (!current(request)) return;
+      await readEdit(request);
+    } catch (caught) {
+      if (!current(request)) return;
+      if (caught instanceof ManualSubscriptionEditApiError) {
+        if (caught.code === 'login-required') { stop('verified-login-required'); return; }
+        if (caught.code === 'mode-conflict') { finish(); await reconcileManual(); return; }
+        if (caught.code === 'stale') { editIntent.current = null; await readEdit(request, true); return; }
+        if (caught.code === 'invalid') { editIntent.current = null; setManualState('invalid'); finish(); return; }
+        if (caught.code === 'missing') { editIntent.current = null; setManualState('gone'); finish(); return; }
+        if (caught.code === 'receipt-conflict') { editIntent.current = null; setManualState('receipt-conflict'); finish(); return; }
+      }
+      setManualState('uncertain'); finish();
+    }
+  }
+  async function retryEditRead() {
+    if (requestPending.current || step !== 'manual-edit-editor' || manualState !== 'read-error') return;
+    await readEdit(beginRequest(), !editResult.current);
+  }
   async function loadMore() {
     if (requestPending.current || !csrf.current || !nextCursor || step !== 'subscriptions-list') return;
     const request = beginRequest(); setError('');
@@ -311,7 +391,7 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
   }
   async function selectSubscription(id: string) {
     if (requestPending.current || !csrf.current || step !== 'subscriptions-list' || !items.some((item) => item.id === id)) return;
-    const request = beginRequest(); setError(''); setStatusConfirmed(false); setManualConfirmed(false);
+    const request = beginRequest(); setError(''); setStatusConfirmed(false); setManualConfirmed(false); setEditConfirmed(false);
     try {
       const detail = await readOwnerSubscription(id, csrf.current, request.signal);
       if (!current(request)) return;
@@ -324,7 +404,7 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
       ACTIVE: ['PAUSED', 'CANCELLED', 'ARCHIVED'], PAUSED: ['ACTIVE', 'CANCELLED', 'ARCHIVED'], CANCELLED: ['ARCHIVED'],
     };
     if (!(allowed[selected.status] ?? []).includes(status)) return;
-    const request = beginRequest(); setError(''); setStatusConfirmed(false); setManualConfirmed(false);
+    const request = beginRequest(); setError(''); setStatusConfirmed(false); setManualConfirmed(false); setEditConfirmed(false);
     let knownCommitted = false;
     try {
       await patchOwnerSubscription(selected.id, status, csrf.current, request.signal);
@@ -402,9 +482,12 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
       {step === 'subscriptions-loading' ? <p data-step-focus tabIndex={-1} role="status">{catalogs[locale].onboarding.ownerSubscriptions.loading}</p> : null}
       {step === 'manual-editor' ? <ManualSubscriptionEditor locale={locale} state={manualState} onSave={saveManual}
         onCheck={() => void saveManual()} onRead={retryManualRead} onCancel={cancelManual} onReconcile={reconcileManual} /> : null}
+      {step === 'manual-edit-editor' && selected ? <ManualSubscriptionEditor locale={locale} initial={selected} conflictView={conflictView}
+        state={manualState} onSave={saveEdit} onCheck={() => void saveEdit()} onRead={retryEditRead} onCancel={cancelEdit}
+        onReview={reviewEdit} onStop={goBack} onReconcile={reconcileManual} /> : null}
       {step === 'subscriptions-list' || step === 'subscriptions-detail' ? <PrivateSubscriptions locale={locale} items={items} nextCursor={nextCursor}
         selected={step === 'subscriptions-detail' ? selected : null} busy={busy} confirmed={statusConfirmed} onMore={loadMore}
-        onAdd={openManual} manualConfirmed={manualConfirmed} onSelect={selectSubscription} onBack={() => { setSelected(null); setStatusConfirmed(false); setStep('subscriptions-list'); }} onTransition={transition} /> : null}
+        onAdd={openManual} onEdit={openEdit} editConfirmed={editConfirmed} manualConfirmed={manualConfirmed} onSelect={selectSubscription} onBack={() => { setSelected(null); setStatusConfirmed(false); setStep('subscriptions-list'); }} onTransition={transition} /> : null}
       {step === 'verified-login-required' ? <><p data-step-focus tabIndex={-1} role="alert">{copy.verifiedLoginRequired}</p>
         {initialEntry === 'login'
           ? <Button type="button" variant="secondary" disabled={busy} onClick={goBack}>{loginCopy.freshLogin}</Button>
@@ -412,7 +495,7 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
       {error && step !== 'restart-required' ? <p ref={errorMessage} tabIndex={-1} role="alert">{error}</p> : null}
       <div className={styles.actions}>
         {step !== 'identifier' && step !== 'verified-login-required' && step !== 'profile-saved' && step !== 'mode-choice' &&
-          step !== 'manual-editor' && !step.startsWith('subscriptions-') && !step.startsWith('mode-') ?
+          step !== 'manual-editor' && step !== 'manual-edit-editor' && !step.startsWith('subscriptions-') && !step.startsWith('mode-') ?
           <Button variant="secondary" type="button" onClick={goBack}>{copy.backLabel}</Button> : null}
         {step === 'identifier' ? <Link href={`/${locale}/login`}>{loginCopy.logInInstead}</Link> : null}
       </div>

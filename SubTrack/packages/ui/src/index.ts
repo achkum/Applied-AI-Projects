@@ -2,6 +2,7 @@ export { Button } from './components/Button/Button';
 export type { ButtonProps } from './components/Button/Button';
 export { formatMinorUnits } from '@subtrack/money/formatter';
 export { parsePositiveSekInput } from '@subtrack/money/parse-positive-sek-input';
+export { formatPositiveSekInputMinor } from '@subtrack/money/format-positive-sek-input-minor';
 
 export { Orbit } from './components/Orbit/Orbit';
 export type { OrbitProps } from './components/Orbit/Orbit';

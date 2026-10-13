@@ -6,7 +6,7 @@ const MINOR = /^(?:0|-?[1-9]\d*)$/;
 const STATUS = new Set(['DETECTED', 'TRIAL', 'ACTIVE', 'PAUSED', 'CANCELLED', 'ARCHIVED', 'REJECTED']);
 const CADENCE = new Set(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMIANNUAL', 'ANNUAL', 'CUSTOM']);
 const CATEGORY = new Set(['VIDEO_STREAMING', 'MUSIC_AUDIO', 'AUDIOBOOKS_EBOOKS', 'NEWS_MAGAZINES', 'GAMING', 'SOFTWARE_PRODUCTIVITY', 'CLOUD_STORAGE', 'AI_TOOLS', 'MOBILE_PLAN', 'BROADBAND_TV', 'FITNESS_WELLNESS', 'FOOD_MEALKITS', 'TRANSPORT_MOBILITY', 'HOME_SECURITY', 'EDUCATION_KIDS', 'PETS', 'SHOPPING_MEMBERSHIPS', 'VPN_SECURITY', 'DONATIONS', 'DATING_SOCIAL', 'APP_STORE_BILLING', 'OTHER_SUBSCRIPTION']);
-const FIELDS = ['visibility', 'id', 'customName', 'merchantId', 'merchantName', 'categoryCode', 'cadence', 'status', 'expectedAmountMinor', 'currency', 'nextChargeDate', 'alwaysPrivate', 'source'];
+const FIELDS = ['visibility', 'id', 'customName', 'merchantId', 'merchantName', 'categoryCode', 'cadence', 'status', 'expectedAmountMinor', 'currency', 'nextChargeDate', 'alwaysPrivate', 'source', 'revision'];
 const MIN = -(1n << 63n);
 const MAX = (1n << 63n) - 1n;
 
@@ -20,6 +20,9 @@ function record(value: unknown, required: readonly string[], optional: readonly 
   return value as Record<string, unknown>;
 }
 function uuid(value: unknown): value is string { return typeof value === 'string' && UUID.test(value); }
+function revision(value: unknown): value is string {
+  return typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(value) && BigInt(value) <= MAX;
+}
 function date(value: unknown): boolean {
   return typeof value === 'string' && DATE.test(value) &&
     !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`)) &&
@@ -46,7 +49,7 @@ export function parsePrivateOwnerView(value: unknown): PrivateOwnerSubscriptionV
       typeof v.expectedAmountMinor !== 'string' || !MINOR.test(v.expectedAmountMinor) ||
       BigInt(v.expectedAmountMinor) < MIN || BigInt(v.expectedAmountMinor) > MAX ||
       typeof v.currency !== 'string' || !/^[A-Z]{3}$/.test(v.currency) ||
-      !(v.nextChargeDate === null || date(v.nextChargeDate)) || typeof v.alwaysPrivate !== 'boolean' || !['MANUAL', 'DETECTED'].includes(v.source as string))
+      !(v.nextChargeDate === null || date(v.nextChargeDate)) || typeof v.alwaysPrivate !== 'boolean' || !['MANUAL', 'DETECTED'].includes(v.source as string) || !revision(v.revision))
     throw new Error('owner-view');
   return v as PrivateOwnerSubscriptionView;
 }
@@ -79,4 +82,16 @@ export function parsePrivateManualCreate(value: unknown): Readonly<{customName:s
 }
 export function parsePrivateManualCreated(value: unknown): Readonly<{id:string}> {
   const v = record(value, ['id']); if (!uuid(v.id)) throw new Error('manual-created'); return { id: v.id };
+}
+export function parsePrivateManualEdit(value: unknown): ReturnType<typeof parsePrivateManualCreate> & Readonly<{expectedRevision:string}> {
+  const v = record(value, ['customName', 'categoryCode', 'cadence', 'expectedAmountMinor', 'nextChargeDate', 'expectedRevision']);
+  if (!revision(v.expectedRevision) || v.nextChargeDate === undefined) throw new Error('manual-edit');
+  const fields = parsePrivateManualCreate({customName:v.customName,categoryCode:v.categoryCode,cadence:v.cadence,
+    expectedAmountMinor:v.expectedAmountMinor,nextChargeDate:v.nextChargeDate});
+  return {...fields,expectedRevision:v.expectedRevision};
+}
+export function parsePrivateManualEdited(value: unknown): Readonly<{id:string;revision:string}> {
+  const v = record(value, ['id', 'revision']);
+  if (!uuid(v.id) || !revision(v.revision)) throw new Error('manual-edited');
+  return {id:v.id,revision:v.revision};
 }
