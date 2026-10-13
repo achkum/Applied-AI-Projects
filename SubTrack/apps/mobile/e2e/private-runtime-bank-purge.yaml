@@ -1,0 +1,84 @@
+appId: se.subtrack.app
+---
+- openLink: subtrack:///personal
+- extendedWaitUntil:
+    visible: ${MAESTRO_VERIFY_BANKID}
+    timeout: 30000
+- tapOn: ${MAESTRO_VERIFY_BANKID}
+- extendedWaitUntil:
+    visible: Native edited restart proof
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_OPEN}
+    direction: UP
+- tapOn: ${MAESTRO_BANK_OPEN}
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_TITLE}
+    timeout: 30000
+- assertVisible: ${MAESTRO_BANK_DEMO}
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_REVOKED}
+    direction: UP
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_REVOKED}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_COUNT}
+    direction: DOWN
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_COUNT}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_LAST_SYNC_PRESENT}
+    direction: DOWN
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_LAST_SYNC_PRESENT}
+    timeout: 30000
+- assertNotVisible: ${MAESTRO_BANK_ACTIVE}
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_PURGE}
+    direction: DOWN
+- tapOn: ${MAESTRO_BANK_PURGE}
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_PURGE_WARNING}
+    direction: DOWN
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_PURGE_WARNING}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_CONFIRM_PURGE}
+    direction: DOWN
+- tapOn: ${MAESTRO_BANK_CONFIRM_PURGE}
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_EMPTY}
+    direction: UP
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_EMPTY}
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_PURGED}
+    timeout: 30000
+- assertNotVisible: ${MAESTRO_BANK_REVOKED}
+- assertNotVisible: ${MAESTRO_BANK_TRANSACTIONS}
+- takeScreenshot: accepted-bank-purged
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_REFRESH}
+    direction: DOWN
+- tapOn: ${MAESTRO_BANK_REFRESH}
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_EMPTY}
+    direction: UP
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_EMPTY}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_LOGOUT}
+    direction: DOWN
+- tapOn: ${MAESTRO_LOGOUT}
+- extendedWaitUntil:
+    visible: ${MAESTRO_LOGOUT_CONFIRMED}
+    timeout: 30000
+- assertNotVisible: ${MAESTRO_BANK_ACTIVE}
+- assertNotVisible: ${MAESTRO_BANK_REVOKED}
+- assertNotVisible: ${MAESTRO_BANK_TRANSACTIONS}
+- assertNotVisible: ${MAESTRO_BANK_LAST_SYNC_PRESENT}

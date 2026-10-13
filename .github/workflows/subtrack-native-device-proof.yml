@@ -57,6 +57,8 @@ jobs:
           corepack enable
           corepack pnpm install --frozen-lockfile
           corepack pnpm --filter @subtrack/domain build:lifecycle
+          corepack pnpm --filter @subtrack/domain build:bank
+          corepack pnpm --filter @subtrack/synthetic build:bank
           bash apps/mobile/scripts/private-runtime-tools.sh
           node apps/mobile/scripts/private-runtime-ca-test.mjs
           node apps/mobile/scripts/private-runtime-loader-diagnostics-test.mjs
@@ -73,6 +75,7 @@ jobs:
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-renewals.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-renewals-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-billing-month.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-billing-month-test.mjs
           corepack pnpm --filter @subtrack/api exec vitest run test/private-mobile-renewals-receipt.spec.ts --coverage --coverage.include=test/private-mobile-renewals-receipt.ts --coverage.thresholds.lines=100 --coverage.thresholds.statements=100 --coverage.thresholds.functions=100 --coverage.thresholds.branches=100
+          node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-bank.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-bank-test.mjs
           bash tools/database/private-mobile-descriptor.spec.sh
       - name: Android emulator verified shared-library prerequisite
         if: matrix.platform == 'android'

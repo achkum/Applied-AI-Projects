@@ -23,3 +23,18 @@ PLAN GO for the proposed additive journey. Preserve all twelve parent screenshot
 Connect, repeated Sync/dedup, API+app restart/fresh read, retained disconnect/restart, purge warning/cancel with unchanged receipt, explicit purge and final API+app restart/empty read are appropriate. UI asserts real persisted status/count/last-sync and private-hide/logout; counts/digest alone are not status evidence. Conflict, uncertainty or mismatch fails qualification without automatic retry. Only exact accepted-bank-active.png, accepted-bank-retained.png and accepted-bank-purged.png are added, copied after all assertions; raw/failed artifacts remain private and cleaned. Public bank additions are fixed booleans and bounded counts only, no bank IDs/descriptors/rows/digests/credentials.
 
 Existing task roster covers the named driver/env/helper/tests/flows/workflow paths. Final source review and helper failure/shape/allowlist/manual-preservation tests precede execution. Actual native evidence, backend authenticated two-owner PG qualifier and parent acceptance remain separate gates. No source/Git/heavy tests performed for this plan review.
+
+## Final installed wiring source review
+
+SOURCE GO, no findings. Inspected helper, driver, bilingual label projection, seven Maestro flows and mandatory workflow policy command. Strict private receipt shape/count/digest validation and exact archived manual tracking equality apply after every flow/API restart. Zero baseline then connect/sync/repeat/retain/cancel/purge/final restart transitions require exact receipts, including dedup digest and zero deleted rows. Mutations originate solely in installed UI; no driver mutation, preseed or retry is introduced. Fresh verification, connected/revoked status, account/transaction count and non-null last-sync assertions plus logout/private-hide persist through real app/API restarts. The synced count must exceed1 to avoid matching the lone account count.
+
+Parent twelve screenshots and all receipt fields/C16 boundaries remain; only three exact successful bank names are additive. Accepted evidence copying occurs after complete bank qualification, and public bank fields are ten fixed booleans, never bank digests/IDs/rows/credentials. Private failure artifacts remain subject to owned cleanup. Added runtime export build prerequisites reuse reviewed package scripts; no pin/model/grant changes.
+
+Author4 focused policy tests/all metrics100, lint/syntax/YAML evidence acknowledged without rerun. Actual native/API/PG/readback/pixels/cleanup acceptance remains pending.
+
+Verified SHA-256:
+
+- private-runtime-bank.mjs: 75b70638659c80b4b385fd2fef4ac87c4426e5adf51773d898f831c9fc099f77
+- private-runtime-bank-test.mjs: 004b453a09763d0609b02da33d13b8efb49bf11bd212a31a4099ea5efbde0eeb
+- private-runtime-device.mjs: 568fecd5b67ea732a4f0ebdbba5da16c5016653e36ed8d89102494daa3539219
+- private-runtime-flow-env.mjs: b3cce7ae8d8dc33a306090a169d9278c7558d8f7fc4c580d51d82a88b20774c9

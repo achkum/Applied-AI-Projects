@@ -11,7 +11,12 @@ export function flowEnvironment(locale = 'en') {
     ),
   );
   const onboarding = catalog.onboarding;
+  const bank = onboarding.nativeBank;
+  const bankLabels = Object.fromEntries(Object.entries(bank).map(([key,value]) => [`MAESTRO_BANK_${key.replace(/([A-Z])/g, '_$1').toUpperCase()}`,value]));
+  bankLabels.MAESTRO_BANK_LAST_SYNC_NEVER=bank.lastSync.replace('%{date}',bank.never);
+  bankLabels.MAESTRO_BANK_LAST_SYNC_PRESENT=bank.lastSync.replace('%{date}','.+');
   return {
+    ...bankLabels,
     MAESTRO_MONTH_OPEN: onboarding.billingMonth.open,
     MAESTRO_MONTH_TITLE: onboarding.billingMonth.title,
     MAESTRO_MONTH_NEXT: onboarding.billingMonth.next,
