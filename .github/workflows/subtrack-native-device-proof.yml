@@ -59,6 +59,7 @@ jobs:
           bash apps/mobile/scripts/private-runtime-tools.sh
           node apps/mobile/scripts/private-runtime-ca-test.mjs
           node apps/mobile/scripts/private-runtime-loader-diagnostics-test.mjs
+          node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-fatal-excerpt.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-fatal-excerpt-test.mjs
           bash tools/database/private-mobile-descriptor.spec.sh
       - name: Android emulator verified shared-library prerequisite
         if: matrix.platform == 'android'

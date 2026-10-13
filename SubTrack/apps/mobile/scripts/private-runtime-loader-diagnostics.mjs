@@ -27,6 +27,50 @@ export function nativeFailureCategory(text) {
 
 export function nativeFailureReasons(text) {
   const reasons = [];
+  if (
+    /Included build[^\n]*does not exist|Project directory[^\n]*does not exist/i.test(
+      text,
+    )
+  )
+    reasons.push('gradle-included-build-missing');
+  if (
+    /Error resolving plugin|Plugin \[[^\n]*was not found|Could not resolve plugin artifact/i.test(
+      text,
+    )
+  )
+    reasons.push('gradle-plugin-resolution');
+  if (
+    /Could not resolve all (files|dependencies|artifacts)|Could not find [^\n]*:|Could not resolve [^\n]*:/i.test(
+      text,
+    )
+  )
+    reasons.push('gradle-dependency-resolution');
+  if (
+    /A problem occurred starting process|Cannot run program[^\n]*node|Process[^\n]*node[^\n]*finished with non-zero/i.test(
+      text,
+    )
+  )
+    reasons.push('gradle-node-process');
+  if (
+    /Unsupported class file major version|requires Java [0-9]+|No matching toolchains found/i.test(
+      text,
+    )
+  )
+    reasons.push('gradle-java-toolchain');
+  if (
+    /SDK location not found|Failed to find Platform SDK|Failed to find Build Tools revision/i.test(
+      text,
+    )
+  )
+    reasons.push('gradle-sdk-location');
+  if (
+    /Could not compile (settings|build) file|Script compilation (error|failed)/i.test(
+      text,
+    )
+  )
+    reasons.push('gradle-script-compilation');
+  if (/Could not get unknown property|Could not find method/i.test(text))
+    reasons.push('gradle-script-api');
   if (/PluginError|Failed to resolve plugin/.test(text))
     reasons.push('expo-plugin-resolution');
   if (/Cannot find module|Module not found|Unable to resolve module/.test(text))
@@ -62,8 +106,11 @@ export function nativeFailureReasons(text) {
     /JSON::ParserError|unexpected token at|JSON[^\n]*(parse|invalid)/i.test(
       text,
     )
-  )
+  ) {
+    if (/unexpected token at\s*['"]\s*['"]/i.test(text))
+      reasons.push('pods-empty-json');
     reasons.push('pods-ruby-json');
+  }
   if (
     /SyntaxError|syntax error|unexpected (tCONSTANT|tIDENTIFIER|end-of-input|keyword_end)/i.test(
       text,
@@ -157,12 +204,28 @@ const knownRubyMethods = new Set([
   'install_modules_dependencies',
 ]);
 const knownRubyKeywords = new Set(['privacy_file_aggregation_enabled']);
+const knownRubySources = new Set([
+  'autolinking_manager.rb',
+  'native_modules.rb',
+  'react_native_pods.rb',
+  'codegen_utils.rb',
+  'local_podspec_patch.rb',
+  'sandbox.rb',
+  'json/common.rb',
+]);
 export function knownPodFailureContext(text) {
   const specs = new Set();
   const rubyMethods = new Set();
   const podfileLines = new Set();
   const rubyKeywords = new Set();
+  const rubySources = new Set();
   for (const line of text.split(/\r?\n/)) {
+    // Source paths stay private; only exact trusted basenames and bounded lines leave.
+    for (const match of line.matchAll(
+      /(?:^|[\s/\\])((?:json\/)?[A-Za-z_]+\.rb):([1-9][0-9]{0,3})(?=[:\s]|$)/g,
+    ))
+      if (knownRubySources.has(match[1]))
+        rubySources.add(`${match[1]}:${match[2]}`);
     for (const match of line.matchAll(/\bPodfile:([1-9][0-9]{0,3})\b/g))
       podfileLines.add(Number(match[1]));
     if (
@@ -189,6 +252,7 @@ export function knownPodFailureContext(text) {
     rubyMethods: [...rubyMethods],
     rubyKeywords: [...rubyKeywords],
     podfileLines: [...podfileLines].slice(0, 8),
+    rubySources: [...rubySources].slice(0, 8),
   };
 }
 

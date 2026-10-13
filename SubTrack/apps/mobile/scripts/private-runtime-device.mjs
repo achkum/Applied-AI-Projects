@@ -22,6 +22,11 @@ import {
   nativeFailureCategory,
   buildFailureDiagnostic,
 } from './private-runtime-loader-diagnostics.mjs';
+import {
+  failingBuildLog,
+  fixtureDiagnosticSecrets,
+  fatalBuildExcerpt,
+} from './private-runtime-fatal-excerpt.mjs';
 
 let currentPhase = 'runtime-preconditions';
 const driverPhases = new Set([
@@ -248,24 +253,38 @@ async function main() {
           return '';
         }
       };
-      const log = [
-        'prebuild.log',
-        'pods.log',
-        'build.log',
-        'install.log',
-        'metro.log',
-        'compile-install.log',
-      ]
-        .map(readPrivate)
-        .join('\n');
-      const diagnostic = buildFailureDiagnostic(
-        readPrivate('build-phase.json'),
-        log,
-      );
+      const phaseJson = readPrivate('build-phase.json');
+      const childLog = failingBuildLog(phaseJson);
+      const log = childLog ? readPrivate(childLog) : '';
+      const diagnostic = buildFailureDiagnostic(phaseJson, log);
       if (diagnostic)
         console.error(
-          `ST244_NATIVE build_phase=${diagnostic.phase} event=failed exit_code=${diagnostic.exitCode} category=${diagnostic.category} reason_list=${diagnostic.reasons.join(',') || 'none'} known_specs=${diagnostic.specs.join(',') || 'none'} known_ruby_methods=${diagnostic.rubyMethods.join(',') || 'none'} known_ruby_keywords=${diagnostic.rubyKeywords.join(',') || 'none'} podfile_lines=${diagnostic.podfileLines.join(',') || 'none'}`,
+          `ST244_NATIVE build_phase=${diagnostic.phase} event=failed exit_code=${diagnostic.exitCode} category=${diagnostic.category} reason_list=${diagnostic.reasons.join(',') || 'none'} known_specs=${diagnostic.specs.join(',') || 'none'} known_ruby_methods=${diagnostic.rubyMethods.join(',') || 'none'} known_ruby_keywords=${diagnostic.rubyKeywords.join(',') || 'none'} podfile_lines=${diagnostic.podfileLines.join(',') || 'none'} known_ruby_sources=${diagnostic.rubySources.join(',') || 'none'}`,
         );
+      let secrets = null;
+      try {
+        if ((statSync(config.keyBundlePath).mode & 0o077) === 0) {
+          secrets = fixtureDiagnosticSecrets(
+            config,
+            JSON.parse(readFileSync(config.keyBundlePath, 'utf8')),
+          );
+        }
+      } catch {
+        // Missing/malformed actual secrets withhold diagnostics, never use guessed values.
+      }
+      const excerpt = fatalBuildExcerpt({
+        nativeBuild: currentPhase === 'native-build',
+        phaseJson,
+        log,
+        secrets,
+      });
+      if (excerpt.withheld)
+        console.error(
+          `ST244_NATIVE fatal_excerpt=withheld reason=${excerpt.withheld}`,
+        );
+      else
+        for (const line of excerpt.lines)
+          console.error(`ST244_NATIVE fatal_excerpt=${line}`);
     }
     // Raw API/tool errors can contain credentials: retain privately, never print them.
     console.error(

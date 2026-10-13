@@ -132,6 +132,7 @@ assert.deepEqual(
     rubyMethods: [],
     rubyKeywords: [],
     podfileLines: [],
+    rubySources: [],
   },
 );
 assert.deepEqual(
@@ -149,6 +150,7 @@ assert.deepEqual(
     rubyMethods: ['exists?'],
     rubyKeywords: [],
     podfileLines: [],
+    rubySources: [],
   },
 );
 const privateLog =
@@ -158,12 +160,19 @@ assert.deepEqual(knownPodFailureContext(privateLog), {
   rubyMethods: [],
   rubyKeywords: [],
   podfileLines: [],
+  rubySources: [],
 });
 assert.deepEqual(
   knownPodFailureContext(
     "Error installing boost_private\nundefined method `exists?private'",
   ),
-  { specs: [], rubyMethods: [], rubyKeywords: [], podfileLines: [] },
+  {
+    specs: [],
+    rubyMethods: [],
+    rubyKeywords: [],
+    podfileLines: [],
+    rubySources: [],
+  },
 );
 assert.deepEqual(
   knownPodFailureContext(
@@ -174,13 +183,20 @@ assert.deepEqual(
     rubyMethods: [],
     rubyKeywords: ['privacy_file_aggregation_enabled'],
     podfileLines: [43],
+    rubySources: [],
   },
 );
 assert.deepEqual(
   knownPodFailureContext(
     'from MyPodfile:12\nPodfile:0\nPodfile:10000\nPodfile:-1\nunknown keyword: :privacy_file_aggregation_enabled_private\nunknown keyword: :private_canary',
   ),
-  { specs: [], rubyMethods: [], rubyKeywords: [], podfileLines: [] },
+  {
+    specs: [],
+    rubyMethods: [],
+    rubyKeywords: [],
+    podfileLines: [],
+    rubySources: [],
+  },
 );
 assert.equal(
   knownPodFailureContext(
@@ -204,6 +220,63 @@ for (const json of [
   '{"phase":"prebuild","exitCode":1,"secret":"private-canary"}',
 ])
   assert.equal(buildFailureDiagnostic(json, 'private-canary'), null);
+for (const [log, reason] of [
+  [
+    "Included build '/private/canary' does not exist",
+    'gradle-included-build-missing',
+  ],
+  ['Error resolving plugin private-canary', 'gradle-plugin-resolution'],
+  [
+    'Could not resolve all files for configuration private-canary',
+    'gradle-dependency-resolution',
+  ],
+  [
+    "Process 'command node' finished with non-zero exit value 1",
+    'gradle-node-process',
+  ],
+  ['Unsupported class file major version 65', 'gradle-java-toolchain'],
+  ['SDK location not found', 'gradle-sdk-location'],
+  [
+    'Could not compile settings file private-canary',
+    'gradle-script-compilation',
+  ],
+  ['Could not get unknown property private-canary', 'gradle-script-api'],
+  ["JSON::ParserError unexpected token at ''", 'pods-empty-json'],
+]) {
+  assert.equal(nativeFailureCategory(log), reason);
+  assert.equal(
+    JSON.stringify(nativeFailureReasons(log)).includes('private-canary'),
+    false,
+  );
+}
+assert.deepEqual(
+  knownPodFailureContext(
+    '/private/canary/autolinking_manager.rb:170:in parse\n/private/canary/json/common.rb:216:in parse',
+  ).rubySources,
+  ['autolinking_manager.rb:170', 'json/common.rb:216'],
+);
+assert.deepEqual(
+  knownPodFailureContext(
+    '/private/canary/secret.rb:12\n/private/canary/not_autolinking_manager.rb:170\nautolinking_manager.rb:10000\nautolinking_manager.rb:0\nautolinking_manager.rb:170private-canary',
+  ).rubySources,
+  [],
+);
+const sourceDiagnostic = buildFailureDiagnostic(
+  '{"phase":"ios-pods","exitCode":1}',
+  '/private/password-canary/autolinking_manager.rb:170:in parse\nJSON::ParserError',
+);
+assert.equal(
+  JSON.stringify(sourceDiagnostic).includes('password-canary'),
+  false,
+);
+assert.equal(
+  knownPodFailureContext(
+    Array.from({ length: 20 }, (_, i) => `codegen_utils.rb:${i + 1}`).join(
+      '\n',
+    ),
+  ).rubySources.length,
+  8,
+);
 console.log(
   'Native loader diagnostics: missing libraries only, deduplication, private path/canary rejection and bounded output PASS',
 );

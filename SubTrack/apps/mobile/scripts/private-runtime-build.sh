@@ -16,7 +16,7 @@ set_build_phase prebuild
 pnpm exec expo prebuild --platform "$platform" --no-install > "$proof_root/private/prebuild.log" 2>&1
 if [[ "$platform" == android ]]; then
   set_build_phase android-compile
-  (cd android && ./gradlew :app:assembleDebug --no-daemon) > "$proof_root/private/build.log" 2>&1
+  (cd android && ./gradlew :app:assembleDebug --no-daemon --stacktrace) > "$proof_root/private/build.log" 2>&1
   set_build_phase android-install
   adb install -r android/app/build/outputs/apk/debug/app-debug.apk > "$proof_root/private/install.log" 2>&1
   set_build_phase android-loopback
@@ -32,7 +32,7 @@ else
   [[ -d /Applications/Xcode_15.4.app ]]
   [[ "$(xcodebuild -version | head -1)" == 'Xcode 15.4' ]]
   set_build_phase ios-pods
-  (cd ios && pod install) > "$proof_root/private/pods.log" 2>&1
+  (cd ios && pod install --verbose) > "$proof_root/private/pods.log" 2>&1
   set_build_phase ios-compile
   xcodebuild -workspace ios/SubTrack.xcworkspace -scheme SubTrack -configuration Debug \
     -sdk iphonesimulator -destination "id=${SUBTRACK_SIMULATOR_UDID:?}" \
