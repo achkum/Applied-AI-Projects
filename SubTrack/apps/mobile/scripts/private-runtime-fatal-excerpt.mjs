@@ -125,11 +125,19 @@ export function fatalBuildExcerpt({ nativeBuild, phaseJson, log, secrets }) {
     return withheld('child-log-unavailable');
   const lines = log.split(/\r?\n/);
   // Positive fatal blocks only: no raw-tail fallback or unrelated output.
-  const start = lines.findIndex((line) =>
-    /^\s*(?:\* What went wrong:|\[!\]|(?:fatal )?error:|FAILURE: Build failed|.*JSON::ParserError)/i.test(
+  // CocoaPods may print its generic support footer before the structured
+  // exception report. Select the exact parser class block first, not its footer.
+  const parserStart = lines.findIndex((line) => {
+    // eslint-disable-next-line no-control-regex
+    const plain = line.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '');
+    return /^\s*JSON::ParserError(?:\s*[-:]|\s*$)/.test(plain);
+  });
+  const genericStart = lines.findIndex((line) =>
+    /^\s*(?:\* What went wrong:|\[!\]|(?:fatal )?error:|FAILURE: Build failed)/i.test(
       line,
     ),
   );
+  const start = parserStart >= 0 ? parserStart : genericStart;
   if (start < 0) return withheld('fatal-block-unavailable');
   const block = [];
   for (const line of lines.slice(start, start + 12)) {
