@@ -13,5 +13,7 @@
   "apps/mobile/app/_layout.tsx": "7d9ebf8da6ff6447730fcb8b17bfe1c31e442ebc99a666c5367803497fc227d2",
   "packages/ui-tokens/generated/billing-month.native.json": "2424ab385b8f079f0b61fc3f728b14a87c845f8e73a427b02219447679358f25",
   "apps/mobile/assets/fonts/billing-month-fonts.json": "2c078797c564fc426e91bda1e7dbb47258793d783440ccc34edae64726b59c1f",
-  "apps/mobile/src/context/ThemeContext.test.tsx": "dde85cc387d25370bc3eb1ed44828d102168584b0aa25910853d08a243134858"
+  "apps/mobile/src/context/ThemeContext.test.tsx": "dde85cc387d25370bc3eb1ed44828d102168584b0aa25910853d08a243134858",
+  "packages/ui-tokens/scripts/billing-month-generate.mjs": "8843344bfcc8b4280da9cb85dfb589bb03e402743a91a048c72ad17ab16cf510",
+  "packages/ui-tokens/test/billing-month.test.mjs": "8fa9ad2eaa9c36db2e9f0248ca4e1630dcebb1656990255b1f8447bd504769e4"
 }
