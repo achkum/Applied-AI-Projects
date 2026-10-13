@@ -408,6 +408,7 @@ try {
       await page.getByRole('button', { name: copy.login.simulatorAction, exact: true }).click();
       await page.getByRole('button', { name: /Edited Proof/ }).click();
       await page.getByText(manual.expectedDate + ': 2026-12-20', { exact: true }).waitFor(); await capture('edit-relogin-detail');
+      await page.setViewportSize({ width: 390, height: 844 });
       await page.getByRole('button', { name: edit.title, exact: true }).click();
       await editRegion().getByLabel(manual.name, { exact: true }).fill('Final Edited Proof');
       await editRegion().getByLabel(manual.amount, { exact: true }).fill(locale === 'sv' ? '90,12' : '90.12');
@@ -428,10 +429,16 @@ try {
       await editRegion().getByText(edit.conflict, { exact: true }).waitFor();
       assert.equal(await editRegion().getByLabel(manual.name, { exact: true }).inputValue(), 'Final Edited Proof');
       assert.equal(await editRegion().getByLabel(manual.name, { exact: true }).isDisabled(), true);
-      await editRegion().getByRole('heading', { name: edit.current, exact: true }).waitFor(); await capture('edit-conflict-narrow');
+      await editRegion().getByRole('heading', { name: edit.current, exact: true }).waitFor();
+      assert.equal(page.viewportSize().width, 390);
+      assert(await page.evaluate(() => globalThis.innerWidth === 390 && globalThis.document.documentElement.scrollWidth <= globalThis.document.documentElement.clientWidth));
+      await capture('edit-conflict-narrow');
       editPhase('EDIT_REVIEW'); await editRegion().getByRole('button', { name: edit.review, exact: true }).focus(); await page.keyboard.press('Enter');
       await editRegion().getByRole('button', { name: edit.save, exact: true }).click();
-      await page.getByText(edit.confirmed, { exact: true }).waitFor(); await capture('edit-final-narrow');
+      await page.getByText(edit.confirmed, { exact: true }).waitFor();
+      assert.equal(page.viewportSize().width, 390);
+      assert(await page.evaluate(() => globalThis.innerWidth === 390 && globalThis.document.documentElement.scrollWidth <= globalThis.document.documentElement.clientWidth));
+      await capture('edit-final-narrow');
       await page.setViewportSize({ width: 1280, height: 900 }); await capture('edit-final');
       const finalCookies = (await context.cookies()).filter(item => ['st_v2_access', 'st_v2_binding', 'st_v2_chain'].includes(item.name))
         .map(item => item.name + '=' + item.value).join('; ');
