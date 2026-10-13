@@ -681,6 +681,7 @@ try {
         const visual = await pauseButton.evaluate((element, expectedState) => {
           const style = globalThis.getComputedStyle(element);
           const rgb = value => {
+            if (/^#[0-9a-f]{3}$/i.test(value)) value = `#${[...value.slice(1)].map(digit => digit + digit).join('')}`;
             if (/^#[0-9a-f]{6}$/i.test(value)) return [1, 3, 5].map(i => parseInt(value.slice(i, i + 2), 16));
             const channels = /^rgb\(\s*(\d+),\s*(\d+),\s*(\d+)\s*\)$/.exec(value);
             if (!channels) throw new Error('Primary color must be opaque RGB');
