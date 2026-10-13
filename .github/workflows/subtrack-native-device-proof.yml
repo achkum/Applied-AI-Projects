@@ -67,6 +67,8 @@ jobs:
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-fatal-excerpt.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-fatal-excerpt-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-edit-status.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-edit-status-test.mjs
           corepack pnpm --filter @subtrack/api exec vitest run test/private-mobile-tracking-receipt.spec.ts --coverage --coverage.include=test/private-mobile-tracking-receipt.ts --coverage.thresholds.lines=100 --coverage.thresholds.statements=100 --coverage.thresholds.functions=100 --coverage.thresholds.branches=100
+          node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-renewals.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-renewals-test.mjs
+          corepack pnpm --filter @subtrack/api exec vitest run test/private-mobile-renewals-receipt.spec.ts --coverage --coverage.include=test/private-mobile-renewals-receipt.ts --coverage.thresholds.lines=100 --coverage.thresholds.statements=100 --coverage.thresholds.functions=100 --coverage.thresholds.branches=100
           bash tools/database/private-mobile-descriptor.spec.sh
       - name: Android emulator verified shared-library prerequisite
         if: matrix.platform == 'android'

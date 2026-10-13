@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import type { ProfileView, PrivateOwnerSubscriptionView } from '../../../../../packages/contracts/generated/types.gen';
 import { parseProfilePatch } from '@subtrack/contracts/profile';
 import { parsePrivateMobileManualEdit } from '@subtrack/contracts/private-mobile';
@@ -64,6 +64,7 @@ export function NativePersonalScreen() {
     if (session.phase === 'active') void load();
     return () => { generation.current++; pending.current = false; };
   }, [session.phase]);
+  useFocusEffect(useCallback(() => { if (session.phase === 'active') void load(); }, [session.phase]));
   async function action(operation: (token: string, signal: AbortSignal) => Promise<(ticket: number) => void | Promise<void>>) {
     if (pending.current || session.phase !== 'active') return;
     const ticket = ++generation.current; pending.current = true; setLoading(true); setMessage('');
@@ -126,6 +127,7 @@ export function NativePersonalScreen() {
         return () => { setMode(current.mode); setItems(page.items); setNextCursor(page.nextCursor); };
       }); }) : null}
       {profile?.profileComplete && mode === 'just-me' ? <>
+        {button(t('onboarding.nativeRenewals.open'), () => router.push('/personal-home'))}
         {items.length === 0 && !loading ? <Text style={text}>{t('onboarding.ownerSubscriptions.empty')}</Text> : null}
         {items.map(item => <View key={item.id} style={styles.field}><Text style={text}>{item.customName ?? item.merchantName ?? t('onboarding.ownerSubscriptions.categoryFallback')}</Text>
           <Text style={text}>{Object.prototype.hasOwnProperty.call(catalogs[locale].onboarding.ownerSubscriptions.category, item.categoryCode)

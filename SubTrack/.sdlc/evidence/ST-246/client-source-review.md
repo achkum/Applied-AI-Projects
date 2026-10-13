@@ -1,0 +1,13 @@
+# ST-246 independent client/privacy source review
+
+Disposition: source GO, 2026-10-13. Reviewed working source against bd04326, task, repository instructions, Constitution, F6.4/UF07 and unchanged NativeSessionCore operation retirement. No feature edits, heavy test reruns or Git actions.
+
+The authenticated personal list exposes the agenda only after current profile/Just me setup. The agenda independently repeats those gates under current Bearer authority, traverses to terminal cursor before showing any rows, rejects duplicate identifiers/cursor cycles and displays only ACTIVE explicitly saved dates. Today is obtained from local calendar components; canonical dates are mapped to civil-day ordinals for an inclusive today..day29 window without DST duration drift. Sorting/grouping is stable by date then identity. Money uses the existing exact bigint formatter. Copy describes saved expectations and explicit refresh, without history, totals, provider-charge or concurrent-snapshot claims.
+
+Focus entry clears stale content and reloads; returning to the personal list refreshes that list so Edit/status navigation reads current saved state. Blur aborts only the screen's obsolete readonly traversal and absorbs its stale cancellation inside the operation, preserving otherwise valid Core credentials. Genuine current request faults still reject through unchanged Core retirement. Generation checks, phase visibility and logout immediately suppress late/old-owner rows. Explicit refresh, return/setup/empty/loading/error states, accessible input/button feedback, bilingual catalogs and approved token patterns are retained. No external HTML concept or redesign is adopted by this source approval.
+
+Independently inspected meaningful selector/mounted assertions for terminal pagination, repeated cursors/duplicate identifiers, authority/setup gate, huge Money, local midnight/leap/year/autumn DST boundaries, focus-return, refresh, blur cancellation, genuine faults and logout. Author reports selector6/6 with43/43 branches100%, mounted32/32 plus focused follow-ups, layout3/3, typecheck/scoped lint and catalog parity; reviewer did not rerun them.
+
+Reviewed source digests: selector `3534f5c22720f1542678e13805466a653e4e84191492e8a1b2f3854f29512583`; agenda `e93ffa1bba178f88d6aa7f54bda4d9d6f1750fae46979148e8341f1cddd1b892`; personal list `159cff19e7129558ebaaf801b68ff3f30b869e74ca2f90f17a3f94a62e01100c`.
+
+No blocking client/privacy source finding. Actual final-head installed Android/iOS Edit/Pause/focus/restart journeys, durable backend receipts, cleanup and applicable parent/native gates remain pending. This source GO neither accepts native behavior nor completes the broader ST-082 Home/history scope.

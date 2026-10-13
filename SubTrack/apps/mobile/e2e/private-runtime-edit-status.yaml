@@ -21,6 +21,12 @@ appId: se.subtrack.app
 - inputText: Native edited restart proof
 - hideKeyboard
 - scrollUntilVisible:
+    element: ${MAESTRO_DATE}
+    direction: DOWN
+- tapOn: ${MAESTRO_DATE}
+- eraseText
+- hideKeyboard
+- scrollUntilVisible:
     element: ${MAESTRO_SAVE_EDIT}
     direction: DOWN
 - tapOn: ${MAESTRO_SAVE_EDIT}

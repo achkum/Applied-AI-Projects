@@ -211,6 +211,15 @@
       "tracking": "These actions update tracking only. They do not cancel your provider subscription.",
       "statusSaved": "Tracking status saved and read back."
     },
+    "nativeRenewals": {
+      "title": "Expected renewals",
+      "expected": "Saved active subscriptions expected today and over the next 29 days. Dates and amounts are saved expectations, not confirmed charges. Refresh to read the latest saved subscriptions.",
+      "empty": "No saved active renewal dates in this 30-day window.",
+      "setup": "Complete your profile and choose Just me before viewing renewals.",
+      "refresh": "Refresh expected renewals",
+      "list": "Back to subscriptions",
+      "open": "View expected renewals"
+    },
     "nativePersonal": {
       "title": "Your personal subscriptions",
       "demo": "Development simulator: fresh BankID verification uses the synthetic Alice account. This is not real BankID.",

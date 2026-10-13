@@ -1,3 +1,4 @@
+import {renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
 import {qualifyNativeEditStatus,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS} from './private-runtime-edit-status.mjs';
 // Local installed-device qualification only. No EAS, cloud Maestro or store upload.
 import assert from 'node:assert/strict';
@@ -28,7 +29,10 @@ import {
   fixtureDiagnosticSecrets,
   fatalBuildExcerpt,
 } from './private-runtime-fatal-excerpt.mjs';
-import { identifierToolDiagnostic } from './private-runtime-identifier-diagnostic.mjs';
+import {
+  identifierToolDiagnostic,
+  enrollmentToolDiagnostic,
+} from './private-runtime-identifier-diagnostic.mjs';
 import { initialIdentifierFlow } from './private-runtime-flow-policy.mjs';
 import { graphStatus } from './private-runtime-bundle-policy.mjs';
 
@@ -50,6 +54,10 @@ const driverPhases = new Set([
   'tracking-readback-before',
   'tracking-api-restart',
   'tracking-readback-after',
+  'flow-renewals',
+  'flow-renewals-empty',
+  'renewals-readback-before',
+  'renewals-archived-readback',
   'accepted-evidence',
   'fixture-dispose',
 ]);
@@ -138,7 +146,8 @@ async function main() {
         code = event.code;
     },
   });
-  const labels = flowEnvironment();
+  const renewalDate=renewalCandidateDate();
+  const labels = {...flowEnvironment(),MAESTRO_RENEWAL_DATE:renewalDate};
   async function flow(name, extraEnv = {}) {
     markPhase(`flow-${name}`);
     await run(
@@ -163,7 +172,7 @@ async function main() {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const file = join(directory, entry.name);
       if (entry.isDirectory()) copyAcceptedScreenshots(file);
-      else if (acceptedNativeScreenshot(entry.name))
+      else if (acceptedNativeScreenshot(entry.name)||acceptedNativeRenewalsScreenshot(entry.name))
         copyFileSync(file, join(publicDir, entry.name));
     }
   }
@@ -216,10 +225,12 @@ async function main() {
       assert.match(receipt.markerHash, /^[a-f0-9]{64}$/);
       assert.match(receipt.subscriptionDigest, /^[a-f0-9]{64}$/);
     }
+    const originalRenewals=await qualifyNativeRenewalsBeforeEdit({flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),phase:markPhase});
     const editedTracking=await qualifyNativeEditStatus({flow,restart:()=>harness.restart(),readback:()=>harness.readbackTrackingReceipt(),phase:markPhase});
+    const renewals=await qualifyNativeRenewalsAfterEdit({original:originalRenewals,flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),tracking:()=>harness.readbackTrackingReceipt(),phase:markPhase});
     markPhase('accepted-evidence');
     copyAcceptedScreenshots(privateDir);
-    for (const name of ACCEPTED_NATIVE_SCREENSHOTS) {
+    for (const name of [...ACCEPTED_NATIVE_SCREENSHOTS,...ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS]) {
       assert.ok(statSync(join(publicDir, name)).size > 0);
     }
     const apk = join(app, 'android/app/build/outputs/apk/debug/app-debug.apk');
@@ -254,6 +265,7 @@ async function main() {
           subscriptionCount: 1,
           acknowledgedLogoutUi: true,
           ...editedTracking,
+          ...renewals,
         },
         null,
         2,
@@ -348,6 +360,44 @@ async function main() {
       else
         console.error(
           `ST244_NATIVE identifier_diagnostic=fixed commands=${diagnostic.commands.join(',') || 'none'} reasons=${diagnostic.reasons.join(',') || 'none'} targets=${diagnostic.targets.join(',') || 'none'} metro=${diagnostic.metro.join(',') || 'none'} modules=${diagnostic.modules.join(',') || 'none'}`,
+        );
+    }
+    if (currentPhase === 'flow-enroll-add') {
+      const readTool = (name) => {
+        try {
+          return readFileSync(join(privateDir, name), 'utf8');
+        } catch {
+          return '';
+        }
+      };
+      // Only the exact enrollment child tool log and Metro. Never API output,
+      // other flows, raw excerpts, typed values or failed screenshots.
+      const diagnostic = enrollmentToolDiagnostic({
+        phase: currentPhase,
+        enrollment: readTool('enroll-add.log'),
+        metro: readTool('metro.log'),
+        labels: {
+          otp: labels.MAESTRO_OTP_LABEL,
+          verifyOtp: labels.MAESTRO_VERIFY_OTP,
+          verifyBankId: labels.MAESTRO_VERIFY_BANKID,
+          profileName: labels.MAESTRO_PROFILE_NAME,
+          saveProfile: labels.MAESTRO_SAVE_PROFILE,
+          justMe: labels.MAESTRO_JUST_ME,
+          add: labels.MAESTRO_ADD,
+          subscriptionName: labels.MAESTRO_SUBSCRIPTION_NAME,
+          category: labels.MAESTRO_CATEGORY,
+          amount: labels.MAESTRO_AMOUNT,
+          saveSubscription: labels.MAESTRO_SAVE_SUBSCRIPTION,
+          saved: labels.MAESTRO_SAVED,
+        },
+      });
+      if (diagnostic.withheld)
+        console.error(
+          `ST244_NATIVE enrollment_diagnostic=withheld reason=${diagnostic.withheld}`,
+        );
+      else
+        console.error(
+          `ST244_NATIVE enrollment_diagnostic=fixed commands=${diagnostic.commands.join(',') || 'none'} reasons=${diagnostic.reasons.join(',') || 'none'} targets=${diagnostic.targets.join(',') || 'none'} metro=${diagnostic.metro.join(',') || 'none'} modules=${diagnostic.modules.join(',') || 'none'}`,
         );
     }
     // Raw API/tool errors can contain credentials: retain privately, never print them.

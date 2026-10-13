@@ -1,15 +1,17 @@
 import React from 'react';
 import { Pressable, ScrollView, Text, TextInput } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import {useFocusEffect} from 'expo-router';
 import { NativePersonalScreen } from './NativePersonalScreen';
 import { NativeSessionProvider } from '@/state/NativeSession';
 import { NativeSessionCore } from '@/state/NativeSessionCore';
 import * as api from '@/api/privateMobileApi';
 import { catalogs } from '@subtrack/i18n';
 import type { NativeBundleStore } from '@/utils/secureSessionBundle';
+const mockPush = jest.fn();
 const mockSetLocale = jest.fn(); const mockSetMode = jest.fn();
 jest.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 6 }));
-jest.mock('expo-router', () => ({ useRouter: () => ({ replace: jest.fn() }) }));
+jest.mock('expo-router', () => ({ useFocusEffect: jest.fn(), useRouter: () => ({ replace: jest.fn(), push: mockPush }) }));
 jest.mock('@/api/privateMobileApi', () => ({ verifiedNativeLogin: jest.fn(), revokeNativeSession: jest.fn(), rotateNativeSession: jest.fn(), completeNativeEnrollment: jest.fn(),
   readNativeProfile: jest.fn(), saveNativeProfile: jest.fn(), readNativeMode: jest.fn(), chooseNativeJustMe: jest.fn(), readNativeSubscriptions: jest.fn(), editNativeSubscription: jest.fn(), updateNativeSubscriptionStatus: jest.fn(), createNativeSubscription: jest.fn() }));
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ ...jest.requireActual('../signature/testUtils/contextMocks').makeTheme(false), setMode: mockSetMode }) }));
@@ -259,4 +261,17 @@ it('legacy category draft uses the accepted fallback until the owner chooses an 
  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));expect(screen.queryByText('onboarding.ownerSubscriptions.category.LEGACY_CATEGORY')).toBeNull();
  expect(screen.getAllByText(copy.ownerSubscriptions.categoryFallback).length).toBeGreaterThan(0);
  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativePersonal.invalid);expect(api.editNativeSubscription).not.toHaveBeenCalled();
+});
+
+it('opens the native renewals agenda only after current profile and Just me readback',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});mount();
+ expect(screen.queryByRole('button',{name:copy.nativeRenewals.open})).toBeNull();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));
+ await screen.findByRole('button',{name:copy.nativeRenewals.open});fireEvent.press(screen.getByRole('button',{name:copy.nativeRenewals.open}));expect(mockPush).toHaveBeenCalledWith('/personal-home');
+});
+
+it('personal list focus after the agenda rereads changed saved rows',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:null}).mockResolvedValueOnce({items:[{...row,customName:'After agenda edit'}],nextCursor:null});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
+ const focused=jest.mocked(useFocusEffect).mock.calls[jest.mocked(useFocusEffect).mock.calls.length-1]![0];act(()=>{focused();});await screen.findByText('After agenda edit');expect(screen.queryByText(row.customName)).toBeNull();
 });

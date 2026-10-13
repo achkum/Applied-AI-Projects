@@ -211,6 +211,15 @@
       "tracking": "Åtgärderna ändrar bara bevakningen. De avslutar inte abonnemanget hos leverantören.",
       "statusSaved": "Bevakningsstatus har sparats och lästs tillbaka."
     },
+    "nativeRenewals": {
+      "title": "Förväntade förnyelser",
+      "expected": "Sparade aktiva abonnemang som väntas förnyas i dag och under de kommande 29 dagarna. Datum och belopp är sparade förväntningar, inte bekräftade debiteringar. Uppdatera för att läsa de senast sparade abonnemangen.",
+      "empty": "Inga sparade aktiva förnyelsedatum i den här 30-dagarsperioden.",
+      "setup": "Slutför din profil och välj Bara jag innan du visar förnyelser.",
+      "refresh": "Uppdatera förväntade förnyelser",
+      "list": "Tillbaka till abonnemang",
+      "open": "Visa förväntade förnyelser"
+    },
     "nativePersonal": {
       "title": "Dina personliga abonnemang",
       "demo": "Utvecklingssimulator: ny BankID-verifiering använder det syntetiska Alice-kontot. Detta är inte riktigt BankID.",

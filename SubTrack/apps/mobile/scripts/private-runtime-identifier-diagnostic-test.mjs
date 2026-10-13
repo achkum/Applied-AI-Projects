@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { identifierToolDiagnostic } from './private-runtime-identifier-diagnostic.mjs';
+import {
+  identifierToolDiagnostic,
+  enrollmentToolDiagnostic,
+} from './private-runtime-identifier-diagnostic.mjs';
 const labels = { createAccount: 'Create account', otp: 'Verification code' };
 function classify(overrides = {}) {
   return identifierToolDiagnostic({
@@ -8,6 +11,29 @@ function classify(overrides = {}) {
     identifier: '',
     metro: '',
     labels,
+    ...overrides,
+  });
+}
+const enrollmentLabels = {
+  otp: 'Verification code',
+  verifyOtp: 'Verify code',
+  verifyBankId: 'Verify with BankID',
+  profileName: 'Profile name',
+  saveProfile: 'Save profile',
+  justMe: 'Just me',
+  add: 'Add subscription',
+  subscriptionName: 'Subscription name',
+  category: 'Video streaming',
+  amount: 'Amount in SEK',
+  saveSubscription: 'Save',
+  saved: 'Saved subscription',
+};
+function enrollment(overrides = {}) {
+  return enrollmentToolDiagnostic({
+    phase: 'flow-enroll-add',
+    enrollment: '',
+    metro: '',
+    labels: enrollmentLabels,
     ...overrides,
   });
 }
@@ -140,6 +166,90 @@ test('adversarial credential and typed-value data never becomes output, even aro
       metro: `Cannot find module "${value}"`,
     });
     assert.ok(!JSON.stringify(result).includes(value));
+    assert.ok(!JSON.stringify(result).includes('canary'));
+  }
+});
+test('enrollment phase and complete static catalog roster are mandatory', () => {
+  assert.equal(
+    enrollment({ phase: 'flow-restart' }).withheld,
+    'outside-enrollment',
+  );
+  for (const value of [
+    null,
+    {},
+    { ...enrollmentLabels, otp: 123456 },
+    { ...enrollmentLabels, otp: '' },
+  ])
+    assert.equal(
+      enrollment({ labels: value }).withheld,
+      'trusted-target-unavailable',
+    );
+  assert.equal(
+    enrollment({ enrollment: null }).withheld,
+    'tool-input-unavailable',
+  );
+  assert.equal(
+    enrollment({ enrollment: 'unrelated typed private-canary' }).withheld,
+    'unknown-tool-diagnostic',
+  );
+});
+test('enrollment projects only fixed targets/commands and longest known overlapping labels', () => {
+  const result = enrollment({
+    enrollment:
+      Object.values(enrollmentLabels)
+        .map((label) => `Wait until ${label} visible FAILED`)
+        .join('\n') + '\nScroll until private-canary FAILED',
+  });
+  assert.deepEqual(result.targets, [
+    'otp-field',
+    'otp-verify',
+    'bankid-verify',
+    'profile-name',
+    'profile-save',
+    'just-me',
+    'add-open',
+    'subscription-name',
+    'subscription-category',
+    'subscription-amount',
+    'subscription-save',
+    'subscription-saved',
+  ]);
+  assert.deepEqual(result.commands, ['wait-visible', 'scroll']);
+  assert.equal(JSON.stringify(result).includes('private-canary'), false);
+  assert.deepEqual(
+    enrollment({ enrollment: 'Tap on Save profile FAILED' }).targets,
+    ['profile-save'],
+  );
+  assert.deepEqual(
+    enrollment({ enrollment: 'Tap on Saved subscription FAILED' }).targets,
+    ['subscription-saved'],
+  );
+  assert.deepEqual(
+    enrollment({
+      enrollment: 'Tap on Save profile COMPLETED\nInput text 123456 FAILED',
+    }).targets,
+    [],
+  );
+});
+test('enrollment actual typed secrets and arbitrary module/context values never survive', () => {
+  for (const secret of [
+    '123456',
+    'native-proof@example.test',
+    'Synthetic Native Proof',
+    'Native restart proof',
+    '129.90',
+    'owner-password-canary',
+    'Bearer access-canary',
+    'refresh_token=refresh-canary',
+    'https://private-canary.invalid',
+    '/private-canary/path',
+  ]) {
+    const result = enrollment({
+      enrollment: `Input text ${secret} FAILED\nWait until Verify with BankID visible FAILED ${secret}`,
+      metro: `Unable to resolve module "${secret}"`,
+    });
+    assert.equal(result.withheld, null);
+    assert.ok(!JSON.stringify(result).includes(secret));
     assert.ok(!JSON.stringify(result).includes('canary'));
   }
 });
