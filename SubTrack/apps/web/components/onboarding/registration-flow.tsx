@@ -330,7 +330,7 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
         onSelect={selectSubscription} onBack={() => { setSelected(null); setStatusConfirmed(false); setStep('subscriptions-list'); }} onTransition={transition} /> : null}
       {step === 'verified-login-required' ? <><p data-step-focus tabIndex={-1} role="alert">{copy.verifiedLoginRequired}</p>
         {initialEntry === 'login'
-          ? <Button type="button" disabled={busy} onClick={goBack}>{loginCopy.freshLogin}</Button>
+          ? <Button type="button" variant="secondary" disabled={busy} onClick={goBack}>{loginCopy.freshLogin}</Button>
           : <Link href={`/${locale}/login`}>{loginCopy.freshLogin}</Link>}</> : null}
       {error && step !== 'restart-required' ? <p ref={errorMessage} tabIndex={-1} role="alert">{error}</p> : null}
       <div className={styles.actions}>

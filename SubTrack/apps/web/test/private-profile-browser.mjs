@@ -298,6 +298,7 @@ try {
       await page.close();
       await openFreshPage();
       await page.goto(`${origin}/${locale}/register?st239_probe=${randomUUID()}`, { waitUntil: 'domcontentloaded' });
+      await awaitPreferenceInteraction();
       await page.getByRole('heading', { name: copy.registration.title, exact: true }).waitFor();
       await capture('registered-subject-identifier');
       await page.getByLabel(copy.identifier.emailLabel, { exact: true }).fill(`returning-${randomUUID()}@example.test`);
