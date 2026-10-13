@@ -28,7 +28,7 @@ export type DurableDevelopmentLoginConfig = Readonly<{
 type Witness = Readonly<{ keyH: string; ownerH: string; authorityH: string; requestH: string;
   nonceH: string; bindingH: string; sessionBindingH: string; origin: string; chain: string; epoch: string; manifestH: string }>;
 type Tx<T> = Readonly<{ state: 'committed'; value: T } | { state: 'rolledBack' | 'unknown' }>;
-type VerifyStage = 'INPUT' | 'PEEK' | 'RESERVE' | 'VERIFIER' | 'SUBJECT_LOOKUP' | 'ISSUE' | 'COMPLETE';
+type SessionStage = 'INPUT' | 'PEEK' | 'RESERVE' | 'MATERIAL' | 'OWNER' | 'CONSUME';
 type VerifyOutcome = 'REJECT' | 'RETURN_FALSE' | 'ROLLED_BACK' | 'UNKNOWN_TX' | 'UNKNOWN_COMMIT';
 type VerifySqlstate = 'NONE' | 'PRIVILEGE_42501' | 'FK_23503' | 'CHECK_23514' | 'DIVZERO_22012' | 'OTHER';
 type TxDiagnostic = (error: unknown, state: 'rolledBack' | 'unknown', commitAttempted: boolean) => void;
@@ -199,81 +199,79 @@ export class DurableDevelopmentLogin {
   }
   async verifySimulatorLogin(web:EnrollmentWeb,input:Readonly<{demoIdentity:'alice'|'bob'}>,key:string):
     Promise<Readonly<{loginProof:string;nextBrowserNonce:string}>> {
-    let stage:VerifyStage='INPUT', outcome:VerifyOutcome='REJECT', sqlstate:VerifySqlstate='NONE';
-    const diagnostic:TxDiagnostic=(error,state,commitAttempted)=>{
-      outcome=state==='rolledBack' ? 'ROLLED_BACK' : commitAttempted ? 'UNKNOWN_COMMIT' : 'UNKNOWN_TX';
-      sqlstate=verifySqlstate(error);
-    };
     try {
       const body=own(input,['demoIdentity']);
       if (body.demoIdentity!=='alice' && body.demoIdentity!=='bob') fail();
       const choice=body.demoIdentity as 'alice'|'bob';
-      stage='PEEK';
-      const w=await this.witness(web,key,'verifySimulatorLogin',[choice],undefined,diagnostic);
-      stage='RESERVE';
-      await this.reserve(w,'verifySimulatorLogin',diagnostic);
+      const w=await this.witness(web,key,'verifySimulatorLogin',[choice]);
+      await this.reserve(w,'verifySimulatorLogin');
       // The simulator and provisioner lookup precede the issue transaction's locks.
-      stage='VERIFIER';
       const raw=own(await this.verifyEvidence(choice),['method','personnummerHmac','verifiedAt','givenName','surname']);
       const at=typeof raw.verifiedAt==='string' ? Date.parse(raw.verifiedAt) : NaN;
       if (raw.method!=='BANKID' || typeof raw.personnummerHmac!=='string' || !HEX.test(raw.personnummerHmac) ||
         typeof raw.verifiedAt!=='string' || !Number.isSafeInteger(at) || new Date(at).toISOString()!==raw.verifiedAt ||
         at>this.now() || this.now()-at>=TTL || typeof raw.givenName!=='string' || typeof raw.surname!=='string') fail();
       const subjectH=this.h('person','subject',[raw.personnummerHmac as string]);
-      stage='SUBJECT_LOOKUP';
       const found=await this.tx('subtrack_identity_provisioner',async client=>{
         const result=await client.query<{id:string;external_id:string}>(
           'SELECT id,external_id FROM public.identity WHERE external_id=$1::text',[subjectH]);
         if (result.rows.length!==1 || result.rowCount!==1 || result.rows[0]?.external_id!==subjectH ||
           !UUID.test(result.rows[0]!.id)) fail();
         return result.rows[0]!.id;
-      },diagnostic);
+      });
       const identityId=found.state==='committed' ? found.value : fail();
       const proof=secret(),nextBrowserNonce=secret();
-      stage='ISSUE';
       const issued=await this.operate(w,'subtrack_auth_producer',async client=>{
         await client.query(`SELECT set_config('app.user_id',$1,true),set_config('app.current_user_id',$1,true)`,[identityId]);
         return this.bool(client,`SELECT subtrack_auth.issue_login(${SCOPE},$12::subtrack_auth.h,
           $13::subtrack_auth.h,$14::uuid,$15::subtrack_auth.h,$16::subtrack_auth.h,$17::subtrack_auth.ms) AS value`,
           [...this.scope(w),this.h('proof','login',[proof]),sha('nonce',nextBrowserNonce),identityId,subjectH,w.sessionBindingH,at]);
-      },diagnostic);
-      if (!issued) { outcome='RETURN_FALSE'; fail(); }
-      stage='COMPLETE';
+      });
+      if (!issued) fail();
       return Object.freeze({loginProof:`v2.${proof}`,nextBrowserNonce});
-    } catch {
-      try { console.error(`ST239_VERIFY_DIAGNOSTIC stage=${stage} outcome=${outcome} sqlstate=${sqlstate}`); }
-      catch { /* Log failure must not mask authentication failure. */ }
-      return fail();
-    }
+    } catch { return fail(); }
   }
   async createV2Session(web:EnrollmentWeb,input:Readonly<{loginProof:string}>,key:string):
     Promise<Readonly<{identityId:string;sessionId:string;refreshToken:string;csrfToken:string;browserChainId:string}>> {
+    let stage:SessionStage='INPUT', outcome:VerifyOutcome='REJECT', sqlstate:VerifySqlstate='NONE';
+    const diagnostic:TxDiagnostic=(error,state,commitAttempted)=>{
+      outcome=state==='rolledBack' ? 'ROLLED_BACK' : commitAttempted ? 'UNKNOWN_COMMIT' : 'UNKNOWN_TX';
+      sqlstate=verifySqlstate(error);
+    };
     try {
       const body=own(input,['loginProof']);
       if (typeof body.loginProof!=='string' || !body.loginProof.startsWith('v2.') || !canonical(body.loginProof.slice(3))) fail();
       const loginProof=body.loginProof as string;
       const proofH=this.h('proof','login',[loginProof.slice(3)]);
-      const w=await this.witness(web,key,'createV2Session',[loginProof],proofH);
-      await this.reserve(w,'createV2Session');
+      stage='PEEK'; const w=await this.witness(web,key,'createV2Session',[loginProof],proofH,diagnostic);
+      stage='RESERVE';
+      await this.reserve(w,'createV2Session',diagnostic);
       const sessionId=randomUUID(),familyId=randomUUID(),refreshToken=`v2r.${secret()}`;
       const csrf=mintDurableSessionCsrf();
       const refreshH=createHash('sha256').update('subtrack:auth-refresh:v2:','utf8').update(refreshToken,'utf8').digest('hex');
+      stage='MATERIAL';
       const identityId=await this.operate(w,'subtrack_runtime',async client=>{
         const material=await this.one<{value:string|null}>(client,
           `SELECT subtrack_auth.login_material(${SCOPE},$12::subtrack_auth.h) AS value`,[...this.scope(w),proofH]);
         const ownerId=typeof material.value==='string' && UUID.test(material.value) ? material.value : fail();
         await client.query(`SELECT set_config('app.user_id',$1,true),set_config('app.current_user_id',$1,true)`,[ownerId]);
+        stage='OWNER';
         const owner=await client.query<{id:string;deleted_at:Date|null}>(
           'SELECT id,deleted_at FROM public.identity WHERE id=$1::uuid FOR UPDATE',[ownerId]);
         if (owner.rowCount!==1 || owner.rows[0]?.id!==ownerId || owner.rows[0]?.deleted_at!==null) fail();
+        stage='CONSUME';
         const consumed=await this.bool(client,
           `SELECT subtrack_auth.consume_login(${SCOPE},$12::subtrack_auth.h,$13::uuid,$14::uuid,
           $15::uuid,$16::subtrack_auth.h,$17::subtrack_auth.h) AS value`,
           [...this.scope(w),proofH,ownerId,sessionId,familyId,refreshH,csrf.digest]);
         if (!consumed) fail();
         return ownerId;
-      });
+      },diagnostic);
       return Object.freeze({identityId,sessionId,refreshToken,csrfToken:csrf.token,browserChainId:w.chain});
-    } catch { return fail(); }
+    } catch {
+      try { console.error(`ST239_SESSION_DIAGNOSTIC stage=${stage} outcome=${outcome} sqlstate=${sqlstate}`); }
+      catch { /* Log failure must not mask authentication failure. */ }
+      return fail();
+    }
   }
 }

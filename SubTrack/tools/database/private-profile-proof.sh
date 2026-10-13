@@ -84,11 +84,11 @@ cleanup() {
     grep -E '^ST237_STARTUP_GATE (ENV|CONNECT|IDENTITY|SOURCE|FUNCTIONS|FUNCTION_COUNT|FUNCTION_NAME|PRINCIPALS|PROFILE_COLUMNS|PROFILE_POLICIES|PROFILE_GRANTS|PROFILE_CONSTRAINTS|AUTH_TABLES|AUTH_POLICIES|AUTH_GRANTS|AUTH_ROLES|AUTH_DOMAINS|AUTH_CONSTRAINTS|EPOCH|FENCE_QUERY_FAILED|FENCE_REJECTED|FENCE_ACCEPTED|COMMIT_FAILED|COMMIT_CLEAN|RESET_REJECTED|RESET_CLEAN|COMPOSITION|COMPOSITION_READY|FRAMEWORK|FRAMEWORK_READY|NEXT|NEXT_FAILED_(PORT|PERMISSION|MISSING_FILE|LOCK|COMPILER|CONFIG|TYPE|SYNTAX|OTHER)|NEXT_READY|LISTEN)$' "$work/server.log" | tail -1 >&3 || true
     grep -E '^ST237_FUNCTION_GATE [a-z_]+ (BODY|SECURITY|OWNER|LANGUAGE|VOLATILITY|PARALLEL|STRICT|SET|CONFIG|GRANT_KIND|GRANTEES|SIGNATURE|TERMINAL_ARGS)$|^ST237_STARTUP_SQLSTATE [A-Z0-9]{5}$' "$work/server.log" >&3 || true
     grep -E '^ST238_PROFILE_COLUMNS_DIAGNOSTIC mode_default=(implicit_null|explicit_varchar_null|other|missing_or_duplicate) other_matches=([0-9]|1[0-3])/13$' "$work/server.log" >&3 || true
-    # The first Bob login verify is the last verify before the browser exits on this closed failure.
+    # The first Bob login session is the last session call before this closed browser failure.
     if [[ "$proof_case" == login && -f "$work/browser.log" ]] &&
       grep -Eq '^FAIL ST237_BROWSER_CASE case=login phase=BOB_INCOMPLETE_LOGIN_(SUBMIT|PROFILE_RESPONSE) ' "$work/browser.log" &&
-      grep -Eq '^ST239_LOGIN_AUTH_DIAGNOSTIC nonce=200 verify=409 session=NONE profile=NONE mode=NONE$' "$work/browser.log"; then
-      grep -E '^ST239_VERIFY_DIAGNOSTIC stage=(INPUT|PEEK|RESERVE|VERIFIER|SUBJECT_LOOKUP|ISSUE|COMPLETE) outcome=(REJECT|RETURN_FALSE|ROLLED_BACK|UNKNOWN_TX|UNKNOWN_COMMIT) sqlstate=(NONE|PRIVILEGE_42501|FK_23503|CHECK_23514|DIVZERO_22012|OTHER)$' "$work/server.log" | tail -n 1 >&3 || true
+      grep -Eq '^ST239_LOGIN_AUTH_DIAGNOSTIC nonce=200 verify=200 session=409 profile=NONE mode=NONE$' "$work/browser.log"; then
+      grep -E '^ST239_SESSION_DIAGNOSTIC stage=(INPUT|PEEK|RESERVE|MATERIAL|OWNER|CONSUME) outcome=(REJECT|RETURN_FALSE|ROLLED_BACK|UNKNOWN_TX|UNKNOWN_COMMIT) sqlstate=(NONE|PRIVILEGE_42501|FK_23503|CHECK_23514|DIVZERO_22012|OTHER)$' "$work/server.log" | tail -n 1 >&3 || true
     fi
   fi
   trap - EXIT INT TERM

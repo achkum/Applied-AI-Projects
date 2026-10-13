@@ -147,49 +147,43 @@ describe('private durable returning login',()=>{
     expect(f.releases.at(-1)).toBeInstanceOf(Error);
   });
 
-  it('reports closed verify stage and false result while keeping the masked failure and committed burn',async()=>{
-    const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+  it('keeps the masked failure and committed burn when issue returns false',async()=>{
     const f=fixture();verified(f);f.falseTransition('issue_login');
     await denied(f.service().verifySimulatorLogin(web,{demoIdentity:'bob'},'verify-key-1234567'));
-    expect(log).toHaveBeenCalledExactlyOnceWith('ST239_VERIFY_DIAGNOSTIC stage=ISSUE outcome=RETURN_FALSE sqlstate=NONE');
     expect(f.calls.filter(c=>c.sql==='COMMIT')).toHaveLength(4);
     expect(f.calls.some(c=>c.sql.includes('subtrack_auth.fail_login_burn('))).toBe(false);
   });
 
-  it('classifies only allowlisted SQLSTATE and preserves rollback and fail burn on rejected issue',async()=>{
-    const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+  it('preserves rollback and fail burn on rejected issue',async()=>{
     const f=fixture();verified(f);f.rejectTransition('issue_login','42501');
     await denied(f.service().verifySimulatorLogin(web,{demoIdentity:'bob'},'verify-key-1234567'));
-    expect(log).toHaveBeenCalledExactlyOnceWith('ST239_VERIFY_DIAGNOSTIC stage=ISSUE outcome=ROLLED_BACK sqlstate=PRIVILEGE_42501');
     expect(f.calls.filter(c=>c.sql.includes('subtrack_auth.issue_login('))).toHaveLength(1);
     expect(f.calls.some(c=>c.sql==='ROLLBACK')).toBe(true);
     expect(f.calls.some(c=>c.sql.includes('subtrack_auth.fail_login_burn('))).toBe(true);
-    expect(JSON.stringify(log.mock.calls)).not.toContain('private query');
   });
 
-  it('keeps unknown commit distinct and diagnostics local to each verify invocation',async()=>{
-    const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+  it('withholds proof after unknown commit and rejects a later invalid invocation',async()=>{
     const f=fixture();verified(f);f.failNthCommit(4);
     await denied(f.service().verifySimulatorLogin(web,{demoIdentity:'alice'},'verify-key-1234567'));
-    expect(log).toHaveBeenCalledExactlyOnceWith('ST239_VERIFY_DIAGNOSTIC stage=ISSUE outcome=UNKNOWN_COMMIT sqlstate=NONE');
     await denied(f.service().verifySimulatorLogin(web,{demoIdentity:'invalid'} as never,'verify-key-1234567'));
-    expect(log.mock.calls[1]).toEqual(['ST239_VERIFY_DIAGNOSTIC stage=INPUT outcome=REJECT sqlstate=NONE']);
     expect(f.calls.some(c=>c.sql.includes('subtrack_auth.fail_login_burn('))).toBe(false);
   });
 
-  it('reports precommit rollback uncertainty separately without replaying the issue',async()=>{
-    const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+  it('does not replay issue after precommit rollback uncertainty',async()=>{
     const f=fixture();verified(f);f.rejectTransition('issue_login','22012');f.failRollback();
     await denied(f.service().verifySimulatorLogin(web,{demoIdentity:'alice'},'verify-key-1234567'));
-    expect(log).toHaveBeenCalledExactlyOnceWith('ST239_VERIFY_DIAGNOSTIC stage=ISSUE outcome=UNKNOWN_TX sqlstate=DIVZERO_22012');
     expect(f.calls.filter(c=>c.sql.includes('subtrack_auth.issue_login('))).toHaveLength(1);
     expect(f.calls.some(c=>c.sql.includes('subtrack_auth.fail_login_burn('))).toBe(false);
     expect(f.releases.at(-1)).toBeInstanceOf(Error);
   });
 
-  it('does not allow a failed diagnostic writer to replace masked authentication failure',async()=>{
-    vi.spyOn(console,'error').mockImplementation(()=>{throw new Error('log unavailable');});
-    await denied(fixture().service().verifySimulatorLogin(web,{demoIdentity:'invalid'} as never,'verify-key-1234567'));
+  it('reports only a closed session stage and SQLSTATE on consume rejection without leaking private details',async()=>{
+    const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+    const f=fixture();f.rejectTransition('consume_login','42501');
+    await denied(f.service().createV2Session(web,{loginProof:`v2.${token(7)}`},'session-key-1234567'));
+    expect(log).toHaveBeenCalledExactlyOnceWith('ST239_SESSION_DIAGNOSTIC stage=CONSUME outcome=ROLLED_BACK sqlstate=PRIVILEGE_42501');
+    expect(JSON.stringify(log.mock.calls)).not.toContain('private query');
+    expect(f.calls.some(c=>c.sql.includes('subtrack_auth.fail_login_burn('))).toBe(true);
   });
 
   it('locks live owner and consumes proof with new session and CSRF in one transaction',async()=>{
