@@ -1,5 +1,5 @@
 import { catalogs } from '@subtrack/i18n';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { axe } from 'jest-axe';
 import { RegistrationFlow } from '../components/onboarding/registration-flow';
@@ -137,7 +137,7 @@ describe('mounted private enrollment and profile', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
     await screen.findByText('Profile saved and confirmed.');
     expect(screen.getByRole('status').textContent).toBe('Profile complete.');
-    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Profile saved and confirmed.' }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Profile saved and confirmed.' })));
     expect(fetchMock.mock.calls.map(([url]) => url).slice(-3)).toEqual(['/v2/me/profile/read', '/v2/me/profile', '/v2/me/profile/read']);
     expect(JSON.parse(fetchMock.mock.calls[7]?.[1]?.body as string)).toEqual({ displayName: 'Synthetic Owner' });
     expect(document.body.textContent).not.toContain('private-csrf');

@@ -169,7 +169,7 @@ jobs:
         run: pnpm --filter @subtrack/ui exec playwright install chromium --with-deps
 
       - name: Tests
-        run: pnpm test
+        run: pnpm exec turbo run test --concurrency=1
 
       # ST-017: Storybook visual regression (ST-022). Builds static Storybook, serves it,
       # then runs @storybook/test-runner (Playwright + jest-image-snapshot, 1 % threshold).
