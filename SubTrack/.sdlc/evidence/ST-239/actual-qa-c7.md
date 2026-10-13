@@ -1,0 +1,7 @@
+# ST-239 C7 independent actual QA — HOLD
+
+2026-10-13, approved continuation 05:47:59–07:17:59Z; original attempt/source history and counters retained. [Private proof run 38353885404](https://github.com/achkum/Applied-AI-Projects/actions/runs/38353885404) at exact PR 284 head `34b53b141e4f4c4c07357d9b62b2b27ed21083e8` completed failure: private HTTPS preflight PASS, all four PG16/Firefox jobs FAIL.
+Each EN/SV × light/dark receipt has five carried browser cases PASS (`profile`, `partial-terminal`, `empty`, `subscriptions`, `uncertainty`); sixth `login` fails at `BOB_INCOMPLETE_LOGIN_PROFILE_RESPONSE`, with `nonce=200 verify=409 session/profile/mode=NONE`.
+All four publish `ST239_VERIFY_DIAGNOSTIC stage=ISSUE outcome=ROLLED_BACK sqlstate=OTHER`; shell reports `phase=BROWSER step=STARTUP cleanup=removed`. The closed `OTHER` category proves neither the SQLSTATE nor denied object/cause, so no source remedy follows from this receipt alone.
+No successful login, post-login contact nonmutation comparison, qualified login PG negative/transaction matrix, sixth-case final source/bundle custody, or six-case × four-variant PASS was published; cleanup itself was removed. Five-case carry cannot promote ST-239 acceptance.
+Only published sanitized preflight/profile receipts and synthetic screenshot sets were downloaded under untracked `c7-actual-artifacts/`, including four masked `<variant>/login/login-failure.png`; no raw private logs, tokens, cookies or runner dumps were accessed. Independent direct pixel review is separate. **C7 actual QA HOLD.**

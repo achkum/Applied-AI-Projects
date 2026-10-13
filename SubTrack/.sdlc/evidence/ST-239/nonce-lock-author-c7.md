@@ -6,3 +6,5 @@ Qualified integration adds live executor nonce FOR UPDATE, actual no-op UPDATE 4
 SHA256 launcher `6a1dee41ba72fa8fbd43cce393386972a2fc70e36e9049ccbbb880d619c82bad`; integration `9d8573efe6f24d90d08e6644de690d0ce2a7aa85ef5a63f449fa081cefc96e53`.
 Focused API tsc, integration ESLint, launcher node --check and scoped git diff --check PASS; PG16/browser/CI unavailable locally and remain blocking.
 Three source files net +52 lines before this note; original nongenerated 4078 estimate becomes ~4137 including note, under 4200 pending Conductor recount; no stage/commit/push.
+
+C8 source continuation: changed SQL012 `pg_catalog.least` to PG16 `LEAST` with unchanged three operands and bounds; launcher repinned SQL012 SHA256 `bbaf931e5303b2fc3c7bc7b4d376f66ee52c15b9b16fc380efe6cbb336e8dca2`. Original source1/calls/failed C7 OTHER retained; this static repair does not establish the C7 denied object or successful runtime proof.

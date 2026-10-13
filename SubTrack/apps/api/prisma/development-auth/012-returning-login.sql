@@ -177,7 +177,7 @@ BEGIN
   SELECT x.* INTO n FROM subtrack_auth.nonce x WHERE x.nonce_h=(scope).nonce_h FOR UPDATE;
   IF NOT FOUND THEN RETURN false; END IF;
   t:=pg_catalog.floor(EXTRACT(EPOCH FROM pg_catalog.clock_timestamp())*1000::pg_catalog.numeric);
-  expiry:=pg_catalog.least(t+300000,verified_at_ms+300000,n.expires_ms);
+  expiry:=LEAST(t+300000,verified_at_ms+300000,n.expires_ms);
   IF t<0 OR t>9007199254740991 OR t<e.watermark_ms OR (scope).observed_ms>t
     OR e.state<>'active' OR e.manifest_h<>(scope).manifest_h OR e.origin<>(scope).origin
     OR r.owner_h<>(scope).owner_h OR r.authority_h<>(scope).authority_h
