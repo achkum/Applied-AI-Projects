@@ -6,6 +6,9 @@ set -euo pipefail
 # derived from that exact HTTPS archive after validating the official metadata.
 proof_tools="${RUNNER_TEMP:?}/subtrack-native-tools"
 mkdir -p "$proof_tools"
+proof_private="$RUNNER_TEMP/subtrack-native-proof/private"
+mkdir -p "$proof_private"
+chmod 700 "$proof_private"
 printf 'ST244_ANDROID phase=emulator-provision event=started\n'
 curl --fail --silent --show-error --location --connect-timeout 15 --max-time 180 \
   https://dl.google.com/android/repository/emulator-linux_x64-16428233.zip \
@@ -21,7 +24,22 @@ if (createHash('sha256').update(bytes).digest('hex') !== 'b08fc43d8608d2955f607f
 NODE
 unzip -q "$proof_tools/emulator.zip" -d "$proof_tools"
 test -x "$proof_tools/emulator/emulator"
-version_output="$(timeout --signal=TERM --kill-after=5s 20s "$proof_tools/emulator/emulator" -version 2>&1)"
-printf '%s' "$version_output" | grep -Eq 'Android emulator version 37\.2\.12(\.0)?([[:space:]]|$)'
+if timeout --signal=TERM --kill-after=5s 10s ldd "$proof_tools/emulator/emulator" > "$proof_private/emulator-loader.log" 2>&1; then
+  printf 'ST244_ANDROID phase=emulator-provision event=loader-probe-completed\n'
+else
+  loader_code=$?
+  printf 'ST244_ANDROID phase=emulator-provision event=loader-probe-exit-%s\n' "$loader_code"
+fi
+if timeout --signal=TERM --kill-after=5s 20s "$proof_tools/emulator/emulator" -version > "$proof_private/emulator-version.log" 2>&1; then
+  if ! grep -Eq 'Android emulator version 37\.2\.12(\.0)?([[:space:]]|$)' "$proof_private/emulator-version.log"; then
+    printf 'ST244_ANDROID phase=emulator-provision event=unexpected-tool-version\n'
+    exit 1
+  fi
+else
+  version_code=$?
+  node "$(dirname "$0")/private-runtime-loader-diagnostics.mjs" "$proof_private/emulator-loader.log" "$proof_private/emulator-version.log"
+  printf 'ST244_ANDROID phase=emulator-provision event=version-check-exit-%s\n' "$version_code"
+  exit 1
+fi
 printf 'SUBTRACK_PRIVATE_EMULATOR_BIN=%s\n' "$proof_tools/emulator/emulator" >> "${GITHUB_ENV:?}"
 printf 'ST244_ANDROID phase=emulator-provision event=verified-version-37.2.12\n'

@@ -12,7 +12,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: subtrack-native-device-${{ github.ref }}
+  group: subtrack-native-device-${{ github.ref }}-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 jobs:
   installed-native:
@@ -58,6 +58,7 @@ jobs:
           corepack pnpm install --frozen-lockfile
           bash apps/mobile/scripts/private-runtime-tools.sh
           node apps/mobile/scripts/private-runtime-ca-test.mjs
+          node apps/mobile/scripts/private-runtime-loader-diagnostics-test.mjs
           bash tools/database/private-mobile-descriptor.spec.sh
       - name: Android pinned emulator provisioning
         if: matrix.platform == 'android'

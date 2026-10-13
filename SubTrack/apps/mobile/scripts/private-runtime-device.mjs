@@ -18,6 +18,31 @@ import {
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { flowEnvironment } from './private-runtime-flow-env.mjs';
+import {
+  nativeFailureCategory,
+  buildFailureDiagnostic,
+} from './private-runtime-loader-diagnostics.mjs';
+
+let currentPhase = 'runtime-preconditions';
+const driverPhases = new Set([
+  'fixture-bundle',
+  'fixture-construction',
+  'https-start',
+  'native-build',
+  'flow-identifier',
+  'flow-enroll-add',
+  'readback-before',
+  'api-restart',
+  'flow-restart',
+  'readback-after',
+  'accepted-evidence',
+  'fixture-dispose',
+]);
+function markPhase(phase) {
+  assert.ok(driverPhases.has(phase));
+  currentPhase = phase;
+  console.log(`ST244_NATIVE phase=${phase} event=started`);
+}
 
 async function main() {
   assert.equal(process.env.NODE_ENV, 'development');
@@ -65,6 +90,7 @@ async function main() {
     }
   }
 
+  markPhase('fixture-bundle');
   const apiRequire = createRequire(join(repo, 'apps/api/package.json'));
   const vite = apiRequire.resolve('vite');
   const esbuild = apiRequire(apiRequire.resolve('esbuild', { paths: [vite] }));
@@ -85,6 +111,7 @@ async function main() {
   apiRequire('node:module').Module._initPaths();
   const { createOwnedPrivateMobileHarness } = apiRequire(fixturePath);
   let code = null;
+  markPhase('fixture-construction');
   const harness = await createOwnedPrivateMobileHarness(config, {
     onOtpIssued: (event) => {
       if (event.channel === 'email' && /^[0-9]{6}$/.test(event.code))
@@ -93,6 +120,7 @@ async function main() {
   });
   const labels = flowEnvironment();
   async function flow(name, extraEnv = {}) {
+    markPhase(`flow-${name}`);
     await run(
       'maestro',
       [
@@ -115,7 +143,9 @@ async function main() {
   }
 
   try {
+    markPhase('https-start');
     await harness.start();
+    markPhase('native-build');
     await run(
       'bash',
       ['scripts/private-runtime-build.sh', platform],
@@ -131,9 +161,12 @@ async function main() {
     );
     await flow('enroll-add', { MAESTRO_PRIVATE_OTP: code });
     code = null;
+    markPhase('readback-before');
     const before = await harness.readbackReceipt();
+    markPhase('api-restart');
     await harness.restart();
     await flow('restart');
+    markPhase('readback-after');
     const after = await harness.readbackReceipt();
     // Counts and canonical persisted-row digest are closed fixture-owned evidence.
     assert.deepEqual(before, after);
@@ -149,6 +182,7 @@ async function main() {
       assert.match(receipt.markerHash, /^[a-f0-9]{64}$/);
       assert.match(receipt.subscriptionDigest, /^[a-f0-9]{64}$/);
     }
+    markPhase('accepted-evidence');
     copyAcceptedScreenshots(privateDir);
     for (const name of [
       'accepted-add.png',
@@ -196,17 +230,52 @@ async function main() {
     console.log(
       `Installed ${platform} synthetic workflow and restart readback PASS`,
     );
-  } catch {
+  } catch (error) {
+    console.error(
+      `ST244_NATIVE phase=${currentPhase} event=failed category=${nativeFailureCategory(String(error))}`,
+    );
+    if (currentPhase === 'native-build') {
+      // Project fixed enums only. Raw tool/API output remains in owned private TEMP.
+      const readPrivate = (name) => {
+        try {
+          return readFileSync(join(privateDir, name), 'utf8');
+        } catch {
+          return '';
+        }
+      };
+      const log = [
+        'prebuild.log',
+        'pods.log',
+        'build.log',
+        'install.log',
+        'metro.log',
+        'compile-install.log',
+      ]
+        .map(readPrivate)
+        .join('\n');
+      const diagnostic = buildFailureDiagnostic(
+        readPrivate('build-phase.json'),
+        log,
+      );
+      if (diagnostic)
+        console.error(
+          `ST244_NATIVE build_phase=${diagnostic.phase} event=failed exit_code=${diagnostic.exitCode} category=${diagnostic.category}`,
+        );
+    }
     // Raw API/tool errors can contain credentials: retain privately, never print them.
     console.error(
       `Installed ${platform} qualification failed; sanitized success evidence was not published`,
     );
     process.exitCode = 1;
   } finally {
+    markPhase('fixture-dispose');
     await harness.dispose();
   }
 }
-main().catch(() => {
+main().catch((error) => {
+  console.error(
+    `ST244_NATIVE phase=${currentPhase} event=failed category=${nativeFailureCategory(String(error))}`,
+  );
   console.error(
     'Native fixture setup failed; private configuration and raw errors were not published',
   );
