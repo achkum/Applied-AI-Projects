@@ -1,4 +1,4 @@
 {
-  "packages\\ui-tokens\\generated\\theme.native.json": "6420ef92b93ce5d6d624355ba55df4a22ceb4fdde6af9f079c032ef30a28bd4a",
-  "packages\\ui-tokens\\generated\\tokens.css": "93ba7771dd37eae577fb41758cd1022f0076c88fb27104062111ec6bdc749dce"
+  "packages/ui-tokens/generated/theme.native.json": "221406df8c8ac1c95ecc3ca3e41ca67bf060b97168af917a04b5fa5baeb1bdbf",
+  "packages/ui-tokens/generated/tokens.css": "79cbbebaf33937b482e6529562b1557b3b9e34b5ccdfbdbf424410ca5849447e"
 }

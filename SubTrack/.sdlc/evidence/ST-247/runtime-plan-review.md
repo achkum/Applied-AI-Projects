@@ -1,0 +1,3 @@
+# Additive installed Month plan review
+
+Platform anonymous_core_platform_review PLAN GO and security native_first_slice_security PLAN GO before source dispatch. Preserve original journeys/receipt equality/single-row mutation chain and ten parent screenshots. Two additional successful Month screenshots, actual UI date/name/amount/day/detail/refresh/logout, existing fenced observer equality; no clock override, seeded rows, new observer/API/SQL/auth/pins/assertion timeout expansion. Actual Month membership is asserted by installed UI, not inferred from30day observer. Final source review and real Android/iOS/readback/pixels/cleanup remain required.
