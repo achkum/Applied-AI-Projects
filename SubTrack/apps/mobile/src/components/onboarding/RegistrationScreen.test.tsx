@@ -1,9 +1,10 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { catalogs } from '@subtrack/i18n';
 import WelcomeRoute from '../../../app/welcome';
 import RegisterRoute from '../../../app/register';
 import { RegistrationScreen } from './RegistrationScreen';
+import RegisterBankIdRoute from '../../../app/register-bankid';
 
 let mockLocale: 'en' | 'sv' = 'en';
 let mockRouteParams: Record<string, string | string[] | undefined> = {};
@@ -12,7 +13,10 @@ const mockPush = jest.fn();
 const mockReplace = jest.fn();
 const mockStart = jest.fn();
 const mockReset = jest.fn();
-let mockFlow: { phase: string; error?: string } = { phase: 'identifier' };
+const mockNativeLogin = jest.fn().mockResolvedValue(undefined);
+const mockNativeLogout = jest.fn().mockResolvedValue(false);
+const mockNativeComplete = jest.fn().mockResolvedValue(undefined);
+let mockFlow: { phase: string; error?: string; proof?: string } = { phase: 'identifier' };
 const registrationCopy = {
   en: catalogs.en.onboarding.registration,
   sv: catalogs.sv.onboarding.registration,
@@ -25,6 +29,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/state/EnrollmentFlow', () => ({
   useEnrollment: () => ({ flow: mockFlow, start: mockStart, reset: mockReset }),
 }));
+jest.mock('@/state/NativeSession', () => ({ useNativeSession: () => ({ phase: 'verification-required', login: mockNativeLogin, logout: mockNativeLogout, complete: mockNativeComplete }) }));
 jest.mock('@/context/ThemeContext', () => ({
   useTheme: () =>
     jest
@@ -100,12 +105,12 @@ describe('RegistrationScreen', () => {
   });
 
   it.each(['en', 'sv'] as const)(
-    'presents login as explicitly unavailable in %s and provides back navigation',
+    'labels development verification in %s and provides back navigation',
     (locale) => {
       mockLocale = locale;
       render(<RegistrationScreen mode="login" />);
       expect(
-        screen.getByText(registrationCopy[locale].loginUnavailable),
+        screen.getByText(catalogs[locale].onboarding.nativePersonal.demo),
       ).toBeTruthy();
       expect(screen.getByRole('alert')).toBeTruthy();
       expect(
@@ -135,7 +140,7 @@ describe('RegistrationScreen', () => {
       };
       render(<RegisterRoute />);
       expect(
-        screen.getByText(registrationCopy[locale].loginUnavailable),
+        screen.getByText(catalogs[locale].onboarding.nativePersonal.demo),
       ).toBeTruthy();
       expect(screen.getByRole('alert')).toBeTruthy();
       expect(
@@ -200,4 +205,31 @@ describe('RegistrationScreen', () => {
       expect(mockPush).toHaveBeenNthCalledWith(3, `/${locale}/demo`);
     },
   );
+});
+
+describe('mandatory private native completion',()=>{
+  beforeEach(()=>{jest.clearAllMocks();mockLocale='en';mockFlow={phase:'bankid',proof:'v2.'+'b'.repeat(43)};mockNativeComplete.mockResolvedValue(undefined);});
+  it('labels fresh development verification and submits only the producer proof and locale through the session coordinator',async()=>{
+    render(<RegisterBankIdRoute />);
+    expect(screen.getByText(catalogs.en.onboarding.nativePersonal.demo)).toBeTruthy();
+    fireEvent.press(screen.getByRole('button',{name:catalogs.en.onboarding.nativePersonal.verify}));
+    await new Promise(resolve=>setTimeout(resolve,0));
+    expect(mockNativeComplete).toHaveBeenCalledWith(mockFlow.proof,'en');expect(mockReplace).toHaveBeenCalledWith('/personal');
+  });
+  it('ignores a completion response after unmount and locally invalidates its pending session',async()=>{
+    let resolve:()=>void=()=>undefined;mockNativeComplete.mockImplementationOnce(()=>new Promise<void>(done=>{resolve=done;}));
+    const {unmount}=render(<RegisterBankIdRoute />);fireEvent.press(screen.getByRole('button',{name:catalogs.en.onboarding.nativePersonal.verify}));
+    unmount();resolve();await new Promise(done=>setTimeout(done,0));expect(mockNativeLogout).toHaveBeenCalledTimes(1);
+    expect(mockReplace).not.toHaveBeenCalledWith('/personal');
+  });
+  it('retires an uncertain enrollment proof and uses fresh verification rather than replaying it',async()=>{
+    mockNativeComplete.mockRejectedValueOnce(new Error('unknown completion'));const {rerender}=render(<RegisterBankIdRoute />);
+    fireEvent.press(screen.getByRole('button',{name:catalogs.en.onboarding.nativePersonal.verify}));
+    await screen.findByText(catalogs.en.onboarding.nativePersonal.unavailable);expect(mockReset).toHaveBeenCalledTimes(1);
+    mockFlow={phase:'identifier'};rerender(<RegisterBankIdRoute />);
+    fireEvent.press(screen.getByRole('button',{name:catalogs.en.onboarding.nativePersonal.verify}));
+    await waitFor(()=>expect(mockNativeLogin).toHaveBeenCalledTimes(1));
+    expect(mockNativeComplete).toHaveBeenCalledTimes(1);
+  });
+
 });

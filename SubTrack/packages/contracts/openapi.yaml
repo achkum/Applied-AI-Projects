@@ -1388,8 +1388,418 @@ paths:
         '404': { $ref: '#/components/responses/V2Problem' }
         default: { $ref: '#/components/responses/V2Problem' }
 
+  /v2/private/mobile/enrollment/complete:
+    post:
+      operationId: completePrivateMobileEnrollment
+      x-runtime-availability: unavailable-default
+      summary: Private development mobile enrollment/complete
+      description: >
+        Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce,
+        CSRF, forwarded authority, query and mixed credentials. No client identity selector.
+        All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+        Consume producer-owned settled enrollment admission and restricted proof once;
+        mandatory fresh server development BankID verifier precedes verified-subject reservation.
+        D12 anonymous OTP binding cannot reserve completion. Existing active subject requires login.
+        Account/profile/mobile family/current refresh commit atomically before credential disclosure.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, minLength: 16, maxLength: 255, pattern: '^[!-~]{16,255}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileEnrollmentComplete' }
+      responses:
+        '201':
+          description: Known committed private mobile result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MobileSessionResponse' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/login/verify:
+    post:
+      operationId: verifyPrivateMobileLogin
+      x-runtime-availability: unavailable-default
+      summary: Private development mobile login/verify
+      description: >
+        Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce,
+        CSRF, forwarded authority, query and mixed credentials. No client identity selector.
+        All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+        Server-fixed development fixture triggers fresh server verifier; active registered subject only.
+        One-use mobile login proof bound to verified subject, evidence age, private epoch and manifest.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, minLength: 16, maxLength: 255, pattern: '^[!-~]{16,255}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileLoginVerify' }
+      responses:
+        '200':
+          description: Known committed private mobile result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileLoginVerified' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/session:
+    post:
+      operationId: createPrivateMobileSession
+      x-runtime-availability: unavailable-default
+      summary: Private development mobile session
+      description: >
+        Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce,
+        CSRF, forwarded authority, query and mixed credentials. No client identity selector.
+        All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, minLength: 16, maxLength: 255, pattern: '^[!-~]{16,255}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileSessionRequest' }
+      responses:
+        '201':
+          description: Known committed private mobile result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MobileSessionResponse' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/refresh:
+    post:
+      operationId: refreshPrivateMobileSession
+      x-runtime-availability: unavailable-default
+      summary: Private development mobile refresh
+      description: >
+        Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce,
+        CSRF, forwarded authority, query and mixed credentials. No client identity selector.
+        All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+        Bodyless request: no Content-Type or body; Content-Length absent or zero only.
+        Refresh authorization only; rotate hash-only secret atomically within same family.
+        Consumed-secret reuse revokes family; uncertain rotation requires fresh verified login.
+      security:
+        - V2MobileRefresh: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, minLength: 16, maxLength: 255, pattern: '^[!-~]{16,255}$' }
+      responses:
+        '200':
+          description: Known committed private mobile result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MobileRefreshResponse' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/logout:
+    post:
+      operationId: logoutPrivateMobileSession
+      x-runtime-availability: unavailable-default
+      summary: Private development mobile logout
+      description: >
+        Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce,
+        CSRF, forwarded authority, query and mixed credentials. No client identity selector.
+        All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+      security:
+        - V2AccessBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, maxProperties: 0 }
+      responses:
+        '204':
+          description: Known committed private mobile result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/profile/read:
+    post:
+      operationId: readPrivateMobileProfile
+      x-runtime-availability: unavailable-default
+      summary: Private development mobile profile/read
+      description: >
+        Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce,
+        CSRF, forwarded authority, query and mixed credentials. No client identity selector.
+        All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+      security:
+        - V2AccessBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, maxProperties: 0 }
+      responses:
+        '200':
+          description: Known committed private mobile result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProfileView' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/profile:
+    post:
+      operationId: savePrivateMobileProfile
+      x-runtime-availability: unavailable-default
+      summary: Private development mobile profile
+      description: >
+        Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce,
+        CSRF, forwarded authority, query and mixed credentials. No client identity selector.
+        All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+      security:
+        - V2AccessBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfilePatch' }
+      responses:
+        '200':
+          description: Known committed private mobile result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProfileView' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/mode/read:
+    post:
+      operationId: readPrivateMobileMode
+      x-runtime-availability: unavailable-default
+      summary: Private development mobile mode/read
+      description: >
+        Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce,
+        CSRF, forwarded authority, query and mixed credentials. No client identity selector.
+        All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+      security:
+        - V2AccessBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, maxProperties: 0 }
+      responses:
+        '200':
+          description: Known committed private mobile result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModeView' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/mode:
+    post:
+      operationId: choosePrivateMobileMode
+      x-runtime-availability: unavailable-default
+      summary: Private development mobile mode
+      description: >
+        Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce,
+        CSRF, forwarded authority, query and mixed credentials. No client identity selector.
+        All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+      security:
+        - V2AccessBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JustMeChoice' }
+      responses:
+        '200':
+          description: Known committed private mobile result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModeView' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/subscriptions/owner/read:
+    post:
+      operationId: readPrivateMobileOwnerSubscriptions
+      x-runtime-availability: unavailable-default
+      summary: Private development mobile subscriptions/owner/read
+      description: >
+        Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce,
+        CSRF, forwarded authority, query and mixed credentials. No client identity selector.
+        All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+      security:
+        - V2AccessBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateOwnerPageRequest' }
+      responses:
+        '200':
+          description: Known committed private mobile result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateOwnerPage' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/subscriptions/owner/manual:
+    post:
+      operationId: createPrivateMobileManualSubscription
+      x-runtime-availability: unavailable-default
+      summary: Private development mobile subscriptions/owner/manual
+      description: >
+        Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce,
+        CSRF, forwarded authority, query and mixed credentials. No client identity selector.
+        All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+      security:
+        - V2AccessBearer: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateManualCreate' }
+      responses:
+        '201':
+          description: Known committed private mobile result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateManualCreated' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
 components:
   schemas:
+    PrivateMobileEnrollmentComplete:
+      type: object
+      additionalProperties: false
+      required: [transport, enrollmentProof]
+      properties:
+        transport: { type: string, const: mobile }
+        enrollmentProof: { type: string, pattern: '^v2\.[A-Za-z0-9_-]{43}$' }
+        locale: { type: string, enum: [sv, en] }
+    PrivateMobileLoginVerify:
+      type: object
+      additionalProperties: false
+      required: [transport]
+      properties:
+        transport: { type: string, const: mobile }
+    PrivateMobileLoginVerified:
+      type: object
+      additionalProperties: false
+      required: [transport, loginProof, status]
+      properties:
+        transport: { type: string, const: mobile }
+        loginProof: { type: string, pattern: '^v2\.[A-Za-z0-9_-]{43}$' }
+        status: { type: string, const: verified }
+    PrivateMobileSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [transport, loginProof]
+      properties:
+        transport: { type: string, const: mobile }
+        loginProof: { type: string, pattern: '^v2\.[A-Za-z0-9_-]{43}$' }
+    PrivateMobileError:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, enum: [Bad Request, Unauthorized, Forbidden, Not Found, Conflict, Too Many Requests, Internal Server Error] }
+        status: { type: integer, enum: [400, 401, 403, 404, 409, 429, 500] }
+        code: { type: string, enum: [INVALID_MOBILE_REQUEST, AUTHENTICATION_REQUIRED, MOBILE_REQUEST_REJECTED, MOBILE_UNAVAILABLE, AUTH_RESTART_REQUIRED, ENROLLMENT_LOGIN_REQUIRED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, INTERNAL_ERROR] }
     ProfileReadRequest:
       type: object
       additionalProperties: false
@@ -2562,6 +2972,14 @@ components:
       name: Authorization
       description: Mobile only, exact form `Refresh <opaque-secret>`; custom auth scheme, never body/query.
   responses:
+    PrivateMobileProblem:
+      description: Closed private mobile problem; no credentials, subject, SQL or provider detail.
+      headers:
+        Cache-Control: { required: true, schema: { type: string, const: no-store } }
+        Pragma: { required: true, schema: { type: string, const: no-cache } }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/PrivateMobileError' }
     PrivateManualEdited:
       description: Original known committed edit snapshot or exact replay; reread current detail/list.
       headers:

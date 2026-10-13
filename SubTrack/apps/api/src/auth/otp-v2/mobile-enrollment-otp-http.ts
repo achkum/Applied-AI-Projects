@@ -13,6 +13,7 @@ import {
 import { OtpRateLimiter } from './otp-http.js';
 import type { MobileEnrollmentChallengeStore, MobileEnrollmentClaim } from '../proofs-v2/mobile-enrollment-challenge-store.js';
 import type { MobileEnrollmentIssuance, OtpProofProducer, MobileVerificationOutcome } from '../proofs-v2/otp-proof-producer.js';
+import type {PrivateMobileEnrollmentAdmissionPort} from '../mobile-private/enrollment-admission.js';
 
 const FAILURE = 'Authentication request unavailable';
 const SECRET = /^[A-Za-z0-9_-]{43}$/;
@@ -38,6 +39,7 @@ export interface MobileEnrollmentOtpHttpConfig {
     challenges: MobileEnrollmentChallengeStore;
     producer: Pick<OtpProofProducer, 'provisionMobileEnrollment' | 'verifyMobileEnrollment'>;
     rates: Pick<OtpRateLimiter, 'allowStart' | 'allowVerify'>;
+    admission?:PrivateMobileEnrollmentAdmissionPort;
   }>;
 }
 
@@ -221,6 +223,7 @@ export class DevelopmentMobileEnrollmentOtpHttpService {
     response.setHeader('Cache-Control', 'no-store'); response.setHeader('Pragma', 'no-cache');
     let input: AnonymousEnrollmentReservationInput | undefined;
     let owner: string | undefined, claim: MobileEnrollmentClaim | undefined, completedAttempted = false;
+    let admissionSlot:string|undefined;
     try {
       const key = requestKey(request, '/v2/auth/otp/verify');
       body = strictWireBody(request, body, ['challengeId', 'code', 'transport']);
@@ -242,6 +245,7 @@ export class DevelopmentMobileEnrollmentOtpHttpService {
       const got = this.ports.challenges.claim(body.challengeId);
       if (!got || !canonicalSecret(got.claimId) || got.metadata !== metadata) throw new HttpFailure(409);
       claim = got;
+      if(this.ports.admission)admissionSlot=this.ports.admission.reserve(metadata);
       const outcome: MobileVerificationOutcome = await this.ports.producer.verifyMobileEnrollment({ issuance: metadata, code: body.code });
       const after = this.now();
       if (after >= metadata.expiresAt || after >= reservation.expiresAt) fail();
@@ -249,9 +253,11 @@ export class DevelopmentMobileEnrollmentOtpHttpService {
       if (outcome.kind === 'incorrect' && (!Number.isInteger(outcome.remainingAttempts) ||
         outcome.remainingAttempts < 1 || outcome.remainingAttempts > 4)) fail();
       if (outcome.kind === 'consumed' && (typeof outcome.proof !== 'string' || !/^v2\.[A-Za-z0-9_-]{43}$/.test(outcome.proof))) fail();
+      if(admissionSlot&&outcome.kind==='consumed')this.ports.admission!.prepare(admissionSlot,outcome.proof,metadata);
       completedAttempted = true;
       this.ports.idempotency.settle(input, owner, 'completed');
       if (outcome.kind === 'incorrect') {
+        if(admissionSlot){this.ports.admission!.abandon(admissionSlot);admissionSlot=undefined;}
         this.ports.challenges.restoreIncorrect(claim, outcome.remainingAttempts);
         claim = undefined;
         throw new HttpFailure(401);
@@ -260,8 +266,10 @@ export class DevelopmentMobileEnrollmentOtpHttpService {
       claim = undefined;
       if (outcome.kind === 'terminal') throw new HttpFailure(401);
       if (this.now() >= metadata.expiresAt) fail();
+      if(admissionSlot){this.ports.admission!.publish(admissionSlot);admissionSlot=undefined;}
       this.send(response, 200, { purpose: 'enroll_identifier', proof: outcome.proof, nextBrowserNonce: null });
     } catch (error) {
+      if(admissionSlot)try{this.ports.admission!.abandon(admissionSlot);}catch{/* Undisclosed slot expires. */}
       if (claim) try { this.ports.challenges.retire(claim); } catch { /* Claim stays unusable until expiry. */ }
       if (input && owner) this.settleFailed(input, owner, completedAttempted);
       try { this.send(response, error instanceof HttpFailure ? error.status : 500); } catch { /* Uncertain response. */ }

@@ -34,6 +34,7 @@ const privatePostPaths = [
   '/v2/me/profile/read', '/v2/me/mode', '/v2/me/mode/read',
   '/v2/subscriptions/owner/read', '/v2/subscriptions/{id}/read',
 ];
+const privateMobilePostPaths = ['enrollment/complete','login/verify','session','refresh','logout','profile/read','profile','mode/read','mode','subscriptions/owner/read','subscriptions/owner/manual'].map(path=>`/v2/private/mobile/${path}`);
 
 function assertRequiredBrowserHeaders(operation, label) {
   const origin = operation.parameters.find((parameter) => parameter.name === 'Origin');
@@ -47,7 +48,7 @@ function classifiedPosts(document) {
   const paths = Object.entries(document.paths)
     .filter(([path, item]) => path.startsWith('/v2/') && item.post)
     .map(([path]) => path);
-  assert.deepEqual(paths.sort(), [...idempotentPostPaths, ...privatePostPaths, ...privateBusinessIdempotentPostPaths].sort(),
+  assert.deepEqual(paths.sort(), [...idempotentPostPaths, ...privatePostPaths, ...privateBusinessIdempotentPostPaths, ...privateMobilePostPaths].sort(),
     'every v2 POST must have an explicit reviewed idempotency classification');
   return idempotentPostPaths.map((path) => [path, document.paths[path].post]);
 }

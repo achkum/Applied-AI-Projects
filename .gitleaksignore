@@ -35,3 +35,12 @@ be13f1367de1802aee83144e9309233682569a72:SubTrack/.sdlc/evidence/ST-227c1/accept
 
 # ST233m: independently verified public deterministic expiry fixture identifier; exact historical finding only.
 1ea7931d64c55c6909280dadeb851ee5875bbde2:SubTrack/tools/database/development-auth-foundation-proof.sh:generic-api-key:1441
+
+# ST244: public source checksum and ordinary rotation prose; exact historical findings only.
+# The checksum was independently recomputed from the networking source; neither finding is a credential.
+661d8fd0c6363c82dfb2828c4f743f86dd5f1e7f:SubTrack/.sdlc/evidence/ST-244/integration-review.md:generic-api-key:9
+661d8fd0c6363c82dfb2828c4f743f86dd5f1e7f:SubTrack/.sdlc/evidence/ST-244/source-review.md:generic-api-key:5
+
+# ST244: independently verified invalid synthetic PEM envelope in redaction tests.
+# Exact historical finding only; current canary constructs markers and scan stays enabled.
+1dd27a4bf2db68a64dcf69c63eec3ad4855d0412:SubTrack/apps/mobile/scripts/private-runtime-fatal-excerpt-test.mjs:private-key:28

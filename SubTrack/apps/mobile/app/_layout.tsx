@@ -5,6 +5,7 @@ import { useFonts } from 'expo-font';
 import { Platform } from 'react-native';
 import { RootProvider } from '@/providers/RootProvider';
 import { EnrollmentProvider } from '@/state/EnrollmentFlow';
+import { NativeSessionProvider } from '@/state/NativeSession';
 import manropeFont from '../assets/fonts/Manrope-VF.ttf';
 import frauncesFont from '../assets/fonts/Fraunces-VF.ttf';
 
@@ -35,14 +36,15 @@ export default function RootLayout() {
       useSystemFonts={useSystemFonts}
       systemFontFamily={systemFontFamily}
     >
-      <EnrollmentProvider><Stack screenOptions={{ headerShown: false }}>
+      <NativeSessionProvider><EnrollmentProvider><Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="welcome" />
         <Stack.Screen name="register" />
         <Stack.Screen name="register-otp" />
         <Stack.Screen name="register-bankid" />
+        <Stack.Screen name="personal" />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack></EnrollmentProvider>
+      </Stack></EnrollmentProvider></NativeSessionProvider>
     </RootProvider>
   );
 }

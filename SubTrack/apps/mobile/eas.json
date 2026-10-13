@@ -10,6 +10,9 @@
       },
       "ios": {
         "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED": "false"
       }
     },
     "preview": {

@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RootLayout from '../../app/_layout';
 import * as SplashScreen from 'expo-splash-screen';
 
+jest.mock('@/utils/secureSessionBundle', () => ({ ...jest.requireActual('@/utils/secureSessionBundle'), secureSessionBundle: { read: jest.fn().mockResolvedValue(null), write: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) } }));
 const mockUseFonts = jest.fn();
 jest.mock('expo-font', () => ({ useFonts: (...args: unknown[]) => mockUseFonts(...args) }));
 

@@ -37,7 +37,7 @@ function dataObject(input: unknown): Record<string, unknown> {
   return copy;
 }
 
-export function parseProfilePatch(input: unknown): ProfilePatch { return patch.parse(dataObject(input)); }
+export function parseProfilePatch(input: unknown): ProfilePatch { return patch.parse(dataObject(input)) as ProfilePatch; }
 export function parseProfileView(input: unknown): ProfileView { return view.parse(dataObject(input)); }
 export function parseJustMeChoice(input: unknown): JustMeChoice { return zJustMeChoice.parse(dataObject(input)); }
 
