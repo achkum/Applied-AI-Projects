@@ -421,7 +421,7 @@ try {
       const progressRoutes = [
         ['**/v2/auth/login/simulator/verify', copy.login.verifying, 'login-verifying'],
         ['**/v2/auth/session', copy.login.creatingSession, 'login-session-progress'],
-        ['**/v2/me/profile/read', copy.profileLoading, 'login-profile-loading'],
+        ['**/v2/me/profile/read', copy.registration.profileLoading, 'login-profile-loading'],
         ['**/v2/me/mode/read', copy.login.loadingMode, 'login-profile-read-mode-loading'],
         ['**/v2/subscriptions/owner/read', copy.ownerSubscriptions.loading, 'login-mode-read-list-loading'],
       ];
@@ -443,6 +443,8 @@ try {
               aliceSessionDiagnostic = [201, 409, 400, 401, 403, 500].includes(created.status()) ? String(created.status()) : 'OTHER';
               fs.writeSync(2, `ST239_ALICE_SESSION_DIAGNOSTIC status=${aliceSessionDiagnostic}\n`);
               await route.fulfill({ response: created });
+              aliceSessionDiagnostic = 'FULFILLED';
+              fs.writeSync(2, 'ST239_ALICE_SESSION_DIAGNOSTIC status=FULFILLED\n');
             } catch (error) {
               if (aliceSessionDiagnostic === 'NONE') aliceSessionDiagnostic = error instanceof Error && error.name === 'TimeoutError' ? 'TIMEOUT' : 'OTHER';
               fs.writeSync(2, `ST239_ALICE_SESSION_DIAGNOSTIC status=${aliceSessionDiagnostic}\n`);
