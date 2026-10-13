@@ -16,10 +16,10 @@ const { parseModeView, parsePrivateOwnerPageRequest, parsePrivateOwnerView, pars
 
 type OwnerView = Readonly<{ visibility: 'owner'; id: string; customName: string | null; merchantId: string | null;
   merchantName: string | null; categoryCode: string; cadence: string; status: string;
-  expectedAmountMinor: string; currency: string; nextChargeDate: string | null; alwaysPrivate: boolean }>;
+  expectedAmountMinor: string; currency: string; nextChargeDate: string | null; alwaysPrivate: boolean; source: 'MANUAL' | 'DETECTED' }>;
 type ModeRow = { onboarding_mode: unknown; profile_complete: unknown };
 type OwnerRow = { id: unknown; identity_id: unknown; merchant_id: unknown; merchant_name: unknown;
-  custom_name: unknown; category_code: unknown; cadence: unknown; status: unknown;
+  source: unknown; custom_name: unknown; category_code: unknown; cadence: unknown; status: unknown;
   expected_amount_minor: unknown; currency: unknown; next_charge_date: unknown;
   always_private: unknown; created_at: unknown };
 type LockRow = { id: unknown; identity_id: unknown; status: unknown };
@@ -71,7 +71,7 @@ function cursor(row: OwnerRow): string {
 }
 function ownerView(row: OwnerRow, ownerId: string): OwnerView {
   if (row.identity_id !== ownerId) throw new Error('projection');
-  return parsePrivateOwnerView({ visibility: 'owner', id: row.id, customName: row.custom_name,
+  return parsePrivateOwnerView({ visibility: 'owner', source: row.source, id: row.id, customName: row.custom_name,
     merchantId: row.merchant_id, merchantName: row.merchant_name, categoryCode: row.category_code,
     cadence: row.cadence, status: row.status, expectedAmountMinor: row.expected_amount_minor,
     currency: row.currency, nextChargeDate: row.next_charge_date, alwaysPrivate: row.always_private });

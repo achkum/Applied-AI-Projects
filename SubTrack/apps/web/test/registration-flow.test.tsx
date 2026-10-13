@@ -1,5 +1,5 @@
 import { catalogs } from '@subtrack/i18n';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { axe } from 'jest-axe';
 import { RegistrationFlow } from '../components/onboarding/registration-flow';
@@ -137,7 +137,7 @@ describe('mounted private enrollment and profile', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
     await screen.findByText('Profile saved and confirmed.');
     expect(screen.getByRole('status').textContent).toBe('Profile complete.');
-    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Profile saved and confirmed.' }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Profile saved and confirmed.' })));
     expect(fetchMock.mock.calls.map(([url]) => url).slice(-3)).toEqual(['/v2/me/profile/read', '/v2/me/profile', '/v2/me/profile/read']);
     expect(JSON.parse(fetchMock.mock.calls[7]?.[1]?.body as string)).toEqual({ displayName: 'Synthetic Owner' });
     expect(document.body.textContent).not.toContain('private-csrf');
@@ -204,7 +204,7 @@ describe('mounted private enrollment and profile', () => {
 
   it('continues from confirmed profile through explicit mode, owner row and reread status without a second PATCH', async () => {
     const id = '123e4567-e89b-42d3-a456-426614174000';
-    const owner = { visibility: 'owner', id, customName: 'Synthetic Subscription', merchantId: null, merchantName: null,
+    const owner = { source: 'MANUAL' as const, visibility: 'owner', id, customName: 'Synthetic Subscription', merchantId: null, merchantName: null,
       categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', status: 'ACTIVE', expectedAmountMinor: '12345',
       currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
     const fetchMock = startMocks()
@@ -232,5 +232,136 @@ describe('mounted private enrollment and profile', () => {
       `/v2/subscriptions/${id}`, `/v2/subscriptions/${id}/read`,
     ]);
     expect(fetchMock.mock.calls.filter(([url, options]) => url === `/v2/subscriptions/${id}` && options?.method === 'PATCH')).toHaveLength(1);
+  });
+});
+
+
+describe('manual Add intent and authoritative readback', () => {
+  const id = '123e4567-e89b-42d3-a456-426614174009';
+  const manualRow = { source: 'MANUAL', visibility: 'owner', id, customName: 'Manual Proof', merchantId: null,
+    merchantName: null, categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', status: 'ACTIVE',
+    expectedAmountMinor: '1234', currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
+  const copy = catalogs.en.onboarding;
+  const problem = (status: number, code: string) => Promise.resolve(new Response(JSON.stringify({ type: 'about:blank',
+    title: ({ 400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 409: 'Conflict', 500: 'Internal Server Error' } as Record<number, string>)[status], status, code }),
+    { status, headers: { 'Content-Type': 'application/problem+json' } }));
+  async function emptyOwner() {
+    const fetch = vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(() => response(200, { nonce: token }))
+      .mockImplementationOnce(() => response(200, { transport: 'web', loginProof: `v2.${token}`, status: 'verified', nextBrowserNonce: token }))
+      .mockImplementationOnce(() => response(201, { transport: 'web', sessionId: id, csrfToken: 'manual-csrf' }))
+      .mockImplementationOnce(() => response(200, { ...view, displayName: 'Owner', profileComplete: true }))
+      .mockImplementationOnce(() => response(200, { mode: 'just-me' }))
+      .mockImplementationOnce(() => response(200, { items: [], nextCursor: null }));
+    render(<RegistrationFlow locale="en" initialEntry="login" />);
+    fireEvent.click(screen.getByRole('button', { name: copy.login.simulatorAction }));
+    await screen.findByText(copy.ownerSubscriptions.empty);
+    return fetch;
+  }
+  async function draft() {
+    fireEvent.click(screen.getByRole('button', { name: copy.manualSubscription.title }));
+    await screen.findByLabelText(copy.manualSubscription.name);
+    fireEvent.change(screen.getByLabelText(copy.manualSubscription.name), { target: { value: 'Manual Proof' } });
+    fireEvent.change(screen.getByLabelText(copy.manualSubscription.category), { target: { value: 'VIDEO_STREAMING' } });
+    fireEvent.change(screen.getByLabelText(copy.manualSubscription.amount), { target: { value: '12.34' } });
+  }
+  it('returns cancel focus, then explicitly checks the same immutable intent after a lost response', async () => {
+    const fetch = await emptyOwner(); await draft();
+    fireEvent.click(screen.getByRole('button', { name: copy.manualSubscription.cancel }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: copy.manualSubscription.title }));
+    await draft();
+    fetch.mockRejectedValueOnce(new Error('lost response'));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualSubscription.save }));
+    await screen.findByText(copy.manualSubscription.uncertain);
+    expect(screen.queryByRole('button', { name: copy.manualSubscription.save })).toBeNull();
+    expect(screen.getByLabelText(copy.manualSubscription.name).hasAttribute('disabled')).toBe(true);
+    const first = fetch.mock.calls.at(-1)!;
+    fetch.mockImplementationOnce(() => response(201, { id }))
+      .mockImplementationOnce(() => response(200, manualRow))
+      .mockImplementationOnce(() => response(200, { items: [manualRow], nextCursor: null }));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualSubscription.check }));
+    await screen.findByText(copy.manualSubscription.confirmed);
+    const writes = fetch.mock.calls.filter(([url]) => url === '/v2/subscriptions/owner/manual');
+    expect(writes).toHaveLength(2); expect(writes[1]![0]).toBe(first[0]);
+    expect(writes[1]![1]!.headers).toEqual(first[1]!.headers); expect(writes[1]![1]!.body).toBe(first[1]!.body);
+    expect(fetch.mock.calls.slice(-2).map(([url]) => url)).toEqual([`/v2/subscriptions/${id}/read`, '/v2/subscriptions/owner/read']);
+    expect(document.body.textContent).not.toContain('manual-csrf');
+  });
+  it('after known 201 retries only detail/list reads', async () => {
+    const fetch = await emptyOwner(); await draft();
+    fetch.mockImplementationOnce(() => response(201, { id })).mockRejectedValueOnce(new Error('read lost'));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualSubscription.save }));
+    await screen.findByText(copy.manualSubscription.readError);
+    fetch.mockImplementationOnce(() => response(200, manualRow))
+      .mockImplementationOnce(() => response(200, { items: [manualRow], nextCursor: null }));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualSubscription.retryRead }));
+    await screen.findByText(copy.manualSubscription.confirmed);
+    expect(fetch.mock.calls.filter(([url]) => url === '/v2/subscriptions/owner/manual')).toHaveLength(1);
+  });
+  it('locks the pending draft and ignores duplicate submission; unmount discards a late committed response', async () => {
+    const fetch = await emptyOwner(); await draft();
+    let resolve!: (response: Response) => void;
+    fetch.mockImplementationOnce(() => new Promise<Response>(done => { resolve = done; }));
+    const save = screen.getByRole('button', { name: copy.manualSubscription.save });
+    fireEvent.click(save); fireEvent.click(save);
+    expect(screen.getByLabelText(copy.manualSubscription.amount).hasAttribute('disabled')).toBe(true);
+    expect(fetch.mock.calls.filter(([url]) => url === '/v2/subscriptions/owner/manual')).toHaveLength(1);
+    // Remove the entire page while the write result is unknown.
+    const pendingSignal = fetch.mock.calls.at(-1)![1]!.signal!;
+    const { cleanup } = await import('@testing-library/react'); cleanup();
+    expect(pendingSignal.aborted).toBe(true);
+    await act(async () => { resolve(new Response(JSON.stringify({ id }), { status: 201, headers: { 'Content-Type': 'application/json' } })); });
+    expect(fetch.mock.calls.filter(([url]) => url === `/v2/subscriptions/${id}/read`)).toHaveLength(0);
+    expect(document.body.textContent).not.toContain('Manual Proof');
+  });
+  it.each([401, 403])('clears private form on authority %s', async status => {
+    const fetch = await emptyOwner(); await draft();
+    fetch.mockImplementationOnce(() => problem(status, status === 401 ? 'AUTHENTICATION_REQUIRED' : 'MANUAL_REQUEST_REJECTED'));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualSubscription.save }));
+    await screen.findByText(copy.registration.verifiedLoginRequired);
+    expect(screen.queryByLabelText(copy.manualSubscription.name)).toBeNull();
+    expect(screen.queryByText('Manual Proof')).toBeNull();
+  });
+  it('retains a 400 draft but permits a distinct explicit intent only after an edit', async () => {
+    const intentKeys = vi.spyOn(globalThis.crypto, 'randomUUID');
+    const fetch = await emptyOwner(); await draft(); fetch.mockImplementationOnce(() => problem(400, 'INVALID_MANUAL_REQUEST'));
+    intentKeys.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: copy.manualSubscription.save }));
+    await screen.findByText(copy.manualSubscription.invalid);
+    expect((screen.getByLabelText(copy.manualSubscription.name) as HTMLInputElement).value).toBe('Manual Proof');
+    const rejectedSave = screen.getByRole('button', { name: copy.manualSubscription.save });
+    expect(rejectedSave.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(rejectedSave);
+    fireEvent.submit(rejectedSave.closest('form')!);
+    expect(fetch.mock.calls.filter(([url]) => url === '/v2/subscriptions/owner/manual')).toHaveLength(1);
+    expect(intentKeys).toHaveBeenCalledTimes(1);
+    fireEvent.change(screen.getByLabelText(copy.manualSubscription.amount), { target: { value: '12.35' } });
+    expect(rejectedSave.hasAttribute('disabled')).toBe(false);
+    fetch.mockImplementationOnce(() => response(201, { id })).mockImplementationOnce(() => response(200, manualRow))
+      .mockImplementationOnce(() => response(200, { items: [manualRow], nextCursor: null }));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualSubscription.save })); await screen.findByText(copy.manualSubscription.confirmed);
+    const writes = fetch.mock.calls.filter(([url]) => url === '/v2/subscriptions/owner/manual');
+    expect(writes).toHaveLength(2);
+    expect(intentKeys).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(writes[1]![1]!.body as string).expectedAmountMinor).toBe('1235');
+    expect((writes[0]![1]!.headers as Record<string, string>)['Idempotency-Key']).not.toBe((writes[1]![1]!.headers as Record<string, string>)['Idempotency-Key']);
+  });
+  it.each(['MODE_CONFLICT', 'MANUAL_IDEMPOTENCY_CONFLICT'])('reconciles authoritative profile/mode/list before a new Add after %s', async code => {
+    const fetch = await emptyOwner(); await draft(); fetch.mockImplementationOnce(() => problem(409, code));
+    if (code === 'MODE_CONFLICT') fetch.mockImplementationOnce(() => response(200, { ...view, displayName: 'Owner', profileComplete: true }))
+      .mockImplementationOnce(() => response(200, { mode: 'just-me' }))
+      .mockImplementationOnce(() => response(200, { items: [manualRow], nextCursor: null }));
+    fireEvent.click(screen.getByRole('button', { name: copy.manualSubscription.save }));
+    if (code === 'MANUAL_IDEMPOTENCY_CONFLICT') {
+      await screen.findByText(copy.manualSubscription.receiptConflict);
+      expect(screen.queryByText(copy.manualSubscription.confirmed)).toBeNull();
+      fetch.mockImplementationOnce(() => response(200, { ...view, displayName: 'Owner', profileComplete: true }))
+        .mockImplementationOnce(() => response(200, { mode: 'just-me' }))
+        .mockImplementationOnce(() => response(200, { items: [manualRow], nextCursor: null }));
+      fireEvent.click(screen.getByRole('button', { name: copy.manualSubscription.reconcile }));
+    }
+    await screen.findByRole('button', { name: /Manual Proof/ });
+    expect(fetch.mock.calls.slice(-3).map(([url]) => url)).toEqual(['/v2/me/profile/read', '/v2/me/mode/read', '/v2/subscriptions/owner/read']);
+    expect(fetch.mock.calls.filter(([url]) => url === '/v2/subscriptions/owner/manual')).toHaveLength(1);
   });
 });

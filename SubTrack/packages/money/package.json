@@ -8,6 +8,10 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     },
+    "./parse-positive-sek-input": {
+      "types": "./src/parse-positive-sek-input.ts",
+      "import": "./src/parse-positive-sek-input.ts"
+    },
     "./formatter": {
       "types": "./src/formatter.ts",
       "import": "./src/formatter.ts"

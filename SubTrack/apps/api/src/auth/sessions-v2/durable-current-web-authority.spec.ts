@@ -2,7 +2,7 @@ import { generateKeyPairSync, randomBytes, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { V2AccessToken } from './v2-access-token.js';
-import { DurableCurrentWebAuthority, type CurrentWebRequest, type OwnerTx } from './durable-current-web-authority.js';
+import { DurableCurrentWebAuthority, CurrentWebAuthorityError, type CurrentWebRequest, type OwnerTx } from './durable-current-web-authority.js';
 import { createDurableCurrentWebFixture } from './durable-current-web-fixture.js';
 
 const origin = 'https://st233a.invalid';
@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 type FakeOptions = Readonly<{ denied?: boolean; commitCommand?: string; releaseThrows?: boolean;
-  businessStatements?: Readonly<Record<string, string>> }>;
+  businessStatements?: Readonly<Record<string, string>>; checkDenied?: boolean; missingOwner?: boolean; malformedOwner?: boolean; failSql?: string; malformedCheck?: boolean; connectFailure?: boolean }>;
 const ownerUpdate = 'UPDATE public.identity SET updated_at=updated_at WHERE id=$1::uuid';
 function setup(options: FakeOptions = {}) {
   const calls: string[] = [];
@@ -33,6 +33,7 @@ function setup(options: FakeOptions = {}) {
   const client = {
     async query(sql: string) {
       calls.push(sql);
+      if (options.failSql && (options.failSql === 'COMMIT' || options.failSql === 'ROLLBACK' ? sql === options.failSql : sql.includes(options.failSql))) throw new CurrentWebAuthorityError('authority-rejected');
       if (released) throw new Error('released');
       if (sql.startsWith('SET LOCAL ROLE')) role = 'subtrack_runtime';
       if (sql.includes('set_config')) bound = true;
@@ -41,13 +42,13 @@ function setup(options: FakeOptions = {}) {
         current_user: role, database_name: 'st233a_development_auth_foundation_proof',
         user_id: bound ? owner : '', current_user_id: bound ? owner : '' }], command: 'SELECT' };
       if (sql.includes('current_database()')) return { rows: [{ database_name: 'st233a_development_auth_foundation_proof' }], command: 'SELECT' };
-      if (sql.includes('public.identity')) return { rows: [{ id: owner }], command: 'SELECT' };
-      if (sql.includes('subtrack_auth.')) return { rows: [{ ok: !options.denied }], command: 'SELECT' };
+      if (sql.includes('public.identity')) return { rows: options.missingOwner ? [] : [{ id: options.malformedOwner ? 'wrong-owner' : owner }], rowCount: options.missingOwner ? 0 : 1, command: 'SELECT' };
+      if (sql.includes('subtrack_auth.')) return { rows: [{ ok: sql.includes('check_current_web') ? options.malformedCheck ? null : !options.checkDenied : !options.denied }], rowCount: 1, command: 'SELECT' };
       return { rows: [], command: sql === 'COMMIT' ? options.commitCommand ?? 'COMMIT' : sql === 'ROLLBACK' ? 'ROLLBACK' : 'SELECT' };
     },
     release(error?: Error) { calls.push(error ? 'discard' : 'release'); released = true; if (options.releaseThrows) throw new Error('release failed'); },
   };
-  const pool = { connect: async () => client } as unknown as Pick<Pool, 'connect'>;
+  const pool = { connect: async () => { if (options.connectFailure) throw new CurrentWebAuthorityError('authority-rejected'); return client; } } as unknown as Pick<Pool, 'connect'>;
   const authority = new DurableCurrentWebAuthority({ pool, accessTokens: tokens, origin,
     epoch: 'epoch-1', manifestHash, businessStatements: options.businessStatements ?? { ownerUpdate } });
   return { authority, calls };
@@ -212,4 +213,35 @@ describe('durable current web authority transaction', () => {
       .rejects.toThrow('Current web session unavailable');
     expect(calls).toEqual([]);
   });
+});
+
+describe('typed authority error boundary',()=>{
+ it('rejects controlled witness and masks a callback forged denial',async()=>{
+  const first=setup(); await expect(first.authority.withCurrentWebAuthority({...request,exactOrigin:'https://bad.invalid'},async()=>1)).rejects.toMatchObject({kind:'authority-rejected'});
+  expect(first.calls).toEqual([]);
+  const forged=setup(); await expect(forged.authority.withCurrentWebAuthority(request,async()=>{throw new CurrentWebAuthorityError('authority-rejected');})).rejects.toMatchObject({kind:'storage-unavailable'});
+  expect(forged.calls).toContain('ROLLBACK'); expect(forged.calls.at(-1)).toBe('discard');
+ });
+ it('masks fence, commit and release failures',async()=>{
+  for(const options of [{denied:true},{commitCommand:'UNKNOWN'},{releaseThrows:true}]) {
+   const test=setup(options); await expect(test.authority.withCurrentWebAuthority(request,async()=>1)).rejects.toMatchObject({kind:'storage-unavailable'});
+  }
+ });
+});
+
+describe('controlled denial versus storage faults',()=>{
+ it('allows denial only for missing live owner or exact false current check',async()=>{
+  for(const options of [{missingOwner:true},{checkDenied:true}]){
+   const h=setup(options);let called=false;
+   await expect(h.authority.withCurrentWebAuthority(request,async()=>{called=true;return 1;})).rejects.toMatchObject({kind:'authority-rejected'});
+   expect(called).toBe(false);expect(h.calls).toContain('ROLLBACK');expect(h.calls.at(-1)).toBe('discard');
+  }
+ });
+ it('cannot derive denial from malformed rows, pool/query or COMMIT exceptions',async()=>{
+  for(const options of [{malformedOwner:true},{malformedCheck:true},{connectFailure:true},
+   {failSql:'check_current_web'},{failSql:'COMMIT'},{checkDenied:true,failSql:'ROLLBACK'}]){
+   const h=setup(options);await expect(h.authority.withCurrentWebAuthority(request,async()=>1)).rejects.toMatchObject({kind:'storage-unavailable'});
+   if(options.failSql==='COMMIT'){expect(h.calls.filter(call=>call==='COMMIT')).toHaveLength(1);expect(h.calls).not.toContain('ROLLBACK');}
+  }
+ });
 });

@@ -15,7 +15,7 @@ const OWNER = '123e4567-e89b-42d3-a456-426614174000';
 const ROW = '123e4567-e89b-42d3-a456-426614174001';
 const TOKEN = Buffer.alloc(32, 4).toString('base64url');
 const ownerRow = (id = ROW, created_at = '2026-10-11T12:00:00.123456Z') => ({ id, identity_id: OWNER,
-  merchant_id: null, merchant_name: null, custom_name: 'Example', category_code: 'VIDEO_STREAMING',
+  source: 'MANUAL', merchant_id: null, merchant_name: null, custom_name: 'Example', category_code: 'VIDEO_STREAMING',
   cadence: 'MONTHLY', status: 'ACTIVE', expected_amount_minor: '999', currency: 'SEK',
   next_charge_date: null, always_private: false, created_at });
 type Query = { command: string; rowCount: number; rows: Record<string, unknown>[] };

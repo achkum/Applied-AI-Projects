@@ -1,5 +1,6 @@
 // ST-237 feasibility only: a real Nest/Express route and a real Next page share one TLS listener.
 import fs from 'node:fs';
+import nodeAssert from 'node:assert/strict';
 import https from 'node:https';
 import { randomUUID } from 'node:crypto';
 import console from 'node:console';
@@ -137,6 +138,13 @@ async function browser() {
         assert(result.status === 201, 'real Nest POST failed');
         assert(result.body?.tlsSocket === true && result.body?.rawHeaders === true && result.body?.browserOrigin === true,
           'Nest did not see direct browser TLS/Origin');
+        const manualStatus = await page.evaluate(async () => {
+          const response = await globalThis.fetch('/v2/subscriptions/owner/manual', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+          });
+          return response.status;
+        });
+        assert(manualStatus === 404, 'manual create escaped the private composition');
       } finally { await page.close(); }
     }
     await healthy();
@@ -170,8 +178,63 @@ async function browser() {
   } finally { await trusted.close(); }
 }
 
+async function manualDiagnosticDelegation() {
+  const source = fs.readFileSync(path.join(webDir, 'private-https-server.mjs'), 'utf8');
+  const start = source.indexOf('function createManualDiagnosticPool(');
+  const end = source.indexOf('// END confined manual diagnostic factory.', start);
+  nodeAssert(start >= 0 && end > start);
+  // Exercise the exact source factory, without starting the private launcher.
+  const factory = new Function(`return (${source.slice(start, end).trim()});`)();
+  const { PRIVATE_MANUAL_CREATE_STATEMENTS: statements } = await import(new globalThis.URL('../../api/src/subscriptions/private-manual-create-statements.ts', import.meta.url));
+  const messages = []; const calls = []; const releases = []; let connects = 0;
+  const original = { private: 'test-only-value' };
+  const permission = Object.assign(new Error('test-only-private-error'), { code: '42501' });
+  const uncertain = Object.assign(new Error('test-only-commit-error'), { code: 'unknown-private-code' });
+  const queryObject = {};
+  const client = { query(...args) {
+    nodeAssert.equal(this, client); calls.push(args);
+    if (args[0] === statements.manualSubscriptionInsert) return Promise.reject(permission);
+    if (args[0] === 'COMMIT') return Promise.reject(uncertain);
+    if (args[0] === 'SYNC') throw permission;
+    if (typeof args.at(-1) === 'function') return queryObject;
+    return Promise.resolve(original);
+  }, release(...args) { nodeAssert.equal(this, client); releases.push(args); return queryObject; } };
+  const pool = { async connect() { nodeAssert.equal(this, pool); connects++; return client; } };
+  const wrapped = factory(pool, statements, line => messages.push(line));
+  const loan = await wrapped.connect();
+  nodeAssert.equal(await loan.query(statements.manualIdMint), original);
+  nodeAssert(messages.includes('ST240_MANUAL_SQL stage=ID_MINT result=OK sqlstate=NONE'));
+  const args = ['opaque-test-value'];
+  nodeAssert.equal(await loan.query(statements.manualModeRead, args), original);
+  nodeAssert.equal(calls.at(-1)[1], args);
+  const check = 'SELECT subtrack_auth.check_current_web($1::uuid,$2::uuid,$3::text,$4::text,$5::subtrack_auth.h,$6::subtrack_auth.h,$7::text,$8::subtrack_auth.h,$9::subtrack_auth.ms) AS ok';
+  await loan.query(check); await loan.query(check);
+  const second = await wrapped.connect(); await second.query(check);
+  nodeAssert.equal(connects, 2);
+  nodeAssert.equal(messages.filter(line => line === 'ST240_MANUAL_SQL stage=AUTH_PRE result=OK sqlstate=NONE').length, 2);
+  nodeAssert.equal(messages.filter(line => line === 'ST240_MANUAL_SQL stage=AUTH_POST result=OK sqlstate=NONE').length, 1);
+  await nodeAssert.rejects(loan.query(statements.manualSubscriptionInsert, args), error => error === permission);
+  await nodeAssert.rejects(loan.query('COMMIT'), error => error === uncertain);
+  nodeAssert.throws(() => loan.query('SYNC'), error => error === permission);
+  const callback = () => {};
+  nodeAssert.equal(loan.query('CALLBACK', args, callback), queryObject);
+  nodeAssert.equal(calls.at(-1)[2], callback);
+  nodeAssert.equal(calls.length, 9, 'each query delegates exactly once');
+  nodeAssert.equal(loan.release(permission), queryObject);
+  nodeAssert.deepEqual(releases, [[permission]]);
+  nodeAssert(messages.includes('ST240_MANUAL_SQL stage=SUBSCRIPTION_INSERT result=ERROR sqlstate=42501'));
+  nodeAssert(messages.includes('ST240_MANUAL_SQL stage=COMMIT result=ERROR sqlstate=OTHER'));
+  nodeAssert.equal(messages.some(line => /private|opaque/.test(line)), false);
+  const sinkFailure = factory(pool, statements, () => { throw permission; });
+  nodeAssert.equal(await (await sinkFailure.connect()).query(statements.manualModeRead), original);
+  const connectFailure = { async connect() { throw uncertain; } };
+  await nodeAssert.rejects(factory(connectFailure, statements, line => messages.push(line)).connect(), error => error === uncertain);
+  console.log('PASS ST240_EXACT_MANUAL_DIAGNOSTIC_DELEGATION_AND_CLOSED_EXPORT');
+}
+
 const mode = process.argv[2];
-if (mode === 'server') await server();
+if (mode === 'manual-diagnostic') await manualDiagnosticDelegation();
+else if (mode === 'server') await server();
 else if (mode === 'browser') {
   try { await browser(); }
   catch (error) {

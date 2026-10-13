@@ -38,3 +38,4 @@ export {
 } from './converted-cost.js';
 
 export { isConfirmedSekPriceIncrease } from './price-increase.js';
+export { parsePositiveSekInput } from './parse-positive-sek-input.js';

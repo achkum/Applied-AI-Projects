@@ -25,12 +25,13 @@
 
 .primary {
   background: var(--aurora-violet);
-  color: #ffffff;
+  color: var(--ink-on-accent);
   border-color: var(--aurora-violet);
 }
 
 .primary:hover:not(:disabled) {
-  opacity: 0.88;
+  background: var(--aurora-violet-hover);
+  border-color: var(--aurora-violet-hover);
 }
 
 .secondary {

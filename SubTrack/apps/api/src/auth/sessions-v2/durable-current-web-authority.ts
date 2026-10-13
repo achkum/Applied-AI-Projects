@@ -38,7 +38,13 @@ export type DurableCurrentWebConfig = Readonly<{
   observedMs?: (() => number) | undefined;
 }>;
 
-function unavailable(): never { throw new Error(UNAVAILABLE); }
+export class CurrentWebAuthorityError extends Error {
+  constructor(readonly kind: 'authority-rejected' | 'storage-unavailable') { super(UNAVAILABLE); this.name = 'CurrentWebAuthorityError'; }
+}
+const denials = new WeakSet<Error>();
+function unavailable(): never { throw new CurrentWebAuthorityError('storage-unavailable'); }
+function denied(): never { const error = new CurrentWebAuthorityError('authority-rejected'); denials.add(error); throw error; }
+
 
 function observed(clock: () => number): number {
   const value = clock();
@@ -113,7 +119,7 @@ export class DurableCurrentWebAuthority {
         chain: request.browserChainId, bindingHash: hashBrowserBindingCookie(request.bindingCookie),
         csrfHash: hashDurableSessionCsrf(request.csrfToken), accessToken: request.accessToken,
       });
-    } catch { return unavailable(); }
+    } catch { return denied(); }
   }
 
   private async fence(client: PoolClient): Promise<void> {
@@ -125,7 +131,7 @@ export class DurableCurrentWebAuthority {
   }
 
   private async check(client: PoolClient, witness: Witness, operation: 'check_current_web' | 'replace_current_csrf' | 'revoke_current', nextHash?: string): Promise<void> {
-    this.verifyToken(witness.accessToken);
+    try { this.verifyToken(witness.accessToken); } catch { denied(); }
     const args: unknown[] = [witness.identityId, witness.sessionId, witness.origin, witness.chain,
       witness.bindingHash, witness.csrfHash, this.config.epoch, this.config.manifestHash, observed(this.clock)];
     if (nextHash !== undefined) args.push(nextHash);
@@ -135,7 +141,8 @@ export class DurableCurrentWebAuthority {
     const result = await client.query<{ ok: boolean }>(
       `SELECT subtrack_auth.${operation}(${placeholders.join(',')}) AS ok`, args,
     );
-    if (result.rows.length !== 1 || result.rows[0]?.ok !== true) unavailable();
+    if (result.command !== 'SELECT' || result.rowCount !== 1 || result.rows.length !== 1 || typeof result.rows[0]?.ok !== 'boolean') unavailable();
+    if (result.rows[0]?.ok === false) denied();
   }
 
   private async transact<T>(request: CurrentWebRequest, action: (client: PoolClient, witness: Witness) => Promise<T>): Promise<T> {
@@ -156,12 +163,14 @@ export class DurableCurrentWebAuthority {
       await client.query(`SELECT pg_catalog.set_config('app.user_id',$1,true),
         pg_catalog.set_config('app.current_user_id',$1,true)`, [witness.identityId]);
       const owner = await client.query('SELECT id FROM public.identity WHERE id=$1::uuid AND deleted_at IS NULL FOR UPDATE', [witness.identityId]);
-      if (owner.rows.length !== 1) unavailable();
-      this.verifyToken(witness.accessToken);
+      if (owner.command !== 'SELECT' || owner.rowCount !== owner.rows.length) unavailable();
+      if (owner.rows.length === 0) denied();
+      if (owner.rows.length !== 1 || owner.rows[0]?.id !== witness.identityId) unavailable();
+      try { this.verifyToken(witness.accessToken); } catch { denied(); }
       const result = await action(client, witness);
       await this.fence(client);
       await assertTransactionDatabase(client, this.config.database ?? 'st233a_development_auth_foundation_proof');
-      this.verifyToken(witness.accessToken);
+      try { this.verifyToken(witness.accessToken); } catch { denied(); }
       commitAttempted = true;
       const commit = await client.query('COMMIT');
       if (commit.command !== 'COMMIT') unavailable();
@@ -169,10 +178,12 @@ export class DurableCurrentWebAuthority {
       client.release();
       released = true;
       return result;
-    } catch {
+    } catch (error) {
+      let rollbackFailed = false;
       if (client && begun && !commitAttempted) {
-        try { await client.query('ROLLBACK'); } catch { /* discarded below */ }
+        try { const rollback = await client.query('ROLLBACK'); if (rollback.command !== 'ROLLBACK') rollbackFailed = true; } catch { rollbackFailed = true; }
       }
+      if (!commitAttempted && !rollbackFailed && error instanceof Error && denials.has(error)) denied();
       return unavailable();
     } finally {
       if (client && !released) {
@@ -199,6 +210,7 @@ export class DurableCurrentWebAuthority {
       });
       let result: T;
       try { result = await write(tx, Object.freeze({ identityId: witness.identityId, sessionId: witness.sessionId })); }
+      catch { unavailable(); }
       finally { active = false; }
       if (pending !== 0) unavailable();
       await this.check(client, witness, 'check_current_web');

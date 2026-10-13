@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Disposable private browser/PG integration. All diagnostics and secret material remain in owned TEMP.
 set -euo pipefail
-[[ "$#" == 2 && "$1" == --case && "$2" =~ ^(profile|partial-terminal|subscriptions|empty|uncertainty|login)$ ]] || exit 1
+[[ "$#" == 2 && "$1" == --case && "$2" =~ ^(profile|partial-terminal|subscriptions|empty|uncertainty|login|manual)$ ]] || exit 1
 proof_case="$2"
 export ST237_BROWSER_CASE="$proof_case"
 umask 077
@@ -28,7 +28,7 @@ source_digest() {
     [[ "$(git hash-object "$rel")" == "$blob" ]] || return 1
     digest="$(sha256sum "$rel")"; digest="${digest%% *}"
     printf '%s %s %s\n' "$full" "$blob" "$digest"
-  done < <(git ls-files apps/api/src/auth apps/api/src/profile apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/tsconfig.build.json apps/api/test/private-profile.integration.ts apps/api/test/durable-development-enrollment.integration.ts apps/api/test/durable-development-login.integration.ts apps/api/test/vitest.durable-development-login.config.ts apps/api/test/profile-business-catalog.ts apps/api/test/profile-business-schema.integration.ts apps/api/test/clean-migration-rls.integration.ts apps/web/private-https-server.mjs apps/web/app apps/web/lib apps/web/components apps/web/middleware.ts apps/web/next.config.ts apps/web/package.json apps/web/tsconfig.json apps/web/test/private-profile-browser.mjs packages/contracts packages/i18n packages/money packages/ui packages/ui-tokens pnpm-lock.yaml tools/database/private-profile-proof.sh tools/database/clean-migration-proof.sh ../.github/workflows/subtrack-private-https-profile-proof.yml)
+  done < <(git ls-files apps/api/src/auth apps/api/src/profile apps/api/src/subscriptions apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/tsconfig.build.json apps/api/test/private-profile.integration.ts apps/api/test/private-manual-create.integration.ts apps/api/test/durable-development-enrollment.integration.ts apps/api/test/durable-development-login.integration.ts apps/api/test/vitest.durable-development-login.config.ts apps/api/test/profile-business-catalog.ts apps/api/test/profile-business-schema.integration.ts apps/api/test/clean-migration-rls.integration.ts apps/web/private-https-server.mjs apps/web/app apps/web/lib apps/web/components apps/web/middleware.ts apps/web/next.config.ts apps/web/package.json apps/web/tsconfig.json apps/web/test/private-profile-browser.mjs packages/contracts packages/i18n packages/money packages/ui packages/ui-tokens pnpm-lock.yaml tools/database/private-profile-proof.sh tools/database/clean-migration-proof.sh ../.github/workflows/subtrack-private-https-profile-proof.yml)
 }
 stop_group() {
   local pid="$1" i
@@ -79,12 +79,22 @@ assert set(x["Containers"]).issubset({cid})
 }
 cleanup() {
   local code=$? ok=1 sqlstate=unavailable observed
-  if [[ -f "$work/browser.log" ]]; then grep -E '^FAIL ST237_BROWSER_CASE case=(profile|partial-terminal|subscriptions|empty|uncertainty|login) phase=(LAUNCH|NAVIGATE|IDENTIFIER|IDENTIFIER_READY|IDENTIFIER_SUBMIT|OTP|SIMULATOR|PROFILE|PROFILE_EDIT|PROFILE_SAVE|PROFILE_SAVED|PROFILE_WIRE|PROFILE_COOKIES|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|RELOAD_NAVIGATE|RELOAD_STOP|RELOAD_ABSENT|PARTIAL_TERMINAL|PARTIAL_SETUP|PARTIAL_NAVIGATE|PARTIAL_READY|PARTIAL_FILL|PARTIAL_SUBMIT|PARTIAL_OTP|PARTIAL_SIMULATOR|PARTIAL_COMPLETE|PARTIAL_READ|PARTIAL_STOP|PARTIAL_COOKIES|SUBSCRIPTION_SEED_BARRIER|MODE_CHOICE|SUBSCRIPTION_LIST|SUBSCRIPTION_DETAIL|SUBSCRIPTION_STATUS|SUBSCRIPTION_NEGATIVES|SUBSCRIPTION_INCOMPLETE|SUBSCRIPTION_RESTART|EMPTY_LIST|LOGIN_PRIOR_LIST|ALICE_EXISTING_SUBJECT_ENROLLMENT_STOP|BOB_NATURAL_ENROLLMENT|BOB_ENROLL_NAVIGATE|BOB_ENROLL_READY|BOB_IDENTIFIER_FILL|BOB_IDENTIFIER_SUBMIT|BOB_OTP_FILL|BOB_OTP_SUBMIT|BOB_FIXTURE_SELECT|BOB_SIMULATOR_CLICK|BOB_EDITOR_WAIT|BOB_CSRF_WAIT|BOB_PROFILE_FETCH|BOB_PROFILE_ASSERT|BOB_MODE_FETCH|BOB_MODE_ASSERT|CONTACT_SNAPSHOT_BARRIER|BOB_INCOMPLETE_LOGIN|BOB_INCOMPLETE_LOGIN_BOOTSTRAP|BOB_INCOMPLETE_LOGIN_LINK|BOB_INCOMPLETE_LOGIN_FIXTURE|BOB_INCOMPLETE_LOGIN_SUBMIT|BOB_INCOMPLETE_LOGIN_PROFILE_RESPONSE|BOB_INCOMPLETE_LOGIN_MODE_RESPONSE|BOB_INCOMPLETE_BODY|BOB_INCOMPLETE_EDITOR|BOB_INCOMPLETE_WIRE|BOB_INCOMPLETE_CAPTURE|BOB_INCOMPLETE_SAVE|BOB_ABSENT_MODE_LOGIN|BOB_ABSENT_MODE_LOGIN_BOOTSTRAP|BOB_ABSENT_MODE_LOGIN_LINK|BOB_ABSENT_MODE_LOGIN_FIXTURE|BOB_ABSENT_MODE_LOGIN_SUBMIT|BOB_ABSENT_MODE_LOGIN_PROFILE_RESPONSE|BOB_ABSENT_MODE_LOGIN_MODE_RESPONSE|BOB_ABSENT_MODE_BODY|BOB_ABSENT_MODE_EDITOR|BOB_ABSENT_MODE_WIRE|LOGIN_WELCOME|LOGIN_VERIFY|LOGIN_RELOAD|LOGIN_UNCERTAIN_RETURN|LOGIN_FRESH_RECOVERY) navigation=(200|304|400|404|500|NONE|OTHER) patch=(200|400|401|403|409|500|NONE|OTHER) read=(200|400|401|403|409|500|NONE|OTHER) reloadNavigation=(reload|navigate|back_forward|prerender|NONE|OTHER) reloadStatus=(200|304|400|404|500|NONE|OTHER) reloadError=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) reloadPageClosed=(NONE|YES|NO) reloadRequestFailure=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) partialNavigation=(200|304|400|404|500|NONE|OTHER) partialCompletion=(201|400|401|403|409|500|NONE|OTHER) partialRead=(200|400|401|403|409|500|NONE|OTHER) partialCompletionCount=(ZERO|ONE|MANY) partialRoute=(NONE|OK|FAILED)$|^ST237_NEGATIVE_GATE case=(NONE|BROWSER_MATRIX|BROWSER_CSRF|BROWSER_FOREIGN_BODY|BROWSER_DUPLICATE_BODY|BROWSER_VALID|COOKIE_ROSTER|ORIGIN|CHAIN_MISSING|CHAIN_FOREIGN|CHAIN_DUPLICATE|BINDING_MISSING|BINDING_FOREIGN|REFRESH_EXTRA|CSRF_MISSING|WRONG_HOST|NATIVE_DUPLICATE_BODY|STORAGE) status=(200|400|401|403|409|421|500|NONE|OTHER) network=(NONE|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|TLS|OTHER)$|^ST239_LOGIN_AUTH_DIAGNOSTIC nonce=(NONE|200|201|400|401|403|404|409|500|OTHER) verify=(NONE|200|201|400|401|403|404|409|500|OTHER) session=(NONE|200|201|400|401|403|404|409|500|OTHER) profile=(NONE|200|201|400|401|403|404|409|500|OTHER) mode=(NONE|200|201|400|401|403|404|409|500|OTHER)$' "$work/browser.log" >&3 || true; fi
+  if [[ -f "$work/browser.log" ]]; then grep -E '^FAIL ST237_BROWSER_CASE case=(profile|partial-terminal|subscriptions|empty|uncertainty|login|manual) phase=(LAUNCH|NAVIGATE|IDENTIFIER|IDENTIFIER_READY|IDENTIFIER_SUBMIT|OTP|SIMULATOR|PROFILE|PROFILE_EDIT|PROFILE_SAVE|PROFILE_SAVED|PROFILE_WIRE|PROFILE_COOKIES|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|RELOAD_NAVIGATE|RELOAD_STOP|RELOAD_ABSENT|PARTIAL_TERMINAL|PARTIAL_SETUP|PARTIAL_NAVIGATE|PARTIAL_READY|PARTIAL_FILL|PARTIAL_SUBMIT|PARTIAL_OTP|PARTIAL_SIMULATOR|PARTIAL_COMPLETE|PARTIAL_READ|PARTIAL_STOP|PARTIAL_COOKIES|SUBSCRIPTION_SEED_BARRIER|MODE_CHOICE|SUBSCRIPTION_LIST|SUBSCRIPTION_DETAIL|SUBSCRIPTION_STATUS|SUBSCRIPTION_NEGATIVES|SUBSCRIPTION_INCOMPLETE|SUBSCRIPTION_RESTART|EMPTY_LIST|LOGIN_PRIOR_LIST|ALICE_EXISTING_SUBJECT_ENROLLMENT_STOP|BOB_NATURAL_ENROLLMENT|BOB_ENROLL_NAVIGATE|BOB_ENROLL_READY|BOB_IDENTIFIER_FILL|BOB_IDENTIFIER_SUBMIT|BOB_OTP_FILL|BOB_OTP_SUBMIT|BOB_FIXTURE_SELECT|BOB_SIMULATOR_CLICK|BOB_EDITOR_WAIT|BOB_CSRF_WAIT|BOB_PROFILE_FETCH|BOB_PROFILE_ASSERT|BOB_MODE_FETCH|BOB_MODE_ASSERT|CONTACT_SNAPSHOT_BARRIER|BOB_INCOMPLETE_LOGIN|BOB_INCOMPLETE_LOGIN_BOOTSTRAP|BOB_INCOMPLETE_LOGIN_LINK|BOB_INCOMPLETE_LOGIN_FIXTURE|BOB_INCOMPLETE_LOGIN_SUBMIT|BOB_INCOMPLETE_LOGIN_PROFILE_RESPONSE|BOB_INCOMPLETE_LOGIN_MODE_RESPONSE|BOB_INCOMPLETE_BODY|BOB_INCOMPLETE_EDITOR|BOB_INCOMPLETE_WIRE|BOB_INCOMPLETE_CAPTURE|BOB_INCOMPLETE_SAVE|BOB_ABSENT_MODE_LOGIN|BOB_ABSENT_MODE_LOGIN_BOOTSTRAP|BOB_ABSENT_MODE_LOGIN_LINK|BOB_ABSENT_MODE_LOGIN_FIXTURE|BOB_ABSENT_MODE_LOGIN_SUBMIT|BOB_ABSENT_MODE_LOGIN_PROFILE_RESPONSE|BOB_ABSENT_MODE_LOGIN_MODE_RESPONSE|BOB_ABSENT_MODE_BODY|BOB_ABSENT_MODE_EDITOR|BOB_ABSENT_MODE_WIRE|LOGIN_WELCOME|LOGIN_VERIFY|LOGIN_RELOAD|LOGIN_UNCERTAIN_RETURN|LOGIN_FRESH_RECOVERY|MANUAL_EMPTY|MANUAL_VALIDATION|MANUAL_CANCEL_CLICK|MANUAL_ADD_WAIT|MANUAL_CANCEL_FOCUS|MANUAL_REOPEN|MANUAL_FILL_NAME|MANUAL_FILL_CATEGORY|MANUAL_FILL_CADENCE|MANUAL_FILL_AMOUNT|MANUAL_FILL_DATE|MANUAL_INTERCEPT_SETUP|MANUAL_FIRST_SAVE_CLICK|MANUAL_FIRST_SAVE_PENDING|MANUAL_SAVE|MANUAL_RELOAD|MANUAL_STATUS|MANUAL_PERSISTED_BARRIER) navigation=(200|304|400|404|500|NONE|OTHER) patch=(200|400|401|403|409|500|NONE|OTHER) read=(200|400|401|403|409|500|NONE|OTHER) reloadNavigation=(reload|navigate|back_forward|prerender|NONE|OTHER) reloadStatus=(200|304|400|404|500|NONE|OTHER) reloadError=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) reloadPageClosed=(NONE|YES|NO) reloadRequestFailure=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) partialNavigation=(200|304|400|404|500|NONE|OTHER) partialCompletion=(201|400|401|403|409|500|NONE|OTHER) partialRead=(200|400|401|403|409|500|NONE|OTHER) partialCompletionCount=(ZERO|ONE|MANY) partialRoute=(NONE|OK|FAILED)$|^ST237_NEGATIVE_GATE case=(NONE|BROWSER_MATRIX|BROWSER_CSRF|BROWSER_FOREIGN_BODY|BROWSER_DUPLICATE_BODY|BROWSER_VALID|COOKIE_ROSTER|ORIGIN|CHAIN_MISSING|CHAIN_FOREIGN|CHAIN_DUPLICATE|BINDING_MISSING|BINDING_FOREIGN|REFRESH_EXTRA|CSRF_MISSING|WRONG_HOST|NATIVE_DUPLICATE_BODY|STORAGE) status=(200|400|401|403|409|421|500|NONE|OTHER) network=(NONE|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|TLS|OTHER)$|^ST239_LOGIN_AUTH_DIAGNOSTIC nonce=(NONE|200|201|400|401|403|404|409|500|OTHER) verify=(NONE|200|201|400|401|403|404|409|500|OTHER) session=(NONE|200|201|400|401|403|404|409|500|OTHER) profile=(NONE|200|201|400|401|403|404|409|500|OTHER) mode=(NONE|200|201|400|401|403|404|409|500|OTHER)$' "$work/browser.log" >&3 || true; fi
+  # Preserve the last closed manual subphase even if the main browser catch has not run.
+  if [[ "$proof_case" == manual && -f "$work/browser.log" ]] && (( code != 0 )); then
+    grep -E '^ST240_MANUAL_PHASE phase=(MANUAL_CANCEL_CLICK|MANUAL_ADD_WAIT|MANUAL_CANCEL_FOCUS|MANUAL_REOPEN|MANUAL_FILL_NAME|MANUAL_FILL_CATEGORY|MANUAL_FILL_CADENCE|MANUAL_FILL_AMOUNT|MANUAL_FILL_DATE|MANUAL_INTERCEPT_SETUP|MANUAL_FIRST_SAVE_CLICK|MANUAL_FIRST_SAVE_PENDING)$' "$work/browser.log" | tail -n 1 >&3 || true
+    grep -E '^ST240_MANUAL_ROUTE stage=(REQUEST|FETCH_PENDING) status=NONE$|^ST240_MANUAL_ROUTE stage=FETCH_RESULT status=(201|400|401|403|409|500|OTHER)$|^ST240_MANUAL_ROUTE stage=COMMITTED_HOLD status=201$' "$work/browser.log" | tail -n 1 >&3 || true
+  fi
   if [[ "$proof_case" == login && -f "$work/browser.log" && -f "$ST237_SCREENSHOT_DIR/login-session-progress.png" ]] && (( code != 0 )); then
     grep -E '^ST239_ALICE_SESSION_DIAGNOSTIC status=(REQUEST|201|409|400|401|403|500|TIMEOUT|OTHER|FULFILLED)$' "$work/browser.log" | tail -n 1 >&3 || true
   fi
   if [[ -f "$work/server.log" ]]; then
-    grep -E '^ST237_STARTUP_GATE (ENV|CONNECT|IDENTITY|SOURCE|FUNCTIONS|FUNCTION_COUNT|FUNCTION_NAME|PRINCIPALS|PROFILE_COLUMNS|PROFILE_POLICIES|PROFILE_GRANTS|PROFILE_CONSTRAINTS|AUTH_TABLES|AUTH_POLICIES|AUTH_GRANTS|AUTH_ROLES|AUTH_DOMAINS|AUTH_CONSTRAINTS|EPOCH|FENCE_QUERY_FAILED|FENCE_REJECTED|FENCE_ACCEPTED|COMMIT_FAILED|COMMIT_CLEAN|RESET_REJECTED|RESET_CLEAN|COMPOSITION|COMPOSITION_READY|FRAMEWORK|FRAMEWORK_READY|NEXT|NEXT_FAILED_(PORT|PERMISSION|MISSING_FILE|LOCK|COMPILER|CONFIG|TYPE|SYNTAX|OTHER)|NEXT_READY|LISTEN)$' "$work/server.log" | tail -1 >&3 || true
+    if [[ "$proof_case" == manual ]] && (( code != 0 )); then
+      observed="$(grep -E '^ST240_MANUAL_SQL stage=(CONNECT|MODE|RECEIPT_READ|ID_MINT|SUBSCRIPTION_INSERT|RECEIPT_INSERT|AUTH_PRE|AUTH_POST|COMMIT|ROLLBACK|OTHER) result=ERROR sqlstate=(42501|23503|23514|23502|22P02|22003|42703|42P01|42804|42883|40001|40P01|57014|OTHER)$' "$work/server.log" | head -n 1 || true)"
+      if [[ -n "$observed" ]]; then printf '%s\n' "$observed" >&3
+      else grep -E '^ST240_MANUAL_SQL stage=(CONNECT|MODE|RECEIPT_READ|ID_MINT|SUBSCRIPTION_INSERT|RECEIPT_INSERT|AUTH_PRE|AUTH_POST|COMMIT|ROLLBACK|OTHER) result=(START|OK) sqlstate=NONE$' "$work/server.log" | tail -n 1 >&3 || true; fi
+    fi
+    grep -E '^ST237_STARTUP_GATE (ENV|CONNECT|IDENTITY|SOURCE|FUNCTIONS|FUNCTION_COUNT|FUNCTION_NAME|PRINCIPALS|MANUAL_RECEIPT|PROFILE_COLUMNS|PROFILE_POLICIES|PROFILE_GRANTS|PROFILE_CONSTRAINTS|AUTH_TABLES|AUTH_POLICIES|AUTH_GRANTS|AUTH_ROLES|AUTH_DOMAINS|AUTH_CONSTRAINTS|EPOCH|FENCE_QUERY_FAILED|FENCE_REJECTED|FENCE_ACCEPTED|COMMIT_FAILED|COMMIT_CLEAN|RESET_REJECTED|RESET_CLEAN|COMPOSITION|COMPOSITION_READY|FRAMEWORK|FRAMEWORK_READY|NEXT|NEXT_FAILED_(PORT|PERMISSION|MISSING_FILE|LOCK|COMPILER|CONFIG|TYPE|SYNTAX|OTHER)|NEXT_READY|LISTEN)$' "$work/server.log" | tail -1 >&3 || true
     grep -E '^ST237_FUNCTION_GATE [a-z_]+ (BODY|SECURITY|OWNER|LANGUAGE|VOLATILITY|PARALLEL|STRICT|SET|CONFIG|GRANT_KIND|GRANTEES|SIGNATURE|TERMINAL_ARGS)$|^ST237_STARTUP_SQLSTATE [A-Z0-9]{5}$' "$work/server.log" >&3 || true
     grep -E '^ST238_PROFILE_COLUMNS_DIAGNOSTIC mode_default=(implicit_null|explicit_varchar_null|other|missing_or_duplicate) other_matches=([0-9]|1[0-3])/13$' "$work/server.log" >&3 || true
     # The first Bob login session is the last session call before this closed browser failure.
@@ -175,7 +185,7 @@ step=QUALIFIED_001
 { printf "SET st233a.head='%s'; SET st233a.marker='%s';\n" "$head" "$marker"; cat apps/api/prisma/development-auth/001-epoch-nonce-reservation.sql; } | owner
 constraints_pin="$(printf "SELECT md5(string_agg(format('%%s:%%s:%%s:%%s:%%s',c.conname,c.contype,c.convalidated,c.condeferrable,pg_get_constraintdef(c.oid)),E'\\n' ORDER BY c.conname,c.oid)) FROM pg_catalog.pg_constraint c WHERE c.connamespace='subtrack_auth'::regnamespace;\n" | owner)"
 [[ "$constraints_pin" =~ ^[a-f0-9]{32}$ ]]
-for sql in apps/api/prisma/development-auth/{002,003,004,005,006,007,008,009,010,011,012}-*.sql; do
+for sql in apps/api/prisma/development-auth/{002,003,004,005,006,007,008,009,010,011,012,013}-*.sql; do
   step="QUALIFIED_$(basename "$sql" | cut -d- -f1)"
   { printf "SET st233a.head='%s'; SET st233a.marker='%s'; SET st233c.constraints='%s';\n" "$head" "$marker" "$constraints_pin"; cat "$sql"; } | owner
 done
@@ -274,6 +284,10 @@ const cases = [
   ['PATCH', '/v2/auth/session', 400, 'INVALID_LOGIN_REQUEST'],
   ['GET', '/v2/auth/otp/start', 400, 'INVALID_ENROLLMENT_REQUEST'],
   ['GET', '/v2/auth/session/', 404, 'ENROLLMENT_UNAVAILABLE'],
+  ['GET', '/v2/subscriptions/owner/manual', 400, 'INVALID_MANUAL_REQUEST'],
+  ['PATCH', '/v2/subscriptions/owner/manual', 400, 'INVALID_MANUAL_REQUEST'],
+  ['POST', '/v2/subscriptions/owner/manual?selector=foreign', 400, 'INVALID_MANUAL_REQUEST'],
+  ['POST', '/v2/subscriptions/owner/manual/', 400, 'INVALID_MANUAL_REQUEST'],
 ];
 async function probe([method, path, status, code]) {
   const result = await new Promise((resolve, reject) => {
@@ -304,11 +318,41 @@ owner <<'SQL'
 SELECT 1/(count(*)=0)::integer FROM subtrack_auth.reservation;
 SELECT 1/(count(*)=0)::integer FROM subtrack_auth.nonce;
 SELECT 1/(count(*)=0)::integer FROM subtrack_auth.login_proof;
+SELECT 1/(count(*)=0)::integer FROM public.manual_subscription_create_receipt;
+SELECT 1/(count(*)=0)::integer FROM public.subscription;
 SQL
 printf 'PASS ST239_LOGIN_LAUNCHER_METHOD_MATRIX_NO_AUTH_SIDE_EFFECTS\n' >&3
+printf 'PASS ST240_MANUAL_LAUNCHER_METHOD_QUERY_PATH_MATRIX_NO_STORAGE_SIDE_EFFECTS\n' >&3
 phase=BROWSER
 setsid env -u ST237_PG_PASSWORD -u ST237_PRIVATE_CONFIG -u ST237_LEAF_KEY -u ST237_LEAF_CHAIN \
   NODE_EXTRA_CA_CERTS="$work/ca.crt" node apps/web/test/private-profile-browser.mjs > "$work/browser.log" 2>&1 & browser_pid=$!
+if [[ "$proof_case" == manual ]]; then
+  phase=MANUAL_PERSISTENCE
+  for ((i=0;i<2400;i++)); do
+    [[ -f "$ST237_HANDSHAKE_DIR/MANUAL_PERSISTED_READY" ]] && break
+    kill -0 "$browser_pid" 2>/dev/null || break
+    sleep .1
+  done
+  [[ -f "$ST237_HANDSHAKE_DIR/MANUAL_PERSISTED_READY" ]]
+  owner <<'SQL'
+SELECT 1/((SELECT count(*)=1 FROM public.identity_profile WHERE display_name='Private Proof'
+    AND profile_complete AND onboarding_mode='just-me')
+  AND (SELECT count(*)=1 FROM public.subscription)
+  AND (SELECT count(*)=1 FROM public.subscription s JOIN public.identity_profile p ON p.identity_id=s.identity_id
+    WHERE p.display_name='Private Proof' AND s.source='MANUAL' AND s.status='PAUSED'
+      AND s.currency='SEK' AND s.always_private AND s.expected_amount_minor=1234
+      AND s.custom_name='Manual Proof' AND s.category_code='VIDEO_STREAMING' AND s.cadence='MONTHLY'
+      AND s.next_charge_date='2026-11-15'::date
+      AND s.merchant_id IS NULL AND s.catalog_plan_id IS NULL AND s.paying_account_id IS NULL
+      AND s.confidence IS NULL AND s.detection_reasons IS NULL)
+  AND (SELECT count(*)=1 FROM public.manual_subscription_create_receipt r JOIN public.subscription s
+    ON s.id=r.subscription_id AND s.identity_id=r.identity_id
+    WHERE octet_length(r.key_hash)=32 AND octet_length(r.request_hash)=32))::integer;
+SQL
+  printf 'PASS ST240_BROWSER_MANUAL_COMMIT_RECEIPT_AND_RELOGIN_STATUS_ACTUAL_PERSISTENCE\n' >&3
+  : > "$ST237_HANDSHAKE_DIR/MANUAL_PERSISTED_CHECKED"
+fi
+
 if [[ "$proof_case" == profile ]]; then
 phase=RESTART
 for ((i=0;i<1200;i++)); do
@@ -388,7 +432,7 @@ phase=BROWSER
 for ((i=0;i<2400;i++)); do kill -0 "$browser_pid" 2>/dev/null || break; sleep .1; done
 kill -0 "$browser_pid" 2>/dev/null && exit 1
 if ! wait "$browser_pid"; then
-  grep -E '^FAIL ST237_BROWSER_CASE case=(profile|partial-terminal|subscriptions|empty|uncertainty|login) phase=(LAUNCH|NAVIGATE|IDENTIFIER|IDENTIFIER_READY|IDENTIFIER_SUBMIT|OTP|SIMULATOR|PROFILE|PROFILE_EDIT|PROFILE_SAVE|PROFILE_SAVED|PROFILE_WIRE|PROFILE_COOKIES|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|RELOAD_NAVIGATE|RELOAD_STOP|RELOAD_ABSENT|PARTIAL_TERMINAL|PARTIAL_SETUP|PARTIAL_NAVIGATE|PARTIAL_READY|PARTIAL_FILL|PARTIAL_SUBMIT|PARTIAL_OTP|PARTIAL_SIMULATOR|PARTIAL_COMPLETE|PARTIAL_READ|PARTIAL_STOP|PARTIAL_COOKIES|SUBSCRIPTION_SEED_BARRIER|MODE_CHOICE|SUBSCRIPTION_LIST|SUBSCRIPTION_DETAIL|SUBSCRIPTION_STATUS|SUBSCRIPTION_NEGATIVES|SUBSCRIPTION_INCOMPLETE|SUBSCRIPTION_RESTART|EMPTY_LIST|LOGIN_PRIOR_LIST|ALICE_EXISTING_SUBJECT_ENROLLMENT_STOP|BOB_NATURAL_ENROLLMENT|BOB_ENROLL_NAVIGATE|BOB_ENROLL_READY|BOB_IDENTIFIER_FILL|BOB_IDENTIFIER_SUBMIT|BOB_OTP_FILL|BOB_OTP_SUBMIT|BOB_FIXTURE_SELECT|BOB_SIMULATOR_CLICK|BOB_EDITOR_WAIT|BOB_CSRF_WAIT|BOB_PROFILE_FETCH|BOB_PROFILE_ASSERT|BOB_MODE_FETCH|BOB_MODE_ASSERT|CONTACT_SNAPSHOT_BARRIER|BOB_INCOMPLETE_LOGIN|BOB_INCOMPLETE_LOGIN_BOOTSTRAP|BOB_INCOMPLETE_LOGIN_LINK|BOB_INCOMPLETE_LOGIN_FIXTURE|BOB_INCOMPLETE_LOGIN_SUBMIT|BOB_INCOMPLETE_LOGIN_PROFILE_RESPONSE|BOB_INCOMPLETE_LOGIN_MODE_RESPONSE|BOB_INCOMPLETE_BODY|BOB_INCOMPLETE_EDITOR|BOB_INCOMPLETE_WIRE|BOB_INCOMPLETE_CAPTURE|BOB_INCOMPLETE_SAVE|BOB_ABSENT_MODE_LOGIN|BOB_ABSENT_MODE_LOGIN_BOOTSTRAP|BOB_ABSENT_MODE_LOGIN_LINK|BOB_ABSENT_MODE_LOGIN_FIXTURE|BOB_ABSENT_MODE_LOGIN_SUBMIT|BOB_ABSENT_MODE_LOGIN_PROFILE_RESPONSE|BOB_ABSENT_MODE_LOGIN_MODE_RESPONSE|BOB_ABSENT_MODE_BODY|BOB_ABSENT_MODE_EDITOR|BOB_ABSENT_MODE_WIRE|LOGIN_WELCOME|LOGIN_VERIFY|LOGIN_RELOAD|LOGIN_UNCERTAIN_RETURN|LOGIN_FRESH_RECOVERY) navigation=(200|304|400|404|500|NONE|OTHER) patch=(200|400|401|403|409|500|NONE|OTHER) read=(200|400|401|403|409|500|NONE|OTHER) reloadNavigation=(reload|navigate|back_forward|prerender|NONE|OTHER) reloadStatus=(200|304|400|404|500|NONE|OTHER) reloadError=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) reloadPageClosed=(NONE|YES|NO) reloadRequestFailure=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) partialNavigation=(200|304|400|404|500|NONE|OTHER) partialCompletion=(201|400|401|403|409|500|NONE|OTHER) partialRead=(200|400|401|403|409|500|NONE|OTHER) partialCompletionCount=(ZERO|ONE|MANY) partialRoute=(NONE|OK|FAILED)$|^ST237_NEGATIVE_GATE case=(NONE|BROWSER_MATRIX|BROWSER_CSRF|BROWSER_FOREIGN_BODY|BROWSER_DUPLICATE_BODY|BROWSER_VALID|COOKIE_ROSTER|ORIGIN|CHAIN_MISSING|CHAIN_FOREIGN|CHAIN_DUPLICATE|BINDING_MISSING|BINDING_FOREIGN|REFRESH_EXTRA|CSRF_MISSING|WRONG_HOST|NATIVE_DUPLICATE_BODY|STORAGE) status=(200|400|401|403|409|421|500|NONE|OTHER) network=(NONE|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|TLS|OTHER)$|^ST239_LOGIN_AUTH_DIAGNOSTIC nonce=(NONE|200|201|400|401|403|404|409|500|OTHER) verify=(NONE|200|201|400|401|403|404|409|500|OTHER) session=(NONE|200|201|400|401|403|404|409|500|OTHER) profile=(NONE|200|201|400|401|403|404|409|500|OTHER) mode=(NONE|200|201|400|401|403|404|409|500|OTHER)$' "$work/browser.log" >&3 || true
+  grep -E '^FAIL ST237_BROWSER_CASE case=(profile|partial-terminal|subscriptions|empty|uncertainty|login|manual) phase=(LAUNCH|NAVIGATE|IDENTIFIER|IDENTIFIER_READY|IDENTIFIER_SUBMIT|OTP|SIMULATOR|PROFILE|PROFILE_EDIT|PROFILE_SAVE|PROFILE_SAVED|PROFILE_WIRE|PROFILE_COOKIES|AUTHORITY_NEGATIVES|RESTART|LOST_RESPONSE|RELOAD|RELOAD_NAVIGATE|RELOAD_STOP|RELOAD_ABSENT|PARTIAL_TERMINAL|PARTIAL_SETUP|PARTIAL_NAVIGATE|PARTIAL_READY|PARTIAL_FILL|PARTIAL_SUBMIT|PARTIAL_OTP|PARTIAL_SIMULATOR|PARTIAL_COMPLETE|PARTIAL_READ|PARTIAL_STOP|PARTIAL_COOKIES|SUBSCRIPTION_SEED_BARRIER|MODE_CHOICE|SUBSCRIPTION_LIST|SUBSCRIPTION_DETAIL|SUBSCRIPTION_STATUS|SUBSCRIPTION_NEGATIVES|SUBSCRIPTION_INCOMPLETE|SUBSCRIPTION_RESTART|EMPTY_LIST|LOGIN_PRIOR_LIST|ALICE_EXISTING_SUBJECT_ENROLLMENT_STOP|BOB_NATURAL_ENROLLMENT|BOB_ENROLL_NAVIGATE|BOB_ENROLL_READY|BOB_IDENTIFIER_FILL|BOB_IDENTIFIER_SUBMIT|BOB_OTP_FILL|BOB_OTP_SUBMIT|BOB_FIXTURE_SELECT|BOB_SIMULATOR_CLICK|BOB_EDITOR_WAIT|BOB_CSRF_WAIT|BOB_PROFILE_FETCH|BOB_PROFILE_ASSERT|BOB_MODE_FETCH|BOB_MODE_ASSERT|CONTACT_SNAPSHOT_BARRIER|BOB_INCOMPLETE_LOGIN|BOB_INCOMPLETE_LOGIN_BOOTSTRAP|BOB_INCOMPLETE_LOGIN_LINK|BOB_INCOMPLETE_LOGIN_FIXTURE|BOB_INCOMPLETE_LOGIN_SUBMIT|BOB_INCOMPLETE_LOGIN_PROFILE_RESPONSE|BOB_INCOMPLETE_LOGIN_MODE_RESPONSE|BOB_INCOMPLETE_BODY|BOB_INCOMPLETE_EDITOR|BOB_INCOMPLETE_WIRE|BOB_INCOMPLETE_CAPTURE|BOB_INCOMPLETE_SAVE|BOB_ABSENT_MODE_LOGIN|BOB_ABSENT_MODE_LOGIN_BOOTSTRAP|BOB_ABSENT_MODE_LOGIN_LINK|BOB_ABSENT_MODE_LOGIN_FIXTURE|BOB_ABSENT_MODE_LOGIN_SUBMIT|BOB_ABSENT_MODE_LOGIN_PROFILE_RESPONSE|BOB_ABSENT_MODE_LOGIN_MODE_RESPONSE|BOB_ABSENT_MODE_BODY|BOB_ABSENT_MODE_EDITOR|BOB_ABSENT_MODE_WIRE|LOGIN_WELCOME|LOGIN_VERIFY|LOGIN_RELOAD|LOGIN_UNCERTAIN_RETURN|LOGIN_FRESH_RECOVERY|MANUAL_EMPTY|MANUAL_VALIDATION|MANUAL_CANCEL_CLICK|MANUAL_ADD_WAIT|MANUAL_CANCEL_FOCUS|MANUAL_REOPEN|MANUAL_FILL_NAME|MANUAL_FILL_CATEGORY|MANUAL_FILL_CADENCE|MANUAL_FILL_AMOUNT|MANUAL_FILL_DATE|MANUAL_INTERCEPT_SETUP|MANUAL_FIRST_SAVE_CLICK|MANUAL_FIRST_SAVE_PENDING|MANUAL_SAVE|MANUAL_RELOAD|MANUAL_STATUS|MANUAL_PERSISTED_BARRIER) navigation=(200|304|400|404|500|NONE|OTHER) patch=(200|400|401|403|409|500|NONE|OTHER) read=(200|400|401|403|409|500|NONE|OTHER) reloadNavigation=(reload|navigate|back_forward|prerender|NONE|OTHER) reloadStatus=(200|304|400|404|500|NONE|OTHER) reloadError=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) reloadPageClosed=(NONE|YES|NO) reloadRequestFailure=(NONE|TIMEOUT|TLS|CONNECTION|ABORT|OTHER) partialNavigation=(200|304|400|404|500|NONE|OTHER) partialCompletion=(201|400|401|403|409|500|NONE|OTHER) partialRead=(200|400|401|403|409|500|NONE|OTHER) partialCompletionCount=(ZERO|ONE|MANY) partialRoute=(NONE|OK|FAILED)$|^ST237_NEGATIVE_GATE case=(NONE|BROWSER_MATRIX|BROWSER_CSRF|BROWSER_FOREIGN_BODY|BROWSER_DUPLICATE_BODY|BROWSER_VALID|COOKIE_ROSTER|ORIGIN|CHAIN_MISSING|CHAIN_FOREIGN|CHAIN_DUPLICATE|BINDING_MISSING|BINDING_FOREIGN|REFRESH_EXTRA|CSRF_MISSING|WRONG_HOST|NATIVE_DUPLICATE_BODY|STORAGE) status=(200|400|401|403|409|421|500|NONE|OTHER) network=(NONE|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|TLS|OTHER)$|^ST239_LOGIN_AUTH_DIAGNOSTIC nonce=(NONE|200|201|400|401|403|404|409|500|OTHER) verify=(NONE|200|201|400|401|403|404|409|500|OTHER) session=(NONE|200|201|400|401|403|404|409|500|OTHER) profile=(NONE|200|201|400|401|403|404|409|500|OTHER) mode=(NONE|200|201|400|401|403|404|409|500|OTHER)$' "$work/browser.log" >&3 || true
   exit 1
 fi
 grep -qx "PASS ST237_BROWSER_CASE case=$proof_case locale=$ST237_BROWSER_LOCALE theme=$ST237_BROWSER_THEME" "$work/browser.log"
@@ -403,6 +447,9 @@ elif [[ "$proof_case" == login ]]; then
   grep -qx "PASS ST239_BROWSER_RETURNING_LOGIN locale=$ST237_BROWSER_LOCALE theme=$ST237_BROWSER_THEME" "$work/browser.log"
   grep -qx "PASS ST239_BROWSER_NATURAL_SECOND_OWNER_INCOMPLETE_ABSENT_MODE_ISOLATION locale=$ST237_BROWSER_LOCALE theme=$ST237_BROWSER_THEME" "$work/browser.log"
   grep -qx "PASS ST239_BROWSER_LOST_SESSION_RESPONSE_FRESH_RECOVERY locale=$ST237_BROWSER_LOCALE theme=$ST237_BROWSER_THEME" "$work/browser.log"
+elif [[ "$proof_case" == manual ]]; then
+  grep -qx 'PASS ST240_BROWSER_NATURAL_MANUAL_ADD_READBACK_RELOGIN_STATUS' "$work/browser.log"
+  printf 'PASS ST240_BROWSER_NATURAL_MANUAL_ADD_READBACK_RELOGIN_STATUS\n' >&3
 elif [[ "$proof_case" == uncertainty ]]; then
   grep -qx 'PASS ST238_BROWSER_NATURAL_COMMITTED_MODE_STATUS_LOST_RESPONSE_NO_RETRY_RESTART' "$work/browser.log"
 elif [[ "$proof_case" == empty ]]; then
@@ -431,6 +478,18 @@ if [[ "$proof_case" == login ]]; then
   for line in ST239_ACTUAL_PG_SEPARATE_PRODUCER_RUNTIME_FUNCTION_ROLES ST239_ACTUAL_PG_NATURAL_OWNER_LOGIN_ONE_USE_NONCE_CROSS_PURPOSE_ROW_LOCK ST239_ACTUAL_PG_CONCURRENT_LOGIN_REDEEM_ONCE ST239_ACTUAL_PG_KNOWN_ROLLBACK_ATOMIC_NO_SESSION_RESIDUE ST239_ACTUAL_PG_BINDING_ORIGIN_DELETED_OWNER_DENIAL ST239_ACTUAL_PG_MISSING_TRUSTED_SUBJECT_DENIED ST239_ACTUAL_PG_UNKNOWN_COMMIT_NO_CREDENTIAL_REPLAY ST239_ACTUAL_PG_EXPIRED_PROOF_REDEMPTION_DENIED ST239_ACTUAL_PG_EXPIRED_NONCE_CASCADES_EXPIRED_LOGIN_PROOF; do
     grep -qx "PASS $line" "$work/login-proof.log"
     printf 'PASS %s\n' "$line" >&3
+  done
+fi
+if [[ "$proof_case" == manual ]]; then
+  phase=MANUAL_DATABASE
+  node -e 'const p=require("node:path");const r=require("node:module").createRequire(p.resolve("apps/api/package.json"));const vite=r.resolve("vite");const es=r(require.resolve("esbuild",{paths:[vite]}));if(es.version!=="0.28.2"||r("pg/package.json").version!=="8.23.1")process.exit(1);es.buildSync({entryPoints:[process.argv[1]],outfile:process.argv[2],bundle:true,packages:"external",platform:"node",format:"cjs",nodePaths:[p.resolve("apps/api/node_modules")],logLevel:"silent"})' apps/api/test/private-manual-create.integration.ts "$work/manual-proof.cjs"
+  if ! NODE_PATH="$root/apps/api/node_modules" ST237_OWNER_PASSWORD="$owner_pass" timeout 75s node "$work/manual-proof.cjs" > "$work/manual-proof.log" 2>&1; then
+    grep -E '^FAIL ST240_ACTUAL_PG_MANUAL phase=(CONFIG|RETURNING_REGRESSION|CREATE|MODE|AUTHORITY|CONCURRENCY|ROLLBACK|UNKNOWN_COMMIT|RESTART|RETENTION|ACL|ERASURE)$' "$work/manual-proof.log" >&3 || true
+    exit 1
+  fi
+  for line in OLD_RETURNING_42501_NO_RESIDUE DB_ID_MINT_NO_RETURNING_READBACK_REPLAY_NO_MINT CREATE_CANONICAL_REPLAY_CONFLICT_FIXED_FIELDS MODE_CURRENT_ON_CREATE_AND_REPLAY CURRENT_SESSION_ORIGIN_CSRF_BINDING_CHAIN_FOREIGN_ISOLATION CONCURRENT_EXACT_DUPLICATE_SINGLE_ROW KNOWN_ROLLBACK_NO_SUBSCRIPTION_OR_RECEIPT_RESIDUE UNKNOWN_COMMIT_MASKED_DISCARD_EXPLICIT_REPLAY_RECOVERY FRESH_PROCESS_EXACT_DURABLE_RECEIPT_REPLAY IMMUTABLE_RECEIPT_STATUS_DELETE_FRESH_AUTHORITY_RETENTION APPEND_ONLY_ACL_DUAL_GUC_HASH_CONSTRAINT_UNIQUE_POOL_RESET PRIVILEGED_OWNER_ERASURE_CASCADE; do
+    grep -qx "PASS ST240_ACTUAL_PG_$line" "$work/manual-proof.log"
+    printf 'PASS ST240_ACTUAL_PG_%s\n' "$line" >&3
   done
 fi
 phase=DATABASE
@@ -464,6 +523,9 @@ SELECT 1/(count(*)=1 AND bool_and(profile_complete AND onboarding_mode='just-me'
 SELECT 1/(count(*)=0)::integer FROM public.subscription;
 SQL
 printf 'PASS ST238_BROWSER_OWNER_EMPTY_ACTUAL_PERSISTENCE\n' >&3
+elif [[ "$proof_case" == manual ]]; then
+  # The browser persistence barrier above corroborated the natural row before qualified fixtures.
+  printf 'PASS ST240_BROWSER_MANUAL_NO_SEED_AUTHORITY\n' >&3
 else
   owner <<'SQL'
 SELECT 1/((SELECT count(*)=1 FROM public.identity)
@@ -528,6 +590,24 @@ printf "REVOKE UPDATE(email) ON public.identity FROM subtrack_auth_executor;\n" 
 printf "CREATE POLICY st239_identity_drift ON public.identity FOR SELECT TO subtrack_auth_executor USING (true);\n" | owner
 refuses_startup BROAD_LOGIN_IDENTITY_POLICY_ROSTER
 printf "DROP POLICY st239_identity_drift ON public.identity;\n" | owner
+printf "ALTER TABLE public.manual_subscription_create_receipt NO FORCE ROW LEVEL SECURITY;\n" | owner
+refuses_startup MANUAL_RECEIPT_NO_FORCE
+printf "ALTER TABLE public.manual_subscription_create_receipt FORCE ROW LEVEL SECURITY;\n" | owner
+printf "GRANT UPDATE ON public.manual_subscription_create_receipt TO subtrack_runtime;\n" | owner
+refuses_startup MANUAL_RECEIPT_UPDATE_GRANT
+printf "REVOKE UPDATE ON public.manual_subscription_create_receipt FROM subtrack_runtime;\n" | owner
+printf "GRANT SELECT(subscription_id) ON public.manual_subscription_create_receipt TO PUBLIC;\n" | owner
+refuses_startup MANUAL_RECEIPT_PUBLIC_COLUMN_GRANT
+printf "REVOKE SELECT(subscription_id) ON public.manual_subscription_create_receipt FROM PUBLIC;\n" | owner
+printf "ALTER POLICY manual_subscription_create_receipt_select ON public.manual_subscription_create_receipt USING (true);\n" | owner
+refuses_startup MANUAL_RECEIPT_BROAD_POLICY
+printf "ALTER POLICY manual_subscription_create_receipt_select ON public.manual_subscription_create_receipt USING (public.subtrack_principal_matches(identity_id));\n" | owner
+printf "ALTER TABLE public.manual_subscription_create_receipt DROP CONSTRAINT manual_subscription_create_receipt_identity_id_fkey;\n" | owner
+refuses_startup MANUAL_RECEIPT_MISSING_OWNER_FK
+printf "ALTER TABLE public.manual_subscription_create_receipt ADD CONSTRAINT manual_subscription_create_receipt_identity_id_fkey FOREIGN KEY (identity_id) REFERENCES public.identity(id) ON UPDATE RESTRICT ON DELETE CASCADE;\n" | owner
+printf "CREATE INDEX st240_receipt_drift ON public.manual_subscription_create_receipt(subscription_id);\n" | owner
+refuses_startup MANUAL_RECEIPT_EXTRA_INDEX
+printf "DROP INDEX public.st240_receipt_drift;\n" | owner
 start_server
 phase=FINISH_SOURCE
 source_digest > "$work/source-finish"

@@ -4,11 +4,15 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { validateContrast } from '../scripts/contrast.mjs';
 import { memberAccentForId } from '../src/member-accent.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const prettierCli = createRequire(import.meta.url).resolve(
+  'prettier/bin/prettier.cjs',
+);
 const run = (file) =>
   spawnSync(process.execPath, [path.join(root, file)], { encoding: 'utf8' });
 test('generation is deterministic and produces exactly 22 evenly spaced category hues', async () => {
@@ -26,8 +30,12 @@ test('generation is deterministic and produces exactly 22 evenly spaced category
   );
   assert.deepEqual(after, before);
   const prettier = spawnSync(
-    path.join(root, '../../node_modules/.bin/prettier'),
-    ['--stdin-filepath', path.join(root, 'generated/theme.native.json')],
+    process.execPath,
+    [
+      prettierCli,
+      '--stdin-filepath',
+      path.join(root, 'generated/theme.native.json'),
+    ],
     { input: after[1], encoding: 'utf8' },
   );
   assert.equal(prettier.status, 0, prettier.stderr);
@@ -165,6 +173,57 @@ test('generation is deterministic and produces exactly 22 evenly spaced category
 test('contrast command validates text AA pairs and member accents on both switcher surfaces in both themes', () => {
   const result = run('scripts/check-contrast.mjs');
   assert.equal(result.status, 0, result.stderr);
+});
+
+test('primary normal and hover text pairs are declared and pass AA in both themes', async () => {
+  const tokens = JSON.parse(
+    await readFile(path.join(root, 'src/tokens.json'), 'utf8'),
+  );
+  for (const background of ['aurora.violet', 'aurora.violet.hover']) {
+    assert.ok(
+      tokens.contrastPairs.some(
+        (pair) =>
+          pair.foreground === 'ink.on-accent' && pair.background === background,
+      ),
+      `primary text on ${background} must be checked`,
+    );
+  }
+  assert.deepEqual(validateContrast(tokens), []);
+});
+
+test('contrast command rejects the inherited white primary text and inaccessible hover', async () => {
+  const source = JSON.parse(
+    await readFile(path.join(root, 'src/tokens.json'), 'utf8'),
+  );
+  const directory = await mkdtemp(
+    path.join(os.tmpdir(), 'ui-primary-contrast-'),
+  );
+  const input = path.join(directory, 'tokens.json');
+  try {
+    for (const background of ['aurora.violet', 'aurora.violet.hover']) {
+      const tokens = JSON.parse(JSON.stringify(source));
+      if (background === 'aurora.violet') {
+        tokens.color.dark['ink.on-accent'] = '#FFFFFF';
+      } else {
+        tokens.color.dark[background] = tokens.color.dark['ink.on-accent'];
+      }
+      await writeFile(input, JSON.stringify(tokens));
+      const result = spawnSync(
+        process.execPath,
+        [path.join(root, 'scripts/check-contrast.mjs'), input],
+        { encoding: 'utf8' },
+      );
+      assert.notEqual(result.status, 0);
+      assert.match(
+        result.stderr,
+        new RegExp(
+          `dark: ink\\.on-accent on ${background.replaceAll('.', '\\.')}`,
+        ),
+      );
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 test('contrast command rejects a member accent indistinguishable from bg.sunken', async () => {
   const tokens = JSON.parse(
