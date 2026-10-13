@@ -4,6 +4,7 @@ const commands = [
   ['tap', /tap on/i],
   ['input', /input text/i],
   ['hide-keyboard', /hide keyboard/i],
+  ['scroll', /scroll until|scroll (?:up|down)|scrollUntilVisible/i],
 ];
 const toolReasons = [
   ['assertion', /assertion is false|assertion failed/i],
@@ -51,13 +52,6 @@ export function identifierToolDiagnostic({ phase, identifier, metro, labels }) {
   const unavailable = (reason) => ({ withheld: reason });
   if (phase !== 'flow-identifier') return unavailable('outside-identifier');
   if (
-    typeof identifier !== 'string' ||
-    typeof metro !== 'string' ||
-    identifier.length > 4_000_000 ||
-    metro.length > 4_000_000
-  )
-    return unavailable('tool-input-unavailable');
-  if (
     !labels ||
     typeof labels.createAccount !== 'string' ||
     !labels.createAccount ||
@@ -65,6 +59,52 @@ export function identifierToolDiagnostic({ phase, identifier, metro, labels }) {
     !labels.otp
   )
     return unavailable('trusted-target-unavailable');
+  return closedToolDiagnostic(identifier, metro, [
+    ['welcome-create-account', labels.createAccount],
+    ['otp-field', labels.otp],
+  ]);
+}
+
+const enrollmentRoster = [
+  ['otp-field', 'otp'],
+  ['otp-verify', 'verifyOtp'],
+  ['bankid-verify', 'verifyBankId'],
+  ['profile-name', 'profileName'],
+  ['profile-save', 'saveProfile'],
+  ['just-me', 'justMe'],
+  ['add-open', 'add'],
+  ['subscription-name', 'subscriptionName'],
+  ['subscription-category', 'category'],
+  ['subscription-amount', 'amount'],
+  ['subscription-save', 'saveSubscription'],
+  ['subscription-saved', 'saved'],
+];
+
+export function enrollmentToolDiagnostic({ phase, enrollment, metro, labels }) {
+  if (phase !== 'flow-enroll-add') return { withheld: 'outside-enrollment' };
+  if (
+    !labels ||
+    !enrollmentRoster.every(
+      ([, key]) => typeof labels[key] === 'string' && labels[key].length > 0,
+    )
+  )
+    return { withheld: 'trusted-target-unavailable' };
+  return closedToolDiagnostic(
+    enrollment,
+    metro,
+    enrollmentRoster.map(([name, key]) => [name, labels[key]]),
+  );
+}
+
+function closedToolDiagnostic(identifier, metro, targetRoster) {
+  const unavailable = (reason) => ({ withheld: reason });
+  if (
+    typeof identifier !== 'string' ||
+    typeof metro !== 'string' ||
+    identifier.length > 4_000_000 ||
+    metro.length > 4_000_000
+  )
+    return unavailable('tool-input-unavailable');
   // ANSI escapes affect matching only; no original characters are returned.
   // eslint-disable-next-line no-control-regex
   const tool = identifier.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '');
@@ -77,11 +117,14 @@ export function identifierToolDiagnostic({ phase, identifier, metro, labels }) {
   const reasons = toolReasons
     .filter(([, pattern]) => pattern.test(tool))
     .map(([name]) => name);
-  const targets = [];
-  if (failedLines.some((line) => line.includes(labels.createAccount)))
-    targets.push('welcome-create-account');
-  if (failedLines.some((line) => line.includes(labels.otp)))
-    targets.push('otp-field');
+  const targets = new Set();
+  const sortedTargets = targetRoster.toSorted(
+    (a, b) => b[1].length - a[1].length,
+  );
+  for (const line of failedLines) {
+    const target = sortedTargets.find(([, label]) => line.includes(label));
+    if (target) targets.add(target[0]);
+  }
   const bundler = metroReasons
     .filter(([, pattern]) => pattern.test(metro))
     .map(([name]) => name);
@@ -96,7 +139,7 @@ export function identifierToolDiagnostic({ phase, identifier, metro, labels }) {
   if (
     !failedCommands.length &&
     !reasons.length &&
-    !targets.length &&
+    !targets.size &&
     !bundler.length
   )
     return unavailable('unknown-tool-diagnostic');
@@ -104,7 +147,7 @@ export function identifierToolDiagnostic({ phase, identifier, metro, labels }) {
     withheld: null,
     commands: failedCommands,
     reasons,
-    targets,
+    targets: [...targets],
     metro: bundler,
     modules: [...knownModules].slice(0, 8),
   };
