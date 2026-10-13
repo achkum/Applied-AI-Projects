@@ -1,3 +1,4 @@
+import {PRIVATE_MOBILE_LIFECYCLE_STATEMENTS,executeMobileEdit,executeMobileStatus,type MobileLifecycleResult} from '../subscriptions/private-mobile-lifecycle.js';
 import {createRequire} from 'node:module';
 import {createHash,timingSafeEqual} from 'node:crypto';
 import type {OwnerTx} from '../auth/sessions-v2/durable-current-web-authority.js';
@@ -7,6 +8,7 @@ import {PRIVATE_ONBOARDING_STATEMENTS} from './private-onboarding-statements.js'
 import {PRIVATE_MANUAL_CREATE_STATEMENTS} from '../subscriptions/private-manual-create-statements.js';
 import {parsePrivateMobileCursor,encodePrivateMobileCursor} from './private-mobile-cursor.js';
 const contracts=createRequire(__filename);
+const {parsePrivateMobileManualEdit,parsePrivateMobileStatus}=contracts('@subtrack/contracts/private-mobile') as {parsePrivateMobileManualEdit(v:unknown):Record<string,unknown>;parsePrivateMobileStatus(v:unknown):Record<string,unknown>};
 const {parseProfilePatch,parseProfileView,parseJustMeChoice}=contracts('@subtrack/contracts/profile') as {
  parseProfilePatch(v:unknown):Record<string,unknown>;parseProfileView(v:unknown):object;parseJustMeChoice(v:unknown):object;
 };
@@ -14,9 +16,9 @@ const {parseModeView,parsePrivateOwnerPageRequest,parsePrivateOwnerView,parsePri
  parseModeView(v:unknown):object;parsePrivateOwnerPageRequest(v:unknown):{cursor?:string};parsePrivateOwnerView(v:unknown):object;parsePrivateOwnerPage(v:unknown):object;
  parsePrivateManualCreate(v:unknown):{customName:string;categoryCode:string;cadence:string;expectedAmountMinor:string;nextChargeDate:string|null};parsePrivateManualCreated(v:unknown):{id:string};
 };
-export const PRIVATE_MOBILE_BUSINESS_STATEMENTS=Object.freeze({...PRIVATE_PROFILE_STATEMENTS,...PRIVATE_ONBOARDING_STATEMENTS,...PRIVATE_MANUAL_CREATE_STATEMENTS});
-export type PrivateMobileBusinessOperation='profile-read'|'profile'|'mode-read'|'mode'|'owner-read'|'manual';
-type Result=Readonly<{status:200|201;value:object}|{status:409;code:'MODE_CONFLICT'|'MANUAL_IDEMPOTENCY_CONFLICT'}>;
+export const PRIVATE_MOBILE_BUSINESS_STATEMENTS=Object.freeze({...PRIVATE_PROFILE_STATEMENTS,...PRIVATE_ONBOARDING_STATEMENTS,...PRIVATE_MANUAL_CREATE_STATEMENTS,...PRIVATE_MOBILE_LIFECYCLE_STATEMENTS});
+export type PrivateMobileBusinessOperation='profile-read'|'profile'|'mode-read'|'mode'|'owner-read'|'manual'|'manual-edit'|'status';
+type Result=MobileLifecycleResult|Readonly<{status:200|201;value:object}|{status:409;code:'MODE_CONFLICT'|'MANUAL_IDEMPOTENCY_CONFLICT'}>;
 type Row=Record<string,unknown>;
 const fail=():never=>{throw new Error('Mobile business unavailable');};
 const FORMAT='YYYY-MM-DD"T"HH24:MI:SS.US"Z"';
@@ -34,6 +36,8 @@ export function createPrivateMobileBusiness(authority:DurablePrivateMobileAuthor
   if(operation==='profile')parsed=parseProfilePatch(body);
   else if(operation==='mode')parseJustMeChoice(body);
   else if(operation==='manual'){parsed=parsePrivateManualCreate(body);if(!key||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(key))throw new Error('wire');}
+  else if(operation==='manual-edit'){parsed=parsePrivateMobileManualEdit(body);if(!key||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(key))throw new Error('wire');}
+  else if(operation==='status')parsed=parsePrivateMobileStatus(body);
   else if(operation==='owner-read'){
    const request=parsePrivateOwnerPageRequest(body);after=parsePrivateMobileCursor(request.cursor);
   }else if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==0)throw new Error('wire');
@@ -54,6 +58,8 @@ export function createPrivateMobileBusiness(authority:DurablePrivateMobileAuthor
     if(!row||row.onboarding_mode!=='just-me'||(!chosen&&row.profile_complete!==true))return {status:409,code:'MODE_CONFLICT'};return {status:200,value:parseModeView({mode:'just-me'})};
    }
    const mode=await one(tx,'modeRead',[identityId]);if(mode?.profile_complete!==true||mode.onboarding_mode!=='just-me')return {status:409,code:'MODE_CONFLICT'};
+   if(operation==='manual-edit')return executeMobileEdit(tx,identityId,parsed,key!);
+   if(operation==='status')return executeMobileStatus(tx,identityId,parsed);
    if(operation==='owner-read'){
     const result=await tx.execute('ownerList',[identityId,after?.createdAt??null,after?.id??null,'UTC',FORMAT]);if(result.command!=='SELECT'||result.rowCount!==result.rows.length||result.rows.length>51)return fail();
     const rows=result.rows.slice(0,50);const items=rows.map(row=>{

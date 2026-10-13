@@ -1,0 +1,62 @@
+appId: se.subtrack.app
+---
+# Invoke after the qualified enrollment/Add flow with English profile.
+- scrollUntilVisible:
+    element: Edit subscription
+    direction: UP
+- tapOn: Edit subscription
+- scrollUntilVisible:
+    element: ${MAESTRO_SUBSCRIPTION_NAME}
+    direction: DOWN
+- tapOn: ${MAESTRO_SUBSCRIPTION_NAME}
+- eraseText
+- inputText: Native edited restart proof
+- hideKeyboard
+- scrollUntilVisible:
+    element: Save changes
+    direction: DOWN
+- tapOn: Save changes
+- extendedWaitUntil:
+    visible: Changes saved and read back.
+    timeout: 30000
+- scrollUntilVisible:
+    element: Native edited restart proof
+    direction: UP
+- assertVisible: Native edited restart proof
+- takeScreenshot: accepted-edit
+- scrollUntilVisible:
+    element: Pause tracking
+    direction: DOWN
+- tapOn: Pause tracking
+- extendedWaitUntil:
+    visible: Resume tracking
+    timeout: 30000
+- takeScreenshot: accepted-paused
+- tapOn: Resume tracking
+- extendedWaitUntil:
+    visible: Pause tracking
+    timeout: 30000
+- tapOn: Mark cancelled
+- extendedWaitUntil:
+    visible: Archive tracking
+    timeout: 30000
+- assertNotVisible: Pause tracking
+- assertNotVisible: Resume tracking
+- tapOn: Archive tracking
+- extendedWaitUntil:
+    notVisible: Archive tracking
+    timeout: 30000
+- takeScreenshot: accepted-archived
+- stopApp
+- launchApp
+- openLink: subtrack:///personal
+- extendedWaitUntil:
+    visible: ${MAESTRO_VERIFY_BANKID}
+    timeout: 30000
+- assertNotVisible: Native edited restart proof
+- tapOn: ${MAESTRO_VERIFY_BANKID}
+- extendedWaitUntil:
+    visible: Native edited restart proof
+    timeout: 30000
+- assertNotVisible: Archive tracking
+- takeScreenshot: accepted-edited-restart

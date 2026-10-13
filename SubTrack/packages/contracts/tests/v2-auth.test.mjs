@@ -34,7 +34,7 @@ const privatePostPaths = [
   '/v2/me/profile/read', '/v2/me/mode', '/v2/me/mode/read',
   '/v2/subscriptions/owner/read', '/v2/subscriptions/{id}/read',
 ];
-const privateMobilePostPaths = ['enrollment/complete','login/verify','session','refresh','logout','profile/read','profile','mode/read','mode','subscriptions/owner/read','subscriptions/owner/manual'].map(path=>`/v2/private/mobile/${path}`);
+const privateMobilePostPaths = ['enrollment/complete','login/verify','session','refresh','logout','profile/read','profile','mode/read','mode','subscriptions/owner/read','subscriptions/owner/manual','subscriptions/owner/manual/edit','subscriptions/owner/status'].map(path=>`/v2/private/mobile/${path}`);
 
 function assertRequiredBrowserHeaders(operation, label) {
   const origin = operation.parameters.find((parameter) => parameter.name === 'Origin');
@@ -344,4 +344,30 @@ test('private login has closed fixture, proof and error schemas', () => {
   }
   assert.match(doc.paths['/v2/auth/session'].post.description, /uncertain outcome requires a new verification chain/);
   } finally { rmSync(dir, {recursive: true, force: true}); }
+});
+
+test('native Edit and tracking classify keys explicitly without widening browser or authentication recovery',()=>{
+ const {dir,document}=bundle();
+ try{
+  const keyed=['enrollment/complete','login/verify','session','refresh','subscriptions/owner/manual','subscriptions/owner/manual/edit'].map(path=>`/v2/private/mobile/${path}`);
+  for(const path of privateMobilePostPaths){
+   const operation=document.paths[path].post;assert.equal(operation['x-runtime-availability'],'unavailable-default');
+   const parameters=operation.parameters??[];const keys=parameters.filter(parameter=>parameter.name==='Idempotency-Key');
+   assert.equal(keys.length,keyed.includes(path)?1:0,`${path} has an explicit key classification`);
+   if(keys.length)assert.equal(keys[0].required,true);
+   for(const browser of ['Origin','Cookie','X-Session-CSRF','X-Browser-Nonce'])assert.equal(parameters.some(parameter=>parameter.name===browser),false);
+  }
+  const edit=document.paths['/v2/private/mobile/subscriptions/owner/manual/edit'].post;
+  const body=edit.requestBody.content['application/json'].schema;assert.equal(body.additionalProperties,false);
+  assert.deepEqual(body.required,['id','customName','categoryCode','cadence','expectedAmountMinor','nextChargeDate','expectedRevision']);
+  const pattern=new RegExp(edit.parameters[0].schema.pattern);assert.ok(pattern.test('123e4567-e89b-42d3-a456-426614174000'));assert.equal(pattern.test('123e4567-e89b-12d3-a456-426614174000'),false);
+  assert.deepEqual(edit.responses['200'].content['application/json'].schema.required,['id','revision']);
+  assert.match(edit.description,/exact replay returns original\s+committed revision before target lookup/);
+  const status=document.paths['/v2/private/mobile/subscriptions/owner/status'].post;assert.equal(status.requestBody.content['application/json'].schema.additionalProperties,false);
+  assert.deepEqual(status.requestBody.content['application/json'].schema.required,['id','status']);
+  assert.deepEqual(status.requestBody.content['application/json'].schema.properties.status.enum,['ACTIVE','PAUSED','CANCELLED','ARCHIVED']);
+  assert.deepEqual(status.responses['200'].content['application/json'].schema.required,['id','status']);
+  assert.match(status.description,/Idempotency-Key is forbidden; no replay guarantee/);assert.match(status.description,/no provider cancellation or hard deletion/);
+  for(const operation of [edit,status]){assert.equal(operation.responses['200'].headers['Cache-Control'].schema.const,'no-store');assert.equal(operation.responses['200'].headers.Pragma.schema.const,'no-cache');}
+ }finally{rmSync(dir,{recursive:true,force:true});}
 });

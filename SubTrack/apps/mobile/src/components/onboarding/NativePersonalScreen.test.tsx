@@ -11,7 +11,7 @@ const mockSetLocale = jest.fn(); const mockSetMode = jest.fn();
 jest.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 6 }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ replace: jest.fn() }) }));
 jest.mock('@/api/privateMobileApi', () => ({ verifiedNativeLogin: jest.fn(), revokeNativeSession: jest.fn(), rotateNativeSession: jest.fn(), completeNativeEnrollment: jest.fn(),
-  readNativeProfile: jest.fn(), saveNativeProfile: jest.fn(), readNativeMode: jest.fn(), chooseNativeJustMe: jest.fn(), readNativeSubscriptions: jest.fn(), createNativeSubscription: jest.fn() }));
+  readNativeProfile: jest.fn(), saveNativeProfile: jest.fn(), readNativeMode: jest.fn(), chooseNativeJustMe: jest.fn(), readNativeSubscriptions: jest.fn(), editNativeSubscription: jest.fn(), updateNativeSubscriptionStatus: jest.fn(), createNativeSubscription: jest.fn() }));
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ ...jest.requireActual('../signature/testUtils/contextMocks').makeTheme(false), setMode: mockSetMode }) }));
 jest.mock('@/context/I18nContext', () => ({ useI18n: () => ({ ...jest.requireActual('../signature/testUtils/contextMocks').makeI18n('en'), setLocale: mockSetLocale }) }));
 const credentials = { transport: 'mobile' as const, sessionId: '123e4567-e89b-42d3-a456-426614174000', accessToken: 'header.payload.signature', refreshToken: 'v2r.' + 'a'.repeat(43) };
@@ -160,4 +160,103 @@ it('ignores a late login rejection after logout and a newer verification', async
     expect(screen.queryByText(copy.nativePersonal.unavailable)).toBeNull();
     expect(screen.getByText(row.customName)).toBeTruthy();
   } finally { establish.mockRestore(); }
+});
+
+it('Edit preserves exact huge amount and reads authoritative revision after save',async()=>{
+ const saved={...row,customName:'Saved edit',revision:'2'};
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:null}).mockResolvedValueOnce({items:[saved],nextCursor:null});
+ jest.mocked(api.editNativeSubscription).mockResolvedValue({id:row.id,revision:'2'});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
+ fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));
+ expect(screen.getByLabelText(copy.nativePersonal.amount).props.value).toBe('90071992547409.93');
+ fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Draft edit');fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));
+ await screen.findByText(copy.nativeSubscriptionEdit.saved);expect(screen.getByText(saved.customName)).toBeTruthy();
+ expect(api.editNativeSubscription).toHaveBeenCalledWith(expect.objectContaining({id:row.id,expectedRevision:'1',expectedAmountMinor:row.expectedAmountMinor,customName:'Draft edit'}),credentials.accessToken,expect.any(AbortSignal));
+});
+it('stale Edit preserves draft until explicit saved-value review and new intent',async()=>{
+ const current={...row,customName:'Other saved change',revision:'2'};
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:null}).mockResolvedValueOnce({items:[current],nextCursor:null});
+ jest.mocked(api.editNativeSubscription).mockResolvedValue({conflict:'MANUAL_EDIT_CONFLICT'});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
+ fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Preserved draft');fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));
+ await screen.findByText(copy.nativeSubscriptionEdit.conflict);expect(screen.getByLabelText(copy.manualSubscription.name).props.value).toBe('Preserved draft');
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));expect(api.editNativeSubscription).toHaveBeenCalledTimes(1);
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.review}));expect(screen.getByLabelText(copy.manualSubscription.name).props.value).toBe('Preserved draft');
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await waitFor(()=>expect(api.editNativeSubscription).toHaveBeenCalledTimes(2));expect(jest.mocked(api.editNativeSubscription).mock.calls[1]?.[0].expectedRevision).toBe('2');
+});
+it('Pause tracks only acknowledged and reread status, with no provider cancellation',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:null}).mockResolvedValueOnce({items:[{...row,status:'PAUSED',revision:'2'}],nextCursor:null});
+ jest.mocked(api.updateNativeSubscriptionStatus).mockResolvedValue({id:row.id,status:'PAUSED'});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
+ fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);
+ expect(api.updateNativeSubscriptionStatus).toHaveBeenCalledWith({id:row.id,status:'PAUSED'},credentials.accessToken,expect.any(AbortSignal));expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeTruthy();
+});
+
+const earlierPage = () => Array.from({length:50},(_,index)=>({...row,id:`123e4567-e89b-42d3-a456-${String(index+1).padStart(12,'0')}`,customName:`Earlier ${index}`,status:'ARCHIVED' as const}));
+async function laterPageScreen(first:ReturnType<typeof earlierPage>) {
+ mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
+ fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(first[0]!.customName);
+ fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.loadMore}));await screen.findByText(row.customName);
+}
+it('rereads both loaded owner pages after later-page Edit, retaining acknowledged target',async()=>{
+ const first=earlierPage();const current={...row,customName:'Later saved edit',revision:'2'};
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:first,nextCursor:'cursorA'}).mockResolvedValueOnce({items:[row],nextCursor:null})
+  .mockResolvedValueOnce({items:first,nextCursor:'cursorB'}).mockResolvedValueOnce({items:[current],nextCursor:null});
+ jest.mocked(api.editNativeSubscription).mockResolvedValue({id:row.id,revision:'2'});await laterPageScreen(first);
+ fireEvent.press(screen.getAllByRole('button',{name:copy.nativeSubscriptionEdit.edit})[50]!);
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativeSubscriptionEdit.saved);
+ expect(screen.getByText(current.customName)).toBeTruthy();expect(api.readNativeSubscriptions).toHaveBeenLastCalledWith(credentials.accessToken,expect.any(AbortSignal),'cursorB');
+});
+it('later-page stale conflict preserves draft and requires explicit review of the reread row',async()=>{
+ const first=earlierPage();const current={...row,revision:'2',categoryCode:'LEGACY_CATEGORY'};
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:first,nextCursor:'cursorA'}).mockResolvedValueOnce({items:[row],nextCursor:null})
+  .mockResolvedValueOnce({items:first,nextCursor:'cursorB'}).mockResolvedValueOnce({items:[current],nextCursor:null});
+ jest.mocked(api.editNativeSubscription).mockResolvedValue({conflict:'MANUAL_EDIT_CONFLICT'});await laterPageScreen(first);
+ fireEvent.press(screen.getAllByRole('button',{name:copy.nativeSubscriptionEdit.edit})[50]!);fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Private later draft');
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativeSubscriptionEdit.conflict);
+ expect(screen.getByLabelText(copy.manualSubscription.name).props.value).toBe('Private later draft');
+ expect(screen.queryByText(/onboarding\.ownerSubscriptions\.category\.LEGACY_CATEGORY/)).toBeNull();expect(screen.getAllByText(new RegExp(copy.ownerSubscriptions.categoryFallback)).length).toBeGreaterThan(0);
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.review}));expect(screen.getByLabelText(copy.manualSubscription.name).props.value).toBe('Private later draft');
+});
+it('later-page tracking Pause rereads the loaded range and confirms only the target status',async()=>{
+ const first=earlierPage();jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:first,nextCursor:'cursorA'}).mockResolvedValueOnce({items:[row],nextCursor:null})
+  .mockResolvedValueOnce({items:first,nextCursor:'cursorB'}).mockResolvedValueOnce({items:[{...row,status:'PAUSED',revision:'2'}],nextCursor:null});
+ jest.mocked(api.updateNativeSubscriptionStatus).mockResolvedValue({id:row.id,status:'PAUSED'});await laterPageScreen(first);
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);expect(screen.getByText(row.customName)).toBeTruthy();
+ expect(api.readNativeSubscriptions).toHaveBeenLastCalledWith(credentials.accessToken,expect.any(AbortSignal),'cursorB');
+});
+it('a missing reread never treats a preserved Edit draft as deleted',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:null}).mockResolvedValueOnce({items:[],nextCursor:null});
+ jest.mocked(api.editNativeSubscription).mockResolvedValue({conflict:'MANUAL_EDIT_CONFLICT'});mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
+ fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));
+ fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Still private draft');fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativePersonal.readbackUnavailable);
+ expect(screen.getByLabelText(copy.manualSubscription.name).props.value).toBe('Still private draft');expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}).props.accessibilityState.disabled).toBe(true);
+ expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.review})).toBeTruthy();
+});
+it.each(['edit','status'])('wrong resource ID in acknowledged %s retires authority without success feedback',async operation=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row],nextCursor:null});
+ jest.mocked(api.editNativeSubscription).mockResolvedValue({id:'123e4567-e89b-42d3-a456-426614174099',revision:'2'});
+ jest.mocked(api.updateNativeSubscriptionStatus).mockResolvedValue({id:'123e4567-e89b-42d3-a456-426614174099',status:'PAUSED'});
+ mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
+ if(operation==='edit'){fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));}
+ else fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));
+ await screen.findByText(copy.nativePersonal.unavailable);expect(screen.queryByText(copy.nativeSubscriptionEdit.saved)).toBeNull();expect(screen.queryByText(copy.nativeSubscriptionEdit.statusSaved)).toBeNull();expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(1);
+});
+
+it.each(['cursor','duplicate'])('malformed paginated %s readback retires authority without announcing success',async defect=>{
+ const first=earlierPage();jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:first,nextCursor:'cursorA'}).mockResolvedValueOnce({items:[row],nextCursor:null})
+  .mockResolvedValueOnce({items:first,nextCursor:'cursorB'}).mockResolvedValueOnce({items:defect==='duplicate'?[first[0]!,row]:[row],nextCursor:defect==='cursor'?'cursorB':null});
+ jest.mocked(api.updateNativeSubscriptionStatus).mockResolvedValue({id:row.id,status:'PAUSED'});await laterPageScreen(first);
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativePersonal.unavailable);
+ expect(screen.queryByText(copy.nativeSubscriptionEdit.statusSaved)).toBeNull();expect(screen.queryByText(row.customName)).toBeNull();
+});
+it('legacy category draft uses the accepted fallback until the owner chooses an approved category',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,categoryCode:'LEGACY_CATEGORY'}],nextCursor:null});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));expect(screen.queryByText('onboarding.ownerSubscriptions.category.LEGACY_CATEGORY')).toBeNull();
+ expect(screen.getAllByText(copy.ownerSubscriptions.categoryFallback).length).toBeGreaterThan(0);
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativePersonal.invalid);expect(api.editNativeSubscription).not.toHaveBeenCalled();
 });

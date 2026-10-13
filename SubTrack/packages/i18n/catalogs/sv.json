@@ -198,6 +198,19 @@
       "cadence": { "WEEKLY": "Varje vecka", "MONTHLY": "Varje månad", "QUARTERLY": "Varje kvartal", "SEMIANNUAL": "Var sjätte månad", "ANNUAL": "Varje år", "CUSTOM": "Anpassat intervall" },
       "actions": { "ACTIVE": "Aktivera", "PAUSED": "Pausa", "CANCELLED": "Avsluta", "ARCHIVED": "Arkivera" }
     },
+    "nativeSubscriptionEdit": {
+      "edit": "Redigera abonnemang",
+      "save": "Spara ändringar",
+      "review": "Granska aktuella sparade värden",
+      "conflict": "Abonnemanget har ändrats. Ditt utkast finns kvar. Granska de sparade värdena innan du sparar igen.",
+      "saved": "Ändringarna har sparats och lästs tillbaka.",
+      "pause": "Pausa bevakning",
+      "resume": "Återuppta bevakning",
+      "cancelled": "Markera som avslutat",
+      "archive": "Arkivera bevakning",
+      "tracking": "Åtgärderna ändrar bara bevakningen. De avslutar inte abonnemanget hos leverantören.",
+      "statusSaved": "Bevakningsstatus har sparats och lästs tillbaka."
+    },
     "nativePersonal": {
       "title": "Dina personliga abonnemang",
       "demo": "Utvecklingssimulator: ny BankID-verifiering använder det syntetiska Alice-kontot. Detta är inte riktigt BankID.",

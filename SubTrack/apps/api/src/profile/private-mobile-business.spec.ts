@@ -22,3 +22,15 @@ describe('named mobile owner business statements',()=>{
  it('rejects malformed single row command/count/multiple rows and missing profile',async()=>{for(const result of [q('SELECT',[]),q('UPDATE',[profile]),q('SELECT',[profile],2),q('SELECT',[profile,profile])]){const f=fixture(()=>result);await expect(f.run('profile-read')).rejects.toThrow();}});
  it('rejects all client selectors, malformed empty bodies and invalid manual keys before authority',async()=>{for(const [op,body,key] of [['profile-read',null,undefined],['mode-read',[],undefined],['profile-read',{ownerId:id},undefined],['manual',form,undefined],['manual',form,'bad'],['profile',{identityId:id},undefined],['mode',{mode:'family'},undefined],['owner-read',{ownerId:id},undefined]] as const){const f=fixture(()=>q('SELECT',[]));await expect(f.run(op,body,key)).rejects.toThrow('wire');expect(f.authority.withCurrentMobileAuthority).not.toHaveBeenCalled();}});
 });
+
+it('authorizes persisted complete Just me before new native Edit/status statements',async()=>{
+ const edit={...form,id,expectedRevision:'1',nextChargeDate:null};
+ for(const op of ['manual-edit','status'] as const){
+  const body=op==='manual-edit'?edit:{id,status:'PAUSED'};
+  const blocked=fixture(()=>q('SELECT',[{profile_complete:false,onboarding_mode:'just-me'}]));expect(await blocked.run(op,body,op==='manual-edit'?owner:undefined)).toEqual({status:409,code:'MODE_CONFLICT'});expect(blocked.calls.map(c=>c.name)).toEqual(['modeRead']);
+  const f=fixture(name=>name==='modeRead'?q('SELECT',[ready]):name==='manualEditReceiptRead'?q('SELECT',[]):name==='manualEditTargetLock'?q('SELECT',[{id,revision:'1'}]):name==='manualEditCompareUpdate'?q('UPDATE',[{id,revision:'2'}]):name==='manualEditReceiptInsert'?q('INSERT',[{subscription_id:id,result_revision:'2'}]):name==='mobileStatusLock'?q('SELECT',[{id,status:'ACTIVE'}]):q('UPDATE',[{id,status:'PAUSED'}]));
+  expect((await f.run(op,body,op==='manual-edit'?owner:undefined)).status).toBe(200);expect(f.calls.every(c=>c.values[0]===owner)).toBe(true);
+ }
+ for(const key of [undefined,'bad']){const f=fixture(()=>q('SELECT',[]));await expect(f.run('manual-edit',edit,key)).rejects.toThrow('wire');expect(f.authority.withCurrentMobileAuthority).not.toHaveBeenCalled();}
+ for(const [op,body] of [['manual-edit',{...edit,ownerId:owner}],['status',{id,status:'DETECTED'}],['status',{id,status:'PAUSED',identityId:owner}]] as const){const f=fixture(()=>q('SELECT',[]));await expect(f.run(op,body,owner)).rejects.toThrow('wire');expect(f.authority.withCurrentMobileAuthority).not.toHaveBeenCalled();}
+});

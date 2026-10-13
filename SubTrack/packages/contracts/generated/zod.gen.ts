@@ -2,6 +2,16 @@
 
 import * as z from 'zod';
 
+export const zPrivateMobileStatusRequest = z.object({
+    id: z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
+    status: z.enum([
+        'ACTIVE',
+        'PAUSED',
+        'CANCELLED',
+        'ARCHIVED'
+    ])
+}).strict();
+
 export const zPrivateMobileEnrollmentComplete = z.object({
     transport: z.literal('mobile'),
     enrollmentProof: z.string().regex(/^v2\.[A-Za-z0-9_-]{43}$/),
@@ -52,6 +62,10 @@ export const zPrivateMobileError = z.object({
         'ENROLLMENT_LOGIN_REQUIRED',
         'MODE_CONFLICT',
         'MANUAL_IDEMPOTENCY_CONFLICT',
+        'SUBSCRIPTION_NOT_FOUND',
+        'MANUAL_EDIT_IDEMPOTENCY_CONFLICT',
+        'MANUAL_EDIT_CONFLICT',
+        'LIFECYCLE_CONFLICT',
         'INTERNAL_ERROR'
     ])
 }).strict();
@@ -235,6 +249,45 @@ export const zPrivateManualCreate = z.object({
  */
 export const zPositiveSubscriptionRevision = z.string().regex(/^[1-9][0-9]{0,18}$/);
 
+export const zPrivateMobileManualEdit = z.object({
+    id: z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
+    customName: z.string(),
+    categoryCode: z.enum([
+        'VIDEO_STREAMING',
+        'MUSIC_AUDIO',
+        'AUDIOBOOKS_EBOOKS',
+        'NEWS_MAGAZINES',
+        'GAMING',
+        'SOFTWARE_PRODUCTIVITY',
+        'CLOUD_STORAGE',
+        'AI_TOOLS',
+        'MOBILE_PLAN',
+        'BROADBAND_TV',
+        'FITNESS_WELLNESS',
+        'FOOD_MEALKITS',
+        'TRANSPORT_MOBILITY',
+        'HOME_SECURITY',
+        'EDUCATION_KIDS',
+        'PETS',
+        'SHOPPING_MEMBERSHIPS',
+        'VPN_SECURITY',
+        'DONATIONS',
+        'DATING_SOCIAL',
+        'APP_STORE_BILLING',
+        'OTHER_SUBSCRIPTION'
+    ]),
+    cadence: z.enum([
+        'WEEKLY',
+        'MONTHLY',
+        'QUARTERLY',
+        'SEMIANNUAL',
+        'ANNUAL'
+    ]),
+    expectedAmountMinor: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    nextChargeDate: z.iso.date().nullable(),
+    expectedRevision: zPositiveSubscriptionRevision
+}).strict();
+
 export const zPrivateManualEdit = z.object({
     customName: z.string(),
     categoryCode: z.enum([
@@ -334,6 +387,10 @@ export const zPrivateManualError = z.object({
         'MANUAL_REQUEST_REJECTED',
         'MODE_CONFLICT',
         'MANUAL_IDEMPOTENCY_CONFLICT',
+        'SUBSCRIPTION_NOT_FOUND',
+        'MANUAL_EDIT_IDEMPOTENCY_CONFLICT',
+        'MANUAL_EDIT_CONFLICT',
+        'LIFECYCLE_CONFLICT',
         'INTERNAL_ERROR'
     ])
 }).strict();
@@ -1734,3 +1791,21 @@ export const zCreatePrivateMobileManualSubscriptionHeaders = z.object({
  * Known committed private mobile result.
  */
 export const zCreatePrivateMobileManualSubscriptionResponse = zPrivateManualCreated;
+
+export const zEditPrivateMobileManualSubscriptionBody = zPrivateMobileManualEdit;
+
+export const zEditPrivateMobileManualSubscriptionHeaders = z.object({
+    'Idempotency-Key': z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+});
+
+/**
+ * Known committed private mobile result.
+ */
+export const zEditPrivateMobileManualSubscriptionResponse = zPrivateManualEdited;
+
+export const zChangePrivateMobileSubscriptionStatusBody = zPrivateMobileStatusRequest;
+
+/**
+ * Known committed private mobile result.
+ */
+export const zChangePrivateMobileSubscriptionStatusResponse = zSubscriptionLifecycleResult;
