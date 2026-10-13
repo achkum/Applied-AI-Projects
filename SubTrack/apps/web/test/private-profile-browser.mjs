@@ -435,6 +435,8 @@ try {
             await checkPrivateHeaders(verified, '/v2/auth/login/simulator/verify');
             assert.equal((await verified.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie').length, 0);
             await route.fulfill({ response: verified });
+          } else if (routePattern.includes('/auth/session')) {
+            await route.continue();
           } else if (routePattern.includes('/profile/read')) {
             const read = await route.fetch();
             assert.equal(read.status(), 200);
