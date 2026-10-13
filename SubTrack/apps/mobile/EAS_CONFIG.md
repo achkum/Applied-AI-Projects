@@ -102,6 +102,17 @@ is not restarted by this native workflow.
 Xcode 15.4 availability is checked explicitly; macOS 14 runner retirement on
 2026-11-02 requires a reviewed replacement rather than an implicit SDK upgrade.
 
+The mobile Babel preset is pinned to 11.0.15, matching installed Expo 51.0.39's
+own declared baseline. The obsolete 10.0.2 preset selected RN 0.73 codegen and
+rejected RN 0.74.5's ReadOnlyArray native command type. An early per-platform
+static development export now checks the native JavaScript graph after owned
+HTTPS fixture startup and before native compilation. It uses private disposable outputs, loopback
+Metro only, a bounded owned child, the same real public CA and original proof-mode
+guard. The compiler makes no API calls, OTP requests or delivery. Compiler
+logs and exported bundles are never artifacts; installed acceptance remains required.
+Android freshness clears only the owned disposable CI emulator app after APK
+installation and before restoring localhost Metro preferences. The initial
+Android flow does not clear those preferences again; the iOS flow is unchanged.
 Official sources verified 2026-10-13: [Expo local compilation](https://docs.expo.dev/guides/local-app-overview/),
 [Expo SDK 51 Xcode image](https://docs.expo.dev/build-reference/infrastructure/),
 [GitHub macOS 14 inventory](https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md),

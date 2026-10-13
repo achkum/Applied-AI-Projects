@@ -28,12 +28,15 @@ import {
   fatalBuildExcerpt,
 } from './private-runtime-fatal-excerpt.mjs';
 import { identifierToolDiagnostic } from './private-runtime-identifier-diagnostic.mjs';
+import { initialIdentifierFlow } from './private-runtime-flow-policy.mjs';
+import { graphStatus } from './private-runtime-bundle-policy.mjs';
 
 let currentPhase = 'runtime-preconditions';
 const driverPhases = new Set([
   'fixture-bundle',
   'fixture-construction',
   'https-start',
+  'startup-graph',
   'native-build',
   'flow-identifier',
   'flow-enroll-add',
@@ -138,7 +141,13 @@ async function main() {
         'test',
         '--test-output-dir',
         join(privateDir, name),
-        join(app, 'e2e', `private-runtime-${name}.yaml`),
+        join(
+          app,
+          'e2e',
+          name === 'identifier'
+            ? initialIdentifierFlow(platform)
+            : `private-runtime-${name}.yaml`,
+        ),
       ],
       name,
       { ...labels, ...extraEnv },
@@ -156,6 +165,14 @@ async function main() {
   try {
     markPhase('https-start');
     await harness.start();
+    markPhase('startup-graph');
+    await run(
+      'node',
+      ['scripts/private-runtime-bundle-preflight.mjs', platform],
+      'startup-graph',
+      { SUBTRACK_PRIVATE_CA_CERT: config.caPath },
+    );
+    assert.equal(code, null, 'Static graph does not request synthetic OTP');
     markPhase('native-build');
     await run(
       'bash',
@@ -286,6 +303,20 @@ async function main() {
       else
         for (const line of excerpt.lines)
           console.error(`ST244_NATIVE fatal_excerpt=${line}`);
+    }
+    if (currentPhase === 'startup-graph') {
+      let status = null;
+      try {
+        status = graphStatus(
+          readFileSync(join(privateDir, 'startup-graph.log'), 'utf8'),
+          platform,
+        );
+      } catch {
+        /* No raw fallback. */
+      }
+      console.error(
+        `ST244_NATIVE phase=startup-graph result=${status?.result ?? 'metadata-withheld'} category=${status?.category ?? 'withheld'}`,
+      );
     }
     if (currentPhase === 'flow-identifier') {
       const readTool = (name) => {

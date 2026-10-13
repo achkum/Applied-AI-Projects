@@ -5,7 +5,8 @@ board_kind: mobile_delivery_queue
 milestone_current: M1
 current_delivery: ST-086
 current_slice: ST-244
-execution_phase: native_contract_first_source
+execution_phase: native_runtime_qualification
+source_pipeline_slice: ST-245
 history_archive: .sdlc/archive/backlog-2026-10-13.yaml
 history_sha256: f8f2e50cab133c928117d03d7d20b56de9653e21957b1b07b2885b6d9fea9baf
 delivery_plan: .sdlc/delivery-plan.md

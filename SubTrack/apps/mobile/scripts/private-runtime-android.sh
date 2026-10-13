@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-phase="${1:?sdk, avd, boot or cleanup}"
+phase="${1:?sdk, avd, boot, owned-device, clear-app or cleanup}"
 proof_private="${RUNNER_TEMP:?}/subtrack-native-proof/private"
 mkdir -p "$proof_private"
 chmod 700 "$proof_private"
@@ -121,6 +121,16 @@ case "$phase" in
       sleep 5
     done
     fail android-boot-deadline
+    ;;
+  owned-device|clear-app)
+    [[ "${CI:-}" == true && "${SUBTRACK_PRIVATE_DEVICE_PROOF:-}" == true ]] || fail disposable-ci-required
+    owned_emulator_alive || fail owned-emulator-required
+    [[ "$(timeout --signal=TERM --kill-after=2s 5s "$adb_bin" -s "$serial" shell getprop ro.kernel.qemu 2>/dev/null | tr -d '\r' || true)" == 1 ]] || fail owned-device-not-emulator
+    if [[ "$phase" == clear-app ]]; then
+      timeout --signal=TERM --kill-after=5s 15s "$adb_bin" -s "$serial" shell pm clear se.subtrack.app > "$proof_private/cold-app-clear.log" 2>&1 || fail app-clear-failed-or-deadline
+      [[ "$(tr -d '\r\n' < "$proof_private/cold-app-clear.log")" == Success ]] || fail app-clear-success-required
+      diagnostic cold-app-cleared
+    else diagnostic owned-device-verified; fi
     ;;
   cleanup) stop_owned_emulator ;;
   *) fail invalid-phase ;;

@@ -94,6 +94,60 @@ try {
   });
   assert.equal(avd.status, 0);
   assert.match(avd.stdout, /event=avd-created/);
+  const ciRejected = spawnSync(bash, [normalized(script), 'clear-app'], {
+    env: { ...env, CI: 'false', SUBTRACK_PRIVATE_DEVICE_PROOF: 'true' },
+    encoding: 'utf8',
+    timeout: 10000,
+  });
+  assert.notEqual(ciRejected.status, 0);
+  assert.match(ciRejected.stdout, /event=disposable-ci-required/);
+  const unowned = spawnSync(bash, [normalized(script), 'clear-app'], {
+    env: { ...env, CI: 'true', SUBTRACK_PRIVATE_DEVICE_PROOF: 'true' },
+    encoding: 'utf8',
+    timeout: 10000,
+  });
+  assert.notEqual(unowned.status, 0);
+  assert.match(unowned.stdout, /event=owned-emulator-required/);
+  if (process.platform === 'linux') {
+    // Real disposable child custody plus fake adb; never touches a device.
+    const fakeAdb = join(sdk, 'platform-tools/adb');
+    executable(
+      fakeAdb,
+      '[[ "$1" == -s && "$2" == emulator-5554 && "$3" == shell ]] || exit 41\nif [[ "$4" == getprop && "$5" == ro.kernel.qemu ]]; then printf "%s\\n" "${FAKE_QEMU:-1}"; elif [[ "$4" == pm && "$5" == clear && "$6" == se.subtrack.app ]]; then printf "%s\\n" "${FAKE_CLEAR-Success}"; else exit 42; fi',
+    );
+    const custodyScript =
+      'sleep 30 & owned=$!; trap \'kill "$owned" 2>/dev/null || true\' EXIT; private="$RUNNER_TEMP/subtrack-native-proof/private"; printf "%s" "$owned" > "$private/emulator.pid"; value="$(cat "/proc/$owned/stat")"; read -ra fields <<< "${value##*) }"; printf "%s" "${fields[19]}" > "$private/emulator.start"; bash "$1" "$2"';
+    const runOwned = (phase, extra = {}) =>
+      spawnSync(
+        bash,
+        ['-c', custodyScript, 'test', normalized(script), phase],
+        {
+          env: {
+            ...env,
+            CI: 'true',
+            SUBTRACK_PRIVATE_DEVICE_PROOF: 'true',
+            ...extra,
+          },
+          encoding: 'utf8',
+          timeout: 10000,
+        },
+      );
+    const guarded = runOwned('owned-device');
+    assert.equal(guarded.status, 0);
+    assert.match(guarded.stdout, /event=owned-device-verified/);
+    const cleared = runOwned('clear-app');
+    assert.equal(cleared.status, 0);
+    assert.match(cleared.stdout, /event=cold-app-cleared/);
+    const notEmulator = runOwned('clear-app', { FAKE_QEMU: '0' });
+    assert.notEqual(notEmulator.status, 0);
+    assert.match(notEmulator.stdout, /event=owned-device-not-emulator/);
+    for (const value of ['', 'Failure private-tool-canary']) {
+      const failedClear = runOwned('clear-app', { FAKE_CLEAR: value });
+      assert.notEqual(failedClear.status, 0);
+      assert.match(failedClear.stdout, /event=app-clear-success-required/);
+      assert.ok(!failedClear.stdout.includes('private-tool-canary'));
+    }
+  }
   console.log(
     'Android SDK phase: checked tool paths, exact packages, closed stdin, child failure and sanitized diagnostics PASS',
   );

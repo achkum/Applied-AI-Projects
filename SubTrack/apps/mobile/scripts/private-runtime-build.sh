@@ -24,14 +24,17 @@ if [[ "$platform" == android ]]; then
   (cd android && ./gradlew :app:assembleDebug --no-daemon --stacktrace --max-workers=2 \
     '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m') > "$proof_root/private/build.log" 2>&1
   set_build_phase android-install
-  adb install -r android/app/build/outputs/apk/debug/app-debug.apk > "$proof_root/private/install.log" 2>&1
+  bash scripts/private-runtime-android.sh owned-device > "$proof_root/private/owned-device.log" 2>&1
+  adb -s emulator-5554 install -r android/app/build/outputs/apk/debug/app-debug.apk > "$proof_root/private/install.log" 2>&1
+  # Fresh disposable app state is established BEFORE restoring debug Metro prefs.
+  bash scripts/private-runtime-android.sh clear-app > "$proof_root/private/cold-start.log" 2>&1
   set_build_phase android-loopback
-  adb reverse tcp:3443 tcp:3443
-  adb reverse tcp:8081 tcp:8081
+  adb -s emulator-5554 reverse tcp:3443 tcp:3443
+  adb -s emulator-5554 reverse tcp:8081 tcp:8081
   # Force the debug packager through adb reverse, never emulator host alias/public LAN.
-  adb shell run-as se.subtrack.app mkdir -p shared_prefs
+  adb -s emulator-5554 shell run-as se.subtrack.app mkdir -p shared_prefs
   printf '%s' '<map><string name="debug_http_host">localhost:8081</string></map>' | \
-    adb shell "run-as se.subtrack.app sh -c 'cat > shared_prefs/se.subtrack.app_preferences.xml'"
+    adb -s emulator-5554 shell "run-as se.subtrack.app sh -c 'cat > shared_prefs/se.subtrack.app_preferences.xml'"
 else
   # Expo SDK51 officially maps to Xcode15.4. Never upgrade silently.
   set_build_phase ios-toolchain
