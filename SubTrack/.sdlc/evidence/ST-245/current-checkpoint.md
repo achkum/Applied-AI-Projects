@@ -52,3 +52,9 @@ Runtime source SHA256:
 - `apps/api/test/private-mobile-owned-fixture.ts`: `5971c7cc012978872c32d8f0311ed375825030ac2bacfda5abb576fb5c69396b`
 - `apps/mobile/e2e/private-runtime-edit-status.yaml`: `7a3e3ab4a84cdd01230d75c1ec48ed9f027c3af0f9cf86a402533a4ee8615b7b`
 - `apps/mobile/e2e/private-runtime-edit-status-api-restart.yaml`: `09a73e40e3b13661dd9293c9628d13c17872e2bf90212fadeae2bc0dc1413b52`
+
+## Actual CI follow-up at 3df57e7
+
+Root reports actual PG run38452241018 PASS independently QA-reviewed at exact3df57e7fc58ec83a6beef29b0a6cad452ebeeb41: Edit/status/CAS/replay/uncertainty/RLS/restart executed. Product proof assertions unchanged.
+
+Quality38452241145 failed full mobile lint solely on explicit URL no-undef in new runtime test lines31/34/35. Added explicit node:url URL import, preserving tests/assertions. Full mobile lint now PASS. Targeted native orchestration5/5 tests PASS with100% lines/branches/functions. Added approved NATIVE_EDIT_STATUS to both exact private PG failure-phase enum matchers, retaining closed messages only/no raw log projection; positive/new phase and unknown/extra/raw-text rejection checks PASS. Bash syntax and diff checks PASS. All local jobs ended; no Git/push or native completion claim.
