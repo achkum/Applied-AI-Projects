@@ -1,3 +1,4 @@
+import {qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
 import {renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
 import {qualifyNativeEditStatus,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS} from './private-runtime-edit-status.mjs';
 // Local installed-device qualification only. No EAS, cloud Maestro or store upload.
@@ -61,6 +62,10 @@ const driverPhases = new Set([
   'flow-renewals-empty',
   'renewals-readback-before',
   'renewals-archived-readback',
+  'flow-billing-month',
+  'flow-billing-month-empty',
+  'billing-month-readback-before',
+  'billing-month-archived-readback',
   'accepted-evidence',
   'fixture-dispose',
 ]);
@@ -151,6 +156,8 @@ async function main() {
   });
   const renewalDate=renewalCandidateDate();
   const labels = {...flowEnvironment(),MAESTRO_RENEWAL_DATE:renewalDate};
+  labels.MAESTRO_MONTH_DAY=labels.MAESTRO_MONTH_DAY_TEMPLATE.replace('%{date}',renewalDate);
+  labels.MAESTRO_MONTH_SAVED_DATE=labels.MAESTRO_MONTH_SAVED_DATE_TEMPLATE.replace('%{date}',renewalDate);
   async function flow(name, extraEnv = {}) {
     markPhase(`flow-${name}`);
     await run(
@@ -175,7 +182,7 @@ async function main() {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const file = join(directory, entry.name);
       if (entry.isDirectory()) copyAcceptedScreenshots(file);
-      else if (acceptedNativeScreenshot(entry.name)||acceptedNativeRenewalsScreenshot(entry.name))
+      else if (acceptedNativeScreenshot(entry.name)||acceptedNativeRenewalsScreenshot(entry.name)||acceptedNativeMonthScreenshot(entry.name))
         copyFileSync(file, join(publicDir, entry.name));
     }
   }
@@ -229,11 +236,13 @@ async function main() {
       assert.match(receipt.subscriptionDigest, /^[a-f0-9]{64}$/);
     }
     const originalRenewals=await qualifyNativeRenewalsBeforeEdit({flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),phase:markPhase});
+    await qualifyNativeMonthBeforeEdit({original:originalRenewals,flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),phase:markPhase});
     const editedTracking=await qualifyNativeEditStatus({flow,restart:()=>harness.restart(),readback:()=>harness.readbackTrackingReceipt(),phase:markPhase});
     const renewals=await qualifyNativeRenewalsAfterEdit({original:originalRenewals,flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),tracking:()=>harness.readbackTrackingReceipt(),phase:markPhase});
+    const billingMonth=await qualifyNativeMonthAfterEdit({original:originalRenewals,flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),tracking:()=>harness.readbackTrackingReceipt(),phase:markPhase});
     markPhase('accepted-evidence');
     copyAcceptedScreenshots(privateDir);
-    for (const name of [...ACCEPTED_NATIVE_SCREENSHOTS,...ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS]) {
+    for (const name of [...ACCEPTED_NATIVE_SCREENSHOTS,...ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS,...ACCEPTED_NATIVE_MONTH_SCREENSHOTS]) {
       assert.ok(statSync(join(publicDir, name)).size > 0);
     }
     const apk = join(app, 'android/app/build/outputs/apk/debug/app-debug.apk');
@@ -269,6 +278,7 @@ async function main() {
           acknowledgedLogoutUi: true,
           ...editedTracking,
           ...renewals,
+          ...billingMonth,
         },
         null,
         2,

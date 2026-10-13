@@ -12,6 +12,17 @@ export function flowEnvironment(locale = 'en') {
   );
   const onboarding = catalog.onboarding;
   return {
+    MAESTRO_MONTH_OPEN: onboarding.billingMonth.open,
+    MAESTRO_MONTH_TITLE: onboarding.billingMonth.title,
+    MAESTRO_MONTH_NEXT: onboarding.billingMonth.next,
+    MAESTRO_MONTH_REFRESH: onboarding.billingMonth.refresh,
+    MAESTRO_MONTH_EMPTY: onboarding.billingMonth.empty,
+    MAESTRO_MONTH_DAY_TEMPLATE: onboarding.billingMonth.day,
+    MAESTRO_MONTH_DETAIL: onboarding.billingMonth.details.replace('%{name}', 'Native restart proof'),
+    MAESTRO_MONTH_SAVED_DATE_TEMPLATE: onboarding.billingMonth.savedDate,
+    MAESTRO_MONTH_MANUAL: onboarding.billingMonth.manual,
+    MAESTRO_MONTH_CLOSE: catalog.actions.close,
+    MAESTRO_MONTH_AMOUNT: '129,90\\s+SEK',
     MAESTRO_DATE: onboarding.nativePersonal.date,
     MAESTRO_RENEWALS_OPEN: onboarding.nativeRenewals.open,
     MAESTRO_RENEWALS_TITLE: onboarding.nativeRenewals.title,
