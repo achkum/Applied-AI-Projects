@@ -15,6 +15,9 @@ trap 'exit 130' INT TERM
 set_build_phase prebuild
 pnpm exec expo prebuild --platform "$platform" --no-install > "$proof_root/private/prebuild.log" 2>&1
 if [[ "$platform" == android ]]; then
+  # SDK51 template's pluginManagement bare lookup fails under existing isolated
+  # pnpm. Match its already-scoped final includeBuild; no dependency/SDK change.
+  node --input-type=module -e "import {readFileSync,writeFileSync} from 'node:fs'; import {scopeGradlePluginResolution} from './scripts/private-runtime-native-resolve.mjs'; const file='android/settings.gradle'; writeFileSync(file,scopeGradlePluginResolution(readFileSync(file,'utf8')));"
   set_build_phase android-compile
   (cd android && ./gradlew :app:assembleDebug --no-daemon --stacktrace) > "$proof_root/private/build.log" 2>&1
   set_build_phase android-install

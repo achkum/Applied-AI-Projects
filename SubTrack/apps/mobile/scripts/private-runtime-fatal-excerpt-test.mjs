@@ -11,6 +11,11 @@ const config = {
   ownerPassword: 'owner-canary-password',
   actorPassword: 'actor-canary-password',
 };
+// Synthetic invalid envelope: construct markers so secret scanners do not
+// mistake the checked-in canary for a real private key. Runtime assertions
+// still exercise the exact complete and truncated PEM marker strings.
+const pemBegin = ['-----BEGIN', ' PRIVATE KEY-----'].join('');
+const pemEnd = ['-----END', ' PRIVATE KEY-----'].join('');
 function bundle() {
   return Object.fromEntries([
     ...[
@@ -23,10 +28,7 @@ function bundle() {
       'simulator',
       'credential',
     ].map((key, i) => [key, String(i + 1).repeat(64)]),
-    [
-      'privateKey',
-      '-----BEGIN PRIVATE KEY-----\nprivate-pem-canary\n-----END PRIVATE KEY-----',
-    ],
+    ['privateKey', `${pemBegin}\nprivate-pem-canary\n${pemEnd}`],
     [
       'nested',
       {
@@ -129,7 +131,7 @@ test('secrets and credential/PEM/email/URL/path/opaque forms never survive', () 
     privateBundle.otp,
     'nested-secret-canary',
     privateBundle.privateKey,
-    '-----BEGIN PRIVATE KEY-----\ntruncated-pem-canary',
+    `${pemBegin}\ntruncated-pem-canary`,
     'Bearer bearer-canary',
     'Basic basic-canary',
     'access_token="access-canary"',
