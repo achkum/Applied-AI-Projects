@@ -10,7 +10,7 @@ import { PRIVATE_PROFILE_STATEMENTS } from '../src/profile/private-profile-state
 import { PRIVATE_ONBOARDING_STATEMENTS } from '../src/profile/private-onboarding-statements';
 import { loadPrivateAuthEpoch } from '../src/auth/private-auth-epoch';
 import { V2AccessToken } from '../src/auth/sessions-v2/v2-access-token';
-import { DurableCurrentWebAuthority } from '../src/auth/sessions-v2/durable-current-web-authority';
+import { CurrentWebAuthorityError, DurableCurrentWebAuthority } from '../src/auth/sessions-v2/durable-current-web-authority';
 import { hashBrowserBindingCookie } from '../src/auth/sessions-v2/v2-web-session-binding';
 import { mintDurableSessionCsrf } from '../src/auth/session-csrf/durable-session-csrf';
 
@@ -281,12 +281,12 @@ async function prove(): Promise<void> {
     phase = 'EXPIRED_OWNER';
     await owner.$executeRaw`UPDATE public.identity SET deleted_at=now() WHERE id=${identityId}::uuid`;
     await assert.rejects(directAuthority.withCurrentWebAuthority(request, mustNotRun),
-      { message: 'Current web session unavailable' });
+      { message: 'Current web session unavailable',kind:'authority-rejected' });
     await owner.$executeRaw`UPDATE public.identity SET deleted_at=NULL WHERE id=${identityId}::uuid`;
     await owner.$executeRaw`WITH t AS (SELECT (extract(epoch from clock_timestamp())*1000)::bigint AS ms)
       UPDATE subtrack_auth.csrf SET issued_ms=t.ms-2,expires_ms=t.ms-1 FROM t WHERE session_id=${sid}::uuid`;
     await assert.rejects(directAuthority.withCurrentWebAuthority(request, mustNotRun),
-      { message: 'Current web session unavailable' });
+      { message: 'Current web session unavailable',kind:'authority-rejected' });
     await owner.$executeRaw`WITH t AS (SELECT (extract(epoch from clock_timestamp())*1000)::bigint AS ms)
       UPDATE subtrack_auth.csrf SET issued_ms=t.ms,expires_ms=t.ms+86400000 FROM t WHERE session_id=${sid}::uuid`;
     process.stdout.write('PASS ST237_PRIVATE_ACTUAL_PG_DELETED_OWNER_EXPIRED_CSRF_REFUSAL\n');
@@ -315,7 +315,10 @@ async function prove(): Promise<void> {
         false, null, false, null, false, null]);
       assert.equal(update.rowCount, 1);
       return update.rows[0];
-    }), { message: 'Current web session unavailable' });
+    }), { message: 'Current web session unavailable',kind:'storage-unavailable' });
+    await assert.rejects(directAuthority.withCurrentWebAuthority(request, async () => {
+      throw new CurrentWebAuthorityError('authority-rejected');
+    }), {message:'Current web session unavailable',kind:'storage-unavailable'});
     assert.equal(connects, 1); assert(commitForwarded && discarded);
     const committed = await owner.$queryRaw<{ display_name: string | null }[]>`
       SELECT display_name FROM public.identity_profile WHERE identity_id=${identityId}::uuid`;

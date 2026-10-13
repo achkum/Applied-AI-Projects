@@ -4,9 +4,11 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 're
 import Link from 'next/link';
 import { Button } from '@subtrack/ui';
 import { catalogs, type Locale } from '@subtrack/i18n';
-import type { ProfilePatch, ProfileView, SubscriptionLifecycleTarget, SubscriptionOwnerView } from '@subtrack/contracts';
+import type { ProfilePatch, ProfileView, SubscriptionLifecycleTarget, PrivateOwnerSubscriptionView } from '@subtrack/contracts';
 import { IdentifierEntry, type IdentifierEntryValue } from './identifier-entry';
 import { ProfileEditor } from './profile-editor';
+import { ManualSubscriptionEditor, type ManualState } from './manual-subscription-editor';
+import { newManualIntent, saveManualSubscription, ManualSubscriptionApiError, type ManualIntent, type ManualSubscriptionBody } from '@/lib/manual-subscription-api';
 import { PrivateSubscriptions } from './private-subscriptions';
 import { RegistrationApiError, startRegistration, verifyRegistration, admitPendingRegistration, verifySimulatorRegistration, completeRegistration, type RegistrationIdentifier } from '@/lib/registration-api';
 import { LoginApiError, startLogin, verifyLogin, completeLogin, type DemoIdentity } from '@/lib/login-api';
@@ -18,7 +20,7 @@ type Step = 'identifier' | 'otp' | 'pending-admission' | 'simulator-verification
   'login' | 'login-verifying' | 'login-session' | 'login-mode-loading' | 'login-restart' | 'login-unavailable' |
   'profile-loading' | 'profile-editing' | 'profile-saving' | 'profile-confirming' | 'profile-saved' | 'mode-choice' |
   'mode-saving' | 'mode-confirming' | 'subscriptions-loading' | 'subscriptions-list' | 'subscriptions-detail' |
-  'restart-required' | 'verified-login-required' | 'unavailable';
+  'manual-editor' | 'restart-required' | 'verified-login-required' | 'unavailable';
 
 export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { locale: Locale; initialEntry?: 'enrollment' | 'login' }) {
   const copy = catalogs[locale].onboarding.registration;
@@ -34,10 +36,15 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
   const [identifier, setIdentifier] = useState<RegistrationIdentifier | null>(null);
   const [profile, setProfile] = useState<ProfileView | null>(null);
   const [uncertain, setUncertain] = useState(false);
-  const [items, setItems] = useState<SubscriptionOwnerView[]>([]);
+  const [items, setItems] = useState<PrivateOwnerSubscriptionView[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [selected, setSelected] = useState<SubscriptionOwnerView | null>(null);
+  const [selected, setSelected] = useState<PrivateOwnerSubscriptionView | null>(null);
   const [statusConfirmed, setStatusConfirmed] = useState(false);
+  const [manualState, setManualState] = useState<ManualState>('draft');
+  const [manualConfirmed, setManualConfirmed] = useState(false);
+  const manualIntent = useRef<ManualIntent | null>(null);
+  const manualId = useRef('');
+  const restoreAddFocus = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const generation = useRef(0);
   const requestPending = useRef(false);
@@ -51,6 +58,9 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
 
   useLayoutEffect(() => {
     if (previousStep.current === step) return;
+    if (step === 'subscriptions-list' && restoreAddFocus.current) {
+      previousStep.current = step; restoreAddFocus.current = false; panel.current?.querySelector<HTMLElement>('[data-manual-add] button')?.focus(); return;
+    }
     previousStep.current = step;
     if (step === 'profile-saved' || step === 'profile-editing' && uncertain) return;
     const selector = step === 'identifier' || step === 'login' || step === 'login-restart' || step === 'login-unavailable' ? '#registration-title' : step === 'restart-required' ? 'button' :
@@ -68,6 +78,7 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
 
   function clearPrivate() {
     continuation.current = ''; rotatedNonce.current = ''; csrf.current = '';
+    manualIntent.current = null; manualId.current = ''; setManualState('draft'); setManualConfirmed(false);
     setItems([]); setNextCursor(null); setSelected(null); setStatusConfirmed(false);
   }
   function beginRequest() {
@@ -223,6 +234,70 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
       setItems(page.items); setNextCursor(page.nextCursor); setStep('subscriptions-list'); finish();
     } catch { if (current(request)) stop('verified-login-required'); }
   }
+  function openManual() {
+    if (requestPending.current || step !== 'subscriptions-list' || !csrf.current || !profile?.profileComplete) return;
+    manualIntent.current = null; manualId.current = ''; setManualState('draft'); setManualConfirmed(false); setError(''); setStep('manual-editor');
+  }
+  function cancelManual() {
+    if (requestPending.current || !['draft', 'invalid'].includes(manualState)) return;
+    manualIntent.current = null; manualId.current = ''; restoreAddFocus.current = true; setStep('subscriptions-list');
+  }
+  async function reconcileManual() {
+    if (requestPending.current || !csrf.current) return;
+    const request = beginRequest(); manualIntent.current = null; manualId.current = '';
+    try {
+      const persisted = await readProfile(csrf.current, request.signal);
+      const mode = await readMode(csrf.current, request.signal);
+      if (!current(request)) return;
+      setProfile(persisted);
+      if (!persisted.profileComplete) { setStep('profile-editing'); finish(); return; }
+      if (mode !== 'just-me') { setStep('mode-choice'); finish(); return; }
+      const page = await readOwnerSubscriptions(csrf.current, request.signal);
+      if (!current(request)) return;
+      setItems(page.items); setNextCursor(page.nextCursor); setSelected(null); setManualConfirmed(false);
+      restoreAddFocus.current = true; setStep('subscriptions-list'); finish();
+    } catch { if (current(request)) stop('verified-login-required'); }
+  }
+  async function readManual(request: { signal: AbortSignal; generation: number }) {
+    setManualState('reading');
+    try {
+      const detail = await readOwnerSubscription(manualId.current, csrf.current, request.signal);
+      if (detail.id !== manualId.current || detail.source !== 'MANUAL') throw new PrivateOnboardingApiError('unavailable');
+      const page = await readOwnerSubscriptions(csrf.current, request.signal);
+      if (!current(request)) return;
+      setItems(page.items); setNextCursor(page.nextCursor); setSelected(detail); setStatusConfirmed(false); setManualConfirmed(true);
+      manualIntent.current = null; manualId.current = ''; setStep('subscriptions-detail'); finish();
+    } catch (caught) {
+      if (!current(request)) return;
+      if (caught instanceof PrivateOnboardingApiError && caught.code === 'login-required') { stop('verified-login-required'); return; }
+      setManualState('read-error'); finish();
+    }
+  }
+  async function saveManual(body?: ManualSubscriptionBody) {
+    if (requestPending.current || step !== 'manual-editor' || !csrf.current) return;
+    if (body && !['draft', 'invalid'].includes(manualState) || !body && manualState !== 'uncertain') return;
+    if (body) manualIntent.current = newManualIntent(body);
+    if (!manualIntent.current) return;
+    const request = beginRequest(); setManualState(body ? 'saving' : 'checking');
+    try {
+      manualId.current = await saveManualSubscription(manualIntent.current, csrf.current, request.signal);
+      if (!current(request)) return;
+      await readManual(request);
+    } catch (caught) {
+      if (!current(request)) return;
+      if (caught instanceof ManualSubscriptionApiError) {
+        if (caught.code === 'login-required') { stop('verified-login-required'); return; }
+        if (caught.code === 'mode-conflict') { finish(); await reconcileManual(); return; }
+        if (caught.code === 'invalid') { manualIntent.current = null; setManualState('invalid'); finish(); return; }
+        if (caught.code === 'receipt-conflict') { manualIntent.current = null; setManualState('receipt-conflict'); finish(); return; }
+      }
+      setManualState('uncertain'); finish();
+    }
+  }
+  async function retryManualRead() {
+    if (requestPending.current || step !== 'manual-editor' || manualState !== 'read-error' || !manualId.current) return;
+    await readManual(beginRequest());
+  }
   async function loadMore() {
     if (requestPending.current || !csrf.current || !nextCursor || step !== 'subscriptions-list') return;
     const request = beginRequest(); setError('');
@@ -236,7 +311,7 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
   }
   async function selectSubscription(id: string) {
     if (requestPending.current || !csrf.current || step !== 'subscriptions-list' || !items.some((item) => item.id === id)) return;
-    const request = beginRequest(); setError(''); setStatusConfirmed(false);
+    const request = beginRequest(); setError(''); setStatusConfirmed(false); setManualConfirmed(false);
     try {
       const detail = await readOwnerSubscription(id, csrf.current, request.signal);
       if (!current(request)) return;
@@ -249,7 +324,7 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
       ACTIVE: ['PAUSED', 'CANCELLED', 'ARCHIVED'], PAUSED: ['ACTIVE', 'CANCELLED', 'ARCHIVED'], CANCELLED: ['ARCHIVED'],
     };
     if (!(allowed[selected.status] ?? []).includes(status)) return;
-    const request = beginRequest(); setError(''); setStatusConfirmed(false);
+    const request = beginRequest(); setError(''); setStatusConfirmed(false); setManualConfirmed(false);
     let knownCommitted = false;
     try {
       await patchOwnerSubscription(selected.id, status, csrf.current, request.signal);
@@ -325,9 +400,11 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
       {step === 'mode-saving' || step === 'mode-confirming' ? <p data-step-focus tabIndex={-1} role="status">
         {step === 'mode-saving' ? catalogs[locale].onboarding.mode.saving : catalogs[locale].onboarding.mode.confirming}</p> : null}
       {step === 'subscriptions-loading' ? <p data-step-focus tabIndex={-1} role="status">{catalogs[locale].onboarding.ownerSubscriptions.loading}</p> : null}
+      {step === 'manual-editor' ? <ManualSubscriptionEditor locale={locale} state={manualState} onSave={saveManual}
+        onCheck={() => void saveManual()} onRead={retryManualRead} onCancel={cancelManual} onReconcile={reconcileManual} /> : null}
       {step === 'subscriptions-list' || step === 'subscriptions-detail' ? <PrivateSubscriptions locale={locale} items={items} nextCursor={nextCursor}
         selected={step === 'subscriptions-detail' ? selected : null} busy={busy} confirmed={statusConfirmed} onMore={loadMore}
-        onSelect={selectSubscription} onBack={() => { setSelected(null); setStatusConfirmed(false); setStep('subscriptions-list'); }} onTransition={transition} /> : null}
+        onAdd={openManual} manualConfirmed={manualConfirmed} onSelect={selectSubscription} onBack={() => { setSelected(null); setStatusConfirmed(false); setStep('subscriptions-list'); }} onTransition={transition} /> : null}
       {step === 'verified-login-required' ? <><p data-step-focus tabIndex={-1} role="alert">{copy.verifiedLoginRequired}</p>
         {initialEntry === 'login'
           ? <Button type="button" variant="secondary" disabled={busy} onClick={goBack}>{loginCopy.freshLogin}</Button>
@@ -335,7 +412,7 @@ export function RegistrationFlow({ locale, initialEntry = 'enrollment' }: { loca
       {error && step !== 'restart-required' ? <p ref={errorMessage} tabIndex={-1} role="alert">{error}</p> : null}
       <div className={styles.actions}>
         {step !== 'identifier' && step !== 'verified-login-required' && step !== 'profile-saved' && step !== 'mode-choice' &&
-          !step.startsWith('subscriptions-') && !step.startsWith('mode-') ?
+          step !== 'manual-editor' && !step.startsWith('subscriptions-') && !step.startsWith('mode-') ?
           <Button variant="secondary" type="button" onClick={goBack}>{copy.backLabel}</Button> : null}
         {step === 'identifier' ? <Link href={`/${locale}/login`}>{loginCopy.logInInstead}</Link> : null}
       </div>

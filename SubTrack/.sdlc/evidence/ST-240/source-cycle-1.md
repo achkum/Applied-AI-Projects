@@ -1,0 +1,11 @@
+# ST240 source cycle 1
+
+Private Manual Add source approved independently by architect/platform, security and client/design/Money reviewers. Authors do not approve their own work. Final platform/security carry covers the separate exhaustive manual business-idempotency classification; the eleven authentication recovery routes remain unchanged. Client review corrected known HTTP400: retaining an unchanged rejected draft cannot rotate a key or submit; editing permits a new intent.
+
+Reviewed raw source SHA256: current authority 213c7ca96963b8d52796d0386ed4ec2fc4f7275fb5b16bf14bfb9a5a106c3cb9; manual HTTP a6030ea1c41607082bdd64b47e6f001a342eac34eb2631a6518f1753bbd7d937; SQL013 af2724a3cfa5e7efa413958211b3641d006c49f816246ce717e68764a84ff689; final statements 041aad948fdbb6e40e3a9658b4f52f9130f13f6a95738d805f5d06f9d05e3228; final manual PG c913389b00587eed4237cfbe94bbbee1bf4c43f64d3d3f11d19d6280b532e60b; final parser 205ab9309ff47e2613b71adf9f73e96d6ad2ceff86b1f82ffbe3371f41055061; editor 303c6bc8fde94025f5639d30086d66402d1f14e68641558724177c10dc065121; flow regression 6f4bca12fba1b8d295306bcd4eed7292d2d0f51f6c4ffed7e920204862f4f3a0. Git normalizes line endings; actual qualified source custody must compare committed blobs.
+
+Full standard local suites: API1930, web162, contracts31 plus fixture generation, Money158 PASS. Permanent Money coverage100% across53 branches, preserving formatter thresholds. All affected package lint/typechecks and bilingual parity PASS. Actual Next16.3.6 production build thirteen pages PASS after independently reviewed standalone parser RangeError correction; parsing logic and fixed message unchanged.
+
+Preserved failures: exhaustive contracts inventory initially omitted manual route (28/30); parser money.js import failed actual Next; root turbo lint cannot spawn the unchanged UI-token generator's extensionless prettier on Windows. Scoped lint passed; no CI waiver. Extra new-file EOF blank lines removed with independent source carry. No assertion, retry, timeout, authority or policy weakening.
+
+Acceptance remains pending actual owned PostgreSQL, seven natural cases in four locale/theme variants, direct pixels, exact source/bundle custody, cleanup and all applicable CI. Source/unit success is not product completion. No real delivery, spending or public/production release.

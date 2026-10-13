@@ -61,10 +61,12 @@ const { V2AccessToken } = apiRequire('./dist/auth/sessions-v2/v2-access-token.js
 const { DurableCurrentWebAuthority } = apiRequire('./dist/auth/sessions-v2/durable-current-web-authority.js');
 const { PRIVATE_PROFILE_STATEMENTS } = apiRequire('./dist/profile/private-profile-statements.js');
 const { PRIVATE_ONBOARDING_STATEMENTS } = apiRequire('./dist/profile/private-onboarding-statements.js');
+const { PRIVATE_MANUAL_CREATE_STATEMENTS } = apiRequire('./dist/subscriptions/private-manual-create-statements.js');
 const { createPrivateEnrollmentHttp, privateProblem, privateJson } = apiRequire('./dist/auth/enrollment-v2/private-enrollment-http.js');
 const { createPrivateLoginHttp, privateLoginProblem } = apiRequire('./dist/auth/login-v2/private-login-http.js');
 const { createPrivateProfileHttp } = apiRequire('./dist/profile/private-profile-http.js');
 const { createPrivateOnboardingHttp } = apiRequire('./dist/profile/private-onboarding-http.js');
+const { createPrivateManualCreateHttp } = apiRequire('./dist/subscriptions/private-manual-create-http.js');
 const epoch = loadPrivateAuthEpoch(env.ST237_PRIVATE_CONFIG);
 const port = Number(env.ST237_PG_PORT);
 const pool = new Pool({ host: '127.0.0.1', port, database: epoch.database, user: epoch.login,
@@ -88,6 +90,7 @@ const qualifiedSqlPins = Object.freeze({
   '010-enrollment-account.sql': '954be5c4ae1c018aac161a5ec7e59d2bd1bc478df5310a7a15f968f8bfd90a4a',
   '011-just-me-owner-subscriptions.sql': 'c846c43da9f37c18739d0dbc5f9633f24d0b4e14327e607d94f1f0344602bd43',
   '012-returning-login.sql': '1825e9770adf4c9127c0d8f774b8b0c0311137d51dfec952f6d300b00e6d9241',
+  '013-manual-owner-create.sql': 'af2724a3cfa5e7efa413958211b3641d006c49f816246ce717e68764a84ff689',
 });
 const privacyMigrationPin = 'b2ef9ebbdce9f9dddff9f43b6679e0fdac58324c2a6ef060af33662ec89a2f9a';
 const justMeMigrationPin = '0472642ea4182b0818c7230d0285d6fab620738b17124268dce5e5d891b3ca29';
@@ -430,6 +433,87 @@ async function assertSubscriptionCatalog(client) {
     JSON.stringify(sortAcl(expectedAcl))) fail();
 }
 
+async function assertManualReceiptCatalog(client) {
+  if (digest(JSON.stringify(PRIVATE_MANUAL_CREATE_STATEMENTS)) !== '8b56a94d1b5384ca6acf8151af3592dc2c98df0c039fa8b3dcc6581853c7f525') fail();
+  gate('MANUAL_RECEIPT');
+  const table = 'public.manual_subscription_create_receipt';
+  const relation = await client.query(`SELECT c.relkind::text AS kind,c.relrowsecurity AS rls,
+      c.relforcerowsecurity AS forced,r.rolname::text AS owner
+    FROM pg_catalog.pg_class c JOIN pg_catalog.pg_roles r ON r.oid=c.relowner
+    WHERE c.oid=$1::pg_catalog.regclass`, [table]);
+  if (JSON.stringify(relation.rows) !== JSON.stringify([
+    {kind:'r',rls:true,forced:true,owner:'st233a_fixture_owner'}])) fail();
+  const columns = await client.query(`SELECT a.attname::text AS name,a.attnum AS position,
+      pg_catalog.format_type(a.atttypid,a.atttypmod) AS type,a.attnotnull AS required,
+      pg_catalog.pg_get_expr(d.adbin,d.adrelid) AS default_value,a.attidentity::text AS identity,
+      a.attgenerated::text AS generated
+    FROM pg_catalog.pg_attribute a LEFT JOIN pg_catalog.pg_attrdef d
+      ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+    WHERE a.attrelid=$1::pg_catalog.regclass AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum`, [table]);
+  const expectedColumns = [
+    ['identity_id',1,'uuid',true,null,'',''],['key_hash',2,'bytea',true,null,'',''],
+    ['request_hash',3,'bytea',true,null,'',''],['subscription_id',4,'uuid',true,null,'',''],
+    ['created_at',5,'timestamp with time zone',true,'now()','',''],
+  ];
+  if (JSON.stringify(columns.rows.map(x => [x.name,x.position,x.type,x.required,x.default_value,x.identity,x.generated])) !==
+      JSON.stringify(expectedColumns)) fail();
+  const policies = await client.query(`SELECT p.polname::text AS name,p.polcmd::text AS command,
+      p.polpermissive AS permissive,
+      ARRAY(SELECT r.rolname::text FROM pg_catalog.pg_roles r WHERE r.oid=ANY(p.polroles) ORDER BY r.rolname) AS roles,
+      pg_catalog.pg_get_expr(p.polqual,p.polrelid) AS using_expr,
+      pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid) AS check_expr
+    FROM pg_catalog.pg_policy p WHERE p.polrelid=$1::pg_catalog.regclass ORDER BY p.polname`, [table]);
+  const principal = 'subtrack_principal_matches(identity_id)';
+  if (JSON.stringify(policies.rows.map(x => [x.name,x.command,x.permissive,x.roles,x.using_expr,x.check_expr])) !==
+      JSON.stringify([
+        ['manual_subscription_create_receipt_insert','a',true,['subtrack_runtime'],null,principal],
+        ['manual_subscription_create_receipt_select','r',true,['subtrack_runtime'],principal,null],
+      ])) fail();
+  const acl = await client.query(`SELECT 'table'::text AS scope,NULL::text AS name,
+      CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE pg_catalog.pg_get_userbyid(x.grantee) END AS grantee,
+      x.privilege_type AS privilege,x.is_grantable AS grantable
+    FROM pg_catalog.pg_class c CROSS JOIN LATERAL pg_catalog.aclexplode(c.relacl) x
+    WHERE c.oid=$1::pg_catalog.regclass AND x.grantee<>c.relowner
+    UNION ALL SELECT 'column'::text,a.attname::text,
+      CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE pg_catalog.pg_get_userbyid(x.grantee) END,
+      x.privilege_type,x.is_grantable
+    FROM pg_catalog.pg_class c JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+    CROSS JOIN LATERAL pg_catalog.aclexplode(a.attacl) x
+    WHERE c.oid=$1::pg_catalog.regclass AND x.grantee<>c.relowner`, [table]);
+  if (JSON.stringify(acl.rows.map(x => JSON.stringify([x.scope,x.name,x.grantee,x.privilege,x.grantable])).sort()) !==
+      JSON.stringify(['INSERT','SELECT'].map(p => JSON.stringify(['table',null,'subtrack_runtime',p,false])).sort())) fail();
+  const constraints = await client.query(`SELECT k.conname::text AS name,k.contype::text AS kind,
+      pg_catalog.pg_get_constraintdef(k.oid,false) AS definition,k.convalidated AS validated,
+      k.condeferrable AS deferrable,k.condeferred AS deferred,
+      k.confupdtype::text AS update_action,k.confdeltype::text AS delete_action,
+      k.confmatchtype::text AS match_type,
+      CASE WHEN k.confrelid=0 THEN NULL ELSE k.confrelid::pg_catalog.regclass::text END AS target,
+      k.conkey AS columns,k.confkey AS target_columns
+    FROM pg_catalog.pg_constraint k WHERE k.conrelid=$1::pg_catalog.regclass ORDER BY k.conname`, [table]);
+  const base = 'manual_subscription_create_receipt_';
+  const expectedConstraints = [
+    [base+'identity_id_fkey','f','FOREIGN KEY (identity_id) REFERENCES identity(id) ON UPDATE RESTRICT ON DELETE CASCADE',true,false,false,'r','c','s','identity',[1],[1]],
+    [base+'key_hash_check','c','CHECK ((octet_length(key_hash) = 32))',true,false,false,' ',' ',' ',null,[2],null],
+    [base+'pkey','p','PRIMARY KEY (identity_id, key_hash)',true,false,false,' ',' ',' ',null,[1,2],null],
+    [base+'request_hash_check','c','CHECK ((octet_length(request_hash) = 32))',true,false,false,' ',' ',' ',null,[3],null],
+  ];
+  if (JSON.stringify(constraints.rows.map(x => [x.name,x.kind,x.definition,x.validated,x.deferrable,x.deferred,
+    x.update_action,x.delete_action,x.match_type,x.target,x.columns,x.target_columns])) !== JSON.stringify(expectedConstraints)) fail();
+  const indexes = await client.query(`SELECT ci.relname::text AS name,am.amname::text AS method,
+      i.indisunique AS unique,i.indisprimary AS primary,i.indisvalid AS valid,i.indisready AS ready,
+      i.indnkeyatts AS keys,i.indnatts AS attributes,i.indkey::text AS columns,
+      pg_catalog.pg_get_expr(i.indpred,i.indrelid) AS predicate,pg_catalog.pg_get_expr(i.indexprs,i.indrelid) AS expressions,
+      pg_catalog.pg_get_indexdef(i.indexrelid) AS definition
+    FROM pg_catalog.pg_index i JOIN pg_catalog.pg_class ci ON ci.oid=i.indexrelid
+    JOIN pg_catalog.pg_am am ON am.oid=ci.relam WHERE i.indrelid=$1::pg_catalog.regclass ORDER BY ci.relname`, [table]);
+  if (JSON.stringify(indexes.rows) !== JSON.stringify([{name:base+'pkey',method:'btree',unique:true,primary:true,
+    valid:true,ready:true,keys:2,attributes:2,columns:'1 2',predicate:null,expressions:null,
+    definition:'CREATE UNIQUE INDEX manual_subscription_create_receipt_pkey ON public.manual_subscription_create_receipt USING btree (identity_id, key_hash)'}])) fail();
+  const triggers = await client.query(`SELECT count(*)::pg_catalog.int4 AS total FROM pg_catalog.pg_trigger
+    WHERE tgrelid=$1::pg_catalog.regclass AND NOT tgisinternal`, [table]);
+  if (triggers.rows[0]?.total !== 0) fail();
+}
+
 async function assertAuthCatalog(client, approved) {
   gate('AUTH_TABLES');
   const authTables = ['credential','csrf','enrollment_intent','epoch','family','identity_birth',
@@ -716,15 +800,16 @@ async function assertStartup() {
     const approved = await assertQualifiedCatalog(client);
     await assertProfileCatalog(client);
     await assertSubscriptionCatalog(client);
+    await assertManualReceiptCatalog(client);
     await assertAuthCatalog(client, approved);
     const rls = await client.query(`SELECT n.nspname::text AS schema_name,c.relname::text AS table_name,
       c.relrowsecurity AS enabled,c.relforcerowsecurity AS forced
       FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
       WHERE (n.nspname='subtrack_auth' AND c.relname=ANY($1::text[]))
-         OR (n.nspname='public' AND c.relname IN ('identity_profile','subscription'))`,
+         OR (n.nspname='public' AND c.relname IN ('identity_profile','subscription','manual_subscription_create_receipt'))`,
       [['epoch','reservation','nonce','family','session','credential','csrf','otp','restricted_proof',
         'pending_enrollment','verified_enrollment','enrollment_intent','identity_birth','login_proof']]);
-    if (rls.rows.length !== 16 || rls.rows.some(item => item.enabled !== true || item.forced !== true)) fail();
+    if (rls.rows.length !== 17 || rls.rows.some(item => item.enabled !== true || item.forced !== true)) fail();
     gate('EPOCH');
     let fence;
     try {
@@ -775,7 +860,7 @@ async function main() {
     pool, clock: Date.now, verifier, keys: epoch.enrollmentKeys });
   const authority = new DurableCurrentWebAuthority({ pool, accessTokens: tokens, origin: epoch.origin,
     database: epoch.database, epoch: epoch.epoch, manifestHash: epoch.manifestHash,
-    businessStatements: { ...PRIVATE_PROFILE_STATEMENTS, ...PRIVATE_ONBOARDING_STATEMENTS } });
+    businessStatements: { ...PRIVATE_PROFILE_STATEMENTS, ...PRIVATE_ONBOARDING_STATEMENTS, ...PRIVATE_MANUAL_CREATE_STATEMENTS } });
   const bootstrap = () => createDevelopmentBootstrapTransaction({ enabled: true, origin: epoch.origin,
     epoch: epoch.epoch, manifestHash: epoch.manifestHash, retentionMs: 86_400_000,
     idempotencyKey: epoch.bootstrapKeys.idempotencyKey, originKey: epoch.bootstrapKeys.originKey },
@@ -786,12 +871,16 @@ async function main() {
   const loginHttp = createPrivateLoginHttp({ login, accessTokens: tokens });
   const profile = createPrivateProfileHttp(authority);
   const onboarding = createPrivateOnboardingHttp(authority);
+  const manual = createPrivateManualCreateHttp(authority);
   gate('COMPOSITION_READY');
   class PrivateController {
+    async manualCreate(req, res) { await manual.handle(req, res); }
     async profileRead(req, res) { await profile.handle(req, res); }
     async profilePatch(req, res) { await profile.handle(req, res); }
   }
   Controller('v2')(PrivateController);
+  Post('subscriptions/owner/manual')(PrivateController.prototype, 'manualCreate', Object.getOwnPropertyDescriptor(PrivateController.prototype, 'manualCreate'));
+  Req()(PrivateController.prototype, 'manualCreate', 0); Res()(PrivateController.prototype, 'manualCreate', 1);
   for (const [index, route] of ['auth/browser-nonce', 'auth/otp/start', 'auth/otp/verify',
     'auth/enrollment/pending', 'auth/enrollment/simulator/verify', 'auth/enrollment/complete'].entries()) {
     const method = `auth${index}`;
@@ -837,7 +926,7 @@ async function main() {
     '/v2/auth/enrollment/pending','/v2/auth/enrollment/simulator/verify','/v2/auth/enrollment/complete',
     '/v2/auth/login/simulator/verify','/v2/auth/session',
     '/v2/me/profile/read','/v2/me/profile', '/v2/me/mode','/v2/me/mode/read',
-    '/v2/subscriptions/owner/read']);
+    '/v2/subscriptions/owner/read','/v2/subscriptions/owner/manual']);
   const loginRoutes = new Set(['/v2/auth/login/simulator/verify','/v2/auth/session']);
   const server = https.createServer({ key, cert }, (req, res) => {
     if (!(req.socket instanceof TLSSocket) || !req.socket.encrypted ||
@@ -847,11 +936,13 @@ async function main() {
     if (req.url === '/v2' || req.url?.startsWith('/v2/')) {
       res.setHeader('Cache-Control', 'no-store'); res.setHeader('Pragma', 'no-cache');
       const profilePath = req.url.startsWith('/v2/me/profile');
+      const manualPath = req.url.startsWith('/v2/subscriptions/owner/manual');
       const onboardingPath = req.url.startsWith('/v2/me/mode') || req.url.startsWith('/v2/subscriptions/');
       const detailPath = /^\/v2\/subscriptions\/[^/?]+(?:\/read)?$/.test(req.url);
       const expectedMethod = req.url === '/v2/me/profile' || (detailPath && !req.url.endsWith('/read')) ? 'PATCH' : 'POST';
       if (!(routes.has(req.url) || detailPath) || req.method !== expectedMethod) {
-        if (profilePath) privateJson(res, 400, { type: 'about:blank', title: 'Bad Request', status: 400, code: 'INVALID_PROFILE_REQUEST' }, true);
+        if (manualPath) privateJson(res, 400, { type: 'about:blank', title: 'Bad Request', status: 400, code: 'INVALID_MANUAL_REQUEST' }, true);
+        else if (profilePath) privateJson(res, 400, { type: 'about:blank', title: 'Bad Request', status: 400, code: 'INVALID_PROFILE_REQUEST' }, true);
         else if (onboardingPath) privateJson(res, 400, { type: 'about:blank', title: 'Bad Request', status: 400,
           code: req.url.startsWith('/v2/me/mode') ? 'INVALID_MODE_REQUEST' : 'INVALID_SUBSCRIPTION_REQUEST' }, true);
         else if (loginRoutes.has(req.url)) privateLoginProblem(res, 400);

@@ -137,6 +137,13 @@ async function browser() {
         assert(result.status === 201, 'real Nest POST failed');
         assert(result.body?.tlsSocket === true && result.body?.rawHeaders === true && result.body?.browserOrigin === true,
           'Nest did not see direct browser TLS/Origin');
+        const manualStatus = await page.evaluate(async () => {
+          const response = await globalThis.fetch('/v2/subscriptions/owner/manual', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+          });
+          return response.status;
+        });
+        assert(manualStatus === 404, 'manual create escaped the private composition');
       } finally { await page.close(); }
     }
     await healthy();

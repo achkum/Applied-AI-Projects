@@ -28,6 +28,8 @@ const idempotentPostPaths = [
   '/v2/auth/session', '/v2/auth/refresh',
   '/v2/me/reauth/otp/start', '/v2/me/reauth/otp/verify',
 ];
+// Business receipts are separate from authentication credential replay/restart.
+const privateBusinessIdempotentPostPaths = ['/v2/subscriptions/owner/manual'];
 const privatePostPaths = [
   '/v2/me/profile/read', '/v2/me/mode', '/v2/me/mode/read',
   '/v2/subscriptions/owner/read', '/v2/subscriptions/{id}/read',
@@ -45,7 +47,7 @@ function classifiedPosts(document) {
   const paths = Object.entries(document.paths)
     .filter(([path, item]) => path.startsWith('/v2/') && item.post)
     .map(([path]) => path);
-  assert.deepEqual(paths.sort(), [...idempotentPostPaths, ...privatePostPaths].sort(),
+  assert.deepEqual(paths.sort(), [...idempotentPostPaths, ...privatePostPaths, ...privateBusinessIdempotentPostPaths].sort(),
     'every v2 POST must have an explicit reviewed idempotency classification');
   return idempotentPostPaths.map((path) => [path, document.paths[path].post]);
 }
@@ -137,6 +139,47 @@ test('v2 mutating POSTs require idempotency and browser state distinguishes nonc
     }
     assert.ok(document.components.schemas.OtpStartResponse.properties.nextBrowserNonce);
     assert.ok(document.components.schemas.OtpVerifyResponse.properties.nextBrowserNonce);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('private business idempotency uses current authority and durable manual receipt recovery', () => {
+  const { dir, document } = bundle();
+  try {
+    assert.equal(classifiedPosts(document).length, 11, 'authentication recovery group stays unchanged');
+    assert.deepEqual(privateBusinessIdempotentPostPaths, ['/v2/subscriptions/owner/manual']);
+    for (const path of privateBusinessIdempotentPostPaths) {
+      const operation = document.paths[path].post;
+      assert.equal(operation['x-runtime-availability'], 'unavailable-default');
+      assertRequiredBrowserHeaders(operation, `POST ${path}`);
+      assert.equal(operation.parameters.some((parameter) => parameter.name === 'X-Browser-Nonce'), false,
+        'manual writes use current CSRF, never an enrollment nonce');
+      const keys = operation.parameters.filter((parameter) => parameter.name === 'Idempotency-Key');
+      assert.equal(keys.length, 1);
+      assert.equal(keys[0].required, true);
+      const keyPattern = new RegExp(keys[0].schema.pattern);
+      assert.ok(keyPattern.test('123e4567-e89b-42d3-a456-426614174000'));
+      for (const invalid of ['123E4567-e89b-42d3-a456-426614174000',
+        '123e4567-e89b-12d3-a456-426614174000', 'a'.repeat(16),
+        '123e4567-e89b-42d3-a456-426614174000,123e4567-e89b-42d3-a456-426614174000'])
+        assert.equal(keyPattern.test(invalid), false, 'manual key is exactly one lowercase UUIDv4');
+      assert.deepEqual(Object.keys(operation.responses), ['201', '400', '401', '403', '409', '500']);
+      const success = operation.responses['201'];
+      assert.equal(success.headers['Cache-Control'].schema.const, 'no-store');
+      assert.equal(success.headers.Pragma.schema.const, 'no-cache');
+      const result = success.content['application/json'].schema;
+      assert.equal(result.additionalProperties, false);
+      assert.deepEqual(result.required, ['id']);
+      assert.deepEqual(Object.keys(result.properties), ['id']);
+      const conflict = operation.responses['409'].content['application/problem+json'].schema;
+      assert.ok(conflict.properties.code.enum.includes('MODE_CONFLICT'));
+      assert.ok(conflict.properties.code.enum.includes('MANUAL_IDEMPOTENCY_CONFLICT'));
+      assert.match(operation.description, /Gate complete\s+profile and just-me on create AND replay before receipt/);
+      assert.match(operation.description, /Known commit and exact replay return 201 original id; changed-body same key 409/);
+      assert.match(operation.description, /Immutable receipt survives status\/deletion\/restart\/expiry/);
+      assert.match(operation.description, /every attempted-COMMIT failure\s+masked 500/);
+      assert.match(operation.description, /No compensation\/automatic replay/);
+      assert.doesNotMatch(operation.description, /AUTH_RESTART_REQUIRED/);
+    }
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

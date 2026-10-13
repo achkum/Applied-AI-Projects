@@ -139,6 +139,73 @@ export const zBrowserModeError = z.object({
     ])
 }).strict();
 
+export const zPrivateManualCreate = z.object({
+    customName: z.string(),
+    categoryCode: z.enum([
+        'VIDEO_STREAMING',
+        'MUSIC_AUDIO',
+        'AUDIOBOOKS_EBOOKS',
+        'NEWS_MAGAZINES',
+        'GAMING',
+        'SOFTWARE_PRODUCTIVITY',
+        'CLOUD_STORAGE',
+        'AI_TOOLS',
+        'MOBILE_PLAN',
+        'BROADBAND_TV',
+        'FITNESS_WELLNESS',
+        'FOOD_MEALKITS',
+        'TRANSPORT_MOBILITY',
+        'HOME_SECURITY',
+        'EDUCATION_KIDS',
+        'PETS',
+        'SHOPPING_MEMBERSHIPS',
+        'VPN_SECURITY',
+        'DONATIONS',
+        'DATING_SOCIAL',
+        'APP_STORE_BILLING',
+        'OTHER_SUBSCRIPTION'
+    ]),
+    cadence: z.enum([
+        'WEEKLY',
+        'MONTHLY',
+        'QUARTERLY',
+        'SEMIANNUAL',
+        'ANNUAL'
+    ]),
+    expectedAmountMinor: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    nextChargeDate: z.iso.date().nullish()
+}).strict();
+
+export const zPrivateManualCreated = z.object({
+    id: z.uuid()
+}).strict();
+
+export const zPrivateManualError = z.object({
+    type: z.literal('about:blank'),
+    title: z.enum([
+        'Bad Request',
+        'Unauthorized',
+        'Forbidden',
+        'Conflict',
+        'Internal Server Error'
+    ]),
+    status: z.union([
+        z.literal(400),
+        z.literal(401),
+        z.literal(403),
+        z.literal(409),
+        z.literal(500)
+    ]),
+    code: z.enum([
+        'INVALID_MANUAL_REQUEST',
+        'AUTHENTICATION_REQUIRED',
+        'MANUAL_REQUEST_REJECTED',
+        'MODE_CONFLICT',
+        'MANUAL_IDEMPOTENCY_CONFLICT',
+        'INTERNAL_ERROR'
+    ])
+}).strict();
+
 export const zPrivateOwnerPageRequest = z.object({
     cursor: z.string().min(1).max(512).optional()
 }).strict();
@@ -315,6 +382,27 @@ export const zSubscriptionReadCadence = z.enum([
  */
 export const zCanonicalMinorUnits = z.string().regex(/^(0|-?[1-9][0-9]*)$/);
 
+export const zPrivateOwnerSubscriptionView = z.object({
+    source: z.enum(['MANUAL', 'DETECTED']),
+    visibility: z.literal('owner'),
+    id: z.uuid(),
+    customName: z.string().nullable(),
+    merchantId: z.uuid().nullable(),
+    merchantName: z.string().nullable(),
+    categoryCode: z.string(),
+    cadence: zSubscriptionReadCadence,
+    status: zSubscriptionReadStatus,
+    expectedAmountMinor: zCanonicalMinorUnits,
+    currency: z.string().regex(/^[A-Z]{3}$/),
+    nextChargeDate: z.iso.date().nullable(),
+    alwaysPrivate: z.boolean()
+}).strict();
+
+export const zPrivateOwnerPage = z.object({
+    items: z.array(zPrivateOwnerSubscriptionView).max(50),
+    nextCursor: z.string().max(512).nullable()
+}).strict();
+
 export const zSubscriptionOwnerView = z.object({
     visibility: z.literal('owner'),
     id: z.uuid(),
@@ -328,11 +416,6 @@ export const zSubscriptionOwnerView = z.object({
     currency: z.string().regex(/^[A-Z]{3}$/),
     nextChargeDate: z.iso.date().nullish(),
     alwaysPrivate: z.boolean()
-}).strict();
-
-export const zPrivateOwnerPage = z.object({
-    items: z.array(zSubscriptionOwnerView).max(50),
-    nextCursor: z.string().max(512).nullable()
 }).strict();
 
 export const zSubscriptionPeerView = z.object({
@@ -1345,6 +1428,19 @@ export const zReadV2BrowserModeHeaders = z.object({
  * Known committed closed persisted mode view.
  */
 export const zReadV2BrowserModeResponse = zModeView;
+
+export const zCreateV2PrivateManualSubscriptionBody = zPrivateManualCreate;
+
+export const zCreateV2PrivateManualSubscriptionHeaders = z.object({
+    Origin: z.url(),
+    'X-Session-CSRF': z.string().min(1),
+    'Idempotency-Key': z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+});
+
+/**
+ * Known committed create or exact replay; original immutable id only.
+ */
+export const zCreateV2PrivateManualSubscriptionResponse = zPrivateManualCreated;
 
 export const zReadV2PrivateOwnerSubscriptionsBody = zPrivateOwnerPageRequest;
 

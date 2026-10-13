@@ -1,4 +1,4 @@
-import type { SubscriptionLifecycleTarget } from '@subtrack/contracts';
+import type { SubscriptionLifecycleTarget, PrivateOwnerPage, PrivateOwnerSubscriptionView } from '@subtrack/contracts';
 import { parseJustMeChoice } from '@subtrack/contracts/profile';
 import { parseModeView, parsePrivateOwnerPageRequest, parsePrivateOwnerPage, parsePrivateOwnerView, parsePrivateLifecycleResult } from '@subtrack/contracts/private-onboarding';
 
@@ -85,13 +85,13 @@ export async function readMode(csrf: string, signal: AbortSignal): Promise<'just
   try { return parseModeView(await request('/v2/me/mode/read', 'POST', {}, csrf, signal, 'mode')).mode; }
   catch (error) { if (error instanceof PrivateOnboardingApiError) throw error; throw new PrivateOnboardingApiError('unavailable'); }
 }
-export async function readOwnerSubscriptions(csrf: string, signal: AbortSignal, cursor?: string) {
+export async function readOwnerSubscriptions(csrf: string, signal: AbortSignal, cursor?: string): Promise<PrivateOwnerPage> {
   try {
     const body = parsePrivateOwnerPageRequest(cursor === undefined ? {} : { cursor });
     return parsePrivateOwnerPage(await request('/v2/subscriptions/owner/read', 'POST', body, csrf, signal, 'subscription'));
   } catch (error) { if (error instanceof PrivateOnboardingApiError) throw error; throw new PrivateOnboardingApiError('unavailable'); }
 }
-export async function readOwnerSubscription(id: string, csrf: string, signal: AbortSignal) {
+export async function readOwnerSubscription(id: string, csrf: string, signal: AbortSignal): Promise<PrivateOwnerSubscriptionView> {
   if (!uuid.test(id)) throw new PrivateOnboardingApiError('unavailable');
   try { return parsePrivateOwnerView(await request(`/v2/subscriptions/${id}/read`, 'POST', {}, csrf, signal, 'subscription')); }
   catch (error) { if (error instanceof PrivateOnboardingApiError) throw error; throw new PrivateOnboardingApiError('unavailable'); }

@@ -69,12 +69,59 @@ export type BrowserModeError = {
     code: 'INVALID_MODE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MODE_REQUEST_REJECTED' | 'MODE_CONFLICT' | 'INTERNAL_ERROR';
 };
 
+export type PrivateManualCreate = {
+    /**
+     * After trimming 1-120 UTF16 units; valid Unicode without Cc/Cf/unpaired surrogates. Canonical trimmed name stored and hashed.
+     */
+    customName: string;
+    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION';
+    cadence: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
+    /**
+     * Positive canonical minor-unit text, maximum 9223372036854775807; BigInt only.
+     */
+    expectedAmountMinor: string;
+    /**
+     * Real YYYY-MM-DD year 0001-9999; omitted becomes null.
+     */
+    nextChargeDate?: string | null;
+};
+
+export type PrivateManualCreated = {
+    id: string;
+};
+
+export type PrivateManualError = {
+    type: 'about:blank';
+    title: 'Bad Request' | 'Unauthorized' | 'Forbidden' | 'Conflict' | 'Internal Server Error';
+    status: 400 | 401 | 403 | 409 | 500;
+    code: 'INVALID_MANUAL_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MANUAL_REQUEST_REJECTED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'INTERNAL_ERROR';
+};
+
+export type PrivateOwnerSubscriptionView = {
+    source: 'MANUAL' | 'DETECTED';
+    visibility: 'owner';
+    id: string;
+    customName: string | null;
+    merchantId: string | null;
+    /**
+     * Canonical merchant name, never raw transaction text.
+     */
+    merchantName: string | null;
+    categoryCode: string;
+    cadence: SubscriptionReadCadence;
+    status: SubscriptionReadStatus;
+    expectedAmountMinor: CanonicalMinorUnits;
+    currency: string;
+    nextChargeDate: string | null;
+    alwaysPrivate: boolean;
+};
+
 export type PrivateOwnerPageRequest = {
     cursor?: string;
 };
 
 export type PrivateOwnerPage = {
-    items: Array<SubscriptionOwnerView>;
+    items: Array<PrivateOwnerSubscriptionView>;
     nextCursor: string | null;
 };
 
@@ -2273,6 +2320,58 @@ export type ReadV2BrowserModeResponses = {
 };
 
 export type ReadV2BrowserModeResponse = ReadV2BrowserModeResponses[keyof ReadV2BrowserModeResponses];
+
+export type CreateV2PrivateManualSubscriptionData = {
+    body: PrivateManualCreate;
+    headers: {
+        /**
+         * Must exactly match a configured allowlisted origin; null, wildcard and reflected credentialed origins are rejected.
+         */
+        Origin: string;
+        /**
+         * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
+         */
+        'X-Session-CSRF': string;
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/subscriptions/owner/manual';
+};
+
+export type CreateV2PrivateManualSubscriptionErrors = {
+    /**
+     * 400 INVALID_MANUAL_REQUEST; 401 AUTHENTICATION_REQUIRED; 403 MANUAL_REQUEST_REJECTED; 409 MODE_CONFLICT or MANUAL_IDEMPOTENCY_CONFLICT; 500 INTERNAL_ERROR.
+     */
+    400: PrivateManualError;
+    /**
+     * 400 INVALID_MANUAL_REQUEST; 401 AUTHENTICATION_REQUIRED; 403 MANUAL_REQUEST_REJECTED; 409 MODE_CONFLICT or MANUAL_IDEMPOTENCY_CONFLICT; 500 INTERNAL_ERROR.
+     */
+    401: PrivateManualError;
+    /**
+     * 400 INVALID_MANUAL_REQUEST; 401 AUTHENTICATION_REQUIRED; 403 MANUAL_REQUEST_REJECTED; 409 MODE_CONFLICT or MANUAL_IDEMPOTENCY_CONFLICT; 500 INTERNAL_ERROR.
+     */
+    403: PrivateManualError;
+    /**
+     * 400 INVALID_MANUAL_REQUEST; 401 AUTHENTICATION_REQUIRED; 403 MANUAL_REQUEST_REJECTED; 409 MODE_CONFLICT or MANUAL_IDEMPOTENCY_CONFLICT; 500 INTERNAL_ERROR.
+     */
+    409: PrivateManualError;
+    /**
+     * 400 INVALID_MANUAL_REQUEST; 401 AUTHENTICATION_REQUIRED; 403 MANUAL_REQUEST_REJECTED; 409 MODE_CONFLICT or MANUAL_IDEMPOTENCY_CONFLICT; 500 INTERNAL_ERROR.
+     */
+    500: PrivateManualError;
+};
+
+export type CreateV2PrivateManualSubscriptionError = CreateV2PrivateManualSubscriptionErrors[keyof CreateV2PrivateManualSubscriptionErrors];
+
+export type CreateV2PrivateManualSubscriptionResponses = {
+    /**
+     * Known committed create or exact replay; original immutable id only.
+     */
+    201: PrivateManualCreated;
+};
+
+export type CreateV2PrivateManualSubscriptionResponse = CreateV2PrivateManualSubscriptionResponses[keyof CreateV2PrivateManualSubscriptionResponses];
 
 export type ReadV2PrivateOwnerSubscriptionsData = {
     body: PrivateOwnerPageRequest;

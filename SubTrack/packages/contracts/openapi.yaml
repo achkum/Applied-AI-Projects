@@ -474,7 +474,7 @@ paths:
     post:
       operationId: readV2BrowserSubscription
       x-private-https-responses:
-        '200': { $ref: '#/components/schemas/SubscriptionOwnerView' }
+        '200': { $ref: '#/components/schemas/PrivateOwnerSubscriptionView' }
         '400': { $ref: '#/components/responses/PrivateSubscriptionProblem' }
         '401': { $ref: '#/components/responses/PrivateSubscriptionProblem' }
         '403': { $ref: '#/components/responses/PrivateSubscriptionProblem' }
@@ -1180,6 +1180,47 @@ paths:
         '403': { $ref: '#/components/responses/BrowserModeProblem' }
         '409': { $ref: '#/components/responses/BrowserModeProblem' }
         '500': { $ref: '#/components/responses/BrowserModeProblem' }
+  /v2/subscriptions/owner/manual:
+    post:
+      operationId: createV2PrivateManualSubscription
+      x-runtime-availability: unavailable-default
+      summary: Create a private manual subscription for the current owner
+      description: >
+        Private loopback HTTPS only. Exact Origin, current access/binding/chain cookies
+        and X-Session-CSRF. Exactly one lowercase UUIDv4 Idempotency-Key per intent.
+        Reject duplicate/unknown keys, selectors, query and oversized bodies before SQL.
+        Trim name to 1-120 UTF16 units; reject unpaired surrogates and Cc/Cf; no normalization.
+        Server fixes authenticated owner, MANUAL, ACTIVE, SEK, always_private=true;
+        merchant/catalogue/account/detection/charge fields absent/null. Gate complete
+        profile and just-me on create AND replay before receipt. One owner-locked TX;
+        key SHA256, payload SHA256 UTF8 JSON.stringify fixed ordered object
+        {v:'manual-create-v1',customName:trimmed,categoryCode,cadence,expectedAmountMinor,nextChargeDate:null|string}.
+        Omitted/null date identical. Immutable receipt survives status/deletion/restart/expiry;
+        no subscription FK or pruning; owner FK CASCADE only privileged controlled hard erasure.
+        Known commit and exact replay return 201 original id; changed-body same key 409.
+        Explicit current authority denial 401; storage and every attempted-COMMIT failure
+        masked 500. No compensation/automatic replay; authoritative detail/list reread.
+      parameters:
+        - $ref: '#/components/parameters/ExactOrigin'
+        - $ref: '#/components/parameters/BrowserSessionCsrf'
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+      security:
+        - V2WebAccessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateManualCreate' }
+      responses:
+        '201': { $ref: '#/components/responses/PrivateManualCreated' }
+        '400': { $ref: '#/components/responses/PrivateManualProblem' }
+        '401': { $ref: '#/components/responses/PrivateManualProblem' }
+        '403': { $ref: '#/components/responses/PrivateManualProblem' }
+        '409': { $ref: '#/components/responses/PrivateManualProblem' }
+        '500': { $ref: '#/components/responses/PrivateManualProblem' }
   /v2/subscriptions/owner/read:
     post:
       operationId: readV2PrivateOwnerSubscriptions
@@ -1361,6 +1402,49 @@ components:
         title: { type: string, enum: [Bad Request, Unauthorized, Forbidden, Conflict, Internal Server Error] }
         status: { type: integer, enum: [400, 401, 403, 409, 500] }
         code: { type: string, enum: [INVALID_MODE_REQUEST, AUTHENTICATION_REQUIRED, MODE_REQUEST_REJECTED, MODE_CONFLICT, INTERNAL_ERROR] }
+    PrivateManualCreate:
+      type: object
+      additionalProperties: false
+      required: [customName, categoryCode, cadence, expectedAmountMinor]
+      properties:
+        customName: { type: string, description: 'After trimming 1-120 UTF16 units; valid Unicode without Cc/Cf/unpaired surrogates. Canonical trimmed name stored and hashed.' }
+        categoryCode: { type: string, enum: [VIDEO_STREAMING, MUSIC_AUDIO, AUDIOBOOKS_EBOOKS, NEWS_MAGAZINES, GAMING, SOFTWARE_PRODUCTIVITY, CLOUD_STORAGE, AI_TOOLS, MOBILE_PLAN, BROADBAND_TV, FITNESS_WELLNESS, FOOD_MEALKITS, TRANSPORT_MOBILITY, HOME_SECURITY, EDUCATION_KIDS, PETS, SHOPPING_MEMBERSHIPS, VPN_SECURITY, DONATIONS, DATING_SOCIAL, APP_STORE_BILLING, OTHER_SUBSCRIPTION] }
+        cadence: { type: string, enum: [WEEKLY, MONTHLY, QUARTERLY, SEMIANNUAL, ANNUAL] }
+        expectedAmountMinor: { type: string, pattern: '^[1-9][0-9]{0,18}$', description: 'Positive canonical minor-unit text, maximum 9223372036854775807; BigInt only.' }
+        nextChargeDate: { type: [string, 'null'], format: date, description: 'Real YYYY-MM-DD year 0001-9999; omitted becomes null.' }
+    PrivateManualCreated:
+      type: object
+      additionalProperties: false
+      required: [id]
+      properties:
+        id: { type: string, format: uuid }
+    PrivateManualError:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, enum: [Bad Request, Unauthorized, Forbidden, Conflict, Internal Server Error] }
+        status: { type: integer, enum: [400, 401, 403, 409, 500] }
+        code: { type: string, enum: [INVALID_MANUAL_REQUEST, AUTHENTICATION_REQUIRED, MANUAL_REQUEST_REJECTED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, INTERNAL_ERROR] }
+    PrivateOwnerSubscriptionView:
+      type: object
+      additionalProperties: false
+      required: [visibility, id, customName, merchantId, merchantName, categoryCode, cadence, status, expectedAmountMinor, currency, nextChargeDate, alwaysPrivate, source]
+      properties:
+        source: { type: string, enum: [MANUAL, DETECTED] }
+        visibility: { type: string, const: owner }
+        id: { type: string, format: uuid }
+        customName: { type: [string, 'null'] }
+        merchantId: { type: [string, 'null'], format: uuid }
+        merchantName: { type: [string, 'null'], description: 'Canonical merchant name, never raw transaction text.' }
+        categoryCode: { type: string }
+        cadence: { $ref: '#/components/schemas/SubscriptionReadCadence' }
+        status: { $ref: '#/components/schemas/SubscriptionReadStatus' }
+        expectedAmountMinor: { $ref: '#/components/schemas/CanonicalMinorUnits' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        nextChargeDate: { type: [string, 'null'], format: date }
+        alwaysPrivate: { type: boolean }
     PrivateOwnerPageRequest:
       type: object
       additionalProperties: false
@@ -1374,7 +1458,7 @@ components:
         items:
           type: array
           maxItems: 50
-          items: { $ref: '#/components/schemas/SubscriptionOwnerView' }
+          items: { $ref: '#/components/schemas/PrivateOwnerSubscriptionView' }
         nextCursor: { type: [string, 'null'], maxLength: 512 }
     PrivateSubscriptionError:
       type: object
@@ -2397,6 +2481,22 @@ components:
       name: Authorization
       description: Mobile only, exact form `Refresh <opaque-secret>`; custom auth scheme, never body/query.
   responses:
+    PrivateManualCreated:
+      description: 'Known committed create or exact replay; original immutable id only.'
+      headers:
+        Cache-Control: { required: true, schema: { type: string, const: no-store } }
+        Pragma: { required: true, schema: { type: string, const: no-cache } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PrivateManualCreated' }
+    PrivateManualProblem:
+      description: '400 INVALID_MANUAL_REQUEST; 401 AUTHENTICATION_REQUIRED; 403 MANUAL_REQUEST_REJECTED; 409 MODE_CONFLICT or MANUAL_IDEMPOTENCY_CONFLICT; 500 INTERNAL_ERROR.'
+      headers:
+        Cache-Control: { required: true, schema: { type: string, const: no-store } }
+        Pragma: { required: true, schema: { type: string, const: no-cache } }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/PrivateManualError' }
     BrowserModeView:
       description: Known committed closed persisted mode view.
       headers:

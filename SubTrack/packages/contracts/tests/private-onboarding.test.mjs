@@ -13,7 +13,7 @@ function run(code) {
   assert.equal(result.status, 0, result.stderr || result.stdout);
 }
 const id = '123e4567-e89b-42d3-a456-426614174000';
-const owner = { visibility: 'owner', id, customName: 'Example', merchantId: null, merchantName: null,
+const owner = { visibility: 'owner', source: 'MANUAL', id, customName: 'Example', merchantId: null, merchantName: null,
   categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', status: 'ACTIVE', expectedAmountMinor: '999',
   currency: 'SEK', nextChargeDate: '2026-10-11', alwaysPrivate: false };
 
@@ -41,10 +41,10 @@ test('private HTTPS contract keeps default routes unavailable and freezes owner-
     assert.deepEqual(list.responses['200'], { $ref: '#/components/responses/PrivateOwnerPage' });
     for (const status of ['400', '401', '403', '409', '500'])
       assert.deepEqual(list.responses[status], { $ref: '#/components/responses/PrivateSubscriptionProblem' });
-    assert.match(JSON.stringify(doc.components.schemas.PrivateOwnerPage), /SubscriptionOwnerView|"visibility"/);
+    assert.match(JSON.stringify(doc.components.schemas.PrivateOwnerPage), /PrivateOwnerSubscriptionView|"visibility"/);
     assert.equal(doc.components.schemas.PrivateOwnerPage.properties.items.maxItems, 50);
     for (const [path, verb, success] of [
-      ['/v2/subscriptions/{id}/read', 'post', 'SubscriptionOwnerView'],
+      ['/v2/subscriptions/{id}/read', 'post', 'PrivateOwnerSubscriptionView'],
       ['/v2/subscriptions/{id}', 'patch', 'SubscriptionLifecycleResult']]) {
       const operation = paths[path][verb];
       assert.equal(operation['x-runtime-availability'], 'unavailable-default');
@@ -81,7 +81,7 @@ test('owner projection rejects peer fields, invalid money, malformed dates and u
     {...row, visibility:'household'}, {...row, rawDescription:'private'}, {...row, expectedAmountMinor:9.99},
     {...row, expectedAmountMinor:'01'}, {...row, expectedAmountMinor:'9223372036854775808'},
     {...row, nextChargeDate:'2026-02-30'}, {...row, categoryCode:'UNKNOWN'}, {...row, id:row.id.toUpperCase()},
-    {...row, merchantId:undefined}
+    {...row, merchantId:undefined}, {...row,source:undefined}, {...row,source:'UNKNOWN'}
   ]) assert.throws(() => p.parsePrivateOwnerView(bad));
 `));
 
@@ -97,3 +97,32 @@ test('owner page caps fifty and lifecycle result is a closed committed status', 
   for (const result of [{id:row.id,status:'DETECTED'},{id:row.id,status:'ACTIVE',ownerId:'x'}])
     assert.throws(() => p.parsePrivateLifecycleResult(result));
 `));
+
+test('manual canonical form and invalid boundaries',()=>{
+ run(`const v={customName:'  Example  ',categoryCode:'OTHER_SUBSCRIPTION',cadence:'MONTHLY',expectedAmountMinor:'9223372036854775807'};
+ assert.deepEqual(p.parsePrivateManualCreate(v),{...v,customName:'Example',nextChargeDate:null});
+ assert.deepEqual(p.parsePrivateManualCreate({...v,nextChargeDate:null}),p.parsePrivateManualCreate(v));
+ for(const patch of [{customName:''},{customName:'x'.repeat(121)},{customName:String.fromCharCode(0)},{customName:String.fromCharCode(0xd800)},
+ {customName:'x'+String.fromCharCode(0x200b)},{expectedAmountMinor:'0'},{expectedAmountMinor:'01'},{expectedAmountMinor:'9223372036854775808'},
+ {expectedAmountMinor:'1e3'},{expectedAmountMinor:1},{cadence:'CUSTOM'},{categoryCode:'UNION_FEE'},
+ {nextChargeDate:'0000-01-01'},{nextChargeDate:'2026-02-29'},{source:'MANUAL'}]) assert.throws(()=>p.parsePrivateManualCreate({...v,...patch}));
+ assert.equal(p.parsePrivateManualCreate({...v,nextChargeDate:'0001-01-01'}).nextChargeDate,'0001-01-01');
+ assert.equal(p.parsePrivateManualCreate({...v,nextChargeDate:'2024-02-29'}).nextChargeDate,'2024-02-29');
+ const emoji=String.fromCodePoint(0x1f600); assert.equal(p.parsePrivateManualCreate({...v,customName:emoji.repeat(60)}).customName.length,120);
+ assert.throws(()=>p.parsePrivateManualCreate({...v,customName:emoji.repeat(61)}));
+ assert.throws(()=>p.parsePrivateManualCreated({id:'invalid'}));`);
+});
+
+test('manual wire is closed and default unavailable with exact success/error matrix',()=>{
+ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');const dir=mkdtempSync(join(tmpdir(),'st240-contract-'));
+ try {
+ const output=join(dir,'openapi.json');const result=spawnSync(process.execPath,[join(root,'node_modules/@redocly/cli/bin/cli.js'),'bundle',join(root,'openapi.yaml'),'--output',output],{cwd:root,encoding:'utf8'});
+ assert.equal(result.status,0,result.stderr);const doc=JSON.parse(readFileSync(output,'utf8'));const op=doc.paths['/v2/subscriptions/owner/manual'].post;
+ assert.equal(op['x-runtime-availability'],'unavailable-default');assert.deepEqual(Object.keys(op.responses),['201','400','401','403','409','500']);
+ assert.equal(op.responses['201'].$ref,'#/components/responses/PrivateManualCreated');
+ const schema=doc.components.schemas.PrivateManualCreate;assert.equal(schema.additionalProperties,false);
+ assert.deepEqual(schema.required,['customName','categoryCode','cadence','expectedAmountMinor']);assert.equal(schema.properties.categoryCode.enum.length,22);
+ assert.deepEqual(doc.components.schemas.PrivateManualCreated.required,['id']);assert.deepEqual(Object.keys(doc.components.schemas.PrivateManualCreated.properties),['id']);
+ assert.ok(doc.components.schemas.PrivateOwnerSubscriptionView.required.includes('source'));assert.ok(!doc.components.schemas.SubscriptionOwnerView.properties.source);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});

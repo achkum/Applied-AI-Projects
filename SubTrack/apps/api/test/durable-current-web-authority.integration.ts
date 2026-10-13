@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process';
 import { Pool, type PoolClient } from 'pg';
 import { V2AccessToken } from '../src/auth/sessions-v2/v2-access-token';
 import { hashBrowserBindingCookie } from '../src/auth/sessions-v2/v2-web-session-binding';
-import { DurableCurrentWebAuthority, type CurrentWebRequest } from '../src/auth/sessions-v2/durable-current-web-authority';
+import { CurrentWebAuthorityError, DurableCurrentWebAuthority, type CurrentWebRequest } from '../src/auth/sessions-v2/durable-current-web-authority';
 import { createDurableCurrentWebFixture, hashDurableFixtureNonce } from '../src/auth/sessions-v2/durable-current-web-fixture';
 
 const origin = 'https://st233a.invalid';
@@ -32,9 +32,10 @@ const businessStatements = {
 const authority = (options: { epoch?: string; manifestHash?: string; observedMs?: () => number } = {}) =>
   new DurableCurrentWebAuthority({ pool: actor, accessTokens: tokens, origin, businessStatements,
     epoch: options.epoch ?? epoch, manifestHash: options.manifestHash ?? manifestHash, observedMs: options.observedMs });
-const fail = async (operation: () => Promise<unknown>, label: string) => {
+const fail = async (operation: () => Promise<unknown>, label: string, kind?: CurrentWebAuthorityError['kind']) => {
   try { await operation(); } catch (error) {
     if (String(error).includes('refreshToken') || String(error).includes('csrfToken')) throw Error(`${label}: secret in failure`);
+    if (kind && (!(error instanceof CurrentWebAuthorityError) || error.kind !== kind)) throw Error(`${label}: wrong failure kind`);
     return;
   }
   throw Error(`${label}: accepted`);
@@ -410,19 +411,22 @@ async function main() {
   await fail(() => uncertainAuthority.withCurrentWebAuthority(uncertain.request, async tx => {
     await tx.execute('touchOwnIdentityPlain', ['st235-uncertain-write', uncertain.identityId]);
     return { privateResult: 'must-not-disclose' };
-  }), 'unknown-commit');
+  }), 'unknown-commit', 'storage-unavailable');
   if (commits !== 1) throw Error('unknown-commit-retry');
   const uncertainRow = await query('SELECT external_id FROM public.identity WHERE id=$1', [uncertain.identityId]);
   if (uncertainRow.rows[0]?.external_id !== 'st235-uncertain-write') throw Error('unknown-commit-probe');
   await query('UPDATE public.identity SET deleted_at=CURRENT_TIMESTAMP WHERE id=$1', [b.identityId]);
-  await fail(() => restarted.withCurrentWebAuthority(b.request, async () => true), 'deleted-owner');
+  await fail(() => restarted.withCurrentWebAuthority(b.request, async () => true), 'deleted-owner', 'authority-rejected');
   const expired = await seed('expired');
   await query('UPDATE subtrack_auth.csrf SET expires_ms=issued_ms+1 WHERE session_id=(SELECT session_id FROM subtrack_auth.session WHERE identity_id=$1)', [expired.identityId]);
-  await fail(() => restarted.withCurrentWebAuthority(expired.request, async () => true), 'expired-csrf');
+  await fail(() => restarted.withCurrentWebAuthority(expired.request, async () => true), 'expired-csrf', 'authority-rejected');
   const expiredSignedToken = new V2AccessToken({ environment: 'development', enabled: true, privateKey, publicKey,
     clock: () => Date.now() + 901_000 });
   const expiredAuthority = new DurableCurrentWebAuthority({ pool: actor, accessTokens: expiredSignedToken, origin, epoch, manifestHash, businessStatements });
   await fail(() => expiredAuthority.withCurrentWebAuthority({ ...reverseCsrf.request, csrfToken: replacement }, async () => true), 'expired-signed-token');
+  await fail(() => restarted.withCurrentWebAuthority({ ...reverseCsrf.request, csrfToken: replacement }, async () => {
+    throw new CurrentWebAuthorityError('authority-rejected');
+  }), 'callback-forged-authority-denial', 'storage-unavailable');
   await ordinaryReset();
   await actor.end(); await owner.end();
   process.stdout.write('ST-235 durable current web: PASS\n');

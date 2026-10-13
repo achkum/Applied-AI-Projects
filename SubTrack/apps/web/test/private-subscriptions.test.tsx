@@ -4,12 +4,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { PrivateSubscriptions } from '../components/onboarding/private-subscriptions';
 
 const id = '123e4567-e89b-42d3-a456-426614174000';
-const owner = { visibility: 'owner' as const, id, customName: 'Synthetic', merchantId: null, merchantName: null,
+const owner = { source: 'MANUAL' as const, visibility: 'owner' as const, id, customName: 'Synthetic', merchantId: null, merchantName: null,
   categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY' as const, status: 'ACTIVE' as const,
   expectedAmountMinor: '9007199254740993', currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
 function props(locale: 'en' | 'sv') {
   return { locale, items: [owner], nextCursor: 'cursor', selected: null, busy: false, confirmed: false,
-    onMore: vi.fn(), onSelect: vi.fn(), onBack: vi.fn(), onTransition: vi.fn() };
+    onAdd: vi.fn(), onMore: vi.fn(), onSelect: vi.fn(), onBack: vi.fn(), onTransition: vi.fn() };
 }
 describe('private owner subscriptions', () => {
   it.each(['en', 'sv'] as const)('shows an accessible persisted row and continuation in %s', async (locale) => {

@@ -19,7 +19,7 @@ const theme = process.env.ST237_BROWSER_THEME;
 const browserCase = process.env.ST237_BROWSER_CASE;
 assert(['sv', 'en'].includes(locale));
 assert(['light', 'dark'].includes(theme));
-assert(['profile', 'partial-terminal', 'subscriptions', 'empty', 'uncertainty', 'login'].includes(browserCase));
+assert(['profile', 'partial-terminal', 'subscriptions', 'empty', 'uncertainty', 'login', 'manual'].includes(browserCase));
 assert(require('playwright/package.json').version === '1.63.0');
 const catalog = JSON.parse(fs.readFileSync(path.join(webDir, '../../packages/i18n/catalogs', `${locale}.json`), 'utf8'));
 const copy = catalog.onboarding;
@@ -97,7 +97,7 @@ try {
     { headless: true, locale: locale === 'sv' ? 'sv-SE' : 'en-GB' });
   screenshotDir = path.resolve(process.env.ST237_SCREENSHOT_DIR);
   fs.mkdirSync(screenshotDir, { mode: 0o700 });
-  if (browserCase === 'profile' || browserCase === 'subscriptions' || browserCase === 'empty' || browserCase === 'uncertainty' || browserCase === 'login') {
+  if (browserCase === 'profile' || browserCase === 'subscriptions' || browserCase === 'empty' || browserCase === 'uncertainty' || browserCase === 'login' || browserCase === 'manual') {
   page = await context.newPage();
   page.setDefaultTimeout(45000);
   page.on('requestfailed', request => {
@@ -216,7 +216,124 @@ try {
   phase = 'PROFILE_SAVED';
   await capture('saved');
   assert.equal(await profileRegion.getByLabel(copy.profile.displayName, { exact: true }).inputValue(), 'Private Proof');
-  if (browserCase === 'empty') {
+  if (browserCase === 'manual') {
+    const manual = copy.manualSubscription;
+    phase = 'MANUAL_EMPTY';
+    await page.getByRole('button', { name: copy.mode.choose, exact: true }).click();
+    const owner = page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true });
+    await owner.getByText(copy.ownerSubscriptions.empty, { exact: true }).waitFor();
+    assert.equal(await owner.getByRole('listitem').count(), 0);
+    await capture('manual-empty');
+    const add = owner.getByRole('button', { name: manual.title, exact: true });
+    await add.focus(); await page.keyboard.press('Enter');
+    const editor = page.getByRole('region', { name: manual.title, exact: true });
+    await editor.getByRole('heading', { name: manual.title, exact: true }).waitFor();
+    assert.equal(await page.evaluate(() => globalThis.document.activeElement?.id), 'manual-title');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await capture('manual-form-narrow');
+    assert(await page.evaluate(() => globalThis.document.documentElement.scrollWidth <= globalThis.document.documentElement.clientWidth));
+    phase = 'MANUAL_VALIDATION';
+    await editor.getByRole('button', { name: manual.save, exact: true }).click();
+    await editor.getByText(manual.invalidName, { exact: true }).waitFor();
+    assert.equal(await page.evaluate(() => globalThis.document.activeElement?.id), 'manual-name');
+    await capture('manual-validation-narrow');
+    await editor.getByRole('button', { name: manual.cancel, exact: true }).click();
+    await add.waitFor();
+    assert.equal(await page.evaluate(() => globalThis.document.activeElement?.parentElement?.hasAttribute('data-manual-add')), true);
+    await page.keyboard.press('Enter');
+    await editor.getByLabel(manual.name, { exact: true }).fill('Manual Proof');
+    await editor.getByLabel(manual.category, { exact: true }).selectOption('VIDEO_STREAMING');
+    await editor.getByLabel(manual.cadence, { exact: true }).selectOption('MONTHLY');
+    await editor.getByLabel(manual.amount, { exact: true }).fill(locale === 'sv' ? '12,34' : '12.34');
+    await editor.getByLabel(manual.date, { exact: true }).fill('2026-11-15');
+    let manualRequests = 0; let sentKey = ''; let sentBody = ''; let createdId = ''; let releaseManualResponse;
+    await page.route('**/v2/subscriptions/owner/manual', async route => {
+      manualRequests++;
+      const headers = await route.request().allHeaders();
+      const body = route.request().postData();
+      if (manualRequests === 1) { sentKey = headers['idempotency-key']; sentBody = body; }
+      else { assert.equal(headers['idempotency-key'], sentKey); assert.equal(body, sentBody); }
+      assert.match(sentKey, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      const committed = await route.fetch();
+      assert.equal(committed.status(), 201);
+      const response = await committed.json();
+      assert.deepEqual(Object.keys(response), ['id']);
+      if (manualRequests === 1) createdId = response.id;
+      else assert.equal(response.id, createdId);
+      // Hold the committed response until the pending-state capture finishes.
+      await new Promise(resolve => { releaseManualResponse = resolve; });
+      if (manualRequests === 1) await route.abort('failed'); else await route.fulfill({ response: committed });
+    });
+    phase = 'MANUAL_SAVE';
+    await editor.getByRole('button', { name: manual.save, exact: true }).click();
+    await editor.getByText(manual.saving, { exact: true }).waitFor();
+    assert.equal(await editor.getByLabel(manual.name, { exact: true }).isDisabled(), true);
+    await capture('manual-saving-narrow');
+    await page.waitForFunction(() => globalThis.document.getElementById('manual-name')?.disabled === true);
+    for (let i = 0; i < 100 && !releaseManualResponse; i++) await delay(50);
+    assert(releaseManualResponse); releaseManualResponse(); releaseManualResponse = undefined;
+    await editor.getByText(manual.uncertain, { exact: true }).waitFor();
+    assert.equal(manualRequests, 1);
+    await capture('manual-uncertain-narrow');
+    await editor.getByRole('button', { name: manual.check, exact: true }).focus(); await page.keyboard.press('Enter');
+    await editor.getByText(manual.checking, { exact: true }).waitFor();
+    await capture('manual-checking-narrow');
+    for (let i = 0; i < 100 && !releaseManualResponse; i++) await delay(50);
+    assert(releaseManualResponse); releaseManualResponse(); releaseManualResponse = undefined;
+    const detail = page.getByRole('region', { name: copy.ownerSubscriptions.detail, exact: true });
+    await detail.getByText(manual.confirmed, { exact: true }).waitFor();
+    assert.equal(manualRequests, 2);
+    await detail.getByText(manual.sourceManual, { exact: true }).waitFor();
+    await detail.getByText(`${manual.expectedDate}: 2026-11-15`, { exact: true }).waitFor();
+    await capture('manual-confirmed-narrow');
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await capture('manual-confirmed');
+    await detail.getByRole('button', { name: copy.ownerSubscriptions.back, exact: true }).click();
+    assert.equal(await owner.getByRole('listitem').count(), 1);
+    await capture('manual-list');
+    phase = 'MANUAL_RELOAD';
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await awaitPreferenceInteraction();
+    await page.getByText(copy.registration.verifiedLoginRequired, { exact: true }).waitFor();
+    await capture('manual-reload-login-required');
+    await context.clearCookies(); csrf = ''; await page.close();
+    page = await context.newPage(); page.setDefaultTimeout(45000); attachWireObserver(page);
+    await page.addInitScript(selected => globalThis.localStorage.setItem('theme-preference', selected), theme);
+    await page.goto(`${origin}/${locale}`, { waitUntil: 'domcontentloaded' });
+    await awaitPreferenceInteraction();
+    await page.getByRole('link', { name: copy.welcome.logIn, exact: true }).click();
+    await page.getByRole('heading', { name: copy.login.title, exact: true }).waitFor();
+    await page.getByRole('button', { name: copy.login.simulatorAction, exact: true }).click();
+    const persistedOwner = page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true });
+    await persistedOwner.getByRole('button', { name: /Manual Proof/ }).waitFor();
+    assert.equal(await persistedOwner.getByRole('listitem').count(), 1);
+    await capture('manual-relogin-list');
+    await persistedOwner.getByRole('button', { name: /Manual Proof/ }).click();
+    const persistedDetail = page.getByRole('region', { name: copy.ownerSubscriptions.detail, exact: true });
+    await persistedDetail.getByText(manual.sourceManual, { exact: true }).waitFor();
+    await persistedDetail.getByText(`${manual.expectedDate}: 2026-11-15`, { exact: true }).waitFor();
+    await capture('manual-relogin-detail');
+    phase = 'MANUAL_STATUS';
+    await persistedDetail.getByRole('button', { name: copy.ownerSubscriptions.actions.PAUSED, exact: true }).click();
+    await persistedDetail.getByText(copy.ownerSubscriptions.confirmed, { exact: true }).waitFor();
+    await capture('manual-relogin-paused');
+    assert.equal(manualRequests, 2);
+    const currentCookies = (await context.cookies()).filter(item => ['st_v2_access', 'st_v2_binding', 'st_v2_chain'].includes(item.name))
+      .map(item => `${item.name}=${item.value}`).join('; ');
+    const persisted = await request({ Origin: origin, Cookie: currentCookies, 'X-Session-CSRF': csrf }, '{}', `/v2/subscriptions/${createdId}/read`);
+    assert.equal(persisted.status, 200); assert.equal(persisted.body.id, createdId); assert.equal(persisted.body.source, 'MANUAL');
+    assert.deepEqual(Object.keys(persisted.body).sort(), ['alwaysPrivate', 'cadence', 'categoryCode', 'currency', 'customName',
+      'expectedAmountMinor', 'id', 'merchantId', 'merchantName', 'nextChargeDate', 'source', 'status', 'visibility']);
+    assert.equal(persisted.body.status, 'PAUSED'); assert.equal(persisted.body.expectedAmountMinor, '1234');
+    assert.equal(persisted.body.nextChargeDate, '2026-11-15'); assert.equal(persisted.body.alwaysPrivate, true);
+    assert.equal(persisted.body.merchantId, null); assert.equal(persisted.body.merchantName, null);
+    await assertSafeWire(); sentKey = ''; sentBody = ''; createdId = ''; csrf = '';
+    phase = 'MANUAL_PERSISTED_BARRIER';
+    fs.writeFileSync(path.join(handshake, 'MANUAL_PERSISTED_READY'), '', { flag: 'wx', mode: 0o600 });
+    await awaitMarker('MANUAL_PERSISTED_CHECKED');
+    process.stdout.write('PASS ST240_BROWSER_NATURAL_MANUAL_ADD_READBACK_RELOGIN_STATUS\n');
+    process.stdout.write(`PASS ST237_BROWSER_CASE case=manual locale=${locale} theme=${theme}\n`);
+  } else if (browserCase === 'empty') {
     phase = 'EMPTY_LIST';
     await page.getByRole('button', { name: copy.mode.choose, exact: true }).click();
     const emptyRegion = page.getByRole('region', { name: copy.ownerSubscriptions.title, exact: true });

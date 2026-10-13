@@ -1,7 +1,7 @@
 /** Fixed, quote-free statements installed only by the private HTTPS composition. */
 const OWNER_COLUMNS = `s.id::text AS id, s.identity_id::text AS identity_id,
   s.merchant_id::text AS merchant_id, m.canonical_name AS merchant_name,
-  s.custom_name, s.category_code, s.cadence::text AS cadence,
+  s.source::text AS source, s.custom_name, s.category_code, s.cadence::text AS cadence,
   s.status::text AS status, s.expected_amount_minor::text AS expected_amount_minor,
   s.currency, s.next_charge_date::text AS next_charge_date,
   s.always_private,
@@ -21,7 +21,7 @@ WHERE s.identity_id = $1::uuid
 ORDER BY s.created_at DESC, s.id DESC LIMIT 51`,
   ownerDetail: `SELECT s.id::text AS id, s.identity_id::text AS identity_id,
   s.merchant_id::text AS merchant_id, m.canonical_name AS merchant_name,
-  s.custom_name, s.category_code, s.cadence::text AS cadence,
+  s.source::text AS source, s.custom_name, s.category_code, s.cadence::text AS cadence,
   s.status::text AS status, s.expected_amount_minor::text AS expected_amount_minor,
   s.currency, s.next_charge_date::text AS next_charge_date, s.always_private,
   pg_catalog.to_char(s.created_at AT TIME ZONE $3::text, $4::text) AS created_at
