@@ -43,6 +43,7 @@ export default function RootLayout() {
         <Stack.Screen name="register-otp" />
         <Stack.Screen name="register-bankid" />
         <Stack.Screen name="personal" />
+        <Stack.Screen name="personal-home" />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack></EnrollmentProvider></NativeSessionProvider>
     </RootProvider>
