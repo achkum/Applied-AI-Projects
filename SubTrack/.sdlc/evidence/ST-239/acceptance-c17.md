@@ -1,0 +1,11 @@
+# ST239 acceptance
+
+Conductor accepted tested head54d35379c631f2ce11508fd629bdad8fde36edd2 and merged PR284 on2026-10-13T09:31:44Z, squash mainf1f7b36772f8dea464f5f7f81420a1e1e6ac97db. User checkout was fast-forwarded without source changes. Task/backlog accepted metadata is carried in the following ST240 branch, as in prior accepted-slice handoffs.
+
+All16 applicable SubTrack checks pass at the tested head. All3 external Vercel contexts also pass; no applicability exclusion was used. Main protection returned404, rulesets and branch rules were empty; this waived no internal gate. The exact head was mergeable and merged with a matching-head guard after readiness, independent source/platform/security, actualQA and client/design approval.
+
+Independent actual QA/security reviewed private run38375864604: all6 natural cases across sv/en light/dark pass;10 login PostgreSQL/contact proofs pervariant cover separated roles, one-use/cross-purpose/nonces/locks, concurrency, rollback/no residue, binding/Origin/deleted/missing subject, unknown-commit no replay and expiry/cascade. Source/bundle, TLS secret custody and cleanup pass for every case. Each variant's2346 input pins matches the tested Git tree, with zero failures/mismatches. Only sanitized receipts and synthetic screenshots were downloaded; artifacts remain untracked.
+
+Independent client/design directly reviewed8 final verification/retry frames across4variants and carried40 unchanged C16 journey frames by exact source equality. Fresh verification, persisted profile/mode/list/pagination/detail/status, safe reload stop, explicit reset, lost-session stop and fresh recovery pass. New controls use secondary tokens, reviewed contrast16.44:1 light/17.00:1 dark and retained focus/labels. Shared inherited lifecycle primary contrast is BUG022; no whole-app accessibility certification or new-control waiver is claimed.
+
+The final change was one style variant; frozen API, SQL001–012 and startup/current-authority paths were unchanged. Earlier approved source and all failed C1–C16 runs/counters remain recorded. No real provider, delivery, spend or public/production release occurred. Next executable slice is ST240 owner manual Add, with independent Type2a readiness approval and contract-first authoring.
