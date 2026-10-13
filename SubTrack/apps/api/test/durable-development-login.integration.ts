@@ -1,5 +1,5 @@
 // Run only after natural Alice enrollment in the owned private PG16 browser proof.
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
 import { loadPrivateAuthEpoch } from '../src/auth/private-auth-epoch';
 import { createDevelopmentBootstrapPostgresPort } from '../src/auth/browser-nonce/development-bootstrap-postgres-port';
@@ -61,6 +61,19 @@ function rejectConsume(): Pick<Pool,'connect'> {
     return {query,release:(error?:Error)=>real.release(error)} as PoolClient;
   }};
 }
+function observedMaterial() {
+  const calls={read:0,consume:0};
+  const pool:Pick<Pool,'connect'>={connect: async () => {
+    const real=await actor.connect();
+    const query=(async (sql:string,values?:unknown[]) => {
+      if (sql.startsWith('SELECT subtrack_auth.login_material(')) calls.read++;
+      if (sql.startsWith('SELECT subtrack_auth.consume_login(')) calls.consume++;
+      return real.query(sql,values);
+    }) as PoolClient['query'];
+    return {query,release:(error?:Error)=>real.release(error)} as PoolClient;
+  }};
+  return {pool,calls};
+}
 const issueWeb = async (service:DurableDevelopmentLogin,identity:'alice'|'bob') => {
   const minted=await bootstrap().issue(key(),'session');
   const source={origin:epoch.origin,bindingCookie:minted.cookieSecret,nonce:minted.nonce,
@@ -76,13 +89,13 @@ const counts = async () => {
       (SELECT count(*)::int FROM subtrack_auth.login_proof) AS proofs`);
   return result.rows[0]!;
 };
-const roleDenied = async (role:'subtrack_runtime'|'subtrack_auth_producer',sql:string) => {
+const roleDenied = async (role:'subtrack_runtime'|'subtrack_auth_producer',sql:string,values?:unknown[]) => {
   const client=await actor.connect();
   try {
     await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
     await client.query(`SET LOCAL ROLE ${role}`);
     let deniedCall=false;
-    try { await client.query(sql); }
+    try { await client.query(sql,values); }
     catch (error) { deniedCall=typeof error==='object' && error!==null && 'code' in error &&
       error.code==='42501'; }
     if (!deniedCall) throw Error('cross-purpose-role-call');
@@ -105,10 +118,43 @@ async function main() {
       {demoIdentity:'alice'},key()));
     const verified=await service.verifySimulatorLogin(web,{demoIdentity:'alice'},key());
     const terminal={...web,nonce:verified.nextBrowserNonce};
+    const lockNonceH=createHash('sha256').update('subtrack:browser-nonce:v2:nonce:','utf8')
+      .update(verified.nextBrowserNonce,'utf8').digest('hex');
+    const materialSource=await owner.query<{source:string}>(`SELECT p.prosrc AS source
+      FROM pg_catalog.pg_proc p WHERE p.oid='subtrack_auth.consume_login(subtrack_auth.login_scope,
+      subtrack_auth.h,uuid,uuid,uuid,subtrack_auth.h,subtrack_auth.h)'::pg_catalog.regprocedure`);
+    if (materialSource.rowCount!==1 || !materialSource.rows[0]?.source.includes(
+      'current_owner:=subtrack_auth.login_material(scope,proof_h);')) throw Error('second-material-call-absent');
+    const nonceLock=await owner.connect();
+    let lockFailure:unknown;
+    try {
+      await nonceLock.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+      await nonceLock.query('SET LOCAL ROLE subtrack_auth_executor');
+      const row=await nonceLock.query('SELECT nonce_h FROM subtrack_auth.nonce WHERE nonce_h=$1::subtrack_auth.h FOR UPDATE',[lockNonceH]);
+      if (row.rowCount!==1) throw Error('executor-nonce-lock');
+      await nonceLock.query('SAVEPOINT deny_nonce_update');
+      let deniedUpdate=false;
+      try { await nonceLock.query('UPDATE subtrack_auth.nonce SET nonce_h=nonce_h WHERE nonce_h=$1::subtrack_auth.h',[lockNonceH]); }
+      catch (error) { deniedUpdate=typeof error==='object' && error!==null && 'code' in error && error.code==='42501'; }
+      await nonceLock.query('ROLLBACK TO SAVEPOINT deny_nonce_update');
+      if (!deniedUpdate) throw Error('executor-nonce-update');
+    } catch (error) { lockFailure=error; }
+    try { await nonceLock.query('ROLLBACK'); }
+    catch (error) {
+      nonceLock.release(error as Error);
+      if (lockFailure) throw new AggregateError([lockFailure,error],'nonce-lock-and-cleanup');
+      throw error;
+    }
+    nonceLock.release();
+    if (lockFailure) throw lockFailure;
+    for (const role of ['subtrack_runtime','subtrack_auth_producer'] as const)
+      await roleDenied(role,'UPDATE subtrack_auth.nonce SET nonce_h=nonce_h WHERE nonce_h=$1::subtrack_auth.h',[lockNonceH]);
     await denied('original-nonce',()=>service.createV2Session(web,{loginProof:verified.loginProof},key()));
     await denied('cross-purpose',()=>service.createV2Session(terminal,
       {loginProof:`v2.${minted.nonce}`},key()));
-    const session=await service.createV2Session(terminal,{loginProof:verified.loginProof},key());
+    const material=observedMaterial();
+    const session=await create(material.pool).createV2Session(terminal,{loginProof:verified.loginProof},key());
+    if (material.calls.read!==1 || material.calls.consume!==1) throw Error('material-call-count');
     if (!session.identityId || !session.sessionId || !session.csrfToken || !session.refreshToken ||
       !session.browserChainId) throw Error('credential-missing');
     const locked=await owner.connect();

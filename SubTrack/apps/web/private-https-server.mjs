@@ -87,7 +87,7 @@ const qualifiedSqlPins = Object.freeze({
   '009-current-web-session-csrf.sql': 'f7c026ee9dac458bbfbbea13e1774d3bd392fdab8e5c4659185dc769ecab2c9b',
   '010-enrollment-account.sql': '954be5c4ae1c018aac161a5ec7e59d2bd1bc478df5310a7a15f968f8bfd90a4a',
   '011-just-me-owner-subscriptions.sql': 'c846c43da9f37c18739d0dbc5f9633f24d0b4e14327e607d94f1f0344602bd43',
-  '012-returning-login.sql': '7cb4b871fd36c9115fc4bb9a0655d52822337ed8c2cfb9340b0758ef4c6d5802',
+  '012-returning-login.sql': '7c8530ff55e307e83dd08220daf9064e07df83f283ce3a5428beaefe90d714e2',
 });
 const privacyMigrationPin = 'b2ef9ebbdce9f9dddff9f43b6679e0fdac58324c2a6ef060af33662ec89a2f9a';
 const justMeMigrationPin = '0472642ea4182b0818c7230d0285d6fab620738b17124268dce5e5d891b3ca29';
@@ -156,7 +156,7 @@ function approvedFunctions() {
         grants: granted ? granted[2].split(',').sort() : [] });
     }
   }
-  if (expected.size !== 31 || policies.length !== 47 || columns.length !== 126) fail();
+  if (expected.size !== 31 || policies.length !== 48 || columns.length !== 126) fail();
   return { functions: expected, policies, columns };
 }
 
@@ -585,6 +585,7 @@ async function assertAuthCatalog(client, approved) {
     ...columnGrant('family',['revoked_ms']),...columnGrant('session',['revoked_ms']),
     ...columnGrant('csrf',['token_h','issued_ms','expires_ms']),
     ...columnGrant('otp',['attempts']),...columnGrant('restricted_proof',['proof_h']),
+    ...columnGrant('nonce',['nonce_h']),
     ...columnGrant('pending_enrollment',['pending_h']),
     ...columnGrant('verified_enrollment',['identity_id']),
     ...columnGrant('login_proof',['proof_h']),

@@ -30,6 +30,11 @@ CREATE POLICY identity_login_executor_lock ON public.identity FOR UPDATE TO subt
     AND id::pg_catalog.text = pg_catalog.current_setting('app.current_user_id',true))
   WITH CHECK (false);
 
+-- UPDATE on one column permits FOR UPDATE; the new-row policy denies writes.
+GRANT UPDATE(nonce_h) ON subtrack_auth.nonce TO subtrack_auth_executor;
+CREATE POLICY nonce_login_executor_lock ON subtrack_auth.nonce FOR UPDATE TO subtrack_auth_executor
+  USING (true) WITH CHECK (false);
+
 SET LOCAL ROLE subtrack_auth_owner;
 CREATE TYPE subtrack_auth.login_scope AS (
   key_h subtrack_auth.h, owner_h subtrack_auth.h, authority_h subtrack_auth.h, request_h subtrack_auth.h,
