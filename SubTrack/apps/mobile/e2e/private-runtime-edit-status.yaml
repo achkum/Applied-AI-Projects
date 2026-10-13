@@ -1,10 +1,18 @@
 appId: se.subtrack.app
 ---
-# Invoke after the qualified enrollment/Add flow with English profile.
+# Parent acceptance ends with acknowledged logout. Start with fresh verification.
+- openLink: subtrack:///personal
+- extendedWaitUntil:
+    visible: ${MAESTRO_VERIFY_BANKID}
+    timeout: 30000
+- tapOn: ${MAESTRO_VERIFY_BANKID}
+- extendedWaitUntil:
+    visible: Native restart proof
+    timeout: 30000
 - scrollUntilVisible:
-    element: Edit subscription
+    element: ${MAESTRO_EDIT}
     direction: UP
-- tapOn: Edit subscription
+- tapOn: ${MAESTRO_EDIT}
 - scrollUntilVisible:
     element: ${MAESTRO_SUBSCRIPTION_NAME}
     direction: DOWN
@@ -13,11 +21,11 @@ appId: se.subtrack.app
 - inputText: Native edited restart proof
 - hideKeyboard
 - scrollUntilVisible:
-    element: Save changes
+    element: ${MAESTRO_SAVE_EDIT}
     direction: DOWN
-- tapOn: Save changes
+- tapOn: ${MAESTRO_SAVE_EDIT}
 - extendedWaitUntil:
-    visible: Changes saved and read back.
+    visible: ${MAESTRO_EDIT_SAVED}
     timeout: 30000
 - scrollUntilVisible:
     element: Native edited restart proof
@@ -25,26 +33,32 @@ appId: se.subtrack.app
 - assertVisible: Native edited restart proof
 - takeScreenshot: accepted-edit
 - scrollUntilVisible:
-    element: Pause tracking
+    element: ${MAESTRO_PAUSE}
     direction: DOWN
-- tapOn: Pause tracking
+- tapOn: ${MAESTRO_PAUSE}
 - extendedWaitUntil:
-    visible: Resume tracking
+    visible: ${MAESTRO_RESUME}
     timeout: 30000
 - takeScreenshot: accepted-paused
-- tapOn: Resume tracking
+- tapOn: ${MAESTRO_RESUME}
 - extendedWaitUntil:
-    visible: Pause tracking
+    visible: ${MAESTRO_PAUSE}
     timeout: 30000
-- tapOn: Mark cancelled
+- scrollUntilVisible:
+    element: ${MAESTRO_MARK_CANCELLED}
+    direction: DOWN
+- tapOn: ${MAESTRO_MARK_CANCELLED}
 - extendedWaitUntil:
-    visible: Archive tracking
+    visible: ${MAESTRO_ARCHIVE}
     timeout: 30000
-- assertNotVisible: Pause tracking
-- assertNotVisible: Resume tracking
-- tapOn: Archive tracking
+- assertNotVisible: ${MAESTRO_PAUSE}
+- assertNotVisible: ${MAESTRO_RESUME}
+- scrollUntilVisible:
+    element: ${MAESTRO_ARCHIVE}
+    direction: DOWN
+- tapOn: ${MAESTRO_ARCHIVE}
 - extendedWaitUntil:
-    notVisible: Archive tracking
+    notVisible: ${MAESTRO_ARCHIVE}
     timeout: 30000
 - takeScreenshot: accepted-archived
 - stopApp
@@ -58,5 +72,6 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: Native edited restart proof
     timeout: 30000
-- assertNotVisible: Archive tracking
+- assertNotVisible: ${MAESTRO_ARCHIVE}
+- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-edited-restart

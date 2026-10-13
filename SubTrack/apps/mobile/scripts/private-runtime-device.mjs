@@ -1,3 +1,4 @@
+import {qualifyNativeEditStatus,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS} from './private-runtime-edit-status.mjs';
 // Local installed-device qualification only. No EAS, cloud Maestro or store upload.
 import assert from 'node:assert/strict';
 import process from 'node:process';
@@ -44,6 +45,11 @@ const driverPhases = new Set([
   'api-restart',
   'flow-restart',
   'readback-after',
+  'flow-edit-status',
+  'flow-edit-status-api-restart',
+  'tracking-readback-before',
+  'tracking-api-restart',
+  'tracking-readback-after',
   'accepted-evidence',
   'fixture-dispose',
 ]);
@@ -157,7 +163,7 @@ async function main() {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const file = join(directory, entry.name);
       if (entry.isDirectory()) copyAcceptedScreenshots(file);
-      else if (/^accepted-(add|restart|logout)\.png$/.test(entry.name))
+      else if (acceptedNativeScreenshot(entry.name))
         copyFileSync(file, join(publicDir, entry.name));
     }
   }
@@ -210,13 +216,10 @@ async function main() {
       assert.match(receipt.markerHash, /^[a-f0-9]{64}$/);
       assert.match(receipt.subscriptionDigest, /^[a-f0-9]{64}$/);
     }
+    const editedTracking=await qualifyNativeEditStatus({flow,restart:()=>harness.restart(),readback:()=>harness.readbackTrackingReceipt(),phase:markPhase});
     markPhase('accepted-evidence');
     copyAcceptedScreenshots(privateDir);
-    for (const name of [
-      'accepted-add.png',
-      'accepted-restart.png',
-      'accepted-logout.png',
-    ]) {
+    for (const name of ACCEPTED_NATIVE_SCREENSHOTS) {
       assert.ok(statSync(join(publicDir, name)).size > 0);
     }
     const apk = join(app, 'android/app/build/outputs/apk/debug/app-debug.apk');
@@ -250,6 +253,7 @@ async function main() {
           apiRestartReadback: true,
           subscriptionCount: 1,
           acknowledgedLogoutUi: true,
+          ...editedTracking,
         },
         null,
         2,

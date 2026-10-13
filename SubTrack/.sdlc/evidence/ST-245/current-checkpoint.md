@@ -36,3 +36,19 @@ Addressed source security/client findings: Edit/status reread the exact already-
 Final mounted22/22 PASS (12.72 seconds), including real50-row first-page plus loaded second-page Edit/status/conflict, preserved missing draft, wrong-ID acknowledgements, duplicate/cursor failures and unknown-category review/draft. Typecheck and scoped lint PASS; all actual local jobs ended. API/SQL/contracts/Money source unchanged, so prior policy/contract evidence remains applicable; independent review and actual runtime gates pending.
 
 Updated screen SHA256: `4f110505aaa7d88d74142c08fc3385579a5518fa7c66343d1578adc13fe40399`.
+
+## Native runtime qualification wiring
+
+Root and independent security approved the runtime plan before edits. Original parent Add/APIrestart/readback/logout sequence and original three mandatory screenshots remain intact. Additive sequence starts fresh verification after parent logout, performs Edit/Pause/Resume/Mark cancelled/Archive, app restart/fresh verification, then exact owned observer tracking readback. API restart followed by separate fresh verification/readback/logout flow must match the exact edited receipt and baseline hashed row identity.
+
+Tracking observer publishes only closed version/count/hash fields and fixture-validated manual/SEK/name/ARCHIVED/revision6 flags. No raw row ID/name or receipt digest inputs are emitted. Public installed receipt gets additive Edit/status/app+API restart/logout booleans only after all assertions. Exactly five new reviewed screenshots are allowed/required, alongside original3; private logs/screenshots remain excluded. Bilingual catalogs supply action labels. No SQL/grants/API graph/auth or parent flow source changes.
+
+Validation: native orchestration5/5 tests, line/branch/function100%; fixture projection4/4 tests, all metrics100%,17/17 branches. API typecheck/scoped lint, Node syntax and YAML parse PASS. New exact helper/projection tests are wired into native workflow. All local jobs completed and heavy slot released. Actual installed/PG runtime sequence not yet executed, source runtime review required before push.
+
+Runtime source SHA256:
+- `apps/mobile/scripts/private-runtime-edit-status.mjs`: `180f447b89a0fc72cb3f6b06ef28a69abb70bf4e00d2a447ce0a328f42d65ea2`
+- `apps/mobile/scripts/private-runtime-device.mjs`: `c43a3ff71900560e56051d0ad20bbd9f67c134dcdf84c1b67c64b1143fd0b2a1`
+- `apps/api/test/private-mobile-tracking-receipt.ts`: `78fda2fc867567f8578f0958f2c89c18f48868c188c5115885bccc571afa4ee3`
+- `apps/api/test/private-mobile-owned-fixture.ts`: `5971c7cc012978872c32d8f0311ed375825030ac2bacfda5abb576fb5c69396b`
+- `apps/mobile/e2e/private-runtime-edit-status.yaml`: `7a3e3ab4a84cdd01230d75c1ec48ed9f027c3af0f9cf86a402533a4ee8615b7b`
+- `apps/mobile/e2e/private-runtime-edit-status-api-restart.yaml`: `09a73e40e3b13661dd9293c9628d13c17872e2bf90212fadeae2bc0dc1413b52`

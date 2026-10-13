@@ -12,6 +12,14 @@ export function flowEnvironment(locale = 'en') {
   );
   const onboarding = catalog.onboarding;
   return {
+    MAESTRO_EDIT: onboarding.nativeSubscriptionEdit.edit,
+    MAESTRO_SAVE_EDIT: onboarding.nativeSubscriptionEdit.save,
+    MAESTRO_EDIT_SAVED: onboarding.nativeSubscriptionEdit.saved,
+    MAESTRO_PAUSE: onboarding.nativeSubscriptionEdit.pause,
+    MAESTRO_RESUME: onboarding.nativeSubscriptionEdit.resume,
+    MAESTRO_MARK_CANCELLED: onboarding.nativeSubscriptionEdit.cancelled,
+    MAESTRO_ARCHIVE: onboarding.nativeSubscriptionEdit.archive,
+    MAESTRO_STATUS_SAVED: onboarding.nativeSubscriptionEdit.statusSaved,
     MAESTRO_CREATE_ACCOUNT: onboarding.welcome.createAccount,
     MAESTRO_EMAIL_LABEL: onboarding.identifier.emailLabel,
     MAESTRO_CONTINUE: onboarding.identifier.continueLabel,
