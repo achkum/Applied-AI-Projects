@@ -98,12 +98,32 @@ async function prove(): Promise<void> {
     }
     phase='CREATE';
     const a = await session(), b = await session(), key = randomUUID();
-    const created = await call(a,key,{...body,customName:'  Manual Proof  '});
+    phase='RETURNING_REGRESSION';
+    // The unchanged STABLE visibility policy cannot see a freshly inserted row
+    // during INSERT RETURNING; the denied statement must leave no residue.
+    const oldReturning = `INSERT INTO public.subscription
+(identity_id,custom_name,category_code,cadence,expected_amount_minor,next_charge_date,source,status,currency,always_private,updated_at)
+VALUES ($1::uuid,$2::varchar(120),$3::text,$4::public.subscription_cadence,$5::bigint,$6::date,$7::public.subscription_source,$8::public.subscription_status,$9::char(3),$10::boolean,pg_catalog.clock_timestamp())
+RETURNING id::text AS id`;
+    await assert.rejects(runtime(a.identityId,a.identityId,oldReturning,
+      [a.identityId,body.customName,body.categoryCode,body.cadence,body.expectedAmountMinor,null,'MANUAL','ACTIVE','SEK',true]),{code:'42501'});
+    assert.deepEqual(await counts(a.identityId),{subscriptions:0,receipts:0});
+    pass('OLD_RETURNING_42501_NO_RESIDUE');
+    phase='CREATE';
+    let mints=0;
+    const observedPool = {connect:async()=>{
+      const real=await actor.connect();
+      return {query:(sql:string,values?:unknown[])=>{if(sql===PRIVATE_MANUAL_CREATE_STATEMENTS.manualIdMint)mints++;return real.query(sql,values);},
+        release:(error?:Error)=>real.release(error)};
+    }} as unknown as Pick<Pool,'connect'>;
+    const created = await call(a,key,{...body,customName:'  Manual Proof  '},observedPool);
+    assert.equal(mints,1);
     assert.equal(created.status,201); assert.match(created.body.id ?? '',/^[0-9a-f-]{36}$/);
     const id = created.body.id!;
-    assert.deepEqual(await call(a,key),created);
+    assert.deepEqual(await call(a,key,body,observedPool),created);
     const omittedDate = { customName:body.customName,categoryCode:body.categoryCode,cadence:body.cadence,expectedAmountMinor:body.expectedAmountMinor };
-    assert.deepEqual(await call(a,key,omittedDate),created);
+    assert.deepEqual(await call(a,key,omittedDate,observedPool),created);
+    assert.equal(mints,1);
     assert.deepEqual(await counts(a.identityId),{subscriptions:1,receipts:1});
     const row = await owner.query(`SELECT identity_id::text,custom_name,source::text,status::text,currency,
       expected_amount_minor::text,next_charge_date,always_private,merchant_id,catalog_plan_id,paying_account_id,confidence,detection_reasons
@@ -114,16 +134,22 @@ async function prove(): Promise<void> {
     assert.deepEqual(receipt.rows[0]?.key_hash,hash(key));
     assert.deepEqual(receipt.rows[0]?.request_hash,hash(JSON.stringify({v:'manual-create-v1',...body})));
     assert.equal(receipt.rows[0]?.subscription_id,id);
-    assert.equal((await call(a,key,{...body,customName:'Changed'})).body.code,'MANUAL_IDEMPOTENCY_CONFLICT');
+    assert.equal((await call(a,key,{...body,customName:'Changed'},observedPool)).body.code,'MANUAL_IDEMPOTENCY_CONFLICT');
+    assert.equal(mints,1);
+    const readback = await runtime(a.identityId,a.identityId,PRIVATE_ONBOARDING_STATEMENTS.ownerDetail,
+      [a.identityId,id,'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"']);
+    assert.equal(readback.rows.length,1);assert.equal(readback.rows[0]?.id,id);assert.equal(readback.rows[0]?.source,'MANUAL');
+    pass('DB_ID_MINT_NO_RETURNING_READBACK_REPLAY_NO_MINT');
     pass('CREATE_CANONICAL_REPLAY_CONFLICT_FIXED_FIELDS');
     phase='MODE';
     for (const settings of [[false,'just-me'],[true,null]] as const) {
       await owner.query('UPDATE public.identity_profile SET profile_complete=$2,onboarding_mode=$3 WHERE identity_id=$1',[a.identityId,...settings]);
       for (const candidate of [key,randomUUID()]) {
-        const denied = await call(a,candidate); assert.equal(denied.status,409); assert.equal(denied.body.code,'MODE_CONFLICT');
+        const denied = await call(a,candidate,body,observedPool); assert.equal(denied.status,409); assert.equal(denied.body.code,'MODE_CONFLICT');
       }
     }
     await owner.query('UPDATE public.identity_profile SET profile_complete=true,onboarding_mode=\'just-me\' WHERE identity_id=$1',[a.identityId]);
+    assert.equal(mints,1);
     pass('MODE_CURRENT_ON_CREATE_AND_REPLAY');
     phase='AUTHORITY';
     for (const override of [{origin:'https://foreign.invalid'},{csrf:randomBytes(32).toString('base64url')},
@@ -148,22 +174,31 @@ async function prove(): Promise<void> {
     pass('CURRENT_SESSION_ORIGIN_CSRF_BINDING_CHAIN_FOREIGN_ISOLATION');
     phase='CONCURRENCY';
     const parallelKey = randomUUID();
-    const parallel = await Promise.all([call(fresh,parallelKey),call(fresh,parallelKey)]);
+    const priorMints=mints;
+    const parallel = await Promise.all([call(fresh,parallelKey,body,observedPool),call(fresh,parallelKey,body,observedPool)]);
+    assert.equal(mints,priorMints+1);
     assert.equal(parallel[0]?.status,201); assert.deepEqual(parallel[0],parallel[1]);
     assert.deepEqual(await counts(a.identityId),{subscriptions:2,receipts:2});
     pass('CONCURRENT_EXACT_DUPLICATE_SINGLE_ROW');
     phase='ROLLBACK';
     let attempts=0,discards=0;
-    const rollbackPool = {connect:async()=>{
-      const real=await actor.connect();
-      return {query:async(sql:string,values?:unknown[])=>{
-        if (sql===PRIVATE_MANUAL_CREATE_STATEMENTS.manualReceiptInsert) {attempts++; throw new Error('receipt fault');}
-        return real.query(sql,values);
-      },release:(error?:Error)=>{if(error)discards++;real.release(error);}};
-    }} as unknown as Pick<Pool,'connect'>;
-    assert.equal((await call(fresh,randomUUID(),body,rollbackPool)).status,500);
-    assert.equal(attempts,1); assert.equal(discards,1);
-    assert.deepEqual(await counts(a.identityId),{subscriptions:2,receipts:2});
+    for(const fault of [PRIVATE_MANUAL_CREATE_STATEMENTS.manualIdMint,PRIVATE_MANUAL_CREATE_STATEMENTS.manualSubscriptionInsert,
+      PRIVATE_MANUAL_CREATE_STATEMENTS.manualReceiptInsert]) {
+      const operations:string[]=[];
+      const rollbackPool = {connect:async()=>{
+        const real=await actor.connect();
+        return {query:async(sql:string,values?:unknown[])=>{
+          operations.push(sql);
+          if (sql===fault) {attempts++; throw new Error('controlled write fault');}
+          return real.query(sql,values);
+        },release:(error?:Error)=>{if(error)discards++;real.release(error);}};
+      }} as unknown as Pick<Pool,'connect'>;
+      assert.equal((await call(fresh,randomUUID(),body,rollbackPool)).status,500);
+      assert.equal(operations.filter(sql=>sql===PRIVATE_MANUAL_CREATE_STATEMENTS.manualIdMint).length,1);
+      assert.equal(operations.includes('COMMIT'),false);assert.equal(operations.filter(sql=>sql==='ROLLBACK').length,1);
+      assert.deepEqual(await counts(a.identityId),{subscriptions:2,receipts:2});
+    }
+    assert.equal(attempts,3); assert.equal(discards,3);
     pass('KNOWN_ROLLBACK_NO_SUBSCRIPTION_OR_RECEIPT_RESIDUE');
     phase='UNKNOWN_COMMIT';
     let commits=0,connects=0;discards=0;

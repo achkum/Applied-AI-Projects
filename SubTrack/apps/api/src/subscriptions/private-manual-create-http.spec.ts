@@ -28,10 +28,11 @@ function harness(execute:(name:string,values:readonly unknown[])=>Query,options:
 const ready=query('SELECT',[{profile_complete:true,onboarding_mode:'just-me'}]);
 describe('private manual HTTP',()=>{
  it('inserts fixed owner fields and receipt in order, returns only id',async()=>{
-  const h=harness(name=>name==='manualModeRead'?ready:name==='manualReceiptRead'?query('SELECT',[]):name==='manualSubscriptionInsert'?query('INSERT',[{id}]):query('INSERT',[{subscription_id:id}]));
+  const h=harness(name=>name==='manualModeRead'?ready:name==='manualReceiptRead'?query('SELECT',[]):name==='manualIdMint'?query('SELECT',[{id}]):name==='manualSubscriptionInsert'?{command:'INSERT',rowCount:1,rows:[]}:query('INSERT',[{subscription_id:id}]));
   await h.run();expect(h.status).toBe(201);expect(h.payload).toEqual({id});expect(h.headers['Cache-Control']).toBe('no-store');
-  expect(h.calls.map(c=>c.name)).toEqual(['manualModeRead','manualReceiptRead','manualSubscriptionInsert','manualReceiptInsert']);
-  expect(h.calls[2]?.values).toEqual([owner,'Example','OTHER_SUBSCRIPTION','MONTHLY','999',null,'MANUAL','ACTIVE','SEK',true]);
+  expect(h.calls.map(c=>c.name)).toEqual(['manualModeRead','manualReceiptRead','manualIdMint','manualSubscriptionInsert','manualReceiptInsert']);
+  expect(h.calls[2]?.values).toEqual([]);
+  expect(h.calls[3]?.values).toEqual([id,owner,'Example','OTHER_SUBSCRIPTION','MONTHLY','999',null,'MANUAL','ACTIVE','SEK',true]);
   expect(h.calls[1]?.values[1]).toBeInstanceOf(Buffer);expect((h.calls[1]?.values[1] as Buffer).length).toBe(32);
  });
  it('checks mode before receipt even on replay',async()=>{
@@ -39,7 +40,7 @@ describe('private manual HTTP',()=>{
   expect(h.status).toBe(409);expect(h.payload.code).toBe('MODE_CONFLICT');expect(h.calls.map(c=>c.name)).toEqual(['manualModeRead']);
  });
  it('replays equal canonical bodies and conflicts on changed receipt hash without insert',async()=>{
-  let requestHash:unknown;const first=harness((name,values)=>{if(name==='manualReceiptInsert')requestHash=values[2];return name==='manualModeRead'?ready:name==='manualReceiptRead'?query('SELECT',[]):name==='manualSubscriptionInsert'?query('INSERT',[{id}]):query('INSERT',[{subscription_id:id}]);});await first.run();
+  let requestHash:unknown;const first=harness((name,values)=>{if(name==='manualReceiptInsert')requestHash=values[2];return name==='manualModeRead'?ready:name==='manualReceiptRead'?query('SELECT',[]):name==='manualIdMint'?query('SELECT',[{id}]):name==='manualSubscriptionInsert'?{command:'INSERT',rowCount:1,rows:[]}:query('INSERT',[{subscription_id:id}]);});await first.run();
   for(const hash of [requestHash,Buffer.alloc(32)]){
    const h=harness(name=>name==='manualModeRead'?ready:query('SELECT',[{request_hash:hash,subscription_id:id}]),{body:{...body,customName:'Example',nextChargeDate:null}});
    await h.run();expect(h.status).toBe(hash===requestHash?201:409);expect(h.calls).toHaveLength(2);
@@ -56,5 +57,16 @@ describe('private manual HTTP',()=>{
  });
  it('masks malformed result rows and does not continue to insert',async()=>{
   const h=harness(name=>name==='manualModeRead'?ready:query('SELECT',[{request_hash:'invalid',subscription_id:id}]));await h.run();expect(h.status).toBe(500);expect(h.calls).toHaveLength(2);
+ });
+});
+
+describe('minted private manual id validation',()=>{
+ it('masks malformed minted result before insert and returning rows from the no-returning insert',async()=>{
+  for(const mint of [{command:'SELECT',rowCount:0,rows:[]},query('SELECT',[{id:'bad'}]),query('INSERT',[{id}]),query('SELECT',[{id,extra:true}])]){
+   const h=harness(name=>name==='manualModeRead'?ready:name==='manualReceiptRead'?query('SELECT',[]):mint);
+   await h.run();expect(h.status).toBe(500);expect(h.calls.map(c=>c.name)).toEqual(['manualModeRead','manualReceiptRead','manualIdMint']);
+  }
+  const h=harness(name=>name==='manualModeRead'?ready:name==='manualReceiptRead'?query('SELECT',[]):name==='manualIdMint'?query('SELECT',[{id}]):query('INSERT',[{id}]));
+  await h.run();expect(h.status).toBe(500);expect(h.calls.at(-1)?.name).toBe('manualSubscriptionInsert');
  });
 });

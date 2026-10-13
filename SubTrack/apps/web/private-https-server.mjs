@@ -93,7 +93,7 @@ function createManualDiagnosticPool(sourcePool, statements, emit) {
     safeEmit('CONNECT', 'OK');
     let checks = 0;
     const stages = new Map([[statements.manualModeRead,'MODE'],[statements.manualReceiptRead,'RECEIPT_READ'],
-      [statements.manualSubscriptionInsert,'SUBSCRIPTION_INSERT'],[statements.manualReceiptInsert,'RECEIPT_INSERT'],
+      [statements.manualIdMint,'ID_MINT'],[statements.manualSubscriptionInsert,'SUBSCRIPTION_INSERT'],[statements.manualReceiptInsert,'RECEIPT_INSERT'],
       ['COMMIT','COMMIT'],['ROLLBACK','ROLLBACK']]);
     const currentCheck = 'SELECT subtrack_auth.check_current_web($1::uuid,$2::uuid,$3::text,$4::text,$5::subtrack_auth.h,$6::subtrack_auth.h,$7::text,$8::subtrack_auth.h,$9::subtrack_auth.ms) AS ok';
     return Object.freeze({ query(...args) {
@@ -471,7 +471,7 @@ async function assertSubscriptionCatalog(client) {
 }
 
 async function assertManualReceiptCatalog(client) {
-  if (digest(JSON.stringify(PRIVATE_MANUAL_CREATE_STATEMENTS)) !== '8b56a94d1b5384ca6acf8151af3592dc2c98df0c039fa8b3dcc6581853c7f525') fail();
+  if (digest(JSON.stringify(PRIVATE_MANUAL_CREATE_STATEMENTS)) !== '5acb0cd9119af260e82f88b4c0ff03a0c4bc089b22246e796cd80bac388b75de') fail();
   gate('MANUAL_RECEIPT');
   const table = 'public.manual_subscription_create_receipt';
   const relation = await client.query(`SELECT c.relkind::text AS kind,c.relrowsecurity AS rls,

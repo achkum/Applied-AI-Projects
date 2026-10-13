@@ -202,6 +202,8 @@ async function manualDiagnosticDelegation() {
   const pool = { async connect() { nodeAssert.equal(this, pool); connects++; return client; } };
   const wrapped = factory(pool, statements, line => messages.push(line));
   const loan = await wrapped.connect();
+  nodeAssert.equal(await loan.query(statements.manualIdMint), original);
+  nodeAssert(messages.includes('ST240_MANUAL_SQL stage=ID_MINT result=OK sqlstate=NONE'));
   const args = ['opaque-test-value'];
   nodeAssert.equal(await loan.query(statements.manualModeRead, args), original);
   nodeAssert.equal(calls.at(-1)[1], args);
@@ -217,7 +219,7 @@ async function manualDiagnosticDelegation() {
   const callback = () => {};
   nodeAssert.equal(loan.query('CALLBACK', args, callback), queryObject);
   nodeAssert.equal(calls.at(-1)[2], callback);
-  nodeAssert.equal(calls.length, 8, 'each query delegates exactly once');
+  nodeAssert.equal(calls.length, 9, 'each query delegates exactly once');
   nodeAssert.equal(loan.release(permission), queryObject);
   nodeAssert.deepEqual(releases, [[permission]]);
   nodeAssert(messages.includes('ST240_MANUAL_SQL stage=SUBSCRIPTION_INSERT result=ERROR sqlstate=42501'));

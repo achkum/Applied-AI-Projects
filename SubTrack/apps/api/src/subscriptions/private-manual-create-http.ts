@@ -60,10 +60,12 @@ export function createPrivateManualCreateHttp(authority: DurableCurrentWebAuthor
           if (!Buffer.isBuffer(prior.request_hash) || prior.request_hash.length !== 32 || typeof prior.subscription_id !== 'string' || !UUID.test(prior.subscription_id)) throw new Error('receipt-row');
           return timingSafeEqual(prior.request_hash,requestHash) ? {state:'ok',id:prior.subscription_id} : {state:'key-conflict'};
         }
-        const created = await tx.execute<CreatedRow>('manualSubscriptionInsert',[owner.identityId,body.customName,body.categoryCode,
+        const minted = await tx.execute<CreatedRow>('manualIdMint',[]);
+        if (minted.command !== 'SELECT' || minted.rowCount !== 1 || minted.rows.length !== 1) throw new Error('mint-query');
+        const {id} = parsePrivateManualCreated(minted.rows[0]);
+        const created = await tx.execute('manualSubscriptionInsert',[id,owner.identityId,body.customName,body.categoryCode,
           body.cadence,body.expectedAmountMinor,body.nextChargeDate,'MANUAL','ACTIVE','SEK',true]);
-        if (created.command !== 'INSERT' || created.rowCount !== 1 || created.rows.length !== 1) throw new Error('create-query');
-        const {id} = parsePrivateManualCreated(created.rows[0]);
+        if (created.command !== 'INSERT' || created.rowCount !== 1 || created.rows.length !== 0) throw new Error('create-query');
         const saved = await tx.execute<ReceiptRow>('manualReceiptInsert',[owner.identityId,keyHash,requestHash,id]);
         if (saved.command !== 'INSERT' || saved.rowCount !== 1 || saved.rows.length !== 1 || saved.rows[0]?.subscription_id !== id) throw new Error('receipt-write');
         return {state:'ok',id};
