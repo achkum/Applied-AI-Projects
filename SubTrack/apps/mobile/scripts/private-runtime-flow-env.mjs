@@ -16,6 +16,8 @@ export function flowEnvironment(locale = 'en') {
     MAESTRO_EMAIL_LABEL: onboarding.identifier.emailLabel,
     MAESTRO_CONTINUE: onboarding.identifier.continueLabel,
     MAESTRO_OTP_LABEL: onboarding.registration.otpLabel,
+    MAESTRO_REQUEST_UNAVAILABLE: onboarding.registration.requestUnavailable,
+    MAESTRO_IDENTIFIER_LOADING: onboarding.registration.loading,
     MAESTRO_VERIFY_OTP: onboarding.registration.verifyLabel,
     MAESTRO_VERIFY_BANKID: onboarding.nativePersonal.verify,
     MAESTRO_PROFILE_NAME: onboarding.nativePersonal.name,

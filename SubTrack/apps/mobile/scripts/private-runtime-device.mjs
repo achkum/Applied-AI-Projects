@@ -33,6 +33,7 @@ import {
 } from './private-runtime-identifier-diagnostic.mjs';
 import { initialIdentifierFlow } from './private-runtime-flow-policy.mjs';
 import { graphStatus } from './private-runtime-bundle-policy.mjs';
+import { identifierProbes } from './private-runtime-identifier-probe.mjs';
 
 let currentPhase = 'runtime-preconditions';
 const driverPhases = new Set([
@@ -322,6 +323,45 @@ async function main() {
       );
     }
     if (currentPhase === 'flow-identifier') {
+      const syntheticOtpIssued = code !== null;
+      console.error(`ST244_NATIVE identifier_otp_issued=${syntheticOtpIssued}`);
+      const observations = await identifierProbes({
+        phase: currentPhase,
+        issued: syntheticOtpIssued,
+        labels,
+        run: async (name, label) => {
+          const logPath = join(privateDir, `identifier-probe-${name}.log`);
+          const fd = openSync(logPath, 'w', 0o600);
+          let exitCode = null;
+          let timedOut = false;
+          try {
+            await new Promise((accept) => {
+              const child = spawn('timeout', [
+                '--signal=TERM', '--kill-after=5s', '20s',
+                'maestro', 'test', '--test-output-dir',
+                join(privateDir, `identifier-probe-${name}`),
+                join(app, 'e2e/private-runtime-identifier-probe.yaml'),
+              ], {
+                cwd: app,
+                env: { ...process.env, MAESTRO_IDENTIFIER_PROBE_LABEL: label },
+                stdio: ['ignore', fd, fd],
+              });
+              child.on('error', () => accept());
+              child.on('close', (status) => {
+                exitCode = status;
+                timedOut = status === 124 || status === 137;
+                accept();
+              });
+            });
+          } finally {
+            closeSync(fd);
+          }
+          return { exitCode, timedOut, log: readFileSync(logPath, 'utf8') };
+        },
+      });
+      if (observations)
+        for (const [target, result] of Object.entries(observations))
+          console.error(`ST244_NATIVE identifier_probe=${target} observation=${result}`);
       const readTool = (name) => {
         try {
           return readFileSync(join(privateDir, name), 'utf8');

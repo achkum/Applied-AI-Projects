@@ -52,7 +52,7 @@ try {
   }
   executable(
     sdkmanager,
-    '[[ "$#" == 3 && "$1" == "system-images;android-34;google_apis;x86_64" && "$2" == "platforms;android-34" && "$3" == "build-tools;34.0.0" ]] || exit 40\nif read -r unexpected; then exit 41; fi\nprintf private-tool-canary\nexit 0',
+    '[[ "$#" == 4 && "$1" == "system-images;android-34;google_apis;x86_64" && "$2" == "platforms;android-34" && "$3" == "build-tools;34.0.0" && "$4" == "ndk;26.1.10909125" ]] || exit 40\nif read -r unexpected; then exit 41; fi\nmkdir -p "$ANDROID_HOME/ndk/26.1.10909125"\nprintf "Pkg.Revision = 26.1.10909125\\n" > "$ANDROID_HOME/ndk/26.1.10909125/source.properties"\nprintf private-tool-canary\nexit 0',
   );
   const positive = sdkPhase();
   assert.equal(positive.status, 0);
@@ -69,6 +69,19 @@ try {
     ),
     /private-tool-canary/,
   );
+  const revision = join(sdk, 'ndk/26.1.10909125/source.properties');
+  executable(sdkmanager, 'exit 0');
+  rmSync(revision);
+  const missingNdk = sdkPhase();
+  assert.equal(missingNdk.status, 1);
+  assert.match(missingNdk.stdout, /event=sdk-ndk-revision-missing/);
+  for (const content of ['Pkg.Revision = 26.2.11394342', 'Pkg.Revision = 26.1.10909125-private-canary', 'arbitrary-private-canary']) {
+    writeFileSync(revision, content);
+    const mismatch = sdkPhase();
+    assert.equal(mismatch.status, 1);
+    assert.match(mismatch.stdout, /event=sdk-ndk-revision-mismatch/);
+    assert.equal(mismatch.stdout.includes('private-canary'), false);
+  }
   executable(sdkmanager, 'printf private-failure-canary >&2\nexit 23');
   const failed = sdkPhase();
   assert.equal(failed.status, 1);

@@ -70,8 +70,11 @@ case "$phase" in
     printf '%s\n' "$ANDROID_HOME/platform-tools" >> "${GITHUB_PATH:?}"
     printf 'ANDROID_SDK_ROOT=%s\nANDROID_AVD_HOME=%s\nANDROID_EMULATOR_HOME=%s\n' "$ANDROID_SDK_ROOT" "$ANDROID_AVD_HOME" "$ANDROID_EMULATOR_HOME" >> "${GITHUB_ENV:?}"
     if timeout --signal=TERM --kill-after=15s 600s "$sdk_bin/sdkmanager" \
-      'system-images;android-34;google_apis;x86_64' 'platforms;android-34' 'build-tools;34.0.0' \
-      </dev/null > "$proof_private/sdk-install.log" 2>&1; then diagnostic sdk-installed;
+      'system-images;android-34;google_apis;x86_64' 'platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125' \
+      </dev/null > "$proof_private/sdk-install.log" 2>&1; then
+      [[ -f "$ANDROID_HOME/ndk/26.1.10909125/source.properties" ]] || fail sdk-ndk-revision-missing
+      grep -Eq '^Pkg\.Revision[[:space:]]*=[[:space:]]*26\.1\.10909125[[:space:]]*$' "$ANDROID_HOME/ndk/26.1.10909125/source.properties" || fail sdk-ndk-revision-mismatch
+      diagnostic sdk-installed
     else
       code=$?
       if [[ "$code" == 124 || "$code" == 137 ]]; then fail sdk-install-deadline; fi
