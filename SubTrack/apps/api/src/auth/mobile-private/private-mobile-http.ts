@@ -34,7 +34,7 @@ export function createPrivateMobileHttp(authority:DurablePrivateMobileAuthority,
    let body:Record<string,unknown>={};if(path===PATHS.refresh){for await(const chunk of request)if(Buffer.from(chunk as Uint8Array).length!==0)throw new Error('wire');}
    else body={...await privateBody(request)};
    const key=rawHeader(request,'idempotency-key');const authorization=rawHeader(request,'authorization');
-   const needsKey=[PATHS.complete,PATHS.verifyLogin,PATHS.session,PATHS.refresh,PATHS.manual].includes(path);
+   const needsKey=[PATHS.complete,PATHS.verifyLogin,PATHS.session,PATHS.refresh,PATHS.manual,PATHS.manualEdit].includes(path);
    if(needsKey?(!key||!/^[\x21-\x7e]{16,255}$/.test(key)):key!==null)throw new Error('wire');
    if([PATHS.complete,PATHS.verifyLogin,PATHS.session].includes(path)){
     if(authorization!==null)throw new Error('wire');
@@ -50,7 +50,7 @@ export function createPrivateMobileHttp(authority:DurablePrivateMobileAuthority,
    const accessToken=authorization.slice(7);
    if(path===PATHS.logout){if(Object.keys(body).length!==0)throw new Error('wire');await authority.logout(accessToken);response.setHeader('Cache-Control','no-store');response.setHeader('Pragma','no-cache');response.statusCode=204;response.end();return;}
    const operations:Record<string,PrivateMobileBusinessOperation>={
-    [PATHS.profileRead!]:'profile-read',[PATHS.profile!]:'profile',[PATHS.modeRead!]:'mode-read',[PATHS.mode!]:'mode',[PATHS.ownerRead!]:'owner-read',[PATHS.manual!]:'manual',
+    [PATHS.profileRead!]:'profile-read',[PATHS.profile!]:'profile',[PATHS.modeRead!]:'mode-read',[PATHS.mode!]:'mode',[PATHS.ownerRead!]:'owner-read',[PATHS.manual!]:'manual',[PATHS.manualEdit!]:'manual-edit',[PATHS.status!]:'status',
    };
    // Closed path roster above, after every non-business path has returned.
    const operation=operations[path!]!;

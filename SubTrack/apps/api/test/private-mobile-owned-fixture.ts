@@ -1,3 +1,4 @@
+import {privateMobileTrackingReceipt,type PrivateMobileTrackingReceipt} from './private-mobile-tracking-receipt.js';
 import {createHash,createPrivateKey,createPublicKey} from 'node:crypto';
 import {readFile,lstat,realpath} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';
@@ -74,7 +75,15 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
    return Object.freeze({version:1,markerHash:createHash('sha256').update(config.marker).digest('hex'),identityCount:c.identities,profileCompleteCount:c.profiles,justMeCount:c.modes,subscriptionCount:c.subscriptions,subscriptionDigest:createHash('sha256').update(JSON.stringify(rows.rows)).digest('hex')});
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }
- return Object.freeze({start,stop,restart:async()=>{fault=undefined;await stop();await start();},readbackReceipt,
+ async function readbackTrackingReceipt():Promise<PrivateMobileTrackingReceipt>{
+  if(disposed)throw new Error('Fixture unavailable');await fence();const client=await owner.connect();
+  try{
+   await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+   const rows=await client.query('SELECT id::text,custom_name,category_code,cadence::text,expected_amount_minor::text,currency,status::text,source::text,next_charge_date::text,always_private,revision::text FROM public.subscription ORDER BY id');
+   const result=privateMobileTrackingReceipt(config.marker,rows.rows);await client.query('COMMIT');return result;
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }
+ return Object.freeze({start,stop,restart:async()=>{fault=undefined;await stop();await start();},readbackReceipt,readbackTrackingReceipt,
   injectCommitFault(kind:'before'|'after',skip=0){if(disposed||fault||!['before','after'].includes(kind)||!Number.isInteger(skip)||skip<0||skip>3)throw new Error('Fixture unavailable');fault={kind,skip};},
   dispose:async()=>{if(disposed)return;fault=undefined;await stop();disposed=true;await Promise.all([actor.end(),owner.end()]);}});
 }

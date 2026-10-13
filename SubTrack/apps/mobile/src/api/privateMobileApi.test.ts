@@ -1,4 +1,5 @@
-import { completeNativeEnrollment, verifiedNativeLogin, readNativeProfile, saveNativeProfile, readNativeMode, chooseNativeJustMe, readNativeSubscriptions, createNativeSubscription, rotateNativeSession, revokeNativeSession, PrivateMobileRequestError } from './privateMobileApi';
+import {nativeSekDraft} from './privateMobileMoney';
+import { editNativeSubscription, updateNativeSubscriptionStatus, completeNativeEnrollment, verifiedNativeLogin, readNativeProfile, saveNativeProfile, readNativeMode, chooseNativeJustMe, readNativeSubscriptions, createNativeSubscription, rotateNativeSession, revokeNativeSession, PrivateMobileRequestError } from './privateMobileApi';
 import { getPrivateRuntime } from '@/config/privateRuntime';
 jest.mock('@/config/privateRuntime', () => ({ getPrivateRuntime: jest.fn(() => ({ apiBaseUrl: 'https://private.example.test' })) }));
 jest.mock('expo-crypto', () => ({ getRandomBytesAsync: jest.fn(async (length: number) => new Uint8Array(length).fill(7)) }));
@@ -58,4 +59,26 @@ it('does not retry lost or malformed success responses and fails closed when run
   await expect(completeNativeEnrollment('v2.' + 'b'.repeat(43), 'en', signal)).rejects.toEqual(new PrivateMobileRequestError());
   jest.mocked(getPrivateRuntime).mockReturnValueOnce(null);
   await expect(verifiedNativeLogin(signal)).rejects.toEqual(new PrivateMobileRequestError()); expect(fetch).toHaveBeenCalledTimes(2);
+});
+
+it('Edit keeps canonical bigint/revision with a UUID intent; status forbids key and known conflict is closed',async()=>{
+ const form={id:credentials.sessionId,customName:'Example',categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY' as const,expectedAmountMinor:'9007199254740993',nextChargeDate:null,expectedRevision:'1'};
+ const fetch=jest.spyOn(globalThis,'fetch').mockResolvedValueOnce(response(200,{id:form.id,revision:'2'})).mockResolvedValueOnce(response(200,{id:form.id,status:'PAUSED'}));
+ await editNativeSubscription(form,credentials.accessToken,signal);await updateNativeSubscriptionStatus({id:form.id,status:'PAUSED'},credentials.accessToken,signal);
+ expect(JSON.parse(fetch.mock.calls[0]![1]!.body as string)).toEqual(form);
+ expect((fetch.mock.calls[0]![1]!.headers as Record<string,string>)['Idempotency-Key']).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4/);
+ expect((fetch.mock.calls[1]![1]!.headers as Record<string,string>)['Idempotency-Key']).toBeUndefined();
+ const problem={type:'about:blank',title:'Conflict',status:409,code:'MANUAL_EDIT_CONFLICT'};
+ fetch.mockResolvedValue({status:409,headers:{get:(name:string)=>name==='cache-control'?'no-store':'application/problem+json'},text:async()=>JSON.stringify(problem)} as Response);
+ expect(await editNativeSubscription(form,credentials.accessToken,signal)).toEqual({conflict:'MANUAL_EDIT_CONFLICT'});
+ fetch.mockResolvedValue({status:409,headers:{get:(name:string)=>name==='cache-control'?'no-store':'application/problem+json'},text:async()=>JSON.stringify({...problem,ownerId:'private'})} as Response);
+ await expect(editNativeSubscription(form,credentials.accessToken,signal)).rejects.toBeInstanceOf(PrivateMobileRequestError);
+});
+
+it('native SEK drafts roundtrip exact minor units in both languages without Number',()=>{
+ for(const minor of ['1','100','9007199254740993','9223372036854775807']){
+  expect(nativeSekDraft(minor,'en')).toMatch(/^[0-9]+\.[0-9]{2}$/);expect(nativeSekDraft(minor,'sv')).toMatch(/^[0-9]+,[0-9]{2}$/);
+ }
+ expect(nativeSekDraft('9007199254740993','en')).toBe('90071992547409.93');
+ for(const minor of ['0','-1','01'])expect(()=>nativeSekDraft(minor,'en')).toThrow();
 });

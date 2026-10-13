@@ -198,6 +198,19 @@
       "cadence": { "WEEKLY": "Weekly", "MONTHLY": "Monthly", "QUARTERLY": "Quarterly", "SEMIANNUAL": "Every six months", "ANNUAL": "Yearly", "CUSTOM": "Custom schedule" },
       "actions": { "ACTIVE": "Activate", "PAUSED": "Pause", "CANCELLED": "Cancel", "ARCHIVED": "Archive" }
     },
+    "nativeSubscriptionEdit": {
+      "edit": "Edit subscription",
+      "save": "Save changes",
+      "review": "Review current saved values",
+      "conflict": "This subscription changed. Your draft is preserved. Review the saved values before saving again.",
+      "saved": "Changes saved and read back.",
+      "pause": "Pause tracking",
+      "resume": "Resume tracking",
+      "cancelled": "Mark cancelled",
+      "archive": "Archive tracking",
+      "tracking": "These actions update tracking only. They do not cancel your provider subscription.",
+      "statusSaved": "Tracking status saved and read back."
+    },
     "nativePersonal": {
       "title": "Your personal subscriptions",
       "demo": "Development simulator: fresh BankID verification uses the synthetic Alice account. This is not real BankID.",

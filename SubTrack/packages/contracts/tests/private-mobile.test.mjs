@@ -22,5 +22,15 @@ test('one native credential bundle has strict accepted mobile session fields',()
  const body={transport:'mobile',sessionId:'123e4567-e89b-42d3-a456-426614174000',accessToken:'abc.def.ghi',refreshToken:'v2r.'+'A'.repeat(43)};
  assert.deepEqual(p.parsePrivateMobileSessionResponse(body),body);
  for(const patch of [{transport:'web'},{sessionId:'bad'},{accessToken:'bad'},{refreshToken:'bad'},{csrfToken:'bad'},{identityId:'bad'}])assert.throws(()=>p.parsePrivateMobileSessionResponse({...body,...patch}));
- assert.equal(Object.keys(p.PRIVATE_MOBILE_PATHS).length,11);
+ assert.equal(Object.keys(p.PRIVATE_MOBILE_PATHS).length,13);
+`));
+
+test('mobile manual edit reuses exact fields and rejects authority selectors',()=>run(`
+ const body={id:'123e4567-e89b-42d3-a456-426614174000',customName:' Test ',categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',expectedAmountMinor:'123',nextChargeDate:null,expectedRevision:'1'};
+ assert.equal(p.parsePrivateMobileManualEdit(body).customName,'Test');
+ for(const patch of [{id:'bad'},{ownerId:'private'},{status:'ARCHIVED'},{expectedRevision:'01'},{expectedRevision:'9223372036854775808'},{nextChargeDate:undefined}])assert.throws(()=>p.parsePrivateMobileManualEdit({...body,...patch}));
+`));
+test('mobile status is a closed resource-target envelope',()=>run(`
+ const body={id:'123e4567-e89b-42d3-a456-426614174000',status:'PAUSED'};assert.deepEqual(p.parsePrivateMobileStatus(body),body);
+ for(const patch of [{id:'bad'},{status:'DETECTED'},{expectedRevision:'1'},{ownerId:'private'}])assert.throws(()=>p.parsePrivateMobileStatus({...body,...patch}));
 `));

@@ -1760,8 +1760,107 @@ paths:
         '409': { $ref: '#/components/responses/PrivateMobileProblem' }
         '429': { $ref: '#/components/responses/PrivateMobileProblem' }
         '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/subscriptions/owner/manual/edit:
+    post:
+      operationId: editPrivateMobileManualSubscription
+      x-runtime-availability: unavailable-default
+      summary: Private development mobile subscriptions/owner/manual/edit
+      description: >
+        Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce,
+        CSRF, forwarded authority, query and mixed credentials. No client identity selector.
+        Closed full manual replacement with resource id and canonical bigint expectedRevision.
+        Current complete profile and Just me precede receipt lookup. Reuse manual-edit-v1
+        fingerprint and immutable SQL014 receipt namespace; exact replay returns original
+        committed revision before target lookup. Without receipt, owner MANUAL/SEK supported
+        cadence row is locked and expected revision compared before update. Stale conflict
+        preserves draft for explicit current-value review and a new intent. No automatic retry.
+        All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+      security:
+        - V2AccessBearer: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileManualEdit' }
+      responses:
+        '200':
+          description: Known committed private mobile result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateManualEdited' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/subscriptions/owner/status:
+    post:
+      operationId: changePrivateMobileSubscriptionStatus
+      x-runtime-availability: unavailable-default
+      summary: Private development mobile subscriptions/owner/status
+      description: >
+        Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce,
+        CSRF, forwarded authority, query and mixed credentials. No client identity selector.
+        Idempotency-Key is forbidden; no replay guarantee. Current complete profile and
+        Just me authorize only the owner MANUAL/SEK row. Exactly seven locked pairs:
+        ACTIVE to PAUSED/CANCELLED/ARCHIVED, PAUSED to ACTIVE/CANCELLED/ARCHIVED,
+        CANCELLED to ARCHIVED. Tracking only, no provider cancellation or hard deletion.
+        Repeated success may conflict; reread authenticated current truth. No automatic retry.
+        All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+      security:
+        - V2AccessBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileStatusRequest' }
+      responses:
+        '200':
+          description: Known committed private mobile result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubscriptionLifecycleResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
 components:
   schemas:
+    PrivateMobileManualEdit:
+      type: object
+      additionalProperties: false
+      required: [id,customName, categoryCode, cadence, expectedAmountMinor, nextChargeDate, expectedRevision]
+      properties:
+        id: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+        customName: { $ref: '#/components/schemas/PrivateManualCreate/properties/customName' }
+        categoryCode: { $ref: '#/components/schemas/PrivateManualCreate/properties/categoryCode' }
+        cadence: { $ref: '#/components/schemas/PrivateManualCreate/properties/cadence' }
+        expectedAmountMinor: { $ref: '#/components/schemas/PrivateManualCreate/properties/expectedAmountMinor' }
+        nextChargeDate: { type: [string, 'null'], format: date, description: 'Required nullable real YYYY-MM-DD year 0001-9999.' }
+        expectedRevision: { $ref: '#/components/schemas/PositiveSubscriptionRevision' }
+    PrivateMobileStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+        status: { type: string, enum: [ACTIVE, PAUSED, CANCELLED, ARCHIVED] }
     PrivateMobileEnrollmentComplete:
       type: object
       additionalProperties: false
@@ -1799,7 +1898,7 @@ components:
         type: { type: string, const: 'about:blank' }
         title: { type: string, enum: [Bad Request, Unauthorized, Forbidden, Not Found, Conflict, Too Many Requests, Internal Server Error] }
         status: { type: integer, enum: [400, 401, 403, 404, 409, 429, 500] }
-        code: { type: string, enum: [INVALID_MOBILE_REQUEST, AUTHENTICATION_REQUIRED, MOBILE_REQUEST_REJECTED, MOBILE_UNAVAILABLE, AUTH_RESTART_REQUIRED, ENROLLMENT_LOGIN_REQUIRED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, INTERNAL_ERROR] }
+        code: { type: string, enum: [INVALID_MOBILE_REQUEST, AUTHENTICATION_REQUIRED, MOBILE_REQUEST_REJECTED, MOBILE_UNAVAILABLE, AUTH_RESTART_REQUIRED, ENROLLMENT_LOGIN_REQUIRED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, SUBSCRIPTION_NOT_FOUND, MANUAL_EDIT_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_CONFLICT, LIFECYCLE_CONFLICT, INTERNAL_ERROR] }
     ProfileReadRequest:
       type: object
       additionalProperties: false
@@ -1916,7 +2015,7 @@ components:
         type: { type: string, const: 'about:blank' }
         title: { type: string, enum: [Bad Request, Unauthorized, Forbidden, Conflict, Internal Server Error] }
         status: { type: integer, enum: [400, 401, 403, 409, 500] }
-        code: { type: string, enum: [INVALID_MANUAL_REQUEST, AUTHENTICATION_REQUIRED, MANUAL_REQUEST_REJECTED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, INTERNAL_ERROR] }
+        code: { type: string, enum: [INVALID_MANUAL_REQUEST, AUTHENTICATION_REQUIRED, MANUAL_REQUEST_REJECTED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, SUBSCRIPTION_NOT_FOUND, MANUAL_EDIT_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_CONFLICT, LIFECYCLE_CONFLICT, INTERNAL_ERROR] }
     PrivateOwnerSubscriptionView:
       type: object
       additionalProperties: false

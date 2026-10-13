@@ -41,12 +41,46 @@ export async function runPrivateMobileProof(config:OwnedPrivateMobileConfig):Pro
   const addKey=key();const added=await post(paths.manual,manual,201,{...auth,...addKey});assert.deepEqual(await post(paths.manual,manual,201,{...auth,...addKey}),added);
   await post(paths.manual,{...manual,expectedAmountMinor:'13000'},409,{...auth,...addKey});
   const list=await post(paths.ownerRead,{},200,auth);assert.equal((list.items as {id:string}[])[0]?.id,added.id);
+  phase='NATIVE_EDIT_STATUS';
+  const edit={...manual,id:added.id,customName:'Edited owned subscription',expectedAmountMinor:'13990',nextChargeDate:null,expectedRevision:'1'};
+  const editKey=key();const edited=await post(paths.manualEdit,edit,200,{...auth,...editKey});assert.equal(edited.revision,'2');
+  assert.deepEqual(await post(paths.manualEdit,edit,200,{...auth,...editKey}),edited);
+  assert.equal((await post(paths.manualEdit,{...edit,customName:'Different'},409,{...auth,...editKey})).code,'MANUAL_EDIT_IDEMPOTENCY_CONFLICT');
+  assert.equal((await post(paths.manualEdit,edit,409,{...auth,...key()})).code,'MANUAL_EDIT_CONFLICT');
+  const missing=randomUUID();const invisible=await post(paths.manualEdit,{...edit,id:missing},404,{...auth,...key()});assert.equal(invisible.code,'SUBSCRIPTION_NOT_FOUND');
+  assert.deepEqual(await post(paths.status,{id:missing,status:'PAUSED'},404,auth),invisible);
+  for(const kind of ['before','after'] as const){
+   const authorized=bearer(await login());const before=(await post(paths.ownerRead,{},200,authorized)).items as Record<string,unknown>[];
+   const uncertain={...edit,customName:'Uncertain '+kind,expectedRevision:before[0]!.revision};const intent=key();
+   harness.injectCommitFault(kind);const denied=await post(paths.manualEdit,uncertain,500,{...authorized,...intent});assert.equal(denied.code,'INTERNAL_ERROR');assert.equal(Object.hasOwn(denied,'revision'),false);
+   await harness.restart();const fresh=bearer(await login());const read=(await post(paths.ownerRead,{},200,fresh)).items as Record<string,unknown>[];
+   assert.equal(read[0]!.customName,kind==='after'?uncertain.customName:before[0]!.customName);
+   // Explicit owned proof of receipt behavior; the installed client never retries unknown outcomes automatically.
+   const replay=await post(paths.manualEdit,uncertain,200,{...fresh,...intent});assert.equal(BigInt(replay.revision as string),BigInt(uncertain.expectedRevision as string)+1n);
+  }
+  for(const kind of ['before','after'] as const){
+   const fresh=bearer(await login());harness.injectCommitFault(kind);await post(paths.status,{id:added.id,status:'PAUSED'},500,fresh);
+   await harness.restart();const read=(await post(paths.ownerRead,{},200,bearer(await login()))).items as Record<string,unknown>[];
+   assert.equal(read[0]!.status,kind==='after'?'PAUSED':'ACTIVE');
+   if(kind==='after')await post(paths.status,{id:added.id,status:'ACTIVE'},200,bearer(await login()));
+  }
+  for(const status of ['PAUSED','ACTIVE','CANCELLED','ARCHIVED']){
+   const result=await post(paths.status,{id:added.id,status},200,auth);assert.deepEqual(result,{id:added.id,status});
+   assert.equal((await post(paths.status,{id:added.id,status},409,auth)).code,'LIFECYCLE_CONFLICT');
+  }
+  await post(paths.status,{id:added.id,status:'ACTIVE'},409,auth);
+  await post(paths.status,{id:added.id,status:'ARCHIVED'},400,{...auth,...key()});
+  await post(paths.manualEdit,{...edit,identityId:randomUUID()},400,{...auth,...key()});
+  const current=(await post(paths.ownerRead,{},200,auth)).items as Record<string,unknown>[];
+  assert.equal(current[0]?.customName,'Uncertain after');assert.equal(current[0]?.expectedAmountMinor,edit.expectedAmountMinor);assert.equal(current[0]?.status,'ARCHIVED');assert.equal(current[0]?.revision,'10');
   phase='ISOLATION';
   // Real least-privilege role and forced RLS: a foreign scoped principal cannot see the saved row.
   const pool=new Pool({host:config.host,port:config.port,database:config.database,user:'subtrack_dev_auth_login',password:config.actorPassword,max:1});
   const client=await pool.connect();
   try{await client.query('BEGIN');await client.query('SET LOCAL ROLE subtrack_runtime');await client.query("SELECT set_config('app.user_id',$1,true),set_config('app.current_user_id',$1,true)",[randomUUID()]);
    assert.equal((await client.query('SELECT id FROM public.subscription WHERE id=$1::uuid',[added.id])).rowCount,0);
+   assert.equal((await client.query('UPDATE public.subscription SET status=$2::public.subscription_status WHERE id=$1::uuid RETURNING id',[added.id,'ACTIVE'])).rowCount,0);
+   assert.equal((await client.query('SELECT subscription_id FROM public.manual_subscription_edit_receipt')).rowCount,0);
    await client.query("SELECT set_config('app.user_id','',true),set_config('app.current_user_id','',true)");assert.equal((await client.query('SELECT id FROM public.subscription')).rowCount,0);
    await client.query('ROLLBACK');
   }finally{client.release();await pool.end();}
@@ -61,7 +95,7 @@ export async function runPrivateMobileProof(config:OwnedPrivateMobileConfig):Pro
   phase='LOGIN';const newSession=await login();const receipt=await harness.readbackReceipt();assert.equal(receipt.identityCount,1);assert.equal(receipt.profileCompleteCount,1);assert.equal(receipt.justMeCount,1);assert.equal(receipt.subscriptionCount,1);
   phase='RESTART';
   await harness.restart();const restarted=await login();assert.deepEqual(await harness.readbackReceipt(),receipt);
-  const persisted=await post(paths.ownerRead,{},200,bearer(restarted));assert.equal((persisted.items as {id:string}[])[0]?.id,added.id);
+  const persisted=await post(paths.ownerRead,{},200,bearer(restarted));assert.equal((persisted.items as {id:string}[])[0]?.id,added.id);assert.equal((persisted.items as {status:string}[])[0]?.status,'ARCHIVED');assert.equal((persisted.items as {revision:string}[])[0]?.revision,'10');assert.equal((persisted.items as {customName:string}[])[0]?.customName,'Uncertain after');
   phase='LOGOUT';await post(paths.logout,{},204,bearer(restarted));await post(paths.profileRead,{},401,bearer(restarted));
   await post(paths.profileRead,{},200,bearer(newSession));
   phase='UNCERTAINTY';

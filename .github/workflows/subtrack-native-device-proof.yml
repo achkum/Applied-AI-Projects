@@ -56,6 +56,7 @@ jobs:
         run: |
           corepack enable
           corepack pnpm install --frozen-lockfile
+          corepack pnpm --filter @subtrack/domain build:lifecycle
           bash apps/mobile/scripts/private-runtime-tools.sh
           node apps/mobile/scripts/private-runtime-ca-test.mjs
           node apps/mobile/scripts/private-runtime-loader-diagnostics-test.mjs
@@ -64,6 +65,8 @@ jobs:
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-identifier-diagnostic.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-identifier-diagnostic-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-native-resolve.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-native-resolve-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-fatal-excerpt.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-fatal-excerpt-test.mjs
+          node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-edit-status.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-edit-status-test.mjs
+          corepack pnpm --filter @subtrack/api exec vitest run test/private-mobile-tracking-receipt.spec.ts --coverage --coverage.include=test/private-mobile-tracking-receipt.ts --coverage.thresholds.lines=100 --coverage.thresholds.statements=100 --coverage.thresholds.functions=100 --coverage.thresholds.branches=100
           bash tools/database/private-mobile-descriptor.spec.sh
       - name: Android emulator verified shared-library prerequisite
         if: matrix.platform == 'android'
@@ -136,3 +139,4 @@ jobs:
             xcrun simctl shutdown "$SUBTRACK_SIMULATOR_UDID" || true
             xcrun simctl delete "$SUBTRACK_SIMULATOR_UDID"
           fi
+

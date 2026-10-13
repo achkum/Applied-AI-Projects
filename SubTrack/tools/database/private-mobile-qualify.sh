@@ -35,10 +35,10 @@ r(file).runPrivateMobileProof(config).then(receipt=>{
  const closed={version:1,head:config.head,proof:'direct-tls-postgresql16',identityCount:receipt.identityCount,profileCompleteCount:receipt.profileCompleteCount,justMeCount:receipt.justMeCount,subscriptionCount:receipt.subscriptionCount,
  apiRestartReadback:true,logoutBearerDenied:true,refreshReuseRevoked:true,ownerIsolation:true,uncertainMutationCredentialsWithheld:true,oldProofReplayDeniedBeforeAndAfterRestart:true,keyPortfolioDriftRejected:true};
  fs.writeFileSync(path.join(path.dirname(configPath),'proof-receipt.json'),JSON.stringify(closed),{mode:0o600});
-}).catch(error=>{if(/^ST244_PROOF_FAILURE phase=(START|ENROLL|PROFILE_MODE|ADD|ISOLATION|ROTATION_REUSE|LOGIN|RESTART|LOGOUT|UNCERTAINTY|KEY_TAMPER)$/.test(error.message))process.stderr.write(error.message+'\n');process.exitCode=1;});
+}).catch(error=>{if(/^ST244_PROOF_FAILURE phase=(START|ENROLL|PROFILE_MODE|ADD|NATIVE_EDIT_STATUS|ISOLATION|ROTATION_REUSE|LOGIN|RESTART|LOGOUT|UNCERTAINTY|KEY_TAMPER)$/.test(error.message))process.stderr.write(error.message+'\n');process.exitCode=1;});
 NODE
 if (( code!=0 ));then
- grep -E '^ST244_PROOF_FAILURE phase=(START|ENROLL|PROFILE_MODE|ADD|ISOLATION|ROTATION_REUSE|LOGIN|RESTART|LOGOUT|UNCERTAINTY|KEY_TAMPER)$' "$work/proof-private.log" >&2 || true
+ grep -E '^ST244_PROOF_FAILURE phase=(START|ENROLL|PROFILE_MODE|ADD|NATIVE_EDIT_STATUS|ISOLATION|ROTATION_REUSE|LOGIN|RESTART|LOGOUT|UNCERTAINTY|KEY_TAMPER)$' "$work/proof-private.log" >&2 || true
  exit 1
 fi
 receipt_json="$(cat "$work/proof-receipt.json")"

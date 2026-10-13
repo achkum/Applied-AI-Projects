@@ -1,0 +1,28 @@
+appId: se.subtrack.app
+---
+# API has restarted; startup still requires fresh verified authority.
+- stopApp
+- launchApp
+- openLink: subtrack:///personal
+- extendedWaitUntil:
+    visible: ${MAESTRO_VERIFY_BANKID}
+    timeout: 30000
+- assertNotVisible: Native edited restart proof
+- tapOn: ${MAESTRO_VERIFY_BANKID}
+- extendedWaitUntil:
+    visible: Native edited restart proof
+    timeout: 30000
+- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
+- assertNotVisible: ${MAESTRO_PAUSE}
+- assertNotVisible: ${MAESTRO_RESUME}
+- assertNotVisible: ${MAESTRO_MARK_CANCELLED}
+- assertNotVisible: ${MAESTRO_ARCHIVE}
+- takeScreenshot: accepted-edited-api-restart
+- scrollUntilVisible:
+    element: ${MAESTRO_LOGOUT}
+    direction: DOWN
+- tapOn: ${MAESTRO_LOGOUT}
+- extendedWaitUntil:
+    visible: ${MAESTRO_LOGOUT_CONFIRMED}
+    timeout: 30000
+- assertNotVisible: Native edited restart proof

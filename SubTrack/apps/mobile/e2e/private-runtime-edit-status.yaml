@@ -1,0 +1,77 @@
+appId: se.subtrack.app
+---
+# Parent acceptance ends with acknowledged logout. Start with fresh verification.
+- openLink: subtrack:///personal
+- extendedWaitUntil:
+    visible: ${MAESTRO_VERIFY_BANKID}
+    timeout: 30000
+- tapOn: ${MAESTRO_VERIFY_BANKID}
+- extendedWaitUntil:
+    visible: Native restart proof
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_EDIT}
+    direction: UP
+- tapOn: ${MAESTRO_EDIT}
+- scrollUntilVisible:
+    element: ${MAESTRO_SUBSCRIPTION_NAME}
+    direction: DOWN
+- tapOn: ${MAESTRO_SUBSCRIPTION_NAME}
+- eraseText
+- inputText: Native edited restart proof
+- hideKeyboard
+- scrollUntilVisible:
+    element: ${MAESTRO_SAVE_EDIT}
+    direction: DOWN
+- tapOn: ${MAESTRO_SAVE_EDIT}
+- extendedWaitUntil:
+    visible: ${MAESTRO_EDIT_SAVED}
+    timeout: 30000
+- scrollUntilVisible:
+    element: Native edited restart proof
+    direction: UP
+- assertVisible: Native edited restart proof
+- takeScreenshot: accepted-edit
+- scrollUntilVisible:
+    element: ${MAESTRO_PAUSE}
+    direction: DOWN
+- tapOn: ${MAESTRO_PAUSE}
+- extendedWaitUntil:
+    visible: ${MAESTRO_RESUME}
+    timeout: 30000
+- takeScreenshot: accepted-paused
+- tapOn: ${MAESTRO_RESUME}
+- extendedWaitUntil:
+    visible: ${MAESTRO_PAUSE}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_MARK_CANCELLED}
+    direction: DOWN
+- tapOn: ${MAESTRO_MARK_CANCELLED}
+- extendedWaitUntil:
+    visible: ${MAESTRO_ARCHIVE}
+    timeout: 30000
+- assertNotVisible: ${MAESTRO_PAUSE}
+- assertNotVisible: ${MAESTRO_RESUME}
+- scrollUntilVisible:
+    element: ${MAESTRO_ARCHIVE}
+    direction: DOWN
+- tapOn: ${MAESTRO_ARCHIVE}
+- extendedWaitUntil:
+    notVisible: ${MAESTRO_ARCHIVE}
+    timeout: 30000
+- takeScreenshot: accepted-archived
+- stopApp
+- launchApp
+- openLink: subtrack:///personal
+- extendedWaitUntil:
+    visible: ${MAESTRO_VERIFY_BANKID}
+    timeout: 30000
+- assertNotVisible: Native edited restart proof
+- tapOn: ${MAESTRO_VERIFY_BANKID}
+- extendedWaitUntil:
+    visible: Native edited restart proof
+    timeout: 30000
+- assertNotVisible: ${MAESTRO_ARCHIVE}
+- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
+- takeScreenshot: accepted-edited-restart

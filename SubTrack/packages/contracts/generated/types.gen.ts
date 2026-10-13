@@ -4,6 +4,30 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type PrivateMobileManualEdit = {
+    id: string;
+    /**
+     * After trimming 1-120 UTF16 units; valid Unicode without Cc/Cf/unpaired surrogates. Canonical trimmed name stored and hashed.
+     */
+    customName: string;
+    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION';
+    cadence: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
+    /**
+     * Positive canonical minor-unit text, maximum 9223372036854775807; BigInt only.
+     */
+    expectedAmountMinor: string;
+    /**
+     * Required nullable real YYYY-MM-DD year 0001-9999.
+     */
+    nextChargeDate: string | null;
+    expectedRevision: PositiveSubscriptionRevision;
+};
+
+export type PrivateMobileStatusRequest = {
+    id: string;
+    status: 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'ARCHIVED';
+};
+
 export type PrivateMobileEnrollmentComplete = {
     transport: 'mobile';
     enrollmentProof: string;
@@ -29,7 +53,7 @@ export type PrivateMobileError = {
     type: 'about:blank';
     title: 'Bad Request' | 'Unauthorized' | 'Forbidden' | 'Not Found' | 'Conflict' | 'Too Many Requests' | 'Internal Server Error';
     status: 400 | 401 | 403 | 404 | 409 | 429 | 500;
-    code: 'INVALID_MOBILE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MOBILE_REQUEST_REJECTED' | 'MOBILE_UNAVAILABLE' | 'AUTH_RESTART_REQUIRED' | 'ENROLLMENT_LOGIN_REQUIRED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'INTERNAL_ERROR';
+    code: 'INVALID_MOBILE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MOBILE_REQUEST_REJECTED' | 'MOBILE_UNAVAILABLE' | 'AUTH_RESTART_REQUIRED' | 'ENROLLMENT_LOGIN_REQUIRED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'SUBSCRIPTION_NOT_FOUND' | 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_CONFLICT' | 'LIFECYCLE_CONFLICT' | 'INTERNAL_ERROR';
 };
 
 /**
@@ -157,7 +181,7 @@ export type PrivateManualError = {
     type: 'about:blank';
     title: 'Bad Request' | 'Unauthorized' | 'Forbidden' | 'Conflict' | 'Internal Server Error';
     status: 400 | 401 | 403 | 409 | 500;
-    code: 'INVALID_MANUAL_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MANUAL_REQUEST_REJECTED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'INTERNAL_ERROR';
+    code: 'INVALID_MANUAL_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MANUAL_REQUEST_REJECTED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'SUBSCRIPTION_NOT_FOUND' | 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_CONFLICT' | 'LIFECYCLE_CONFLICT' | 'INTERNAL_ERROR';
 };
 
 export type PrivateOwnerSubscriptionView = {
@@ -3268,3 +3292,104 @@ export type CreatePrivateMobileManualSubscriptionResponses = {
 };
 
 export type CreatePrivateMobileManualSubscriptionResponse = CreatePrivateMobileManualSubscriptionResponses[keyof CreatePrivateMobileManualSubscriptionResponses];
+
+export type EditPrivateMobileManualSubscriptionData = {
+    body: PrivateMobileManualEdit;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/subscriptions/owner/manual/edit';
+};
+
+export type EditPrivateMobileManualSubscriptionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type EditPrivateMobileManualSubscriptionError = EditPrivateMobileManualSubscriptionErrors[keyof EditPrivateMobileManualSubscriptionErrors];
+
+export type EditPrivateMobileManualSubscriptionResponses = {
+    /**
+     * Known committed private mobile result.
+     */
+    200: PrivateManualEdited;
+};
+
+export type EditPrivateMobileManualSubscriptionResponse = EditPrivateMobileManualSubscriptionResponses[keyof EditPrivateMobileManualSubscriptionResponses];
+
+export type ChangePrivateMobileSubscriptionStatusData = {
+    body: PrivateMobileStatusRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/subscriptions/owner/status';
+};
+
+export type ChangePrivateMobileSubscriptionStatusErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ChangePrivateMobileSubscriptionStatusError = ChangePrivateMobileSubscriptionStatusErrors[keyof ChangePrivateMobileSubscriptionStatusErrors];
+
+export type ChangePrivateMobileSubscriptionStatusResponses = {
+    /**
+     * Known committed private mobile result.
+     */
+    200: SubscriptionLifecycleResult;
+};
+
+export type ChangePrivateMobileSubscriptionStatusResponse = ChangePrivateMobileSubscriptionStatusResponses[keyof ChangePrivateMobileSubscriptionStatusResponses];
