@@ -60,6 +60,13 @@ jobs:
           node apps/mobile/scripts/private-runtime-ca-test.mjs
           node apps/mobile/scripts/private-runtime-loader-diagnostics-test.mjs
           bash tools/database/private-mobile-descriptor.spec.sh
+      - name: Android emulator verified shared-library prerequisite
+        if: matrix.platform == 'android'
+        run: |
+          # Google/AOSP emulator runtime requires libpulse0; C5 loader confirmed
+          # libpulse.so.0 missing. Client library only, no audio daemon/service.
+          sudo timeout --signal=TERM --kill-after=15s 180s apt-get update -qq
+          sudo timeout --signal=TERM --kill-after=15s 120s apt-get install -y --no-install-recommends libpulse0
       - name: Android pinned emulator provisioning
         if: matrix.platform == 'android'
         run: bash apps/mobile/scripts/private-runtime-emulator.sh

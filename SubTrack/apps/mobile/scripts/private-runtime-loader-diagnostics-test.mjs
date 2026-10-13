@@ -4,6 +4,8 @@ import {
   missingNativeLibraries,
   nativeFailureCategory,
   buildFailureDiagnostic,
+  nativeFailureReasons,
+  knownPodFailureContext,
 } from './private-runtime-loader-diagnostics.mjs';
 
 assert.deepEqual(
@@ -28,7 +30,7 @@ assert.equal(
   ).length,
   16,
 );
-for (const [text, category] of [
+const classificationCases = [
   [
     'PluginError: Failed to resolve plugin private-canary',
     'expo-plugin-resolution',
@@ -45,14 +47,105 @@ for (const [text, category] of [
   ['[!] CocoaPods private-canary', 'pods-failure'],
   ['BUILD FAILED private-canary', 'compiler-failure'],
   ['private-canary-password-with-no-known-error', 'unclassified'],
-])
+  [
+    "[!] Invalid 'Podfile' file: undefined method `exists?' for File:Class",
+    'pods-ruby-missing-method',
+  ],
+  [
+    '[!] Invalid Podfile file: LoadError cannot load such file -- private-canary',
+    'pods-ruby-load-error',
+  ],
+  [
+    '[Codegen] Error: UnsupportedModulePropertyParserError private-canary',
+    'pods-codegen',
+  ],
+  [
+    'Verification checksum was incorrect, expected private-canary',
+    'pods-download-checksum',
+  ],
+  ['curl: (22) The requested URL returned error: 404', 'pods-download-http'],
+  [
+    'tar: Error is not in gzip format private-canary',
+    'pods-archive-extraction',
+  ],
+  ['[!] Error installing boost', 'pods-download'],
+  [
+    '[!] CocoaPods could not find compatible versions for pod "ReactCodegen"',
+    'pods-version-conflict',
+  ],
+  [
+    '[!] Unable to find a specification for `RCT-Folly`',
+    'pods-missing-specification',
+  ],
+  [
+    "[!] Invalid 'RNReanimated.podspec' file: private-canary",
+    'pods-invalid-podspec',
+  ],
+  ['[!] Invalid Podfile file: private-canary', 'pods-invalid-podfile'],
+  [
+    '[!] No Podfile found in project directory private-canary',
+    'pods-missing-podfile',
+  ],
+  [
+    '[!] Could not automatically select an Xcode project private-canary',
+    'pods-project-selection',
+  ],
+  [
+    '[!] Unable to add a source with url private-canary',
+    'pods-source-unavailable',
+  ],
+  ['SSL_connect: certificate verify failed private-canary', 'tls-validation'],
+];
+for (const [text, category] of classificationCases)
   assert.equal(nativeFailureCategory(text), category);
+assert.equal(
+  nativeFailureReasons(classificationCases.map(([text]) => text).join('\n'))
+    .length,
+  16,
+);
 assert.deepEqual(
   buildFailureDiagnostic(
     '{"phase":"ios-pods","exitCode":1}',
     '[!] private-canary',
   ),
-  { phase: 'ios-pods', exitCode: 1, category: 'pods-failure' },
+  {
+    phase: 'ios-pods',
+    exitCode: 1,
+    category: 'pods-failure',
+    reasons: ['pods-failure'],
+    specs: [],
+    rubyMethods: [],
+  },
+);
+assert.deepEqual(
+  nativeFailureReasons(
+    "[!] Invalid Podfile file: undefined method `exists?' for File:Class",
+  ),
+  ['pods-ruby-missing-method', 'pods-invalid-podfile', 'pods-failure'],
+);
+assert.deepEqual(
+  knownPodFailureContext(
+    'Error installing boost\nUnable to find a specification for `RCT-Folly`\nCocoaPods could not find compatible versions for pod "ReactCodegen"\nundefined method `exists?\' for File:Class',
+  ),
+  { specs: ['boost', 'RCT-Folly', 'ReactCodegen'], rubyMethods: ['exists?'] },
+);
+const privateLog =
+  "Error installing private-canary\nUnable to find a specification for `/private/secret-path`\nundefined method `private-canary'\nprivate-password-token";
+assert.deepEqual(knownPodFailureContext(privateLog), {
+  specs: [],
+  rubyMethods: [],
+});
+assert.deepEqual(
+  knownPodFailureContext(
+    "Error installing boost_private\nundefined method `exists?private'",
+  ),
+  { specs: [], rubyMethods: [] },
+);
+assert.equal(
+  JSON.stringify(
+    buildFailureDiagnostic('{"phase":"ios-pods","exitCode":1}', privateLog),
+  ).includes('private-canary'),
+  false,
 );
 for (const json of [
   'null',

@@ -259,7 +259,7 @@ async function main() {
       );
       if (diagnostic)
         console.error(
-          `ST244_NATIVE build_phase=${diagnostic.phase} event=failed exit_code=${diagnostic.exitCode} category=${diagnostic.category}`,
+          `ST244_NATIVE build_phase=${diagnostic.phase} event=failed exit_code=${diagnostic.exitCode} category=${diagnostic.category} reason_list=${diagnostic.reasons.join(',') || 'none'} known_specs=${diagnostic.specs.join(',') || 'none'} known_ruby_methods=${diagnostic.rubyMethods.join(',') || 'none'}`,
         );
     }
     // Raw API/tool errors can contain credentials: retain privately, never print them.

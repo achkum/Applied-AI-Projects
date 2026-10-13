@@ -68,6 +68,10 @@ missing build tool; Android API 34, build-tools 34.0.0, Expo 51 and React Native
 0.74 remain unchanged. No global installation or service is created. Official
 metadata: [Google Android repository](https://dl.google.com/android/repository/repository2-3.xml),
 verified 2026-10-13; the package names the existing Android SDK license.
+The Ubuntu runner also installs only the `libpulse0` client-library prerequisite:
+actual C5 loader diagnostics identified missing `libpulse.so.0`, and the
+[Google/AOSP emulator dependency list](https://raw.githubusercontent.com/google/android-emulator-container-scripts/master/emu/templates/Dockerfile)
+names that package. This does not install or start a PulseAudio daemon/service.
 
 This workflow source does not establish native acceptance. Acceptance requires
 successful installed flows and independent review at the exact source head.

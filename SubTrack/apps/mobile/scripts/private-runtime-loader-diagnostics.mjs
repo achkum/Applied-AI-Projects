@@ -22,34 +22,137 @@ export function missingNativeLibraries(text) {
 }
 
 export function nativeFailureCategory(text) {
+  return nativeFailureReasons(text)[0] ?? 'unclassified';
+}
+
+export function nativeFailureReasons(text) {
+  const reasons = [];
   if (/PluginError|Failed to resolve plugin/.test(text))
-    return 'expo-plugin-resolution';
+    reasons.push('expo-plugin-resolution');
   if (/Cannot find module|Module not found|Unable to resolve module/.test(text))
-    return 'module-resolution';
+    reasons.push('module-resolution');
   if (/AUTH_RESTART_REQUIRED|Mobile server unavailable/.test(text))
-    return 'server-policy-rejected';
+    reasons.push('server-policy-rejected');
   if (
     /42501|permission denied for (schema|table|relation)|insufficient_privilege/.test(
       text,
     )
   )
-    return 'postgres-privilege';
+    reasons.push('postgres-privilege');
   if (/42P01|relation .* does not exist|undefined_table/.test(text))
-    return 'postgres-schema';
+    reasons.push('postgres-schema');
   if (
     /SELF_SIGNED_CERT_IN_CHAIN|UNABLE_TO_VERIFY_LEAF_SIGNATURE|ERR_TLS_CERT_ALTNAME_INVALID|CERT_HAS_EXPIRED/.test(
       text,
+    ) ||
+    /SSL_connect|SSL certificate|certificate verify failed|unable to get local issuer certificate/i.test(
+      text,
     )
   )
-    return 'tls-validation';
-  if (/EADDRINUSE/.test(text)) return 'loopback-port-in-use';
-  if (/ECONNREFUSED/.test(text)) return 'connection-refused';
-  if (/EAI_AGAIN|ENOTFOUND/.test(text)) return 'network-resolution';
-  if (/ETIMEDOUT|timed out/i.test(text)) return 'deadline';
-  if (/CocoaPods|\[!\]/.test(text)) return 'pods-failure';
+    reasons.push('tls-validation');
+  if (/EADDRINUSE/.test(text)) reasons.push('loopback-port-in-use');
+  if (/ECONNREFUSED/.test(text)) reasons.push('connection-refused');
+  if (/EAI_AGAIN|ENOTFOUND|Could not resolve host/i.test(text))
+    reasons.push('network-resolution');
+  if (/ETIMEDOUT|timed out/i.test(text)) reasons.push('deadline');
+  if (/undefined method\s+[`'‘]/i.test(text))
+    reasons.push('pods-ruby-missing-method');
+  if (/cannot load such file|LoadError/.test(text))
+    reasons.push('pods-ruby-load-error');
+  if (
+    /\[Codegen\][^\n]*(Error|Failed)|UnsupportedModulePropertyParserError|codegen[^\n]*(failed|error)/i.test(
+      text,
+    )
+  )
+    reasons.push('pods-codegen');
+  if (
+    /Verification checksum was incorrect|checksum[^\n]*(mismatch|incorrect|did not match|does not match)/i.test(
+      text,
+    )
+  )
+    reasons.push('pods-download-checksum');
+  if (
+    /Response code said error|requested URL returned error:\s*[45][0-9]{2}|HTTP[^\n]*\b[45][0-9]{2}\b|Failed to open TCP connection/i.test(
+      text,
+    )
+  )
+    reasons.push('pods-download-http');
+  if (
+    /Error (unpacking|extracting)|tar:[^\n]*(Error|invalid|Unrecognized|not[^\n]*archive)|unzip[^\n]*(error|invalid)|not in gzip format/i.test(
+      text,
+    )
+  )
+    reasons.push('pods-archive-extraction');
+  if (
+    /Error installing[^\n]*|Failed to download|Unable to download/i.test(text)
+  )
+    reasons.push('pods-download');
+  if (/could not find compatible versions|version conflict/i.test(text))
+    reasons.push('pods-version-conflict');
+  if (/Unable to find a specification/i.test(text))
+    reasons.push('pods-missing-specification');
+  if (/Invalid[^\n]{0,100}\.podspec[^\n]*file/i.test(text))
+    reasons.push('pods-invalid-podspec');
+  if (/Invalid[^\n]{0,40}Podfile[^\n]*file/i.test(text))
+    reasons.push('pods-invalid-podfile');
+  if (/No [`'‘]?Podfile[`'’]? found/i.test(text))
+    reasons.push('pods-missing-podfile');
+  if (
+    /Could not automatically select an Xcode project|Unable to find an Xcode project/i.test(
+      text,
+    )
+  )
+    reasons.push('pods-project-selection');
+  if (/Unable to add a source|Unable to update[^\n]*repo/i.test(text))
+    reasons.push('pods-source-unavailable');
+  if (/CocoaPods|\[!\]/.test(text)) reasons.push('pods-failure');
   if (/error:|BUILD FAILED|FAILURE: Build failed/.test(text))
-    return 'compiler-failure';
-  return 'unclassified';
+    reasons.push('compiler-failure');
+  return reasons.slice(0, 16);
+}
+
+const knownSpecs = new Set([
+  'ReactCodegen',
+  'React-Core',
+  'RCT-Folly',
+  'boost',
+  'glog',
+  'hermes-engine',
+  'Expo',
+  'ExpoModulesCore',
+  'RNReanimated',
+  'RNGestureHandler',
+  'RNScreens',
+  'RNSVG',
+  'RNCSafeAreaContext',
+  'RNCAsyncStorage',
+]);
+const knownRubyMethods = new Set([
+  'exists?',
+  'present?',
+  'use_native_modules!',
+  'use_react_native!',
+  'use_expo_modules!',
+  'install_modules_dependencies',
+]);
+export function knownPodFailureContext(text) {
+  const specs = new Set();
+  const rubyMethods = new Set();
+  for (const line of text.split(/\r?\n/)) {
+    if (
+      /specification for|versions for pod|Error installing|depends on/i.test(
+        line,
+      )
+    ) {
+      for (const match of line.matchAll(/[`'"]([^`'"]+)[`'"]/g))
+        if (knownSpecs.has(match[1])) specs.add(match[1]);
+      const unquoted = /Error installing\s+([A-Za-z0-9_-]+)/i.exec(line);
+      if (unquoted && knownSpecs.has(unquoted[1])) specs.add(unquoted[1]);
+    }
+    const method = /undefined method\s+[`'‘]([^`'’]+)[`'’]/i.exec(line);
+    if (method && knownRubyMethods.has(method[1])) rubyMethods.add(method[1]);
+  }
+  return { specs: [...specs], rubyMethods: [...rubyMethods] };
 }
 
 const buildPhases = new Set([
@@ -79,6 +182,8 @@ export function buildFailureDiagnostic(phaseJson, log) {
       phase: value.phase,
       exitCode: value.exitCode,
       category: nativeFailureCategory(log),
+      reasons: nativeFailureReasons(log),
+      ...knownPodFailureContext(log),
     };
   } catch {
     return null;
