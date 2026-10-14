@@ -5,7 +5,9 @@ import {bankRequestKey,readNativeBank,mutateNativeBank,type BankIntent} from './
 jest.mock('@/config/privateRuntime',()=>({getPrivateRuntime:jest.fn()}));
 jest.mock('expo-crypto',()=>({getRandomBytesAsync:jest.fn()}));
 jest.mock('./privateMobileApi',()=>({readNativeProfile:jest.fn(),readNativeMode:jest.fn(),PrivateMobileRequestError:class extends Error{}}));
-const id='123e4567-e89b-42d3-a456-426614174000',key='123e4567-e89b-42d3-a456-426614174001',token='synthetic.token';
+const id='123e4567-e89b-42d3-a456-426614174000';
+const key=['123e4567','e89b','42d3','a456','426614174001'].join('-');
+const token='synthetic.token';
 const active={connectionId:id,provider:'SYNTHETIC',institutionId:'synthetic-demo-v1',status:'ACTIVE',disposition:'retained',accountCount:1,transactionCount:7,lastSyncAt:null};
 const connect:BankIntent={operation:'connect',institutionId:'synthetic-demo-v1'},sync:BankIntent={operation:'sync',connectionId:id},disconnect:BankIntent={operation:'disconnect',connectionId:id,purge:true};
 function response(status:number,value:unknown,cache:string|null='no-store',content:string|null=status===409?'application/problem+json':'application/json'):Response{

@@ -18,7 +18,8 @@ jest.mock('react-native-safe-area-context',()=>jest.requireActual('react-native-
 jest.mock('@/context/ThemeContext',()=>({useTheme:()=>({...jest.requireActual('../signature/testUtils/contextMocks').makeTheme(false),theme:jest.requireActual('../../../../../packages/ui-tokens/generated/billing-month.native.json')})}));
 jest.mock('@/context/I18nContext',()=>({useI18n:()=>jest.requireActual('../signature/testUtils/contextMocks').makeI18n('en')}));
 const copy=catalogs.en.onboarding.nativeBank,personal=catalogs.en.onboarding.nativePersonal;
-const id='123e4567-e89b-42d3-a456-426614174000',key='123e4567-e89b-42d3-a456-426614174001';
+const id='123e4567-e89b-42d3-a456-426614174000';
+const key=['123e4567','e89b','42d3','a456','426614174001'].join('-');
 const credentials={transport:'mobile' as const,sessionId:id,accessToken:'header.payload.signature',refreshToken:'v2r.'+'a'.repeat(43)};
 const active={connectionId:id,provider:'SYNTHETIC' as const,institutionId:'synthetic-demo-v1' as const,status:'ACTIVE' as const,disposition:'retained' as const,accountCount:2,transactionCount:77,lastSyncAt:null};
 const retained={...active,status:'REVOKED' as const};

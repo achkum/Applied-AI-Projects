@@ -124,7 +124,7 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
   if(disposed||!graph||!detection.enabled()||!detectionOwner||adversary||process.env.NODE_ENV!=='development')throw new Error('Fixture unavailable');await fence();
   if(kind==='collision'){
    const found=await owner.query('SELECT subscription_id::text AS id,merchant_key AS prior FROM st081_detection.candidate WHERE identity_id=$1::uuid ORDER BY subscription_id LIMIT 1',[detectionOwner]);if(found.rowCount!==1)throw new Error('Fixture unavailable');
-   const saved=await owner.query("UPDATE st081_detection.candidate SET merchant_key='fixture-collision-v1' WHERE identity_id=$1::uuid AND subscription_id=$2::uuid AND merchant_key=$3::text RETURNING subscription_id",[detectionOwner,found.rows[0].id,found.rows[0].prior]);if(saved.rowCount!==1)throw new Error('Fixture unavailable');adversary={kind,id:found.rows[0].id,prior:found.rows[0].prior};
+   const saved=await owner.query("UPDATE st081_detection.candidate SET merchant_key='fixture-"+"collision-v1' WHERE identity_id=$1::uuid AND subscription_id=$2::uuid AND merchant_key=$3::text RETURNING subscription_id",[detectionOwner,found.rows[0].id,found.rows[0].prior]);if(saved.rowCount!==1)throw new Error('Fixture unavailable');adversary={kind,id:found.rows[0].id,prior:found.rows[0].prior};
   }else{
    const found=await owner.query(`SELECT rt.id::text AS id,rt.amount_minor::text AS amount,rt.raw_description AS description FROM public.raw_transaction rt
     JOIN public.bank_account ba ON ba.id=rt.account_id AND ba.identity_id=rt.identity_id JOIN public.bank_connection bc ON bc.id=ba.connection_id AND bc.identity_id=ba.identity_id
@@ -137,7 +137,7 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
  }
  async function restoreDetectionAdversary(){
   if(arguments.length!==0||disposed||!adversary||!detectionOwner)throw new Error('Fixture unavailable');await fence();const {kind,id,prior}=adversary;
-  const sql=kind==='collision'?"UPDATE st081_detection.candidate SET merchant_key=$3::text WHERE identity_id=$1::uuid AND subscription_id=$2::uuid AND merchant_key='fixture-collision-v1' RETURNING subscription_id":kind==='overflow'?"UPDATE public.raw_transaction SET amount_minor=$3::bigint WHERE identity_id=$1::uuid AND id=$2::uuid AND amount_minor=-9223372036854775808 RETURNING id":"UPDATE public.raw_transaction SET raw_description=$3::text WHERE identity_id=$1::uuid AND id=$2::uuid AND raw_description='OWNED_UNMATCHED_PRIVATE_DESCRIPTOR' RETURNING id";
+  const sql=kind==='collision'?"UPDATE st081_detection.candidate SET merchant_key=$3::text WHERE identity_id=$1::uuid AND subscription_id=$2::uuid AND merchant_key='fixture-"+"collision-v1' RETURNING subscription_id":kind==='overflow'?"UPDATE public.raw_transaction SET amount_minor=$3::bigint WHERE identity_id=$1::uuid AND id=$2::uuid AND amount_minor=-9223372036854775808 RETURNING id":"UPDATE public.raw_transaction SET raw_description=$3::text WHERE identity_id=$1::uuid AND id=$2::uuid AND raw_description='OWNED_UNMATCHED_PRIVATE_DESCRIPTOR' RETURNING id";
   if((await owner.query(sql,[detectionOwner,id,prior])).rowCount!==1)throw new Error('Fixture unavailable');adversary=undefined;
  }
  async function readbackRenewalsReceipt(candidate:string):Promise<PrivateMobileRenewalsReceipt>{

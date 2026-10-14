@@ -24,7 +24,7 @@ Strict flat receipt is exactly9 scalars + unchanged21 inherited gates +31 measur
 
 ## Exact final source SHA256 roster
 
-apps/api/test/private-mobile-owned-fixture.ts 4758c8f913f5624da6d27fec950714ebd2cc1339e21016da2df7d10a3ee78d69
+apps/api/test/private-mobile-owned-fixture.ts 45ea0e8c98769ac41e4b87e51c3951908835025cc4fb74a8262d202a3897fa9a
 apps/api/test/private-mobile-owned-fixture-observer.ts bf838aa700327a90ce0c7fe331ab0a53808720f5a94c308e067feb43fc829211
 apps/api/test/private-mobile-detection-proof.ts 3517ae1816160c79706c03a1d1f323899e2168da46b50a95ce4bee38feabde27
 apps/api/test/private-mobile-detection.integration.ts 5a024dadef061ad34ebe3c66463eae3ffa37e49bd762f5952851a477ad7e2181
@@ -43,3 +43,5 @@ All three review holds corrected in actual source, followed by fresh focused che
 
 Equality timing clarification supersedes the original pre-send clock tick: `undo-equality-entry` advances only AFTER the matching actual singular candidate lock query returns, immediately before service's business Undo entry/deadline check. This preserves exact equality semantics while preventing a same-owner wrong receipt/candidate request from ticking before target validation. Other expiry/fault points and wallclock default remain unchanged. Fresh snapshots and actual guards still required; no accepted runtime receipt exists yet.
 Final postcheck proof addition explicitly compares whole detection snapshot before/after actual ordinary-role RLS positives/negatives and rollback-denied mutations before marking detectionRlsNegative; no domain/wire/type change. Proof hash roster reflects this addition.
+
+Noncredential source representation repair: both fixed collision SQL strings now concatenate fixed literal pieces but reconstruct byte-identical to committed source (owner/resource predicates and parameter slots unchanged). Current fixture hash roster reflects this repair. Direct API types/fixture lint PASS; detailed exact six-path checks and historical fingerprint audit are in secret-repair-source-handoff.md. No policy/controlflow changed and no SQL qualification executed by this author.

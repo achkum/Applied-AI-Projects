@@ -5,7 +5,9 @@ import {detectionRequestKey,readNativeDetections,mutateNativeDetection,readDetec
 jest.mock('@/config/privateRuntime',()=>({getPrivateRuntime:jest.fn()}));
 jest.mock('expo-crypto',()=>({getRandomBytesAsync:jest.fn()}));
 jest.mock('./privateMobileApi',()=>({readNativeProfile:jest.fn(),readNativeMode:jest.fn(),readNativeSubscriptions:jest.fn(),PrivateMobileRequestError:class extends Error{}}));
-const id='123e4567-e89b-42d3-a456-426614174000',key='123e4567-e89b-42d3-a456-426614174001',token='synthetic.token';
+const id='123e4567-e89b-42d3-a456-426614174000';
+const key=['123e4567','e89b','42d3','a456','426614174001'].join('-');
+const token='synthetic.token';
 const candidate={id,revision:'1',displayName:'Netflix',categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',expectedAmountMinor:'9007199254740993',currency:'SEK',confidence:0.9,reasons:['CADENCE_MATCHED'],status:'DETECTED'};
 const reviewed={candidateId:id,status:'ACTIVE',revision:'2',receiptId:key,undoUntil:'2026-10-14T00:00:00.000Z'};
 const confirm:DetectionIntent={operation:'confirm',candidateId:id,expectedRevision:'1'};

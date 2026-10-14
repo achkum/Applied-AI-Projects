@@ -52,3 +52,12 @@ effe056ccce9eb5bbaee8fd4cbd04b51af92df34:SubTrack/apps/api/src/subscriptions/pri
 2fa779ab8f87dcafdae839b19a88d30c12888911:SubTrack/.sdlc/evidence/ST-247/legacy-token-baseline.json:generic-api-key:3
 4cb41ac6bea16a5a4a1a9650003ee3f0d642af8a:SubTrack/.sdlc/evidence/ST-247/legacy-token-baseline.json:generic-api-key:3
 4cb41ac6bea16a5a4a1a9650003ee3f0d642af8a:SubTrack/.sdlc/evidence/ST-247/legacy-token-checkout-baseline.json:generic-api-key:3
+
+# ST249 independently audited fixed UUID request-test inputs and owned collision SQL sentinels.
+# Exact six immutable noncredential findings only; current full-range scanning remains mandatory.
+597776129a88ea79308c4478e06f5ea439035618:SubTrack/apps/mobile/src/api/privateMobileDetection.test.ts:generic-api-key:8
+1cf91766449342032736013aefb7ee693471b2cd:SubTrack/apps/api/test/private-mobile-owned-fixture.ts:generic-api-key:127
+1cf91766449342032736013aefb7ee693471b2cd:SubTrack/apps/api/test/private-mobile-owned-fixture.ts:generic-api-key:140
+597776129a88ea79308c4478e06f5ea439035618:SubTrack/apps/mobile/src/components/detection/NativeDetectionInboxScreen.test.tsx:generic-api-key:21
+83412b7b613fa53886e9aeb8e032f2fc14ec3c36:SubTrack/apps/mobile/src/api/privateMobileBank.test.ts:generic-api-key:8
+83412b7b613fa53886e9aeb8e032f2fc14ec3c36:SubTrack/apps/mobile/src/components/banks/NativePersonalBankScreen.test.tsx:generic-api-key:21
