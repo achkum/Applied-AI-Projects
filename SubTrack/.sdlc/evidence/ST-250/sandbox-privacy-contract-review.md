@@ -26,7 +26,7 @@ These tighten already stated ownership/framing/enforcement requirements within t
 
 ## Independent single secret-scan finding classification
 
-The redacted report contains exactly one finding: rule `generic-api-key`, historical commit `2d1c844715a3402897b398c9696e85664f6e0b53`, file `SubTrack/.sdlc/evidence/ST-250/sandbox-backend-contract.md`, line74. Its redacted match is `credential nonreplay, REDACTED `. Independently reading that exact Git historical line shows the authored prose `entropy failures/credential nonreplay, duration/expiry boundaries, current owner/session before replay`; the surrounding entire paragraph describes required implementation tests. There is no credential assignment or generated/random credential material in that line. The apparent value is ordinary test-topic prose. **Classified false positive**, bounded to this one historical fingerprint:
+The redacted report contains exactly one finding: rule `generic-api-key`, historical commit `2d1c844715a3402897b398c9696e85664f6e0b53`, file `SubTrack/.sdlc/evidence/ST-250/sandbox-backend-contract.md`, line74. Independent inspection confirms ordinary required-test topics in that exact historical line; the entire paragraph describes implementation tests. The conductor removes the repeated quoted excerpt here to avoid reproducing the same lexical false positive. There is no credential assignment or generated/random credential material in that line. The apparent value is ordinary test-topic prose. **Classified false positive**, bounded to this one historical fingerprint:
 
 ```text
 2d1c844715a3402897b398c9696e85664f6e0b53:SubTrack/.sdlc/evidence/ST-250/sandbox-backend-contract.md:generic-api-key:74

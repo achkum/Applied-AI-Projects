@@ -63,3 +63,5 @@ effe056ccce9eb5bbaee8fd4cbd04b51af92df34:SubTrack/apps/api/src/subscriptions/pri
 83412b7b613fa53886e9aeb8e032f2fc14ec3c36:SubTrack/apps/mobile/src/components/banks/NativePersonalBankScreen.test.tsx:generic-api-key:21
 # ST250 independently reviewed public required-test prose only; exact historical hunk.
 2d1c844715a3402897b398c9696e85664f6e0b53:SubTrack/.sdlc/evidence/ST-250/sandbox-backend-contract.md:generic-api-key:74
+# ST250 public required-test prose quoted in the independent review; exact historical hunk.
+6f4ba455c4e0ca926a2f1fe10a0e5349e8208a59:SubTrack/.sdlc/evidence/ST-250/sandbox-privacy-contract-review.md:generic-api-key:29
