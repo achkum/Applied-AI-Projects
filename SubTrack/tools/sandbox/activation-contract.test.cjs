@@ -95,3 +95,20 @@ test('actual retained live validator binds each image environment entrypoint mou
  const volume=c.Mounts.findIndex(x=>x.Type==='volume');if(volume>=0){const changed=structuredClone(c);changed.Mounts[volume].Name='foreign';assert.throws(()=>validate(changed,base,service,root,records,head,identity));}
  }
 });
+
+
+test('actual HTTPS readback emits only closed operation and predicate diagnostics',()=>{
+ const deploy=fs.readFileSync(path.join(__dirname,'deploy.sh'),'utf8').replace(/\r\n/g,'\n'),script=deploy.split('node - "$api_id" "$api_container_image" <<\'NODE\'\n')[1]?.split('\nNODE')[0];assert.ok(script);
+ const run=prefix=>spawnSync(process.execPath,['-','a'.repeat(64),'sha256:'+'b'.repeat(64)],{input:prefix+'\n'+script,encoding:'utf8',timeout:3000});
+ const response=(status,cache,body)=>`global.fetch=async()=>({status:${status},headers:{get:()=>${JSON.stringify(cache)}},body:{getReader(){let read=false;return{async read(){if(read)return{done:true};read=true;return{done:false,value:Buffer.from(${JSON.stringify(body)})}},async cancel(){}}}}});`;
+ for(const [prefix,predicate]of[
+  ['global.fetch=async()=>{throw Error("private response secret")};','FETCH'],
+  [response(201,'no-store','x'.repeat(65537)),'BODY_BOUND'],
+  [response(201,'private response secret','{}'),'CACHE_CONTROL'],
+  [response(201,'no-store','private response secret'),'JSON'],
+  [response(500,'no-store','{}'),'HTTP_STATUS'],
+  [response(201,'no-store','{}'),'CAPABILITY']
+ ]){const result=run(prefix);assert.equal(result.status,1);assert.equal(result.stdout,'');assert.equal(result.stderr,`ST250_HTTPS_READBACK_DIAGNOSTIC step=BOOTSTRAP predicate=${predicate}\nST250_DEPLOYMENT_UNAVAILABLE stage=HTTPS_READBACK\n`);}
+ const malformed=run('global.fetch=()=>{throw new Proxy({}, {get(){throw Error("private")}})};');assert.equal(malformed.status,1);assert.equal(malformed.stderr,'ST250_HTTPS_READBACK_DIAGNOSTIC step=BOOTSTRAP predicate=FETCH\nST250_DEPLOYMENT_UNAVAILABLE stage=HTTPS_READBACK\n');
+ const diagnostics=script.split('// BEGIN READBACK DIAGNOSTICS\n')[1].split('// END READBACK DIAGNOSTICS')[0];const probe=new Function(diagnostics+'\nmark("private route","private predicate");return diagnostic();');assert.equal(probe(),'ST250_HTTPS_READBACK_DIAGNOSTIC step=INPUT predicate=VALUE');
+});
