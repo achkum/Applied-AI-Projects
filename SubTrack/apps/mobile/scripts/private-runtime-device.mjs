@@ -1,4 +1,6 @@
 import {qualifyNativeBank,acceptedNativeBankScreenshot,ACCEPTED_NATIVE_BANK_SCREENSHOTS} from './private-runtime-bank.mjs';
+import {prepareEnrollmentMetadata,enrollmentMetadataLines} from './private-runtime-maestro-metadata.mjs';
+import {enrollmentStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
 import {qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
 import {renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
 import {qualifyNativeEditStatus,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS} from './private-runtime-edit-status.mjs';
@@ -116,10 +118,11 @@ async function main() {
   assert.equal(config.database, 'st237_private_https_profile');
 
   let enrollmentExecution = null;
+  let enrollmentMetadata = null;
   async function run(command, args, label, extraEnv = {}, cwd = app) {
     const execution = command === 'maestro' && label === 'enroll-add' && args.at(-1) === join(app, 'e2e/private-runtime-enroll-add.yaml')
       ? createEnrollmentExecution(label) : null;
-    if (execution) enrollmentExecution = execution;
+    if (execution) {enrollmentExecution = execution;enrollmentMetadata=prepareEnrollmentMetadata(privateDir,execution);}
     const fd = openSync(join(privateDir, `${label}.log`), 'w', 0o600);
     try {
       await new Promise((accept, reject) => {
@@ -425,6 +428,9 @@ async function main() {
           return '';
         }
       };
+      const stageDiagnostic=enrollmentStageDiagnostic({phase:currentPhase,log:readTool('metro.log')});
+      if(stageDiagnostic) for(const [stage,count] of Object.entries(stageDiagnostic)) console.error(`ST244_NATIVE enrollment_stage=${stage} count=${count}`);
+      else console.error('ST244_NATIVE enrollment_stage_diagnostic=unavailable');
       // Fixed first-flow child-tool files only. Never API/other-flow output,
       // excerpts, failed screenshots or arbitrary artifact discovery.
       const diagnostic = identifierToolDiagnostic({
@@ -446,6 +452,8 @@ async function main() {
         );
     }
     if (currentPhase === 'flow-enroll-add') {
+      const metadata=enrollmentMetadata?.read(currentPhase);
+      if(metadata) for(const line of enrollmentMetadataLines(metadata))console.error(`ST244_NATIVE ${line}`);
       let enrollmentLogSize = null;
       try { enrollmentLogSize = statSync(join(privateDir, 'enroll-add.log')).size; } catch { /* No paths or error details escape. */ }
       const executionDiagnostic = enrollmentExecutionDiagnostic({ phase: currentPhase, execution: enrollmentExecution?.snapshot(), logSize: enrollmentLogSize });

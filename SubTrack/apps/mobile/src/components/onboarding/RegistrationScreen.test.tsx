@@ -1,3 +1,6 @@
+let mockDiagnosticChannel:ReturnType<typeof import('@/utils/privateRuntimeEnrollmentDiagnostic').createEnrollmentDiagnosticChannel>|undefined;
+jest.mock('@/utils/privateRuntimeEnrollmentDiagnostic',()=>{const actual=jest.requireActual<typeof import('@/utils/privateRuntimeEnrollmentDiagnostic')>('@/utils/privateRuntimeEnrollmentDiagnostic');return {...actual,calibrateEnrollmentDiagnostic:()=>mockDiagnosticChannel?.calibrate()??(()=>{}),observeEnrollmentStage:(stage:import('@/utils/privateRuntimeEnrollmentDiagnostic').EnrollmentDiagnosticStage)=>mockDiagnosticChannel?.observe(stage),beginEnrollmentDiagnostic:()=>mockDiagnosticChannel?.begin()};});
+import {beginEnrollmentDiagnostic,createEnrollmentDiagnosticChannel} from '@/utils/privateRuntimeEnrollmentDiagnostic';
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { catalogs } from '@subtrack/i18n';
@@ -232,4 +235,11 @@ describe('mandatory private native completion',()=>{
     expect(mockNativeComplete).toHaveBeenCalledTimes(1);
   });
 
+});
+
+
+test('owned mounted register calibration is fixed and survives starting, retires on unmount; login never calibrates',()=>{
+ const log=jest.spyOn(console,'info').mockImplementation(()=>{});mockDiagnosticChannel=createEnrollmentDiagnosticChannel(()=>({development:true,platform:'ios',proof:'true',enabled:'true',url:'https://localhost:3443'}),fixed=>console.info(fixed));
+ try{mockFlow={phase:'identifier'};const view=render(<RegistrationScreen/>);expect(log.mock.calls.map(([line])=>line)).toEqual(['ST244_ENROLLMENT calibration=mounted']);const observer=beginEnrollmentDiagnostic();mockFlow={phase:'starting'};view.rerender(<RegistrationScreen/>);observer?.stage('fetch-entered');expect(log).toHaveBeenLastCalledWith('ST244_ENROLLMENT stage=fetch-entered');view.unmount();observer?.stage('flow-committed');expect(log).toHaveBeenCalledTimes(2);render(<RegistrationScreen mode="login"/>);expect(log).toHaveBeenCalledTimes(2);}
+ finally{mockDiagnosticChannel=undefined;log.mockRestore();}
 });

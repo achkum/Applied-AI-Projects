@@ -1,3 +1,6 @@
+let mockDiagnosticChannel:ReturnType<typeof import('@/utils/privateRuntimeEnrollmentDiagnostic').createEnrollmentDiagnosticChannel>|undefined;
+jest.mock('@/utils/privateRuntimeEnrollmentDiagnostic',()=>{const actual=jest.requireActual<typeof import('@/utils/privateRuntimeEnrollmentDiagnostic')>('@/utils/privateRuntimeEnrollmentDiagnostic');return {...actual,calibrateEnrollmentDiagnostic:()=>mockDiagnosticChannel?.calibrate()??(()=>{}),observeEnrollmentStage:(stage:import('@/utils/privateRuntimeEnrollmentDiagnostic').EnrollmentDiagnosticStage)=>mockDiagnosticChannel?.observe(stage),beginEnrollmentDiagnostic:()=>mockDiagnosticChannel?.begin()};});
+import {calibrateEnrollmentDiagnostic,createEnrollmentDiagnosticChannel,type EnrollmentDiagnostic} from '@/utils/privateRuntimeEnrollmentDiagnostic';
 import React from 'react';
 import { Pressable, Text } from 'react-native';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react-native';
@@ -238,4 +241,11 @@ describe('in-memory enrollment flow', () => {
     );
     expect(phase()).toBe('identifier');
   });
+});
+
+
+test('owned opaque start observer is passive and reset fences late client stages and results',async()=>{
+ const log=jest.spyOn(console,'info').mockImplementation(()=>{});mockDiagnosticChannel=createEnrollmentDiagnosticChannel(()=>({development:true,platform:'ios',proof:'true',enabled:'true',url:'https://localhost:3443'}),fixed=>console.info(fixed));const close=calibrateEnrollmentDiagnostic();
+ try{mockPathname='/register';start.mockClear();let resolve:(value:{challengeId:string;status:'accepted';nextBrowserNonce:null})=>void=()=>{};start.mockImplementationOnce(()=>new Promise(accept=>{resolve=accept;}));mount();fireEvent.press(screen.getByTestId('start'));const observer=start.mock.calls[0]?.[2] as EnrollmentDiagnostic;expect(start).toHaveBeenCalledTimes(1);expect(observer).toBeDefined();observer.stage('fetch-entered');fireEvent.press(screen.getByTestId('start'));expect(start).toHaveBeenCalledTimes(1);expect(log).toHaveBeenLastCalledWith('ST244_ENROLLMENT stage=start-ignored');fireEvent.press(screen.getByTestId('reset'));observer.stage('response-accepted');await act(async()=>resolve({challengeId,status:'accepted',nextBrowserNonce:null}));expect(phase()).toBe('identifier');expect(log.mock.calls.map(([line])=>line)).toEqual(['ST244_ENROLLMENT calibration=mounted','ST244_ENROLLMENT stage=start-accepted','ST244_ENROLLMENT stage=fetch-entered','ST244_ENROLLMENT stage=start-ignored']);}
+ finally{close();mockDiagnosticChannel=undefined;log.mockRestore();}
 });

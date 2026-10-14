@@ -1,0 +1,9 @@
+# Coherent C21/C22 head: iOS actual preflight result
+
+Exact head4a3d269f7d78681e813352085255e7e782196da7, native run38495163270/iOSjob115629164493 completed FAILURE. Failed step Locked dependencies and proof tools; actual installed driver/fixture/native build and C21/C22 command observation were not reached. Owned fixture/debug cleanup SUCCESS, sanitized evidence upload SKIPPED. Android job remained IN_PROGRESS; shared CI remained IN_PROGRESS with Compose runtime SUCCESS at inspection.
+
+Closed safe unit-failure metadata: C22 private-runtime-maestro-metadata-test.mjs, test fresh invocation reader is failure-only, bounded and refuses missing/ambiguous/different flow ownership, source line32 expectedAVAILABLE but gotUNAVAILABLE. Associated helper branchcoverage threshold failed because this prerequisite positive fixture failed. No actual app/OTP/private values/log/excerpt/path exposed.
+
+Source-backed portability hypothesis: test fixture builds beneath lexical os.tmpdir(); production reader intentionally requires a canonical nonsymlink owner path where realpathSync(path) equals resolve(path). A macOS OS-temporary-directory alias can violate that test setup prerequisite and returnUNAVAILABLE before parsing the positive producer fixture. Smallest correction is canonicalize the test temp anchor via fs.realpathSync(tmpdir()) before mkdtemp and validate cleanup containment against that same canonical anchor, preserving production ownership/symlink/containment checks. The existing fixture is meant to test a canonical owned tree. Actual underlying temporary path values were not emitted; this is an inference from exact failing source/guard, not a product defect or weakening approval.
+
+Read-only monitor made no edits/Git/reruns/cancel. Private GitHub job log retained under host TEMP. No C21 Pods cause, C19 client stage, C22 actual command, installed receipt or acceptance claim is available from this iOS preflight failure.

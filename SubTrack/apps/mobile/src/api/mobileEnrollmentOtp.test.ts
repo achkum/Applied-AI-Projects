@@ -184,3 +184,27 @@ describe('development mobile enrollment wire calls', () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 });
+
+// C19: passive observers do not alter envelopes, outcomes or retries.
+describe('owned passive enrollment stages',()=>{
+ const originalFetch=globalThis.fetch;
+ afterEach(()=>{globalThis.fetch=originalFetch;});
+ it('reports genuine stages and preserves one original request and accepted result',async()=>{
+  (globalThis as typeof globalThis&{__DEV__:boolean}).__DEV__=true;Object.defineProperty(Platform,'OS',{value:'ios',configurable:true});mockRandom.mockResolvedValue(Uint8Array.from({length:32},()=>1));
+  const stage=jest.fn(),observer={stage,retire:jest.fn()},client=createMobileEnrollmentClient('true','https://localhost:3443');globalThis.fetch=jest.fn(async()=>({status:202,json:async()=>({challengeId,status:'accepted',nextBrowserNonce:null})})) as unknown as typeof fetch;
+  await expect(client.start('email','person@example.test',observer)).resolves.toEqual({challengeId,status:'accepted',nextBrowserNonce:null});expect(globalThis.fetch).toHaveBeenCalledTimes(1);expect(stage.mock.calls.map(([value])=>value)).toEqual(['config-accepted','entropy-accepted','fetch-entered','response-accepted','contract-accepted']);
+ });
+ it('separates pre-request configuration and entropy failures from network failure without retries',async()=>{
+  (globalThis as typeof globalThis&{__DEV__:boolean}).__DEV__=true;Object.defineProperty(Platform,'OS',{value:'ios',configurable:true});
+  const stage=jest.fn(),observer={stage,retire:jest.fn()};globalThis.fetch=jest.fn(async()=>{throw new Error('private-canary');}) as unknown as typeof fetch;
+  await expect(createMobileEnrollmentClient('false','https://localhost:3443').start('email','person@example.test',observer)).rejects.toMatchObject({reason:'unavailable'});expect(stage.mock.calls.flat()).toEqual(['config-rejected']);expect(globalThis.fetch).not.toHaveBeenCalled();
+  stage.mockClear();mockRandom.mockRejectedValueOnce(new Error('private-canary'));const client=createMobileEnrollmentClient('true','https://localhost:3443');await expect(client.start('email','person@example.test',observer)).rejects.toMatchObject({reason:'unavailable'});expect(stage.mock.calls.flat()).toEqual(['config-accepted','entropy-rejected']);expect(globalThis.fetch).not.toHaveBeenCalled();
+  stage.mockClear();mockRandom.mockResolvedValue(Uint8Array.from({length:32},()=>1));await expect(client.start('email','person@example.test',observer)).rejects.toMatchObject({reason:'restart'});expect(stage.mock.calls.flat()).toEqual(['config-accepted','entropy-accepted','fetch-entered','fetch-rejected']);expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+ });
+ it('reports response/contract rejection and preserves semantics even if an observer throws',async()=>{
+  (globalThis as typeof globalThis&{__DEV__:boolean}).__DEV__=true;Object.defineProperty(Platform,'OS',{value:'ios',configurable:true});mockRandom.mockResolvedValue(Uint8Array.from({length:32},()=>1));const stage=jest.fn(),observer={stage,retire:jest.fn()},client=createMobileEnrollmentClient('true','https://localhost:3443');
+  globalThis.fetch=jest.fn(async()=>({status:429,json:async()=>({})})) as unknown as typeof fetch;await expect(client.start('email','person@example.test',observer)).rejects.toMatchObject({reason:'limited'});expect(stage.mock.calls.flat()).toContain('response-other');
+  stage.mockClear();globalThis.fetch=jest.fn(async()=>({status:202,json:async()=>({private:'private-canary'})})) as unknown as typeof fetch;await expect(client.start('email','person@example.test',observer)).rejects.toMatchObject({reason:'restart'});expect(stage.mock.calls.flat()).toContain('contract-rejected');
+  globalThis.fetch=jest.fn(async()=>({status:202,json:async()=>({challengeId,status:'accepted',nextBrowserNonce:null})})) as unknown as typeof fetch;await expect(client.start('email','person@example.test',{stage:()=>{throw new Error('private-canary');},retire:()=>{}})).resolves.toMatchObject({status:'accepted'});expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+ });
+});

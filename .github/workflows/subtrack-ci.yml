@@ -219,8 +219,36 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          GITLEAKS_VERSION: "8.24.3"
           GITLEAKS_ENABLE_COMMENTS: "false"
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+      # The action's PR commit lookup is limited to its first API page. Scan the
+      # complete event base..head range with the same installed pinned binary.
+      - name: Gitleaks complete pull request range
+        shell: bash
+        working-directory: .
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          for sha in "$PR_BASE_SHA" "$PR_HEAD_SHA"; do
+            [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'Secret scan commit reference invalid' >&2; exit 1; }
+            git cat-file -e "${sha}^{commit}" || { echo 'Secret scan commit unavailable' >&2; exit 1; }
+          done
+          commit_count=$(git rev-list --count "${PR_BASE_SHA}..${PR_HEAD_SHA}")
+          [[ "$commit_count" =~ ^[1-9][0-9]*$ ]] || { echo 'Secret scan range empty' >&2; exit 1; }
+          command -v gitleaks >/dev/null || { echo 'Pinned secret scanner unavailable' >&2; exit 1; }
+          set +e
+          gitleaks detect --redact --exit-code=2 --log-opts="${PR_BASE_SHA}..${PR_HEAD_SHA}" >/dev/null 2>&1
+          result=$?
+          set -e
+          if [[ "$result" -ne 0 ]]; then
+            echo "Complete secret scan failed (exit ${result})" >&2
+            exit "$result"
+          fi
+          echo 'Complete pull request secret scan passed.'
 
       - name: License check
         shell: bash

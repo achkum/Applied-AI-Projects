@@ -6,7 +6,7 @@ milestone_current: M1
 current_delivery: ST-086
 current_slice: ST-247
 execution_phase: combined_native_runtime_qualification
-source_pipeline_slice: ST-245
+source_pipeline_slice: ST-248
 source_pipeline_slices: [ST-245, ST-246, ST-247, ST-248]
 approved_native_design: docs/product/BILLING_MONTH_ADOPTION.md
 approved_template: docs/product/references/subtrack-billing-month.html

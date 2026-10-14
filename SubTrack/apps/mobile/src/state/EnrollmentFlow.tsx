@@ -14,6 +14,8 @@ import {
   type EnrollmentError,
 } from '@/api/mobileEnrollmentOtp';
 
+import {beginEnrollmentDiagnostic,emitEnrollmentDiagnostic,observeEnrollmentStage,type EnrollmentDiagnostic} from '@/utils/privateRuntimeEnrollmentDiagnostic';
+
 type Identifier = Extract<IdentifierResult, { valid: true }>;
 type Flow =
   | { phase: 'identifier'; error?: EnrollmentError }
@@ -50,6 +52,7 @@ export function EnrollmentProvider({
   const [flow, setFlow] = useState<Flow>(initial);
   const current = useRef<Flow>(initial);
   const generation = useRef(0);
+  const diagnostic=useRef<EnrollmentDiagnostic|undefined>(undefined);
   const mounted = useRef(false);
   const previousPath = useRef(pathname);
   const update = (next: Flow) => {
@@ -59,6 +62,7 @@ export function EnrollmentProvider({
   useEffect(() => {
     mounted.current = true;
     return () => {
+      diagnostic.current?.retire();
       mounted.current = false;
       generation.current++;
       current.current = initial;
@@ -66,6 +70,7 @@ export function EnrollmentProvider({
   }, []);
 
   const reset = () => {
+    diagnostic.current?.retire();diagnostic.current=undefined;
     generation.current++;
     update(initial);
   };
@@ -84,15 +89,16 @@ export function EnrollmentProvider({
     if (!enrollmentPath || backedToEarlierStep) reset();
   }, [pathname]);
   const start = async (identifier: Identifier) => {
-    if (current.current.phase !== 'identifier') return;
+    if (current.current.phase !== 'identifier') {observeEnrollmentStage('start-ignored');return;}
+    const observer=beginEnrollmentDiagnostic();diagnostic.current=observer;emitEnrollmentDiagnostic(observer,'start-accepted');
     const ticket = ++generation.current;
     update({ phase: 'starting', identifier });
     try {
-      const result = await startMobileEnrollment(
-        identifier.channel,
-        identifier.identifier,
-      );
-      if (ticket === generation.current && mounted.current)
+      const result = observer
+        ? await startMobileEnrollment(identifier.channel,identifier.identifier,observer)
+        : await startMobileEnrollment(identifier.channel,identifier.identifier);
+      if (ticket === generation.current && mounted.current) {
+        emitEnrollmentDiagnostic(observer,'flow-committed');
         update({
           phase: 'otp',
           identifier,
@@ -100,6 +106,7 @@ export function EnrollmentProvider({
           cooldownUntil: Date.now() + 30_000,
           pending: false,
         });
+      } else emitEnrollmentDiagnostic(observer,'flow-obsolete');
     } catch (error) {
       if (ticket === generation.current && mounted.current)
         update({ phase: 'identifier', error: reason(error) });

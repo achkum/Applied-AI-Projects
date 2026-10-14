@@ -7,6 +7,7 @@ import { getColorByTheme } from '@/utils/colors';
 import { IdentifierEntry } from './IdentifierEntry';
 import { useEnrollment } from '@/state/EnrollmentFlow';
 import { useNativeSession } from '@/state/NativeSession';
+import {calibrateEnrollmentDiagnostic} from '@/utils/privateRuntimeEnrollmentDiagnostic';
 
 export type RegistrationMode = 'register' | 'login';
 
@@ -23,6 +24,7 @@ export function RegistrationScreen({
   const [loginError, setLoginError] = useState(false);
   const color = (key: string) => getColorByTheme(theme, isDark, key);
 
+  useEffect(()=>mode==='register'?calibrateEnrollmentDiagnostic():undefined,[mode]);
   useEffect(() => {
     if (mode === 'login') {
       if (flow.phase !== 'identifier') reset();
