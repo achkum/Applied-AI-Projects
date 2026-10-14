@@ -2,6 +2,7 @@
   admin off
   http_port 8080
   https_port 8443
+  default_sni 198.44.116.159
   auto_https disable_redirects
   servers {
     protocols h1 h2

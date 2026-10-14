@@ -1,0 +1,11 @@
+# Fixed-IP no-SNI compatibility source review
+
+Disposition: **SOURCE GO** for the five-path bounded slice. Actual SHA256 matches Caddyfile `354e7d0d22073c1a793d3b43486743d2b3bde14510a907fd062e3fea91485aec`; import helper `eb463a9015a7590cb2ef582cf9dca5e146628eef3d1b64b6b81a2f21d5b73f4a`; activation test `2c70056e5477b744d5050123fa7074878c2e479cd8c1c8212430ca4e1982412c`; docs `e049cbf6a158da4efcf31f6a533e4b21b3b8039057175adad3d31fb063b4a679`; task `2539c9b352e2c9118f60ff68a74b4e96a94b53da7edfd929f8840d972159b800`.
+
+The actual Caddyfile delta against 8c220b1 adds only `default_sni 198.44.116.159`. [Official Caddy documentation](https://caddyserver.com/docs/caddyfile/options#default_sni) defines this as the TLS ServerName used for clients omitting SNI. The fixed origin, explicit public ACME issuer, site/routes, preparation gate, header policy and client IP/chain verification remain unchanged. It introduces no arbitrary-host issuance or trust fallback.
+
+The closed capless-caddy-v2 profile binds the exact default and Caddyfile hash alongside unchanged executable pin/hash/size/capability policy. Source-v3 permits the configuration rollover only with that literal profile and exact ledger hash; four historical backend inputs remain byte exact. Source regressions add wrong default/hash rejection and bind the profile to actual configuration bytes. No material defect found.
+
+Analogous metadata-only retained-history rollout is approved: authenticate and uniquely retain the prior 8c source ledger, changed source bytes and both import bindings before replacement; reuse the verified capless binary; install authenticated reviewed configuration/tooling and rederive fresh bindings. Preserve keys, bootstrap markers, certificate/database volumes, data and database/API IDs. Recreate only the exact owned gateway with replacement-ID failure cleanup, then require trusted no-SNI TLS, full live portfolio and durable two-owner readback. Never reinitialize or silently reuse the old configuration binding.
+
+Root-reported issuance/explicit-SNI success and no-SNI failure explain the repair but do not establish amended runtime acceptance. No tests or remote/runtime actions were performed by this reviewer.

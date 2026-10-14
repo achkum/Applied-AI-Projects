@@ -1,4 +1,7 @@
 import { createHash } from 'node:crypto';
+import {createRequire} from 'node:module';
+import {createReadStream,promises as fsAsync} from 'node:fs';
+import {createGunzip} from 'node:zlib';
 import { readFileSync, writeFileSync, lstatSync, unlinkSync, openSync, closeSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { gunzipSync, inflateRawSync } from 'node:zlib';
@@ -133,12 +136,15 @@ export function canonical(bytes, validator) {
   return validator(value);
 }
 export function bind(manifest, receipt, payload, manifestBytes, kind) {
+  bindMeasured(manifest,receipt,digest(payload),payload.length,manifestBytes,kind);
+  if(kind==='apk'&&manifest.runtimeEnabled===true){const measured=inspectActiveApk(payload,manifest.versionCode);for(const k of ['embeddedConfigSha256','hermesSha256'])if(measured[k]!==manifest[k])unavailable();}return true;
+}
+function bindMeasured(manifest,receipt,hash,bytes,manifestBytes,kind){
   validateManifest(manifest,kind); validateTransfer(receipt,kind);
   const hashField = kind === 'tools' ? 'archiveSha256' : 'unsignedSha256', sizeField = kind === 'tools' ? 'archiveBytes' : 'bytes';
   for (const field of ['sourceHead','runId','defaultTargetHead','draftTag',hashField,sizeField]) if (manifest[field] !== receipt[field]) unavailable();
   if (kind === 'tools' && manifest.imageId !== receipt.imageId) unavailable();
-  if (digest(payload) !== manifest[hashField] || payload.length !== manifest[sizeField] || digest(manifestBytes) !== receipt.manifestSha256 || manifestBytes.length !== receipt.manifestBytes) unavailable();
-  if(receipt.manifestSchema!==manifest.schema)unavailable();if(kind==='apk'&&manifest.runtimeEnabled===true){const measured=inspectActiveApk(payload,manifest.versionCode);for(const k of ['embeddedConfigSha256','hermesSha256'])if(measured[k]!==manifest[k])unavailable();}return true;
+  if(hash!==manifest[hashField]||bytes!==manifest[sizeField]||digest(manifestBytes)!==receipt.manifestSha256||manifestBytes.length!==receipt.manifestBytes||receipt.manifestSchema!==manifest.schema)unavailable();return true;
 }
 export function validateRemote(release, manifest, receipt, kind, allowExpired=false) {
   validateManifest(manifest,kind); validateTransfer(receipt,kind);
@@ -170,6 +176,31 @@ export function readRegular(file,max) {
   const stat=lstatSync(file); if(!stat.isFile()||stat.isSymbolicLink()||!bounded(stat.size,max))unavailable();
   return readFileSync(file);
 }
+const importTools=createRequire(import.meta.url)('./image-import-binding.cjs');
+async function streamDigest(file,maximum){const st=lstatSync(file);if(!st.isFile()||st.isSymbolicLink()||!bounded(st.size,maximum))unavailable();const hash=createHash('sha256');let bytes=0;for await(const chunk of createReadStream(file,{highWaterMark:65536})){bytes+=chunk.length;if(bytes>maximum)unavailable();hash.update(chunk);}if(bytes!==st.size)unavailable();return {sha256:hash.digest('hex'),bytes};}
+export async function toolsCustody(directory){const manifestBytes=readRegular(path.join(directory,'manifest.json'),16384),receiptBytes=readRegular(path.join(directory,'receipt.json'),16384),manifest=canonical(manifestBytes,v=>validateManifest(v,'tools')),receipt=canonical(receiptBytes,v=>validateTransfer(v,'tools')),payload=await streamDigest(path.join(directory,'tools-image.tar.gz'),1073741824);bindMeasured(manifest,receipt,payload.sha256,payload.bytes,manifestBytes,'tools');return {manifest,receipt,manifestBytes,receiptBytes};}
+export async function inspectToolTarFile(file,manifest){
+  let step='MANIFEST_FIELDS';const checkpoint=next=>{step=next;};let handle;
+  try{
+    validateManifest(manifest,'tools');checkpoint('RAW_BINDING');const raw=await streamDigest(file,2147483648);if(raw.bytes!==manifest.rawTarBytes||raw.sha256!==manifest.rawTarSha256)unavailable();
+    handle=await fsAsync.open(file,'r');const files=new Map(),measurements=new Map();let offset=0;
+    const read=async(position,length)=>{const bytes=Buffer.alloc(length);let p=0;while(p<length){const result=await handle.read(bytes,p,length-p,position+p);if(result.bytesRead<1)unavailable();p+=result.bytesRead;}return bytes;};
+    while(offset+512<=raw.bytes){checkpoint('TAR_HEADER');const header=await read(offset,512);if(header.every(b=>b===0))break;const name=header.subarray(0,100).toString('utf8').split('\0')[0],prefix=header.subarray(345,500).toString('utf8').split('\0')[0],full=prefix?`${prefix}/${name}`:name,size=parseInt(header.subarray(124,136).toString('ascii').replace(/\0.*$/,''),8),type=header[156],checksum=parseInt(header.subarray(148,156).toString('ascii').replace(/\0.*$/,''),8),observed=header.reduce((sum,b,i)=>sum+(i>=148&&i<156?32:b),0);if(checksum!==observed||!Number.isSafeInteger(size)||size<0||offset+512+size>raw.bytes||! /^[a-zA-Z0-9._/-]+$/.test(full)||full.startsWith('/')||full.split('/').includes('..')||files.has(full)||![0,48,53].includes(type)||files.size>128)unavailable();
+      if(type!==53){const sha=createHash('sha256'),chunks=[],start=offset+512;let retained=0;for(let p=0;p<size;p+=65536){const chunk=await read(start+p,Math.min(65536,size-p));sha.update(chunk);if(size<=1048576){chunks.push(chunk);retained+=chunk.length;}}files.set(full,size<=1048576?Buffer.concat(chunks,retained):null);measurements.set(full,{bytes:size,sha256:sha.digest('hex'),start});}
+      offset+=512+Math.ceil(size/512)*512;
+    }
+    checkpoint('TAR_TRAILER');for(let p=offset;p<raw.bytes;p+=65536)if(!(await read(p,Math.min(65536,raw.bytes-p))).every(b=>b===0))unavailable();
+    checkpoint('DOCKER_MANIFEST');const docker=JSON.parse(files.get('manifest.json')?.toString('utf8')??'null');if(!Array.isArray(docker)||docker.length!==1||!Array.isArray(docker[0].Layers))unavailable();
+    for(const name of docker[0].Layers){const measured=measurements.get(name);if(!measured)unavailable();checkpoint('LAYER_DECOMPRESS');const hash=createHash('sha256');let bytes=0;const prefix=measured.bytes>=2?await read(measured.start,2):Buffer.alloc(0),source=measured.bytes?createReadStream(file,{start:measured.start,end:measured.start+measured.bytes-1,highWaterMark:65536}):null;const gzip=prefix[0]===31&&prefix[1]===139,stream=source&&(gzip?source.pipe(createGunzip()):source);if(gzip)source.on('error',error=>stream.destroy(error));try{if(stream)for await(const chunk of stream){bytes+=chunk.length;if(gzip&&bytes>512*1024*1024)unavailable();hash.update(chunk);}}finally{stream?.destroy();source?.destroy();}measured.diffId=`sha256:${hash.digest('hex')}`;}
+    inspectToolMembers(files,manifest,checkpoint,measurements);checkpoint('RAW_BINDING');const final=await streamDigest(file,2147483648);if(final.bytes!==raw.bytes||final.sha256!==raw.sha256)unavailable();const configBytes=files.get(docker[0].Config);return {configBytes,diffIds:JSON.parse(configBytes).rootfs.diff_ids};
+  }catch{const error=Error('ST250_ANDROID_TRANSFER_UNAVAILABLE');toolFailures.set(error,`ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=${step} category=ASSERTION`);throw error;}finally{await handle?.close();}
+}
+const toolsImportFields=['schema','artifactSourceHead','toolingSourceHead','toolsRun','transferReceiptSha256','transferManifestSha256','archiveSha256','rawTarSha256','exportedConfigId','importedImageId','configPortfolioSha256','rootfsSha256'];
+function importInspection(value){const data=v=>{if(!v||Object.getPrototypeOf(v)!==Object.prototype)unavailable();const d=Object.getOwnPropertyDescriptors(v);for(const key of Reflect.ownKeys(v))if(typeof key!=='string'||!d[key].enumerable||!('value'in d[key]))unavailable();};data(value);data(value.RootFS);importTools.imageConfigPortfolio(value.Config);}
+export function toolsImportBinding(configBytes,inspected,manifest,receiptBytes,manifestBytes,loadLog,toolingHead){validateManifest(manifest,'tools');bindMeasured(manifest,canonical(receiptBytes,v=>validateTransfer(v,'tools')),manifest.archiveSha256,manifest.archiveBytes,manifestBytes,'tools');if(!head(toolingHead))unavailable();importInspection(inspected);const imported=importTools.loadIdentity(loadLog);if(inspected.Id!==imported||inspected.Config?.User!=='996:996'||inspected.Config?.Labels?.['se.subtrack.android.source']!==manifest.sourceHead||inspected.Config?.Labels?.['se.subtrack.android.run']!==manifest.runId)unavailable();const config=JSON.parse(configBytes),binding=importTools.configBinding(configBytes,inspected,manifest.imageId,config.rootfs.diff_ids);return {schema:'st250-android-tools-import-binding-v1',artifactSourceHead:manifest.sourceHead,toolingSourceHead:toolingHead,toolsRun:manifest.runId,transferReceiptSha256:digest(receiptBytes),transferManifestSha256:digest(manifestBytes),archiveSha256:manifest.archiveSha256,rawTarSha256:manifest.rawTarSha256,exportedConfigId:manifest.imageId,importedImageId:imported,configPortfolioSha256:binding.runtimeConfigSha256,rootfsSha256:binding.rootfsSha256};}
+function toolsImportCandidate(value,custody,toolingHead){closed(value,toolsImportFields);const {manifest,receiptBytes,manifestBytes}=custody;if(!head(toolingHead)||value.schema!=='st250-android-tools-import-binding-v1'||value.artifactSourceHead!==manifest.sourceHead||value.toolingSourceHead!==toolingHead||value.toolsRun!==manifest.runId||value.transferReceiptSha256!==digest(receiptBytes)||value.transferManifestSha256!==digest(manifestBytes)||value.archiveSha256!==manifest.archiveSha256||value.rawTarSha256!==manifest.rawTarSha256||value.exportedConfigId!==manifest.imageId||typeof value.importedImageId!=='string'||! /^sha256:[a-f0-9]{64}$/.test(value.importedImageId)||!sha(value.configPortfolioSha256)||!sha(value.rootfsSha256))unavailable();return value.importedImageId;}
+export function validateToolsImport(value,custody,toolingHead,inspected){const imported=toolsImportCandidate(value,custody,toolingHead),{manifest}=custody;importInspection(inspected);if(inspected.Os!=='linux'||inspected.Architecture!=='amd64'||inspected.RootFS?.Type!=='layers'||inspected.Id!==imported||inspected.Config?.User!=='996:996'||inspected.Config?.Labels?.['se.subtrack.android.source']!==manifest.sourceHead||inspected.Config?.Labels?.['se.subtrack.android.run']!==manifest.runId||digest(JSON.stringify(importTools.imageConfigPortfolio(inspected.Config)))!==value.configPortfolioSha256||digest(JSON.stringify(inspected.RootFS?.Layers))!==value.rootfsSha256)unavailable();return imported;}
+
 const toolFailures=new WeakMap();
 export function toolsArchiveDiagnostic(error){return toolFailures.get(error)??null;}
 function inspectToolsBoundary(action){
@@ -205,6 +236,10 @@ function inspectToolTarBody(bytes, manifest, checkpoint) {
     offset+=512+Math.ceil(size/512)*512;
   }
   checkpoint('TAR_TRAILER');if(!bytes.subarray(offset).every(b=>b===0))unavailable();
+  return inspectToolMembers(files,manifest,checkpoint);
+}
+function inspectToolMembers(files,manifest,checkpoint,measurements){
+  const info=name=>measurements?.get(name)??(Buffer.isBuffer(files.get(name))?{bytes:files.get(name).length,sha256:digest(files.get(name))}:undefined);
   checkpoint('DOCKER_MANIFEST','JSON');
   const entries=JSON.parse(files.get('manifest.json')?.toString('utf8')??'null');
   checkpoint('DOCKER_MANIFEST');
@@ -218,11 +253,11 @@ function inspectToolTarBody(bytes, manifest, checkpoint) {
   checkpoint('ROOTFS');if(config.rootfs?.diff_ids?.length!==entries[0].Layers.length)unavailable();
   for(const [index,name]of entries[0].Layers.entries()){
     checkpoint('ROOTFS');
-    const layer=files.get(name);if(!layer)unavailable();
+    const layer=files.get(name),measured=measurements?.get(name);if(!layer&&!measured)unavailable();
     checkpoint('LAYER_DECOMPRESS','DECOMPRESSION');
-    const raw=layer[0]===31&&layer[1]===139?gunzipSync(layer,{maxOutputLength:512*1024*1024}):layer;
+    const raw=measured?null:layer[0]===31&&layer[1]===139?gunzipSync(layer,{maxOutputLength:512*1024*1024}):layer;
     checkpoint('LAYER_DIFFID');
-    if(`sha256:${digest(raw)}`!==config.rootfs.diff_ids[index])unavailable();
+    if((measured?.diffId??`sha256:${digest(raw)}`)!==config.rootfs.diff_ids[index])unavailable();
   }
   // Export only one tool image: reject unrelated object members outside its layers/config.
   const allowed=new Set(['manifest.json','repositories',entries[0].Config,...entries[0].Layers]);
@@ -238,7 +273,7 @@ function inspectToolTarBody(bytes, manifest, checkpoint) {
     checkpoint('OCI_CONFIG','JSON');const oci=JSON.parse(blob.toString('utf8'));
     checkpoint('OCI_CONFIG');
     if(oci.schemaVersion!==2||oci.config?.digest!==manifest.imageId||entries[0].Config!==`blobs/sha256/${manifest.imageId.slice(7)}`||oci.config.size!==configBytes.length||oci.layers?.length!==entries[0].Layers.length)unavailable();
-    checkpoint('OCI_LAYER');for(const [i,layer]of oci.layers.entries()){const name=`blobs/sha256/${layer.digest?.slice(7)}`,blob=files.get(name);if(!/^sha256:[a-f0-9]{64}$/.test(layer.digest)||name!==entries[0].Layers[i]||!blob||blob.length!==layer.size||`sha256:${digest(blob)}`!==layer.digest)unavailable();}
+    checkpoint('OCI_LAYER');for(const [i,layer]of oci.layers.entries()){const name=`blobs/sha256/${layer.digest?.slice(7)}`,blob=info(name);if(!/^sha256:[a-f0-9]{64}$/.test(layer.digest)||name!==entries[0].Layers[i]||!blob||blob.bytes!==layer.size||`sha256:${blob.sha256}`!==layer.digest)unavailable();}
     allowed.add('index.json');allowed.add('oci-layout');allowed.add(name);
     verifiedIndex=index;verifiedOci=oci;indexBytes=files.get('index.json');
   }
@@ -250,7 +285,7 @@ function inspectToolTarBody(bytes, manifest, checkpoint) {
 }
 function inspectExtraToolGraph(files,extras,index,imageId,diffIds,verifiedImage){
   const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.prototype.hasOwnProperty.call(v,k));
-  const objects=new Map();for(const [name,bytes]of files){if(!/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)||bytes.length>1048576||digest(bytes)!==name.slice(13))continue;try{const text=bytes.toString('utf8'),value=JSON.parse(text);if(bytes.equals(Buffer.from(text))&&JSON.stringify(value)===text)objects.set(`sha256:${name.slice(13)}`,value);}catch{/* Never expose private parser failures. */}}
+  const objects=new Map();for(const [name,bytes]of files){if(!Buffer.isBuffer(bytes)||!/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)||bytes.length>1048576||digest(bytes)!==name.slice(13))continue;try{const text=bytes.toString('utf8'),value=JSON.parse(text);if(bytes.equals(Buffer.from(text))&&JSON.stringify(value)===text)objects.set(`sha256:${name.slice(13)}`,value);}catch{/* Never expose private parser failures. */}}
   const target=index?.manifests?.[0],known=new Set([imageId,...(Array.isArray(diffIds)?diffIds:[]),...(target?[target.digest]:[])]),boundLayers=new Set(),boundConfigs=new Set(),boundLegacyConfigs=new Set();
   const legacyConfig=value=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).every(k=>['os','architecture','rootfs','config'].includes(k))&&value.os==='unknown'&&value.architecture==='unknown'&&exact(value.rootfs,['type','diff_ids'])&&value.rootfs.type==='layers'&&(value.rootfs.diff_ids===null||(Array.isArray(value.rootfs.diff_ids)&&value.rootfs.diff_ids.length<=16&&value.rootfs.diff_ids.every(d=>typeof d==='string'&&/^sha256:[a-f0-9]{64}$/.test(d))))&&(!Object.prototype.hasOwnProperty.call(value,'config')||exact(value.config,[]));
   const descriptor=d=>d&&typeof d==='object'&&!Array.isArray(d)&&Object.keys(d).every(k=>['mediaType','digest','size','data','annotations','platform'].includes(k))&&typeof d.mediaType==='string'&&/^sha256:[a-f0-9]{64}$/.test(d.digest)&&Number.isSafeInteger(d.size)&&d.size>=0;
@@ -325,6 +360,7 @@ function inspectLegacyV1Chain(objects,diffIds,image){
   return {candidates,bound,complete:bound.size===candidates.size,stages};
 }
 function extraToolMemberClass(name,bytes,index,oci,indexBytes,diffIds){
+  if(!Buffer.isBuffer(bytes))return 'EXTRA_BLOB_OVERSIZED_OTHER';
   const hash=digest(bytes);if(!/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)||hash!==name.slice(13))return 'EXTRA_OTHER';
   const verifiedLayer=value=>Array.isArray(diffIds)&&diffIds.includes(`sha256:${value}`);
   if(verifiedLayer(hash))return 'RAW_SAME_VERIFIED_LAYER';
@@ -469,6 +505,11 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href) {
     else if(mode==='download'&&args.length===3)download(args[0],args[1],args[2]);
     else if(mode==='receive-signed'&&args.length===4)receiveSigned(args[0],args[1],args[2],args[3]);
     else if(mode==='inspect-tools-tar'&&args.length===2)inspectToolTarFiles(args[0],args[1]);
+    else if(mode==='tools-custody'&&args.length===1)await toolsCustody(args[0]);
+    else if(mode==='tools-stage-archive'&&args.length===2){const {manifest}=await toolsCustody(args[0]);const measured=await importTools.streamArchive(path.join(args[0],'tools-image.tar.gz'),1073741824,2147483648,args[1]);for(const key of ['archiveSha256','archiveBytes','rawTarSha256','rawTarBytes'])if(measured[key]!==manifest[key])unavailable();await inspectToolTarFile(args[1],manifest);}
+    else if(mode==='tools-import-bind'&&args.length===6){const [directory,raw,load,inspection,toolingHead,output]=args,custody=await toolsCustody(directory),facts=await inspectToolTarFile(raw,custody.manifest),value=toolsImportBinding(facts.configBytes,JSON.parse(readRegular(inspection,1048576)),custody.manifest,custody.receiptBytes,custody.manifestBytes,readRegular(load,16384).toString('utf8'),toolingHead);writeFileSync(output,JSON.stringify(value),{flag:'wx',mode:0o600});}
+    else if(mode==='tools-import-reference'&&args.length===4){const [directory,toolingHead,inspection,record]=args,custody=await toolsCustody(directory);process.stdout.write(validateToolsImport(canonical(readRegular(record,16384),v=>v),custody,toolingHead,JSON.parse(readRegular(inspection,1048576))));}
+    else if(mode==='tools-import-id'&&args.length===3){const [directory,toolingHead,record]=args;process.stdout.write(toolsImportCandidate(canonical(readRegular(record,16384),v=>v),await toolsCustody(directory),toolingHead));}
     else if(mode==='close-transfer'&&args.length===1){let text='';for await(const chunk of process.stdin){text+=chunk;if(text.length>16384)unavailable();}console.log(JSON.stringify(closeTransferCandidate(JSON.parse(text),args[0])));}
     else if(mode==='validate-backup'&&args.length===1)canonical(readRegular(args[0],16384),validateBackupBinding);
     else if(mode==='validate-identity'&&args.length===1)canonical(readRegular(args[0],16384),validateSignerIdentity);

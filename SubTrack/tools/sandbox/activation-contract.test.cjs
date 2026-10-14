@@ -27,13 +27,14 @@ test('import binding retains raw config identity while accepting distinct Docker
  const getter={...cfg.config};Object.defineProperty(getter,'Env',{get(){throw Error('must not execute');},enumerable:true});assert.throws(()=>imports.imageConfigPortfolio(getter));assert.throws(()=>imports.imageConfigPortfolio({...cfg.config,Healthcheck:{Test:['CMD','true'],Unknown:0}}));
 });
 test('capless gateway custody binds exact pinned executable and only permits reviewed composition rollover',()=>{
+ assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'../../infra/sandbox/Caddyfile'))).digest('hex'),imports.gatewayExecutableProfile.caddyfileSha256);
  const files=Object.fromEntries(imports.executionNames.map(n=>[n,'a'.repeat(64)]));
  const historical={schema:'st250-source-custody-v1',sourceHead:'b'.repeat(40),files:Object.fromEntries(Object.entries(files).filter(([n])=>!n.endsWith('image-import-binding.cjs')))};
  const current={schema:'st250-source-custody-v3',artifactSourceHead:historical.sourceHead,toolingSourceHead:'c'.repeat(40),historicalSourceCustodySha256:'d'.repeat(64),files,gatewayExecutable:{...imports.gatewayExecutableProfile}};
- current.files['infra/sandbox/compose.yaml']='e'.repeat(64);
+ current.files['infra/sandbox/compose.yaml']='e'.repeat(64);current.files['infra/sandbox/Caddyfile']=imports.gatewayExecutableProfile.caddyfileSha256;
  const run=v=>imports.sourceBinding(v,historical,historical.sourceHead,current.toolingSourceHead,current.historicalSourceCustodySha256);
  assert.equal(run(current),current);
- for(const edit of[x=>delete x.gatewayExecutable,x=>x.gatewayExecutable.extra=true,x=>x.gatewayExecutable.capabilityPolicy='NET_BIND_SERVICE',x=>x.gatewayExecutable.binarySha256='f'.repeat(64),x=>x.gatewayExecutable.binaryBytes++,x=>x.gatewayExecutable.path='elsewhere',x=>x.gatewayExecutable.imageReference='other',x=>x.files['infra/sandbox/Caddyfile']='e'.repeat(64),x=>x.files['infra/sandbox/gateway-entrypoint.sh']='e'.repeat(64),x=>x.files['infra/sandbox/Dockerfile.api']='e'.repeat(64),x=>x.artifactSourceHead=x.toolingSourceHead]){const v=structuredClone(current);edit(v);assert.throws(()=>run(v));}
+ for(const edit of[x=>delete x.gatewayExecutable,x=>x.gatewayExecutable.extra=true,x=>x.gatewayExecutable.capabilityPolicy='NET_BIND_SERVICE',x=>x.gatewayExecutable.binarySha256='f'.repeat(64),x=>x.gatewayExecutable.binaryBytes++,x=>x.gatewayExecutable.defaultServerName='other',x=>x.gatewayExecutable.caddyfileSha256='f'.repeat(64),x=>x.gatewayExecutable.path='elsewhere',x=>x.gatewayExecutable.imageReference='other',x=>x.files['infra/sandbox/Caddyfile']='e'.repeat(64),x=>x.files['infra/sandbox/gateway-entrypoint.sh']='e'.repeat(64),x=>x.files['infra/sandbox/Dockerfile.api']='e'.repeat(64),x=>x.artifactSourceHead=x.toolingSourceHead]){const v=structuredClone(current);edit(v);assert.throws(()=>run(v));}
  const old={...current,schema:'st250-source-custody-v2'};delete old.gatewayExecutable;assert.throws(()=>run(old));
 });
 test('dual source custody requires exact ten execution files and preserves unchanged historical backend hashes',()=>{

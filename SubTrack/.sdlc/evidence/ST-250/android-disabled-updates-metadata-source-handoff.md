@@ -1,0 +1,9 @@
+# Expo disabled updates metadata compatibility
+
+Actual Android run38642270643 failed XML_POLICY. A fresh local Android prebuild using the installed pinned SDK54 environment and exact8c sandbox app configuration succeeded, and its generated AndroidManifest explicitly contains expo.modules.updates.ENABLED=false. No dev launcher, private CA, networkSecurityConfig or cleartext=true flags were found. This proves the generated disabled marker exists; final merged APK acceptance still requires the actual build.
+
+The previous inspector rejected the marker even when false. The correction allows absent metadata or one exact disabled boolean tag, with either attribute order and self-closing/empty-element form. Enabled, duplicate, missing/resource/unknown values, extra attributes, update URL/runtime-version overrides and case variants reject. Both unsigned and signed inspections use the same rule. The build's no-expo-updates/no-dev-launcher module gate and actual embedded config/Hermes/signature/ZIP/source gates remain unchanged.
+
+Official semantics verified2026-10-15: https://docs.expo.dev/versions/v54.0.0/sdk/updates/ documents that disabled updates load the embedded update. Local prebuild evidence is retained in the ignored persistent .codex-local-task-setup/manifest-probe-8c220b1; no raw compiler/manifest text is published. Six affected receipt tests and syntax passed; two additional focused unsigned/signed disabled-marker tests passed after signed coverage additions.
+
+Source review hashes: release module8806ca091e83e18a56d9039ba683c6b33b7196f3f701133a9cb6b345415685ab; test 870fd6781962c3e6471844b6b74809b873f9c1c88b3ce09d9921f9cc14c9128a. No CI or binary eligibility is claimed by this handoff.

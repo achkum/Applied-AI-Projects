@@ -5,6 +5,7 @@ param(
   [ValidateSet('apk','tools')][string]$Kind='apk',
   [string]$ReceiptFile,
   [ValidatePattern('^[a-f0-9]{40}$')][string]$SourceHead,
+  [ValidatePattern('^[a-f0-9]{40}$')][string]$SigningToolingHead,
   [ValidatePattern('^[1-9][0-9]*-[1-9][0-9]*$')][string]$ToolsRun,
   [ValidatePattern('^[1-9][0-9]*-[1-9][0-9]*$')][string]$ApkRun,
   [ValidatePattern('^sha256:[a-f0-9]{64}$')][string]$ToolsImage,
@@ -86,7 +87,8 @@ function Remove-Owned([string]$Path,[string]$Parent){
   Require (-not(Test-Path -LiteralPath $absolute))
 }
 $primary=[IO.Path]::GetFullPath($PrimaryCheckout);No-Reparse $primary
-Require (Test-Path -LiteralPath (Join-Path $primary 'tools/sandbox/download-android.ps1') -PathType Leaf)
+$projectFile=Join-Path $primary 'package.json';No-Reparse $projectFile;Require (Test-Path -LiteralPath $projectFile -PathType Leaf)
+$project=Get-Content -LiteralPath $projectFile -Raw|ConvertFrom-Json;Require ($project.name -eq 'subtrack' -and $project.private -is [bool] -and $project.private -eq $true)
 Require ($primary -notmatch '[\\/]\.codex[\\/]worktrees[\\/]')
 $localRoot=Join-Path $primary '.codex-local-task-setup';No-Reparse $localRoot
 if(-not(Test-Path -LiteralPath $localRoot)){New-PrivateDirectory $localRoot}else{Require ((Get-Acl -LiteralPath $localRoot).GetOwner([Security.Principal.SecurityIdentifier]).Value -eq $sid.Value)}
@@ -109,11 +111,15 @@ if($Mode -eq 'Download'){
   catch{Remove-Owned $dir $transferRoot;throw 'ST250_ANDROID_DOWNLOAD_UNAVAILABLE'}
   Write-Output 'ST250_ANDROID_DOWNLOAD_VERIFIED';return
 }
-Require ($SourceHead -match '^[a-f0-9]{40}$' -and $ToolsRun -match '^[1-9][0-9]*-[1-9][0-9]*$' -and $ApkRun -match '^[1-9][0-9]*-[1-9][0-9]*$' -and $ToolsImage -match '^sha256:[a-f0-9]{64}$')
-Require ((Native 'git' @('-C',$PSScriptRoot,'rev-parse','HEAD')).Trim() -eq $SourceHead)
+Require ($SourceHead -match '^[a-f0-9]{40}$' -and $SigningToolingHead -match '^[a-f0-9]{40}$' -and $ToolsRun -match '^[1-9][0-9]*-[1-9][0-9]*$' -and $ApkRun -match '^[1-9][0-9]*-[1-9][0-9]*$' -and $ToolsImage -match '^sha256:[a-f0-9]{64}$')
+Require ((Native 'git' @('-C',$PSScriptRoot,'rev-parse','HEAD')).Trim() -eq $SigningToolingHead)
 $sourceHashes=@{}
-foreach($name in @('sign-android.sh','android-release-receipt.mjs','android-transfer-receipt.mjs')){$sourceHashes[$name]=Sha (Join-Path $PSScriptRoot $name)}
-$remoteEnv="ST250_SOURCE_HEAD=$SourceHead ST250_ANDROID_TOOLS_RUN=$ToolsRun ST250_ANDROID_APK_RUN=$ApkRun SANDBOX_ANDROID_SIGNING_IMAGE=$ToolsImage ST250_SIGN_SOURCE_SHA256=$($sourceHashes['sign-android.sh']) ST250_RECEIPT_SOURCE_SHA256=$($sourceHashes['android-release-receipt.mjs']) ST250_TRANSFER_SOURCE_SHA256=$($sourceHashes['android-transfer-receipt.mjs'])"
+foreach($name in @('sign-android.sh','android-release-receipt.mjs','android-transfer-receipt.mjs','image-import-binding.cjs')){
+  [void](Native 'git' @('-C',$PSScriptRoot,'cat-file','-e',"${SigningToolingHead}:SubTrack/tools/sandbox/$name"))
+  [void](Native 'git' @('-C',$PSScriptRoot,'diff','--quiet',$SigningToolingHead,'--',":(top)SubTrack/tools/sandbox/$name"))
+  $sourceHashes[$name]=Sha (Join-Path $PSScriptRoot $name)
+}
+$remoteEnv="ST250_SOURCE_HEAD=$SourceHead ST250_SIGNING_TOOLING_HEAD=$SigningToolingHead ST250_ANDROID_TOOLS_RUN=$ToolsRun ST250_ANDROID_APK_RUN=$ApkRun SANDBOX_ANDROID_SIGNING_IMAGE=$ToolsImage ST250_SIGN_SOURCE_SHA256=$($sourceHashes['sign-android.sh']) ST250_RECEIPT_SOURCE_SHA256=$($sourceHashes['android-release-receipt.mjs']) ST250_TRANSFER_SOURCE_SHA256=$($sourceHashes['android-transfer-receipt.mjs']) ST250_IMPORT_SOURCE_SHA256=$($sourceHashes['image-import-binding.cjs'])"
 function Sign-Remote([string]$Action,[string]$Extra=''){Require ($Action -in @('import-tools','preflight','initialize','restore-probe','backup-accept','sign'));Remote "env $remoteEnv $Extra bash $remoteRoot/tools/sandbox/sign-android.sh $Action"}
 if($Mode -eq 'Stage'){
   [void](Remote "set -eu; test `"`$(id -u):`$(id -g)`" = 996:987; test -d $remoteRoot; test ! -L $remoteRoot; test `"`$(realpath -e $remoteRoot)`" = $remoteRoot; umask 077; mkdir -p $remoteRoot/staging/android $remoteRoot/staging/android-tools $remoteRoot/staging/android-restore; test ! -L $remoteRoot/staging; test ! -L $remoteRoot/staging/android; test ! -L $remoteRoot/staging/android-tools; test ! -L $remoteRoot/staging/android-restore; test ! -e $remoteRoot/staging/android/$ApkRun; test ! -e $remoteRoot/staging/android-tools/$ToolsRun; mkdir -m 700 $remoteRoot/staging/android/$ApkRun $remoteRoot/staging/android-tools/$ToolsRun")
@@ -124,7 +130,7 @@ if($Mode -eq 'Stage'){
     try{[void](Native 'node' @($module,'download',$entry[0],(Join-Path $dir 'receipt.json'),$verify));foreach($name in @('manifest.json','receipt.json',$entry[3])){Require ((Sha (Join-Path $verify $name)) -eq (Sha (Join-Path $dir $name)));Scp-Out (Join-Path $dir $name) "$remoteRoot/staging/$($entry[2])/$($entry[1])/$name"}}
     finally{Remove-Owned $verify $transferRoot}
   }
-  foreach($name in @('sign-android.sh','android-release-receipt.mjs','android-transfer-receipt.mjs')){
+  foreach($name in @('sign-android.sh','android-release-receipt.mjs','android-transfer-receipt.mjs','image-import-binding.cjs')){
     $temporary="$remoteRoot/staging/android/$ApkRun/source-$name";$destination="$remoteRoot/tools/sandbox/$name";$expected=$sourceHashes[$name]
     Scp-Out (Join-Path $PSScriptRoot $name) $temporary
     [void](Remote "set -eu; test -d $remoteRoot/tools/sandbox; test ! -L $remoteRoot/tools/sandbox; test `"`$(realpath -e $remoteRoot/tools/sandbox)`" = $remoteRoot/tools/sandbox; test `"`$(sha256sum $temporary | cut -d' ' -f1)`" = $expected; if test -e $destination; then test -f $destination; test ! -L $destination; test `"`$(sha256sum $destination | cut -d' ' -f1)`" = $expected; else cp --no-clobber $temporary $destination; chmod 600 $destination; fi; test `"`$(sha256sum $destination | cut -d' ' -f1)`" = $expected; rm -- $temporary")

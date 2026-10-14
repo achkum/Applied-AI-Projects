@@ -12,11 +12,11 @@ fi
 [[ "$(uname -s)" == Linux && "$(id -u):$(id -g)" == 996:987 && "$root" == /home/openclaw/subtrack-sandbox ]]
 command -v node >/dev/null
 [[ "${SSH_CONNECTION:-}" =~ [[:space:]]198\.44\.116\.159[[:space:]][0-9]+$ ]]
-[[ "${ST250_SOURCE_HEAD:-}" =~ ^[a-f0-9]{40}$ && "${ST250_ANDROID_TOOLS_RUN:-}" =~ ^[1-9][0-9]*-[1-9][0-9]*$ && "${ST250_ANDROID_APK_RUN:-}" =~ ^[1-9][0-9]*-[1-9][0-9]*$ ]]
+[[ "${ST250_SOURCE_HEAD:-}" =~ ^[a-f0-9]{40}$ && "${ST250_SIGNING_TOOLING_HEAD:-}" =~ ^[a-f0-9]{40}$ && "${ST250_ANDROID_TOOLS_RUN:-}" =~ ^[1-9][0-9]*-[1-9][0-9]*$ && "${ST250_ANDROID_APK_RUN:-}" =~ ^[1-9][0-9]*-[1-9][0-9]*$ ]]
 for current in /home /home/openclaw "$root" "$root/staging"; do
   [[ -d "$current" && ! -L "$current" && "$(realpath -e "$current")" == "$current" ]]
 done
-for pair in "sign-android.sh:${ST250_SIGN_SOURCE_SHA256:?}" "android-release-receipt.mjs:${ST250_RECEIPT_SOURCE_SHA256:?}" "android-transfer-receipt.mjs:${ST250_TRANSFER_SOURCE_SHA256:?}"; do
+for pair in "sign-android.sh:${ST250_SIGN_SOURCE_SHA256:?}" "android-release-receipt.mjs:${ST250_RECEIPT_SOURCE_SHA256:?}" "android-transfer-receipt.mjs:${ST250_TRANSFER_SOURCE_SHA256:?}" "image-import-binding.cjs:${ST250_IMPORT_SOURCE_SHA256:?}"; do
   file="${pair%%:*}"; expected="${pair#*:}"
   [[ "$expected" =~ ^[a-f0-9]{64}$ && -f "$root/tools/sandbox/$file" && ! -L "$root/tools/sandbox/$file" ]]
   [[ "$(sha256sum "$root/tools/sandbox/$file" | cut -d' ' -f1)" == "$expected" ]]
@@ -28,19 +28,25 @@ for dir in "$tools" "$apkdir"; do
 done
 image="${SANDBOX_ANDROID_SIGNING_IMAGE:?}"
 [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]]
-if [[ "$mode" != import-tools ]]; then [[ "$(docker image inspect --format '{{.Config.User}}' "$image")" == 996:996 ]]; fi
 [[ "$(awk '/MemAvailable:/{print $2}' /proc/meminfo)" -ge 1310720 ]]
 node --input-type=module - "$root/tools/sandbox/android-transfer-receipt.mjs" "$tools" "$apkdir" "$image" "$ST250_SOURCE_HEAD" <<'NODE'
 import fs from 'node:fs';import path from 'node:path';import {pathToFileURL} from 'node:url';
 const [module,tools,apk,image,head]=process.argv.slice(2),m=await import(pathToFileURL(module));
-for(const [dir,kind]of[[tools,'tools'],[apk,'apk']]){const mb=m.readRegular(path.join(dir,'manifest.json'),16384),v=m.canonical(mb,x=>m.validateManifest(x,kind)),r=m.canonical(m.readRegular(path.join(dir,'receipt.json'),16384),x=>m.validateTransfer(x,kind));if(v.sourceHead!==head||v.runId!==path.basename(dir)||(kind==='tools'&&v.imageId!==image))throw Error('custody');m.bind(v,r,m.readRegular(path.join(dir,kind==='tools'?'tools-image.tar.gz':'unsigned.apk'),kind==='tools'?1073741824:200*1024*1024),mb,kind);}
+for(const [dir,kind]of[[tools,'tools'],[apk,'apk']]){const mb=m.readRegular(path.join(dir,'manifest.json'),16384),v=m.canonical(mb,x=>m.validateManifest(x,kind)),r=m.canonical(m.readRegular(path.join(dir,'receipt.json'),16384),x=>m.validateTransfer(x,kind));if(v.sourceHead!==head||v.runId!==path.basename(dir)||(kind==='tools'&&v.imageId!==image))throw Error('custody');if(kind==='tools')await m.toolsCustody(dir);else m.bind(v,r,m.readRegular(path.join(dir,'unsigned.apk'),200*1024*1024),mb,kind);}
 NODE
 keydir="$root/android-signing"
 private="$(mktemp -d "$root/staging/st250-android-sign.XXXXXXXX")"; chmod 700 "$private"
 key_lock=false
+loaded_image=''
+keep_import=false
+import_lock=false
 stage=PREFLIGHT
 cleanup() {
   [[ "$private" == "$root"/staging/st250-android-sign.* && -d "$private" && ! -L "$private" && "$(realpath -e "$private")" == "$private" ]] || return 1
+  if [[ "$import_lock" == true && "$keep_import" != true && -z "$loaded_image" && -f "$private/load.log" ]]; then
+    candidate="$(node -e 'try{const fs=require("fs");if(fs.statSync(process.argv[2]).size>16384)throw 0;process.stdout.write(require(process.argv[1]).loadIdentity(fs.readFileSync(process.argv[2],"utf8")))}catch{}' "$root/tools/sandbox/image-import-binding.cjs" "$private/load.log")"
+    if [[ "$candidate" =~ ^sha256:[a-f0-9]{64}$ ]] && ! grep -Fxq "$candidate" "$private/images-before.txt"; then loaded_image="$candidate"; fi
+  fi
   for cidfile in "$private"/*.cid; do
     [[ -e "$cidfile" ]] || continue
     [[ -f "$cidfile" && ! -L "$cidfile" ]] || return 1
@@ -49,30 +55,54 @@ cleanup() {
     docker rm -f "$cid" > /dev/null 2>&1 || return 1
     ! docker inspect "$cid" > /dev/null 2>&1 || return 1
   done
+  if [[ -n "$loaded_image" && "$keep_import" != true ]]; then
+    [[ "$(docker image inspect --format '{{index .Config.Labels "se.subtrack.android.source"}}' "$loaded_image")" == "$ST250_SOURCE_HEAD" && "$(docker image inspect --format '{{index .Config.Labels "se.subtrack.android.run"}}' "$loaded_image")" == "$ST250_ANDROID_TOOLS_RUN" ]] || return 1
+    docker image rm "$loaded_image" > /dev/null 2>&1 || return 1
+    docker image ls --no-trunc --quiet > "$private/images-after.txt" || return 1
+    ! grep -Fxq "$loaded_image" "$private/images-after.txt" || return 1
+    loaded_image=''
+  fi
   if [[ "$key_lock" == true ]]; then
     [[ -d "$keydir/.operation.lock" && ! -L "$keydir/.operation.lock" && "$(stat -c '%a:%u:%g' "$keydir/.operation.lock")" == 700:996:987 ]] || return 1
     rmdir "$keydir/.operation.lock" || return 1
     [[ ! -e "$keydir/.operation.lock" ]] || return 1
     key_lock=false
   fi
+  if [[ "$import_lock" == true ]]; then
+    [[ -d "$tools/.import.lock" && ! -L "$tools/.import.lock" && "$(stat -c '%a:%u:%g' "$tools/.import.lock")" == 700:996:987 ]] || return 1
+    rmdir "$tools/.import.lock" || return 1
+    [[ ! -e "$tools/.import.lock" ]] || return 1
+    import_lock=false
+  fi
   rm -rf -- "$private"; [[ ! -e "$private" ]]
 }
-finish() { status=$?; trap - EXIT; cleanup || status=1; if (( status != 0 )); then printf 'ST250_ANDROID_SIGNING_FAILURE stage=%s\n' "$stage" >&2; fi; exit "$status"; }
+finish() { status=$?; trap - EXIT INT TERM; cleanup || status=1; if (( status != 0 )); then printf 'ST250_ANDROID_SIGNING_FAILURE stage=%s\n' "$stage" >&2; fi; exit "$status"; }
 trap finish EXIT
+trap 'exit 1' INT TERM
 if [[ "$mode" == import-tools ]]; then
   stage=IMPORT
   ! docker image inspect "$image" > /dev/null 2>&1
   raw_bytes="$(node -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.argv[1])).rawTarBytes))' "$tools/manifest.json")"
   [[ "$raw_bytes" =~ ^[1-9][0-9]*$ && "$raw_bytes" -le 2147483648 ]]
-  [[ "$(awk '/MemAvailable:/{print $2}' /proc/meminfo)" -ge $((1048576 + (2 * raw_bytes + 1023) / 1024)) ]]
   [[ "$(df -Pk "$root/staging" | awk 'NR==2{print $4}')" -ge $(((raw_bytes + 1023) / 1024 + 262144)) ]]
-  timeout 300 gzip -dc "$tools/tools-image.tar.gz" | head -c 2147483649 > "$private/tools.tar"
-  [[ "$(stat -c '%s' "$private/tools.tar")" -le 2147483648 ]]
-  node "$root/tools/sandbox/android-transfer-receipt.mjs" inspect-tools-tar "$private/tools.tar" "$tools/manifest.json"
+  [[ ! -e "$tools/import-binding.json" && ! -L "$tools/import-binding.json" ]]
+  mkdir -m 700 "$tools/.import.lock"; import_lock=true
+  node "$root/tools/sandbox/android-transfer-receipt.mjs" tools-stage-archive "$tools" "$private/tools.tar"
+  docker image ls --no-trunc --quiet > "$private/images-before.txt"
   timeout 300 docker load --input "$private/tools.tar" > "$private/load.log" 2>&1
-  [[ "$(docker image inspect --format '{{.Config.User}}' "$image")" == 996:996 && "$(docker image inspect --format '{{index .Config.Labels "se.subtrack.android.source"}}' "$image")" == "$ST250_SOURCE_HEAD" ]]
+  image="$(node -e 'try{const fs=require("fs");if(fs.statSync(process.argv[2]).size>16384)throw 0;process.stdout.write(require(process.argv[1]).loadIdentity(fs.readFileSync(process.argv[2],"utf8")))}catch{process.exitCode=1}' "$root/tools/sandbox/image-import-binding.cjs" "$private/load.log")"
+  [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]] && ! grep -Fxq "$image" "$private/images-before.txt"
+  loaded_image="$image"
+  docker image inspect "$image" --format '{{json .}}' > "$private/import-inspect.json"
+  node "$root/tools/sandbox/android-transfer-receipt.mjs" tools-import-bind "$tools" "$private/tools.tar" "$private/load.log" "$private/import-inspect.json" "$ST250_SIGNING_TOOLING_HEAD" "$tools/import-binding.json"
+  [[ "$(stat -c '%a:%u:%g' "$tools/import-binding.json")" == 600:996:987 ]]
+  keep_import=true
   cleanup; trap - EXIT; printf 'ST250_ANDROID_TOOLS_IMPORTED\n'; exit 0
 fi
+[[ -f "$tools/import-binding.json" && ! -L "$tools/import-binding.json" && "$(stat -c '%a:%u:%g' "$tools/import-binding.json")" == 600:996:987 ]]
+image="$(node "$root/tools/sandbox/android-transfer-receipt.mjs" tools-import-id "$tools" "$ST250_SIGNING_TOOLING_HEAD" "$tools/import-binding.json")"
+docker image inspect "$image" --format '{{json .}}' > "$private/import-inspect.json"
+[[ "$(node "$root/tools/sandbox/android-transfer-receipt.mjs" tools-import-reference "$tools" "$ST250_SIGNING_TOOLING_HEAD" "$private/import-inspect.json" "$tools/import-binding.json")" == "$image" ]]
 command_container() {
   local label="$1"; shift
   timeout 120 docker run --cidfile "$private/$label.cid" --label "se.subtrack.android.custody=$private" --pull never --network none --read-only --cap-drop ALL --security-opt no-new-privileges --memory 256m --cpus 0.5 --pids-limit 32 --tmpfs /tmp:rw,nosuid,nodev,size=16m --user 996:996 --env 'JAVA_TOOL_OPTIONS=-Xmx128m -XX:ActiveProcessorCount=1' "$@"

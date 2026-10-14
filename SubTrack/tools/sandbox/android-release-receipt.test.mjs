@@ -18,6 +18,13 @@ const input = () => ({ manifest: '<manifest package="se.subtrack.app.sandbox" an
   bundle: Buffer.from('c61fbc03c103191f00', 'hex'), apk: makeApk(), sourceHead: 'a'.repeat(40), signatureExit: 1,
   signatureOutput: 'DOES NOT VERIFY\nERROR: Missing META-INF/MANIFEST.MF\n' });
 const receipt = () => ({ ...inspectUnsigned(input()), cleanup: 'REMOVED' });
+test('Expo generated disabled updates metadata preserves embedded release authority and rejects overrides',()=>{
+ const marker='<meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>';
+ const withMarker=value=>({...input(),manifest:input().manifest.replace('</manifest>',value+'</manifest>')});
+ for(const tag of [marker,'<meta-data android:value="false" android:name="expo.modules.updates.ENABLED"></meta-data>'])assert.equal(inspectUnsigned(withMarker(tag)).runtimeEnabled,false);
+ for(const key of ['EXPO_UPDATE_URL','RUNTIME_VERSION'])assert.throws(()=>inspectUnsigned(withMarker(`<meta-data android:name="expo.modules.updates.${key}" android:value="override"/>`)));
+ for(const tag of [marker.replace('"false"','"true"'),marker.replace('"false"','"@bool/disabled"'),marker.replace('/>',' android:resource="@bool/override"/>'),marker+marker,marker+marker.replace('"false"','"true"'),marker.replace('ENABLED','enabled'),marker+'<meta-data android:name="expo.modules.updates.EXPO_UPDATE_URL" android:value="https://untrusted.invalid"/>',marker.replace(' android:value="false"','')])assert.throws(()=>inspectUnsigned(withMarker(tag)));
+});
 test('unsigned receipt predicate diagnostics are closed and preserve first failure without raw values',()=>{
  const cases=[[{manifest:'private-canary'},'XML_POLICY'],[{manifest:input().manifest.replace('targetSdkVersion="36"','targetSdkVersion="35"')},'SDK_VERSION'],[{bundle:Buffer.from('private-canary')},'HERMES'],[{apk:Buffer.from('APK Sig Block 42')},'UNSIGNED_SIGNING_BLOCK'],[{signatureOutput:'private-canary'},'UNSIGNED_SIGNATURE'],[{apk:makeApk(false,1,{configText:'private-canary'})},'APK_RUNTIME predicate=CONFIG_JSON'],[{apk:makeApk(false,2)},'APK_RUNTIME predicate=CONFIG_VERSION'],[{bundle:Buffer.from('c61fbc03c103191f01','hex')},'BUNDLE_PARITY']];
  for(const [patch,step]of cases)assert.throws(()=>inspectUnsigned({...input(),...patch}),e=>{assert.equal(unsignedReceiptDiagnostic(e),`ST250_ANDROID_RECEIPT_DIAGNOSTIC operation=UNSIGNED step=${step}`);assert.equal(e.message,'Sandbox Android preparation unavailable');return true;});
@@ -32,6 +39,10 @@ test('actual signed inspection binds verified one-signer certificate manifest an
   const manifest={schema:'st250-android-transfer-manifest-v1',...fields,runId:'1-1',defaultTargetHead:'b'.repeat(40),draftTag:`st250-android-stage-${value.sourceHead}-1-1`,buildScriptSha256:'c'.repeat(64),receiptModuleSha256:'d'.repeat(64)};
   const signed={manifest:unsigned.manifest,bundle:unsigned.bundle,unsignedBundle:unsigned.bundle,unsignedApk:unsigned.apk,signedApk:makeApk(false,1,{signed:true}),signatureOutput:`Verifies\nVerified using v2 scheme (APK Signature Scheme v2): true\nNumber of signers: 1\nSigner #1 certificate SHA-256 digest: ${cert}\n`,signatureExit:0,alignmentExit:0,expectedCertificateSha256:cert,unsignedManifest:manifest};
   const result=inspectSigned(signed);assert.equal(validateReceipt({...result,cleanup:'REMOVED'},true).signerCertificateSha256,cert);
+  const disabled='<meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>';
+  assert.equal(inspectSigned({...signed,manifest:signed.manifest.replace('</manifest>',disabled+'</manifest>')}).signatureVerified,true);
+  for(const key of ['EXPO_UPDATE_URL','RUNTIME_VERSION'])assert.throws(()=>inspectSigned({...signed,manifest:signed.manifest.replace('</manifest>',`<meta-data android:name="expo.modules.updates.${key}" android:value="override"/></manifest>`)}));
+  for(const marker of [disabled.replace('"false"','"true"'),disabled+disabled,disabled.replace('/>',' android:resource="@bool/override"/>')])assert.throws(()=>inspectSigned({...signed,manifest:signed.manifest.replace('</manifest>',marker+'</manifest>')}));
   for(const patch of[{signatureExit:1},{alignmentExit:1},{expectedCertificateSha256:'f'.repeat(64)},{bundle:Buffer.from('replaced')},{unsignedApk:Buffer.from('replaced')},{signedApk:unsigned.apk},{manifest:unsigned.manifest.replace('versionCode="1"','versionCode="2"')},{manifest:unsigned.manifest.replace('debuggable="false"','debuggable="true"')},{signatureOutput:signed.signatureOutput+'Signer #2 certificate SHA-256 digest: '+cert+'\n'},{signatureOutput:signed.signatureOutput+'Signer #1 certificate DN: CN=Android Debug\n'},{unsignedManifest:{...manifest,runtimeEnabled:true}}])assert.throws(()=>inspectSigned({...signed,...patch}));
 });
 

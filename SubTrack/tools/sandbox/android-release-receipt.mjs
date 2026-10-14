@@ -44,6 +44,14 @@ export function unsignedTemplate(source) {
 }
 
 const receiptFailures=new WeakMap();
+function disabledUpdatesMetadata(manifest){
+ if(/expo\.modules\.updates\.(?:EXPO_UPDATE_URL|RUNTIME_VERSION)/i.test(manifest))return false;
+ const markers=manifest.match(/expo\.modules\.updates\.ENABLED/gi)??[];
+ if(markers.length===0)return true;
+ if(markers.length!==1)return false;
+ const name='android:name="expo\\.modules\\.updates\\.ENABLED"',value='android:value="false"';
+ return new RegExp('<meta-data\\s+(?:'+name+'\\s+'+value+'|'+value+'\\s+'+name+')\\s*(?:/>|>\\s*</meta-data>)').test(manifest);
+}
 export function unsignedReceiptDiagnostic(error){return receiptFailures.get(error)??null;}
 function unsignedBoundary(action){let step='INPUTS';const checkpoint=next=>{step=next;};try{return action(checkpoint);}catch(error){const failure=Error('Sandbox Android preparation unavailable');receiptFailures.set(failure,`ST250_ANDROID_RECEIPT_DIAGNOSTIC operation=UNSIGNED step=${step}${apkDiagnostic(error)?` predicate=${apkDiagnostic(error)}`:''}`);throw failure;}}
 export function inspectUnsigned(input){return unsignedBoundary(checkpoint=>inspectUnsignedBody(input,checkpoint));}
@@ -52,7 +60,7 @@ function inspectUnsignedBody({ manifest, bundle, apk, signatureOutput, signature
   if (typeof manifest !== 'string' || manifest.length > 1024 * 1024 || manifest.match(/<manifest\b/g)?.length !== 1 ||
       !/\bpackage="se\.subtrack\.app\.sandbox"/.test(manifest) ||
       /android:debuggable="true"|android:usesCleartextTraffic="true"|android:networkSecurityConfig=/.test(manifest) ||
-      /private-runtime|localhost:3443|PRIVATE_CA|EXDevLauncher|expo\.modules\.updates\.ENABLED/i.test(manifest)) unavailable();
+      /private-runtime|localhost:3443|PRIVATE_CA|EXDevLauncher/i.test(manifest)||!disabledUpdatesMetadata(manifest)) unavailable();
   checkpoint('SDK_VERSION');const version = manifest.match(/\bandroid:versionCode="([1-9][0-9]*)"/);
   if (!version || !/android:targetSdkVersion="36"/.test(manifest) || !/android:minSdkVersion="24"/.test(manifest)) unavailable();
   checkpoint('HERMES');if (!Buffer.isBuffer(bundle) || bundle.length < 8 || !bundle.subarray(0, 8).equals(Buffer.from('c61fbc03c103191f', 'hex'))) unavailable();
@@ -81,7 +89,7 @@ export function inspectSigned({manifest,bundle,unsignedBundle,unsignedApk,signed
   if (cert !== expectedCertificateSha256 || /CN=Android Debug|DOES NOT VERIFY|^Signer #[2-9]/mi.test(signatureOutput) ||
     typeof manifest !== 'string' || manifest.length > 1024*1024 || manifest.match(/<manifest\b/g)?.length !== 1 ||
     !/\bpackage="se\.subtrack\.app\.sandbox"/.test(manifest) || !/android:targetSdkVersion="36"/.test(manifest) || !/android:minSdkVersion="24"/.test(manifest) ||
-    /android:debuggable="true"|android:usesCleartextTraffic="true"|android:networkSecurityConfig=|private-runtime|localhost:3443|PRIVATE_CA|EXDevLauncher|expo\.modules\.updates\.ENABLED/i.test(manifest) ||
+    /android:debuggable="true"|android:usesCleartextTraffic="true"|android:networkSecurityConfig=|private-runtime|localhost:3443|PRIVATE_CA|EXDevLauncher/i.test(manifest) ||!disabledUpdatesMetadata(manifest)||
     Number(manifest.match(/\bandroid:versionCode="([1-9][0-9]*)"/)?.[1]) !== unsignedManifest.versionCode) unavailable();
   const active=unsignedManifest.runtimeEnabled===true,measured=inspectApkRuntime(signedApk,unsignedManifest.versionCode,active),prior=inspectApkRuntime(unsignedApk,unsignedManifest.versionCode,active);if(!apkAssets(signedApk).manifest.equals(apkAssets(unsignedApk).manifest)||!apkAssets(signedApk).hermes.equals(bundle)||!apkAssets(unsignedApk).hermes.equals(unsignedBundle))unavailable();if(active&&['embeddedConfigSha256','hermesSha256'].some(k=>measured[k]!==unsignedManifest[k]||prior[k]!==unsignedManifest[k]))unavailable();return {schemaVersion:active?2:1,...(active?measured:{}),sourceHead:unsignedManifest.sourceHead,unsignedSha256:unsignedManifest.unsignedSha256,applicationId:'se.subtrack.app.sandbox',versionCode:unsignedManifest.versionCode,
     variant:'sandbox',origin:'https://198.44.116.159',buildType:'release',debuggable:false,privateCaIncluded:false,hermesBundled:true,runtimeEnabled:active,bytes:signedApk.length,

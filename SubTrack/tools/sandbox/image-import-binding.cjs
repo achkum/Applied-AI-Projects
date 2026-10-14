@@ -6,7 +6,7 @@ const common=['User','ExposedPorts','Env','Entrypoint','Cmd','Volumes','WorkingD
 const historicalNames=['infra/sandbox/compose.yaml','infra/sandbox/Caddyfile','infra/sandbox/gateway-entrypoint.sh','infra/sandbox/Dockerfile.api','tools/sandbox/deploy.sh','tools/sandbox/verify.sh','tools/sandbox/bootstrap.cjs','tools/sandbox/draft-transfer-receipt.cjs','docs/ops/SANDBOX.md'];
 const executionNames=[...historicalNames,'tools/sandbox/image-import-binding.cjs'],unchangedNames=historicalNames.filter(n=>!['tools/sandbox/deploy.sh','tools/sandbox/verify.sh','docs/ops/SANDBOX.md'].includes(n));
 const pgTmpfs={'/var/lib/postgresql/data':'rw,noexec,nosuid,nodev,size=1m,mode=0700,uid=1000,gid=1000'};
-const gatewayExecutableProfile=Object.freeze({schema:'st250-capless-caddy-v1',imageReference:'caddy:2.11.7@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af',path:'infra/sandbox/caddy-capless',binarySha256:'678ade3bfc088749c81a681adc603333ee0bb023b6a6cfe3c0f58bef8ff854e9',binaryBytes:51953826,capabilityPolicy:'none'});
+const gatewayExecutableProfile=Object.freeze({schema:'st250-capless-caddy-v2',imageReference:'caddy:2.11.7@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af',path:'infra/sandbox/caddy-capless',binarySha256:'678ade3bfc088749c81a681adc603333ee0bb023b6a6cfe3c0f58bef8ff854e9',binaryBytes:51953826,capabilityPolicy:'none',defaultServerName:'198.44.116.159',caddyfileSha256:'354e7d0d22073c1a793d3b43486743d2b3bde14510a907fd062e3fea91485aec'});
 let phase='INPUT';
 function closed(v,keys){if(!v||Object.getPrototypeOf(v)!==Object.prototype)fail();const d=Object.getOwnPropertyDescriptors(v);if(Reflect.ownKeys(v).length!==keys.length)fail();for(const k of keys)if(!d[k]||!('value'in d[k])||!d[k].enumerable)fail();return v;}
 function imageConfigPortfolio(value){
@@ -38,10 +38,10 @@ function sourceBinding(current,historical,head,toolHead,historicalHash){
  closed(current,['schema','artifactSourceHead','toolingSourceHead','historicalSourceCustodySha256','files',...(capless?['gatewayExecutable']:[])]);
  closed(historical,['schema','sourceHead','files']);
  if(!['st250-source-custody-v2','st250-source-custody-v3'].includes(current.schema)||historical.schema!=='st250-source-custody-v1'||!hex(head,40)||!hex(toolHead,40)||current.artifactSourceHead!==head||historical.sourceHead!==head||current.toolingSourceHead!==toolHead||!hex(historicalHash,64)||current.historicalSourceCustodySha256!==historicalHash)fail();
- if(capless){closed(current.gatewayExecutable,Object.keys(gatewayExecutableProfile));for(const [key,value]of Object.entries(gatewayExecutableProfile))if(current.gatewayExecutable[key]!==value)fail();}
+ if(capless&&current.files?.['infra/sandbox/Caddyfile']!==gatewayExecutableProfile.caddyfileSha256)fail();if(capless){closed(current.gatewayExecutable,Object.keys(gatewayExecutableProfile));for(const [key,value]of Object.entries(gatewayExecutableProfile))if(current.gatewayExecutable[key]!==value)fail();}
  closed(current.files,executionNames);closed(historical.files,historicalNames);
  for(const v of Object.values(current.files))if(!hex(v,64))fail();for(const v of Object.values(historical.files))if(!hex(v,64))fail();
- for(const n of unchangedNames)if(!(capless&&n==='infra/sandbox/compose.yaml')&&current.files[n]!==historical.files[n])fail();
+ for(const n of unchangedNames)if(!(capless&&['infra/sandbox/compose.yaml','infra/sandbox/Caddyfile'].includes(n))&&current.files[n]!==historical.files[n])fail();
  return current;
 }
 function verifyGatewayExecutable(root,reference){
