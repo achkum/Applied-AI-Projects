@@ -1,0 +1,59 @@
+name: SubTrack sandbox unsigned Android Release build
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - .github/workflows/subtrack-sandbox-android-build.yml
+      - SubTrack/tools/sandbox/build-android.sh
+      - SubTrack/tools/sandbox/android-release-receipt*
+      - SubTrack/apps/mobile/**
+      - SubTrack/packages/**
+      - SubTrack/package.json
+      - SubTrack/pnpm-lock.yaml
+      - SubTrack/pnpm-workspace.yaml
+      - SubTrack/.npmrc
+      - SubTrack/tsconfig.base.json
+permissions:
+  contents: read
+concurrency:
+  group: subtrack-sandbox-android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  unsigned-android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: SubTrack
+    env:
+      CI: "true"
+      EXPO_NO_TELEMETRY: "1"
+      SUBTRACK_APP_VARIANT: sandbox
+      SUBTRACK_SANDBOX_HTTPS_ORIGIN: https://198.44.116.159
+      ST250_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.14.0"
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Pinned frozen dependencies
+        run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = '12.6.0'
+          pnpm install --frozen-lockfile
+      - name: Exact Android SDK tools
+        run: sdkmanager 'build-tools;36.0.0' 'platforms;android-36' 'ndk;27.1.12297006'
+      - name: Actual locked-template and receipt policy
+        run: node --test tools/sandbox/android-release-receipt.test.mjs
+      - name: Actual unsigned Release APK and closed cleanup receipt
+        run: bash tools/sandbox/build-android.sh unsigned-release
+      # No APK/log/key uploads until included storage and authenticated transfer gates pass.

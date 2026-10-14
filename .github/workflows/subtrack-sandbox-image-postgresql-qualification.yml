@@ -1,0 +1,57 @@
+name: SubTrack same-image persistent sandbox PostgreSQL qualification
+on:
+  pull_request:
+    paths:
+      - 'SubTrack/apps/api/**'
+      - 'SubTrack/packages/**'
+      - 'SubTrack/pnpm-lock.yaml'
+      - 'SubTrack/infra/sandbox/Dockerfile.api'
+      - 'SubTrack/tools/sandbox/build-api.sh'
+      - 'SubTrack/tools/database/sandbox-*'
+      - '.github/workflows/subtrack-sandbox-image-postgresql-qualification.yml'
+  workflow_dispatch:
+    inputs:
+      source_head:
+        description: Reviewed exact source commit
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: subtrack-sandbox-image-pg-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  same-image-postgresql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || inputs.source_head }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.18.0'
+      - name: Prepare existing host observer dependencies
+        working-directory: SubTrack
+        shell: bash
+        run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = 12.6.0
+          pnpm install --frozen-lockfile
+      - name: Build retained image and qualify its real persistent runtime
+        working-directory: SubTrack
+        shell: bash
+        env:
+          ST250_DISPOSABLE: hosted-owned-pg16
+          ST250_QUALIFICATION_VARIANT: image-v2
+          ST250_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || inputs.source_head }}
+          ST250_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: bash tools/database/sandbox-qualify.sh
+      - name: Publish only same-image receipt after verified full custody removal
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st250-sandbox-image-postgresql-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/st250-sandbox-image-postgresql-receipt.json
+          if-no-files-found: error
+          retention-days: 2
