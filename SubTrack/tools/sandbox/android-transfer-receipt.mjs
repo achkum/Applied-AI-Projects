@@ -237,7 +237,7 @@ function inspectToolTarBody(bytes, manifest, checkpoint) {
   checkpoint('EXTRA_MEMBER','JSON');if(files.has('repositories')&&JSON.stringify(JSON.parse(files.get('repositories').toString('utf8')))!=='{}')unavailable();
   checkpoint('EXTRA_MEMBER');
   const extras=[...files.keys()].filter(name=>!allowed.has(name)&&!entries[0].Layers.some(layer=>name===layer.replace(/layer\.tar$/,'json')||name===layer.replace(/layer\.tar$/,'VERSION')));
-  if(extras.length){const name=extras[0];checkpoint(extraToolMemberClass(name,files.get(name),verifiedIndex,verifiedOci,indexBytes,config.rootfs.diff_ids),'ASSERTION',inspectExtraToolGraph(files,extras,verifiedIndex,manifest.imageId,config.rootfs.diff_ids,config));unavailable();}
+  if(extras.length){const graph=inspectExtraToolGraph(files,extras,verifiedIndex,manifest.imageId,config.rootfs.diff_ids,config);if(!graph.legacyCompatible){const name=extras[0];checkpoint(extraToolMemberClass(name,files.get(name),verifiedIndex,verifiedOci,indexBytes,config.rootfs.diff_ids),'ASSERTION',graph);unavailable();}}
   return true;
 }
 function inspectExtraToolGraph(files,extras,index,imageId,diffIds,verifiedImage){
@@ -260,7 +260,7 @@ function inspectExtraToolGraph(files,extras,index,imageId,diffIds,verifiedImage)
     unknown(value);
   }
   if(v1.candidates.size)found.add(v1.complete?'V1_CONFIG_CHAIN_COMPLETE':'V1_CONFIG_CHAIN_INCOMPLETE');
-  return {classes:['EMPTY_JSON_ATTESTATION_CONFIG_BOUND','EMPTY_JSON_UNBOUND','LEGACY_ATTESTATION_CONFIG_BOUND','LEGACY_ATTESTATION_CONFIG_UNBOUND','INTOTO_PROVENANCE_BOUND','INTOTO_PROVENANCE_UNBOUND','INTOTO_SBOM_BOUND','INTOTO_SBOM_UNBOUND','V1_CONFIG_CHAIN_BOUND','V1_CONFIG_UNBOUND','V1_CONFIG_CHAIN_COMPLETE','V1_CONFIG_CHAIN_INCOMPLETE','UNRECOGNIZED'].filter(c=>found.has(c)).join(','),shapeFlags:[...flags].sort().join(',')};
+  return {classes:['EMPTY_JSON_ATTESTATION_CONFIG_BOUND','EMPTY_JSON_UNBOUND','LEGACY_ATTESTATION_CONFIG_BOUND','LEGACY_ATTESTATION_CONFIG_UNBOUND','INTOTO_PROVENANCE_BOUND','INTOTO_PROVENANCE_UNBOUND','INTOTO_SBOM_BOUND','INTOTO_SBOM_UNBOUND','V1_CONFIG_CHAIN_BOUND','V1_CONFIG_UNBOUND','V1_CONFIG_CHAIN_COMPLETE','V1_CONFIG_CHAIN_INCOMPLETE','UNRECOGNIZED'].filter(c=>found.has(c)).join(','),shapeFlags:[...flags].sort().join(','),legacyCompatible:v1.complete&&extras.every(name=>/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)&&v1.bound.has(`sha256:${name.slice(13)}`))};
 }
 function inspectLegacyV1Chain(objects,diffIds,image){
   const fields=['id','parent','comment','created','container','container_config','docker_version','author','config','architecture','variant','os','Size'],candidates=new Map(),bound=new Set();
