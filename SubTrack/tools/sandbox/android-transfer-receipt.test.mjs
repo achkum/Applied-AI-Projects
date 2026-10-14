@@ -6,6 +6,22 @@ import { fileURLToPath } from 'node:url';
 import { gzipSync,crc32 as zipCrc,deflateRawSync } from 'node:zlib';
 import { JDK_IMAGE,SDK_SHA256,digest,validateManifest,validateTransfer,bind,validateRemote,canonical,tag,inspectToolTar,toolsArchiveDiagnostic,closeTransferCandidate,validateBackupBinding,assertSignedUpdate,validateSignerIdentity,apkAssets,inspectActiveApk,validateSignedPending } from './android-transfer-receipt.mjs';
 
+test('signer host custody uses measured GID987 while container remains GID996',()=>{
+ const require=createRequire(import.meta.url),fs=require('node:fs'),sign=fs.readFileSync(new URL('./sign-android.sh',import.meta.url),'utf8'),desktop=fs.readFileSync(new URL('./download-android.ps1',import.meta.url),'utf8');
+ const authority=sign.split('\n').find(line=>line.includes('$(uname -s)')),bash=process.platform==='win32'?'C:/Program Files/Git/bin/bash.exe':'bash';
+ const helpers='uname(){ printf Linux; }; id(){ if [[ "$1" == -u ]]; then printf "%s" "$TEST_UID"; else printf "%s" "$TEST_GID"; fi; }; root=/home/openclaw/subtrack-sandbox; ';
+ for(const [uid,gid,host,container]of [['996','987',true,false],['996','996',false,true],['0','987',false,false],['996','0',false,false]]){
+  const run=guard=>spawnSync(bash,['-c',helpers+guard],{encoding:'utf8',env:{...process.env,TEST_UID:uid,TEST_GID:gid}}).status===0;
+  assert.equal(run(authority),host);assert.equal(run('test "$(id -u):$(id -g)" = 996:996'),container);
+ }
+ assert.ok(sign.includes('--user 996:996'));assert.ok(sign.includes("{{.Config.User}}' \"$image\")\" == 996:996"));
+ for(const source of [sign,desktop]){assert.ok(source.includes('700:996:987'));assert.ok(source.includes('600:996:987'));}
+ assert.ok(desktop.includes('= 996:987;'));assert.ok(!desktop.includes('996:996'));
+ const normalize=sign.slice(sign.indexOf('# Fresh container-created key files'),sign.indexOf('  cert="$(sha256sum "$keydir/certificate.der"'));
+ assert.ok(normalize.includes('for file in sandbox-signing.p12 password; do'));assert.ok(normalize.indexOf('600:996:996')<normalize.indexOf('chgrp -- 987'));assert.ok(normalize.indexOf('chgrp -- 987')<normalize.indexOf('600:996:987'));
+ for(const tuple of ['600:996:987','600:996:996','644:996:987','600:0:987'])assert.equal(spawnSync(bash,['-c','[[ "$TEST_STAT" == 600:996:987 ]]'],{env:{...process.env,TEST_STAT:tuple}}).status===0,tuple==='600:996:987');
+});
+
 test('signed return labels preserve measured runtime and unverified testing candidate scope',()=>{
   const fs=createRequire(import.meta.url)('node:fs');
   const source=fs.readFileSync(new URL('./download-android.ps1',import.meta.url),'utf8');

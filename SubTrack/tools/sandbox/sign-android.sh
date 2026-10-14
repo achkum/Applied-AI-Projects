@@ -9,7 +9,7 @@ if [[ "$mode" == validate ]]; then
   node --check "$root/tools/sandbox/android-transfer-receipt.mjs"
   printf 'ST250_ANDROID_SIGNER_SOURCE_VALID keys=not-accessed\n'; exit 0
 fi
-[[ "$(uname -s)" == Linux && "$(id -u):$(id -g)" == 996:996 && "$root" == /home/openclaw/subtrack-sandbox ]]
+[[ "$(uname -s)" == Linux && "$(id -u):$(id -g)" == 996:987 && "$root" == /home/openclaw/subtrack-sandbox ]]
 command -v node >/dev/null
 [[ "${SSH_CONNECTION:-}" =~ [[:space:]]198\.44\.116\.159[[:space:]][0-9]+$ ]]
 [[ "${ST250_SOURCE_HEAD:-}" =~ ^[a-f0-9]{40}$ && "${ST250_ANDROID_TOOLS_RUN:-}" =~ ^[1-9][0-9]*-[1-9][0-9]*$ && "${ST250_ANDROID_APK_RUN:-}" =~ ^[1-9][0-9]*-[1-9][0-9]*$ ]]
@@ -24,7 +24,7 @@ done
 tools="$root/staging/android-tools/$ST250_ANDROID_TOOLS_RUN"
 apkdir="$root/staging/android/$ST250_ANDROID_APK_RUN"
 for dir in "$tools" "$apkdir"; do
-  [[ -d "$dir" && ! -L "$dir" && "$(realpath -e "$dir")" == "$dir" && "$(stat -c '%a:%u:%g' "$dir")" == 700:996:996 ]]
+  [[ -d "$dir" && ! -L "$dir" && "$(realpath -e "$dir")" == "$dir" && "$(stat -c '%a:%u:%g' "$dir")" == 700:996:987 ]]
 done
 image="${SANDBOX_ANDROID_SIGNING_IMAGE:?}"
 [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]]
@@ -50,7 +50,7 @@ cleanup() {
     ! docker inspect "$cid" > /dev/null 2>&1 || return 1
   done
   if [[ "$key_lock" == true ]]; then
-    [[ -d "$keydir/.operation.lock" && ! -L "$keydir/.operation.lock" && "$(stat -c '%a:%u:%g' "$keydir/.operation.lock")" == 700:996:996 ]] || return 1
+    [[ -d "$keydir/.operation.lock" && ! -L "$keydir/.operation.lock" && "$(stat -c '%a:%u:%g' "$keydir/.operation.lock")" == 700:996:987 ]] || return 1
     rmdir "$keydir/.operation.lock" || return 1
     [[ ! -e "$keydir/.operation.lock" ]] || return 1
     key_lock=false
@@ -84,9 +84,9 @@ import fs from 'node:fs';const[m,p]=process.argv.slice(2),v=JSON.parse(fs.readFi
 for(const[key,name]of[['apksignerJarSha256','lib/apksigner.jar'],['zipalignSha256','zipalign']])if(!lines.includes(`${v[key]}  /opt/android/build-tools/36.0.0/${name}`))throw Error('tools bytes');
 NODE
 check_keydir() {
-  [[ -d "$keydir" && ! -L "$keydir" && "$(realpath -e "$keydir")" == "$keydir" && "$(stat -c '%a:%u:%g' "$keydir")" == 700:996:996 ]]
+  [[ -d "$keydir" && ! -L "$keydir" && "$(realpath -e "$keydir")" == "$keydir" && "$(stat -c '%a:%u:%g' "$keydir")" == 700:996:987 ]]
   for file in sandbox-signing.p12 password identity.json; do
-    [[ -f "$keydir/$file" && ! -L "$keydir/$file" && "$(stat -c '%a:%u:%g' "$keydir/$file")" == 600:996:996 && "$(stat -c '%s' "$keydir/$file")" -le 65536 ]]
+    [[ -f "$keydir/$file" && ! -L "$keydir/$file" && "$(stat -c '%a:%u:%g' "$keydir/$file")" == 600:996:987 && "$(stat -c '%s' "$keydir/$file")" -le 65536 ]]
   done
   node "$root/tools/sandbox/android-transfer-receipt.mjs" validate-identity "$keydir/identity.json"
 }
@@ -98,6 +98,13 @@ if [[ "$mode" == initialize ]]; then
   stage=INITIALIZE
   [[ ! -e "$keydir" && ! -L "$keydir" ]]; mkdir -m 700 "$keydir"
   command_container initialize --mount "type=bind,src=$keydir,dst=/key" --entrypoint /bin/sh "$image" -ec 'umask 077; test ! -e /key/password; test ! -e /key/sandbox-signing.p12; (set -C; od -An -N32 -tx1 /dev/urandom | tr -d " \n" > /key/password); test "$(wc -c < /key/password)" = 64; printf "\n" >> /key/password; keytool -genkeypair -alias subtrack-sandbox -keyalg RSA -keysize 3072 -sigalg SHA256withRSA -validity 10000 -dname "CN=SubTrack Sandbox,O=Sandbox,C=SE" -storetype PKCS12 -keystore /key/sandbox-signing.p12 -storepass:file /key/password -keypass:file /key/password; keytool -exportcert -alias subtrack-sandbox -keystore /key/sandbox-signing.p12 -storepass:file /key/password -file /key/certificate.der' > "$private/initialize.log" 2>&1
+  # Fresh container-created key files retain UID996; use the measured host group
+  # for persistent custody without changing the container's UID996:GID996.
+  for file in sandbox-signing.p12 password; do
+    [[ -f "$keydir/$file" && ! -L "$keydir/$file" && "$(stat -c '%a:%u:%g' "$keydir/$file")" == 600:996:996 ]]
+    chgrp -- 987 "$keydir/$file"
+    [[ "$(stat -c '%a:%u:%g' "$keydir/$file")" == 600:996:987 ]]
+  done
   cert="$(sha256sum "$keydir/certificate.der" | cut -d' ' -f1)"; [[ "$cert" =~ ^[a-f0-9]{64}$ ]]
   node --input-type=module - "$keydir/identity.json" "$cert" "$image" "$ST250_SOURCE_HEAD" <<'NODE'
 import fs from 'node:fs';const[file,cert,image,head]=process.argv.slice(2);fs.writeFileSync(file,JSON.stringify({schema:'st250-android-signer-identity-v1',signerCertificateSha256:cert,imageId:image,sourceHead:head,alias:'subtrack-sandbox',storeType:'PKCS12',keyAlgorithm:'RSA3072',generation:1}),{flag:'wx',mode:0o600});
@@ -121,8 +128,8 @@ if [[ "$mode" == restore-probe ]]; then
   stage=RESTORE
   [[ "${ST250_RESTORE_ID:-}" =~ ^[a-f0-9]{32}$ ]]
   recovered="$root/staging/android-restore/$ST250_RESTORE_ID"
-  [[ -d "$recovered" && ! -L "$recovered" && "$(realpath -e "$recovered")" == "$recovered" && "$(stat -c '%a:%u:%g' "$recovered")" == 700:996:996 ]]
-  for file in sandbox-signing.p12 password; do [[ -f "$recovered/$file" && ! -L "$recovered/$file" && "$(stat -c '%a:%u:%g' "$recovered/$file")" == 600:996:996 ]]; done
+  [[ -d "$recovered" && ! -L "$recovered" && "$(realpath -e "$recovered")" == "$recovered" && "$(stat -c '%a:%u:%g' "$recovered")" == 700:996:987 ]]
+  for file in sandbox-signing.p12 password; do [[ -f "$recovered/$file" && ! -L "$recovered/$file" && "$(stat -c '%a:%u:%g' "$recovered/$file")" == 600:996:987 ]]; done
   run_sign "$recovered"
   rm -- "$recovered/sandbox-signing.p12" "$recovered/password"; rmdir "$recovered"; [[ ! -e "$recovered" ]]
   restore_hash="$(sha256sum "$private/out/signed.apk" | cut -d' ' -f1)"
@@ -134,7 +141,7 @@ fi
 if [[ "$mode" == backup-accept ]]; then
   stage=BACKUP_ACCEPT
   [[ "${ST250_RESTORE_ID:-}" =~ ^[a-f0-9]{32}$ && "${ST250_BACKUP_CIPHERTEXT_SHA256:-}" =~ ^[a-f0-9]{64}$ && "${ST250_BACKUP_CIPHERTEXT_BYTES:-}" =~ ^[1-9][0-9]*$ && "$ST250_BACKUP_CIPHERTEXT_BYTES" -le 131072 ]]
-  marker="$keydir/restore-$ST250_RESTORE_ID.done"; [[ -f "$marker" && ! -L "$marker" && "$(stat -c '%a:%u:%g' "$marker")" == 600:996:996 ]]
+  marker="$keydir/restore-$ST250_RESTORE_ID.done"; [[ -f "$marker" && ! -L "$marker" && "$(stat -c '%a:%u:%g' "$marker")" == 600:996:987 ]]
   [[ "$(cut -d: -f1 "$marker")" == "$cert" && ! -e "$keydir/backup-binding.json" ]]
   node --input-type=module - "$keydir/backup-binding.json" "$cert" "$ST250_BACKUP_CIPHERTEXT_SHA256" "$ST250_BACKUP_CIPHERTEXT_BYTES" <<'NODE'
 import fs from 'node:fs';const[file,cert,hash,bytes]=process.argv.slice(2);fs.writeFileSync(file,JSON.stringify({schema:'st250-android-signer-backup-v1',signerCertificateSha256:cert,ciphertextSha256:hash,ciphertextBytes:Number(bytes),protection:'windows-dpapi-current-user',backupGeneration:1,decryptVerified:true,signingRestoreVerified:true,temporaryCustodyRemoved:true,backupConfirmed:true}),{flag:'wx',mode:0o600});
@@ -142,12 +149,12 @@ NODE
   rm -- "$marker"; cleanup; trap - EXIT; printf 'ST250_ANDROID_BACKUP_ACCEPTED certificate=%s\n' "$cert"; exit 0
 fi
 stage=SIGN
-[[ "${ST250_BACKUP_CIPHERTEXT_SHA256:-}" =~ ^[a-f0-9]{64}$ && -f "$keydir/backup-binding.json" && ! -L "$keydir/backup-binding.json" && "$(stat -c '%a:%u:%g' "$keydir/backup-binding.json")" == 600:996:996 ]]
+[[ "${ST250_BACKUP_CIPHERTEXT_SHA256:-}" =~ ^[a-f0-9]{64}$ && -f "$keydir/backup-binding.json" && ! -L "$keydir/backup-binding.json" && "$(stat -c '%a:%u:%g' "$keydir/backup-binding.json")" == 600:996:987 ]]
 node --input-type=module - "$root/tools/sandbox/android-transfer-receipt.mjs" "$keydir/backup-binding.json" "$cert" "$ST250_BACKUP_CIPHERTEXT_SHA256" <<'NODE'
 import fs from 'node:fs';import{pathToFileURL}from'node:url';const[module,file,cert,hash]=process.argv.slice(2),m=await import(pathToFileURL(module)),v=m.canonical(fs.readFileSync(file),m.validateBackupBinding);if(v.signerCertificateSha256!==cert||v.ciphertextSha256!==hash)throw Error('backup binding');
 NODE
 history="$keydir/signed-history.json"
-if [[ -e "$history" || -L "$history" ]]; then [[ -f "$history" && ! -L "$history" && "$(stat -c '%a:%u:%g' "$history")" == 600:996:996 ]]; fi
+if [[ -e "$history" || -L "$history" ]]; then [[ -f "$history" && ! -L "$history" && "$(stat -c '%a:%u:%g' "$history")" == 600:996:987 ]]; fi
 node --input-type=module - "$root/tools/sandbox/android-transfer-receipt.mjs" "$apkdir/manifest.json" "$cert" "$history" <<'NODE'
 import fs from'node:fs';import{pathToFileURL}from'node:url';const[module,file,cert,history]=process.argv.slice(2),m=await import(pathToFileURL(module));m.assertSignedUpdate(m.canonical(fs.readFileSync(file),v=>m.validateManifest(v,'apk')),cert,fs.existsSync(history)?JSON.parse(fs.readFileSync(history)):null);
 NODE

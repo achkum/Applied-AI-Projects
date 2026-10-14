@@ -116,7 +116,7 @@ foreach($name in @('sign-android.sh','android-release-receipt.mjs','android-tran
 $remoteEnv="ST250_SOURCE_HEAD=$SourceHead ST250_ANDROID_TOOLS_RUN=$ToolsRun ST250_ANDROID_APK_RUN=$ApkRun SANDBOX_ANDROID_SIGNING_IMAGE=$ToolsImage ST250_SIGN_SOURCE_SHA256=$($sourceHashes['sign-android.sh']) ST250_RECEIPT_SOURCE_SHA256=$($sourceHashes['android-release-receipt.mjs']) ST250_TRANSFER_SOURCE_SHA256=$($sourceHashes['android-transfer-receipt.mjs'])"
 function Sign-Remote([string]$Action,[string]$Extra=''){Require ($Action -in @('import-tools','preflight','initialize','restore-probe','backup-accept','sign'));Remote "env $remoteEnv $Extra bash $remoteRoot/tools/sandbox/sign-android.sh $Action"}
 if($Mode -eq 'Stage'){
-  [void](Remote "set -eu; test `"`$(id -u):`$(id -g)`" = 996:996; test -d $remoteRoot; test ! -L $remoteRoot; test `"`$(realpath -e $remoteRoot)`" = $remoteRoot; umask 077; mkdir -p $remoteRoot/staging/android $remoteRoot/staging/android-tools $remoteRoot/staging/android-restore; test ! -L $remoteRoot/staging; test ! -L $remoteRoot/staging/android; test ! -L $remoteRoot/staging/android-tools; test ! -L $remoteRoot/staging/android-restore; test ! -e $remoteRoot/staging/android/$ApkRun; test ! -e $remoteRoot/staging/android-tools/$ToolsRun; mkdir -m 700 $remoteRoot/staging/android/$ApkRun $remoteRoot/staging/android-tools/$ToolsRun")
+  [void](Remote "set -eu; test `"`$(id -u):`$(id -g)`" = 996:987; test -d $remoteRoot; test ! -L $remoteRoot; test `"`$(realpath -e $remoteRoot)`" = $remoteRoot; umask 077; mkdir -p $remoteRoot/staging/android $remoteRoot/staging/android-tools $remoteRoot/staging/android-restore; test ! -L $remoteRoot/staging; test ! -L $remoteRoot/staging/android; test ! -L $remoteRoot/staging/android-tools; test ! -L $remoteRoot/staging/android-restore; test ! -e $remoteRoot/staging/android/$ApkRun; test ! -e $remoteRoot/staging/android-tools/$ToolsRun; mkdir -m 700 $remoteRoot/staging/android/$ApkRun $remoteRoot/staging/android-tools/$ToolsRun")
   foreach($entry in @(@('apk',$ApkRun,'android','unsigned.apk'),@('tools',$ToolsRun,'android-tools','tools-image.tar.gz'))){
     $dir=Join-Path $transferRoot "$($entry[0])-$($entry[1])";Check-PrivateAcl $dir
     # Revalidate authenticated remote metadata and downloaded bytes before transfer.
@@ -206,7 +206,7 @@ try{
   }
   if($Mode -eq 'ReturnSigned'){
     Require $FreeDraftConfirmed.IsPresent
-    [void](Remote "set -eu; d=$remoteRoot/staging/android-signed/$ApkRun; test -d `"`$d`"; test ! -L `"`$d`"; test `"`$(realpath -e `"`$d`")`" = $remoteRoot/staging/android-signed/$ApkRun; test `"`$(stat -c '%a:%u:%g' `"`$d`")`" = 700:996:996; for n in signed.apk pending.json; do test -f `"`$d/`$n`"; test ! -L `"`$d/`$n`"; test `"`$(stat -c '%a:%u:%g' `"`$d/`$n`")`" = 600:996:996; done; test `"`$(stat -c '%s' `"`$d/signed.apk`")`" -le 209715200; test `"`$(stat -c '%s' `"`$d/pending.json`")`" -le 16384")
+    [void](Remote "set -eu; d=$remoteRoot/staging/android-signed/$ApkRun; test -d `"`$d`"; test ! -L `"`$d`"; test `"`$(realpath -e `"`$d`")`" = $remoteRoot/staging/android-signed/$ApkRun; test `"`$(stat -c '%a:%u:%g' `"`$d`")`" = 700:996:987; for n in signed.apk pending.json; do test -f `"`$d/`$n`"; test ! -L `"`$d/`$n`"; test `"`$(stat -c '%a:%u:%g' `"`$d/`$n`")`" = 600:996:987; done; test `"`$(stat -c '%s' `"`$d/signed.apk`")`" -le 209715200; test `"`$(stat -c '%s' `"`$d/pending.json`")`" -le 16384")
     $returnDir=Join-Path $transferRoot "signed-$ApkRun";New-PrivateDirectory $returnDir
     $signedName="subtrack-sandbox-signed-$SourceHead.apk";$pendingName="st250-android-signed-$SourceHead.json"
     Scp-In "$remoteRoot/staging/android-signed/$ApkRun/signed.apk" (Join-Path $returnDir $signedName)
@@ -251,6 +251,6 @@ finally{
   foreach($bytes in @($payload,$keyBytes,$passwordBytes,$decoded,$cipher)){if($null -ne $bytes){Clear-Bytes $bytes}}
   if(Test-Path -LiteralPath $temp){Remove-Owned $temp $backupDir}
   if($null -ne $remoteRestore){
-    [void](Remote "set -eu; d=$remoteRestore; if test -e `"`$d`"; then test ! -L `"`$d`"; test `"`$(realpath -e `"`$d`")`" = $remoteRestore; test `"`$(stat -c '%a:%u:%g' `"`$d`")`" = 700:996:996; for n in sandbox-signing.p12 password; do if test -e `"`$d/`$n`"; then test -f `"`$d/`$n`"; test ! -L `"`$d/`$n`"; rm -- `"`$d/`$n`"; fi; done; rmdir `"`$d`"; fi; test ! -e `"`$d`"")
+    [void](Remote "set -eu; d=$remoteRestore; if test -e `"`$d`"; then test ! -L `"`$d`"; test `"`$(realpath -e `"`$d`")`" = $remoteRestore; test `"`$(stat -c '%a:%u:%g' `"`$d`")`" = 700:996:987; for n in sandbox-signing.p12 password; do if test -e `"`$d/`$n`"; then test -f `"`$d/`$n`"; test ! -L `"`$d/`$n`"; rm -- `"`$d/`$n`"; fi; done; rmdir `"`$d`"; fi; test ! -e `"`$d`"")
   }
 }
