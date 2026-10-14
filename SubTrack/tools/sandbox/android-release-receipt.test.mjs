@@ -3,13 +3,22 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { unsignedTemplate, inspectUnsigned, validateReceipt, buildDiagnostic } from './android-release-receipt.mjs';
+import { unsignedTemplate, inspectUnsigned, inspectSigned, validateReceipt, buildDiagnostic } from './android-release-receipt.mjs';
 
 const template = '    buildTypes {\n        debug {\n            signingConfig signingConfigs.debug\n        }\n        release {\n            // Caution! In production, you need to generate your own keystore file.\n            // see https://reactnative.dev/docs/signed-apk-android.\n            signingConfig signingConfigs.debug\n            minifyEnabled false\n        }\n    }';
 const input = () => ({ manifest: '<manifest package="se.subtrack.app.sandbox" android:versionCode="1"><uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36"/><application android:debuggable="false" android:usesCleartextTraffic="false"/></manifest>',
   bundle: Buffer.from('c61fbc03c103191f00', 'hex'), apk: Buffer.from('synthetic-unsigned-fixture'), sourceHead: 'a'.repeat(40), signatureExit: 1,
   signatureOutput: 'DOES NOT VERIFY\nERROR: Missing META-INF/MANIFEST.MF\n' });
 const receipt = () => ({ ...inspectUnsigned(input()), cleanup: 'REMOVED' });
+
+test('actual signed inspection binds verified one-signer certificate manifest and unchanged Hermes to authenticated unsigned bytes',()=>{
+  const unsigned=input(),value=inspectUnsigned(unsigned),cert='e'.repeat(64);
+  const {schemaVersion,signatureVerified,...fields}=value;
+  const manifest={schema:'st250-android-transfer-manifest-v1',...fields,runId:'1-1',defaultTargetHead:'b'.repeat(40),draftTag:`st250-android-stage-${value.sourceHead}-1-1`,buildScriptSha256:'c'.repeat(64),receiptModuleSha256:'d'.repeat(64)};
+  const signed={manifest:unsigned.manifest,bundle:unsigned.bundle,unsignedBundle:unsigned.bundle,unsignedApk:unsigned.apk,signedApk:Buffer.from('synthetic signed APK Sig Block 42'),signatureOutput:`Verifies\nVerified using v2 scheme (APK Signature Scheme v2): true\nNumber of signers: 1\nSigner #1 certificate SHA-256 digest: ${cert}\n`,signatureExit:0,alignmentExit:0,expectedCertificateSha256:cert,unsignedManifest:manifest};
+  const result=inspectSigned(signed);assert.equal(validateReceipt({...result,cleanup:'REMOVED'},true).signerCertificateSha256,cert);
+  for(const patch of[{signatureExit:1},{alignmentExit:1},{expectedCertificateSha256:'f'.repeat(64)},{bundle:Buffer.from('replaced')},{unsignedApk:Buffer.from('replaced')},{signedApk:unsigned.apk},{manifest:unsigned.manifest.replace('versionCode="1"','versionCode="2"')},{manifest:unsigned.manifest.replace('debuggable="false"','debuggable="true"')},{signatureOutput:signed.signatureOutput+'Signer #2 certificate SHA-256 digest: '+cert+'\n'},{signatureOutput:signed.signatureOutput+'Signer #1 certificate DN: CN=Android Debug\n'},{unsignedManifest:{...manifest,runtimeEnabled:true}}])assert.throws(()=>inspectSigned({...signed,...patch}));
+});
 
 test('actual post-cleanup inline importer exits successfully without invoking standalone CLI', () => {
   const script = readFileSync(new URL('./build-android.sh', import.meta.url), 'utf8');

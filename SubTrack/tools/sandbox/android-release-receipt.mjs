@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, lstatSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { validateManifest } from './android-transfer-receipt.mjs';
 
 const unavailable = () => { throw new Error('Sandbox Android preparation unavailable'); };
 const hex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
@@ -59,6 +60,29 @@ export function inspectUnsigned({ manifest, bundle, apk, signatureOutput, signat
     bytes: apk.length, signatureVerified: false, zipAligned: true };
 }
 
+export function inspectSigned({manifest,bundle,unsignedBundle,unsignedApk,signedApk,signatureOutput,signatureExit,alignmentExit,expectedCertificateSha256,unsignedManifest}) {
+  validateManifest(unsignedManifest,'apk');
+  // The authenticated unsigned manifest binds source/runtime intent; actual signed
+  // manifest and unchanged Hermes bytes prove that signing did not replace them.
+  if (!unsignedManifest || unsignedManifest.runtimeEnabled !== false || unsignedManifest.applicationId !== 'se.subtrack.app.sandbox' ||
+    !hex(expectedCertificateSha256) || !Buffer.isBuffer(unsignedApk) || !Buffer.isBuffer(signedApk) ||
+    createHash('sha256').update(unsignedApk).digest('hex') !== unsignedManifest.unsignedSha256 || unsignedApk.length !== unsignedManifest.bytes ||
+    signedApk.length < 1 || signedApk.length > 200*1024*1024 || !signedApk.includes(Buffer.from('APK Sig Block 42')) || signedApk.equals(unsignedApk) || !Buffer.isBuffer(bundle) || !Buffer.isBuffer(unsignedBundle) || !bundle.equals(unsignedBundle) ||
+    bundle.length < 8 || !bundle.subarray(0,8).equals(Buffer.from('c61fbc03c103191f','hex')) || signatureExit !== 0 || alignmentExit !== 0 ||
+    typeof signatureOutput !== 'string' || signatureOutput.length > 16384 || !/^Verifies\s*$/m.test(signatureOutput) ||
+    (signatureOutput.match(/^Number of signers: 1$/gm)?.length !== 1) || (signatureOutput.match(/^Signer #[0-9]+ certificate SHA-256 digest: /gm)?.length !== 1) ||
+    !/^Verified using v2 scheme \(APK Signature Scheme v2\): true$/m.test(signatureOutput)) unavailable();
+  const cert = signatureOutput.match(/^Signer #1 certificate SHA-256 digest: ([A-Fa-f0-9]{64})$/m)?.[1]?.toLowerCase();
+  if (cert !== expectedCertificateSha256 || /CN=Android Debug|DOES NOT VERIFY|^Signer #[2-9]/mi.test(signatureOutput) ||
+    typeof manifest !== 'string' || manifest.length > 1024*1024 || manifest.match(/<manifest\b/g)?.length !== 1 ||
+    !/\bpackage="se\.subtrack\.app\.sandbox"/.test(manifest) || !/android:targetSdkVersion="36"/.test(manifest) || !/android:minSdkVersion="24"/.test(manifest) ||
+    /android:debuggable="true"|android:usesCleartextTraffic="true"|android:networkSecurityConfig=|private-runtime|localhost:3443|PRIVATE_CA/i.test(manifest) ||
+    Number(manifest.match(/\bandroid:versionCode="([1-9][0-9]*)"/)?.[1]) !== unsignedManifest.versionCode) unavailable();
+  return {schemaVersion:1,sourceHead:unsignedManifest.sourceHead,unsignedSha256:unsignedManifest.unsignedSha256,applicationId:'se.subtrack.app.sandbox',versionCode:unsignedManifest.versionCode,
+    variant:'sandbox',origin:'https://198.44.116.159',buildType:'release',debuggable:false,privateCaIncluded:false,hermesBundled:true,runtimeEnabled:false,bytes:signedApk.length,
+    signatureVerified:true,zipAligned:true,signedSha256:createHash('sha256').update(signedApk).digest('hex'),signerCertificateSha256:cert};
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const [mode, ...args] = process.argv.slice(2);
@@ -75,6 +99,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const stat = lstatSync(args[0]);
       if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 8 * 1024 * 1024) unavailable();
       process.stdout.write(buildDiagnostic(readFileSync(args[0], 'utf8')) + '\n');
+    } else if (mode === 'inspect-signed' && args.length === 10) {
+      const [manifest,bundle,unsignedBundle,unsignedApk,signedApk,signature,signatureExit,alignmentExit,certificate,unsignedManifest]=args;
+      process.stdout.write(JSON.stringify(inspectSigned({manifest:readFileSync(manifest,'utf8'),bundle:readFileSync(bundle),unsignedBundle:readFileSync(unsignedBundle),unsignedApk:readFileSync(unsignedApk),signedApk:readFileSync(signedApk),signatureOutput:readFileSync(signature,'utf8'),signatureExit:Number(signatureExit),alignmentExit:Number(alignmentExit),expectedCertificateSha256:certificate,unsignedManifest:JSON.parse(readFileSync(unsignedManifest,'utf8'))})));
     } else if (mode === 'close' && args.length === 1) {
       process.stdout.write(JSON.stringify(validateReceipt({ ...JSON.parse(readFileSync(args[0], 'utf8')), cleanup: 'REMOVED' })) + '\n');
     } else unavailable();
