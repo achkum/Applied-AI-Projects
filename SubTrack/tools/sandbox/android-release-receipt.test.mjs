@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import { unsignedTemplate, inspectUnsigned, validateReceipt, buildDiagnostic } from './android-release-receipt.mjs';
 
 const template = '    buildTypes {\n        debug {\n            signingConfig signingConfigs.debug\n        }\n        release {\n            // Caution! In production, you need to generate your own keystore file.\n            // see https://reactnative.dev/docs/signed-apk-android.\n            signingConfig signingConfigs.debug\n            minifyEnabled false\n        }\n    }';
@@ -7,6 +10,17 @@ const input = () => ({ manifest: '<manifest package="se.subtrack.app.sandbox" an
   bundle: Buffer.from('c61fbc03c103191f00', 'hex'), apk: Buffer.from('synthetic-unsigned-fixture'), sourceHead: 'a'.repeat(40), signatureExit: 1,
   signatureOutput: 'DOES NOT VERIFY\nERROR: Missing META-INF/MANIFEST.MF\n' });
 const receipt = () => ({ ...inspectUnsigned(input()), cleanup: 'REMOVED' });
+
+test('actual post-cleanup inline importer exits successfully without invoking standalone CLI', () => {
+  const script = readFileSync(new URL('./build-android.sh', import.meta.url), 'utf8');
+  const command = script.split('\n').find(line => line.startsWith("printf '%s' \"$pending\" | node --input-type=module -e "));
+  const match = command.match(/ -e '([^']+)' st250-receipt-import "\$root\/tools\/sandbox\/android-release-receipt\.mjs"$/);
+  assert(match, 'actual importer invocation must keep a separate entrypoint argument');
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', match[1], 'st250-receipt-import', fileURLToPath(new URL('./android-release-receipt.mjs', import.meta.url))], { input: JSON.stringify(receipt()), encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, '');
+  assert.deepEqual(JSON.parse(result.stdout), receipt());
+});
 
 test('build diagnostics emit finite metadata without compiler text, paths or credentials', () => {
   const failure = (task, reason) => `> Task :expo:compileReleaseKotlin SUCCESS\nExecution failed for task '${task}'.\n${reason}\nprivate-canary=https://private.invalid/secret`;

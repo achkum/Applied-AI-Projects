@@ -76,4 +76,4 @@ stage=CLEANUP
 cleanup
 trap - EXIT
 # Validate fixed scalar receipt from stdin after actual owned cleanup, without retaining APK.
-printf '%s' "$pending" | node --input-type=module -e 'import{pathToFileURL}from "node:url";const{validateReceipt}=await import(pathToFileURL(process.argv[1]).href);let s="";for await(const c of process.stdin)s+=c;console.log(JSON.stringify(validateReceipt({...JSON.parse(s),cleanup:"REMOVED"})));' "$root/tools/sandbox/android-release-receipt.mjs"
+printf '%s' "$pending" | node --input-type=module -e 'import{pathToFileURL}from "node:url";const{validateReceipt}=await import(pathToFileURL(process.argv[2]).href);let s="";for await(const c of process.stdin)s+=c;console.log(JSON.stringify(validateReceipt({...JSON.parse(s),cleanup:"REMOVED"})));' st250-receipt-import "$root/tools/sandbox/android-release-receipt.mjs"
