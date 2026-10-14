@@ -11,7 +11,7 @@ const kinds=['tapOnElement','inputTextCommand','hideKeyboardCommand','assertCond
 const row=(kind='tapOnElement',patch={})=>({command:{[kind]:{}},metadata:{status:'FAILED',sequenceNumber:0,depth:0,...patch}});
 const bytes=value=>Buffer.from(JSON.stringify(value));
 const invalid=value=>assert.deepEqual(projectEnrollmentMetadata(value),{metadata:'INVALID',command:'UNKNOWN',errorClass:'UNKNOWN'});
-function temporary(action){const root=fs.mkdtempSync(join(tmpdir(),'st-c22-'));try{return action(root);}finally{mock.restoreAll();syncBuiltinESMExports();assert.equal(dirname(resolve(root)),resolve(tmpdir()));assert.ok(basename(root).startsWith('st-c22-'));fs.rmSync(root,{recursive:true,force:true});}}
+function temporary(action){const base=fs.realpathSync(tmpdir()),root=fs.mkdtempSync(join(base,'st-c22-'));try{return action(root);}finally{mock.restoreAll();syncBuiltinESMExports();assert.equal(dirname(resolve(root)),base);assert.ok(basename(root).startsWith('st-c22-'));fs.rmSync(root,{recursive:true,force:true});}}
 function fixture(root){const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution),flow=join(root,'enroll-add','2026-10-14_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});const file=join(flow,'commands.json');fs.writeFileSync(file,bytes([row()]));execution.record('exit',1,null);return {execution,reader,flow,file};}
 function replace(name,implementation){mock.method(fs,name,implementation);syncBuiltinESMExports();}
 test('producer-shaped complete records select only one top-level failed original kind, no payload/class/stage inference',()=>{
