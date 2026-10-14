@@ -129,6 +129,7 @@ export function NativePersonalScreen() {
       }); }) : null}
       {profile?.profileComplete && mode === 'just-me' ? <>
         {button(t('onboarding.billingMonth.open'), () => router.push('/personal-billing-month'))}
+        {button(t('onboarding.nativeDetection.open'), () => router.push('/personal-detections'))}
         {button(t('onboarding.nativeBank.open'), () => router.push('/personal-bank'))}
         {button(t('onboarding.nativeRenewals.open'), () => router.push('/personal-home'))}
         {items.length === 0 && !loading ? <Text style={text}>{t('onboarding.ownerSubscriptions.empty')}</Text> : null}
@@ -136,6 +137,7 @@ export function NativePersonalScreen() {
           <Text style={text}>{Object.prototype.hasOwnProperty.call(catalogs[locale].onboarding.ownerSubscriptions.category, item.categoryCode)
             ? t(`onboarding.ownerSubscriptions.category.${item.categoryCode}`) : t('onboarding.ownerSubscriptions.categoryFallback')} · {t(`onboarding.ownerSubscriptions.status.${item.status}`)}</Text>
           <Text style={text}>{t('onboarding.manualSubscription.expectedAmount')}: {formatMinorUnits(BigInt(item.expectedAmountMinor), item.currency, { locale, display: 'code' })}</Text>
+          {item.source === 'DETECTED' ? <><Text style={text}>{t('onboarding.nativeDetection.detected')}</Text>{button(t('onboarding.nativeDetection.open'), () => router.push('/personal-detections'))}</> : null}
           {item.source === 'MANUAL' && item.currency === 'SEK' && item.cadence !== 'CUSTOM' ? <>
             {button(t('onboarding.nativeSubscriptionEdit.edit'), () => {
               let amount; try { amount = nativeSekDraft(item.expectedAmountMinor, locale); } catch { setMessage('invalid'); return; }

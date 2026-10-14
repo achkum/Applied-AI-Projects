@@ -9,7 +9,8 @@
     "./profile": "./profile.ts",
     "./private-onboarding": "./private-onboarding.ts",
     "./private-mobile": "./private-mobile.ts",
-    "./private-mobile-bank": "./private-mobile-bank.ts"
+    "./private-mobile-bank": "./private-mobile-bank.ts",
+    "./private-mobile-detection": "./private-mobile-detection.ts"
   },
   "engines": {
     "node": ">=22.18.0"

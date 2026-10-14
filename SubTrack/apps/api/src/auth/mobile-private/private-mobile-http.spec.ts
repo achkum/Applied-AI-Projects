@@ -12,7 +12,7 @@ function fixture(path:string,body:unknown={},options:{headers?:string[];omitKey?
  vi.stubEnv('NODE_ENV','development');const text=options.bodyless?'':JSON.stringify(body);const stream=Readable.from(text?[Buffer.from(text)]:[]);
  const socket=new TLSSocket(new Socket());Object.defineProperty(socket,'remoteAddress',{value:'127.0.0.1',configurable:true});
  const protectedRoute=!['enrollment/complete','login/verify','session','refresh'].includes(path);
- const required=['enrollment/complete','login/verify','session','refresh','subscriptions/owner/manual','subscriptions/owner/manual/edit'].includes(path);
+ const required=['enrollment/complete','login/verify','session','refresh','subscriptions/owner/manual','subscriptions/owner/manual/edit','detections/scan','detections/confirm','detections/reject','detections/undo'].includes(path);
  const rawHeaders=['Host','localhost:3443','Accept','application/json','User-Agent','Expo-private-test',...(options.bodyless?[]:['Content-Type','application/json','Content-Length',String(Buffer.byteLength(text))]),
   ...(protectedRoute?['Authorization','Bearer a.b.c']:path==='refresh'?['Authorization',`Refresh ${refresh}`]:[]),...(required&&!options.omitKey?['Idempotency-Key',key]:[]),...options.headers??[]];
  const request=Object.assign(stream,{method:'POST',url:`${base}/${path}`,rawHeaders,socket}) as unknown as IncomingMessage;
@@ -24,6 +24,17 @@ function fixture(path:string,body:unknown={},options:{headers?:string[];omitKey?
  return {request,methods,logout,withCurrentMobileAuthority,headers,get status(){return status;},get payload(){return payload;},run:()=>createPrivateMobileHttp(authority,methods as unknown as DurablePrivateMobileSessions).handle(request,response)};
 }
 afterEach(()=>vi.unstubAllEnvs());
+describe('strict detection HTTP routing',()=>{
+ it('five exact paths pass strict wire/request to current authority and no-store response',async()=>{
+  const id=credentials.sessionId;
+  for(const [op,body]of [['scan',{}],['read',{}],['confirm',{candidateId:id,expectedRevision:'1'}],['reject',{candidateId:id,expectedRevision:'1'}],['undo',{receiptId:id}]] as const){const f=fixture(`detections/${op}`,body);f.withCurrentMobileAuthority.mockResolvedValue({status:200,value:{safe:'fixture-response'}} as never);await f.run();expect(f.status).toBe(200);expect(f.withCurrentMobileAuthority).toHaveBeenCalledWith('a.b.c',expect.any(Function),expect.any(Function));expect(f.headers['Cache-Control']).toBe('no-store');expect(f.headers.Pragma).toBe('no-cache');}
+ });
+ it('key/framing/shape/path mismatches never obtain detection authority',async()=>{
+  const id=credentials.sessionId;
+  for(const f of [fixture('detections/scan',{}, {omitKey:true}),fixture('detections/read',{}, {headers:['Idempotency-Key',key]}),fixture('detections/confirm',{candidateId:id,expectedRevision:1}),fixture('detections/reject',{candidateId:id,expectedRevision:'1',ownerId:'private'}),fixture('detections/undo',{receiptId:id,purge:true}),fixture('detections/read',{cursor:null}),fixture('detections/read',{}, {headers:['Cookie','private']}),fixture('detections/read',{}, {headers:['Origin','private']}),fixture('detections/read',{}, {headers:['Authorization','Bearer d.e.f']})]){await f.run();expect(f.status).toBe(400);expect(f.withCurrentMobileAuthority).not.toHaveBeenCalled();}
+  for(const path of ['detections/read?cursor=private','detections/Read','detections/read/']){const f=fixture(path);await f.run();expect([400,404]).toContain(f.status);expect(f.withCurrentMobileAuthority).not.toHaveBeenCalled();}
+ });
+});
 describe('private native HTTP client-shaped requests',()=>{
  it('accepts selector-free login and required key, server chooses only Alice',async()=>{const f=fixture('login/verify',{transport:'mobile'});await f.run();expect(f.status).toBe(200);expect(f.methods.verifyLogin).toHaveBeenCalledWith('alice',key);expect(f.headers['Cache-Control']).toBe('no-store');});
  it('accepts completion and session exchange with closed accepted mobile credentials',async()=>{for(const [path,body] of [['enrollment/complete',{transport:'mobile',enrollmentProof:proof}],['session',{transport:'mobile',loginProof:proof}]] as const){const f=fixture(path,body);await f.run();expect(f.status).toBe(201);expect(f.payload).toEqual(credentials);}});

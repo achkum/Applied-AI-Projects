@@ -193,10 +193,53 @@
       "conflict": "Den sparade statusen skiljer sig från den begärda. Granska den innan du ändrar igen.",
       "confirmed": "Sparad status bekräftad.",
       "categoryFallback": "Prenumeration",
-      "category": { "VIDEO_STREAMING": "Videoströmning", "MUSIC_AUDIO": "Musik och ljud", "AUDIOBOOKS_EBOOKS": "Böcker och ljudböcker", "NEWS_MAGAZINES": "Nyheter och tidskrifter", "GAMING": "Spel", "SOFTWARE_PRODUCTIVITY": "Programvara och produktivitet", "CLOUD_STORAGE": "Molnlagring", "AI_TOOLS": "AI-verktyg", "MOBILE_PLAN": "Mobilabonnemang", "BROADBAND_TV": "Bredband och TV", "FITNESS_WELLNESS": "Träning och hälsa", "FOOD_MEALKITS": "Mat och matkassar", "TRANSPORT_MOBILITY": "Transport", "HOME_SECURITY": "Hemsäkerhet", "EDUCATION_KIDS": "Utbildning och barn", "PETS": "Husdjur", "SHOPPING_MEMBERSHIPS": "Medlemskap för shopping", "VPN_SECURITY": "VPN och säkerhet", "DONATIONS": "Donationer", "DATING_SOCIAL": "Dejting och socialt", "APP_STORE_BILLING": "Appbutik", "OTHER_SUBSCRIPTION": "Annan prenumeration" },
-      "status": { "DETECTED": "Upptäckt", "TRIAL": "Provperiod", "ACTIVE": "Aktiv", "PAUSED": "Pausad", "CANCELLED": "Avslutad", "ARCHIVED": "Arkiverad", "REJECTED": "Avvisad" },
-      "cadence": { "WEEKLY": "Varje vecka", "MONTHLY": "Varje månad", "QUARTERLY": "Varje kvartal", "SEMIANNUAL": "Var sjätte månad", "ANNUAL": "Varje år", "CUSTOM": "Anpassat intervall" },
-      "actions": { "ACTIVE": "Aktivera", "PAUSED": "Pausa", "CANCELLED": "Avsluta", "ARCHIVED": "Arkivera" }
+      "category": {
+        "VIDEO_STREAMING": "Videoströmning",
+        "MUSIC_AUDIO": "Musik och ljud",
+        "AUDIOBOOKS_EBOOKS": "Böcker och ljudböcker",
+        "NEWS_MAGAZINES": "Nyheter och tidskrifter",
+        "GAMING": "Spel",
+        "SOFTWARE_PRODUCTIVITY": "Programvara och produktivitet",
+        "CLOUD_STORAGE": "Molnlagring",
+        "AI_TOOLS": "AI-verktyg",
+        "MOBILE_PLAN": "Mobilabonnemang",
+        "BROADBAND_TV": "Bredband och TV",
+        "FITNESS_WELLNESS": "Träning och hälsa",
+        "FOOD_MEALKITS": "Mat och matkassar",
+        "TRANSPORT_MOBILITY": "Transport",
+        "HOME_SECURITY": "Hemsäkerhet",
+        "EDUCATION_KIDS": "Utbildning och barn",
+        "PETS": "Husdjur",
+        "SHOPPING_MEMBERSHIPS": "Medlemskap för shopping",
+        "VPN_SECURITY": "VPN och säkerhet",
+        "DONATIONS": "Donationer",
+        "DATING_SOCIAL": "Dejting och socialt",
+        "APP_STORE_BILLING": "Appbutik",
+        "OTHER_SUBSCRIPTION": "Annan prenumeration"
+      },
+      "status": {
+        "DETECTED": "Upptäckt",
+        "TRIAL": "Provperiod",
+        "ACTIVE": "Aktiv",
+        "PAUSED": "Pausad",
+        "CANCELLED": "Avslutad",
+        "ARCHIVED": "Arkiverad",
+        "REJECTED": "Avvisad"
+      },
+      "cadence": {
+        "WEEKLY": "Varje vecka",
+        "MONTHLY": "Varje månad",
+        "QUARTERLY": "Varje kvartal",
+        "SEMIANNUAL": "Var sjätte månad",
+        "ANNUAL": "Varje år",
+        "CUSTOM": "Anpassat intervall"
+      },
+      "actions": {
+        "ACTIVE": "Aktivera",
+        "PAUSED": "Pausa",
+        "CANCELLED": "Avsluta",
+        "ARCHIVED": "Arkivera"
+      }
     },
     "nativeSubscriptionEdit": {
       "edit": "Redigera abonnemang",
@@ -308,6 +351,42 @@
       "conflict": "Åtgärden stred mot aktuell bankstatus. Senast sparad status visas; granska den innan du väljer en ny åtgärd.",
       "updated": "Aktuell sparad bankstatus har lästs in igen.",
       "purged": "Borttagning bekräftad. Aktuella sparade anslutningar visas."
+    },
+    "nativeDetection": {
+      "title": "Granska abonnemang",
+      "open": "Granska upptäckta abonnemang",
+      "demo": "Skanna synkroniserade uppgifter från din syntetiska bank. Bara du kan granska förslagen.",
+      "loading": "Läser aktuella abonnemang…",
+      "setup": "Slutför din profil och välj Bara jag innan du granskar abonnemang.",
+      "scan": "Skanna synkroniserade transaktioner",
+      "empty": "Inga abonnemang väntar på granskning.",
+      "deadline": "Ångra senast enligt servern: %{date}. Servern kontrollerar om det fortfarande går att ångra.",
+      "undo": "Ångra senaste granskningen",
+      "confirm": "Bekräfta %{name}",
+      "reject": "Inte ett abonnemang: %{name}",
+      "confidence": "Matchningssäkerhet: %{percent} %",
+      "more": "Läs fler förslag",
+      "refresh": "Uppdatera förslag",
+      "manage": "Hantera abonnemang",
+      "scanned": "Skanningen är klar. Förslagen lästes från ditt konto.",
+      "reviewed": "Granskningen sparades och kontots aktuella tillstånd kontrollerades.",
+      "undone": "Granskningen ångrades och kontots aktuella tillstånd kontrollerades.",
+      "expired": "Serverns tidsgräns för att ångra har passerat. Kontots aktuella tillstånd uppdaterades.",
+      "conflict": "Förslaget har ändrats. Kontots aktuella tillstånd uppdaterades.",
+      "readback": "Det sparade resultatet kunde inte verifieras i kontots aktuella tillstånd. Uppdatera innan du fortsätter.",
+      "uncertain": "Resultatet är osäkert. Verifiera igen för att läsa kontots aktuella tillstånd. Åtgärden försöks inte igen.",
+      "unavailable": "Granskning av abonnemang är inte tillgänglig. Verifiera igen för att läsa ditt konto.",
+      "detected": "Upptäckt abonnemang · skrivskyddat",
+      "undatedTitle": "Bekräftade · faktureringsdatum okänt",
+      "undatedDescription": "Dessa abonnemang saknar sparat faktureringsdatum och ingår inte i månadens totalsummor.",
+      "reasons": {
+        "MERCHANT_RESOLVED": "Identifierad abonnemangsleverantör",
+        "CADENCE_MATCHED": "Återkommande betalningsintervall",
+        "MIN_OCCURRENCES_MET": "Tillräckligt många återkommande betalningar",
+        "DATE_PATTERN_STABLE": "Regelbundna betalningsdatum",
+        "AMOUNT_WITHIN_BAND": "Liknande betalningsbelopp",
+        "SUBSCRIPTION_CATEGORY_PRIOR": "Matchande abonnemangskategori"
+      }
     }
   },
   "hero": {

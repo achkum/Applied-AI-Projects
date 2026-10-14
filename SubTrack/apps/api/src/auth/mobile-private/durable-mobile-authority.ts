@@ -5,6 +5,9 @@ import type {OwnerTx} from '../sessions-v2/durable-current-web-authority.js';
 const DB='st237_private_https_profile';
 const EPOCH='st244-mobile-private-v1';
 const denied=new WeakSet<Error>();
+const expired=new WeakSet<Error>();
+export class PrivateMobileUndoExpiredError extends Error{constructor(){super('Mobile authority unavailable');}}
+export type PrivateMobilePrecommitGuard=()=>undefined|'UNDO_EXPIRED';
 export class PrivateMobileAuthorityError extends Error{
  constructor(readonly kind:'denied'|'unavailable'){super('Mobile authority unavailable');}
 }
@@ -32,7 +35,7 @@ export class DurablePrivateMobileAuthority{
   const result=await client.query('UPDATE st244_mobile.epoch SET watermark_ms=GREATEST(watermark_ms,pg_catalog.floor(EXTRACT(EPOCH FROM pg_catalog.clock_timestamp())*1000)::bigint) WHERE id=$1::text AND manifest_h=$2::text AND active=true AND watermark_ms<=pg_catalog.floor(EXTRACT(EPOCH FROM pg_catalog.clock_timestamp())*1000)::bigint AND $3::bigint<=pg_catalog.floor(EXTRACT(EPOCH FROM pg_catalog.clock_timestamp())*1000)::bigint RETURNING watermark_ms::text AS now',[EPOCH,this.manifestHash,observed]);
   if(result.command!=='UPDATE'||result.rowCount!==1)unavailable();
  }
- async transaction<T>(role:'subtrack_runtime'|'subtrack_auth_producer'|'subtrack_identity_provisioner',work:(client:PoolClient)=>Promise<T>,beforeCommit?:()=>void|Promise<void>):Promise<T>{
+ async transaction<T>(role:'subtrack_runtime'|'subtrack_auth_producer'|'subtrack_identity_provisioner',work:(client:PoolClient)=>Promise<T>,beforeCommit?:()=>void|Promise<void>,finalGuard?:()=>void):Promise<T>{
   this.now();let client:PoolClient|undefined;let begun=false,commitAttempted=false,released=false;
   try{
    client=await this.pool.connect();await this.assertClean(client);await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');begun=true;
@@ -40,9 +43,11 @@ export class DurablePrivateMobileAuthority{
    const value=await work(client);
    await client.query('SET LOCAL ROLE subtrack_auth_producer');await this.fence(client);
    await beforeCommit?.();
+   if(finalGuard!==undefined){if(typeof finalGuard!=='function'||finalGuard()!==undefined)unavailable();}
    commitAttempted=true;const result=await client.query('COMMIT');if(result.command!=='COMMIT')unavailable();await this.assertClean(client);client.release();released=true;return value;
   }catch(error){
    let rollbackFailed=false;if(client&&begun&&!commitAttempted)try{if((await client.query('ROLLBACK')).command!=='ROLLBACK')rollbackFailed=true;}catch{rollbackFailed=true;}
+   if(begun&&!commitAttempted&&!rollbackFailed&&error instanceof Error&&expired.has(error))throw new PrivateMobileUndoExpiredError();
    if(!commitAttempted&&!rollbackFailed&&error instanceof Error&&denied.has(error))deny();return unavailable();
   }finally{if(client&&!released)try{client.release(new Error('Mobile authority unavailable'));}catch{/* Unknown or dirty connection is never reused. */}}
  }
@@ -51,7 +56,7 @@ export class DurablePrivateMobileAuthority{
   const row=await client.query('SELECT id::text AS id FROM st244_mobile.session WHERE identity_id=$1::uuid AND id=$2::uuid AND revoked_ms IS NULL AND created_ms<=$3::bigint AND expires_ms>$3::bigint FOR UPDATE',[owner.identityId,owner.sessionId,this.now()]);
   if(row.rowCount!==1||row.rows[0]?.id!==owner.sessionId)deny();
  }
- async withCurrentMobileAuthority<T>(accessToken:string,action:(tx:OwnerTx,owner:MobileOwner)=>Promise<T>):Promise<T>{
+ async withCurrentMobileAuthority<T>(accessToken:string,action:(tx:OwnerTx,owner:MobileOwner)=>Promise<T>,beforeCommit?:PrivateMobilePrecommitGuard):Promise<T>{
   let owner:MobileOwner;try{const claims=this.tokens.verify(accessToken);owner=Object.freeze({identityId:claims.sub,sessionId:claims.sid});}catch{return deny();}
   return this.transaction('subtrack_runtime',async client=>{
    await client.query("SELECT pg_catalog.set_config('app.user_id',$1,true),pg_catalog.set_config('app.current_user_id',$1,true)",[owner.identityId]);
@@ -59,12 +64,21 @@ export class DurablePrivateMobileAuthority{
    await this.check(client,accessToken,owner);let open=true,pending=0;
    const tx:OwnerTx=Object.freeze({execute:async<R extends QueryResultRow=QueryResultRow>(name:string,values:readonly unknown[])=>{
     if(!open||!Object.hasOwn(this.statements,name)||!Array.isArray(values))unavailable();
+    if(name.startsWith('detection')&&values[0]!==owner.identityId)unavailable();
     if(Object.hasOwn(PRIVATE_BANK_PURGE_STATEMENTS,name)&&(values.length!==2||values[0]!==owner.identityId||typeof values[1]!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(values[1])))unavailable();pending++;
     try{return await client.query<R>(this.statements[name]!,[...values]);}finally{pending--;}
    }});
    let value:T;try{value=await action(tx,owner);}catch{return unavailable();}finally{open=false;}
    if(pending!==0)unavailable();await this.check(client,accessToken,owner);return value;
-  },()=>{try{this.tokens.verify(accessToken);}catch{return deny();}});
+  },()=>{
+   try{this.tokens.verify(accessToken);}catch{return deny();}
+  },()=>{
+   try{const claims=this.tokens.verify(accessToken);if(claims.sub!==owner.identityId||claims.sid!==owner.sessionId)deny();}catch{return deny();}
+   if(beforeCommit!==undefined){if(typeof beforeCommit!=='function')unavailable();const result=beforeCommit();
+    if(result==='UNDO_EXPIRED'){const error=new Error('Mobile authority unavailable');expired.add(error);throw error;}
+    if(result!==undefined)unavailable();
+   }
+  });
  }
  async logout(accessToken:string):Promise<void>{
   let owner:MobileOwner;try{const claims=this.tokens.verify(accessToken);owner={identityId:claims.sub,sessionId:claims.sid};}catch{return deny();}

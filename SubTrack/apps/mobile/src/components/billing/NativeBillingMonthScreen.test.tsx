@@ -67,3 +67,7 @@ it('synchronously hides an open private detail when external session authority r
  mockFocus.hold=true;fireEvent.press(screen.getByRole('button',{name:'external rotation'}));await waitFor(()=>expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false));expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText(copy.billingMonth.private)).toBeNull();expect(screen.getByRole('button',{name:copy.billingMonth.next})).toBeTruthy();
  await act(async()=>{reject(new Error('retired rotation'));});expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false);expect(screen.queryByText(row.customName)).toBeNull();
 });
+
+it('renders confirmed undated detection outside totals/day ribbon and hides it after authoritative Undo refresh',async()=>{
+ const undated={...row,source:'DETECTED' as const,nextChargeDate:null};jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[undated],nextCursor:null}).mockResolvedValueOnce({items:[{...undated,status:'DETECTED'}],nextCursor:null});mount();await login();await screen.findByText(copy.nativeDetection.undatedTitle);expect(screen.getByText(row.customName)).toBeTruthy();expect(screen.getByText(copy.billingMonth.empty)).toBeTruthy();expect(screen.queryByText(copy.billingMonth.subtotal)).toBeNull();fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.refresh}));await waitFor(()=>expect(screen.queryByText(copy.nativeDetection.undatedTitle)).toBeNull());expect(screen.queryByText(row.customName)).toBeNull();
+});

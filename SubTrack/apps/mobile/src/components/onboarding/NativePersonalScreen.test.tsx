@@ -277,3 +277,7 @@ it('personal list focus after the agenda rereads changed saved rows',async()=>{
  await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
  const focused=jest.mocked(useFocusEffect).mock.calls[jest.mocked(useFocusEffect).mock.calls.length-1]![0];act(()=>{focused();});await screen.findByText('After agenda edit');expect(screen.queryByText(row.customName)).toBeNull();
 });
+
+it('confirmed detected rows use a read-only badge and inbox link without manual edit/status controls',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,source:'DETECTED'}],nextCursor:null});mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);expect(screen.getByText(copy.nativeDetection.detected)).toBeTruthy();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.edit})).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.pause})).toBeNull();fireEvent.press(screen.getAllByRole('button',{name:copy.nativeDetection.open})[0]!);expect(mockPush).toHaveBeenCalledWith('/personal-detections');
+});

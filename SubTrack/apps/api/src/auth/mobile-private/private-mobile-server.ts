@@ -1,4 +1,5 @@
 import {PRIVATE_MOBILE_BANK_STATEMENTS} from '../../banks/private-mobile-bank-statements.js';
+import {PRIVATE_MOBILE_DETECTION_STATEMENTS} from '../../detection/private-mobile-detection-statements.js';
 import {createServer,type Server,type ServerOptions} from 'node:https';
 import {Readable} from 'node:stream';
 import type {IncomingMessage,ServerResponse} from 'node:http';
@@ -48,7 +49,7 @@ export function createPrivateMobileServer(config:PrivateMobileServerConfig):Read
  const separated=[keys.otp,keys.rate,keys.idempotency,keys.anonymous,keys.person,keys.simulator,...keys.credentialKeys];
  const verifier=new DevelopmentEnrollmentPersonVerifier({environment:'development',enabled:true,simulatorHmacKey:keys.simulator,clock});
  const subjects=new PrivateMobileSubjectVerifier(verifier,clock,config.manifestHash,keys.subject,separated,keys.person);
- const authority=new DurablePrivateMobileAuthority(config.pool,config.accessTokens,clock,config.manifestHash,{...PRIVATE_MOBILE_BUSINESS_STATEMENTS,...PRIVATE_MOBILE_BANK_STATEMENTS},true);
+ const authority=new DurablePrivateMobileAuthority(config.pool,config.accessTokens,clock,config.manifestHash,{...PRIVATE_MOBILE_BUSINESS_STATEMENTS,...PRIVATE_MOBILE_BANK_STATEMENTS,...PRIVATE_MOBILE_DETECTION_STATEMENTS},true);
  const sessions=new DurablePrivateMobileSessions(authority,subjects,admission,config.accessTokens);
  const otpConfig:MobileEnrollmentOtpHttpConfig={environment:'development',enabled:true,clock,anonymousBindingKey:keys.anonymous,otpKey:keys.otp,rateKey:keys.rate,idempotencyKey:keys.idempotency,
   originKeys:[keys.subject,keys.person,keys.simulator],credentialKeys:keys.credentialKeys};

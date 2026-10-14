@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { AdmitV2WebEnrollmentData, AdmitV2WebEnrollmentErrors, AdmitV2WebEnrollmentResponses, ChangePrivateMobileSubscriptionStatusData, ChangePrivateMobileSubscriptionStatusErrors, ChangePrivateMobileSubscriptionStatusResponses, ChoosePrivateMobileModeData, ChoosePrivateMobileModeErrors, ChoosePrivateMobileModeResponses, ChooseV2BrowserJustMeData, ChooseV2BrowserJustMeErrors, ChooseV2BrowserJustMeResponses, CompletePrivateMobileEnrollmentData, CompletePrivateMobileEnrollmentErrors, CompletePrivateMobileEnrollmentResponses, CompleteV2WebEnrollmentData, CompleteV2WebEnrollmentErrors, CompleteV2WebEnrollmentResponses, ConnectPrivateMobileSyntheticBankData, ConnectPrivateMobileSyntheticBankErrors, ConnectPrivateMobileSyntheticBankResponses, CreatePrivateMobileManualSubscriptionData, CreatePrivateMobileManualSubscriptionErrors, CreatePrivateMobileManualSubscriptionResponses, CreatePrivateMobileSessionData, CreatePrivateMobileSessionErrors, CreatePrivateMobileSessionResponses, CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2PrivateManualSubscriptionData, CreateV2PrivateManualSubscriptionErrors, CreateV2PrivateManualSubscriptionResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DisconnectPrivateMobileSyntheticBankData, DisconnectPrivateMobileSyntheticBankErrors, DisconnectPrivateMobileSyntheticBankResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, EditPrivateMobileManualSubscriptionData, EditPrivateMobileManualSubscriptionErrors, EditPrivateMobileManualSubscriptionResponses, EditV2PrivateManualSubscriptionData, EditV2PrivateManualSubscriptionErrors, EditV2PrivateManualSubscriptionResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, LogoutPrivateMobileSessionData, LogoutPrivateMobileSessionErrors, LogoutPrivateMobileSessionResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PatchV2BrowserProfileData, PatchV2BrowserProfileErrors, PatchV2BrowserProfileResponses, PatchV2BrowserSubscriptionLifecycleData, PatchV2BrowserSubscriptionLifecycleErrors, PatchV2BrowserSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadPrivateMobileModeData, ReadPrivateMobileModeErrors, ReadPrivateMobileModeResponses, ReadPrivateMobileOwnerSubscriptionsData, ReadPrivateMobileOwnerSubscriptionsErrors, ReadPrivateMobileOwnerSubscriptionsResponses, ReadPrivateMobileProfileData, ReadPrivateMobileProfileErrors, ReadPrivateMobileProfileResponses, ReadPrivateMobileSyntheticBankData, ReadPrivateMobileSyntheticBankErrors, ReadPrivateMobileSyntheticBankResponses, ReadV2BrowserModeData, ReadV2BrowserModeErrors, ReadV2BrowserModeResponses, ReadV2BrowserProfileData, ReadV2BrowserProfileErrors, ReadV2BrowserProfileResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, ReadV2PrivateOwnerSubscriptionsData, ReadV2PrivateOwnerSubscriptionsErrors, ReadV2PrivateOwnerSubscriptionsResponses, RefreshPrivateMobileSessionData, RefreshPrivateMobileSessionErrors, RefreshPrivateMobileSessionResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SavePrivateMobileProfileData, SavePrivateMobileProfileErrors, SavePrivateMobileProfileResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, SyncPrivateMobileSyntheticBankData, SyncPrivateMobileSyntheticBankErrors, SyncPrivateMobileSyntheticBankResponses, VerifyPrivateMobileLoginData, VerifyPrivateMobileLoginErrors, VerifyPrivateMobileLoginResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses, VerifyV2PrivateSimulatorLoginData, VerifyV2PrivateSimulatorLoginErrors, VerifyV2PrivateSimulatorLoginResponses, VerifyV2WebSimulatorEnrollmentData, VerifyV2WebSimulatorEnrollmentErrors, VerifyV2WebSimulatorEnrollmentResponses } from './types.gen.js';
+import type { AdmitV2WebEnrollmentData, AdmitV2WebEnrollmentErrors, AdmitV2WebEnrollmentResponses, ChangePrivateMobileSubscriptionStatusData, ChangePrivateMobileSubscriptionStatusErrors, ChangePrivateMobileSubscriptionStatusResponses, ChoosePrivateMobileModeData, ChoosePrivateMobileModeErrors, ChoosePrivateMobileModeResponses, ChooseV2BrowserJustMeData, ChooseV2BrowserJustMeErrors, ChooseV2BrowserJustMeResponses, CompletePrivateMobileEnrollmentData, CompletePrivateMobileEnrollmentErrors, CompletePrivateMobileEnrollmentResponses, CompleteV2WebEnrollmentData, CompleteV2WebEnrollmentErrors, CompleteV2WebEnrollmentResponses, ConfirmPrivateMobileDetectionData, ConfirmPrivateMobileDetectionErrors, ConfirmPrivateMobileDetectionResponses, ConnectPrivateMobileSyntheticBankData, ConnectPrivateMobileSyntheticBankErrors, ConnectPrivateMobileSyntheticBankResponses, CreatePrivateMobileManualSubscriptionData, CreatePrivateMobileManualSubscriptionErrors, CreatePrivateMobileManualSubscriptionResponses, CreatePrivateMobileSessionData, CreatePrivateMobileSessionErrors, CreatePrivateMobileSessionResponses, CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2PrivateManualSubscriptionData, CreateV2PrivateManualSubscriptionErrors, CreateV2PrivateManualSubscriptionResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DisconnectPrivateMobileSyntheticBankData, DisconnectPrivateMobileSyntheticBankErrors, DisconnectPrivateMobileSyntheticBankResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, EditPrivateMobileManualSubscriptionData, EditPrivateMobileManualSubscriptionErrors, EditPrivateMobileManualSubscriptionResponses, EditV2PrivateManualSubscriptionData, EditV2PrivateManualSubscriptionErrors, EditV2PrivateManualSubscriptionResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, LogoutPrivateMobileSessionData, LogoutPrivateMobileSessionErrors, LogoutPrivateMobileSessionResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PatchV2BrowserProfileData, PatchV2BrowserProfileErrors, PatchV2BrowserProfileResponses, PatchV2BrowserSubscriptionLifecycleData, PatchV2BrowserSubscriptionLifecycleErrors, PatchV2BrowserSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadPrivateMobileDetectionData, ReadPrivateMobileDetectionErrors, ReadPrivateMobileDetectionResponses, ReadPrivateMobileModeData, ReadPrivateMobileModeErrors, ReadPrivateMobileModeResponses, ReadPrivateMobileOwnerSubscriptionsData, ReadPrivateMobileOwnerSubscriptionsErrors, ReadPrivateMobileOwnerSubscriptionsResponses, ReadPrivateMobileProfileData, ReadPrivateMobileProfileErrors, ReadPrivateMobileProfileResponses, ReadPrivateMobileSyntheticBankData, ReadPrivateMobileSyntheticBankErrors, ReadPrivateMobileSyntheticBankResponses, ReadV2BrowserModeData, ReadV2BrowserModeErrors, ReadV2BrowserModeResponses, ReadV2BrowserProfileData, ReadV2BrowserProfileErrors, ReadV2BrowserProfileResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, ReadV2PrivateOwnerSubscriptionsData, ReadV2PrivateOwnerSubscriptionsErrors, ReadV2PrivateOwnerSubscriptionsResponses, RefreshPrivateMobileSessionData, RefreshPrivateMobileSessionErrors, RefreshPrivateMobileSessionResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RejectPrivateMobileDetectionData, RejectPrivateMobileDetectionErrors, RejectPrivateMobileDetectionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SavePrivateMobileProfileData, SavePrivateMobileProfileErrors, SavePrivateMobileProfileResponses, ScanPrivateMobileDetectionData, ScanPrivateMobileDetectionErrors, ScanPrivateMobileDetectionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, SyncPrivateMobileSyntheticBankData, SyncPrivateMobileSyntheticBankErrors, SyncPrivateMobileSyntheticBankResponses, UndoPrivateMobileDetectionData, UndoPrivateMobileDetectionErrors, UndoPrivateMobileDetectionResponses, VerifyPrivateMobileLoginData, VerifyPrivateMobileLoginErrors, VerifyPrivateMobileLoginResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses, VerifyV2PrivateSimulatorLoginData, VerifyV2PrivateSimulatorLoginErrors, VerifyV2PrivateSimulatorLoginResponses, VerifyV2WebSimulatorEnrollmentData, VerifyV2WebSimulatorEnrollmentErrors, VerifyV2WebSimulatorEnrollmentResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -901,6 +901,106 @@ export const disconnectPrivateMobileSyntheticBank = <ThrowOnError extends boolea
             type: 'http'
         }],
     url: '/v2/private/mobile/banks/synthetic/disconnect',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development owner Synthetic detection scan
+ *
+ * Explicit local fixture TLS only; current verified Bearer, complete profile and Just me. Closed body and owner-only scope; no raw descriptors, transaction/account/owner selectors. No Cookie, Origin, forwarded credentials, query or duplicate headers. All responses no-store. Idempotency-Key required; immutable receipt replay after fresh current authority. Undo requires strict server deadline and final precommit fence; unknown commit requires readback. Linked source blocks bank purge atomically. No production training, export or retention policy.
+ *
+ */
+export const scanPrivateMobileDetection = <ThrowOnError extends boolean = false>(options: Options<ScanPrivateMobileDetectionData, ThrowOnError>): RequestResult<ScanPrivateMobileDetectionResponses, ScanPrivateMobileDetectionErrors, ThrowOnError> => (options.client ?? client).post<ScanPrivateMobileDetectionResponses, ScanPrivateMobileDetectionErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/detections/scan',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development owner Synthetic detection read
+ *
+ * Explicit local fixture TLS only; current verified Bearer, complete profile and Just me. Closed body and owner-only scope; no raw descriptors, transaction/account/owner selectors. No Cookie, Origin, forwarded credentials, query or duplicate headers. All responses no-store. Idempotency-Key forbidden; canonical opaque cursor, bounded terminal page. Undo requires strict server deadline and final precommit fence; unknown commit requires readback. Linked source blocks bank purge atomically. No production training, export or retention policy.
+ *
+ */
+export const readPrivateMobileDetection = <ThrowOnError extends boolean = false>(options: Options<ReadPrivateMobileDetectionData, ThrowOnError>): RequestResult<ReadPrivateMobileDetectionResponses, ReadPrivateMobileDetectionErrors, ThrowOnError> => (options.client ?? client).post<ReadPrivateMobileDetectionResponses, ReadPrivateMobileDetectionErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/detections/read',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development owner Synthetic detection confirm
+ *
+ * Explicit local fixture TLS only; current verified Bearer, complete profile and Just me. Closed body and owner-only scope; no raw descriptors, transaction/account/owner selectors. No Cookie, Origin, forwarded credentials, query or duplicate headers. All responses no-store. Idempotency-Key required; immutable receipt replay after fresh current authority. Undo requires strict server deadline and final precommit fence; unknown commit requires readback. Linked source blocks bank purge atomically. No production training, export or retention policy.
+ *
+ */
+export const confirmPrivateMobileDetection = <ThrowOnError extends boolean = false>(options: Options<ConfirmPrivateMobileDetectionData, ThrowOnError>): RequestResult<ConfirmPrivateMobileDetectionResponses, ConfirmPrivateMobileDetectionErrors, ThrowOnError> => (options.client ?? client).post<ConfirmPrivateMobileDetectionResponses, ConfirmPrivateMobileDetectionErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/detections/confirm',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development owner Synthetic detection reject
+ *
+ * Explicit local fixture TLS only; current verified Bearer, complete profile and Just me. Closed body and owner-only scope; no raw descriptors, transaction/account/owner selectors. No Cookie, Origin, forwarded credentials, query or duplicate headers. All responses no-store. Idempotency-Key required; immutable receipt replay after fresh current authority. Undo requires strict server deadline and final precommit fence; unknown commit requires readback. Linked source blocks bank purge atomically. No production training, export or retention policy.
+ *
+ */
+export const rejectPrivateMobileDetection = <ThrowOnError extends boolean = false>(options: Options<RejectPrivateMobileDetectionData, ThrowOnError>): RequestResult<RejectPrivateMobileDetectionResponses, RejectPrivateMobileDetectionErrors, ThrowOnError> => (options.client ?? client).post<RejectPrivateMobileDetectionResponses, RejectPrivateMobileDetectionErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/detections/reject',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development owner Synthetic detection undo
+ *
+ * Explicit local fixture TLS only; current verified Bearer, complete profile and Just me. Closed body and owner-only scope; no raw descriptors, transaction/account/owner selectors. No Cookie, Origin, forwarded credentials, query or duplicate headers. All responses no-store. Idempotency-Key required; immutable receipt replay after fresh current authority. Undo requires strict server deadline and final precommit fence; unknown commit requires readback. Linked source blocks bank purge atomically. No production training, export or retention policy.
+ *
+ */
+export const undoPrivateMobileDetection = <ThrowOnError extends boolean = false>(options: Options<UndoPrivateMobileDetectionData, ThrowOnError>): RequestResult<UndoPrivateMobileDetectionResponses, UndoPrivateMobileDetectionErrors, ThrowOnError> => (options.client ?? client).post<UndoPrivateMobileDetectionResponses, UndoPrivateMobileDetectionErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/detections/undo',
     ...options,
     headers: {
         'Content-Type': 'application/json',

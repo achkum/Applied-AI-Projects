@@ -2,6 +2,68 @@
 
 import * as z from 'zod';
 
+export const zPrivateMobileDetectionScan = z.record(z.string(), z.never());
+
+export const zPrivateMobileDetectionRead = z.object({
+    cursor: z.string().min(1).max(512).regex(/^[A-Za-z0-9_-]+$/).optional()
+}).strict();
+
+export const zPrivateMobileDetectionReview = z.object({
+    candidateId: z.uuid(),
+    expectedRevision: z.string().regex(/^[1-9][0-9]{0,18}$/)
+}).strict();
+
+export const zPrivateMobileDetectionUndo = z.object({
+    receiptId: z.uuid()
+}).strict();
+
+export const zPrivateMobileDetectionScanResult = z.object({
+    scan: z.literal('complete')
+}).strict();
+
+export const zPrivateMobileDetectionCandidate = z.object({
+    id: z.uuid(),
+    revision: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    displayName: z.string().min(1).max(120),
+    categoryCode: z.string().min(1).max(50),
+    cadence: z.enum([
+        'WEEKLY',
+        'MONTHLY',
+        'QUARTERLY',
+        'SEMIANNUAL',
+        'ANNUAL'
+    ]),
+    expectedAmountMinor: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    currency: z.string().regex(/^[A-Z]{3}$/),
+    confidence: z.number().gte(0).lte(1),
+    reasons: z.array(z.enum([
+        'MERCHANT_RESOLVED',
+        'CADENCE_MATCHED',
+        'MIN_OCCURRENCES_MET',
+        'DATE_PATTERN_STABLE',
+        'AMOUNT_WITHIN_BAND',
+        'SUBSCRIPTION_CATEGORY_PRIOR'
+    ])).min(1).max(6),
+    status: z.literal('DETECTED')
+}).strict();
+
+export const zPrivateMobileDetectionReadResult = z.object({
+    items: z.array(zPrivateMobileDetectionCandidate).max(50),
+    nextCursor: z.string().min(1).max(512).regex(/^[A-Za-z0-9_-]+$/).nullable()
+}).strict();
+
+export const zPrivateMobileDetectionReviewResult = z.object({
+    candidateId: z.uuid(),
+    status: z.enum([
+        'ACTIVE',
+        'REJECTED',
+        'DETECTED'
+    ]),
+    revision: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    receiptId: z.uuid(),
+    undoUntil: z.iso.datetime().nullable()
+}).strict();
+
 export const zPrivateMobileBankRead = z.record(z.string(), z.never());
 
 export const zPrivateMobileBankConnect = z.object({
@@ -119,6 +181,10 @@ export const zPrivateMobileError = z.object({
         'LIFECYCLE_CONFLICT',
         'BANK_STATE_CONFLICT',
         'BANK_IDEMPOTENCY_CONFLICT',
+        'DETECTION_UNAVAILABLE',
+        'DETECTION_STATE_CONFLICT',
+        'DETECTION_IDEMPOTENCY_CONFLICT',
+        'UNDO_EXPIRED',
         'INTERNAL_ERROR'
     ])
 }).strict();
@@ -1902,3 +1968,54 @@ export const zDisconnectPrivateMobileSyntheticBankHeaders = z.object({
  * Known current read or immutable committed mutation result.
  */
 export const zDisconnectPrivateMobileSyntheticBankResponse = zPrivateMobileBankMutationResult;
+
+export const zScanPrivateMobileDetectionBody = zPrivateMobileDetectionScan;
+
+export const zScanPrivateMobileDetectionHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255).regex(/^[!-~]{16,255}$/)
+});
+
+/**
+ * Current bounded owner projection or immutable committed receipt.
+ */
+export const zScanPrivateMobileDetectionResponse = zPrivateMobileDetectionScanResult;
+
+export const zReadPrivateMobileDetectionBody = zPrivateMobileDetectionRead;
+
+/**
+ * Current bounded owner projection or immutable committed receipt.
+ */
+export const zReadPrivateMobileDetectionResponse = zPrivateMobileDetectionReadResult;
+
+export const zConfirmPrivateMobileDetectionBody = zPrivateMobileDetectionReview;
+
+export const zConfirmPrivateMobileDetectionHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255).regex(/^[!-~]{16,255}$/)
+});
+
+/**
+ * Current bounded owner projection or immutable committed receipt.
+ */
+export const zConfirmPrivateMobileDetectionResponse = zPrivateMobileDetectionReviewResult;
+
+export const zRejectPrivateMobileDetectionBody = zPrivateMobileDetectionReview;
+
+export const zRejectPrivateMobileDetectionHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255).regex(/^[!-~]{16,255}$/)
+});
+
+/**
+ * Current bounded owner projection or immutable committed receipt.
+ */
+export const zRejectPrivateMobileDetectionResponse = zPrivateMobileDetectionReviewResult;
+
+export const zUndoPrivateMobileDetectionBody = zPrivateMobileDetectionUndo;
+
+export const zUndoPrivateMobileDetectionHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255).regex(/^[!-~]{16,255}$/)
+});
+
+/**
+ * Current bounded owner projection or immutable committed receipt.
+ */
+export const zUndoPrivateMobileDetectionResponse = zPrivateMobileDetectionReviewResult;

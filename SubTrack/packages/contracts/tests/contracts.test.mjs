@@ -158,6 +158,7 @@ test('production contract preserves approved operational and privacy routes', ()
       ['POST /v2/me/mode', 'unavailable-default'],
       ['POST /v2/me/mode/read', 'unavailable-default'],
       ...['connect','disconnect','read','sync'].map(operation=>[`POST /v2/private/mobile/banks/synthetic/${operation}`,'unavailable-default']),
+      ...['confirm','read','reject','scan','undo'].map(operation=>[`POST /v2/private/mobile/detections/${operation}`,'unavailable-default']),
       ...['enrollment/complete','login/verify','logout','mode','mode/read','profile','profile/read','refresh','session','subscriptions/owner/manual','subscriptions/owner/manual/edit','subscriptions/owner/read','subscriptions/owner/status'].map(path=>[`POST /v2/private/mobile/${path}`,'unavailable-default']),
       ['POST /v2/subscriptions/{id}/read', 'unavailable-default'],
       ['POST /v2/subscriptions/owner/manual', 'unavailable-default'],

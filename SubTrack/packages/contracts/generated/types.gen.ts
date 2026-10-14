@@ -4,6 +4,65 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type PrivateMobileDetectionScan = {
+    [key: string]: never;
+};
+
+export type PrivateMobileDetectionRead = {
+    cursor?: string;
+};
+
+export type PrivateMobileDetectionReview = {
+    candidateId: string;
+    /**
+     * Canonical positive signed-int64 revision.
+     */
+    expectedRevision: string;
+};
+
+export type PrivateMobileDetectionUndo = {
+    receiptId: string;
+};
+
+export type PrivateMobileDetectionScanResult = {
+    scan: 'complete';
+};
+
+export type PrivateMobileDetectionCandidate = {
+    id: string;
+    revision: string;
+    /**
+     * Unambiguous trusted canonical merchant name only.
+     */
+    displayName: string;
+    categoryCode: string;
+    cadence: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
+    /**
+     * Positive canonical base10 minor units at most signed-int64 max.
+     */
+    expectedAmountMinor: string;
+    currency: string;
+    confidence: number;
+    reasons: Array<'MERCHANT_RESOLVED' | 'CADENCE_MATCHED' | 'MIN_OCCURRENCES_MET' | 'DATE_PATTERN_STABLE' | 'AMOUNT_WITHIN_BAND' | 'SUBSCRIPTION_CATEGORY_PRIOR'>;
+    status: 'DETECTED';
+};
+
+export type PrivateMobileDetectionReadResult = {
+    items: Array<PrivateMobileDetectionCandidate>;
+    nextCursor: string | null;
+};
+
+export type PrivateMobileDetectionReviewResult = {
+    candidateId: string;
+    status: 'ACTIVE' | 'REJECTED' | 'DETECTED';
+    revision: string;
+    receiptId: string;
+    /**
+     * Canonical millisecond UTC original deadline; null for Undo.
+     */
+    undoUntil: string | null;
+};
+
 export type PrivateMobileBankRead = {
     [key: string]: never;
 };
@@ -105,7 +164,7 @@ export type PrivateMobileError = {
     type: 'about:blank';
     title: 'Bad Request' | 'Unauthorized' | 'Forbidden' | 'Not Found' | 'Conflict' | 'Too Many Requests' | 'Internal Server Error';
     status: 400 | 401 | 403 | 404 | 409 | 429 | 500;
-    code: 'INVALID_MOBILE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MOBILE_REQUEST_REJECTED' | 'MOBILE_UNAVAILABLE' | 'AUTH_RESTART_REQUIRED' | 'ENROLLMENT_LOGIN_REQUIRED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'SUBSCRIPTION_NOT_FOUND' | 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_CONFLICT' | 'LIFECYCLE_CONFLICT' | 'BANK_STATE_CONFLICT' | 'BANK_IDEMPOTENCY_CONFLICT' | 'INTERNAL_ERROR';
+    code: 'INVALID_MOBILE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MOBILE_REQUEST_REJECTED' | 'MOBILE_UNAVAILABLE' | 'AUTH_RESTART_REQUIRED' | 'ENROLLMENT_LOGIN_REQUIRED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'SUBSCRIPTION_NOT_FOUND' | 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_CONFLICT' | 'LIFECYCLE_CONFLICT' | 'BANK_STATE_CONFLICT' | 'BANK_IDEMPOTENCY_CONFLICT' | 'DETECTION_UNAVAILABLE' | 'DETECTION_STATE_CONFLICT' | 'DETECTION_IDEMPOTENCY_CONFLICT' | 'UNDO_EXPIRED' | 'INTERNAL_ERROR';
 };
 
 /**
@@ -3650,3 +3709,260 @@ export type DisconnectPrivateMobileSyntheticBankResponses = {
 };
 
 export type DisconnectPrivateMobileSyntheticBankResponse = DisconnectPrivateMobileSyntheticBankResponses[keyof DisconnectPrivateMobileSyntheticBankResponses];
+
+export type ScanPrivateMobileDetectionData = {
+    body: PrivateMobileDetectionScan;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/detections/scan';
+};
+
+export type ScanPrivateMobileDetectionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ScanPrivateMobileDetectionError = ScanPrivateMobileDetectionErrors[keyof ScanPrivateMobileDetectionErrors];
+
+export type ScanPrivateMobileDetectionResponses = {
+    /**
+     * Current bounded owner projection or immutable committed receipt.
+     */
+    200: PrivateMobileDetectionScanResult;
+};
+
+export type ScanPrivateMobileDetectionResponse = ScanPrivateMobileDetectionResponses[keyof ScanPrivateMobileDetectionResponses];
+
+export type ReadPrivateMobileDetectionData = {
+    body: PrivateMobileDetectionRead;
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/detections/read';
+};
+
+export type ReadPrivateMobileDetectionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ReadPrivateMobileDetectionError = ReadPrivateMobileDetectionErrors[keyof ReadPrivateMobileDetectionErrors];
+
+export type ReadPrivateMobileDetectionResponses = {
+    /**
+     * Current bounded owner projection or immutable committed receipt.
+     */
+    200: PrivateMobileDetectionReadResult;
+};
+
+export type ReadPrivateMobileDetectionResponse = ReadPrivateMobileDetectionResponses[keyof ReadPrivateMobileDetectionResponses];
+
+export type ConfirmPrivateMobileDetectionData = {
+    body: PrivateMobileDetectionReview;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/detections/confirm';
+};
+
+export type ConfirmPrivateMobileDetectionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ConfirmPrivateMobileDetectionError = ConfirmPrivateMobileDetectionErrors[keyof ConfirmPrivateMobileDetectionErrors];
+
+export type ConfirmPrivateMobileDetectionResponses = {
+    /**
+     * Current bounded owner projection or immutable committed receipt.
+     */
+    200: PrivateMobileDetectionReviewResult;
+};
+
+export type ConfirmPrivateMobileDetectionResponse = ConfirmPrivateMobileDetectionResponses[keyof ConfirmPrivateMobileDetectionResponses];
+
+export type RejectPrivateMobileDetectionData = {
+    body: PrivateMobileDetectionReview;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/detections/reject';
+};
+
+export type RejectPrivateMobileDetectionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type RejectPrivateMobileDetectionError = RejectPrivateMobileDetectionErrors[keyof RejectPrivateMobileDetectionErrors];
+
+export type RejectPrivateMobileDetectionResponses = {
+    /**
+     * Current bounded owner projection or immutable committed receipt.
+     */
+    200: PrivateMobileDetectionReviewResult;
+};
+
+export type RejectPrivateMobileDetectionResponse = RejectPrivateMobileDetectionResponses[keyof RejectPrivateMobileDetectionResponses];
+
+export type UndoPrivateMobileDetectionData = {
+    body: PrivateMobileDetectionUndo;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/detections/undo';
+};
+
+export type UndoPrivateMobileDetectionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type UndoPrivateMobileDetectionError = UndoPrivateMobileDetectionErrors[keyof UndoPrivateMobileDetectionErrors];
+
+export type UndoPrivateMobileDetectionResponses = {
+    /**
+     * Current bounded owner projection or immutable committed receipt.
+     */
+    200: PrivateMobileDetectionReviewResult;
+};
+
+export type UndoPrivateMobileDetectionResponse = UndoPrivateMobileDetectionResponses[keyof UndoPrivateMobileDetectionResponses];

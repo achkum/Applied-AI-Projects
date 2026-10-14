@@ -29,3 +29,7 @@ it('terminal owner pagination rejects duplicates/cycles and never projects parti
  const during=new AbortController();jest.mocked(api.readNativeSubscriptions).mockImplementationOnce(async()=>{during.abort();return {items:[row],nextCursor:null};});await expect(readBillingMonth('a.b.c',during.signal,month)).rejects.toThrow();
  const gated=new AbortController();jest.mocked(api.readNativeMode).mockImplementationOnce(async()=>{gated.abort();return {mode:'just-me'};});await expect(readBillingMonth('a.b.c',gated.signal,month)).rejects.toThrow();
 });
+
+it('keeps confirmed undated detections outside dated ribbons and Money totals',()=>{
+ const detected={...row,source:'DETECTED' as const,nextChargeDate:null};const projection=selectBillingMonth([detected,{...row,id:'123e4567-e89b-42d3-a456-426614174001',nextChargeDate:null}],month);expect(projection.undatedDetections).toEqual([detected]);expect(projection.days).toEqual([]);expect(projection.totals).toEqual([]);expect(projection.undatedDetections[0]?.expectedAmountMinor).toBe('9007199254740993');for(const status of ['DETECTED','REJECTED','PAUSED','CANCELLED','ARCHIVED','TRIAL'] as const)expect(selectBillingMonth([{...detected,status}],month).undatedDetections).toEqual([]);
+});
