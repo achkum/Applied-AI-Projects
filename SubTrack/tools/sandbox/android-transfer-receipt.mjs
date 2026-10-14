@@ -218,6 +218,7 @@ function inspectToolTarBody(bytes, manifest, checkpoint) {
   }
   // Export only one tool image: reject unrelated object members outside its layers/config.
   const allowed=new Set(['manifest.json','repositories',entries[0].Config,...entries[0].Layers]);
+  let verifiedIndex,verifiedOci,indexBytes;
   if(files.has('index.json')||files.has('oci-layout')){
     checkpoint('OCI_INDEX','JSON');
     const layout=JSON.parse(files.get('oci-layout')?.toString('utf8')??'null'),index=JSON.parse(files.get('index.json')?.toString('utf8')??'null');
@@ -231,11 +232,34 @@ function inspectToolTarBody(bytes, manifest, checkpoint) {
     if(oci.schemaVersion!==2||oci.config?.digest!==manifest.imageId||entries[0].Config!==`blobs/sha256/${manifest.imageId.slice(7)}`||oci.config.size!==configBytes.length||oci.layers?.length!==entries[0].Layers.length)unavailable();
     checkpoint('OCI_LAYER');for(const [i,layer]of oci.layers.entries()){const name=`blobs/sha256/${layer.digest?.slice(7)}`,blob=files.get(name);if(!/^sha256:[a-f0-9]{64}$/.test(layer.digest)||name!==entries[0].Layers[i]||!blob||blob.length!==layer.size||`sha256:${digest(blob)}`!==layer.digest)unavailable();}
     allowed.add('index.json');allowed.add('oci-layout');allowed.add(name);
+    verifiedIndex=index;verifiedOci=oci;indexBytes=files.get('index.json');
   }
   checkpoint('EXTRA_MEMBER','JSON');if(files.has('repositories')&&JSON.stringify(JSON.parse(files.get('repositories').toString('utf8')))!=='{}')unavailable();
   checkpoint('EXTRA_MEMBER');
-  for(const name of files.keys())if(!allowed.has(name)&&!entries[0].Layers.some(layer=>name===layer.replace(/layer\.tar$/,'json')||name===layer.replace(/layer\.tar$/,'VERSION')))unavailable();
+  for(const name of files.keys())if(!allowed.has(name)&&!entries[0].Layers.some(layer=>name===layer.replace(/layer\.tar$/,'json')||name===layer.replace(/layer\.tar$/,'VERSION'))){checkpoint(extraToolMemberClass(name,files.get(name),verifiedIndex,verifiedOci,indexBytes));unavailable();}
   return true;
+}
+function extraToolMemberClass(name,bytes,index,oci,indexBytes){
+  if(!/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)||digest(bytes)!==name.slice(13))return 'EXTRA_OTHER';
+  if(bytes.length>1048576)return 'EXTRA_BLOB_OPAQUE';
+  let value;try{const text=bytes.toString('utf8');if(!bytes.equals(Buffer.from(text)))return 'EXTRA_BLOB_OPAQUE';value=JSON.parse(text);if(JSON.stringify(value)!==text)return 'EXTRA_BLOB_OPAQUE';}catch{return 'EXTRA_BLOB_OPAQUE';}
+  if(!value||typeof value!=='object'||Array.isArray(value))return 'EXTRA_BLOB_OPAQUE';
+  const exact=(object,keys)=>object&&typeof object==='object'&&!Array.isArray(object)&&Object.keys(object).length===keys.length&&keys.every(k=>Object.prototype.hasOwnProperty.call(object,k));
+  if(value.schemaVersion===2&&Array.isArray(value.manifests)){
+    if(indexBytes&&bytes.equals(indexBytes))return 'ROOT_INDEX_IDENTICAL_BYTES';
+    const descriptor=value.manifests[0],existing=index?.manifests?.[0];
+    const annotationKeys=object=>object===undefined||(object&&typeof object==='object'&&!Array.isArray(object)&&Object.entries(object).every(([key,v])=>typeof v==='string'&&(key==='org.opencontainers.image.ref.name'||key==='io.containerd.image.name'||key.startsWith('containerd.io/distribution.source.'))));
+    const descriptorShape=d=>d&&typeof d==='object'&&!Array.isArray(d)&&Object.keys(d).every(k=>['mediaType','digest','size','platform','annotations'].includes(k))&&['mediaType','digest','size'].every(k=>Object.prototype.hasOwnProperty.call(d,k))&&annotationKeys(d.annotations);
+    if(exact(value,['schemaVersion','mediaType','manifests'])&&value.manifests.length===1&&value.mediaType===index?.mediaType&&descriptorShape(descriptor)&&descriptorShape(existing)&&['mediaType','digest','size'].every(k=>descriptor[k]===existing[k])&&JSON.stringify(descriptor.platform)===JSON.stringify(existing.platform))return 'ROOT_INDEX_SAME_DESCRIPTOR';
+    return 'EXTRA_BLOB_INDEX';
+  }
+  if(value.schemaVersion===2&&value.config&&Array.isArray(value.layers)){
+    const descriptor=d=>exact(d,['mediaType','digest','size']);
+    if(exact(value,['schemaVersion','mediaType','config','layers'])&&value.mediaType===oci?.mediaType&&descriptor(value.config)&&value.layers.every(descriptor)&&descriptor(oci?.config)&&oci.layers.every(descriptor)&&JSON.stringify(value.config)===JSON.stringify(oci.config)&&JSON.stringify(value.layers)===JSON.stringify(oci.layers))return 'MANIFEST_SAME_GRAPH';
+    return 'EXTRA_BLOB_MANIFEST';
+  }
+  if(value.rootfs&&value.config&&typeof value.os==='string'&&typeof value.architecture==='string')return 'EXTRA_BLOB_CONFIG';
+  return 'EXTRA_BLOB_OPAQUE';
 }
 function downloadAsset(assetId, file, maximum) {
   if(!bounded(assetId,Number.MAX_SAFE_INTEGER)||existsSync(file))unavailable();

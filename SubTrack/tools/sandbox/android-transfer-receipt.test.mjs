@@ -77,7 +77,7 @@ test('tools diagnostic checkpoints expose only closed labels and preserve reject
   const trailer=Buffer.from(raw);trailer[trailer.length-1]=1;failure(trailer,manifest(trailer),'TAR_TRAILER');
   const json=tar(files.map(([n,b])=>[n,n==='manifest.json'?Buffer.from('private-canary-invalid-json'):b]));failure(json,manifest(json),'DOCKER_MANIFEST','JSON');
   const codec=tar(files.map(([n,b])=>[n,n==='layer/layer.tar'?Buffer.from([31,139,0]):b]));failure(codec,manifest(codec),'LAYER_DECOMPRESS','DECOMPRESSION');
-  const extra=tar([...files,['private-canary',layer]]);failure(extra,manifest(extra),'EXTRA_MEMBER');
+  const extra=tar([...files,['private-canary',layer]]);failure(extra,manifest(extra),'EXTRA_OTHER');
   let invoked=false;const hostile=Object.defineProperty({},'message',{get(){invoked=true;throw Error('private-canary');}});assert.equal(toolsArchiveDiagnostic(hostile),null);assert.equal(invoked,false);
   const cli=spawnSync(process.execPath,[fileURLToPath(new URL('./android-transfer-receipt.mjs',import.meta.url)),'inspect-tools-tar','private-canary-nonexistent','private-canary-nonexistent'],{encoding:'utf8'});assert.equal(cli.status,1);assert.equal(cli.stdout,'');assert.equal(cli.stderr,'ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=INPUT_RAW category=IO\nST250_ANDROID_TRANSFER_UNAVAILABLE\n');
 });
@@ -104,6 +104,28 @@ test('OCI Docker save layout binds one manifest config and compressed layer; ext
   const namedIndex=Buffer.from(JSON.stringify({schemaVersion:2,manifests:[{digest:`sha256:${digest(oci)}`,size:oci.length,annotations:{'org.opencontainers.image.ref.name':'unowned'}}]}));
   const named=tar(files.map(([n,b])=>[n,n==='index.json'?namedIndex:b]));assert.throws(()=>inspectToolTar(named,{...m,rawTarSha256:digest(named),rawTarBytes:named.length}));
 });
+test('extra tools members classify measured root-index and manifest equivalence but always reject',()=>{
+ const layer=Buffer.from('private-canary-layer'),config=Buffer.from(JSON.stringify({os:'linux',architecture:'amd64',config:{User:'996:996',Entrypoint:['/opt/android/build-tools/36.0.0/apksigner'],Labels:{'se.subtrack.android.source':source,'se.subtrack.android.run':run}},rootfs:{diff_ids:[`sha256:${digest(layer)}`]}}));
+ const configName=`blobs/sha256/${digest(config)}`,layerName=`blobs/sha256/${digest(layer)}`,cd={mediaType:'application/vnd.oci.image.config.v1+json',digest:`sha256:${digest(config)}`,size:config.length},ld={mediaType:'application/vnd.oci.image.layer.v1.tar',digest:`sha256:${digest(layer)}`,size:layer.length};
+ const graph={schemaVersion:2,mediaType:'application/vnd.oci.image.manifest.v1+json',config:cd,layers:[ld]},oci=Buffer.from(JSON.stringify(graph)),descriptor={mediaType:graph.mediaType,digest:`sha256:${digest(oci)}`,size:oci.length,platform:{os:'linux',architecture:'amd64'}},index={schemaVersion:2,mediaType:'application/vnd.oci.image.index.v1+json',manifests:[descriptor]},indexBytes=Buffer.from(JSON.stringify(index));
+ const files=[[configName,config],[layerName,layer],[`blobs/sha256/${digest(oci)}`,oci],['index.json',indexBytes],['oci-layout',Buffer.from('{"imageLayoutVersion":"1.0.0"}')],['manifest.json',Buffer.from(JSON.stringify([{Config:configName,RepoTags:null,Layers:[layerName]}]))]];
+ const classify=(bytes,expected,name=`blobs/sha256/${digest(bytes)}`)=>{const raw=tar([...files,[name,bytes]]),m={...tools(),imageId:`sha256:${digest(config)}`,rawTarSha256:digest(raw),rawTarBytes:raw.length};assert.throws(()=>inspectToolTar(raw,m),error=>{assert.equal(toolsArchiveDiagnostic(error),`ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=${expected} category=ASSERTION`);return true;});};
+ classify(indexBytes,'ROOT_INDEX_IDENTICAL_BYTES');
+ classify(Buffer.from(indexBytes.toString().replace('"schemaVersion":2','"schemaVersion":1,"schemaVersion":2')),'EXTRA_BLOB_OPAQUE');
+ classify(Buffer.from(indexBytes.toString().replace('"manifests":','"manifests":[],"manifests":')),'EXTRA_BLOB_OPAQUE');
+ classify(Buffer.from(indexBytes.toString()+'\n'),'EXTRA_BLOB_OPAQUE');
+ classify(Buffer.from('{"schemaVersion":2,"canary":"\xff"}','binary'),'EXTRA_BLOB_OPAQUE');
+ classify(Buffer.from(JSON.stringify({...index,manifests:[{...descriptor,annotations:{'containerd.io/distribution.source.example':'private-canary'}}]})),'ROOT_INDEX_SAME_DESCRIPTOR');
+ classify(Buffer.from(JSON.stringify({layers:graph.layers,config:graph.config,mediaType:graph.mediaType,schemaVersion:2})),'MANIFEST_SAME_GRAPH');
+ for(const d of [{...descriptor,digest:'sha256:'+'0'.repeat(64)},{...descriptor,size:descriptor.size+1},{...descriptor,annotations:{canary:'private'}}])classify(Buffer.from(JSON.stringify({...index,manifests:[d]})),'EXTRA_BLOB_INDEX');
+ classify(Buffer.from(JSON.stringify({...index,manifests:[descriptor,descriptor]})),'EXTRA_BLOB_INDEX');
+ classify(Buffer.from(JSON.stringify({...graph,config:{...cd,digest:'sha256:'+'0'.repeat(64)}})),'EXTRA_BLOB_MANIFEST');
+ classify(Buffer.from(JSON.stringify({...graph,unknown:true})),'EXTRA_BLOB_MANIFEST');
+ classify(Buffer.from(JSON.stringify({os:'linux',architecture:'amd64',config:{},rootfs:{}})),'EXTRA_BLOB_CONFIG');
+ for(const b of [Buffer.from('private-canary-not-json'),Buffer.from('[]'),Buffer.alloc(1048577)])classify(b,'EXTRA_BLOB_OPAQUE');
+ classify(Buffer.from('private-canary'),'EXTRA_OTHER','blobs/sha256/'+'0'.repeat(64));
+});
+
 test('ten-field backup binding rejects fabricated partial status wrong protection and extra metadata',()=>{
   const value={schema:'st250-android-signer-backup-v1',signerCertificateSha256:'a'.repeat(64),ciphertextSha256:'b'.repeat(64),ciphertextBytes:1024,protection:'windows-dpapi-current-user',backupGeneration:1,decryptVerified:true,signingRestoreVerified:true,temporaryCustodyRemoved:true,backupConfirmed:true};
   assert.equal(Object.keys(validateBackupBinding(value)).length,10);
