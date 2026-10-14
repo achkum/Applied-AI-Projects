@@ -66,6 +66,25 @@ test('signed return labels preserve measured runtime and unverified testing cand
   assert.ok(!block.includes('runtime=disabled'));
 });
 
+test('signed draft retrieval uses created ID and rejects foreign identity or asset digest',()=>{
+ const require=createRequire(import.meta.url),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+ const source=fs.readFileSync(new URL('./download-android.ps1',import.meta.url),'utf8').replaceAll('\r\n','\n');
+ const begin=source.indexOf("$remote=Native 'gh'",source.indexOf("if($Mode -eq 'ReturnSigned')")),end=source.indexOf('$releaseId=$remote.id',begin),block=source.slice(begin,end);
+ assert.ok(begin>=0&&end>begin);
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'st250-draft-id-'));
+ try{for(const name of ['signed.apk','pending.json'])fs.writeFileSync(path.join(root,name),name);
+ const assets=['signed.apk','pending.json'].map(name=>({name,state:'uploaded',size:Buffer.byteLength(name),digest:'sha256:'+digest(Buffer.from(name))}));
+ for(const mode of ['valid','foreign-id','foreign-tag','foreign-digest']){
+ const remote={id:123,tag_name:'owned-tag',draft:true,prerelease:true,target_commitish:'target',assets:structuredClone(assets)};
+ if(mode==='foreign-id')remote.id=124;if(mode==='foreign-tag')remote.tag_name='other';if(mode==='foreign-digest')remote.assets[0].digest='sha256:'+'0'.repeat(64);
+ const script='function Require([bool]$Value){if(-not $Value){throw "ownership"}};function Sha([string]$Path){(Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()};function Native([string]$Program,[string[]]$Arguments){if($Program -ne "gh" -or $Arguments.Count -ne 2 -or $Arguments[0] -ne "api" -or $Arguments[1] -ne "repos/achkum/Applied-AI-Projects/releases/123"){throw "404"};return $env:ST250_REMOTE};$ownedReturnRelease=123;$tag="owned-tag";$receipt=@{defaultTargetHead="target"};$returnDir=$env:ST250_DRAFT_ROOT;$signedName="signed.apk";$pendingName="pending.json";'+block;
+ const pwsh=process.platform==='win32'?'C:/Users/achku/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe':'pwsh';
+ const result=spawnSync(pwsh,['-NoProfile','-NonInteractive','-Command',script],{encoding:'utf8',env:{...process.env,ST250_REMOTE:JSON.stringify(remote),ST250_DRAFT_ROOT:root}});
+ assert.equal(result.status===0,mode==='valid',mode+' '+result.stderr);
+ }
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});
+
 function makeApk(runtime=false,version=1,options={}){
  const config={android:{package:'se.subtrack.app.sandbox',versionCode:version},ios:{bundleIdentifier:'se.subtrack.app.sandbox'},extra:{subtrackSandbox:{variant:'sandbox',apiBaseUrl:'https://198.44.116.159',runtimeEnabled:runtime,publicationEnabled:false,privateDiagnosticsEnabled:false,...options.marker}}},files=[['assets/app.config',Buffer.from(options.configText??JSON.stringify(config))],['assets/index.android.bundle',options.hermes??Buffer.from('c61fbc03c103191f00','hex')],['AndroidManifest.xml',options.binaryManifest??Buffer.from('public binary manifest unit bytes')],...(options.duplicate?[['assets/app.config',Buffer.from('{}')]]:[])],locals=[],central=[];let offset=0;
  for(const [name,data]of files){const n=Buffer.from(name),compressed=options.deflate?deflateRawSync(data):data,crc=zipCrc(data),local=Buffer.alloc(30),entry=Buffer.alloc(46);local.writeUInt32LE(0x04034b50);local.writeUInt16LE(20,4);if(options.descriptor)local.writeUInt16LE(8,6);local.writeUInt16LE(options.deflate?8:0,8);local.writeUInt32LE(crc,14);local.writeUInt32LE(compressed.length,18);local.writeUInt32LE(data.length,22);local.writeUInt16LE(n.length,26);entry.writeUInt32LE(0x02014b50);entry.writeUInt16LE(20,4);entry.writeUInt16LE(20,6);if(options.descriptor)entry.writeUInt16LE(8,8);entry.writeUInt16LE(options.deflate?8:0,10);entry.writeUInt32LE(crc,16);entry.writeUInt32LE(compressed.length,20);entry.writeUInt32LE(data.length,24);entry.writeUInt16LE(n.length,28);entry.writeUInt32LE(offset,42);let descriptor=Buffer.alloc(0);if(options.descriptor){descriptor=Buffer.alloc(options.descriptor==='signature'?16:12);let d=0;if(descriptor.length===16){descriptor.writeUInt32LE(0x08074b50);d=4;}descriptor.writeUInt32LE(crc,d);descriptor.writeUInt32LE(compressed.length,d+4);descriptor.writeUInt32LE(data.length,d+8);local.writeUInt32LE(0,14);local.writeUInt32LE(0,18);local.writeUInt32LE(0,22);}locals.push(local,n,compressed,descriptor);central.push(entry,n);offset+=local.length+n.length+compressed.length+descriptor.length;}

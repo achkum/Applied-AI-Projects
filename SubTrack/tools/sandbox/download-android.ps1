@@ -237,8 +237,8 @@ try{
     foreach($entry in @(@($signedName,'application/vnd.android.package-archive'),@($pendingName,'application/json'))){
       [void](Native 'gh' @('api',"https://uploads.github.com/repos/achkum/Applied-AI-Projects/releases/$ownedReturnRelease/assets?name=$($entry[0])",'--method','POST','--header',"Content-Type: $($entry[1])",'--input',(Join-Path $returnDir $entry[0])))
     }
-    $remote=Native 'gh' @('api',"repos/achkum/Applied-AI-Projects/releases/tags/$tag")|ConvertFrom-Json
-    Require ($remote.draft -eq $true -and $remote.prerelease -eq $true -and $remote.target_commitish -eq $receipt.defaultTargetHead -and $remote.assets.Count -eq 2)
+    $remote=Native 'gh' @('api',"repos/achkum/Applied-AI-Projects/releases/$ownedReturnRelease")|ConvertFrom-Json
+    Require ($remote.id -eq $ownedReturnRelease -and $remote.tag_name -eq $tag -and $remote.draft -eq $true -and $remote.prerelease -eq $true -and $remote.target_commitish -eq $receipt.defaultTargetHead -and $remote.assets.Count -eq 2)
     foreach($name in @($signedName,$pendingName)){$a=@($remote.assets|Where-Object name -eq $name);Require ($a.Count -eq 1 -and $a[0].state -eq 'uploaded' -and $a[0].size -eq (Get-Item -LiteralPath (Join-Path $returnDir $name)).Length -and $a[0].digest -eq "sha256:$(Sha (Join-Path $returnDir $name))")}
     $releaseId=$remote.id;Remove-Owned $returnDir $transferRoot;Remove-Owned $temp $backupDir;$ownedReturnRelease=$null
     Write-Output "ST250_ANDROID_SIGNED_RETURN_DRAFT releaseId=$releaseId manifest=unverified runtime=measured";return

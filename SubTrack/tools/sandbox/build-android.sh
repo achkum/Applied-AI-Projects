@@ -37,11 +37,12 @@ import {readFileSync} from 'node:fs';import {spawnSync} from 'node:child_process
 const root=process.argv[2];
 const {canonical,validateTransfer,validateManifest,digest}=await import(pathToFileURL(`${root}/tools/sandbox/android-transfer-receipt.mjs`).href);
 // ST250_SIGNED_SOURCE_BINDING_BEGIN
-function verificationAuthority(env,git,receiptBytes){
+function verificationAuthority(env,git,receiptBytes,checkpoint=()=>{}){
  const fail=()=>{throw Error('ST250_ANDROID_VERIFICATION_AUTHORITY_UNAVAILABLE');};
- const source=env.ST250_SOURCE_HEAD,tooling=env.ST250_VERIFICATION_TOOLING_HEAD;
+ const source=env.ST250_SOURCE_HEAD,tooling=env.ST250_VERIFICATION_TOOLING_HEAD;checkpoint('DISPATCH_GIT');
  if(env.GITHUB_EVENT_NAME!=='workflow_dispatch'||env.GITHUB_REPOSITORY!=='achkum/Applied-AI-Projects'||env.GITHUB_REF!=='refs/heads/st/native-synthetic-bank'||env.ST250_DELIVERY_MODE!=='verify-signed'||!/^[a-f0-9]{40}$/.test(source??'')||!/^[a-f0-9]{40}$/.test(tooling??'')||tooling!==env.GITHUB_SHA||git(['rev-parse','HEAD']).toString('utf8').trim()!==tooling||git(['rev-parse','--verify',`${source}^{commit}`]).toString('utf8').trim()!==source)fail();
- const receipt=canonical(receiptBytes,v=>validateTransfer(v,'apk'));if(receipt.sourceHead!==source)fail();
+ checkpoint('RECEIPT');const receipt=canonical(receiptBytes,v=>validateTransfer(v,'apk'));if(receipt.sourceHead!==source)fail();
+ checkpoint('SOURCE_GIT');
  const hashes={buildScriptSha256:digest(git(['show',`${source}:SubTrack/tools/sandbox/build-android.sh`])),receiptModuleSha256:digest(git(['show',`${source}:SubTrack/tools/sandbox/android-release-receipt.mjs`]))};
  return {receipt,hashes};
 }
@@ -54,14 +55,26 @@ function verificationManifest(env,authority,bytes){
  if(!['true','false'].includes(env.SUBTRACK_SANDBOX_RUNTIME_ENABLED)||manifest.runtimeEnabled!==(env.SUBTRACK_SANDBOX_RUNTIME_ENABLED==='true')||(manifest.runtimeEnabled?String(manifest.versionCode)!==env.SUBTRACK_SANDBOX_VERSION_CODE:!!env.SUBTRACK_SANDBOX_VERSION_CODE))fail();
  return manifest;
 }
+function verificationDiagnostic(stage,result){
+ const stages=['INPUT_RECEIPT','DISPATCH_GIT','RECEIPT','SOURCE_GIT','MANIFEST_FETCH','MANIFEST_BIND'];
+ let category='UNAVAILABLE';
+ if(stage==='MANIFEST_FETCH'&&result){
+  if(result.error?.code==='ENOBUFS')category='BUFFER';
+  else if(result.error?.code==='ETIMEDOUT')category='TIMEOUT';
+  else if(result.error?.code==='ENOENT')category='EXECUTABLE';
+  else {const status=Buffer.isBuffer(result.stderr)&&result.stderr.length<=16384?result.stderr.toString('utf8').match(/\(HTTP (401|403|404|429|500|502|503)\)/)?.[1]:undefined;category=status?`HTTP_${status}`:'EXIT';}
+ }
+ return `ST250_ANDROID_VERIFICATION_DIAGNOSTIC stage=${stages.includes(stage)?stage:'UNKNOWN'} category=${category}`;
+}
 // ST250_SIGNED_SOURCE_BINDING_END
+let stage='INPUT_RECEIPT',fetchResult;
 try {
  const git=args=>{const result=spawnSync('git',['-C',root,...args],{encoding:null,timeout:10000,maxBuffer:1048576});if(result.status!==0)throw Error('unavailable');return result.stdout;};
- const authority=verificationAuthority(process.env,git,readFileSync(process.argv[3]));
+ const authority=verificationAuthority(process.env,git,readFileSync(process.argv[3]),value=>{stage=value;});
  // Only bounded manifest metadata is prefetched; unsigned/signed APK custody stays with receive-signed.
- const result=spawnSync('gh',['api',`repos/achkum/Applied-AI-Projects/releases/assets/${authority.receipt.manifestAssetId}`,'--header','Accept: application/octet-stream'],{encoding:null,timeout:60000,maxBuffer:16384,env:{...process.env,GH_TOKEN:process.env.GITHUB_TOKEN}});
- if(result.status!==0)throw Error('unavailable');verificationManifest(process.env,authority,result.stdout);
-}catch{process.stderr.write('ST250_ANDROID_VERIFICATION_AUTHORITY_UNAVAILABLE\n');process.exitCode=1;}
+ stage='MANIFEST_FETCH';fetchResult=spawnSync('gh',['api',`repos/achkum/Applied-AI-Projects/releases/assets/${authority.receipt.manifestAssetId}`,'--header','Accept: application/octet-stream'],{encoding:null,timeout:60000,maxBuffer:16384,env:{...process.env,GH_TOKEN:process.env.GITHUB_TOKEN}});
+ if(fetchResult.status!==0)throw Error('unavailable');stage='MANIFEST_BIND';verificationManifest(process.env,authority,fetchResult.stdout);
+}catch{process.stderr.write(verificationDiagnostic(stage,fetchResult)+'\nST250_ANDROID_VERIFICATION_AUTHORITY_UNAVAILABLE\n');process.exitCode=1;}
 NODE
   node "$root/tools/sandbox/android-transfer-receipt.mjs" receive-signed "$private/input-receipt.json" "$ST250_SIGNED_RETURN_RELEASE_ID" "$ST250_SIGNER_CERTIFICATE_SHA256" "$private"
   tools="${ANDROID_HOME:?}/build-tools/36.0.0"
