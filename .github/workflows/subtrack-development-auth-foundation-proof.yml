@@ -39,8 +39,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install pinned native pnpm distribution
+        run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = '12.6.0'
       - name: Install locked private driver proof dependencies
-        run: corepack pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Actual custody and bounded client lifecycle negatives
         run: bash tools/database/test-development-auth-foundation-proof.sh
       - name: Actual owned PG16 SCRAM foundation, current web and durable enrollment proof
@@ -69,8 +73,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install pinned native pnpm distribution
+        run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = '12.6.0'
       - name: Install locked private driver proof dependencies
-        run: corepack pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Actual isolated PG16 full enrollment proof
         run: bash tools/database/development-auth-foundation-proof.sh --enrollment-proof
       - name: Remove exact recorded enrollment fixture

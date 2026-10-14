@@ -1,0 +1,17 @@
+# ST250 independent pnpm12 substrate PLATFORM source review
+
+2026-10-14 reviewer sandbox_delivery_audit. **SOURCE GO for the exact21 hashes in final pnpm12-substrate-source-handoff.md**, independently recalculated and matched after reviewed SDK54 merge ce9f3a3. No tests, package installation, Git mutation, hosted dispatch, SQL or remote/VPS action by this reviewer. New unsigned SDK workflow was authored by this reviewer and is excluded from this approval; root independently reviewed its amendment.
+
+Read actual21-file launcher diff and source. Read-only structural comparison confirms the nine shell sources differ from HEAD only by `corepack pnpm`→`pnpm`, plus existing negative launcher stub function `corepack()`→`pnpm()`; line endings normalized for comparison only. Existing guard/assertion/diagnostic/deadline/cleanup bodies, URL/env quoting and ordered commands remain exact. The stub now intercepts the actual direct launcher rather than a removed command; no negative assertion is suppressed.
+
+Complete API JSON compares equal to HEAD with only the same launcher-prefix transformation, not just selected dependency fields. Thus dependencies/devDependencies/versions and every non-launcher JSON field are unchanged. Nested domain/lifecycle/bank/detection/Synthetic, Prisma and compiler/test steps retain order and flags.
+
+Parsed existing ten repaired workflows and compared every top-level and job field other than steps to HEAD: unchanged triggers, permissions, runner/Node choice, conditions, timeouts, matrix/environment and custody. Normalizing only the explicit pinned installer replacement/new installer step and direct launcher prefix yields exactly the original full step arrays, including frozen install/build/browser tools/fixture/source-quality/coverage/cleanup/artifact guards. No step guard or required check is removed. Explicit npm-global pnpm12.6.0 and exact version assertion precede direct frozen dependency commands after Node setup.
+
+Separately verified the incoming native-device workflow against current HEAD after the SDK merge: exact source differs only by replacing corepack enable with pinned installer/version assertion and removing launch prefixes. Reviewed macos15/Xcode26.2/iOS26.2, private development/localhost authority and all actual proof/receipt/cleanup/source test guards remain intact. No native qualification is inferred from this source check.
+
+Merged lock actual SHA256 **0fb22b043419838d8cc1b6be7b338763794d674376be5d480da54efe092e53c7** matches final handoff. It is the reviewed SDK merge's changed lock, not an authorized launcher rewrite. This review does not repeat or broaden dependency approval; no working-tree lock diff is attributed to this stream.
+
+The initial structural comparison encountered the handoff's concurrent final native-roster update and treated its combined install/proof step as a standalone installer; that comparison failed correctly. A native-specific exact prefix/installer source comparison then passed along with all21 hashes and original ten full workflow structures. This was a reviewer comparator adaptation, not source/test gate relaxation.
+
+Actual new-head applicable CI/build/runtime checks remain necessary. Existing old Corepack failures before install are not product qualification; this source repair makes those real gates executable without changing acceptance semantics. No additional platform source blocker identified.

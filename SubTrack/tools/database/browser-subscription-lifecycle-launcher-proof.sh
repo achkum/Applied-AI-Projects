@@ -83,7 +83,7 @@ classify_launcher_failure() {
 
 run_browser_integration() {
   phase=browser-integration
-  if ! (cd apps/api && corepack pnpm exec vitest run --config test/vitest.browser-subscription-lifecycle.config.ts) >"$tmp/browser.log" 2>&1; then
+  if ! (cd apps/api && pnpm exec vitest run --config test/vitest.browser-subscription-lifecycle.config.ts) >"$tmp/browser.log" 2>&1; then
     failure_subphase=$(classify_launcher_failure "$tmp/browser.log" phase ST227a)
     failure_cleanup=$(classify_launcher_failure "$tmp/browser.log" cleanup ST227a)
     return 1
@@ -181,8 +181,8 @@ openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 1 \
   -addext 'subjectAltName=IP:127.0.0.1' >"$tmp/tls.log" 2>&1
 chmod 600 "$tmp/tls.key" "$tmp/tls.crt"
 phase=build
-if ! (cd apps/api && corepack pnpm exec prisma generate --schema=prisma/schema.prisma) >"$tmp/generate.log" 2>&1; then exit 1; fi
-if ! (cd apps/api && corepack pnpm build) >"$tmp/build.log" 2>&1; then exit 1; fi
+if ! (cd apps/api && pnpm exec prisma generate --schema=prisma/schema.prisma) >"$tmp/generate.log" 2>&1; then exit 1; fi
+if ! (cd apps/api && pnpm build) >"$tmp/build.log" 2>&1; then exit 1; fi
 export ST226_OWNER_URL="$owner_url" ST226_RUNTIME_URL="$runtime_url" ST226_PROVENANCE_FILE="$tmp/provenance.json"
 export ST226_OWNER_PROVENANCE_FILE="$tmp/owner-provenance.json"
 export ST226_TLS_KEY_FILE="$tmp/tls.key" ST226_TLS_CERT_FILE="$tmp/tls.crt"
@@ -196,7 +196,7 @@ if ! node -e 'const p=require("./apps/api/dist/subscriptions/browser-subscriptio
   p.privateFile(process.env.ST226_TLS_KEY_FILE,384).fill(0);p.privateFile(process.env.ST226_TLS_CERT_FILE,384).fill(0);' \
   >"$tmp/custody.log" 2>&1; then exit 1; fi
 phase=migration
-if ! (cd apps/api && DATABASE_URL="$owner_url" corepack pnpm exec prisma migrate deploy --schema=prisma/schema.prisma) >"$tmp/migrate.log" 2>&1; then exit 1; fi
+if ! (cd apps/api && DATABASE_URL="$owner_url" pnpm exec prisma migrate deploy --schema=prisma/schema.prisma) >"$tmp/migrate.log" 2>&1; then exit 1; fi
 phase=role
 printf "CREATE ROLE st_browser_lifecycle_runtime LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_runtime TO st_browser_lifecycle_runtime WITH INHERIT TRUE, SET FALSE;\n" "$reader_pass" > "$tmp/role.sql"
 docker exec -i "$cid" psql --username fixture_owner --dbname browser_subscription_lifecycle_proof \
@@ -206,7 +206,7 @@ role=$(docker exec "$cid" psql --username fixture_owner --dbname browser_subscri
   "SELECT CASE WHEN r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolbypassrls AND pg_has_role(r.oid,'subtrack_runtime','MEMBER') AND (SELECT count(*) FROM pg_auth_members WHERE member=r.oid)=1 THEN 'ok' ELSE 'bad' END FROM pg_roles r WHERE r.rolname='st_browser_lifecycle_runtime'" 2>"$tmp/role-check.log")
 [[ "$role" == ok ]] || exit 1
 phase=launcher-coverage
-if ! (cd apps/api && corepack pnpm exec vitest run src/subscriptions/browser-subscription-lifecycle.local.spec.ts \
+if ! (cd apps/api && pnpm exec vitest run src/subscriptions/browser-subscription-lifecycle.local.spec.ts \
   --coverage --coverage.include=src/subscriptions/browser-subscription-lifecycle.local.ts \
   --coverage.reporter=json-summary --coverage.reportsDirectory="$tmp/coverage" \
   --coverage.thresholds.statements=80 --coverage.thresholds.branches=80 \
@@ -219,7 +219,7 @@ phase=launcher-integration
 export ST226_OWNER_URL="$owner_url" ST226_RUNTIME_URL="$runtime_url" ST226_PROVENANCE_FILE="$tmp/provenance.json"
 export ST226_OWNER_PROVENANCE_FILE="$tmp/owner-provenance.json"
 export ST226_TLS_KEY_FILE="$tmp/tls.key" ST226_TLS_CERT_FILE="$tmp/tls.crt"
-if ! (cd apps/api && corepack pnpm exec vitest run --config test/vitest.browser-subscription-lifecycle-launcher.config.ts) >"$tmp/test.log" 2>&1; then
+if ! (cd apps/api && pnpm exec vitest run --config test/vitest.browser-subscription-lifecycle-launcher.config.ts) >"$tmp/test.log" 2>&1; then
   failure_subphase=$(classify_launcher_failure "$tmp/test.log")
   failure_cleanup=$(classify_launcher_failure "$tmp/test.log" cleanup)
   exit 1

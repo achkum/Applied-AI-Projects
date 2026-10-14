@@ -3,10 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "corepack pnpm --filter @subtrack/domain build:lifecycle && corepack pnpm --filter @subtrack/domain build:bank && corepack pnpm --filter @subtrack/domain build:detection && corepack pnpm --filter @subtrack/synthetic build:bank && prisma generate --schema=prisma/schema.prisma && tsc -p tsconfig.build.json",
+    "build": "pnpm --filter @subtrack/domain build:lifecycle && pnpm --filter @subtrack/domain build:bank && pnpm --filter @subtrack/domain build:detection && pnpm --filter @subtrack/synthetic build:bank && prisma generate --schema=prisma/schema.prisma && tsc -p tsconfig.build.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-    "typecheck": "corepack pnpm --filter @subtrack/domain build:lifecycle && corepack pnpm --filter @subtrack/domain build:bank && corepack pnpm --filter @subtrack/domain build:detection && corepack pnpm --filter @subtrack/synthetic build:bank && prisma generate --schema=prisma/schema.prisma && tsc --noEmit -p tsconfig.json",
-    "test": "corepack pnpm --filter @subtrack/domain build:lifecycle && corepack pnpm --filter @subtrack/domain build:bank && corepack pnpm --filter @subtrack/domain build:detection && corepack pnpm --filter @subtrack/synthetic build:bank && prisma generate --schema=prisma/schema.prisma && vitest run"
+    "typecheck": "pnpm --filter @subtrack/domain build:lifecycle && pnpm --filter @subtrack/domain build:bank && pnpm --filter @subtrack/domain build:detection && pnpm --filter @subtrack/synthetic build:bank && prisma generate --schema=prisma/schema.prisma && tsc --noEmit -p tsconfig.json",
+    "test": "pnpm --filter @subtrack/domain build:lifecycle && pnpm --filter @subtrack/domain build:bank && pnpm --filter @subtrack/domain build:detection && pnpm --filter @subtrack/synthetic build:bank && prisma generate --schema=prisma/schema.prisma && vitest run"
   },
   "devDependencies": {
     "@subtrack/config": "workspace:*",

@@ -92,18 +92,18 @@ for attempt in {1..60}; do
 done
 [[ "$ready" == true ]] || fail
 phase=migration
-(cd apps/api && DATABASE_URL="$owner_url" corepack pnpm exec prisma migrate deploy --schema=prisma/schema.prisma) > "$tmp/migrate.log" 2>&1 || fail
+(cd apps/api && DATABASE_URL="$owner_url" pnpm exec prisma migrate deploy --schema=prisma/schema.prisma) > "$tmp/migrate.log" 2>&1 || fail
 phase=runtime-role
 printf "CREATE ROLE st216_runtime LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_runtime TO st216_runtime WITH INHERIT TRUE, SET FALSE;\n" "$runtime_pass" > "$tmp/role.sql"
 docker exec -i "$cid" psql --username fixture_owner --dbname subscription_lifecycle_proof \
   --no-psqlrc --set ON_ERROR_STOP=1 --quiet < "$tmp/role.sql" > "$tmp/role.log" 2>&1 || fail
 phase=generate
-(cd apps/api && DATABASE_URL="$owner_url" corepack pnpm exec prisma generate --schema=prisma/schema.prisma) > "$tmp/generate.log" 2>&1 || fail
+(cd apps/api && DATABASE_URL="$owner_url" pnpm exec prisma generate --schema=prisma/schema.prisma) > "$tmp/generate.log" 2>&1 || fail
 phase=build
-corepack pnpm --filter @subtrack/domain build:lifecycle > "$tmp/domain.log" 2>&1 || fail
-(cd apps/api && DATABASE_URL="$owner_url" corepack pnpm build) > "$tmp/build.log" 2>&1 || fail
+pnpm --filter @subtrack/domain build:lifecycle > "$tmp/domain.log" 2>&1 || fail
+(cd apps/api && DATABASE_URL="$owner_url" pnpm build) > "$tmp/build.log" 2>&1 || fail
 phase=http-and-standalone
 export ST216_DISPOSABLE=new-container ST216_PORT="$port" ST216_OWNER_URL="$owner_url" ST216_RUNTIME_URL="$runtime_url"
 export ST216_PROVENANCE_FILE="$tmp/provenance.json" ST216_PRIVATE_DIR="$tmp" ST216_CID="$cid"
-(cd apps/api && corepack pnpm exec vitest run --config vitest.subscription-lifecycle-http.config.ts) > "$tmp/test.log" 2>&1 || fail
+(cd apps/api && pnpm exec vitest run --config vitest.subscription-lifecycle-http.config.ts) > "$tmp/test.log" 2>&1 || fail
 passed=true

@@ -25,16 +25,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.18.0'
-      - run: corepack enable && corepack prepare pnpm@12.6.0 --activate
-      - run: corepack pnpm install --frozen-lockfile
+      - name: Install pinned native pnpm distribution
+        run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = '12.6.0'
+      - run: pnpm install --frozen-lockfile
       - name: Compile actual persistent sandbox entrypoint
         run: |
-          corepack pnpm --filter @subtrack/domain build:lifecycle
-          corepack pnpm --filter @subtrack/domain build:bank
-          corepack pnpm --filter @subtrack/domain build:detection
-          corepack pnpm --filter @subtrack/synthetic build:bank
-          DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build corepack pnpm --filter @subtrack/api exec prisma generate --schema=prisma/schema.prisma
-          corepack pnpm --filter @subtrack/api exec tsc -p tsconfig.build.json
+          pnpm --filter @subtrack/domain build:lifecycle
+          pnpm --filter @subtrack/domain build:bank
+          pnpm --filter @subtrack/domain build:detection
+          pnpm --filter @subtrack/synthetic build:bank
+          DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build pnpm --filter @subtrack/api exec prisma generate --schema=prisma/schema.prisma
+          pnpm --filter @subtrack/api exec tsc -p tsconfig.build.json
           test -f apps/api/dist/sandbox/main.js
       - name: Qualify owned PostgreSQL and real HTTP entrypoint
         env:

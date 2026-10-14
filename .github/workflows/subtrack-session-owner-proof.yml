@@ -30,9 +30,11 @@ jobs:
         with:
           node-version: 22
       - name: Set up pinned pnpm
-        run: corepack enable && corepack prepare pnpm@12.6.0 --activate
+        run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = '12.6.0'
       - name: Install locked dependencies
-        run: corepack pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Actual disposable PostgreSQL proof
         run: bash tools/auth/session-owner-rls-proof.sh
       - name: Cleanup only recorded task container

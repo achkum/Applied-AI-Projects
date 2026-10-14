@@ -70,11 +70,11 @@ for rel in SubTrack/apps/web/test/private-https-preflight.mjs SubTrack/tools/bro
 done
 
 phase=RUNTIME
-[[ "$(corepack pnpm --filter @subtrack/web exec node -p "require('playwright/package.json').version")" == 1.63.0 ]]
+[[ "$(pnpm --filter @subtrack/web exec node -p "require('playwright/package.json').version")" == 1.63.0 ]]
 nss_version="$(dpkg-query -W -f='${Version}' libnss3-tools)"
 [[ "$nss_version" =~ ^[0-9A-Za-z.+:~-]+$ ]]
 command -v certutil >/dev/null
-firefox_bin="$(corepack pnpm --filter @subtrack/web exec node -p "require('playwright').firefox.executablePath()")"
+firefox_bin="$(pnpm --filter @subtrack/web exec node -p "require('playwright').firefox.executablePath()")"
 [[ -f "$firefox_bin" && -x "$firefox_bin" ]]
 firefox_line="$("$firefox_bin" --version)"
 [[ "$firefox_line" =~ ([0-9]+(\.[0-9]+){1,3}) ]]
