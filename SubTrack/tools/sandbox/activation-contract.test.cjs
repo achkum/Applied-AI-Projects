@@ -27,7 +27,8 @@ test('import binding retains raw config identity while accepting distinct Docker
  const getter={...cfg.config};Object.defineProperty(getter,'Env',{get(){throw Error('must not execute');},enumerable:true});assert.throws(()=>imports.imageConfigPortfolio(getter));assert.throws(()=>imports.imageConfigPortfolio({...cfg.config,Healthcheck:{Test:['CMD','true'],Unknown:0}}));
 });
 test('capless gateway custody binds exact pinned executable and only permits reviewed composition rollover',()=>{
- assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'../../infra/sandbox/Caddyfile'))).digest('hex'),imports.gatewayExecutableProfile.caddyfileSha256);
+ // Runtime source packs use immutable Git LF bytes, not Windows checkout CRLF.
+ const caddySource=fs.readFileSync(path.join(__dirname,'../../infra/sandbox/Caddyfile'),'utf8').replace(/\r\n/g,'\n');assert.equal(Buffer.byteLength(caddySource),1946);assert.equal(crypto.createHash('sha256').update(caddySource).digest('hex'),imports.gatewayExecutableProfile.caddyfileSha256);
  const files=Object.fromEntries(imports.executionNames.map(n=>[n,'a'.repeat(64)]));
  const historical={schema:'st250-source-custody-v1',sourceHead:'b'.repeat(40),files:Object.fromEntries(Object.entries(files).filter(([n])=>!n.endsWith('image-import-binding.cjs')))};
  const current={schema:'st250-source-custody-v3',artifactSourceHead:historical.sourceHead,toolingSourceHead:'c'.repeat(40),historicalSourceCustodySha256:'d'.repeat(64),files,gatewayExecutable:{...imports.gatewayExecutableProfile}};

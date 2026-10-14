@@ -9,3 +9,9 @@ The local loopback probe derives directives and the actual API header validator/
 Desktop production diff changes exactly two check-ignore working directories to gitRoot for already Git-root-relative paths. Exclusion entry, separator handling, realpath/reparse and ACL guards are unchanged. The extracted-block nested Git project regression meaningfully exercises the original doubling-prefix failure.
 
 No material defect found. Retained authenticated source/binding history and fresh metadata-only gateway rollover remain required; preserve DB/API IDs, keys and volumes and obtain full trusted HTTPS/durable readback. This review is source approval, not approval of a yet-unreviewed operator script or live qualification. No tests, CI, Docker or remote/runtime actions were performed by this reviewer.
+
+## Immutable Git LF freeze correction
+
+Bounded final delta **SOURCE GO**: actual helper/test hashes match `aeaaea77d472a4de38f1ca6480d7e53351cd5150444cd0bb1850a32544ca0602` / `121c4ad4ed235f79f349d695231975b18cb0f89eade5ba404ad86f638ba1c18d`. These supersede only the earlier two helper/test hashes. The profile now pins the immutable LF Caddy bytes `6d144027fc97333f39f18591b1b8b805c6a798c82b171c47f61eefce95bf8a6b`, 1946 bytes; independently reproduced that length/hash from the unchanged checkout's canonical LF content. The earlier `3e114...` hash describes Windows CRLF checkout bytes, not the runtime sourcepack.
+
+Production change is solely the literal digest. Runtime hashing still verifies actual file bytes exactly, without normalization or alternate hashes. Only the checkout source assertion normalizes CRLF to reproduce Git LF and now asserts 1946 bytes. Gateway directives/security/profile semantics and the other prior slice dispositions are unchanged. Root reports no incorrect pack upload or runtime mutation. No tests or external actions were performed in this final delta review.

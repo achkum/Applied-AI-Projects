@@ -17,3 +17,10 @@ SHA256:
 - docs/ops/SANDBOX.md: 0c68fa4ae6da4bd98b72e6872876368666fe9bccc25863670631fff498886c23
 - .sdlc/evidence/ST-250/gateway-fetch-boundary-probe.cjs: 979c26a67bcb3d77567604b4d149dd2adcde09452fc9a4b403c662313ad17a57
 - unchanged apps/api/src/sandbox/sandbox-http.ts: 0fd9cc584101cc82570dbdadef7ae36eb3831df428567191be26c89789b9064f
+## Immutable-source byte correction
+
+The initial profile incorrectly froze Windows checkout CRLF bytes. Root measured immutable fd0 Git Caddy bytes as 1946 bytes/LF, SHA256 6d144027fc97333f39f18591b1b8b805c6a798c82b171c47f61eefce95bf8a6b. Only the profile hash and focused checkout-to-canonical-LF source test changed; gateway directives remain untouched. Runtime verification still hashes actual runtime-file bytes exactly and accepts only this one frozen raw-Git digest, without normalization or fallback. Normalization occurs solely in the source test to reproduce canonical Git LF bytes from Windows checkout. Focused custody test and binding syntax pass. Root reports the incorrect partial sourcepack was never uploaded and no custody ledger/live mutation occurred.
+
+Superseding local source SHA256:
+- tools/sandbox/image-import-binding.cjs: aeaaea77d472a4de38f1ca6480d7e53351cd5150444cd0bb1850a32544ca0602
+- tools/sandbox/activation-contract.test.cjs: 121c4ad4ed235f79f349d695231975b18cb0f89eade5ba404ad86f638ba1c18d
