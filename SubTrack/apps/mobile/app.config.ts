@@ -18,6 +18,9 @@ function sandboxOrigin(value: string | undefined): string {
 export default function appConfig({ config }: ConfigContext): ExpoConfig {
   const variant = process.env.SUBTRACK_APP_VARIANT;
   const activation = process.env.SUBTRACK_SANDBOX_RUNTIME_ENABLED;
+  const version = process.env.SUBTRACK_SANDBOX_VERSION_CODE;
+  if (version !== undefined && (variant !== 'sandbox' || !/^[1-9][0-9]*$/.test(version) || !Number.isSafeInteger(Number(version)) || Number(version) > 2147483647)) throw new Error('Sandbox version rejected');
+  if (variant === 'sandbox' && activation === 'true' && version === undefined) throw new Error('Sandbox version required');
   if (activation !== undefined && variant !== 'sandbox') throw new Error('Sandbox activation rejected');
   if (activation !== undefined && activation !== 'true' && activation !== 'false') throw new Error('Sandbox activation rejected');
   if (variant === undefined) return config as ExpoConfig;
@@ -34,7 +37,7 @@ export default function appConfig({ config }: ConfigContext): ExpoConfig {
     slug: 'subtrack-sandbox',
     scheme: 'subtrack-sandbox',
     ios: { ...config.ios, bundleIdentifier: 'se.subtrack.app.sandbox' },
-    android: { ...config.android, package: 'se.subtrack.app.sandbox' },
+    android: { ...config.android, package: 'se.subtrack.app.sandbox', ...(version === undefined ? {} : {versionCode:Number(version)}) },
     plugins: (config.plugins ?? []).filter(plugin =>
       (typeof plugin === 'string' ? plugin : plugin[0]) !== PRIVATE_PLUGIN),
     extra: {

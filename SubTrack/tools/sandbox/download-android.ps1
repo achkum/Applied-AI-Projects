@@ -212,9 +212,10 @@ try{
     Scp-In "$remoteRoot/staging/android-signed/$ApkRun/signed.apk" (Join-Path $returnDir $signedName)
     Scp-In "$remoteRoot/staging/android-signed/$ApkRun/pending.json" (Join-Path $returnDir $pendingName)
     $pending=Get-Content -LiteralPath (Join-Path $returnDir $pendingName) -Raw|ConvertFrom-Json
-    Require ($pending.schema -eq 'st250-android-signed-pending-v1' -and $pending.sourceHead -eq $SourceHead -and $pending.signerCertificateSha256 -eq $SignerCertificateSha256 -and $pending.signedSha256 -eq (Sha (Join-Path $returnDir $signedName)) -and $pending.runtimeEnabled -eq $false)
+    Require (($pending.schema -eq 'st250-android-signed-pending-v1' -or $pending.schema -eq 'st250-android-signed-pending-v2') -and $pending.sourceHead -eq $SourceHead -and $pending.signerCertificateSha256 -eq $SignerCertificateSha256 -and $pending.signedSha256 -eq (Sha (Join-Path $returnDir $signedName)) )
     $receipt=Get-Content -LiteralPath (Join-Path $transferRoot "apk-$ApkRun/receipt.json") -Raw|ConvertFrom-Json
     Require ($pending.unsignedSha256 -eq $receipt.unsignedSha256)
+    [void](Native 'node' @($module,'validate-pending',(Join-Path $returnDir $pendingName),(Join-Path $transferRoot "apk-$ApkRun/manifest.json"),$SignerCertificateSha256,(Join-Path $returnDir $signedName),(Join-Path $transferRoot "apk-$ApkRun/unsigned.apk")))
     # Owned VPS return copy is removed after verified desktop receipt; signer persists.
     [void](Remote "set -eu; d=$remoteRoot/staging/android-signed/$ApkRun; test ! -L `"`$d`"; test `"`$(realpath -e `"`$d`")`" = $remoteRoot/staging/android-signed/$ApkRun; test `"`$(sha256sum `"`$d/signed.apk`" | cut -d' ' -f1)`" = $($pending.signedSha256); rm -- `"`$d/signed.apk`" `"`$d/pending.json`"; rmdir `"`$d`"; test ! -e `"`$d`"")
     $tag="st250-android-signed-stage-$SourceHead-$ApkRun"
@@ -223,7 +224,7 @@ try{
       $collision=& gh api $endpoint 2>&1;Require ($LASTEXITCODE -ne 0 -and ($collision -join "`n") -match 'HTTP 404')
     }
     $bodyFile=Join-Path $temp 'return-release.json'
-    Write-Private $bodyFile ([Text.Encoding]::UTF8.GetBytes((@{tag_name=$tag;target_commitish=$receipt.defaultTargetHead;draft=$true;prerelease=$true;make_latest='false';name=$tag;body='Private signed preparation return; runtime disabled; retention <=7days; never publish.'}|ConvertTo-Json -Compress)))
+    Write-Private $bodyFile ([Text.Encoding]::UTF8.GetBytes((@{tag_name=$tag;target_commitish=$receipt.defaultTargetHead;draft=$true;prerelease=$true;make_latest='false';name=$tag;body='Private signed testing candidate return; runtime measured; manifest unverified; retention <=7days; never publish.'}|ConvertTo-Json -Compress)))
     $created=Native 'gh' @('api','repos/achkum/Applied-AI-Projects/releases','--method','POST','--input',$bodyFile)|ConvertFrom-Json
     Require ($created.id -gt 0 -and $created.draft -eq $true -and $created.tag_name -eq $tag)
     $ownedReturnRelease=$created.id;$ownedReturnTag=$tag;$ownedReturnTarget=$receipt.defaultTargetHead
@@ -234,7 +235,7 @@ try{
     Require ($remote.draft -eq $true -and $remote.prerelease -eq $true -and $remote.target_commitish -eq $receipt.defaultTargetHead -and $remote.assets.Count -eq 2)
     foreach($name in @($signedName,$pendingName)){$a=@($remote.assets|Where-Object name -eq $name);Require ($a.Count -eq 1 -and $a[0].state -eq 'uploaded' -and $a[0].size -eq (Get-Item -LiteralPath (Join-Path $returnDir $name)).Length -and $a[0].digest -eq "sha256:$(Sha (Join-Path $returnDir $name))")}
     $releaseId=$remote.id;Remove-Owned $returnDir $transferRoot;Remove-Owned $temp $backupDir;$ownedReturnRelease=$null
-    Write-Output "ST250_ANDROID_SIGNED_RETURN_DRAFT releaseId=$releaseId manifest=unverified runtime=disabled";return
+    Write-Output "ST250_ANDROID_SIGNED_RETURN_DRAFT releaseId=$releaseId manifest=unverified runtime=measured";return
   }
 }catch{
   if($null -ne $ownedReturnRelease){

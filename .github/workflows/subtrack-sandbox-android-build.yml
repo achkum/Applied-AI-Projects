@@ -2,6 +2,12 @@ name: SubTrack sandbox unsigned Android Release build
 on:
   workflow_call:
     inputs:
+      runtime_enabled:
+        type: boolean
+        default: false
+      version_code:
+        type: string
+        default: ""
       delivery_mode:
         type: string
         default: none
@@ -22,6 +28,12 @@ on:
         default: ""
   workflow_dispatch:
     inputs:
+      runtime_enabled:
+        type: boolean
+        default: false
+      version_code:
+        type: string
+        default: ""
       delivery_mode:
         type: choice
         options: [none, unsigned-apk, signing-tools, verify-signed]
@@ -72,6 +84,8 @@ jobs:
       CI: "true"
       EXPO_NO_TELEMETRY: "1"
       SUBTRACK_APP_VARIANT: sandbox
+      SUBTRACK_SANDBOX_RUNTIME_ENABLED: ${{ inputs.runtime_enabled && 'true' || 'false' }}
+      SUBTRACK_SANDBOX_VERSION_CODE: ${{ inputs.version_code }}
       SUBTRACK_SANDBOX_HTTPS_ORIGIN: https://198.44.116.159
       ST250_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
@@ -114,6 +128,8 @@ jobs:
       CI: "true"
       EXPO_NO_TELEMETRY: "1"
       SUBTRACK_APP_VARIANT: sandbox
+      SUBTRACK_SANDBOX_RUNTIME_ENABLED: ${{ inputs.runtime_enabled && 'true' || 'false' }}
+      SUBTRACK_SANDBOX_VERSION_CODE: ${{ inputs.version_code }}
       SUBTRACK_SANDBOX_HTTPS_ORIGIN: https://198.44.116.159
       ST250_SOURCE_HEAD: ${{ inputs.source_head }}
       ST250_FREE_DRAFT_CONFIRMED: ${{ inputs.free_draft_confirmed }}
@@ -168,8 +184,11 @@ jobs:
     env:
       CI: "true"
       SUBTRACK_APP_VARIANT: sandbox
+      SUBTRACK_SANDBOX_RUNTIME_ENABLED: ${{ inputs.runtime_enabled && 'true' || 'false' }}
+      SUBTRACK_SANDBOX_VERSION_CODE: ${{ inputs.version_code }}
       SUBTRACK_SANDBOX_HTTPS_ORIGIN: https://198.44.116.159
       ST250_SOURCE_HEAD: ${{ inputs.source_head }}
+      ST250_DELIVERY_MODE: ${{ inputs.delivery_mode }}
       ST250_UNSIGNED_TRANSFER_RECEIPT: ${{ inputs.unsigned_transfer_receipt }}
       ST250_SIGNED_RETURN_RELEASE_ID: ${{ inputs.signed_return_release_id }}
       ST250_SIGNER_CERTIFICATE_SHA256: ${{ inputs.signer_certificate_sha256 }}

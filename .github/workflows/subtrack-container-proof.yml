@@ -25,6 +25,12 @@ on:
         required: false
         type: string
         default: ""
+      runtime_enabled:
+        type: boolean
+        default: false
+      version_code:
+        type: string
+        default: ""
       delivery_mode:
         description: Explicit Android preparation delivery through the same-commit reusable workflow
         required: false
@@ -52,13 +58,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.event_name == 'workflow_dispatch' && (inputs.sandbox_transfer == true || inputs.delivery_mode == 'unsigned-apk' || inputs.delivery_mode == 'signing-tools' || inputs.delivery_mode == 'verify-signed') && format('subtrack-container-proof-custody-{0}-{1}', github.run_id, github.run_attempt) || format('subtrack-container-proof-{0}', github.event.pull_request.number || github.ref) }}
-  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && (inputs.sandbox_transfer == true || inputs.delivery_mode == 'unsigned-apk' || inputs.delivery_mode == 'signing-tools' || inputs.delivery_mode == 'verify-signed')) }}
+  group: ${{ github.event_name == 'workflow_dispatch' && (inputs.sandbox_transfer == true || inputs.delivery_mode == 'unsigned-apk' || inputs.delivery_mode == 'signing-tools' || inputs.delivery_mode == 'verify-signed' || inputs.runtime_enabled == true || inputs.version_code != '') && format('subtrack-container-proof-custody-{0}-{1}', github.run_id, github.run_attempt) || format('subtrack-container-proof-{0}', github.event.pull_request.number || github.ref) }}
+  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && (inputs.sandbox_transfer == true || inputs.delivery_mode == 'unsigned-apk' || inputs.delivery_mode == 'signing-tools' || inputs.delivery_mode == 'verify-signed' || inputs.runtime_enabled == true || inputs.version_code != '')) }}
 
 jobs:
   container-proof:
     name: Build and smoke API and web images
-    if: ${{ !(github.event_name == 'workflow_dispatch' && (inputs.sandbox_transfer == true || inputs.delivery_mode == 'unsigned-apk' || inputs.delivery_mode == 'signing-tools' || inputs.delivery_mode == 'verify-signed')) }}
+    if: ${{ !(github.event_name == 'workflow_dispatch' && (inputs.sandbox_transfer == true || inputs.delivery_mode == 'unsigned-apk' || inputs.delivery_mode == 'signing-tools' || inputs.delivery_mode == 'verify-signed' || inputs.runtime_enabled == true || inputs.version_code != '')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -93,7 +99,7 @@ jobs:
 
   sandbox-draft-transfer:
     name: Qualify and stage the same sandbox image in a private draft
-    if: github.event_name == 'workflow_dispatch' && inputs.sandbox_transfer == true && inputs.delivery_mode == 'none' && github.repository == 'achkum/Applied-AI-Projects' && github.ref == 'refs/heads/st/native-synthetic-bank' && inputs.source_head == github.sha
+    if: github.event_name == 'workflow_dispatch' && inputs.sandbox_transfer == true && inputs.delivery_mode == 'none' && inputs.runtime_enabled == false && inputs.version_code == '' && github.repository == 'achkum/Applied-AI-Projects' && github.ref == 'refs/heads/st/native-synthetic-bank' && inputs.source_head == github.sha
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -137,7 +143,7 @@ jobs:
 
   android-delivery-authority:
     name: Assert unambiguous exact reviewed Android delivery authority
-    if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode != 'none'
+    if: github.event_name == 'workflow_dispatch' && (inputs.delivery_mode != 'none' || inputs.runtime_enabled == true || inputs.version_code != '')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -153,11 +159,18 @@ jobs:
           ST250_SOURCE_HEAD: ${{ inputs.source_head }}
           ST250_ANDROID_MODE: ${{ inputs.delivery_mode }}
           ST250_BACKEND_TRANSFER: ${{ inputs.sandbox_transfer }}
+          ST250_ANDROID_RUNTIME_ENABLED: ${{ inputs.runtime_enabled }}
+          ST250_ANDROID_VERSION_CODE: ${{ inputs.version_code }}
         run: |
           test "$GITHUB_EVENT_NAME" = workflow_dispatch
           test "$GITHUB_REPOSITORY" = achkum/Applied-AI-Projects
           test "$GITHUB_REF" = refs/heads/st/native-synthetic-bank
           test "$ST250_BACKEND_TRANSFER" = false
+          case "$ST250_ANDROID_RUNTIME_ENABLED" in
+            false) test -z "$ST250_ANDROID_VERSION_CODE";;
+            true) [[ "$ST250_ANDROID_MODE" == unsigned-apk || "$ST250_ANDROID_MODE" == verify-signed ]]; [[ "$ST250_ANDROID_VERSION_CODE" =~ ^[1-9][0-9]{0,9}$ ]]; (( ST250_ANDROID_VERSION_CODE <= 2147483647 ));;
+            *) exit 2;;
+          esac
           case "$ST250_ANDROID_MODE" in
             unsigned-apk|signing-tools|verify-signed) ;;
             *) exit 2;;
@@ -174,6 +187,8 @@ jobs:
       contents: write
     uses: ./.github/workflows/subtrack-sandbox-android-build.yml
     with:
+      runtime_enabled: ${{ inputs.runtime_enabled }}
+      version_code: ${{ inputs.version_code }}
       delivery_mode: ${{ inputs.delivery_mode }}
       source_head: ${{ inputs.source_head }}
       free_draft_confirmed: ${{ inputs.free_draft_confirmed }}

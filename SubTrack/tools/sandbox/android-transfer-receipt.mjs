@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, lstatSync, unlinkSync, openSync, closeSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { gunzipSync } from 'node:zlib';
+import { gunzipSync, inflateRawSync } from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -24,6 +24,37 @@ const apkFields = [...common,'unsignedSha256','bytes','applicationId','versionCo
 const toolFields = [...common,'imageId','baseImage','dockerfileSha256','sdkArchiveSha256','apksignerJarSha256','zipalignSha256','archiveSha256','rawTarSha256','archiveBytes','rawTarBytes','runtimeUid','runtimeGid','buildToolsVersion','toolsQualified'];
 const apkReceiptFields = [...common,'releaseId','draft','unsignedSha256','bytes','applicationId','apkAssetId','manifestSha256','manifestBytes','manifestAssetId','manifestSchema','unsignedQualified','uploadVerified','localCleanupConfirmed','remoteCustody'];
 const toolReceiptFields = [...common,'releaseId','draft','imageId','archiveSha256','archiveBytes','archiveAssetId','manifestSha256','manifestBytes','manifestAssetId','manifestSchema','toolsQualified','uploadVerified','localCleanupConfirmed','remoteCustody'];
+
+export function dataField(value,key){const d=value&&typeof value==='object'?Object.getOwnPropertyDescriptor(value,key):undefined;return d&&'value'in d?d.value:undefined;}
+export function crc32(bytes){let crc=0xffffffff;for(const value of bytes){crc^=value;for(let i=0;i<8;i++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}return (crc^0xffffffff)>>>0;}
+/** Read selected native bytes from a bounded APK, never from a metadata sidecar. */
+export function apkAssets(apk){
+ if(!Buffer.isBuffer(apk)||!bounded(apk.length,200*1024*1024))unavailable();
+ let end=-1;for(let p=apk.length-22;p>=Math.max(0,apk.length-65557);p--)if(apk.readUInt32LE(p)===0x06054b50&&p+22+apk.readUInt16LE(p+20)===apk.length){end=p;break;}
+ if(end<0||apk.readUInt16LE(end+4)!==0||apk.readUInt16LE(end+6)!==0)unavailable();
+ const count=apk.readUInt16LE(end+10),size=apk.readUInt32LE(end+12),start=apk.readUInt32LE(end+16);if(!bounded(count,4096)||count!==apk.readUInt16LE(end+8)||size>1048576||start+size!==end)unavailable();
+ const entries=new Map(),ranges=[];let p=start;
+ for(let i=0;i<count;i++){
+  if(p+46>end||apk.readUInt32LE(p)!==0x02014b50)unavailable();
+  const flags=apk.readUInt16LE(p+8),method=apk.readUInt16LE(p+10),crc=apk.readUInt32LE(p+16),compressed=apk.readUInt32LE(p+20),plain=apk.readUInt32LE(p+24),nl=apk.readUInt16LE(p+28),el=apk.readUInt16LE(p+30),cl=apk.readUInt16LE(p+32),offset=apk.readUInt32LE(p+42);
+  if(flags&~0x808||![0,8].includes(method)||apk.readUInt16LE(p+34)!==0||compressed===0xffffffff||plain===0xffffffff||offset===0xffffffff||p+46+nl+el+cl>end||plain>200*1024*1024)unavailable();
+  const nameBytes=apk.subarray(p+46,p+46+nl),name=nameBytes.toString('utf8');if(!nameBytes.equals(Buffer.from(name))||!name||name.includes('\0')||name.includes('\\')||name.startsWith('/')||name.split('/').includes('..')||entries.has(name))unavailable();
+  const extras=apk.subarray(p+46+nl,p+46+nl+el);for(let x=0;x<extras.length;){if(x+4>extras.length)unavailable();const id=extras.readUInt16LE(x),n=extras.readUInt16LE(x+2);if(id===1||id===0x9901||x+4+n>extras.length)unavailable();x+=4+n;}
+  if(offset+30>start||apk.readUInt32LE(offset)!==0x04034b50||apk.readUInt16LE(offset+6)!==flags||apk.readUInt16LE(offset+8)!==method)unavailable();
+  const ln=apk.readUInt16LE(offset+26),le=apk.readUInt16LE(offset+28),data=offset+30+ln+le;if(data+compressed>start||!apk.subarray(offset+30,offset+30+ln).equals(nameBytes))unavailable();
+  let stop=data+compressed;
+  if(flags&8){let d=stop;if(d+4>start)unavailable();if(apk.readUInt32LE(d)===0x08074b50)d+=4;if(d+12>start||apk.readUInt32LE(d)!==crc||apk.readUInt32LE(d+4)!==compressed||apk.readUInt32LE(d+8)!==plain)unavailable();stop=d+12;}
+  else if(apk.readUInt32LE(offset+14)!==crc||apk.readUInt32LE(offset+18)!==compressed||apk.readUInt32LE(offset+22)!==plain)unavailable();
+  if(ranges.some(([a,b])=>offset<b&&stop>a))unavailable();ranges.push([offset,stop]);entries.set(name,{data,compressed,plain,crc,method});p+=46+nl+el+cl;
+ }
+ if(p!==end)unavailable();
+ const selected={};for(const [name,key,max]of [['assets/app.config','config',1048576],['assets/index.android.bundle','hermes',200*1024*1024],['AndroidManifest.xml','manifest',1048576]]){const e=entries.get(name);if(!e||!bounded(e.plain,max))unavailable();const raw=apk.subarray(e.data,e.data+e.compressed),bytes=e.method===0?Buffer.from(raw):inflateRawSync(raw,{maxOutputLength:max});if(bytes.length!==e.plain||crc32(bytes)!==e.crc)unavailable();selected[key]=bytes;}
+ return selected;
+}
+export function inspectApkRuntime(apk,versionCode,runtimeEnabled){const assets=apkAssets(apk);if(!bounded(versionCode,2147483647)||!assets.hermes.subarray(0,8).equals(Buffer.from('c61fbc03c103191f','hex')))unavailable();const text=assets.config.toString('utf8');if(!assets.config.equals(Buffer.from(text)))unavailable();const config=JSON.parse(text);if(JSON.stringify(config)!==text)unavailable();const marker=closed(config?.extra?.subtrackSandbox,['variant','apiBaseUrl','runtimeEnabled','publicationEnabled','privateDiagnosticsEnabled']);if(marker.variant!=='sandbox'||marker.apiBaseUrl!=='https://198.44.116.159'||marker.runtimeEnabled!==runtimeEnabled||![true,false].includes(runtimeEnabled)||marker.publicationEnabled!==false||marker.privateDiagnosticsEnabled!==false||config.android?.package!=='se.subtrack.app.sandbox'||(config.android?.versionCode!==versionCode&&!(runtimeEnabled===false&&config.android?.versionCode===undefined&&versionCode===1))||config.ios?.bundleIdentifier!=='se.subtrack.app.sandbox')unavailable();return {embeddedConfigSha256:digest(assets.config),hermesSha256:digest(assets.hermes)};}
+export function inspectActiveApk(apk,versionCode){return inspectApkRuntime(apk,versionCode,true);}
+export function validateSignedPending(v,manifest,certificate,signed,unsigned){validateManifest(manifest,'apk');const active=manifest.runtimeEnabled===true;closed(v,['schema','sourceHead','signerCertificateSha256','unsignedSha256','signedSha256','bytes','runtimeEnabled',...(active?['embeddedConfigSha256','hermesSha256']:[])]);if(v.schema!==(active?'st250-android-signed-pending-v2':'st250-android-signed-pending-v1')||v.sourceHead!==manifest.sourceHead||v.signerCertificateSha256!==certificate||v.unsignedSha256!==manifest.unsignedSha256||v.signedSha256!==digest(signed)||v.bytes!==signed.length||v.runtimeEnabled!==active)unavailable();if(active){const a=inspectActiveApk(signed,manifest.versionCode),u=inspectActiveApk(unsigned,manifest.versionCode);for(const k of ['embeddedConfigSha256','hermesSha256'])if(v[k]!==manifest[k]||a[k]!==manifest[k]||u[k]!==manifest[k])unavailable();if(!apkAssets(signed).manifest.equals(apkAssets(unsigned).manifest))unavailable();}return Object.freeze({...v});}
+
 export function validateBackupBinding(v) {
   closed(v,['schema','signerCertificateSha256','ciphertextSha256','ciphertextBytes','protection','backupGeneration','decryptVerified','signingRestoreVerified','temporaryCustodyRemoved','backupConfirmed']);
   if(v.schema!=='st250-android-signer-backup-v1'||!sha(v.signerCertificateSha256)||!sha(v.ciphertextSha256)||!bounded(v.ciphertextBytes,131072)||v.protection!=='windows-dpapi-current-user'||v.backupGeneration!==1||v.decryptVerified!==true||v.signingRestoreVerified!==true||v.temporaryCustodyRemoved!==true||v.backupConfirmed!==true)unavailable();
@@ -37,8 +68,9 @@ export function validateSignerIdentity(v) {
 export function assertSignedUpdate(manifest,certificate,history) {
   validateManifest(manifest,'apk');if(!sha(certificate))unavailable();
   if(history===null)return true;
-  closed(history,['schema','signerCertificateSha256','versionCode','sourceHead','unsignedSha256','signedSha256','apkRun','runtimeEnabled']);
-  if(history.schema!=='st250-android-signed-history-v1'||history.signerCertificateSha256!==certificate||!head(history.sourceHead)||!sha(history.unsignedSha256)||!sha(history.signedSha256)||!bounded(history.versionCode,2147483647)||!/^[1-9][0-9]*-[1-9][0-9]*$/.test(history.apkRun)||history.runtimeEnabled!==false)unavailable();
+  const priorActive=dataField(history,'schema')==='st250-android-signed-history-v2';closed(history,['schema','signerCertificateSha256','versionCode','sourceHead','unsignedSha256','signedSha256','apkRun','runtimeEnabled',...(priorActive?['embeddedConfigSha256','hermesSha256']:[])]);
+  if(history.schema!==(priorActive?'st250-android-signed-history-v2':'st250-android-signed-history-v1')||history.signerCertificateSha256!==certificate||!head(history.sourceHead)||!sha(history.unsignedSha256)||!sha(history.signedSha256)||!bounded(history.versionCode,2147483647)||!/^[1-9][0-9]*-[1-9][0-9]*$/.test(history.apkRun)||history.runtimeEnabled!==priorActive||(priorActive&&(!sha(history.embeddedConfigSha256)||!sha(history.hermesSha256))))unavailable();
+  if(manifest.runtimeEnabled===true&&manifest.versionCode<=history.versionCode)unavailable();
   if(manifest.versionCode<history.versionCode||(manifest.versionCode===history.versionCode&&(manifest.sourceHead!==history.sourceHead||manifest.unsignedSha256!==history.unsignedSha256)))unavailable();
   return true;
 }
@@ -57,12 +89,12 @@ function base(v, kind) {
 }
 export function validateManifest(v, kind) {
   if (!['apk','tools'].includes(kind)) unavailable();
-  closed(v,kind === 'apk' ? apkFields : toolFields); base(v,kind);
+  const active=kind==='apk'&&dataField(v,'schema')==='st250-android-transfer-manifest-v2';closed(v,kind === 'apk' ? [...apkFields,...(active?['embeddedConfigSha256','hermesSha256']:[])] : toolFields); base(v,kind);
   if (kind === 'apk') {
-    if (v.schema !== 'st250-android-transfer-manifest-v1' || !sha(v.unsignedSha256) || !bounded(v.bytes,200*1024*1024) ||
+    if (v.schema !== (active?'st250-android-transfer-manifest-v2':'st250-android-transfer-manifest-v1') || !sha(v.unsignedSha256) || !bounded(v.bytes,200*1024*1024) ||
       v.applicationId !== 'se.subtrack.app.sandbox' || !bounded(v.versionCode,2147483647) || v.variant !== 'sandbox' ||
       v.origin !== 'https://198.44.116.159' || v.buildType !== 'release' || v.debuggable !== false || v.privateCaIncluded !== false ||
-      v.hermesBundled !== true || v.runtimeEnabled !== false || v.zipAligned !== true || !sha(v.buildScriptSha256) || !sha(v.receiptModuleSha256)) unavailable();
+      v.hermesBundled !== true || v.runtimeEnabled !== active || (active&&(!sha(v.embeddedConfigSha256)||!sha(v.hermesSha256))) || v.zipAligned !== true || !sha(v.buildScriptSha256) || !sha(v.receiptModuleSha256)) unavailable();
   } else if (v.schema !== 'st250-android-tools-manifest-v1' || !/^sha256:[a-f0-9]{64}$/.test(v.imageId) || v.baseImage !== JDK_IMAGE ||
     !sha(v.dockerfileSha256) || v.sdkArchiveSha256 !== SDK_SHA256 || !sha(v.apksignerJarSha256) || !sha(v.zipalignSha256) ||
     !sha(v.archiveSha256) || !sha(v.rawTarSha256) || !bounded(v.archiveBytes,1073741824) || !bounded(v.rawTarBytes,2147483648) ||
@@ -72,19 +104,19 @@ export function validateManifest(v, kind) {
 export function validateTransfer(v, kind) {
   if(!['apk','tools'].includes(kind))unavailable();
   closed(v,kind === 'apk' ? apkReceiptFields : toolReceiptFields); base(v,kind);
-  const tools = kind === 'tools';
-  if (v.schema !== (tools ? 'st250-android-tools-draft-transfer-receipt-v1' : 'st250-android-draft-transfer-receipt-v1') ||
+  const tools = kind === 'tools', active=!tools&&dataField(v,'schema')==='st250-android-draft-transfer-receipt-v2';
+  if (v.schema !== (tools ? 'st250-android-tools-draft-transfer-receipt-v1' : active?'st250-android-draft-transfer-receipt-v2':'st250-android-draft-transfer-receipt-v1') ||
     !bounded(v.releaseId,Number.MAX_SAFE_INTEGER) || v.draft !== true || !sha(v.manifestSha256) || !bounded(v.manifestBytes,16384) ||
     !bounded(v.manifestAssetId,Number.MAX_SAFE_INTEGER) || v.uploadVerified !== true || v.localCleanupConfirmed !== true || v.remoteCustody !== 'draft-retained' ||
-    v.manifestSchema !== (tools ? 'st250-android-tools-manifest-v1' : 'st250-android-transfer-manifest-v1')) unavailable();
+    v.manifestSchema !== (tools ? 'st250-android-tools-manifest-v1' : active?'st250-android-transfer-manifest-v2':'st250-android-transfer-manifest-v1')) unavailable();
   if (tools ? (!/^sha256:[a-f0-9]{64}$/.test(v.imageId) || !sha(v.archiveSha256) || !bounded(v.archiveBytes,1073741824) || !bounded(v.archiveAssetId,Number.MAX_SAFE_INTEGER) || v.toolsQualified !== true) :
     (!sha(v.unsignedSha256) || !bounded(v.bytes,200*1024*1024) || v.applicationId !== 'se.subtrack.app.sandbox' || !bounded(v.apkAssetId,Number.MAX_SAFE_INTEGER) || v.unsignedQualified !== true)) unavailable();
   return Object.freeze({...v});
 }
 export function closeTransferCandidate(v,kind) {
   closed(v,kind==='tools'?toolReceiptFields:apkReceiptFields);
-  if(v.schema!==(kind==='tools'?'st250-android-tools-upload-candidate-v1':'st250-android-upload-candidate-v1')||v.localCleanupConfirmed!==false)unavailable();
-  return validateTransfer({...v,schema:kind==='tools'?'st250-android-tools-draft-transfer-receipt-v1':'st250-android-draft-transfer-receipt-v1',localCleanupConfirmed:true},kind);
+  const active=kind==='apk'&&dataField(v,'schema')==='st250-android-upload-candidate-v2';if(v.schema!==(kind==='tools'?'st250-android-tools-upload-candidate-v1':active?'st250-android-upload-candidate-v2':'st250-android-upload-candidate-v1')||v.localCleanupConfirmed!==false)unavailable();
+  return validateTransfer({...v,schema:kind==='tools'?'st250-android-tools-draft-transfer-receipt-v1':active?'st250-android-draft-transfer-receipt-v2':'st250-android-draft-transfer-receipt-v1',localCleanupConfirmed:true},kind);
 }
 export function canonical(bytes, validator) {
   if (!Buffer.isBuffer(bytes) || bytes.length > 16384) unavailable();
@@ -98,7 +130,7 @@ export function bind(manifest, receipt, payload, manifestBytes, kind) {
   for (const field of ['sourceHead','runId','defaultTargetHead','draftTag',hashField,sizeField]) if (manifest[field] !== receipt[field]) unavailable();
   if (kind === 'tools' && manifest.imageId !== receipt.imageId) unavailable();
   if (digest(payload) !== manifest[hashField] || payload.length !== manifest[sizeField] || digest(manifestBytes) !== receipt.manifestSha256 || manifestBytes.length !== receipt.manifestBytes) unavailable();
-  return true;
+  if(receipt.manifestSchema!==manifest.schema)unavailable();if(kind==='apk'&&manifest.runtimeEnabled===true){const measured=inspectActiveApk(payload,manifest.versionCode);for(const k of ['embeddedConfigSha256','hermesSha256'])if(measured[k]!==manifest[k])unavailable();}return true;
 }
 export function validateRemote(release, manifest, receipt, kind, allowExpired=false) {
   validateManifest(manifest,kind); validateTransfer(receipt,kind);
@@ -179,7 +211,7 @@ function downloadAsset(assetId, file, maximum) {
   readRegular(file,maximum);
 }
 function download(kind,receiptFile,dir) {
-  const receipt=canonical(readRegular(receiptFile,16384),v=>validateTransfer(v,kind)),release=api(`${repo}/releases/${receipt.releaseId}`),assetNames=names(kind,receipt.sourceHead);
+  const receipt=canonical(readRegular(receiptFile,16384),v=>validateTransfer(v,kind)),release=api(`${repo}/releases/${receipt.releaseId}`);names(kind,receipt.sourceHead);
   if(!lstatSync(dir).isDirectory()||lstatSync(dir).isSymbolicLink())unavailable();
   downloadAsset(receipt.manifestAssetId,path.join(dir,'manifest.json'),16384);
   const mb=readRegular(path.join(dir,'manifest.json'),16384),manifest=canonical(mb,v=>validateManifest(v,kind));
@@ -201,8 +233,8 @@ function receiveSigned(receiptFile,releaseId,certificate,dir) {
     const file=path.join(dir,i===0?'signed.apk':'signed-pending.json');downloadAsset(asset.id,file,i===0?200*1024*1024:16384);
     const bytes=readRegular(file,i===0?200*1024*1024:16384);if(bytes.length!==asset.size||`sha256:${digest(bytes)}`!==asset.digest)unavailable();
   }
-  const pending=canonical(readRegular(path.join(dir,'signed-pending.json'),16384),v=>closed(v,['schema','sourceHead','signerCertificateSha256','unsignedSha256','signedSha256','bytes','runtimeEnabled'])),signed=readRegular(path.join(dir,'signed.apk'),200*1024*1024);
-  if(pending.schema!=='st250-android-signed-pending-v1'||pending.sourceHead!==receipt.sourceHead||pending.signerCertificateSha256!==certificate||pending.unsignedSha256!==receipt.unsignedSha256||pending.signedSha256!==digest(signed)||pending.bytes!==signed.length||pending.runtimeEnabled!==false)unavailable();
+  const pendingBytes=readRegular(path.join(dir,'signed-pending.json'),16384),signed=readRegular(path.join(dir,'signed.apk'),200*1024*1024),manifest=canonical(readRegular(path.join(dir,'manifest.json'),16384),v=>validateManifest(v,'apk'));canonical(pendingBytes,v=>validateSignedPending(v,manifest,certificate,signed,readRegular(path.join(dir,'unsigned.apk'),200*1024*1024)));
+  if((process.env.SUBTRACK_SANDBOX_RUNTIME_ENABLED==='true')!==manifest.runtimeEnabled||(manifest.runtimeEnabled&&String(manifest.versionCode)!==process.env.SUBTRACK_SANDBOX_VERSION_CODE))unavailable();
   const again=api(`${repo}/releases/${releaseId}`);if(JSON.stringify(again.assets)!==JSON.stringify(release.assets)||again.id!==release.id||again.draft!==true||again.prerelease!==true||again.tag_name!==release.tag_name||again.target_commitish!==release.target_commitish)unavailable();
 }
 function dispose(kind,receiptFile) {
@@ -230,10 +262,10 @@ function publish(kind,payloadFile,candidateFile,outputFile) {
   const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
   let manifest;
   if(kind==='apk') {
-    closed(candidate,['schemaVersion','sourceHead','unsignedSha256','applicationId','versionCode','variant','origin','buildType','debuggable','privateCaIncluded','hermesBundled','runtimeEnabled','bytes','signatureVerified','zipAligned']);
-    if(candidate.sourceHead!==sourceHead||candidate.signatureVerified!==false||candidate.unsignedSha256!==digest(payload)||candidate.bytes!==payload.length)unavailable();
-    const {schemaVersion,signatureVerified,...values}=candidate;
-    manifest={schema:'st250-android-transfer-manifest-v1',...values,...baseFields,buildScriptSha256:digest(readFileSync(path.join(root,'tools/sandbox/build-android.sh'))),receiptModuleSha256:digest(readFileSync(path.join(root,'tools/sandbox/android-release-receipt.mjs')))};
+    const active=dataField(candidate,'schemaVersion')===2;closed(candidate,['schemaVersion','sourceHead','unsignedSha256','applicationId','versionCode','variant','origin','buildType','debuggable','privateCaIncluded','hermesBundled','runtimeEnabled','bytes','signatureVerified','zipAligned',...(active?['embeddedConfigSha256','hermesSha256']:[])]);
+    if(candidate.schemaVersion!==(active?2:1)||candidate.runtimeEnabled!==active||candidate.sourceHead!==sourceHead||candidate.signatureVerified!==false||candidate.unsignedSha256!==digest(payload)||candidate.bytes!==payload.length)unavailable();
+    const values=Object.fromEntries(Object.entries(candidate).filter(([key])=>!['schemaVersion','signatureVerified'].includes(key)));
+    manifest={schema:active?'st250-android-transfer-manifest-v2':'st250-android-transfer-manifest-v1',...values,...baseFields,buildScriptSha256:digest(readFileSync(path.join(root,'tools/sandbox/build-android.sh'))),receiptModuleSha256:digest(readFileSync(path.join(root,'tools/sandbox/android-release-receipt.mjs')))};
   } else {if(candidate.dockerfileSha256!==digest(readFileSync(path.join(root,'infra/sandbox/Dockerfile.android-signing'))))unavailable();manifest={...candidate,...baseFields};}
   validateManifest(manifest,kind);
   const hashField=kind==='tools'?'archiveSha256':'unsignedSha256',sizeField=kind==='tools'?'archiveBytes':'bytes';
@@ -256,7 +288,7 @@ function publish(kind,payloadFile,candidateFile,outputFile) {
       runGh(['api',`https://uploads.github.com/${repo}/releases/${release.id}/assets?name=${encodeURIComponent(assetNames[index])}`,'--method','POST','--header',`Content-Type: ${index===1?'application/json':kind==='tools'?'application/gzip':'application/vnd.android.package-archive'}`,'--input',file]);
     }
     const observed=api(`${repo}/releases/${release.id}`);
-    const receipt={schema:kind==='tools'?'st250-android-tools-draft-transfer-receipt-v1':'st250-android-draft-transfer-receipt-v1',...baseFields,releaseId:release.id,draft:true,
+    const receipt={schema:kind==='tools'?'st250-android-tools-draft-transfer-receipt-v1':manifest.runtimeEnabled===true?'st250-android-draft-transfer-receipt-v2':'st250-android-draft-transfer-receipt-v1',...baseFields,releaseId:release.id,draft:true,
       ...(kind==='tools'?{imageId:manifest.imageId,archiveSha256:manifest.archiveSha256,archiveBytes:manifest.archiveBytes,archiveAssetId:observed.assets.find(a=>a.name===assetNames[0])?.id}:{unsignedSha256:manifest.unsignedSha256,bytes:manifest.bytes,applicationId:manifest.applicationId,apkAssetId:observed.assets.find(a=>a.name===assetNames[0])?.id}),
       manifestSha256:digest(manifestBytes),manifestBytes:manifestBytes.length,manifestAssetId:observed.assets.find(a=>a.name===assetNames[1])?.id,manifestSchema:manifest.schema,
       ...(kind==='tools'?{toolsQualified:true}:{unsignedQualified:true}),uploadVerified:true,localCleanupConfirmed:true,remoteCustody:'draft-retained'};
@@ -265,7 +297,7 @@ function publish(kind,payloadFile,candidateFile,outputFile) {
     // Candidate/payload/upload manifest belong exclusively to this publisher.
     for(const file of [payloadFile,candidateFile,manifestFile])unlinkSync(file);
     // Parent still owns logs/output; only its successful directory removal can close this.
-    const candidate={...receipt,schema:kind==='tools'?'st250-android-tools-upload-candidate-v1':'st250-android-upload-candidate-v1',localCleanupConfirmed:false};
+    const candidate={...receipt,schema:kind==='tools'?'st250-android-tools-upload-candidate-v1':manifest.runtimeEnabled===true?'st250-android-upload-candidate-v2':'st250-android-upload-candidate-v1',localCleanupConfirmed:false};
     closeTransferCandidate(candidate,kind);
     writeFileSync(outputFile,JSON.stringify(candidate),{flag:'wx',mode:0o600});
   } catch {
@@ -282,6 +314,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href) {
     const [mode,...args]=process.argv.slice(2);
     if(mode==='validate'&&args.length===2)console.log(JSON.stringify(canonical(readRegular(args[1],16384),v=>validateManifest(v,args[0]))));
     else if(mode==='publish'&&args.length===4)publish(args[0],args[1],args[2],args[3]);
+    else if(mode==='validate-pending'&&args.length===5)validateSignedPending(canonical(readRegular(args[0],16384),v=>v),canonical(readRegular(args[1],16384),v=>validateManifest(v,'apk')),args[2],readRegular(args[3],200*1024*1024),readRegular(args[4],200*1024*1024));
     else if(mode==='pins'&&args.length===0)console.log(JSON.stringify({jdk:JDK_IMAGE,sdkUrl:SDK_URL,sdkSha256:SDK_SHA256}));
     else if(mode==='download'&&args.length===3)download(args[0],args[1],args[2]);
     else if(mode==='receive-signed'&&args.length===4)receiveSigned(args[0],args[1],args[2],args[3]);

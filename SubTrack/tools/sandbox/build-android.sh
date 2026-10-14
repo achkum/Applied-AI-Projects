@@ -7,6 +7,13 @@ set -euo pipefail
 for name in SUBTRACK_PRIVATE_DEVICE_PROOF SUBTRACK_PRIVATE_CA_CERT SUBTRACK_PRIVATE_FIXTURE_CONFIG EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL; do
   if printenv "$name" >/dev/null 2>&1; then printf 'Private proof environment rejected\n' >&2; exit 1; fi
 done
+active="${SUBTRACK_SANDBOX_RUNTIME_ENABLED:-false}"
+case "$active" in
+ false) [[ -z "${SUBTRACK_SANDBOX_VERSION_CODE:-}" ]]; unset SUBTRACK_SANDBOX_VERSION_CODE;;
+ true) [[ "${GITHUB_EVENT_NAME:-}" == workflow_dispatch && "${GITHUB_REF:-}" == refs/heads/st/native-synthetic-bank && "${GITHUB_REPOSITORY:-}" == achkum/Applied-AI-Projects && "${ST250_DELIVERY_MODE:-}" =~ ^(unsigned-apk|verify-signed)$ ]]; [[ "${SUBTRACK_SANDBOX_VERSION_CODE:-}" =~ ^[1-9][0-9]{0,9}$ ]]; (( SUBTRACK_SANDBOX_VERSION_CODE <= 2147483647 ));;
+ *) exit 2;;
+esac
+export SUBTRACK_SANDBOX_RUNTIME_ENABLED="$active"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 app="$root/apps/mobile"
 cd "$app"
@@ -40,6 +47,10 @@ if [[ "$1" == verify-signed ]]; then
   printf '%s' "$pending" | node --input-type=module -e 'import{pathToFileURL}from "node:url";const{validateReceipt}=await import(pathToFileURL(process.argv[2]).href);let s="";for await(const c of process.stdin)s+=c;console.log(JSON.stringify(validateReceipt({...JSON.parse(s),cleanup:"REMOVED"},true)));' st250-signed-receipt-import "$root/tools/sandbox/android-release-receipt.mjs"
   exit 0
 fi
+# Embedded Expo app.config is authoritative only without update/dev-launcher overrides.
+node - <<'NODE'
+for(const name of ['expo-updates','expo-dev-launcher']){let found=false;try{require.resolve(name);found=true;}catch(error){if(error.code!=='MODULE_NOT_FOUND')process.exit(1);}if(found)process.exit(1);}
+NODE
 node scripts/private-runtime-preflight.mjs
 node scripts/sandbox-app-config-test.mjs
 node node_modules/expo/bin/cli install --check
@@ -117,7 +128,7 @@ if [[ "$1" == retained-release ]]; then
   (set -o noclobber; printf '%s' "$pending" > "$retained/candidate.json")
   cleanup
   trap - EXIT
-  printf 'ST250_ANDROID_PARENT_RETENTION_PASS runtime=disabled cleanup=parent-pending\n'
+  printf 'ST250_ANDROID_PARENT_RETENTION_PASS runtime=%s cleanup=parent-pending\n' "$active"
   exit 0
 fi
 stage=CLEANUP

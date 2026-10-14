@@ -5,6 +5,7 @@ set -euo pipefail
 [[ "$(uname -s)" == Linux && "${CI:-}" == true && "${GITHUB_EVENT_NAME:-}" == workflow_dispatch ]]
 [[ "${GITHUB_REPOSITORY:-}" == achkum/Applied-AI-Projects && "${GITHUB_REF:-}" == refs/heads/st/native-synthetic-bank ]]
 [[ "${ST250_SOURCE_HEAD:-}" =~ ^[a-f0-9]{40}$ && "$ST250_SOURCE_HEAD" == "${GITHUB_SHA:-}" && "${ST250_FREE_DRAFT_CONFIRMED:-}" == true ]]
+if [[ "$1" == tools ]];then [[ "${SUBTRACK_SANDBOX_RUNTIME_ENABLED:-false}" == false && -z "${SUBTRACK_SANDBOX_VERSION_CODE:-}" ]];fi
 publish_token="${GITHUB_TOKEN:?}"
 unset GITHUB_TOKEN GH_TOKEN
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
