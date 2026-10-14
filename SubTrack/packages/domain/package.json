@@ -42,6 +42,11 @@
       "types": "./dist/ingestion/index.d.ts",
       "import": "./dist/ingestion/index.js",
       "require": "./dist/ingestion/index.js"
+    },
+    "./detection-runtime": {
+      "types": "./dist/detection/index.d.ts",
+      "import": "./dist/detection-runtime.js",
+      "require": "./dist/detection-runtime.js"
     }
   },
   "scripts": {
@@ -51,7 +56,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "build:bank": "tsc -p tsconfig.bank-runtime.json"
+    "build:bank": "tsc -p tsconfig.bank-runtime.json",
+    "build:detection": "tsc -p tsconfig.detection-runtime.json && node scripts/build-detection-runtime.mjs"
   },
   "dependencies": {
     "@subtrack/money": "workspace:*"
