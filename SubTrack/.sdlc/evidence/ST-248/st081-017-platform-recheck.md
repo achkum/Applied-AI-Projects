@@ -1,0 +1,5 @@
+# ST081 proposed 017 relationship recheck
+
+2026-10-14. The two findings in `st081-017-platform-plan-review.md` are resolved in the **proposed evidence**, without executing a migration. `detectionCandidateInsert` now selects through the same-owner account, connection and unpurged exact Synthetic generation and checks subscription paying-account/currency alignment; its contract requires exactly one returned row. The original review receipt now holds a feedback UUID with same-owner/candidate FK and uniqueness. Undo supersedes the exact feedback row by that UUID and requires exactly one result, with operation, consumed receipt and candidate checks retained.
+
+Conditional relationship design GO. Before source freeze, add fixed `s.source=DETECTED`, `s.status=DETECTED` and `s.always_private=true` predicates to the immutable candidate insert, using trusted server constants. That closes the formation of a detection candidate for an unrelated same-owner subscription if future composition is wrong. Final DDL/privilege/rollback proof remains required; no runtime SQL result is claimed here.
