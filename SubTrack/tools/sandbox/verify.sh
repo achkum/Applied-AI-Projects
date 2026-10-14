@@ -34,17 +34,11 @@ owned_directory "$namespace"
 [[ "${ST250_SOURCE_CUSTODY_SHA256:-}" =~ ^[a-f0-9]{64}$ ]]
 [[ -f "$root/.source-custody.json" && ! -L "$root/.source-custody.json" && "$(realpath -e "$root/.source-custody.json")" == "$root/.source-custody.json" ]]
 [[ "$(sha256sum "$root/.source-custody.json" | cut -d' ' -f1)" == "$ST250_SOURCE_CUSTODY_SHA256" ]]
-node - "$root" "$ST250_SOURCE_HEAD" <<'NODE'
-const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-try{const[root,head]=process.argv.slice(2),file=path.join(root,'.source-custody.json'),s=fs.lstatSync(file);if(s.size<1||s.size>16384||s.uid!==996||(s.mode&0o777)!==0o600)throw Error();const v=JSON.parse(fs.readFileSync(file,'utf8'));
- const names=['infra/sandbox/compose.yaml','infra/sandbox/Caddyfile','infra/sandbox/gateway-entrypoint.sh','infra/sandbox/Dockerfile.api','tools/sandbox/deploy.sh','tools/sandbox/verify.sh','tools/sandbox/bootstrap.cjs','tools/sandbox/draft-transfer-receipt.cjs','docs/ops/SANDBOX.md'];
- if(!v||Object.getPrototypeOf(v)!==Object.prototype||Object.keys(v).sort().join(',')!=='files,schema,sourceHead'||v.schema!=='st250-source-custody-v1'||v.sourceHead!==head||!v.files||Object.getPrototypeOf(v.files)!==Object.prototype||Object.keys(v.files).sort().join(',')!==[...names].sort().join(','))throw Error();
- for(const name of names){if(typeof v.files[name]!=='string'||!/^[a-f0-9]{64}$/.test(v.files[name]))throw Error();const f=path.join(root,name),st=fs.lstatSync(f);if(!st.isFile()||fs.realpathSync(f)!==f||crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex')!==v.files[name])throw Error();}
-}catch{process.stderr.write('ST250_DEPLOYMENT_UNAVAILABLE stage=SOURCE\n');process.exitCode=1;}
-NODE
 [[ "${ST250_TRANSFER_RUN:-}" =~ ^[0-9]+-[0-9]+$ ]]
 staging="$namespace/staging/$ST250_TRANSFER_RUN"
 owned_directory "$namespace/staging";owned_directory "$staging"
+[[ "${ST250_TOOLING_HEAD:-}" =~ ^[a-f0-9]{40}$ && "${ST250_HISTORICAL_SOURCE_CUSTODY_SHA256:-}" =~ ^[a-f0-9]{64}$ && "${ST250_EXPORTED_IMAGE_ID:-}" =~ ^sha256:[a-f0-9]{64}$ ]]
+node "$root/tools/sandbox/image-import-binding.cjs" source "$root" "$staging"
 [[ "${ST250_TRANSFER_RECEIPT_SHA256:-}" =~ ^[a-f0-9]{64}$ ]]
 [[ "$(sha256sum "$staging/transfer-receipt.json" | cut -d' ' -f1)" == "$ST250_TRANSFER_RECEIPT_SHA256" ]]
 for name in transfer-receipt.json transfer-manifest.json api-image.tar.gz;do
@@ -56,7 +50,7 @@ node - "$root" "$staging" "$ST250_SOURCE_HEAD" "$ST250_TRANSFER_RUN" "$SANDBOX_A
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 try {const[root,stage,head,run,image]=process.argv.slice(2),wire=require(path.join(root,'tools/sandbox/draft-transfer-receipt.cjs'));
  const m=wire.transferManifest(JSON.parse(fs.readFileSync(path.join(stage,'transfer-manifest.json'),'utf8'))),r=wire.draftTransferReceipt(JSON.parse(fs.readFileSync(path.join(stage,'transfer-receipt.json'),'utf8')),m);
- for(const v of[r,m])if(v.sourceHead!==head||v.runId!==run||v.imageId!==image)throw Error();
+ for(const v of[r,m])if(v.sourceHead!==head||v.runId!==run||v.imageId!==process.env.ST250_EXPORTED_IMAGE_ID)throw Error();
  const mf=fs.readFileSync(path.join(stage,'transfer-manifest.json')),file=path.join(stage,'api-image.tar.gz'),stat=fs.statSync(file);if(stat.size!==m.archiveBytes||stat.size!==r.archiveBytes||mf.length!==r.manifestBytes||crypto.createHash('sha256').update(mf).digest('hex')!==r.manifestSha256||m.archiveSha256!==r.archiveSha256)throw Error();
  const fd=fs.openSync(file,'r'),buffer=Buffer.alloc(65536),h=crypto.createHash('sha256');try{let n;while((n=fs.readSync(fd,buffer,0,buffer.length,null))>0)h.update(buffer.subarray(0,n));}finally{fs.closeSync(fd);}if(h.digest('hex')!==r.archiveSha256)throw Error();
  if(m.dockerfileSha256!==crypto.createHash('sha256').update(fs.readFileSync(path.join(root,'infra/sandbox/Dockerfile.api'))).digest('hex'))throw Error();
@@ -69,6 +63,8 @@ minimum_kib=1048576;if [[ "$1" == runtime || "$1" == live ]];then minimum_kib=26
 [[ "$available_kib" =~ ^[0-9]+$ && "$available_kib" -ge "$minimum_kib" ]]
 free_kib="$(df --output=avail -k "$namespace" | tail -1 | tr -d ' ')"
 [[ "$free_kib" =~ ^[0-9]+$ && "$free_kib" -ge 4194304 ]]
+timeout --kill-after=10s 600s node "$root/tools/sandbox/image-import-binding.cjs" bind "$root" "$staging"
+api_container_image="$(ST250_IDENTITY_SERVICE=api node "$root/tools/sandbox/image-import-binding.cjs" container-id "$root" "$staging")"
 for name in verified-image-bytes.json verification-private.log mount-readable.txt;do
  if [[ -e "$staging/$name" || -L "$staging/$name" ]];then [[ -f "$staging/$name" && ! -L "$staging/$name" && "$(realpath -e "$staging/$name")" == "$staging/$name" && "$(stat -c %u "$staging/$name")" == 996 && "$(stat -c %a "$staging/$name")" == 600 ]];fi
 done
@@ -78,7 +74,7 @@ probe_cleanup(){
  local cid
  if [[ -f "$probe_cid" && ! -L "$probe_cid" ]];then
   cid="$(cat "$probe_cid")";[[ "$cid" =~ ^[a-f0-9]{64}$ ]] || return 1
-  [[ "$(docker inspect --format '{{index .Config.Labels "org.subtrack.sandbox.namespace"}}' "$cid")" == st250-verification-v1 && "$(docker inspect --format '{{.Image}}' "$cid")" == "$SANDBOX_API_IMAGE" ]] || return 1
+  [[ "$(docker inspect --format '{{index .Config.Labels "org.subtrack.sandbox.namespace"}}' "$cid")" == st250-verification-v1 && "$(docker inspect --format '{{.Image}}' "$cid")" == "$api_container_image" && "$(docker inspect --format '{{.Config.Image}}' "$cid")" == "$SANDBOX_API_IMAGE" ]] || return 1
   docker rm --force "$cid" >/dev/null
   [[ -z "$(docker ps --all --no-trunc --filter "id=$cid" --format '{{.ID}}')" ]]
   rm -- "$probe_cid"
@@ -99,6 +95,7 @@ if [[ "$1" == staging || "$1" == preflight ]];then printf 'ST250_STAGING_VERIFIE
 owned_directory "$runtime";owned_directory "$namespace/secrets"
 for name in source-head image-id;do [[ -f "$runtime/$name" && ! -L "$runtime/$name" && "$(realpath -e "$runtime/$name")" == "$runtime/$name" && "$(stat -c %u "$runtime/$name")" == 996 && "$(stat -c %a "$runtime/$name")" == 600 && "$(stat -c %s "$runtime/$name")" -le 256 ]];done
 [[ "$(cat "$runtime/source-head")" == "$ST250_SOURCE_HEAD" && "$(cat "$runtime/image-id")" == "$SANDBOX_API_IMAGE" ]]
+node "$root/tools/sandbox/image-import-binding.cjs" runtime "$root" "$staging"
 for pair in database-bootstrap:999 database-bootstrap-loader:1000 database-runtime:1000 api-auth-material:1000 gateway-key:1000;do
  name="${pair%:*}";uid="${pair#*:}";file="$namespace/secrets/$name"
  [[ -f "$file" && ! -L "$file" && "$(realpath -e "$file")" == "$file" ]]
@@ -145,10 +142,10 @@ if [[ "$1" == live ]];then
   node - "$service" "$root" 3< <(docker inspect "$cid") 4< <(docker image inspect "$image") <<'NODE'
 const fs=require('node:fs');
 // BEGIN LIVE VALIDATOR
-function validateLive(c,base,service,root,records,head){
+function validateLive(c,base,service,root,records,head,identity){
  const eq=(a,b)=>JSON.stringify(a)===JSON.stringify(b),empty=x=>x==null||(Array.isArray(x)&&x.length===0),h=c.HostConfig;
  const limits={database:['999:999',256,64,0.5],'api-live':['1000:1000',384,64,0.75],'gateway-live':['1000:1000',96,32,0.25]}[service];
- if(!limits||!base||!/^sha256:[a-f0-9]{64}$/.test(base.Id)||c.Image!==base.Id||!c.State.Running||c.Config.User!==limits[0]||c.Config.Labels['org.subtrack.sandbox.namespace']!=='st250-runtime-v1'||c.Config.Labels['org.subtrack.sandbox.source']!==head||c.Config.Labels['com.docker.compose.service']!==service)throw Error();
+ if(!limits||!base||!identity||base.Id!==identity.inspectedImageId||c.Image!==identity.containerImageId||c.Config.Image!==identity.requestedImage||!/^sha256:[a-f0-9]{64}$/.test(base.Id)||!c.State.Running||c.Config.User!==limits[0]||c.Config.Labels['org.subtrack.sandbox.namespace']!=='st250-runtime-v1'||c.Config.Labels['org.subtrack.sandbox.source']!==head||c.Config.Labels['com.docker.compose.service']!==service)throw Error();
  if(h.Privileged||!empty(h.CapAdd)||!empty(h.Devices)||!empty(h.DeviceRequests)||!empty(h.DeviceCgroupRules)||!eq(h.CapDrop,['ALL'])||!eq(h.SecurityOpt,['no-new-privileges:true'])||h.Memory!==limits[1]*1048576||h.PidsLimit!==limits[2]||h.NanoCpus!==limits[3]*1e9||h.ReadonlyRootfs!==(service!=='database')||h.PidMode||h.IpcMode!=='private'||h.UTSMode||h.UsernsMode)throw Error();
  if(h.LogConfig.Type!=='json-file'||!eq(Object.entries(h.LogConfig.Config).sort(),[['max-file','2'],['max-size','5m']]))throw Error();
  const overrides={database:{POSTGRES_DB:'subtrack_sandbox',POSTGRES_USER:'subtrack_sandbox_bootstrap',POSTGRES_PASSWORD_FILE:'/run/secrets/database_bootstrap',PGDATA:'/var/lib/postgresql/data/pgdata'},'api-live':{NODE_ENV:'production',SUBTRACK_RUNTIME:'sandbox',SANDBOX_STARTUP_ENABLED:'true',SANDBOX_PUBLICATION_ENABLED:'true',SANDBOX_DATABASE_HOST:'database',SANDBOX_DATABASE_NAME:'subtrack_sandbox',SANDBOX_DATABASE_ROLE:'subtrack_sandbox_runtime',SANDBOX_POOL_MAX:'4',SANDBOX_DATABASE_CREDENTIAL_FILE:'/run/secrets/database_runtime',SANDBOX_AUTH_MATERIAL_FILE:'/run/secrets/api_auth_material',PORT:'4000'},'gateway-live':{SANDBOX_GATEWAY_PUBLICATION:'true'}}[service];
@@ -165,7 +162,7 @@ function validateLive(c,base,service,root,records,head){
  return true;
 }
 // END LIVE VALIDATOR
-try{const[service,root]=process.argv.slice(2),a=JSON.parse(fs.readFileSync(3,'utf8')),b=JSON.parse(fs.readFileSync(4,'utf8')),records={};if(a.length!==1||b.length!==1)throw Error();for(const role of['database-data','certificate-data','gateway-config'])records[role]=JSON.parse(fs.readFileSync(root+'/runtime/volume-'+role+'.json','utf8'))[0];validateLive(a[0],b[0],service,root,records,process.env.ST250_SOURCE_HEAD);}catch{process.exit(1);}
+try{const[service,root]=process.argv.slice(2),a=JSON.parse(fs.readFileSync(3,'utf8')),b=JSON.parse(fs.readFileSync(4,'utf8')),records={},binding=JSON.parse(fs.readFileSync(root+'/runtime/image-import-binding.json','utf8'));if(a.length!==1||b.length!==1)throw Error();for(const role of['database-data','certificate-data','gateway-config'])records[role]=JSON.parse(fs.readFileSync(root+'/runtime/volume-'+role+'.json','utf8'))[0];validateLive(a[0],b[0],service,root,records,process.env.ST250_SOURCE_HEAD,binding.services[{'api-live':'api',database:'database','gateway-live':'gateway'}[service]]);}catch{process.exit(1);}
 NODE
  done
  for suffix in database ingress edge;do

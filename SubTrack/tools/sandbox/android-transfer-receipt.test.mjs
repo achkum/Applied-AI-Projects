@@ -105,16 +105,22 @@ test('OCI Docker save layout binds one manifest config and compressed layer; ext
   const named=tar(files.map(([n,b])=>[n,n==='index.json'?namedIndex:b]));assert.throws(()=>inspectToolTar(named,{...m,rawTarSha256:digest(named),rawTarBytes:named.length}));
 });
 test('extra tools members classify measured root-index and manifest equivalence but always reject',()=>{
- const layer=Buffer.from('private-canary-layer'),config=Buffer.from(JSON.stringify({os:'linux',architecture:'amd64',config:{User:'996:996',Entrypoint:['/opt/android/build-tools/36.0.0/apksigner'],Labels:{'se.subtrack.android.source':source,'se.subtrack.android.run':run}},rootfs:{diff_ids:[`sha256:${digest(layer)}`]}}));
+ const rawLayer=Buffer.from('private-canary-layer'),layer=gzipSync(rawLayer),config=Buffer.from(JSON.stringify({os:'linux',architecture:'amd64',config:{User:'996:996',Entrypoint:['/opt/android/build-tools/36.0.0/apksigner'],Labels:{'se.subtrack.android.source':source,'se.subtrack.android.run':run}},rootfs:{diff_ids:[`sha256:${digest(rawLayer)}`]}}));
  const configName=`blobs/sha256/${digest(config)}`,layerName=`blobs/sha256/${digest(layer)}`,cd={mediaType:'application/vnd.oci.image.config.v1+json',digest:`sha256:${digest(config)}`,size:config.length},ld={mediaType:'application/vnd.oci.image.layer.v1.tar',digest:`sha256:${digest(layer)}`,size:layer.length};
  const graph={schemaVersion:2,mediaType:'application/vnd.oci.image.manifest.v1+json',config:cd,layers:[ld]},oci=Buffer.from(JSON.stringify(graph)),descriptor={mediaType:graph.mediaType,digest:`sha256:${digest(oci)}`,size:oci.length,platform:{os:'linux',architecture:'amd64'}},index={schemaVersion:2,mediaType:'application/vnd.oci.image.index.v1+json',manifests:[descriptor]},indexBytes=Buffer.from(JSON.stringify(index));
  const files=[[configName,config],[layerName,layer],[`blobs/sha256/${digest(oci)}`,oci],['index.json',indexBytes],['oci-layout',Buffer.from('{"imageLayoutVersion":"1.0.0"}')],['manifest.json',Buffer.from(JSON.stringify([{Config:configName,RepoTags:null,Layers:[layerName]}]))]];
  const classify=(bytes,expected,name=`blobs/sha256/${digest(bytes)}`)=>{const raw=tar([...files,[name,bytes]]),m={...tools(),imageId:`sha256:${digest(config)}`,rawTarSha256:digest(raw),rawTarBytes:raw.length};assert.throws(()=>inspectToolTar(raw,m),error=>{assert.equal(toolsArchiveDiagnostic(error),`ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=${expected} category=ASSERTION`);return true;});};
  classify(indexBytes,'ROOT_INDEX_IDENTICAL_BYTES');
- classify(Buffer.from(indexBytes.toString().replace('"schemaVersion":2','"schemaVersion":1,"schemaVersion":2')),'EXTRA_BLOB_OPAQUE');
- classify(Buffer.from(indexBytes.toString().replace('"manifests":','"manifests":[],"manifests":')),'EXTRA_BLOB_OPAQUE');
- classify(Buffer.from(indexBytes.toString()+'\n'),'EXTRA_BLOB_OPAQUE');
- classify(Buffer.from('{"schemaVersion":2,"canary":"\xff"}','binary'),'EXTRA_BLOB_OPAQUE');
+ classify(rawLayer,'RAW_SAME_VERIFIED_LAYER');
+ const equivalentGzip=Buffer.from(layer);equivalentGzip[9]=equivalentGzip[9]===3?0:3;classify(equivalentGzip,'GZIP_SAME_VERIFIED_LAYER');
+ classify(Buffer.from(JSON.stringify(graph)+'\n'),'EXTRA_BLOB_NONCANONICAL_MANIFEST');
+ classify(Buffer.from(config.toString()+'\n'),'EXTRA_BLOB_NONCANONICAL_CONFIG');
+ classify(Buffer.from('{}\n'),'EXTRA_BLOB_NONCANONICAL_OTHER');
+ for(const [magic,bytes]of [['GZIP',Buffer.from([31,139,0])],['ZSTD',Buffer.from('28b52ffd00','hex')],['TAR',(()=>{const b=Buffer.alloc(512);b.write('ustar',257);return b;})()]]){classify(bytes,`EXTRA_BLOB_JSON_INVALID_${magic}`);const large=Buffer.alloc(1048577);bytes.copy(large);classify(large,`EXTRA_BLOB_OVERSIZED_${magic}`);}
+ classify(Buffer.from(indexBytes.toString().replace('"schemaVersion":2','"schemaVersion":1,"schemaVersion":2')),'EXTRA_BLOB_NONCANONICAL_INDEX');
+ classify(Buffer.from(indexBytes.toString().replace('"manifests":','"manifests":[],"manifests":')),'EXTRA_BLOB_NONCANONICAL_INDEX');
+ classify(Buffer.from(indexBytes.toString()+'\n'),'EXTRA_BLOB_NONCANONICAL_INDEX');
+ classify(Buffer.from('{"schemaVersion":2,"canary":"\xff"}','binary'),'EXTRA_BLOB_UTF8_INVALID');
  classify(Buffer.from(JSON.stringify({...index,manifests:[{...descriptor,annotations:{'containerd.io/distribution.source.example':'private-canary'}}]})),'ROOT_INDEX_SAME_DESCRIPTOR');
  classify(Buffer.from(JSON.stringify({layers:graph.layers,config:graph.config,mediaType:graph.mediaType,schemaVersion:2})),'MANIFEST_SAME_GRAPH');
  for(const d of [{...descriptor,digest:'sha256:'+'0'.repeat(64)},{...descriptor,size:descriptor.size+1},{...descriptor,annotations:{canary:'private'}}])classify(Buffer.from(JSON.stringify({...index,manifests:[d]})),'EXTRA_BLOB_INDEX');
@@ -122,7 +128,7 @@ test('extra tools members classify measured root-index and manifest equivalence 
  classify(Buffer.from(JSON.stringify({...graph,config:{...cd,digest:'sha256:'+'0'.repeat(64)}})),'EXTRA_BLOB_MANIFEST');
  classify(Buffer.from(JSON.stringify({...graph,unknown:true})),'EXTRA_BLOB_MANIFEST');
  classify(Buffer.from(JSON.stringify({os:'linux',architecture:'amd64',config:{},rootfs:{}})),'EXTRA_BLOB_CONFIG');
- for(const b of [Buffer.from('private-canary-not-json'),Buffer.from('[]'),Buffer.alloc(1048577)])classify(b,'EXTRA_BLOB_OPAQUE');
+ classify(Buffer.from('private-canary-not-json'),'EXTRA_BLOB_JSON_INVALID_OTHER');classify(Buffer.from('[]'),'EXTRA_BLOB_UNRECOGNIZED');classify(Buffer.alloc(1048577),'EXTRA_BLOB_OVERSIZED_OTHER');
  classify(Buffer.from('private-canary'),'EXTRA_OTHER','blobs/sha256/'+'0'.repeat(64));
 });
 

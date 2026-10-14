@@ -236,14 +236,22 @@ function inspectToolTarBody(bytes, manifest, checkpoint) {
   }
   checkpoint('EXTRA_MEMBER','JSON');if(files.has('repositories')&&JSON.stringify(JSON.parse(files.get('repositories').toString('utf8')))!=='{}')unavailable();
   checkpoint('EXTRA_MEMBER');
-  for(const name of files.keys())if(!allowed.has(name)&&!entries[0].Layers.some(layer=>name===layer.replace(/layer\.tar$/,'json')||name===layer.replace(/layer\.tar$/,'VERSION'))){checkpoint(extraToolMemberClass(name,files.get(name),verifiedIndex,verifiedOci,indexBytes));unavailable();}
+  for(const name of files.keys())if(!allowed.has(name)&&!entries[0].Layers.some(layer=>name===layer.replace(/layer\.tar$/,'json')||name===layer.replace(/layer\.tar$/,'VERSION'))){checkpoint(extraToolMemberClass(name,files.get(name),verifiedIndex,verifiedOci,indexBytes,config.rootfs.diff_ids));unavailable();}
   return true;
 }
-function extraToolMemberClass(name,bytes,index,oci,indexBytes){
-  if(!/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)||digest(bytes)!==name.slice(13))return 'EXTRA_OTHER';
-  if(bytes.length>1048576)return 'EXTRA_BLOB_OPAQUE';
-  let value;try{const text=bytes.toString('utf8');if(!bytes.equals(Buffer.from(text)))return 'EXTRA_BLOB_OPAQUE';value=JSON.parse(text);if(JSON.stringify(value)!==text)return 'EXTRA_BLOB_OPAQUE';}catch{return 'EXTRA_BLOB_OPAQUE';}
-  if(!value||typeof value!=='object'||Array.isArray(value))return 'EXTRA_BLOB_OPAQUE';
+function extraToolMemberClass(name,bytes,index,oci,indexBytes,diffIds){
+  const hash=digest(bytes);if(!/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)||hash!==name.slice(13))return 'EXTRA_OTHER';
+  const verifiedLayer=value=>Array.isArray(diffIds)&&diffIds.includes(`sha256:${value}`);
+  if(verifiedLayer(hash))return 'RAW_SAME_VERIFIED_LAYER';
+  const magic=bytes[0]===31&&bytes[1]===139?'GZIP':bytes.subarray(0,4).equals(Buffer.from('28b52ffd','hex'))?'ZSTD':bytes.subarray(257,262).equals(Buffer.from('ustar'))?'TAR':'OTHER';
+  if(bytes.length>1048576)return `EXTRA_BLOB_OVERSIZED_${magic}`;
+  if(magic==='GZIP'){try{if(verifiedLayer(digest(gunzipSync(bytes,{maxOutputLength:512*1024*1024}))))return 'GZIP_SAME_VERIFIED_LAYER';}catch{/* A diagnostic codec failure never changes archive rejection. */}}
+  if(magic!=='OTHER')return `EXTRA_BLOB_JSON_INVALID_${magic}`;
+  const text=bytes.toString('utf8');if(!bytes.equals(Buffer.from(text)))return 'EXTRA_BLOB_UTF8_INVALID';
+  let value;try{value=JSON.parse(text);}catch{return `EXTRA_BLOB_JSON_INVALID_${magic}`;}
+  const shape=value&&typeof value==='object'&&!Array.isArray(value)?value.schemaVersion===2&&Array.isArray(value.manifests)?'INDEX':value.schemaVersion===2&&value.config&&Array.isArray(value.layers)?'MANIFEST':value.rootfs&&value.config&&typeof value.os==='string'&&typeof value.architecture==='string'?'CONFIG':'OTHER':'OTHER';
+  if(JSON.stringify(value)!==text)return `EXTRA_BLOB_NONCANONICAL_${shape}`;
+  if(!value||typeof value!=='object'||Array.isArray(value))return 'EXTRA_BLOB_UNRECOGNIZED';
   const exact=(object,keys)=>object&&typeof object==='object'&&!Array.isArray(object)&&Object.keys(object).length===keys.length&&keys.every(k=>Object.prototype.hasOwnProperty.call(object,k));
   if(value.schemaVersion===2&&Array.isArray(value.manifests)){
     if(indexBytes&&bytes.equals(indexBytes))return 'ROOT_INDEX_IDENTICAL_BYTES';
@@ -259,7 +267,7 @@ function extraToolMemberClass(name,bytes,index,oci,indexBytes){
     return 'EXTRA_BLOB_MANIFEST';
   }
   if(value.rootfs&&value.config&&typeof value.os==='string'&&typeof value.architecture==='string')return 'EXTRA_BLOB_CONFIG';
-  return 'EXTRA_BLOB_OPAQUE';
+  return 'EXTRA_BLOB_UNRECOGNIZED';
 }
 function downloadAsset(assetId, file, maximum) {
   if(!bounded(assetId,Number.MAX_SAFE_INTEGER)||existsSync(file))unavailable();

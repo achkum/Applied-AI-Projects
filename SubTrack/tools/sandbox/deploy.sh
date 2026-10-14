@@ -18,17 +18,22 @@ empty_runtime() {
 owned_container() {
   local cid="$1"
   [[ "$cid" =~ ^[a-f0-9]{64}$ ]] || return 1
-  local namespace_label source_label image postgres_id caddy_id
+  local namespace_label source_label image service reference expected
   namespace_label="$(docker inspect --format '{{index .Config.Labels "org.subtrack.sandbox.namespace"}}' "$cid")" || return 1
   [[ "$namespace_label" == st250-runtime-v1 ]] || return 1
   source_label="$(docker inspect --format '{{index .Config.Labels "org.subtrack.sandbox.source"}}' "$cid")" || return 1
   [[ "$source_label" == "$ST250_SOURCE_HEAD" ]] || return 1
   image="$(docker inspect --format '{{.Image}}' "$cid")" || return 1
-  if [[ "$image" == "$SANDBOX_API_IMAGE" ]];then return 0;fi
-  postgres_id="$(docker image inspect --format '{{.Id}}' "$SANDBOX_POSTGRES_IMAGE")" || return 1
-  caddy_id="$(docker image inspect --format '{{.Id}}' "$SANDBOX_CADDY_IMAGE")" || return 1
-  [[ "$postgres_id" =~ ^sha256:[a-f0-9]{64}$ && "$caddy_id" =~ ^sha256:[a-f0-9]{64}$ ]] || return 1
-  [[ "$image" == "$postgres_id" || "$image" == "$caddy_id" ]] || return 1
+  service="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$cid")" || return 1
+  case "$service" in
+   api-live|bootstrap) service=api;reference="$SANDBOX_API_IMAGE";;
+   database) reference="$SANDBOX_POSTGRES_IMAGE";;
+   gateway-live|gateway-prepared) service=gateway;reference="$SANDBOX_CADDY_IMAGE";;
+   '<no value>'|'') service="$(docker inspect --format '{{index .Config.Labels "org.subtrack.sandbox.service"}}' "$cid")" || return 1;[[ "$service" == api ]] || return 1;reference="$SANDBOX_API_IMAGE";;
+   *) return 1;;
+  esac
+  expected="$(ST250_IDENTITY_SERVICE="$service" node "$root/tools/sandbox/image-import-binding.cjs" container-id "$root" "$namespace/staging/$ST250_TRANSFER_RUN")" || return 1
+  [[ "$expected" =~ ^sha256:[a-f0-9]{64}$ && "$image" == "$expected" && "$(docker inspect --format '{{.Config.Image}}' "$cid")" == "$reference" ]] || return 1
 }
 capture_new() {
   local ids cid
@@ -67,9 +72,10 @@ if [[ "$mode" == initialize ]];then
  ! ss -ltnH '( sport = :80 or sport = :443 or sport = :4000 or sport = :5432 )' | grep -q .
  mkdir -m0700 -- "$runtime" "$namespace/secrets"
  printf '%s\n' "$ST250_SOURCE_HEAD" > "$runtime/source-head";printf '%s\n' "$SANDBOX_API_IMAGE" > "$runtime/image-id"
+ node "$root/tools/sandbox/image-import-binding.cjs" retain-runtime "$root" "$namespace/staging/$ST250_TRANSFER_RUN"
  : > "$runtime/before.ids";: > "$runtime/new.ids";started=true
  initializer_limits
- docker create "${initialization[@]}" --cidfile "$runtime/operation.cid" --label org.subtrack.sandbox.namespace=st250-runtime-v1 --label "org.subtrack.sandbox.source=$ST250_SOURCE_HEAD" \
+ docker create "${initialization[@]}" --cidfile "$runtime/operation.cid" --label org.subtrack.sandbox.namespace=st250-runtime-v1 --label "org.subtrack.sandbox.source=$ST250_SOURCE_HEAD" --label org.subtrack.sandbox.service=api \
   --mount "type=bind,src=$namespace/secrets,dst=/sandbox-secrets" --mount "type=bind,src=$root/tools/sandbox/bootstrap.cjs,dst=/opt/subtrack/bootstrap.cjs,readonly" \
   --env SUBTRACK_SANDBOX_INITIALIZATION=owned-empty-secrets-v1 --entrypoint node "$SANDBOX_API_IMAGE" /opt/subtrack/bootstrap.cjs generate >/dev/null
  cid="$(cat "$runtime/operation.cid")";owned_container "$cid"
@@ -85,7 +91,7 @@ if [[ "$mode" == initialize ]];then
   node - "$runtime/volume-$suffix.json" "$suffix" "$ST250_SOURCE_HEAD" "$ST250_TRANSFER_RUN" "$generation" <<'NODE'
 const fs=require('node:fs');try{const[file,role,head,run,generation]=process.argv.slice(2),a=JSON.parse(fs.readFileSync(file,'utf8')),name='subtrack-sandbox-'+role,labels={'org.subtrack.sandbox.namespace':'st250-runtime-v1','com.docker.compose.project':'subtrack-sandbox','com.docker.compose.volume':role,'org.subtrack.sandbox.source':head,'org.subtrack.sandbox.run':run,'org.subtrack.sandbox.generation':generation};if(a.length!==1)throw Error();const x=a[0];if(x.Name!==name||x.Driver!=='local'||x.Scope!=='local'||typeof x.CreatedAt!=='string'||!Number.isFinite(Date.parse(x.CreatedAt))||x.Mountpoint!=='/var/lib/docker/volumes/'+name+'/_data'||Object.keys(x.Options??{}).length||JSON.stringify(Object.entries(x.Labels??{}).sort())!==JSON.stringify(Object.entries(labels).sort()))throw Error();}catch{process.exit(1);}
 NODE
-  docker create "${initialization[@]}" --cidfile "$runtime/operation.cid" --label org.subtrack.sandbox.namespace=st250-runtime-v1 --label "org.subtrack.sandbox.source=$ST250_SOURCE_HEAD" \
+  docker create "${initialization[@]}" --cidfile "$runtime/operation.cid" --label org.subtrack.sandbox.namespace=st250-runtime-v1 --label "org.subtrack.sandbox.source=$ST250_SOURCE_HEAD" --label org.subtrack.sandbox.service=api \
    --mount "type=volume,src=$volume,dst=/owned" --entrypoint node "$SANDBOX_API_IMAGE" -e 'const fs=require("node:fs"),uid=Number(process.argv[1]);if(![999,1000].includes(uid)||!fs.lstatSync("/owned").isDirectory()||fs.realpathSync("/owned")!=="/owned"||fs.readdirSync("/owned").length)process.exit(1);fs.chownSync("/owned",uid,uid);fs.chmodSync("/owned",0o700);const s=fs.statSync("/owned");if(s.uid!==uid||s.gid!==uid||(s.mode&0o777)!==0o700)process.exit(1);' "$uid" >/dev/null
   cid="$(cat "$runtime/operation.cid")";owned_container "$cid"
   timeout --kill-after=5s 30s docker start --attach "$cid" >> "$runtime/initialize-private.log" 2>&1
@@ -144,7 +150,8 @@ done
 [[ "$status" == 404 ]]
 stage=READBACK
 api_id="$("${compose[@]}" --profile sandbox-live ps --all --quiet api-live)";owned_container "$api_id"
-timeout --kill-after=10s 90s node - "$api_id" "$SANDBOX_API_IMAGE" <<'NODE'
+api_container_image="$(ST250_IDENTITY_SERVICE=api node "$root/tools/sandbox/image-import-binding.cjs" container-id "$root" "$namespace/staging/$ST250_TRANSFER_RUN")"
+timeout --kill-after=10s 90s node - "$api_id" "$api_container_image" <<'NODE'
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),{execFileSync}=require('node:child_process');
 const[id,image]=process.argv.slice(2),origin='https://198.44.116.159';
 async function call(route,body,authorization,key){const headers={};if(authorization)headers.Authorization=authorization;if(key)headers['Idempotency-Key']=key;if(body!==undefined)headers['Content-Type']='application/json';const r=await fetch(origin+'/v2/sandbox/mobile/'+route,{method:'POST',headers,body:body===undefined?undefined:JSON.stringify(body),redirect:'error',signal:AbortSignal.timeout(10000)});const reader=r.body?.getReader();let size=0,parts=[];if(reader)for(;;){const{done,value}=await reader.read();if(done)break;size+=value.length;if(size>65536){await reader.cancel();throw Error();}parts.push(Buffer.from(value));}assert.equal(r.headers.get('cache-control'),'no-store');const text=Buffer.concat(parts).toString('utf8');return{status:r.status,value:text?JSON.parse(text):undefined};}
@@ -165,6 +172,6 @@ const business=(a,operation,body={},key)=>call('business',{operation,body},'Bear
 })().catch(()=>{process.stderr.write('ST250_DEPLOYMENT_UNAVAILABLE stage=HTTPS_READBACK\n');process.exitCode=1;});
 NODE
 node - "$runtime/deployment-receipt.json" "$ST250_SOURCE_HEAD" "$SANDBOX_API_IMAGE" <<'NODE'
-const fs=require('node:fs');try{const[file,head,image]=process.argv.slice(2);if(!/^[a-f0-9]{40}$/.test(head)||!/^sha256:[a-f0-9]{64}$/.test(image))throw Error();const receipt={schema:'st250-deployment-v1',sourceHead:head,apiImageId:image,host:'198.44.116.159',tlsVerified:true,ownerIsolationVerified:true,restartReadbackVerified:true,refreshLogoutVerified:true,resourceGraphVerified:true,androidInstalled:false,iosInstalled:false,qualification:'synthetic-only',dataPolicy:'retained'};if(fs.existsSync(file)){const s=fs.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.uid!==996||(s.mode&0o777)!==0o600)throw Error();}fs.writeFileSync(file,JSON.stringify(receipt)+'\n',{mode:0o600});}catch{process.stderr.write('ST250_DEPLOYMENT_UNAVAILABLE stage=RECEIPT\n');process.exitCode=1;}
+const fs=require('node:fs'),crypto=require('node:crypto');try{const[file,head,image]=process.argv.slice(2),bindingBytes=fs.readFileSync(file.replace(/deployment-receipt\.json$/,'image-import-binding.json')),binding=JSON.parse(bindingBytes);if(!/^[a-f0-9]{40}$/.test(head)||!/^sha256:[a-f0-9]{64}$/.test(image)||binding.artifactSourceHead!==head||binding.importedImageId!==image)throw Error();const receipt={schema:'st250-deployment-v2',sourceHead:head,toolingSourceHead:binding.toolingSourceHead,sourceCustodySha256:binding.sourceCustodySha256,historicalSourceCustodySha256:binding.historicalSourceCustodySha256,apiExportedConfigId:binding.exportedConfigId,apiImageId:image,imageImportBindingSha256:crypto.createHash('sha256').update(bindingBytes).digest('hex'),serviceImageCustody:binding.services,host:'198.44.116.159',tlsVerified:true,ownerIsolationVerified:true,restartReadbackVerified:true,refreshLogoutVerified:true,resourceGraphVerified:true,androidInstalled:false,iosInstalled:false,qualification:'synthetic-only',dataPolicy:'retained'};if(fs.existsSync(file)){const s=fs.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.uid!==996||(s.mode&0o777)!==0o600)throw Error();}fs.writeFileSync(file,JSON.stringify(receipt)+'\n',{mode:0o600});}catch{process.stderr.write('ST250_DEPLOYMENT_UNAVAILABLE stage=RECEIPT\n');process.exitCode=1;}
 NODE
 printf 'ST250_BACKEND_QUALIFIED source=%s apiImage=%s tls=trusted readback=verified native=pending\n' "$ST250_SOURCE_HEAD" "$SANDBOX_API_IMAGE"
