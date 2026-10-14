@@ -13,3 +13,9 @@ Actual first Android run38541006279 stopped before compilation at SDK tools: sdk
 
 ## Same-image first actual outcome
 Actual integrated run38541006366 failed phaseLOAD after dependency setup; host-v1 run38541006559 likewise LOAD. Shared config/load/DDL/connect stage must be diagnosed; do not classify this as image-specific or successful persistence. No closed receipt, public runtime or installed acceptance. Review is source evidence only. Independent causal source investigation underway, no blind rerun.
+
+## Closed LOAD diagnostic root source review
+Root SOURCE GO after reading actual four-file amendment: only existing LOAD operation markers, fixed own-data error-code classifier and anchored launcher grammar are added. Twenty real journey assertions, SQL/config/roles, v1/v2 product receipts and cleanup behavior remain intact. Error message/stack/query/detail/body are neither read nor displayed. Ten light tests enforce actual classifier+receipt coverage, including hostile descriptors and actual grep grammar; no new product acceptance flag. Independent privacy final source review required, then one causal new-head run.
+
+## Shared contract classifier root source review
+Root PLATFORM SOURCE GO: exhaustive POST roster now explicitly names exactly five detection and five sandbox routes. Original authentication classification returns eleven operations unchanged; no paths are excluded. Actual bundled OpenAPI assertions distinguish keyed mutations, unkeyed read/logout, three keyed sandbox issuance calls and conditional manual/manual-edit business keys, eight closed body operation variants and namespace security. New manual date-required assumption was corrected against unchanged existing OpenAPI; eighteen focused contract tests passed. This is test applicability repair, not acceptance by fixture or security gate relaxation. Independent privacy review before next coherent shared CI.
