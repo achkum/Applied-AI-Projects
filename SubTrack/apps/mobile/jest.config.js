@@ -1,4 +1,3 @@
-/* global module */
 module.exports = {
   preset: 'jest-expo',
   resolver: '<rootDir>/scripts/billing-month-jest-resolver.cjs',
