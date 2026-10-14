@@ -4,6 +4,10 @@ services:
   database:
     profiles: [sandbox-prepared, sandbox-live, sandbox-bootstrap]
     image: ${SANDBOX_POSTGRES_IMAGE:?verified postgres16 digest required}
+    pull_policy: never
+    labels: &runtime_labels
+      org.subtrack.sandbox.namespace: st250-runtime-v1
+      org.subtrack.sandbox.source: ${ST250_SOURCE_HEAD:?qualified source head required}
     user: "999:999"
     environment:
       POSTGRES_DB: subtrack_sandbox
@@ -33,7 +37,9 @@ services:
       options: {max-size: 5m, max-file: "2"}
   api: &prepared_api
     profiles: [sandbox-prepared]
-    image: ${SANDBOX_API_IMAGE:?reviewed sandbox API digest required}
+    image: ${SANDBOX_API_IMAGE:?qualified local configuration image ID required}
+    pull_policy: never
+    labels: *runtime_labels
     user: "1000:1000"
     environment: &sandbox_api_environment
       NODE_ENV: production
@@ -85,6 +91,8 @@ services:
   gateway: &prepared_gateway
     profiles: [sandbox-prepared]
     image: ${SANDBOX_CADDY_IMAGE:?verified caddy2.11.7 digest required}
+    pull_policy: never
+    labels: *runtime_labels
     user: "1000:1000"
     environment:
       SANDBOX_GATEWAY_PUBLICATION: "false"
@@ -122,13 +130,21 @@ services:
     ports: ["80:8080", "443:8443"]
     depends_on: [api-live]
 networks:
-  database: {internal: true}
-  ingress: {internal: true}
-  edge: {}
+  database:
+    name: subtrack-sandbox-database
+    internal: true
+    labels: {org.subtrack.sandbox.namespace: st250-runtime-v1}
+  ingress:
+    name: subtrack-sandbox-ingress
+    internal: true
+    labels: {org.subtrack.sandbox.namespace: st250-runtime-v1}
+  edge:
+    name: subtrack-sandbox-edge
+    labels: {org.subtrack.sandbox.namespace: st250-runtime-v1}
 volumes:
-  database-data: {}
-  certificate-data: {}
-  gateway-config: {}
+  database-data: {external: true, name: subtrack-sandbox-database-data}
+  certificate-data: {external: true, name: subtrack-sandbox-certificate-data}
+  gateway-config: {external: true, name: subtrack-sandbox-gateway-config}
 secrets:
   database_bootstrap: {file: /home/openclaw/subtrack-sandbox/secrets/database-bootstrap}
   database_runtime: {file: /home/openclaw/subtrack-sandbox/secrets/database-runtime}
