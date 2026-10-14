@@ -22,6 +22,24 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(NOW); });
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe('private trusted enrollment person', () => {
+  it('issues actual unmocked simulator evidence on the validated clock behind unchanged real wall time', async () => {
+    vi.useRealTimers(); const wall = Date.now(), controlled = wall - 3_600_000;
+    const verifier = create({ ...options(), clock: () => controlled });
+    const person = await verifier.verify('alice');
+    expect(person.verifiedAt).toBe(new Date(controlled).toISOString());
+    expect(person.personnummerHmac).toBe(createHmac('sha256', Buffer.from(key()).toString('hex')).update('199001012391').digest('hex'));
+    expect(person).toEqual({ method: 'BANKID', personnummerHmac: person.personnummerHmac, verifiedAt: new Date(controlled).toISOString(), givenName: 'Alice', surname: 'Andersson' });
+    expect(Object.isFrozen(person)).toBe(true); expect(Date.now()).toBeGreaterThanOrEqual(wall);
+    const current = await create({ ...options(), clock: undefined }).verify();
+    expect(Date.parse(current.verifiedAt)).toBeGreaterThanOrEqual(wall); expect(Date.parse(current.verifiedAt)).toBeLessThanOrEqual(Date.now());
+  });
+  it('keeps actual simulator issuance inside validated finite and monotonic time guards', async () => {
+    vi.useRealTimers(); const time = Date.now() - 3_600_000;
+    for (const invalid of [time - 1, NaN, -1]) {
+      let reads = 0; await denied(create({ ...options(), clock: () => ++reads === 1 ? time : invalid }));
+    }
+    let reads = 0; await denied(create({ ...options(), clock: () => { if (++reads === 2) throw new Error('private clock'); return time; } }));
+  });
   it('selects only the fixed Bob simulator fixture without accepting a subject assertion', async () => {
     const verifier = create(options());
     const person = await verifier.verify('bob');

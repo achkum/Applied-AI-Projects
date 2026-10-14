@@ -56,7 +56,7 @@ export class DevelopmentEnrollmentPersonVerifier {
       const started = this.readTime();
       const expected = choice === 'alice' ? DEVELOPMENT_ENROLLMENT_PERSON :
         { token: 'bob', givenName: 'Bob', surname: 'Bergström' };
-      const raw = await new BankIdSimulator(this.keyHex).verify(expected.token);
+      const raw = await new BankIdSimulator(this.keyHex, () => this.readTime()).verify(expected.token);
       const now = this.readTime();
       if (now - started > MAX_AGE) throw new Error(FAILURE);
       const result = snapshot(raw);

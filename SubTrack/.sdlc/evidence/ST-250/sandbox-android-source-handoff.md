@@ -30,7 +30,7 @@ Paths relative Git root; independent review must match these bytes before curati
 
 | Path | SHA256 |
 |---|---|
-| .github/workflows/subtrack-sandbox-android-build.yml | 83b6cf943827f94d70f4f629b99dc17968b956399e259ec23dbc2bfbd9316cc2 |
+| .github/workflows/subtrack-sandbox-android-build.yml | 30b4fa8cf4b2871f4e0328c6be3977e42a02f88aad740e88fc806b3317496a85 |
 | SubTrack/tools/sandbox/build-android.sh | f3f9aaa7aeb573a4226551838811225393e575c3d98f2ad2adb57583adc50b9d |
 | SubTrack/tools/sandbox/sign-android.sh | af93e8126d3670d52c488fe85f45d6379b8752c0cb07878323d8bfaeb0935864 |
 | SubTrack/infra/sandbox/Dockerfile.android-signing | ea50d0ce93023ee66d07c3b3bcf96b92e35ffad3f1c9db298d1825ba9ee87e61 |
@@ -39,3 +39,9 @@ Paths relative Git root; independent review must match these bytes before curati
 | SubTrack/docs/ops/SANDBOX.md | fa59ca5ecb021f12da3eb908bb3aacf80f4d9885bb7814b392b63bef64b14b5b |
 
 Next ready gate: independent source/platform/privacy review, then root-curated actual unsigned Release CI. Persistent same-image backend/trusted TLS/native activation and unique signing/distribution/installed Android readback are separate gates. No product-completion percentage implied.
+
+## First actual compile run: SDK launcher correction
+
+Actual Android run38541006279 failed Exact Android SDK tools before Gradle: fixed public cause `sdkmanager: command not found`. Root authorized existing workflow only. Replaced bare PATH lookup with executable presence guard and quoted `${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager`; all three requested component versions unchanged. Official current Ubuntu24 README confirms ANDROID_HOME=/usr/local/lib/android/sdk; official runner install script sets SDKMANAGER to that exact cmdline-tools/latest/bin path and verifies it during image generation. Sources: https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md ; https://raw.githubusercontent.com/actions/runner-images/main/images/ubuntu/scripts/build/install-android-sdk.sh ; https://developer.android.com/tools/sdkmanager . No new dependency/action/install route or test gate change.
+
+Actual YAML parse and full parsed workflow comparison to committed HEAD PASS after normalizing only this SDK step: permissions/head/JDK/SDK versions/final command/all other guards exact. Updated workflow hash above; no broad/native/policy tests repeated. Actual SDK manager invocation/Gradle remains to be verified in next independently reviewed causal run, not claimed successful locally. This correction requires root+privacy final source review before push; no Git/hosted/remote action by author.

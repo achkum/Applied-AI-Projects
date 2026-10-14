@@ -51,7 +51,9 @@ jobs:
           test "$(pnpm --version)" = '12.6.0'
           pnpm install --frozen-lockfile
       - name: Exact Android SDK tools
-        run: sdkmanager 'build-tools;36.0.0' 'platforms;android-36' 'ndk;27.1.12297006'
+        run: |
+          test -x "${ANDROID_HOME:?}/cmdline-tools/latest/bin/sdkmanager"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;36.0.0' 'platforms;android-36' 'ndk;27.1.12297006'
       - name: Actual locked-template and receipt policy
         run: node --test tools/sandbox/android-release-receipt.test.mjs
       - name: Actual unsigned Release APK and closed cleanup receipt
