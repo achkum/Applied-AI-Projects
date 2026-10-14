@@ -29,7 +29,7 @@ function profile(row:Row|undefined):object{
  if(!row)return fail();return parseProfileView({displayName:row.display_name,avatarColourToken:row.avatar_color,avatarEmoji:row.avatar_emoji,
   language:row.language,theme:row.theme,defaultCurrency:row.default_currency,profileComplete:row.profile_complete});
 }
-export function createPrivateMobileBusiness(authority:DurablePrivateMobileAuthority){
+export function createPrivateMobileBusiness(authority:Pick<DurablePrivateMobileAuthority,'withCurrentMobileAuthority'>){
  return Object.freeze({async execute(accessToken:string,operation:PrivateMobileBusinessOperation,body:unknown,key?:string):Promise<Result>{
   let parsed:Record<string,unknown>={};let after:{createdAt:string;id:string}|null=null;
   try{

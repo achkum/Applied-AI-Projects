@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { AdmitV2WebEnrollmentData, AdmitV2WebEnrollmentErrors, AdmitV2WebEnrollmentResponses, ChangePrivateMobileSubscriptionStatusData, ChangePrivateMobileSubscriptionStatusErrors, ChangePrivateMobileSubscriptionStatusResponses, ChoosePrivateMobileModeData, ChoosePrivateMobileModeErrors, ChoosePrivateMobileModeResponses, ChooseV2BrowserJustMeData, ChooseV2BrowserJustMeErrors, ChooseV2BrowserJustMeResponses, CompletePrivateMobileEnrollmentData, CompletePrivateMobileEnrollmentErrors, CompletePrivateMobileEnrollmentResponses, CompleteV2WebEnrollmentData, CompleteV2WebEnrollmentErrors, CompleteV2WebEnrollmentResponses, ConfirmPrivateMobileDetectionData, ConfirmPrivateMobileDetectionErrors, ConfirmPrivateMobileDetectionResponses, ConnectPrivateMobileSyntheticBankData, ConnectPrivateMobileSyntheticBankErrors, ConnectPrivateMobileSyntheticBankResponses, CreatePrivateMobileManualSubscriptionData, CreatePrivateMobileManualSubscriptionErrors, CreatePrivateMobileManualSubscriptionResponses, CreatePrivateMobileSessionData, CreatePrivateMobileSessionErrors, CreatePrivateMobileSessionResponses, CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2PrivateManualSubscriptionData, CreateV2PrivateManualSubscriptionErrors, CreateV2PrivateManualSubscriptionResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DisconnectPrivateMobileSyntheticBankData, DisconnectPrivateMobileSyntheticBankErrors, DisconnectPrivateMobileSyntheticBankResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, EditPrivateMobileManualSubscriptionData, EditPrivateMobileManualSubscriptionErrors, EditPrivateMobileManualSubscriptionResponses, EditV2PrivateManualSubscriptionData, EditV2PrivateManualSubscriptionErrors, EditV2PrivateManualSubscriptionResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, LogoutPrivateMobileSessionData, LogoutPrivateMobileSessionErrors, LogoutPrivateMobileSessionResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PatchV2BrowserProfileData, PatchV2BrowserProfileErrors, PatchV2BrowserProfileResponses, PatchV2BrowserSubscriptionLifecycleData, PatchV2BrowserSubscriptionLifecycleErrors, PatchV2BrowserSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadPrivateMobileDetectionData, ReadPrivateMobileDetectionErrors, ReadPrivateMobileDetectionResponses, ReadPrivateMobileModeData, ReadPrivateMobileModeErrors, ReadPrivateMobileModeResponses, ReadPrivateMobileOwnerSubscriptionsData, ReadPrivateMobileOwnerSubscriptionsErrors, ReadPrivateMobileOwnerSubscriptionsResponses, ReadPrivateMobileProfileData, ReadPrivateMobileProfileErrors, ReadPrivateMobileProfileResponses, ReadPrivateMobileSyntheticBankData, ReadPrivateMobileSyntheticBankErrors, ReadPrivateMobileSyntheticBankResponses, ReadV2BrowserModeData, ReadV2BrowserModeErrors, ReadV2BrowserModeResponses, ReadV2BrowserProfileData, ReadV2BrowserProfileErrors, ReadV2BrowserProfileResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, ReadV2PrivateOwnerSubscriptionsData, ReadV2PrivateOwnerSubscriptionsErrors, ReadV2PrivateOwnerSubscriptionsResponses, RefreshPrivateMobileSessionData, RefreshPrivateMobileSessionErrors, RefreshPrivateMobileSessionResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RejectPrivateMobileDetectionData, RejectPrivateMobileDetectionErrors, RejectPrivateMobileDetectionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SavePrivateMobileProfileData, SavePrivateMobileProfileErrors, SavePrivateMobileProfileResponses, ScanPrivateMobileDetectionData, ScanPrivateMobileDetectionErrors, ScanPrivateMobileDetectionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, SyncPrivateMobileSyntheticBankData, SyncPrivateMobileSyntheticBankErrors, SyncPrivateMobileSyntheticBankResponses, UndoPrivateMobileDetectionData, UndoPrivateMobileDetectionErrors, UndoPrivateMobileDetectionResponses, VerifyPrivateMobileLoginData, VerifyPrivateMobileLoginErrors, VerifyPrivateMobileLoginResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses, VerifyV2PrivateSimulatorLoginData, VerifyV2PrivateSimulatorLoginErrors, VerifyV2PrivateSimulatorLoginResponses, VerifyV2WebSimulatorEnrollmentData, VerifyV2WebSimulatorEnrollmentErrors, VerifyV2WebSimulatorEnrollmentResponses } from './types.gen.js';
+import type { AdmitV2WebEnrollmentData, AdmitV2WebEnrollmentErrors, AdmitV2WebEnrollmentResponses, BootstrapSandboxMobileData, BootstrapSandboxMobileErrors, BootstrapSandboxMobileResponses, ChangePrivateMobileSubscriptionStatusData, ChangePrivateMobileSubscriptionStatusErrors, ChangePrivateMobileSubscriptionStatusResponses, ChoosePrivateMobileModeData, ChoosePrivateMobileModeErrors, ChoosePrivateMobileModeResponses, ChooseV2BrowserJustMeData, ChooseV2BrowserJustMeErrors, ChooseV2BrowserJustMeResponses, CompletePrivateMobileEnrollmentData, CompletePrivateMobileEnrollmentErrors, CompletePrivateMobileEnrollmentResponses, CompleteV2WebEnrollmentData, CompleteV2WebEnrollmentErrors, CompleteV2WebEnrollmentResponses, ConfirmPrivateMobileDetectionData, ConfirmPrivateMobileDetectionErrors, ConfirmPrivateMobileDetectionResponses, ConnectPrivateMobileSyntheticBankData, ConnectPrivateMobileSyntheticBankErrors, ConnectPrivateMobileSyntheticBankResponses, CreatePrivateMobileManualSubscriptionData, CreatePrivateMobileManualSubscriptionErrors, CreatePrivateMobileManualSubscriptionResponses, CreatePrivateMobileSessionData, CreatePrivateMobileSessionErrors, CreatePrivateMobileSessionResponses, CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2PrivateManualSubscriptionData, CreateV2PrivateManualSubscriptionErrors, CreateV2PrivateManualSubscriptionResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DisconnectPrivateMobileSyntheticBankData, DisconnectPrivateMobileSyntheticBankErrors, DisconnectPrivateMobileSyntheticBankResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, EditPrivateMobileManualSubscriptionData, EditPrivateMobileManualSubscriptionErrors, EditPrivateMobileManualSubscriptionResponses, EditV2PrivateManualSubscriptionData, EditV2PrivateManualSubscriptionErrors, EditV2PrivateManualSubscriptionResponses, ExecuteSandboxMobileBusinessData, ExecuteSandboxMobileBusinessErrors, ExecuteSandboxMobileBusinessResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, LogoutPrivateMobileSessionData, LogoutPrivateMobileSessionErrors, LogoutPrivateMobileSessionResponses, LogoutSandboxMobileData, LogoutSandboxMobileErrors, LogoutSandboxMobileResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PatchV2BrowserProfileData, PatchV2BrowserProfileErrors, PatchV2BrowserProfileResponses, PatchV2BrowserSubscriptionLifecycleData, PatchV2BrowserSubscriptionLifecycleErrors, PatchV2BrowserSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadPrivateMobileDetectionData, ReadPrivateMobileDetectionErrors, ReadPrivateMobileDetectionResponses, ReadPrivateMobileModeData, ReadPrivateMobileModeErrors, ReadPrivateMobileModeResponses, ReadPrivateMobileOwnerSubscriptionsData, ReadPrivateMobileOwnerSubscriptionsErrors, ReadPrivateMobileOwnerSubscriptionsResponses, ReadPrivateMobileProfileData, ReadPrivateMobileProfileErrors, ReadPrivateMobileProfileResponses, ReadPrivateMobileSyntheticBankData, ReadPrivateMobileSyntheticBankErrors, ReadPrivateMobileSyntheticBankResponses, ReadV2BrowserModeData, ReadV2BrowserModeErrors, ReadV2BrowserModeResponses, ReadV2BrowserProfileData, ReadV2BrowserProfileErrors, ReadV2BrowserProfileResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, ReadV2PrivateOwnerSubscriptionsData, ReadV2PrivateOwnerSubscriptionsErrors, ReadV2PrivateOwnerSubscriptionsResponses, RefreshPrivateMobileSessionData, RefreshPrivateMobileSessionErrors, RefreshPrivateMobileSessionResponses, RefreshSandboxMobileData, RefreshSandboxMobileErrors, RefreshSandboxMobileResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RejectPrivateMobileDetectionData, RejectPrivateMobileDetectionErrors, RejectPrivateMobileDetectionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, ResumeSandboxMobileData, ResumeSandboxMobileErrors, ResumeSandboxMobileResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SavePrivateMobileProfileData, SavePrivateMobileProfileErrors, SavePrivateMobileProfileResponses, ScanPrivateMobileDetectionData, ScanPrivateMobileDetectionErrors, ScanPrivateMobileDetectionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, SyncPrivateMobileSyntheticBankData, SyncPrivateMobileSyntheticBankErrors, SyncPrivateMobileSyntheticBankResponses, UndoPrivateMobileDetectionData, UndoPrivateMobileDetectionErrors, UndoPrivateMobileDetectionResponses, VerifyPrivateMobileLoginData, VerifyPrivateMobileLoginErrors, VerifyPrivateMobileLoginResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses, VerifyV2PrivateSimulatorLoginData, VerifyV2PrivateSimulatorLoginErrors, VerifyV2PrivateSimulatorLoginResponses, VerifyV2WebSimulatorEnrollmentData, VerifyV2WebSimulatorEnrollmentErrors, VerifyV2WebSimulatorEnrollmentResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,90 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Create a separate fictional sandbox workspace
+ *
+ * Simulated per-installation sandbox only. Duplicate or uncertain issuance never replays credentials.
+ */
+export const bootstrapSandboxMobile = <ThrowOnError extends boolean = false>(options: Options<BootstrapSandboxMobileData, ThrowOnError>): RequestResult<BootstrapSandboxMobileResponses, BootstrapSandboxMobileErrors, ThrowOnError> => (options.client ?? client).post<BootstrapSandboxMobileResponses, BootstrapSandboxMobileErrors, ThrowOnError>({
+    url: '/v2/sandbox/mobile/bootstrap',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Resume this installation's unrevoked sandbox workspace
+ */
+export const resumeSandboxMobile = <ThrowOnError extends boolean = false>(options: Options<ResumeSandboxMobileData, ThrowOnError>): RequestResult<ResumeSandboxMobileResponses, ResumeSandboxMobileErrors, ThrowOnError> => (options.client ?? client).post<ResumeSandboxMobileResponses, ResumeSandboxMobileErrors, ThrowOnError>({
+    security: [{
+            key: 'SandboxCapability',
+            name: 'Authorization',
+            type: 'apiKey'
+        }],
+    url: '/v2/sandbox/mobile/resume',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Rotate a sandbox session refresh credential once
+ *
+ * Bodyless. Unknown rotation withholds credentials; no automatic retry or credential replay.
+ */
+export const refreshSandboxMobile = <ThrowOnError extends boolean = false>(options: Options<RefreshSandboxMobileData, ThrowOnError>): RequestResult<RefreshSandboxMobileResponses, RefreshSandboxMobileErrors, ThrowOnError> => (options.client ?? client).post<RefreshSandboxMobileResponses, RefreshSandboxMobileErrors, ThrowOnError>({
+    security: [{
+            key: 'SandboxRefresh',
+            name: 'Authorization',
+            type: 'apiKey'
+        }],
+    url: '/v2/sandbox/mobile/refresh',
+    ...options
+});
+
+/**
+ * Revoke this sandbox capability and every workspace session
+ *
+ * Data remains. Unknown outcome must not be acknowledged as durable logout.
+ */
+export const logoutSandboxMobile = <ThrowOnError extends boolean = false>(options: Options<LogoutSandboxMobileData, ThrowOnError>): RequestResult<LogoutSandboxMobileResponses, LogoutSandboxMobileErrors, ThrowOnError> => (options.client ?? client).post<LogoutSandboxMobileResponses, LogoutSandboxMobileErrors, ThrowOnError>({
+    security: [{
+            key: 'SandboxAccess',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/sandbox/mobile/logout',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Current owner profile, Just Me and manual subscription operations
+ *
+ * Eight finite operations. Idempotency-Key is required only for manual/manual-edit and forbidden for the others. No bank, detection or household operations.
+ */
+export const executeSandboxMobileBusiness = <ThrowOnError extends boolean = false>(options: Options<ExecuteSandboxMobileBusinessData, ThrowOnError>): RequestResult<ExecuteSandboxMobileBusinessResponses, ExecuteSandboxMobileBusinessErrors, ThrowOnError> => (options.client ?? client).post<ExecuteSandboxMobileBusinessResponses, ExecuteSandboxMobileBusinessErrors, ThrowOnError>({
+    security: [{
+            key: 'SandboxAccess',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/sandbox/mobile/business',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Health check
@@ -334,7 +418,11 @@ export const refreshV2Session = <ThrowOnError extends boolean = false>(options: 
             in: 'cookie',
             name: 'st_v2_refresh',
             type: 'apiKey'
-        }, { name: 'Authorization', type: 'apiKey' }],
+        }, {
+            key: 'V2MobileRefresh',
+            name: 'Authorization',
+            type: 'apiKey'
+        }],
     url: '/v2/auth/refresh',
     ...options
 });
@@ -643,7 +731,11 @@ export const createPrivateMobileSession = <ThrowOnError extends boolean = false>
  *
  */
 export const refreshPrivateMobileSession = <ThrowOnError extends boolean = false>(options: Options<RefreshPrivateMobileSessionData, ThrowOnError>): RequestResult<RefreshPrivateMobileSessionResponses, RefreshPrivateMobileSessionErrors, ThrowOnError> => (options.client ?? client).post<RefreshPrivateMobileSessionResponses, RefreshPrivateMobileSessionErrors, ThrowOnError>({
-    security: [{ name: 'Authorization', type: 'apiKey' }],
+    security: [{
+            key: 'V2MobileRefresh',
+            name: 'Authorization',
+            type: 'apiKey'
+        }],
     url: '/v2/private/mobile/refresh',
     ...options
 });

@@ -1,0 +1,43 @@
+# ST250 iPhone build toolchain and packaging contract
+
+2026-10-14. Read-only architect/devops audit, no dependency installation, source/Git change, remote mutation, signing operation or build. Separate packaging review below is independent of the root-authored two-line fix.
+
+## Concrete iPhone blocker and minimum maintenance target
+
+Apple's [current upload requirement](https://developer.apple.com/news/upcoming-requirements/?id=04282026a) applies since2026-04-28: App Store Connect uploads require Xcode26+ and iOS26 SDK. Existing private workflow uses macOS14/Xcode15.4/iOS17.5 and is a simulator proof, not a usable2026 TestFlight upload pipeline.
+
+Choose **ExpoSDK54** as the minimum Expo-recommended stable target with documented Xcode26 support, not the newest SDK57. [Expo's April27 upload guidance](https://expo.dev/blog/app-store-connect-minimum-sdk-26) explicitly recommends at least54; older versions may opt into Xcode26 but compatibility depends on native dependencies and is not guaranteed. This is why trying unqualified SDK51/Xcode26 is not the delivery plan.
+
+Official [versioned compatibility table](https://docs.expo.dev/versions/v54.0.0/) maps54 to RN0.81/React19.1.0/ReactNativeWeb0.21, Node20.19.x minimum and iOS15.1+; Apple's upload SDK does not require tester OS26. Actual official repository SDK54 roster read2026-10-14 gives Expo54.0.37, RN0.81.5, React/ReactDOM19.1.0, Router~6.0.24, SecureStore~15.0.8, Crypto~15.0.9, Font~14.0.12, SplashScreen~31.0.13. Sources: [Expo package](https://github.com/expo/expo/blob/sdk-54/packages/expo/package.json), [bundled native modules](https://github.com/expo/expo/blob/sdk-54/packages/expo/bundledNativeModules.json). Freeze exact resolved patches/integrities when the upgrade starts; no installed version change is claimed now.
+
+Preserve current native architecture deliberately: `newArchEnabled:false`, existing Hermes/default component layer and approved colors/fonts/icons. [Expo supports opting out throughSDK54](https://docs.expo.dev/guides/new-architecture/); newer55+ removes that choice. Current Reanimated3.10 is incompatible with RN0.81; [upstream's legacy compatibility table](https://docs.swmansion.com/react-native-reanimated/docs/3.x/guides/compatibility/) supports3.19.x/RN0.81. Select an exact verified3.19.x patch for legacy rather than Expo's default4.1.1/new-architecture dependency. Do not silently add Worklets4 or new glass/native tabs. SDK54 Android edge-to-edge requires checking existing safe areas on both platforms; it does not authorize a UX redesign. Upgrade jest-expo/Babel/react types and test renderer consistently with React19.1; remove deprecated standalone RN types only after type validation, preserve web app's independent dependency versions.
+
+## Existing no-extra-cost build host
+
+Repository GitHub API independently confirms public visibility. [Standard GitHub-hosted runner use is free for public repositories](https://docs.github.com/en/billing/concepts/product-billing/github-actions); larger runners always cost and are excluded. Artifact/cache storage remains separately bounded to included allowances, so do not claim unlimited free storage. Avoid uploading bulky signed archives/cache; submit in-job after authorization and retain only small sanitized checksum/build evidence within allowance.
+
+Use standard `macos-15`, explicitly select `/Applications/Xcode_26.2.app` and assert exact26.2 plus actual iPhoneOS26 SDK before build; do not accept runner default16.4 or a newer preview silently. Current official [macOS15 image roster](https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md) lists26.2/26.3/26.1.1/26.0.1. Reverify availability on the actual job; image roster is not an executed build result. A missing pin fails preflight rather than auto-download/use a paid runner. Existing Node24.14 exceeds Expo's stated minimum; keep a tested exact Node pin, with CocoaPods/native template versions qualified at the selected SDK.
+
+No Mac purchase or Expo account is inherently needed for CLI prebuild/xcodebuild on that runner. Apple team, sandbox bundle/app record, certificate/private key, provisioning profile and App Store Connect upload credentials remain **unverified**, despite known membership. Never invent ascAppId, register a new paid service or paste signing secrets. Founder/devops provisions already-authorized signing material outside source; temporary keychain/profile/secret files are private, never artifacts, and removed on all runner exit paths. A signed device archive and TestFlight upload/beta review are distinct milestones; external link waits Apple's required beta review and a verified destination.
+
+SDK maintenance is same Expo/RN stack Type2a architecture choice; ADR0004 fixes stack, not SDK51. Its literal decision also names EAS Build/Submit. Direct GitHub CLI archive/submit differs from that operational wording: record the sandbox-only no-account/free-host route under founder's existing anything-free sandbox direction, or obtain a narrowly bounded interpretation/exception if the conductor treats it as formal seedADR replacement. Do not declare ADR0004 globally replaced or change production release route. Existing EAS local build can be considered only if account/access already exists; it is not an assumed dependency.
+
+## Exact proposed upgrade/build ownership and sequence
+
+After active backend/native author checks and source curation finish, freeze only:
+- `SubTrack/apps/mobile/package.json`, `SubTrack/pnpm-lock.yaml`
+- `SubTrack/apps/mobile/app.json`, `app.config.ts`
+- `SubTrack/apps/mobile/babel.config.js`, `metro.config.js`, `jest.config.js`, `jest.setup.js`
+- `SubTrack/apps/mobile/scripts/private-runtime-preflight.mjs`, `private-runtime-build.sh`, `private-runtime-native-resolve.mjs`, `private-runtime-native-resolve-test.mjs`, `sandbox-app-config-test.mjs`
+- `.github/workflows/subtrack-native-device-proof.yml`
+- `SubTrack/tools/sandbox/build-ios.sh`, `.github/workflows/subtrack-sandbox-build.yml`, `SubTrack/docs/ops/SANDBOX.md`
+
+No app-screen/provider/auth changes in this upgrade roster. If React19 semantics expose a concrete screen typing issue, freeze that named file separately. Do not run install/lock regeneration while other agents compile or test the shared checkout.
+
+Follow [Expo's incremental upgrade guidance](https://docs.expo.dev/workflow/upgrading-expo-sdk-walkthrough/)51→52→53→54 in one maintenance branch, checking each resolved dependency set locally before proceeding. Intermediate stages are migration diagnostics, not separate product tickets/cold hosted acceptance runs. Use SDK-aware install/check/doctor; preserve canonical Money Metro/Jest resolver while removing only verified obsolete monorepo overrides. Regenerate native projects in a disposable build workspace, not delete user/shared directories. SDK51-specific Gradle resolver patch must not blindly rewrite SDK54 template; update its guarded template semantics with meaningful positive/negative checks. Preserve private proof loopback/CA/security assertions while updating the explicit toolchain/runtime preflight pins. Source contracts/private gates are unchanged.
+
+At final54 head: focused source/types/lint/config checks, frozen-lock provenance, one actual Android/iOS native compile/install qualification preserving previous behavior plus sandbox entry, approved visual inspection and persistent backend readback. Separate sandbox release job uses release JS bundle with __DEV__false and trusted public TLS; assert distinct ID, manifest markers and private diagnostics exclusion. Build/archive with selected Xcode26.2, verified manual signing, then upload through existing Apple access only under sandbox distribution authorization. No production App Store submission. Queue one coherent final build, not repeated unchanged simulator inventories.
+
+## Independent root-authored API migration packaging review
+
+**SOURCE GO for the exact two SQL COPY additions in `infra/sandbox/Dockerfile.api`.** Actual config loads SQL relative to compiled `apps/api/dist/sandbox`: `../../prisma/sandbox` resolves `apps/api/prisma/sandbox`. Root's two COPY lines copy only001/002 from the build stage to those exact final runtime destinations, chowned node. Existing build already copies API source/prisma into the build stage. No fixture migrations/keys, entrypoint fallback, network enable or altered other infrastructure source was added. Dockerfile SHA256 now `0d16d1928f824e588e56c4115a86b2333169272f51cc9cccbcd606384f5f8719`. This is path-semantic source review only; no Docker image/SQL/TLS qualification executed. Final migration contents/checksum pins and live image startup still need actual acceptance.

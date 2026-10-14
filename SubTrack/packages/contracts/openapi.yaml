@@ -4,6 +4,101 @@ info:
   version: 1.1.1
   description: Contract metadata and approved operational endpoints.
 paths:
+  /v2/sandbox/mobile/bootstrap:
+    post:
+      operationId: bootstrapSandboxMobile
+      summary: Create a separate fictional sandbox workspace
+      description: Simulated per-installation sandbox only. Duplicate or uncertain issuance never replays credentials.
+      security: []
+      parameters: [{ $ref: '#/components/parameters/SandboxRequestKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/SandboxBootstrapBody' } }
+      responses:
+        '201':
+          description: Known committed workspace and credentials, with one-time installation capability.
+          headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/SandboxBootstrapCredentials' } } }
+        default: { $ref: '#/components/responses/SandboxProblem' }
+  /v2/sandbox/mobile/resume:
+    post:
+      operationId: resumeSandboxMobile
+      summary: Resume this installation's unrevoked sandbox workspace
+      security: [{ SandboxCapability: [] }]
+      parameters: [{ $ref: '#/components/parameters/SandboxRequestKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/SandboxTransportBody' } }
+      responses:
+        '201':
+          description: Known committed new session, without redisclosing installation capability.
+          headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/SandboxCredentials' } } }
+        default: { $ref: '#/components/responses/SandboxProblem' }
+  /v2/sandbox/mobile/refresh:
+    post:
+      operationId: refreshSandboxMobile
+      summary: Rotate a sandbox session refresh credential once
+      description: Bodyless. Unknown rotation withholds credentials; no automatic retry or credential replay.
+      security: [{ SandboxRefresh: [] }]
+      parameters: [{ $ref: '#/components/parameters/SandboxRequestKey' }]
+      responses:
+        '200':
+          description: Known committed rotated sandbox credentials.
+          headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/SandboxCredentials' } } }
+        default: { $ref: '#/components/responses/SandboxProblem' }
+  /v2/sandbox/mobile/logout:
+    post:
+      operationId: logoutSandboxMobile
+      summary: Revoke this sandbox capability and every workspace session
+      description: Data remains. Unknown outcome must not be acknowledged as durable logout.
+      security: [{ SandboxAccess: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/SandboxTransportBody' } }
+      responses:
+        '204':
+          description: Known committed workspace-wide revocation.
+          headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+        default: { $ref: '#/components/responses/SandboxProblem' }
+  /v2/sandbox/mobile/business:
+    post:
+      operationId: executeSandboxMobileBusiness
+      summary: Current owner profile, Just Me and manual subscription operations
+      description: Eight finite operations. Idempotency-Key is required only for manual/manual-edit and forbidden for the others. No bank, detection or household operations.
+      security: [{ SandboxAccess: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/SandboxBusinessBody' } }
+      responses:
+        '200':
+          description: Known committed current owner business result.
+          headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/ProfileView' }
+                  - { $ref: '#/components/schemas/ModeView' }
+                  - { $ref: '#/components/schemas/PrivateOwnerPage' }
+                  - { $ref: '#/components/schemas/PrivateManualEdited' }
+                  - { $ref: '#/components/schemas/SubscriptionLifecycleResult' }
+        '201':
+          description: Known committed manual subscription.
+          headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/PrivateManualCreated' } } }
+        default: { $ref: '#/components/responses/SandboxProblem' }
+
   /healthz:
     get:
       operationId: getHealthz
@@ -2208,6 +2303,103 @@ paths:
         '500': { $ref: '#/components/responses/PrivateMobileProblem' }
 components:
   schemas:
+    SandboxProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: Sandbox request unavailable }
+        status: { type: integer, enum: [400, 401, 404, 409, 429, 500] }
+        code: { type: string, enum: [INVALID_SANDBOX_REQUEST, SANDBOX_AUTHENTICATION_REQUIRED, SUBSCRIPTION_NOT_FOUND, SANDBOX_RESTART_REQUIRED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_CONFLICT, LIFECYCLE_CONFLICT, SANDBOX_CAPACITY_EXHAUSTED, SANDBOX_UNAVAILABLE] }
+    SandboxBootstrapBody:
+      type: object
+      additionalProperties: false
+      required: [transport, locale]
+      properties:
+        transport: { type: string, const: sandbox-mobile }
+        locale: { type: string, enum: [sv, en] }
+    SandboxTransportBody:
+      type: object
+      additionalProperties: false
+      required: [transport]
+      properties:
+        transport: { type: string, const: sandbox-mobile }
+    SandboxCredentials:
+      type: object
+      additionalProperties: false
+      required: [transport, sessionId, accessToken, refreshToken, sessionExpiresAt]
+      properties:
+        transport: { type: string, const: sandbox-mobile }
+        sessionId: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+        accessToken: { type: string, maxLength: 4096, pattern: '^[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+$' }
+        refreshToken: { type: string, pattern: '^s250r\.[-_A-Za-z0-9]{42}[AEIMQUYcgkosw048]$' }
+        sessionExpiresAt: { type: integer, minimum: 1, maximum: 9007199254740991 }
+    SandboxBootstrapCredentials:
+      type: object
+      additionalProperties: false
+      required: [transport, sessionId, accessToken, refreshToken, sessionExpiresAt, installationCapability]
+      properties:
+        transport: { type: string, const: sandbox-mobile }
+        sessionId: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+        accessToken: { type: string, maxLength: 4096, pattern: '^[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+$' }
+        refreshToken: { type: string, pattern: '^s250r\.[-_A-Za-z0-9]{42}[AEIMQUYcgkosw048]$' }
+        sessionExpiresAt: { type: integer, minimum: 1, maximum: 9007199254740991 }
+        installationCapability: { type: string, pattern: '^s250c\.[-_A-Za-z0-9]{42}[AEIMQUYcgkosw048]$' }
+    SandboxBusinessBody:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: profile-read }
+            body: { $ref: '#/components/schemas/SandboxEmptyBody' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: profile }
+            body: { $ref: '#/components/schemas/ProfilePatch' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: mode-read }
+            body: { $ref: '#/components/schemas/SandboxEmptyBody' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: mode }
+            body: { $ref: '#/components/schemas/JustMeChoice' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: owner-read }
+            body: { $ref: '#/components/schemas/PrivateOwnerPageRequest' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: manual }
+            body: { $ref: '#/components/schemas/PrivateManualCreate' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: manual-edit }
+            body: { $ref: '#/components/schemas/PrivateMobileManualEdit' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: status }
+            body: { $ref: '#/components/schemas/PrivateMobileStatusRequest' }
+    SandboxEmptyBody:
+      type: object
+      additionalProperties: false
+
     PrivateMobileDetectionScan:
       type: object
       additionalProperties: false
@@ -3459,6 +3651,11 @@ components:
 
 
   parameters:
+    SandboxRequestKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
     SubscriptionScope:
       name: scope
       in: query
@@ -3568,6 +3765,20 @@ components:
       schema: { type: string, minLength: 1 }
       description: Required current session CSRF for the verified browser identity and session; separate from browser nonce.
   securitySchemes:
+    SandboxAccess:
+      type: http
+      scheme: bearer
+      bearerFormat: sandbox JWT
+    SandboxCapability:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Exact SandboxCapability scheme with s250c-prefixed installation material.
+    SandboxRefresh:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Exact SandboxRefresh scheme with s250r-prefixed session material.
     V1AccessBearer:
       type: http
       scheme: bearer
@@ -3594,6 +3805,11 @@ components:
       name: Authorization
       description: Mobile only, exact form `Refresh <opaque-secret>`; custom auth scheme, never body/query.
   responses:
+    SandboxProblem:
+      description: Closed sandbox-only error without credentials or private input.
+      headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+      content:
+        application/problem+json: { schema: { $ref: '#/components/schemas/SandboxProblem' } }
     PrivateMobileProblem:
       description: Closed private mobile problem; no credentials, subject, SQL or provider detail.
       headers:

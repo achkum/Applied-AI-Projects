@@ -1,0 +1,49 @@
+name: SubTrack persistent sandbox PostgreSQL qualification
+on:
+  pull_request:
+    paths:
+      - 'SubTrack/apps/api/**'
+      - 'SubTrack/packages/**'
+      - 'SubTrack/pnpm-lock.yaml'
+      - 'SubTrack/tools/database/sandbox-*'
+      - '.github/workflows/subtrack-sandbox-postgresql-qualification.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sandbox-persistent-postgresql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: SubTrack
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - run: corepack enable && corepack prepare pnpm@12.6.0 --activate
+      - run: corepack pnpm install --frozen-lockfile
+      - name: Compile actual persistent sandbox entrypoint
+        run: |
+          corepack pnpm --filter @subtrack/domain build:lifecycle
+          corepack pnpm --filter @subtrack/domain build:bank
+          corepack pnpm --filter @subtrack/domain build:detection
+          corepack pnpm --filter @subtrack/synthetic build:bank
+          DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build corepack pnpm --filter @subtrack/api exec prisma generate --schema=prisma/schema.prisma
+          corepack pnpm --filter @subtrack/api exec tsc -p tsconfig.build.json
+          test -f apps/api/dist/sandbox/main.js
+      - name: Qualify owned PostgreSQL and real HTTP entrypoint
+        env:
+          ST250_DISPOSABLE: hosted-owned-pg16
+        run: bash tools/database/sandbox-qualify.sh
+      - name: Publish only closed receipt after verified custody removal
+        uses: actions/upload-artifact@v4
+        with:
+          name: st250-sandbox-postgresql-receipt-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/st250-sandbox-postgresql-receipt.json
+          if-no-files-found: error
+          retention-days: 14

@@ -47,6 +47,13 @@
     "bodyAriaLabel": "{{name}}, {{ownerType}}, {{cadence}}"
   },
   "onboarding": {
+    "sandbox": {
+      "notice": "Sandlåda · Simulerad verifiering. Använd endast påhittade testuppgifter.",
+      "enter": "Skapa en testyta",
+      "resume": "Återuppta den här testytan",
+      "unavailable": "Sandlådan är för närvarande otillgänglig. Din begäran har inte upprepats.",
+      "recovery": "Testytan hör till den här installationen. Utloggning, utgången giltighet eller förlorad enhetslagring avslutar åtkomsten; återställning på en annan enhet är inte tillgänglig."
+    },
     "welcome": {
       "tagline": "Allt ni prenumererar på. På ett ställe.",
       "createAccount": "Skapa konto",

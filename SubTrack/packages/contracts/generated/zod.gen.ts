@@ -2,6 +2,60 @@
 
 import * as z from 'zod';
 
+export const zSandboxProblem = z.object({
+    type: z.literal('about:blank'),
+    title: z.literal('Sandbox request unavailable'),
+    status: z.union([
+        z.literal(400),
+        z.literal(401),
+        z.literal(404),
+        z.literal(409),
+        z.literal(429),
+        z.literal(500)
+    ]),
+    code: z.enum([
+        'INVALID_SANDBOX_REQUEST',
+        'SANDBOX_AUTHENTICATION_REQUIRED',
+        'SUBSCRIPTION_NOT_FOUND',
+        'SANDBOX_RESTART_REQUIRED',
+        'MODE_CONFLICT',
+        'MANUAL_IDEMPOTENCY_CONFLICT',
+        'MANUAL_EDIT_IDEMPOTENCY_CONFLICT',
+        'MANUAL_EDIT_CONFLICT',
+        'LIFECYCLE_CONFLICT',
+        'SANDBOX_CAPACITY_EXHAUSTED',
+        'SANDBOX_UNAVAILABLE'
+    ])
+}).strict();
+
+export const zSandboxBootstrapBody = z.object({
+    transport: z.literal('sandbox-mobile'),
+    locale: z.enum(['sv', 'en'])
+}).strict();
+
+export const zSandboxTransportBody = z.object({
+    transport: z.literal('sandbox-mobile')
+}).strict();
+
+export const zSandboxCredentials = z.object({
+    transport: z.literal('sandbox-mobile'),
+    sessionId: z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
+    accessToken: z.string().max(4096).regex(/^[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+$/),
+    refreshToken: z.string().regex(/^s250r\.[-_A-Za-z0-9]{42}[AEIMQUYcgkosw048]$/),
+    sessionExpiresAt: z.int().gte(1).lte(9007199254740991)
+}).strict();
+
+export const zSandboxBootstrapCredentials = z.object({
+    transport: z.literal('sandbox-mobile'),
+    sessionId: z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
+    accessToken: z.string().max(4096).regex(/^[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+$/),
+    refreshToken: z.string().regex(/^s250r\.[-_A-Za-z0-9]{42}[AEIMQUYcgkosw048]$/),
+    sessionExpiresAt: z.int().gte(1).lte(9007199254740991),
+    installationCapability: z.string().regex(/^s250c\.[-_A-Za-z0-9]{42}[AEIMQUYcgkosw048]$/)
+}).strict();
+
+export const zSandboxEmptyBody = z.record(z.string(), z.never());
+
 export const zPrivateMobileDetectionScan = z.record(z.string(), z.never());
 
 export const zPrivateMobileDetectionRead = z.object({
@@ -517,6 +571,41 @@ export const zPrivateManualError = z.object({
 export const zPrivateOwnerPageRequest = z.object({
     cursor: z.string().min(1).max(512).optional()
 }).strict();
+
+export const zSandboxBusinessBody = z.union([
+    z.object({
+        operation: z.literal('profile-read'),
+        body: zSandboxEmptyBody
+    }).strict(),
+    z.object({
+        operation: z.literal('profile'),
+        body: zProfilePatch
+    }).strict(),
+    z.object({
+        operation: z.literal('mode-read'),
+        body: zSandboxEmptyBody
+    }).strict(),
+    z.object({
+        operation: z.literal('mode'),
+        body: zJustMeChoice
+    }).strict(),
+    z.object({
+        operation: z.literal('owner-read'),
+        body: zPrivateOwnerPageRequest
+    }).strict(),
+    z.object({
+        operation: z.literal('manual'),
+        body: zPrivateManualCreate
+    }).strict(),
+    z.object({
+        operation: z.literal('manual-edit'),
+        body: zPrivateMobileManualEdit
+    }).strict(),
+    z.object({
+        operation: z.literal('status'),
+        body: zPrivateMobileStatusRequest
+    }).strict()
+]);
 
 export const zPrivateSubscriptionError = z.object({
     type: z.literal('about:blank'),
@@ -1287,6 +1376,8 @@ export const zV2Problem = zProblem.and(z.object({
     code: z.string()
 }));
 
+export const zSandboxRequestKey = z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+
 /**
  * Defaults to me. Household means rows currently visible through any of the caller's active households; no owner selector.
  */
@@ -1373,6 +1464,61 @@ export const zSessionCsrf = z.string();
  * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
  */
 export const zBrowserSessionCsrf = z.string().min(1);
+
+export const zBootstrapSandboxMobileBody = zSandboxBootstrapBody;
+
+export const zBootstrapSandboxMobileHeaders = z.object({
+    'Idempotency-Key': z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+});
+
+/**
+ * Known committed workspace and credentials, with one-time installation capability.
+ */
+export const zBootstrapSandboxMobileResponse = zSandboxBootstrapCredentials;
+
+export const zResumeSandboxMobileBody = zSandboxTransportBody;
+
+export const zResumeSandboxMobileHeaders = z.object({
+    'Idempotency-Key': z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+});
+
+/**
+ * Known committed new session, without redisclosing installation capability.
+ */
+export const zResumeSandboxMobileResponse = zSandboxCredentials;
+
+export const zRefreshSandboxMobileHeaders = z.object({
+    'Idempotency-Key': z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+});
+
+/**
+ * Known committed rotated sandbox credentials.
+ */
+export const zRefreshSandboxMobileResponse = zSandboxCredentials;
+
+export const zLogoutSandboxMobileBody = zSandboxTransportBody;
+
+/**
+ * Known committed workspace-wide revocation.
+ */
+export const zLogoutSandboxMobileResponse = z.void();
+
+export const zExecuteSandboxMobileBusinessBody = zSandboxBusinessBody;
+
+export const zExecuteSandboxMobileBusinessHeaders = z.object({
+    'Idempotency-Key': z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/).optional()
+});
+
+export const zExecuteSandboxMobileBusinessResponse = z.union([
+    z.union([
+        zProfileView,
+        zModeView,
+        zPrivateOwnerPage,
+        zPrivateManualEdited,
+        zSubscriptionLifecycleResult
+    ]),
+    zPrivateManualCreated
+]);
 
 /**
  * API process is healthy.

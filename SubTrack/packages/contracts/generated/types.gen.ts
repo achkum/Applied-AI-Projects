@@ -4,6 +4,69 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type SandboxProblem = {
+    type: 'about:blank';
+    title: 'Sandbox request unavailable';
+    status: 400 | 401 | 404 | 409 | 429 | 500;
+    code: 'INVALID_SANDBOX_REQUEST' | 'SANDBOX_AUTHENTICATION_REQUIRED' | 'SUBSCRIPTION_NOT_FOUND' | 'SANDBOX_RESTART_REQUIRED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_CONFLICT' | 'LIFECYCLE_CONFLICT' | 'SANDBOX_CAPACITY_EXHAUSTED' | 'SANDBOX_UNAVAILABLE';
+};
+
+export type SandboxBootstrapBody = {
+    transport: 'sandbox-mobile';
+    locale: 'sv' | 'en';
+};
+
+export type SandboxTransportBody = {
+    transport: 'sandbox-mobile';
+};
+
+export type SandboxCredentials = {
+    transport: 'sandbox-mobile';
+    sessionId: string;
+    accessToken: string;
+    refreshToken: string;
+    sessionExpiresAt: number;
+};
+
+export type SandboxBootstrapCredentials = {
+    transport: 'sandbox-mobile';
+    sessionId: string;
+    accessToken: string;
+    refreshToken: string;
+    sessionExpiresAt: number;
+    installationCapability: string;
+};
+
+export type SandboxBusinessBody = {
+    operation: 'profile-read';
+    body: SandboxEmptyBody;
+} | {
+    operation: 'profile';
+    body: ProfilePatch;
+} | {
+    operation: 'mode-read';
+    body: SandboxEmptyBody;
+} | {
+    operation: 'mode';
+    body: JustMeChoice;
+} | {
+    operation: 'owner-read';
+    body: PrivateOwnerPageRequest;
+} | {
+    operation: 'manual';
+    body: PrivateManualCreate;
+} | {
+    operation: 'manual-edit';
+    body: PrivateMobileManualEdit;
+} | {
+    operation: 'status';
+    body: PrivateMobileStatusRequest;
+};
+
+export type SandboxEmptyBody = {
+    [key: string]: never;
+};
+
 export type PrivateMobileDetectionScan = {
     [key: string]: never;
 };
@@ -1036,6 +1099,8 @@ export type V2Problem = Problem & {
     code: string;
 };
 
+export type SandboxRequestKey = string;
+
 /**
  * Defaults to me. Household means rows currently visible through any of the caller's active households; no owner selector.
  */
@@ -1099,6 +1164,147 @@ export type SessionCsrf = string;
  * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
  */
 export type BrowserSessionCsrf = string;
+
+export type BootstrapSandboxMobileData = {
+    body: SandboxBootstrapBody;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/sandbox/mobile/bootstrap';
+};
+
+export type BootstrapSandboxMobileErrors = {
+    /**
+     * Closed sandbox-only error without credentials or private input.
+     */
+    default: SandboxProblem;
+};
+
+export type BootstrapSandboxMobileError = BootstrapSandboxMobileErrors[keyof BootstrapSandboxMobileErrors];
+
+export type BootstrapSandboxMobileResponses = {
+    /**
+     * Known committed workspace and credentials, with one-time installation capability.
+     */
+    201: SandboxBootstrapCredentials;
+};
+
+export type BootstrapSandboxMobileResponse = BootstrapSandboxMobileResponses[keyof BootstrapSandboxMobileResponses];
+
+export type ResumeSandboxMobileData = {
+    body: SandboxTransportBody;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/sandbox/mobile/resume';
+};
+
+export type ResumeSandboxMobileErrors = {
+    /**
+     * Closed sandbox-only error without credentials or private input.
+     */
+    default: SandboxProblem;
+};
+
+export type ResumeSandboxMobileError = ResumeSandboxMobileErrors[keyof ResumeSandboxMobileErrors];
+
+export type ResumeSandboxMobileResponses = {
+    /**
+     * Known committed new session, without redisclosing installation capability.
+     */
+    201: SandboxCredentials;
+};
+
+export type ResumeSandboxMobileResponse = ResumeSandboxMobileResponses[keyof ResumeSandboxMobileResponses];
+
+export type RefreshSandboxMobileData = {
+    body?: never;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/sandbox/mobile/refresh';
+};
+
+export type RefreshSandboxMobileErrors = {
+    /**
+     * Closed sandbox-only error without credentials or private input.
+     */
+    default: SandboxProblem;
+};
+
+export type RefreshSandboxMobileError = RefreshSandboxMobileErrors[keyof RefreshSandboxMobileErrors];
+
+export type RefreshSandboxMobileResponses = {
+    /**
+     * Known committed rotated sandbox credentials.
+     */
+    200: SandboxCredentials;
+};
+
+export type RefreshSandboxMobileResponse = RefreshSandboxMobileResponses[keyof RefreshSandboxMobileResponses];
+
+export type LogoutSandboxMobileData = {
+    body: SandboxTransportBody;
+    path?: never;
+    query?: never;
+    url: '/v2/sandbox/mobile/logout';
+};
+
+export type LogoutSandboxMobileErrors = {
+    /**
+     * Closed sandbox-only error without credentials or private input.
+     */
+    default: SandboxProblem;
+};
+
+export type LogoutSandboxMobileError = LogoutSandboxMobileErrors[keyof LogoutSandboxMobileErrors];
+
+export type LogoutSandboxMobileResponses = {
+    /**
+     * Known committed workspace-wide revocation.
+     */
+    204: void;
+};
+
+export type LogoutSandboxMobileResponse = LogoutSandboxMobileResponses[keyof LogoutSandboxMobileResponses];
+
+export type ExecuteSandboxMobileBusinessData = {
+    body: SandboxBusinessBody;
+    headers?: {
+        'Idempotency-Key'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/sandbox/mobile/business';
+};
+
+export type ExecuteSandboxMobileBusinessErrors = {
+    /**
+     * Closed sandbox-only error without credentials or private input.
+     */
+    default: SandboxProblem;
+};
+
+export type ExecuteSandboxMobileBusinessError = ExecuteSandboxMobileBusinessErrors[keyof ExecuteSandboxMobileBusinessErrors];
+
+export type ExecuteSandboxMobileBusinessResponses = {
+    /**
+     * Known committed current owner business result.
+     */
+    200: ProfileView | ModeView | PrivateOwnerPage | PrivateManualEdited | SubscriptionLifecycleResult;
+    /**
+     * Known committed manual subscription.
+     */
+    201: PrivateManualCreated;
+};
+
+export type ExecuteSandboxMobileBusinessResponse = ExecuteSandboxMobileBusinessResponses[keyof ExecuteSandboxMobileBusinessResponses];
 
 export type GetHealthzData = {
     body?: never;
