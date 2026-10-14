@@ -36,8 +36,10 @@ function validateMetadata(metadata){
 }
 /** Strict producer-shaped projection; payloads and error prose never classify a command. */
 export function projectEnrollmentMetadata(bytes){
- try{const rows=strictJson(bytes);if(!Array.isArray(rows)||rows.length>128)throw Error('invalid');let last=-1;const failed=[];
-  for(const row of rows){if(!plain(row)||Object.keys(row).sort().join(',')!=='command,metadata')throw Error('invalid');const kind=commandKind(row.command);validateMetadata(row.metadata);if(row.metadata.sequenceNumber<=last)throw Error('invalid');last=row.metadata.sequenceNumber;if(row.metadata.status==='FAILED'){if(row.metadata.depth!==0)throw Error('invalid');failed.push(kind);}}
+ try{const rows=strictJson(bytes);if(!Array.isArray(rows)||rows.length===0||rows.length>128)throw Error('invalid');let last=-1;const failed=[];
+  for(const [index,row] of rows.entries()){if(!plain(row)||Object.keys(row).sort().join(',')!=='command,metadata')throw Error('invalid');validateMetadata(row.metadata);if(row.metadata.sequenceNumber<=last)throw Error('invalid');last=row.metadata.sequenceNumber;
+   if(index===0){if(!plain(row.command)||Object.keys(row.command).join(',')!=='defineVariablesCommand'||!plain(row.command.defineVariablesCommand)||row.metadata.status!=='COMPLETED'||row.metadata.depth!==0)throw Error('invalid');continue;}
+   const kind=commandKind(row.command);if(row.metadata.status==='FAILED'){if(row.metadata.depth!==0)throw Error('invalid');failed.push(kind);}}
   return failed.length===1?closed('AVAILABLE',failed[0]):closed('UNAVAILABLE');
  }catch{return closed('INVALID');}
 }
