@@ -1,6 +1,7 @@
 'use strict';
 const crypto=require('node:crypto');
-const {imageBase}=require('../database/sandbox-qualification-receipt.cjs');
+// The finite VPS source pack excludes hosted database qualification tooling.
+const imageBase='node:22.18.0-bookworm-slim@sha256:0d130e2ee18e88e1561375276daced6bff032539200173f2daf48c2e33f38ff5';
 const manifestKeys=Object.freeze(['schema','proof','sourceHead','runId','defaultTargetHead','draftTag','imageId','baseImage','dockerfileSha256','compiledEntrypointSha256','foundationSha256','businessSha256','archiveSha256','rawTarSha256','archiveBytes','rawTarBytes','runtimeUid','runtimeGid','sameImageQualified']);
 const receiptKeys=Object.freeze(['schema','sourceHead','runId','defaultTargetHead','draftTag','releaseId','draft','imageId','archiveSha256','archiveBytes','archiveAssetId','manifestSha256','manifestBytes','manifestAssetId','manifestSchema','sameImageQualified','uploadVerified','localCleanupConfirmed','remoteCustody']);
 function own(value,keys){if(!value||typeof value!=='object'||Object.getPrototypeOf(value)!==Object.prototype)throw Error('transfer');const d=Object.getOwnPropertyDescriptors(value);if(Reflect.ownKeys(value).length!==keys.length||keys.some(k=>!d[k]||!('value'in d[k])||!d[k].enumerable))throw Error('transfer');return value;}
