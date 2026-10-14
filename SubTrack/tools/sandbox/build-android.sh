@@ -20,7 +20,8 @@ cd "$app"
 [[ "$(java -version 2>&1 | head -1)" =~ \"17\. ]]
 if [[ "$1" == verify-signed ]]; then
   [[ "${GITHUB_EVENT_NAME:-}" == workflow_dispatch && "${GITHUB_REF:-}" == refs/heads/st/native-synthetic-bank && "${GITHUB_REPOSITORY:-}" == achkum/Applied-AI-Projects ]]
-  [[ "${ST250_SOURCE_HEAD:-}" =~ ^[a-f0-9]{40}$ && "$ST250_SOURCE_HEAD" == "${GITHUB_SHA:-}" && "$(git -C "$root" rev-parse HEAD)" == "$ST250_SOURCE_HEAD" ]]
+  [[ "${ST250_VERIFICATION_TOOLING_HEAD:-}" =~ ^[a-f0-9]{40}$ && "$ST250_VERIFICATION_TOOLING_HEAD" == "${GITHUB_SHA:-}" && "$(git -C "$root" rev-parse HEAD)" == "$ST250_VERIFICATION_TOOLING_HEAD" ]]
+  [[ "${ST250_SOURCE_HEAD:-}" =~ ^[a-f0-9]{40}$ && "$(git -C "$root" rev-parse --verify "$ST250_SOURCE_HEAD^{commit}")" == "$ST250_SOURCE_HEAD" ]]
   [[ "${ST250_SIGNED_RETURN_RELEASE_ID:-}" =~ ^[1-9][0-9]*$ && "${ST250_SIGNER_CERTIFICATE_SHA256:-}" =~ ^[a-f0-9]{64}$ ]]
   base="$(cd "${RUNNER_TEMP:?}" && pwd -P)"; private="$(mktemp -d "$base/st250-android-return.XXXXXXXX")"; chmod 700 "$private"
   return_cleanup() {
@@ -30,6 +31,38 @@ if [[ "$1" == verify-signed ]]; then
   return_finish() { status=$?; trap - EXIT; return_cleanup || status=1; if (( status != 0 )); then printf 'ST250_ANDROID_SIGNED_RETURN_FAILURE\n' >&2; fi; exit "$status"; }
   trap return_finish EXIT
   (set -C; printf '%s' "${ST250_UNSIGNED_TRANSFER_RECEIPT:?}" > "$private/input-receipt.json")
+  # Bind historical build inputs before the unchanged authenticated signed receiver.
+  node --input-type=module - "$root" "$private/input-receipt.json" <<'NODE'
+import {readFileSync} from 'node:fs';import {spawnSync} from 'node:child_process';import {pathToFileURL} from 'node:url';
+const root=process.argv[2];
+const {canonical,validateTransfer,validateManifest,digest}=await import(pathToFileURL(`${root}/tools/sandbox/android-transfer-receipt.mjs`).href);
+// ST250_SIGNED_SOURCE_BINDING_BEGIN
+function verificationAuthority(env,git,receiptBytes){
+ const fail=()=>{throw Error('ST250_ANDROID_VERIFICATION_AUTHORITY_UNAVAILABLE');};
+ const source=env.ST250_SOURCE_HEAD,tooling=env.ST250_VERIFICATION_TOOLING_HEAD;
+ if(env.GITHUB_EVENT_NAME!=='workflow_dispatch'||env.GITHUB_REPOSITORY!=='achkum/Applied-AI-Projects'||env.GITHUB_REF!=='refs/heads/st/native-synthetic-bank'||env.ST250_DELIVERY_MODE!=='verify-signed'||!/^[a-f0-9]{40}$/.test(source??'')||!/^[a-f0-9]{40}$/.test(tooling??'')||tooling!==env.GITHUB_SHA||git(['rev-parse','HEAD']).toString('utf8').trim()!==tooling||git(['rev-parse','--verify',`${source}^{commit}`]).toString('utf8').trim()!==source)fail();
+ const receipt=canonical(receiptBytes,v=>validateTransfer(v,'apk'));if(receipt.sourceHead!==source)fail();
+ const hashes={buildScriptSha256:digest(git(['show',`${source}:SubTrack/tools/sandbox/build-android.sh`])),receiptModuleSha256:digest(git(['show',`${source}:SubTrack/tools/sandbox/android-release-receipt.mjs`]))};
+ return {receipt,hashes};
+}
+function verificationManifest(env,authority,bytes){
+ const fail=()=>{throw Error('ST250_ANDROID_VERIFICATION_AUTHORITY_UNAVAILABLE');};
+ const {receipt,hashes}=authority,manifest=canonical(bytes,v=>validateManifest(v,'apk'));
+ if(digest(bytes)!==receipt.manifestSha256||bytes.length!==receipt.manifestBytes||manifest.schema!==receipt.manifestSchema)fail();
+ for(const key of ['sourceHead','runId','defaultTargetHead','draftTag','unsignedSha256','bytes','applicationId'])if(manifest[key]!==receipt[key])fail();
+ for(const key of ['buildScriptSha256','receiptModuleSha256'])if(manifest[key]!==hashes[key])fail();
+ if(!['true','false'].includes(env.SUBTRACK_SANDBOX_RUNTIME_ENABLED)||manifest.runtimeEnabled!==(env.SUBTRACK_SANDBOX_RUNTIME_ENABLED==='true')||(manifest.runtimeEnabled?String(manifest.versionCode)!==env.SUBTRACK_SANDBOX_VERSION_CODE:!!env.SUBTRACK_SANDBOX_VERSION_CODE))fail();
+ return manifest;
+}
+// ST250_SIGNED_SOURCE_BINDING_END
+try {
+ const git=args=>{const result=spawnSync('git',['-C',root,...args],{encoding:null,timeout:10000,maxBuffer:1048576});if(result.status!==0)throw Error('unavailable');return result.stdout;};
+ const authority=verificationAuthority(process.env,git,readFileSync(process.argv[3]));
+ // Only bounded manifest metadata is prefetched; unsigned/signed APK custody stays with receive-signed.
+ const result=spawnSync('gh',['api',`repos/achkum/Applied-AI-Projects/releases/assets/${authority.receipt.manifestAssetId}`,'--header','Accept: application/octet-stream'],{encoding:null,timeout:60000,maxBuffer:16384,env:{...process.env,GH_TOKEN:process.env.GITHUB_TOKEN}});
+ if(result.status!==0)throw Error('unavailable');verificationManifest(process.env,authority,result.stdout);
+}catch{process.stderr.write('ST250_ANDROID_VERIFICATION_AUTHORITY_UNAVAILABLE\n');process.exitCode=1;}
+NODE
   node "$root/tools/sandbox/android-transfer-receipt.mjs" receive-signed "$private/input-receipt.json" "$ST250_SIGNED_RETURN_RELEASE_ID" "$ST250_SIGNER_CERTIFICATE_SHA256" "$private"
   tools="${ANDROID_HOME:?}/build-tools/36.0.0"
   [[ -x "$tools/apksigner" && -x "$tools/zipalign" && -x "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" ]]

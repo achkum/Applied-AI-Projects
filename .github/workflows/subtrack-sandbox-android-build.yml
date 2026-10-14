@@ -14,6 +14,9 @@ on:
       source_head:
         type: string
         default: ""
+      verification_tooling_head:
+        type: string
+        default: ""
       free_draft_confirmed:
         type: boolean
         default: false
@@ -39,6 +42,9 @@ on:
         options: [none, unsigned-apk, signing-tools, verify-signed]
         default: none
       source_head:
+        type: string
+        default: ""
+      verification_tooling_head:
         type: string
         default: ""
       free_draft_confirmed:
@@ -214,6 +220,7 @@ jobs:
       SUBTRACK_SANDBOX_VERSION_CODE: ${{ inputs.version_code }}
       SUBTRACK_SANDBOX_HTTPS_ORIGIN: https://198.44.116.159
       ST250_SOURCE_HEAD: ${{ inputs.source_head }}
+      ST250_VERIFICATION_TOOLING_HEAD: ${{ inputs.verification_tooling_head }}
       ST250_DELIVERY_MODE: ${{ inputs.delivery_mode }}
       ST250_UNSIGNED_TRANSFER_RECEIPT: ${{ inputs.unsigned_transfer_receipt }}
       ST250_SIGNED_RETURN_RELEASE_ID: ${{ inputs.signed_return_release_id }}
@@ -222,6 +229,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
@@ -234,8 +242,11 @@ jobs:
         run: |
           test "$GITHUB_REPOSITORY" = achkum/Applied-AI-Projects
           test "$GITHUB_REF" = refs/heads/st/native-synthetic-bank
-          test "$ST250_SOURCE_HEAD" = "$GITHUB_SHA"
-          test "$(git rev-parse HEAD)" = "$ST250_SOURCE_HEAD"
+          [[ "$ST250_VERIFICATION_TOOLING_HEAD" =~ ^[a-f0-9]{40}$ ]]
+          test "$ST250_VERIFICATION_TOOLING_HEAD" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$ST250_VERIFICATION_TOOLING_HEAD"
+          [[ "$ST250_SOURCE_HEAD" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git rev-parse --verify "$ST250_SOURCE_HEAD^{commit}")" = "$ST250_SOURCE_HEAD"
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;36.0.0'
       - name: Actual signed manifest Hermes certificate and cleanup receipt
         env:

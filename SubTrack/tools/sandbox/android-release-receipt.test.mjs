@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { unsignedTemplate, inspectUnsigned, inspectSigned, validateReceipt, buildDiagnostic, unsignedReceiptDiagnostic } from './android-release-receipt.mjs';
+import {canonical,validateTransfer,validateManifest,digest} from './android-transfer-receipt.mjs';
 
 
 function makeApk(runtime=false,version=1,options={}){
@@ -18,6 +19,35 @@ const input = () => ({ manifest: '<manifest package="se.subtrack.app.sandbox" an
   bundle: Buffer.from('c61fbc03c103191f00', 'hex'), apk: makeApk(), sourceHead: 'a'.repeat(40), signatureExit: 1,
   signatureOutput: 'DOES NOT VERIFY\nERROR: Missing META-INF/MANIFEST.MF\n' });
 const receipt = () => ({ ...inspectUnsigned(input()), cleanup: 'REMOVED' });
+test('signed verification binds independent current tooling to immutable historical artifact Git inputs',()=>{
+ const root=fileURLToPath(new URL('../../',import.meta.url)),script=readFileSync(new URL('./build-android.sh',import.meta.url),'utf8');
+ const body=script.split('// ST250_SIGNED_SOURCE_BINDING_BEGIN')[1].split('// ST250_SIGNED_SOURCE_BINDING_END')[0];
+ const {verificationAuthority,verificationManifest}=Function('canonical','validateTransfer','validateManifest','digest',body+'\nreturn {verificationAuthority,verificationManifest};')(canonical,validateTransfer,validateManifest,digest);
+ const git=args=>{const r=spawnSync('git',['-C',root,...args],{encoding:null,timeout:10000});assert.equal(r.status,0);return r.stdout;};
+ const tooling=git(['rev-parse','HEAD']).toString().trim(),source=git(['rev-parse','HEAD^']).toString().trim();assert.notEqual(source,tooling);
+ const env={GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REPOSITORY:'achkum/Applied-AI-Projects',GITHUB_REF:'refs/heads/st/native-synthetic-bank',GITHUB_SHA:tooling,ST250_SOURCE_HEAD:source,ST250_VERIFICATION_TOOLING_HEAD:tooling,ST250_DELIVERY_MODE:'verify-signed',SUBTRACK_SANDBOX_RUNTIME_ENABLED:'false',SUBTRACK_SANDBOX_VERSION_CODE:''};
+ const value=inspectUnsigned({...input(),sourceHead:source}),fields=Object.fromEntries(Object.entries(value).filter(([key])=>!['schemaVersion','signatureVerified'].includes(key)));
+ const manifest={schema:'st250-android-transfer-manifest-v1',...fields,runId:'1-1',defaultTargetHead:'b'.repeat(40),draftTag:`st250-android-stage-${source}-1-1`,buildScriptSha256:digest(git(['show',`${source}:SubTrack/tools/sandbox/build-android.sh`])),receiptModuleSha256:digest(git(['show',`${source}:SubTrack/tools/sandbox/android-release-receipt.mjs`]))};
+ const makeReceipt=m=>({schema:'st250-android-draft-transfer-receipt-v1',sourceHead:source,runId:'1-1',defaultTargetHead:'b'.repeat(40),draftTag:`st250-android-stage-${source}-1-1`,releaseId:1,draft:true,unsignedSha256:value.unsignedSha256,bytes:value.bytes,applicationId:value.applicationId,apkAssetId:2,manifestSha256:digest(Buffer.from(JSON.stringify(m))),manifestBytes:Buffer.byteLength(JSON.stringify(m)),manifestAssetId:3,manifestSchema:m.schema,unsignedQualified:true,uploadVerified:true,localCleanupConfirmed:true,remoteCustody:'draft-retained'});
+ const raw=Buffer.from(JSON.stringify(makeReceipt(manifest))),authority=verificationAuthority(env,git,raw),mb=Buffer.from(JSON.stringify(manifest));
+ assert.equal(verificationManifest(env,authority,mb).sourceHead,source);
+ for(const patch of [{GITHUB_EVENT_NAME:'pull_request'},{GITHUB_REPOSITORY:'other/repo'},{GITHUB_REF:'refs/heads/main'},{ST250_DELIVERY_MODE:'unsigned-apk'},{ST250_VERIFICATION_TOOLING_HEAD:''},{ST250_VERIFICATION_TOOLING_HEAD:source},{GITHUB_SHA:source},{ST250_SOURCE_HEAD:'unknown'}])assert.throws(()=>verificationAuthority({...env,...patch},git,raw));
+ assert.throws(()=>verificationAuthority(env,args=>args[0]==='rev-parse'?Buffer.from(source):git(args),raw));
+ assert.throws(()=>verificationAuthority(env,args=>{if(args.includes('--verify'))throw Error('unknown commit');return git(args);},raw));
+ assert.throws(()=>verificationAuthority({...env,ST250_SOURCE_HEAD:tooling},git,raw));
+ for(const patch of [{sourceHead:tooling,draftTag:`st250-android-stage-${tooling}-1-1`},{buildScriptSha256:'f'.repeat(64)},{receiptModuleSha256:'f'.repeat(64)},{runId:'2-1',draftTag:`st250-android-stage-${source}-2-1`},{unsignedSha256:'f'.repeat(64)}]){
+  const m={...manifest,...patch},a=verificationAuthority(env,git,Buffer.from(JSON.stringify(makeReceipt(m))));assert.throws(()=>verificationManifest(env,a,Buffer.from(JSON.stringify(m))));
+ }
+ assert.throws(()=>verificationManifest(env,authority,Buffer.from(JSON.stringify({...manifest,buildScriptSha256:'f'.repeat(64)}))));
+ for(const patch of [{SUBTRACK_SANDBOX_RUNTIME_ENABLED:'true'},{SUBTRACK_SANDBOX_RUNTIME_ENABLED:'unknown'},{SUBTRACK_SANDBOX_VERSION_CODE:'1'}])assert.throws(()=>verificationManifest({...env,...patch},authority,mb));
+ const active=inspectUnsigned({...input(),sourceHead:source,runtimeEnabled:true,manifest:input().manifest.replace('versionCode="1"','versionCode="2"'),apk:makeApk(true,2)}),activeFields=Object.fromEntries(Object.entries(active).filter(([key])=>!['schemaVersion','signatureVerified'].includes(key))),am={...manifest,...activeFields,schema:'st250-android-transfer-manifest-v2'};
+ const ar={...makeReceipt(am),schema:'st250-android-draft-transfer-receipt-v2',unsignedSha256:active.unsignedSha256,bytes:active.bytes},ae={...env,SUBTRACK_SANDBOX_RUNTIME_ENABLED:'true',SUBTRACK_SANDBOX_VERSION_CODE:'2'},aa=verificationAuthority(ae,git,Buffer.from(JSON.stringify(ar))),ab=Buffer.from(JSON.stringify(am));
+ assert.equal(verificationManifest(ae,aa,ab).versionCode,2);assert.throws(()=>verificationManifest({...ae,SUBTRACK_SANDBOX_VERSION_CODE:'3'},aa,ab));assert.throws(()=>verificationManifest(env,aa,ab));
+ assert.ok(script.indexOf('verificationManifest(process.env,authority,result.stdout)')<script.indexOf(' receive-signed '));
+ assert.ok(script.includes('"${GITHUB_SHA:-}" == "$ST250_SOURCE_HEAD"'));assert.ok(script.includes('"$(git -C "$root" rev-parse HEAD)" == "$ST250_SOURCE_HEAD"'));
+ const workflow=readFileSync(new URL('../../../.github/workflows/subtrack-sandbox-android-build.yml',import.meta.url),'utf8'),job=workflow.split('  signed-return-verification:')[1];
+ assert.equal((workflow.match(/      verification_tooling_head:/g)??[]).length,2);assert.ok(job.includes('ST250_VERIFICATION_TOOLING_HEAD: ${{ inputs.verification_tooling_head }}'));assert.ok(job.includes('fetch-depth: 0'));assert.ok(job.includes('test "$ST250_VERIFICATION_TOOLING_HEAD" = "$GITHUB_SHA"'));assert.ok(workflow.split('  signed-return-verification:')[0].includes('test "$ST250_SOURCE_HEAD" = "$GITHUB_SHA"'));
+});
 test('Expo generated disabled updates metadata preserves embedded release authority and rejects overrides',()=>{
  const marker='<meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>';
  const withMarker=value=>({...input(),manifest:input().manifest.replace('</manifest>',value+'</manifest>')});
