@@ -31,18 +31,28 @@ trap cleanup EXIT
 code=0
 NODE_ENV=development node - "$root" "$config" > "$work/proof-private.log" 2>&1 <<'NODE' || code=$?
 const fs=require('node:fs'),path=require('node:path'),{createRequire}=require('node:module');
+try{
 const [root,configPath]=process.argv.slice(2),r=createRequire(path.join(root,'apps/api/package.json'));
 const esbuild=r(r.resolve('esbuild',{paths:[r.resolve('vite')]}));if(esbuild.version!=='0.28.2')throw Error('tool version');
 const file=path.join(path.dirname(configPath),'proof.cjs');
 esbuild.buildSync({entryPoints:[path.join(root,'apps/api/test/private-mobile-detection.integration.ts')],outfile:file,bundle:true,packages:'external',platform:'node',format:'cjs',nodePaths:[path.join(root,'apps/api/node_modules')],logLevel:'silent'});
 process.env.NODE_PATH=path.join(root,'apps/api/node_modules');require('node:module').Module._initPaths();
 const config=JSON.parse(fs.readFileSync(configPath,'utf8'));
-r(file).runPrivateMobileDetectionIntegration(config).then(receipt=>{
+const integration=r(file);
+integration.runPrivateMobileDetectionIntegration(config).then(receipt=>{
  fs.writeFileSync(path.join(path.dirname(configPath),'proof-receipt.json'),JSON.stringify(receipt),{mode:0o600});
-}).catch(error=>{if(/^ST249_DETECTION_PROOF_FAILURE phase=(START|OVERFLOW|SCAN|PARALLEL|COLLISION|UNMATCHED|REVIEW|RESTART|TIMING|TWO_OWNER|RLS|PURGE|EXPIRED_SESSION|MINIMAL|BASELINE)$/.test(error.message))process.stderr.write(error.message+'\n');process.exitCode=1;});
+}).catch(error=>{
+ let message=null;
+ try{const descriptor=error!==null&&(typeof error==='object'||typeof error==='function')?Object.getOwnPropertyDescriptor(error,'message'):undefined;
+  if(descriptor&&'value'in descriptor&&typeof descriptor.value==='string')message=descriptor.value;
+ }catch{/* Hostile error objects never supply a diagnostic. */}
+ const safe=message!==null&&!/[\r\n]/.test(message)&&(integration.safePrivateBankFailure(message)||/^ST244_PROOF_FAILURE phase=(START|ENROLL|PROFILE_MODE|ADD|NATIVE_EDIT_STATUS|ISOLATION|ROTATION_REUSE|LOGIN|RESTART|LOGOUT|UNCERTAINTY|KEY_TAMPER)$/.test(message)||/^ST249_DETECTION_PROOF_FAILURE phase=(START|OVERFLOW|SCAN|PARALLEL|COLLISION|UNMATCHED|REVIEW|RESTART|TIMING|TWO_OWNER|RLS|PURGE|EXPIRED_SESSION|MINIMAL|BASELINE|SETUP|UNKNOWN)$/.test(message));
+ process.stderr.write((safe?message:'ST249_DETECTION_PROOF_FAILURE phase=UNKNOWN')+'\n');process.exitCode=1;
+});
+}catch{process.stderr.write('ST249_DETECTION_PROOF_FAILURE phase=SETUP\n');process.exitCode=1;}
 NODE
 if (( code!=0 ));then
- grep -E '^ST249_DETECTION_PROOF_FAILURE phase=(START|OVERFLOW|SCAN|PARALLEL|COLLISION|UNMATCHED|REVIEW|RESTART|TIMING|TWO_OWNER|RLS|PURGE|EXPIRED_SESSION|MINIMAL|BASELINE)$' "$work/proof-private.log" >&2 || true
+ grep -E '^ST248_BANK_PROOF_FAILURE phase=TWO_OWNER step=(A_SNAPSHOT|B_SESSION|B_DISTINCT|B_PROFILE_GATE|B_PROFILE_PATCH|B_MODE|B_EMPTY_READ|PUBLIC_SELECTOR|B_EMPTY_SNAPSHOT|B_TO_A_SYNC|B_TO_A_SYNC_SNAPSHOT|B_TO_A_RETAIN|B_TO_A_RETAIN_SNAPSHOT|B_TO_A_PURGE|B_TO_A_PURGE_SNAPSHOT|B_CONNECT|B_SYNC|B_POSITIVE_READ|A_POSITIVE_READ|B_POSITIVE_SNAPSHOT|A_TO_B_SYNC|A_TO_B_SYNC_SNAPSHOT|A_TO_B_RETAIN|A_TO_B_RETAIN_SNAPSHOT|A_TO_B_PURGE|A_TO_B_PURGE_SNAPSHOT|B_PURGE|B_EMPTY_AFTER_PURGE|B_LOGOUT|B_LOGOUT_DENIED|A_FINAL_SNAPSHOT|TWO_OWNER_COUNTS) category=(PERMISSION|UNDEFINED_COLUMN|UNDEFINED_TABLE|FOREIGN_KEY|UNIQUE|CHECK|NOT_NULL|TYPE_MISMATCH|INVALID_INPUT|NUMERIC_RANGE|SERIALIZATION|DEADLOCK|ASSERTION|OTHER)$|^ST248_BANK_PROOF_FAILURE phase=(START|CONNECT|SYNC|RESTART|TWO_OWNER|EXPIRED_SESSION|RETAIN|RECONNECT|DEPENDENCY|PURGE|RLS_NEGATIVE|UNCERTAINTY|LOGOUT)$|^ST244_PROOF_FAILURE phase=(START|ENROLL|PROFILE_MODE|ADD|NATIVE_EDIT_STATUS|ISOLATION|ROTATION_REUSE|LOGIN|RESTART|LOGOUT|UNCERTAINTY|KEY_TAMPER)$|^ST249_DETECTION_PROOF_FAILURE phase=(START|OVERFLOW|SCAN|PARALLEL|COLLISION|UNMATCHED|REVIEW|RESTART|TIMING|TWO_OWNER|RLS|PURGE|EXPIRED_SESSION|MINIMAL|BASELINE|SETUP|UNKNOWN)$' "$work/proof-private.log" >&2 || true
  exit 1
 fi
 receipt_json="$(cat "$work/proof-receipt.json")"

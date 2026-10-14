@@ -1,3 +1,4 @@
+export {safePrivateBankFailure} from './private-mobile-bank-diagnostics.js';
 import {runPrivateMobileProof} from './private-mobile-proof.js';
 import {runPrivateMobileBankProof} from './private-mobile-bank-proof.js';
 import {runPrivateMobileDetectionProof,requireDetectionFlags} from './private-mobile-detection-proof.js';
