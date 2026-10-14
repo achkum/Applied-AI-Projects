@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import {
   identifierToolDiagnostic,
   enrollmentToolDiagnostic,
+  createEnrollmentExecution,
+  enrollmentExecutionDiagnostic,
 } from './private-runtime-identifier-diagnostic.mjs';
 const labels = { createAccount: 'Create account', otp: 'Verification code' };
 function classify(overrides = {}) {
@@ -27,6 +29,9 @@ const enrollmentLabels = {
   amount: 'Amount in SEK',
   saveSubscription: 'Save',
   saved: 'Saved subscription',
+  date: 'Expected charge date (YYYY-MM-DD)',
+  personalTitle: 'Your subscriptions',
+  expectedAmount: 'Expected amount: 129,90\\s+SEK',
 };
 function enrollment(overrides = {}) {
   return enrollmentToolDiagnostic({
@@ -213,6 +218,9 @@ test('enrollment projects only fixed targets/commands and longest known overlapp
     'subscription-amount',
     'subscription-save',
     'subscription-saved',
+    'date-field',
+    'personal-title',
+    'expected-amount',
   ]);
   assert.deepEqual(result.commands, ['wait-visible', 'scroll']);
   assert.equal(JSON.stringify(result).includes('private-canary'), false);
@@ -252,4 +260,29 @@ test('enrollment actual typed secrets and arbitrary module/context values never 
     assert.ok(!JSON.stringify(result).includes(secret));
     assert.ok(!JSON.stringify(result).includes('canary'));
   }
+});
+
+test('enrollment execution is invocation-owned, terminal-latched and launch errors dominate later exits/close',()=>{
+ assert.equal(createEnrollmentExecution('identifier'),null);
+ const absent=createEnrollmentExecution('enroll-add');assert.equal(absent.snapshot(),null);absent.record('private-canary',123,'private-canary');assert.equal(absent.snapshot(),null);
+ const failed=createEnrollmentExecution('enroll-add');assert.ok(Object.isFrozen(failed));failed.record('error',1,'private-canary');failed.record('exit',1,null);failed.record('close',0,null);assert.deepEqual(failed.snapshot(),{outcome:'launch-error',code:'unavailable',signal:'none',timeout:'not-applicable'});assert.ok(Object.isFrozen(failed.snapshot()));
+ for(const [code,signal,outcome,bucket,signalBucket] of [[0,null,'completed','zero','none'],[1,undefined,'exit-nonzero','one','none'],[2,null,'exit-nonzero','other-nonzero','none'],[255,null,'exit-nonzero','other-nonzero','none'],[null,'SIGTERM','signal','unavailable','TERM'],[null,'SIGKILL','signal','unavailable','KILL'],[null,'private-canary','signal','unavailable','other'],[-1,null,'exit-nonzero','unavailable','none'],[256,null,'exit-nonzero','unavailable','none'],[1.5,null,'exit-nonzero','unavailable','none'],['private-canary',null,'exit-nonzero','unavailable','none']]){
+  const record=createEnrollmentExecution('enroll-add');record.record('exit',code,signal);record.record('close',0,null);record.record('error');assert.deepEqual(record.snapshot(),{outcome,code:bucket,signal:signalBucket,timeout:'not-applicable'});assert.equal(JSON.stringify(record.snapshot()).includes('canary'),false);
+ }
+ const close=createEnrollmentExecution('enroll-add');close.record('close',1,null);assert.equal(close.snapshot().code,'one');
+});
+test('only exact failed enrollment emits bounded log presence and no fabricated timeout',()=>{
+ const owner=createEnrollmentExecution('enroll-add');owner.record('exit',1,null);const execution=owner.snapshot();
+ const project=(patch={})=>enrollmentExecutionDiagnostic({phase:'flow-enroll-add',execution,logSize:0,...patch});
+ assert.equal(project({phase:'flow-identifier'}),null);assert.equal(project({execution:null}),null);assert.equal(project({execution:1}),null);assert.equal(project({execution:[]}),null);
+ const completed=createEnrollmentExecution('enroll-add');completed.record('exit',0,null);assert.equal(project({execution:completed.snapshot()}),null);
+ for(const changed of [Object.assign(Object.create(null),execution),{...execution,[Symbol('private-canary')]:1},{...execution,extra:'private-canary'},{...execution,outcome:'private-canary'},{...execution,code:129},{...execution,signal:'SIGPRIVATE'},{...execution,timeout:'timeout'}])assert.equal(project({execution:changed}),null);
+ for(const [logSize,log] of [[0,'empty'],[1,'nonempty'],[4000000,'nonempty'],[4000001,'unavailable'],[-1,'unavailable'],[null,'unavailable'],[1.5,'unavailable'],['private-canary','unavailable']]){const result=project({logSize});assert.deepEqual(result,{...execution,log});assert.ok(Object.isFrozen(result));assert.equal(JSON.stringify(result).includes('canary'),false);assert.equal(result.timeout,'not-applicable');}
+});
+test('C18 source-bound targets come only from failed lines, with private values suppressed',()=>{
+ const lines=[['date-field',enrollmentLabels.date],['personal-title',enrollmentLabels.personalTitle],['saved-row','Native restart proof'],['expected-amount',enrollmentLabels.expectedAmount]];
+ for(const [target,label] of lines){assert.deepEqual(enrollment({enrollment:`Scroll until ${label} FAILED private-canary`}).targets,[target]);assert.equal(enrollment({enrollment:`Scroll until ${label} COMPLETED`}).withheld,'unknown-tool-diagnostic');}
+ assert.deepEqual(enrollment({enrollment:'Scroll until Your subscriptions FAILED',labels:{...enrollmentLabels,add:'subscriptions'}}).targets,['personal-title']);
+ for(const key of ['date','personalTitle','expectedAmount']){assert.equal(enrollment({labels:{...enrollmentLabels,[key]:''}}).withheld,'trusted-target-unavailable');}
+ const result=enrollment({enrollment:lines.map(([,label])=>`Assertion is false: ${label} otp-123456-canary Bearer private-token-canary`).join('\n')});assert.deepEqual(result.targets,lines.map(([target])=>target));assert.equal(JSON.stringify(result).includes('canary'),false);assert.equal(JSON.stringify(result).includes('123456'),false);
 });

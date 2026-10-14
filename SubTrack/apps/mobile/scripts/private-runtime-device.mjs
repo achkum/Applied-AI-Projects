@@ -35,6 +35,8 @@ import {
 import {
   identifierToolDiagnostic,
   enrollmentToolDiagnostic,
+  createEnrollmentExecution,
+  enrollmentExecutionDiagnostic,
 } from './private-runtime-identifier-diagnostic.mjs';
 import { initialIdentifierFlow } from './private-runtime-flow-policy.mjs';
 import { graphStatus } from './private-runtime-bundle-policy.mjs';
@@ -113,23 +115,34 @@ async function main() {
   assert.equal(config.host, '127.0.0.1');
   assert.equal(config.database, 'st237_private_https_profile');
 
+  let enrollmentExecution = null;
   async function run(command, args, label, extraEnv = {}, cwd = app) {
+    const execution = command === 'maestro' && label === 'enroll-add' && args.at(-1) === join(app, 'e2e/private-runtime-enroll-add.yaml')
+      ? createEnrollmentExecution(label) : null;
+    if (execution) enrollmentExecution = execution;
     const fd = openSync(join(privateDir, `${label}.log`), 'w', 0o600);
     try {
       await new Promise((accept, reject) => {
-        const child = spawn(command, args, {
+        let child;
+        try { child = spawn(command, args, {
           cwd,
           env: { ...process.env, ...extraEnv },
           stdio: ['ignore', fd, fd],
+        }); } catch {
+          execution?.record('error');
+          reject(new Error(`Private qualification ${label} could not start`));
+          return;
+        }
+        child.on('error', () => {
+          execution?.record('error');
+          reject(new Error(`Private qualification ${label} could not start`));
         });
-        child.on('error', () =>
-          reject(new Error(`Private qualification ${label} could not start`)),
-        );
-        child.on('exit', (code) =>
-          code === 0
-            ? accept()
-            : reject(new Error(`Private qualification ${label} failed`)),
-        );
+        child.on('exit', (code, signal) => {
+          execution?.record('exit', code, signal);
+          if (code === 0) accept();
+          else reject(new Error(`Private qualification ${label} failed`));
+        });
+        child.on('close', (code, signal) => execution?.record('close', code, signal));
       });
     } finally {
       closeSync(fd);
@@ -433,6 +446,11 @@ async function main() {
         );
     }
     if (currentPhase === 'flow-enroll-add') {
+      let enrollmentLogSize = null;
+      try { enrollmentLogSize = statSync(join(privateDir, 'enroll-add.log')).size; } catch { /* No paths or error details escape. */ }
+      const executionDiagnostic = enrollmentExecutionDiagnostic({ phase: currentPhase, execution: enrollmentExecution?.snapshot(), logSize: enrollmentLogSize });
+      if (executionDiagnostic)
+        console.error(`ST244_NATIVE enrollment_execution=${executionDiagnostic.outcome} code=${executionDiagnostic.code} signal=${executionDiagnostic.signal} timeout=${executionDiagnostic.timeout} log=${executionDiagnostic.log}`);
       const readTool = (name) => {
         try {
           return readFileSync(join(privateDir, name), 'utf8');
@@ -459,6 +477,9 @@ async function main() {
           amount: labels.MAESTRO_AMOUNT,
           saveSubscription: labels.MAESTRO_SAVE_SUBSCRIPTION,
           saved: labels.MAESTRO_SAVED,
+          date: labels.MAESTRO_DATE,
+          personalTitle: labels.MAESTRO_PERSONAL_TITLE,
+          expectedAmount: labels.MAESTRO_EXPECTED_AMOUNT,
         },
       });
       if (diagnostic.withheld)
