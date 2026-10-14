@@ -2,6 +2,74 @@
 
 import * as z from 'zod';
 
+export const zPrivateMobileStatusRequest = z.object({
+    id: z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
+    status: z.enum([
+        'ACTIVE',
+        'PAUSED',
+        'CANCELLED',
+        'ARCHIVED'
+    ])
+}).strict();
+
+export const zPrivateMobileEnrollmentComplete = z.object({
+    transport: z.literal('mobile'),
+    enrollmentProof: z.string().regex(/^v2\.[A-Za-z0-9_-]{43}$/),
+    locale: z.enum(['sv', 'en']).optional()
+}).strict();
+
+export const zPrivateMobileLoginVerify = z.object({
+    transport: z.literal('mobile')
+}).strict();
+
+export const zPrivateMobileLoginVerified = z.object({
+    transport: z.literal('mobile'),
+    loginProof: z.string().regex(/^v2\.[A-Za-z0-9_-]{43}$/),
+    status: z.literal('verified')
+}).strict();
+
+export const zPrivateMobileSessionRequest = z.object({
+    transport: z.literal('mobile'),
+    loginProof: z.string().regex(/^v2\.[A-Za-z0-9_-]{43}$/)
+}).strict();
+
+export const zPrivateMobileError = z.object({
+    type: z.literal('about:blank'),
+    title: z.enum([
+        'Bad Request',
+        'Unauthorized',
+        'Forbidden',
+        'Not Found',
+        'Conflict',
+        'Too Many Requests',
+        'Internal Server Error'
+    ]),
+    status: z.union([
+        z.literal(400),
+        z.literal(401),
+        z.literal(403),
+        z.literal(404),
+        z.literal(409),
+        z.literal(429),
+        z.literal(500)
+    ]),
+    code: z.enum([
+        'INVALID_MOBILE_REQUEST',
+        'AUTHENTICATION_REQUIRED',
+        'MOBILE_REQUEST_REJECTED',
+        'MOBILE_UNAVAILABLE',
+        'AUTH_RESTART_REQUIRED',
+        'ENROLLMENT_LOGIN_REQUIRED',
+        'MODE_CONFLICT',
+        'MANUAL_IDEMPOTENCY_CONFLICT',
+        'SUBSCRIPTION_NOT_FOUND',
+        'MANUAL_EDIT_IDEMPOTENCY_CONFLICT',
+        'MANUAL_EDIT_CONFLICT',
+        'LIFECYCLE_CONFLICT',
+        'INTERNAL_ERROR'
+    ])
+}).strict();
+
 /**
  * Exact empty JSON object; current session CSRF remains required.
  */
@@ -181,6 +249,45 @@ export const zPrivateManualCreate = z.object({
  */
 export const zPositiveSubscriptionRevision = z.string().regex(/^[1-9][0-9]{0,18}$/);
 
+export const zPrivateMobileManualEdit = z.object({
+    id: z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
+    customName: z.string(),
+    categoryCode: z.enum([
+        'VIDEO_STREAMING',
+        'MUSIC_AUDIO',
+        'AUDIOBOOKS_EBOOKS',
+        'NEWS_MAGAZINES',
+        'GAMING',
+        'SOFTWARE_PRODUCTIVITY',
+        'CLOUD_STORAGE',
+        'AI_TOOLS',
+        'MOBILE_PLAN',
+        'BROADBAND_TV',
+        'FITNESS_WELLNESS',
+        'FOOD_MEALKITS',
+        'TRANSPORT_MOBILITY',
+        'HOME_SECURITY',
+        'EDUCATION_KIDS',
+        'PETS',
+        'SHOPPING_MEMBERSHIPS',
+        'VPN_SECURITY',
+        'DONATIONS',
+        'DATING_SOCIAL',
+        'APP_STORE_BILLING',
+        'OTHER_SUBSCRIPTION'
+    ]),
+    cadence: z.enum([
+        'WEEKLY',
+        'MONTHLY',
+        'QUARTERLY',
+        'SEMIANNUAL',
+        'ANNUAL'
+    ]),
+    expectedAmountMinor: z.string().regex(/^[1-9][0-9]{0,18}$/),
+    nextChargeDate: z.iso.date().nullable(),
+    expectedRevision: zPositiveSubscriptionRevision
+}).strict();
+
 export const zPrivateManualEdit = z.object({
     customName: z.string(),
     categoryCode: z.enum([
@@ -280,6 +387,10 @@ export const zPrivateManualError = z.object({
         'MANUAL_REQUEST_REJECTED',
         'MODE_CONFLICT',
         'MANUAL_IDEMPOTENCY_CONFLICT',
+        'SUBSCRIPTION_NOT_FOUND',
+        'MANUAL_EDIT_IDEMPOTENCY_CONFLICT',
+        'MANUAL_EDIT_CONFLICT',
+        'LIFECYCLE_CONFLICT',
         'INTERNAL_ERROR'
     ])
 }).strict();
@@ -1585,3 +1696,116 @@ export const zDeleteV2MeHeaders = z.object({
  * Account deleted.
  */
 export const zDeleteV2MeResponse = z.void();
+
+export const zCompletePrivateMobileEnrollmentBody = zPrivateMobileEnrollmentComplete;
+
+export const zCompletePrivateMobileEnrollmentHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255).regex(/^[!-~]{16,255}$/)
+});
+
+/**
+ * Known committed private mobile result.
+ */
+export const zCompletePrivateMobileEnrollmentResponse = zMobileSessionResponse;
+
+export const zVerifyPrivateMobileLoginBody = zPrivateMobileLoginVerify;
+
+export const zVerifyPrivateMobileLoginHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255).regex(/^[!-~]{16,255}$/)
+});
+
+/**
+ * Known committed private mobile result.
+ */
+export const zVerifyPrivateMobileLoginResponse = zPrivateMobileLoginVerified;
+
+export const zCreatePrivateMobileSessionBody = zPrivateMobileSessionRequest;
+
+export const zCreatePrivateMobileSessionHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255).regex(/^[!-~]{16,255}$/)
+});
+
+/**
+ * Known committed private mobile result.
+ */
+export const zCreatePrivateMobileSessionResponse = zMobileSessionResponse;
+
+export const zRefreshPrivateMobileSessionHeaders = z.object({
+    'Idempotency-Key': z.string().min(16).max(255).regex(/^[!-~]{16,255}$/)
+});
+
+/**
+ * Known committed private mobile result.
+ */
+export const zRefreshPrivateMobileSessionResponse = zMobileRefreshResponse;
+
+export const zLogoutPrivateMobileSessionBody = z.record(z.string(), z.never());
+
+/**
+ * Known committed private mobile result.
+ */
+export const zLogoutPrivateMobileSessionResponse = z.void();
+
+export const zReadPrivateMobileProfileBody = z.record(z.string(), z.never());
+
+/**
+ * Known committed private mobile result.
+ */
+export const zReadPrivateMobileProfileResponse = zProfileView;
+
+export const zSavePrivateMobileProfileBody = zProfilePatch;
+
+/**
+ * Known committed private mobile result.
+ */
+export const zSavePrivateMobileProfileResponse = zProfileView;
+
+export const zReadPrivateMobileModeBody = z.record(z.string(), z.never());
+
+/**
+ * Known committed private mobile result.
+ */
+export const zReadPrivateMobileModeResponse = zModeView;
+
+export const zChoosePrivateMobileModeBody = zJustMeChoice;
+
+/**
+ * Known committed private mobile result.
+ */
+export const zChoosePrivateMobileModeResponse = zModeView;
+
+export const zReadPrivateMobileOwnerSubscriptionsBody = zPrivateOwnerPageRequest;
+
+/**
+ * Known committed private mobile result.
+ */
+export const zReadPrivateMobileOwnerSubscriptionsResponse = zPrivateOwnerPage;
+
+export const zCreatePrivateMobileManualSubscriptionBody = zPrivateManualCreate;
+
+export const zCreatePrivateMobileManualSubscriptionHeaders = z.object({
+    'Idempotency-Key': z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+});
+
+/**
+ * Known committed private mobile result.
+ */
+export const zCreatePrivateMobileManualSubscriptionResponse = zPrivateManualCreated;
+
+export const zEditPrivateMobileManualSubscriptionBody = zPrivateMobileManualEdit;
+
+export const zEditPrivateMobileManualSubscriptionHeaders = z.object({
+    'Idempotency-Key': z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+});
+
+/**
+ * Known committed private mobile result.
+ */
+export const zEditPrivateMobileManualSubscriptionResponse = zPrivateManualEdited;
+
+export const zChangePrivateMobileSubscriptionStatusBody = zPrivateMobileStatusRequest;
+
+/**
+ * Known committed private mobile result.
+ */
+export const zChangePrivateMobileSubscriptionStatusResponse = zSubscriptionLifecycleResult;

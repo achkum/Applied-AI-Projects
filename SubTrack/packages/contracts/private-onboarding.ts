@@ -16,7 +16,7 @@ function record(value: unknown, required: readonly string[], optional: readonly 
   const descriptors = Object.getOwnPropertyDescriptors(value);
   const keys = Reflect.ownKeys(value);
   if (keys.some(key => typeof key !== 'string' || ![...required, ...optional].includes(key) ||
-      !('value' in descriptors[key]!)) || required.some(key => !Object.hasOwn(value, key))) throw new Error('closed-object');
+      !('value' in descriptors[key]!)) || required.some(key => !Object.prototype.hasOwnProperty.call(value, key))) throw new Error('closed-object');
   return value as Record<string, unknown>;
 }
 function uuid(value: unknown): value is string { return typeof value === 'string' && UUID.test(value); }

@@ -15,6 +15,8 @@ test('patch is nonempty, closed, and cannot assert authority or clear non-avatar
     {defaultCurrency:'SEK'}, {ownerId:'x'}, {contact:'x'}, {provider:'x'}, {verifiedName:'x'},
     {sessionId:'x'}, {householdId:'x'}, {mode:'just-me'}, {displayName:'Ada', role:'owner'}];
   for (const value of denied) assert.throws(() => patch(value), undefined, JSON.stringify(value));
+  for (const key of ['displayName','avatarColourToken','avatarEmoji','language','theme'])
+    assert.throws(() => patch({displayName:'Ada',[key]:undefined}), 'explicit undefined never becomes an absent optional field');
   assert.deepEqual(patch({avatarColourToken:null, avatarEmoji:null}), {avatarColourToken:null, avatarEmoji:null});
   assert.deepEqual(patch({displayName:'Åsa', language:'sv', theme:'dark'}), {displayName:'Åsa', language:'sv', theme:'dark'});
   assert.equal(zProfilePatch.safeParse({ownerId:'x'}).success, false);

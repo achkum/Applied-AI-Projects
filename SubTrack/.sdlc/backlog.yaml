@@ -4,13 +4,19 @@
 board_kind: mobile_delivery_queue
 milestone_current: M1
 current_delivery: ST-086
-execution_phase: native_contract_and_runtime_preparation
+current_slice: ST-247
+execution_phase: combined_native_runtime_qualification
+source_pipeline_slice: ST-248
+source_pipeline_slices: [ST-245, ST-246, ST-247, ST-248]
+approved_native_design: docs/product/BILLING_MONTH_ADOPTION.md
+approved_template: docs/product/references/subtrack-billing-month.html
+approved_template_sha256: 4b2de0a2c4a1ce22a05cea087a8db5f0a561dd14a13c0829acd99afe676859c5
 history_archive: .sdlc/archive/backlog-2026-10-13.yaml
 history_sha256: f8f2e50cab133c928117d03d7d20b56de9653e21957b1b07b2885b6d9fea9baf
 delivery_plan: .sdlc/delivery-plan.md
 items:
-  - {id: ST-086, title: "Native personal subscriptions: account, profile, Just me and persisted management", milestone: "M1/M3", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-086, ST-051, ST-170b, ST-170c, ST-052, ST-085], outcome: "First slice: verified development login/enrollment, profile, list/Add and restart readback on Android/iOS. Then Edit/status and full native core parity. Reuse accepted storage; implement durable mobile bearer authority, not browser cookies."}
-  - {id: ST-082, title: "Native Home, renewals, subscription detail and history", milestone: "M3", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-082, ST-083], outcome: "Scope-aware exact totals and upcoming renewals from persisted subscriptions, charges/history and deterministic price events. ST-085 native screen criteria apply here too."}
+  - {id: ST-086, title: "Native personal subscriptions: account, profile, Just me and persisted management", milestone: "M1/M3", owner: conductor, size: delivery_group, status: IN_PROGRESS, scope_ids: [ST-086, ST-051, ST-170b, ST-170c, ST-052, ST-085], outcome: "First slice: verified development login/enrollment, profile, list/Add and restart readback on Android/iOS. Then Edit/status and full native core parity. Reuse accepted storage; implement durable mobile bearer authority, not browser cookies."}
+  - {id: ST-082, title: "Native Billing Month, renewals, subscription detail and history", milestone: "M3", owner: conductor, size: delivery_group, status: IN_PROGRESS, scope_ids: [ST-082, ST-083], outcome: "Scope-aware exact totals and upcoming renewals from persisted subscriptions, charges/history and deterministic price events. ST-085 native screen criteria apply here too."}
   - {id: ST-069, title: "Synthetic bank connection, sync and later Tink sandbox", milestone: "M2", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-061, ST-066, ST-069], outcome: "Deliver Synthetic connect/sync/disconnect/purge first; real Tink discovery/provider remains separate credential-dependent acceptance. No account creation or real bank calls authorized."}
   - {id: ST-081, title: "Native detection inbox, review and feedback", milestone: "M3", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-081, ST-087], outcome: "Persist detections from the Synthetic flow; confirm/reject/edit/merge, explicit undo and minimal feedback, with real end-to-end detection quality evidence. Existing accepted cores are reused."}
   - {id: ST-055, title: "Native household, invitations and privacy", milestone: "M1", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-055, ST-140], outcome: "Create/join household, membership/dependants, invite return links and privacy controls. Retain household criteria from ST-051/ST-052; validate together, not as separate proof-only tickets."}
@@ -19,7 +25,7 @@ items:
   - {id: ST-121, title: "Sourced catalogue, native comparison and Better together", milestone: "M5", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-121, ST-122, ST-130], outcome: "Reuse accepted extraction quarantine; complete sourced catalogue/comparison and corresponding native UI. ST-130 insight/Ask/settings criteria also link to ST-127/ST-128; no duplicate UI work. Web counterparts deferred."}
   - {id: ST-127, title: "Forecasts, anomalies and native insights", milestone: "M5", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-123, ST-125, ST-126, ST-127], outcome: "Reuse accepted offline models/rules; integrate scoped persisted findings, forecast validation and bilingual recap with native UI from ST-130."}
   - {id: ST-128, title: "Native Ask, inbox and notification settings", milestone: "M5", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-128, ST-129], outcome: "Scoped Ask tools/refusals and inbox/quiet hours/settings with approved delivery adapters. Real notifications, external LLM spend and delivery remain separately authorized."}
-  - {id: ST-145, title: "Android/iOS startup, accessibility, access and performance", milestone: "M6", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-039, ST-141, ST-142, ST-143, ST-144, ST-145, ST-174], outcome: "Integrate biometric/passkey option, motion/reduced motion/haptics, screen readers and performance into one actual device matrix. ST-174 deferred checks remain unpassed until genuine device evidence; Jest/Expo web export is not native acceptance."}
+  - {id: ST-145, title: "Android/iOS approved fonts, design, accessibility, access and performance", milestone: "M6", owner: conductor, size: delivery_group, status: IN_PROGRESS, scope_ids: [ST-039, ST-141, ST-142, ST-143, ST-144, ST-145, ST-174], outcome: "Integrate biometric/passkey option, motion/reduced motion/haptics, screen readers and performance into one actual device matrix. ST-174 deferred checks remain unpassed until genuine device evidence; Jest/Expo web export is not native acceptance."}
   - {id: ST-160, title: "Private backend operation, monitoring and restore", milestone: "M7", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-160, ST-161], outcome: "Private runtime configuration, monitored operation and tested backups/restore. No new public port, spending, production exposure or credential creation is authorized."}
   - {id: ST-163, title: "Security, privacy, data rights and legal readiness", milestone: "M7", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-163, ST-164], outcome: "Integrated ASVS/privacy/data-map/retention/export/deletion verification and bilingual legal drafts. Accepted modules do not substitute for working authorized data-rights flows."}
   - {id: ST-167, title: "Mobile store assets, builds and download gateway", milestone: "D1/M7", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-029, ST-165, ST-166, ST-167], outcome: "Icon/splash/listings, actual Android/iOS builds and store prerequisites, final release evidence. Website only directs users to verified App Store/Google Play destinations when available; do not invent store links or publish without approval."}
@@ -44,3 +50,27 @@ execution_rules:
   - "Reuse accepted cores and exact evidence, reconcile stale dependencies; run focused changed-code checks and all applicable final-head gates. Repeat broad checks only for changes, failures or unresolved concerns."
   - "Use one paginated exact-run artifact inventory for reviewers; preserve native device, security, Money and release gates."
   - "Counts describe queue structure, not percentage complete. Original statuses and every unfinished source ID remain traceable."
+
+
+template_delivery_criteria:
+  ST-086: ["Billing Month styling for existing enrollment/profile/list/Add/Edit/status", "Search and category groups/subtotals", "Actual storage and restart/revocation remain blocking"]
+  ST-082: ["Billing-month ribbon and all items on a selected date", "Distinct30-day upcoming and calendar-month views", "Exact labelled totals/projections and available detail/history", "No Paid inferred from past expected dates"]
+  ST-069: ["Actual synthetic/sandbox connection and sync states replace static bank row"]
+  ST-081: ["Detection confirm/reject/edit/merge/undo remains despite template omission"]
+  ST-055: ["Authorized member/payer scopes and distributions", "Durable shared/private visibility, invitations/dependants"]
+  ST-043: ["Mandatory reviewed BankID remains despite template omission"]
+  ST-104: ["Exact effective sharing and per-person splits", "Durable settlement acknowledgement/undo/history; no money movement"]
+  ST-121: ["Sourced alternatives/market comparisons and verification dates"]
+  ST-127: ["Explainable score/contributions", "Persisted recap/anomalies/actions/trends, no fixture formula"]
+  ST-128: ["Durable notification preferences/reminder scheduling", "Ask/inbox/quiet hours remain missing; real delivery separate"]
+  ST-145: ["Bundled Bricolage Grotesque/Geist and licences", "Petrol/saffron themes, real SVG icons, font scaling/AA", "Native safe areas/reduced motion/sheet focus and actual device tests"]
+  ST-160: ["Private monitoring/restore remains; not represented by HTML"]
+  ST-163: ["Functional privacy/help/logout/data rights/legal; static chevrons insufficient"]
+  ST-167: ["Actual assets/signing/builds and verified download links; release separate"]
+
+approved_design_execution:
+  authority: "Founder explicit latest-template adoption2026-10-13; ADR0033/D07 recorded"
+  first_slice: ST-247
+  first_outcome: "Approved native fonts/themes/icons with current-owner expected calendar month/day detail, linked existing management; preserve thirty-day agenda"
+  incomplete_scope: "Normalized monthly/year totals, bank charge history, household/splits/insights/delivery remain in existing groups; source tests/prototype data are not native acceptance"
+  web: "Deferred source/default tokens preserved; only eventual verified download gateway"

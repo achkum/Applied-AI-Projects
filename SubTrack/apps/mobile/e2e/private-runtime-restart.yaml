@@ -1,0 +1,24 @@
+appId: se.subtrack.app
+---
+- stopApp
+- launchApp
+- openLink: subtrack:///personal
+- extendedWaitUntil:
+    visible: ${MAESTRO_VERIFY_BANKID}
+    timeout: 30000
+- assertNotVisible: Native restart proof
+- tapOn: ${MAESTRO_VERIFY_BANKID}
+- extendedWaitUntil:
+    visible: Native restart proof
+    timeout: 30000
+- takeScreenshot: accepted-restart
+- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
+- scrollUntilVisible:
+    element: ${MAESTRO_LOGOUT}
+    direction: DOWN
+- tapOn: ${MAESTRO_LOGOUT}
+- extendedWaitUntil:
+    visible: ${MAESTRO_LOGOUT_CONFIRMED}
+    timeout: 30000
+- assertNotVisible: Native restart proof
+- takeScreenshot: accepted-logout

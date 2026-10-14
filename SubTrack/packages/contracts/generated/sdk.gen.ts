@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { AdmitV2WebEnrollmentData, AdmitV2WebEnrollmentErrors, AdmitV2WebEnrollmentResponses, ChooseV2BrowserJustMeData, ChooseV2BrowserJustMeErrors, ChooseV2BrowserJustMeResponses, CompleteV2WebEnrollmentData, CompleteV2WebEnrollmentErrors, CompleteV2WebEnrollmentResponses, CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2PrivateManualSubscriptionData, CreateV2PrivateManualSubscriptionErrors, CreateV2PrivateManualSubscriptionResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, EditV2PrivateManualSubscriptionData, EditV2PrivateManualSubscriptionErrors, EditV2PrivateManualSubscriptionResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PatchV2BrowserProfileData, PatchV2BrowserProfileErrors, PatchV2BrowserProfileResponses, PatchV2BrowserSubscriptionLifecycleData, PatchV2BrowserSubscriptionLifecycleErrors, PatchV2BrowserSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadV2BrowserModeData, ReadV2BrowserModeErrors, ReadV2BrowserModeResponses, ReadV2BrowserProfileData, ReadV2BrowserProfileErrors, ReadV2BrowserProfileResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, ReadV2PrivateOwnerSubscriptionsData, ReadV2PrivateOwnerSubscriptionsErrors, ReadV2PrivateOwnerSubscriptionsResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses, VerifyV2PrivateSimulatorLoginData, VerifyV2PrivateSimulatorLoginErrors, VerifyV2PrivateSimulatorLoginResponses, VerifyV2WebSimulatorEnrollmentData, VerifyV2WebSimulatorEnrollmentErrors, VerifyV2WebSimulatorEnrollmentResponses } from './types.gen.js';
+import type { AdmitV2WebEnrollmentData, AdmitV2WebEnrollmentErrors, AdmitV2WebEnrollmentResponses, ChangePrivateMobileSubscriptionStatusData, ChangePrivateMobileSubscriptionStatusErrors, ChangePrivateMobileSubscriptionStatusResponses, ChoosePrivateMobileModeData, ChoosePrivateMobileModeErrors, ChoosePrivateMobileModeResponses, ChooseV2BrowserJustMeData, ChooseV2BrowserJustMeErrors, ChooseV2BrowserJustMeResponses, CompletePrivateMobileEnrollmentData, CompletePrivateMobileEnrollmentErrors, CompletePrivateMobileEnrollmentResponses, CompleteV2WebEnrollmentData, CompleteV2WebEnrollmentErrors, CompleteV2WebEnrollmentResponses, CreatePrivateMobileManualSubscriptionData, CreatePrivateMobileManualSubscriptionErrors, CreatePrivateMobileManualSubscriptionResponses, CreatePrivateMobileSessionData, CreatePrivateMobileSessionErrors, CreatePrivateMobileSessionResponses, CreateV2BrowserNonceData, CreateV2BrowserNonceErrors, CreateV2BrowserNonceResponses, CreateV2PrivateManualSubscriptionData, CreateV2PrivateManualSubscriptionErrors, CreateV2PrivateManualSubscriptionResponses, CreateV2SessionData, CreateV2SessionErrors, CreateV2SessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteV2MeData, DeleteV2MeErrors, DeleteV2MeResponses, DownloadDataExportData, DownloadDataExportErrors, DownloadDataExportResponses, EditPrivateMobileManualSubscriptionData, EditPrivateMobileManualSubscriptionErrors, EditPrivateMobileManualSubscriptionResponses, EditV2PrivateManualSubscriptionData, EditV2PrivateManualSubscriptionErrors, EditV2PrivateManualSubscriptionResponses, GetHealthzData, GetHealthzErrors, GetHealthzResponses, GetPrivacySettingsData, GetPrivacySettingsErrors, GetPrivacySettingsResponses, GetReadyzData, GetReadyzErrors, GetReadyzResponses, GetSubscriptionData, GetSubscriptionErrors, GetSubscriptionResponses, GetVersionData, GetVersionErrors, GetVersionResponses, ListReviewInboxData, ListReviewInboxErrors, ListReviewInboxResponses, ListSubscriptionsData, ListSubscriptionsErrors, ListSubscriptionsResponses, ListV2SessionsData, ListV2SessionsErrors, ListV2SessionsResponses, LogoutPrivateMobileSessionData, LogoutPrivateMobileSessionErrors, LogoutPrivateMobileSessionResponses, PatchSubscriptionLifecycleData, PatchSubscriptionLifecycleErrors, PatchSubscriptionLifecycleResponses, PatchV2BrowserProfileData, PatchV2BrowserProfileErrors, PatchV2BrowserProfileResponses, PatchV2BrowserSubscriptionLifecycleData, PatchV2BrowserSubscriptionLifecycleErrors, PatchV2BrowserSubscriptionLifecycleResponses, PreviewAsHouseholdData, PreviewAsHouseholdErrors, PreviewAsHouseholdResponses, ReadPrivateMobileModeData, ReadPrivateMobileModeErrors, ReadPrivateMobileModeResponses, ReadPrivateMobileOwnerSubscriptionsData, ReadPrivateMobileOwnerSubscriptionsErrors, ReadPrivateMobileOwnerSubscriptionsResponses, ReadPrivateMobileProfileData, ReadPrivateMobileProfileErrors, ReadPrivateMobileProfileResponses, ReadV2BrowserModeData, ReadV2BrowserModeErrors, ReadV2BrowserModeResponses, ReadV2BrowserProfileData, ReadV2BrowserProfileErrors, ReadV2BrowserProfileResponses, ReadV2BrowserSubscriptionData, ReadV2BrowserSubscriptionErrors, ReadV2BrowserSubscriptionResponses, ReadV2PrivateOwnerSubscriptionsData, ReadV2PrivateOwnerSubscriptionsErrors, ReadV2PrivateOwnerSubscriptionsResponses, RefreshPrivateMobileSessionData, RefreshPrivateMobileSessionErrors, RefreshPrivateMobileSessionResponses, RefreshV2SessionData, RefreshV2SessionErrors, RefreshV2SessionResponses, RequestDataExportData, RequestDataExportErrors, RequestDataExportResponses, RevokeV2SessionData, RevokeV2SessionErrors, RevokeV2SessionResponses, SavePrivateMobileProfileData, SavePrivateMobileProfileErrors, SavePrivateMobileProfileResponses, SetOpenBookData, SetOpenBookErrors, SetOpenBookResponses, StartV2DeleteOtpReauthData, StartV2DeleteOtpReauthErrors, StartV2DeleteOtpReauthResponses, StartV2OtpData, StartV2OtpErrors, StartV2OtpResponses, VerifyPrivateMobileLoginData, VerifyPrivateMobileLoginErrors, VerifyPrivateMobileLoginResponses, VerifyV2DeleteOtpReauthData, VerifyV2DeleteOtpReauthErrors, VerifyV2DeleteOtpReauthResponses, VerifyV2OtpData, VerifyV2OtpErrors, VerifyV2OtpResponses, VerifyV2PrivateSimulatorLoginData, VerifyV2PrivateSimulatorLoginErrors, VerifyV2PrivateSimulatorLoginResponses, VerifyV2WebSimulatorEnrollmentData, VerifyV2WebSimulatorEnrollmentErrors, VerifyV2WebSimulatorEnrollmentResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -584,6 +584,243 @@ export const deleteV2Me = <ThrowOnError extends boolean = false>(options: Option
             type: 'http'
         }],
     url: '/v2/me',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development mobile enrollment/complete
+ *
+ * Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce, CSRF, forwarded authority, query and mixed credentials. No client identity selector. All responses no-store. Unknown commit discloses nothing and requires fresh verification. Consume producer-owned settled enrollment admission and restricted proof once; mandatory fresh server development BankID verifier precedes verified-subject reservation. D12 anonymous OTP binding cannot reserve completion. Existing active subject requires login. Account/profile/mobile family/current refresh commit atomically before credential disclosure.
+ *
+ */
+export const completePrivateMobileEnrollment = <ThrowOnError extends boolean = false>(options: Options<CompletePrivateMobileEnrollmentData, ThrowOnError>): RequestResult<CompletePrivateMobileEnrollmentResponses, CompletePrivateMobileEnrollmentErrors, ThrowOnError> => (options.client ?? client).post<CompletePrivateMobileEnrollmentResponses, CompletePrivateMobileEnrollmentErrors, ThrowOnError>({
+    url: '/v2/private/mobile/enrollment/complete',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development mobile login/verify
+ *
+ * Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce, CSRF, forwarded authority, query and mixed credentials. No client identity selector. All responses no-store. Unknown commit discloses nothing and requires fresh verification. Server-fixed development fixture triggers fresh server verifier; active registered subject only. One-use mobile login proof bound to verified subject, evidence age, private epoch and manifest.
+ *
+ */
+export const verifyPrivateMobileLogin = <ThrowOnError extends boolean = false>(options: Options<VerifyPrivateMobileLoginData, ThrowOnError>): RequestResult<VerifyPrivateMobileLoginResponses, VerifyPrivateMobileLoginErrors, ThrowOnError> => (options.client ?? client).post<VerifyPrivateMobileLoginResponses, VerifyPrivateMobileLoginErrors, ThrowOnError>({
+    url: '/v2/private/mobile/login/verify',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development mobile session
+ *
+ * Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce, CSRF, forwarded authority, query and mixed credentials. No client identity selector. All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+ *
+ */
+export const createPrivateMobileSession = <ThrowOnError extends boolean = false>(options: Options<CreatePrivateMobileSessionData, ThrowOnError>): RequestResult<CreatePrivateMobileSessionResponses, CreatePrivateMobileSessionErrors, ThrowOnError> => (options.client ?? client).post<CreatePrivateMobileSessionResponses, CreatePrivateMobileSessionErrors, ThrowOnError>({
+    url: '/v2/private/mobile/session',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development mobile refresh
+ *
+ * Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce, CSRF, forwarded authority, query and mixed credentials. No client identity selector. All responses no-store. Unknown commit discloses nothing and requires fresh verification. Bodyless request: no Content-Type or body; Content-Length absent or zero only. Refresh authorization only; rotate hash-only secret atomically within same family. Consumed-secret reuse revokes family; uncertain rotation requires fresh verified login.
+ *
+ */
+export const refreshPrivateMobileSession = <ThrowOnError extends boolean = false>(options: Options<RefreshPrivateMobileSessionData, ThrowOnError>): RequestResult<RefreshPrivateMobileSessionResponses, RefreshPrivateMobileSessionErrors, ThrowOnError> => (options.client ?? client).post<RefreshPrivateMobileSessionResponses, RefreshPrivateMobileSessionErrors, ThrowOnError>({
+    security: [{ name: 'Authorization', type: 'apiKey' }],
+    url: '/v2/private/mobile/refresh',
+    ...options
+});
+
+/**
+ * Private development mobile logout
+ *
+ * Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce, CSRF, forwarded authority, query and mixed credentials. No client identity selector. All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+ *
+ */
+export const logoutPrivateMobileSession = <ThrowOnError extends boolean = false>(options: Options<LogoutPrivateMobileSessionData, ThrowOnError>): RequestResult<LogoutPrivateMobileSessionResponses, LogoutPrivateMobileSessionErrors, ThrowOnError> => (options.client ?? client).post<LogoutPrivateMobileSessionResponses, LogoutPrivateMobileSessionErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/logout',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development mobile profile/read
+ *
+ * Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce, CSRF, forwarded authority, query and mixed credentials. No client identity selector. All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+ *
+ */
+export const readPrivateMobileProfile = <ThrowOnError extends boolean = false>(options: Options<ReadPrivateMobileProfileData, ThrowOnError>): RequestResult<ReadPrivateMobileProfileResponses, ReadPrivateMobileProfileErrors, ThrowOnError> => (options.client ?? client).post<ReadPrivateMobileProfileResponses, ReadPrivateMobileProfileErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/profile/read',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development mobile profile
+ *
+ * Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce, CSRF, forwarded authority, query and mixed credentials. No client identity selector. All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+ *
+ */
+export const savePrivateMobileProfile = <ThrowOnError extends boolean = false>(options: Options<SavePrivateMobileProfileData, ThrowOnError>): RequestResult<SavePrivateMobileProfileResponses, SavePrivateMobileProfileErrors, ThrowOnError> => (options.client ?? client).post<SavePrivateMobileProfileResponses, SavePrivateMobileProfileErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/profile',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development mobile mode/read
+ *
+ * Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce, CSRF, forwarded authority, query and mixed credentials. No client identity selector. All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+ *
+ */
+export const readPrivateMobileMode = <ThrowOnError extends boolean = false>(options: Options<ReadPrivateMobileModeData, ThrowOnError>): RequestResult<ReadPrivateMobileModeResponses, ReadPrivateMobileModeErrors, ThrowOnError> => (options.client ?? client).post<ReadPrivateMobileModeResponses, ReadPrivateMobileModeErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/mode/read',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development mobile mode
+ *
+ * Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce, CSRF, forwarded authority, query and mixed credentials. No client identity selector. All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+ *
+ */
+export const choosePrivateMobileMode = <ThrowOnError extends boolean = false>(options: Options<ChoosePrivateMobileModeData, ThrowOnError>): RequestResult<ChoosePrivateMobileModeResponses, ChoosePrivateMobileModeErrors, ThrowOnError> => (options.client ?? client).post<ChoosePrivateMobileModeResponses, ChoosePrivateMobileModeErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/mode',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development mobile subscriptions/owner/read
+ *
+ * Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce, CSRF, forwarded authority, query and mixed credentials. No client identity selector. All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+ *
+ */
+export const readPrivateMobileOwnerSubscriptions = <ThrowOnError extends boolean = false>(options: Options<ReadPrivateMobileOwnerSubscriptionsData, ThrowOnError>): RequestResult<ReadPrivateMobileOwnerSubscriptionsResponses, ReadPrivateMobileOwnerSubscriptionsErrors, ThrowOnError> => (options.client ?? client).post<ReadPrivateMobileOwnerSubscriptionsResponses, ReadPrivateMobileOwnerSubscriptionsErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/subscriptions/owner/read',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development mobile subscriptions/owner/manual
+ *
+ * Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce, CSRF, forwarded authority, query and mixed credentials. No client identity selector. All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+ *
+ */
+export const createPrivateMobileManualSubscription = <ThrowOnError extends boolean = false>(options: Options<CreatePrivateMobileManualSubscriptionData, ThrowOnError>): RequestResult<CreatePrivateMobileManualSubscriptionResponses, CreatePrivateMobileManualSubscriptionErrors, ThrowOnError> => (options.client ?? client).post<CreatePrivateMobileManualSubscriptionResponses, CreatePrivateMobileManualSubscriptionErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/subscriptions/owner/manual',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development mobile subscriptions/owner/manual/edit
+ *
+ * Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce, CSRF, forwarded authority, query and mixed credentials. No client identity selector. Closed full manual replacement with resource id and canonical bigint expectedRevision. Current complete profile and Just me precede receipt lookup. Reuse manual-edit-v1 fingerprint and immutable SQL014 receipt namespace; exact replay returns original committed revision before target lookup. Without receipt, owner MANUAL/SEK supported cadence row is locked and expected revision compared before update. Stale conflict preserves draft for explicit current-value review and a new intent. No automatic retry. All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+ *
+ */
+export const editPrivateMobileManualSubscription = <ThrowOnError extends boolean = false>(options: Options<EditPrivateMobileManualSubscriptionData, ThrowOnError>): RequestResult<EditPrivateMobileManualSubscriptionResponses, EditPrivateMobileManualSubscriptionErrors, ThrowOnError> => (options.client ?? client).post<EditPrivateMobileManualSubscriptionResponses, EditPrivateMobileManualSubscriptionErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/subscriptions/owner/manual/edit',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Private development mobile subscriptions/owner/status
+ *
+ * Direct TLS only, explicit development opt-in. Reject Cookie, Origin, browser nonce, CSRF, forwarded authority, query and mixed credentials. No client identity selector. Idempotency-Key is forbidden; no replay guarantee. Current complete profile and Just me authorize only the owner MANUAL/SEK row. Exactly seven locked pairs: ACTIVE to PAUSED/CANCELLED/ARCHIVED, PAUSED to ACTIVE/CANCELLED/ARCHIVED, CANCELLED to ARCHIVED. Tracking only, no provider cancellation or hard deletion. Repeated success may conflict; reread authenticated current truth. No automatic retry. All responses no-store. Unknown commit discloses nothing and requires fresh verification.
+ *
+ */
+export const changePrivateMobileSubscriptionStatus = <ThrowOnError extends boolean = false>(options: Options<ChangePrivateMobileSubscriptionStatusData, ThrowOnError>): RequestResult<ChangePrivateMobileSubscriptionStatusResponses, ChangePrivateMobileSubscriptionStatusErrors, ThrowOnError> => (options.client ?? client).post<ChangePrivateMobileSubscriptionStatusResponses, ChangePrivateMobileSubscriptionStatusErrors, ThrowOnError>({
+    security: [{
+            key: 'V2AccessBearer',
+            scheme: 'bearer',
+            type: 'http'
+        }],
+    url: '/v2/private/mobile/subscriptions/owner/status',
     ...options,
     headers: {
         'Content-Type': 'application/json',

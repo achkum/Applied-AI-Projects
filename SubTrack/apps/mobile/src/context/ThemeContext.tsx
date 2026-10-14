@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import themeData from '@subtrack/ui-tokens';
+import billingMonthTheme from '@subtrack/ui-tokens/billing-month';
 import { Theme, ThemeMode } from '@/types';
 
 interface ThemeContextType {
@@ -55,12 +56,14 @@ export function ThemeProvider({ children, useSystemFonts = false, systemFontFami
   const isDark =
     mode === 'system' ? colorScheme === 'dark' : mode === 'dark';
 
-  const baseTheme = themeData as Theme;
+  const baseTheme = (Platform.OS === 'android' || Platform.OS === 'ios' ? billingMonthTheme : themeData) as Theme;
   const theme: Theme = useSystemFonts ? {
     ...baseTheme,
     typography: {
       ...baseTheme.typography,
-      fontFamily: { ...baseTheme.typography.fontFamily, ui: systemFontFamily, display: systemFontFamily },
+      fontFamily: Platform.OS === 'android' || Platform.OS === 'ios'
+        ? Object.fromEntries(Object.keys(baseTheme.typography.fontFamily).map(role => [role, systemFontFamily]))
+        : {...baseTheme.typography.fontFamily,ui:systemFontFamily,display:systemFontFamily},
     },
   } : baseTheme;
 

@@ -1,0 +1,16 @@
+{
+  "SubTrack\\apps\\mobile\\src\\utils\\privateRuntimeEnrollmentDiagnostic.ts": "143d7bf4ee11713081c54b7ff4b0b2fecbcb1b65cb84526717342c6b5419f755",
+  "SubTrack\\apps\\mobile\\src\\utils\\privateRuntimeEnrollmentDiagnostic.test.ts": "cb72a41bdb8a8dd6073a81a705b798e00aead90ab9c31cffcfef99456e566b0f",
+  "SubTrack\\apps\\mobile\\src\\components\\onboarding\\IdentifierEntry.tsx": "319e778933426007de617f4e6e3b09b119ab967fe8bc38df8a629d37ae061464",
+  "SubTrack\\apps\\mobile\\src\\components\\onboarding\\IdentifierEntry.test.tsx": "d589b4f2d742dbc64032f41257a3acdebf6d6ebc3e4ea01921286c5d87f19aca",
+  "SubTrack\\apps\\mobile\\src\\components\\onboarding\\RegistrationScreen.tsx": "2fcc03d29f4c982cadfd70a6a6f137061aa948d4789ef5090ee8a1d6ba9bf64a",
+  "SubTrack\\apps\\mobile\\src\\components\\onboarding\\RegistrationScreen.test.tsx": "8ea2c1610143f4f416912e137306caa3a9183ff936b316f5039647f8d69f5562",
+  "SubTrack\\apps\\mobile\\src\\state\\EnrollmentFlow.tsx": "4fe2f314556c14219cddaaa8424deae7257653e47d1e974088422a07cfb5ece7",
+  "SubTrack\\apps\\mobile\\src\\state\\EnrollmentFlow.test.tsx": "164c5ab978a52a6de9efa954b247f1f72fa5ec95b61df4c549fb3dd37a8b018f",
+  "SubTrack\\apps\\mobile\\src\\api\\mobileEnrollmentOtp.ts": "1ba501256fbe40b80098b3a8bbbe6a2be37756f54baf493482c72294f97d67eb",
+  "SubTrack\\apps\\mobile\\src\\api\\mobileEnrollmentOtp.test.ts": "95b2bd64516061e25c5a47e92c8bf9bc30afcf70662d1bd79ece26d6dbe827ac",
+  "SubTrack\\apps\\mobile\\scripts\\private-runtime-enrollment-stage.mjs": "9f56dbadd76d3c45e05339001d33fd2e74a3e0aae1ab551c744bdcb98cc02c6e",
+  "SubTrack\\apps\\mobile\\scripts\\private-runtime-enrollment-stage-test.mjs": "57c043f4666803e1975e112423460339e04f489d09a8e0ca00f51427dd218005",
+  "SubTrack\\apps\\mobile\\scripts\\private-runtime-device.mjs": "3e210516f1fb53ac8bc8fe12a1f19c3dc05a9f14968564a93469ec7654d2b79f",
+  ".github/workflows/subtrack-native-device-proof.yml": "69184d02b8cd280c86f561598e24d8e7cf390b31e113379c5f04732a4b68b56c"
+}

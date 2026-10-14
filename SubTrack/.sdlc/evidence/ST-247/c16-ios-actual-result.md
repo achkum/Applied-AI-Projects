@@ -1,0 +1,13 @@
+# C16 iOS actual installed qualification result
+
+Read-only inspection of actual run38485301984 / iOSjob115597376497 at exact head46ba54253e0233f3183ad701ac38470371dcc684. Entire run is now completed FAILURE; Android and iOS jobs independently FAILURE. No cancellation, rerun, source edit or bank change by this monitor.
+
+Reviewed closed diagnostics: phases fixture-bundle, fixture-construction, https-start, startup-graph, native-build and flow-identifier reached. Failure phase flow-identifier, category unclassified. identifier_otp_issued=false. Passive exact POST /v2/auth/otp/start observer arrivals=zero; accepted202=zero; rejected4xx=zero; failed5xx=zero; other=zero; incomplete=zero. All four sequential probes (request-unavailable, loading, email-field, otp-field) report exit-other, providing no confirmed positive or negative screen observation. Fixed main identifier diagnostic: commands=wait-visible; reasons=assertion; targets=otp-field; metro=none; modules=none. fixture-dispose reached.
+
+Actual job steps: owned iOS simulator SUCCESS; owned PostgreSQL/TLS fixture SUCCESS; installed workflow FAILURE; sanitized accepted evidence upload SKIPPED; owned fixture/debug cleanup SUCCESS. Native build/install proceeded into the initial identifier journey; no Add/save/restart/Edit/status/renewal/Month/bank acceptance was reached or published.
+
+Classification: the installed OTP-field visibility wait failed before any observed exact OTP-start request reached the owned HTTPS server. This rules out an observed accepted202/rejected4xx/failed5xx request at that endpoint during this fixture generation; it does not identify whether the UI action/validation, client configuration, transport/TLS or routing prevented arrival. The issued-false result is consistent with zero arrivals. Probe exit-other is an execution bucket, not a finding that a label is absent. No Metro/module cause was recognized in the closed classifier. Do not invent a network cause or retry OTP.
+
+Source-backed next investigation must distinguish the ordinary identifier submit/client path before endpoint arrival using reviewed closed diagnostics. Existing enrollment client sends that exact route only after valid IdentifierEntry submission; successful transition to OTP requires a validated accepted response. Current evidence contains neither request arrival nor a completed probe. Preserve privacy and no mutation/retry/deadline changes. C18 enrollment-only diagnostic is orthogonal to this iOS identifier failure.
+
+Raw GitHub job log retained privately under host TEMP only; no raw values, logs, hierarchy, images, requests, credentials or device identifiers printed/fetched into evidence. Only reviewed fixed enum prefixes and job status metadata exposed.

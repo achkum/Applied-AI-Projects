@@ -1,3 +1,6 @@
+let mockDiagnosticChannel:ReturnType<typeof import('@/utils/privateRuntimeEnrollmentDiagnostic').createEnrollmentDiagnosticChannel>|undefined;
+jest.mock('@/utils/privateRuntimeEnrollmentDiagnostic',()=>{const actual=jest.requireActual<typeof import('@/utils/privateRuntimeEnrollmentDiagnostic')>('@/utils/privateRuntimeEnrollmentDiagnostic');return {...actual,calibrateEnrollmentDiagnostic:()=>mockDiagnosticChannel?.calibrate()??(()=>{}),observeEnrollmentStage:(stage:import('@/utils/privateRuntimeEnrollmentDiagnostic').EnrollmentDiagnosticStage)=>mockDiagnosticChannel?.observe(stage),beginEnrollmentDiagnostic:()=>mockDiagnosticChannel?.begin()};});
+import {calibrateEnrollmentDiagnostic,createEnrollmentDiagnosticChannel} from '@/utils/privateRuntimeEnrollmentDiagnostic';
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { IdentifierEntry } from './IdentifierEntry';
@@ -71,4 +74,11 @@ describe('IdentifierEntry', () => {
     fireEvent(input, 'submitEditing');
     expect(onValidIdentifier).toHaveBeenCalledWith({ valid: true, channel: 'phone', identifier: '+46701234567' });
   });
+});
+
+
+test('owned passive submit marker preserves the normalized single callback and contains no input',()=>{
+ const log=jest.spyOn(console,'info').mockImplementation(()=>{});mockDiagnosticChannel=createEnrollmentDiagnosticChannel(()=>({development:true,platform:'ios',proof:'true',enabled:'true',url:'https://localhost:3443'}),fixed=>console.info(fixed));const close=calibrateEnrollmentDiagnostic(),callback=jest.fn();
+ try{render(<IdentifierEntry onValidIdentifier={callback}/>);const input=screen.getByLabelText('Email address');fireEvent.changeText(input,'private-canary@example.test');fireEvent.press(screen.getByRole('button',{name:'Continue'}));expect(callback).toHaveBeenCalledTimes(1);expect(callback).toHaveBeenCalledWith({valid:true,channel:'email',identifier:'private-canary@example.test'});fireEvent.changeText(input,'bad private-canary');fireEvent(input,'submitEditing');expect(callback).toHaveBeenCalledTimes(1);expect(log.mock.calls.map(([line])=>line)).toEqual(['ST244_ENROLLMENT calibration=mounted','ST244_ENROLLMENT stage=submit-valid','ST244_ENROLLMENT stage=submit-invalid']);}
+ finally{close();mockDiagnosticChannel=undefined;log.mockRestore();}
 });

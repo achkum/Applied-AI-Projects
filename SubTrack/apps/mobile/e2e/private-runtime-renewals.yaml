@@ -1,0 +1,41 @@
+appId: se.subtrack.app
+---
+# Previous parent flow ends logged out. Verify fresh authority, then open agenda.
+- openLink: subtrack:///personal
+- extendedWaitUntil:
+    visible: ${MAESTRO_VERIFY_BANKID}
+    timeout: 30000
+- tapOn: ${MAESTRO_VERIFY_BANKID}
+- extendedWaitUntil:
+    visible: Native restart proof
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_RENEWALS_OPEN}
+    direction: UP
+- tapOn: ${MAESTRO_RENEWALS_OPEN}
+- extendedWaitUntil:
+    visible: ${MAESTRO_RENEWALS_TITLE}
+    timeout: 30000
+- extendedWaitUntil:
+    visible: Native restart proof
+    timeout: 30000
+- assertVisible: ${MAESTRO_RENEWAL_DATE}
+- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
+- scrollUntilVisible:
+    element: ${MAESTRO_RENEWALS_REFRESH}
+    direction: DOWN
+- tapOn: ${MAESTRO_RENEWALS_REFRESH}
+- extendedWaitUntil:
+    visible: Native restart proof
+    timeout: 30000
+- assertVisible: ${MAESTRO_RENEWAL_DATE}
+- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
+- takeScreenshot: accepted-renewals
+- scrollUntilVisible:
+    element: ${MAESTRO_LOGOUT}
+    direction: DOWN
+- tapOn: ${MAESTRO_LOGOUT}
+- extendedWaitUntil:
+    visible: ${MAESTRO_LOGOUT_CONFIRMED}
+    timeout: 30000
+- assertNotVisible: Native restart proof

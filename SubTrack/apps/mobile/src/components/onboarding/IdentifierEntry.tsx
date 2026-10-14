@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import {observeEnrollmentStage} from '@/utils/privateRuntimeEnrollmentDiagnostic';
 import {
   Keyboard,
   Pressable,
@@ -34,10 +35,12 @@ export function IdentifierEntry({ onValidIdentifier }: IdentifierEntryProps) {
   const submit = () => {
     const result = normalizeIdentifier(channel, value);
     if (!result.valid) {
+      observeEnrollmentStage('submit-invalid');
       setError(result.code);
       return;
     }
     setError(null);
+    observeEnrollmentStage('submit-valid');
     onValidIdentifier(result);
   };
 

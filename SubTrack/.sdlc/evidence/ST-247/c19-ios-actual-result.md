@@ -1,0 +1,15 @@
+# C19 changed-head iOS actual result
+
+Exact headccf1c0a82ecfcf5691232e922790699a29f453bf; native run38489798287/iOSjob115612040956 completed FAILURE. Android remained IN_PROGRESS at this inspection. Read-only monitor, no source changes/cancel/rerun.
+
+Safe actual diagnostic phases reached: fixture-bundle, fixture-construction, https-start, startup-graph, native-build. Failure current phase native-build, outer category unclassified. Closed native build metadata: build_phase ios-pods, exit_code1, category pods-ruby-json, reason_list pods-ruby-json,pods-failure. Known specs/methods/keywords/podfile lines/sources none. Reviewed parser-presence flags json-parser-class/json-common/autolinking-manager/native-modules/podfile allfalse. Reviewed sanitized fatal excerpts exist in the job log, but no excerpt/raw/private value was exposed by this monitor.
+
+Identifier/C19 stage/calibration/request metadata was never reached. This run cannot answer the prior iOS zero-arrival cause and provides no installed Add/restart/Edit/status/Month/bank acceptance. Owned fixture disposal and GitHub fixture/debug cleanup SUCCESS; accepted sanitized evidence upload SKIPPED. Do not infer a TLS/config/form failure, installed app success or absence of markers from a preinstall CocoaPods failure.
+
+Source-backed classification is ios-pods Ruby JSON failure; specific parsing input/source and deterministic repair remain unknown from the closed metadata. Existing build script uses original pod install --verbose; no evidence permits dependency/pin/TLS changes or an unchanged cold rerun. An independently reviewed read-only inspection of already sanitized build excerpts can investigate that separate build issue while Android proceeds. Full GitHub job log remains private under host TEMP only. No images/hierarchy/raw logs printed.
+
+
+## Authorized private inspection of existing C8 approved excerpt
+Root authorized inspecting that existing bounded positive-fatal channel to identify a public exception/tool source, without exposing its body. Fixed public-token classification confirms the selected excerpt is the generic CocoaPods support footer (existing issues/template instructions) plus redaction markers. It contains no JSON/Ruby exception class, unexpected-token text, public Ruby source filename, Podfile/podspec/specification/download or Swift-version cause. No raw excerpt, private path or value exposed.
+
+Concrete diagnostic gap: fatalBuildExcerpt prioritizes only an anchored JSON::ParserError block. With actual parser-presencefalse, it falls back to the first generic [!] support footer. nativeFailureReasons recognized JSON/unexpected-token elsewhere in the original private log, but this chosen bounded block does not preserve that cause. Smallest proposed independent-reviewed source correction: add prioritization of exact existing known positive unexpected-token/JSON parse-invalid fatal text while preserving redaction, input/line/total bounds and no raw-tail fallback. That is a diagnostic gap repair, not a specific CocoaPods/network/dependency root-cause fix. Current root exception input/public tool source still unknown.

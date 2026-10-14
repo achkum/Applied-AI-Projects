@@ -77,7 +77,7 @@ Screen names are in `Code` style and match the route names in the web and mobile
    - The scope switcher (Me · Household · members).
    - The hero total (month), with an annual toggle.
    - A change vs last month.
-   - The **Orbit** visual (DESIGN_DIRECTION §4).
+   - Android/iOS: the **Billing Month timeline** and multi-item date detail (DESIGN_DIRECTION/BILLING_MONTH_ADOPTION). Deferred web retains archived Orbit source.
    - Upcoming renewals (next 30 days).
    - An insight card carousel.
    - "Better together" savings.

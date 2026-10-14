@@ -1,0 +1,5 @@
+# C21 independent privacy source review
+
+Final privacy SOURCE GO from native_first_slice_security at corrected excerpt SHA256159f5b9745ecd86ad1caf4cdc14e8c1be762c3c99b56a6b16d3a4f5673d536d8, superseding initial17553403809b10c6746340338301bc7b568050c44e507dee88ed8b698bd7d665. Reviewer inspected exact validated ios-pods selector-null immediate fatal-block-unavailable withholding and regression for support footer, unknown report and private canary. Positive-only Pods boundary is stronger; non-Pods fallback and sanitizer/redaction/caps remain unchanged. Shared selector bafef39208bd26d11da316b788285ae6c57ff14774c12dec8844ab4619c92af6 and loader bbbafd2be665ee9246f0efe599ed1ffdf7f7d89835a8baed1e26eee43577d7b7 already reviewed. Current canonical source hash roster reconciles path separators and corrected hashes.
+
+Focused author tests/checks acknowledged; no unchanged broad reruns. This approves source only, does not identify actual Pods cause, accept installed behavior or authorize release. Next changed native run and private cleanup remain mandatory.

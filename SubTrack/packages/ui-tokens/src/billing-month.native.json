@@ -1,0 +1,273 @@
+{
+  "color": {
+    "light": {
+      "bg.canvas": "#F1F4F3",
+      "bg.surface": "#FFFFFF",
+      "bg.raised": "#E8EDEB",
+      "bg.sunken": "#E8EDEB",
+      "ink.primary": "#0F1618",
+      "ink.secondary": "#55666A",
+      "ink.faint": "#55666A",
+      "ink.on-accent": "#FFFFFF",
+      "action.accent": "#9C640A",
+      "status.positive": "#1B7852",
+      "status.warning": "#B0452A",
+      "line.hairline": "#DDE4E1",
+      "sheet.scrim": "rgba(10,16,18,0.4)",
+      "aurora.violet": "#9C640A",
+      "aurora.violet.hover": "#9C640A",
+      "aurora.green": "#1B7852",
+      "aurora.teal": "#9C640A",
+      "ember.amber": "#9C640A",
+      "ember.coral": "#B0452A",
+      "action.text": "#9B630A"
+    },
+    "dark": {
+      "bg.canvas": "#0D1214",
+      "bg.surface": "#151C1F",
+      "bg.raised": "#1D272B",
+      "bg.sunken": "#1D272B",
+      "ink.primary": "#E8EEEC",
+      "ink.secondary": "#8E9EA2",
+      "ink.faint": "#8E9EA2",
+      "ink.on-accent": "#1C1405",
+      "action.accent": "#EDB24E",
+      "status.positive": "#6CC29E",
+      "status.warning": "#EF8A63",
+      "line.hairline": "#263136",
+      "sheet.scrim": "rgba(0,0,0,0.6)",
+      "aurora.violet": "#EDB24E",
+      "aurora.violet.hover": "#EDB24E",
+      "aurora.green": "#6CC29E",
+      "aurora.teal": "#EDB24E",
+      "ember.amber": "#EDB24E",
+      "ember.coral": "#EF8A63",
+      "action.text": "#EDB24E"
+    }
+  },
+  "gradient": {
+    "aurora": {
+      "angleDegrees": 120,
+      "stops": [
+        "aurora.violet",
+        "aurora.teal",
+        "aurora.green"
+      ]
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "ui": "Geist400",
+      "ui.medium": "Geist500",
+      "ui.semibold": "Geist600",
+      "display": "Bricolage700",
+      "display.semibold": "Bricolage600",
+      "display.bold": "Bricolage700",
+      "display.extraBold": "Bricolage800",
+      "mono": "Geist400"
+    },
+    "fontSize": {
+      "xs": 12,
+      "sm": 13,
+      "md": 15,
+      "lg": 17,
+      "xl": 22,
+      "2xl": 26,
+      "3xl": 36,
+      "4xl": 48,
+      "hero": 64,
+      "total": 48,
+      "detail": 36
+    },
+    "fontVariantNumeric": "tabular-nums"
+  },
+  "radius": {
+    "card": 18,
+    "sheet": 28,
+    "pill": 9999
+  },
+  "motion": {
+    "reducedMotionSupported": true,
+    "screenMs": 260,
+    "sheetMs": 320
+  },
+  "contrastPairs": [
+    {
+      "foreground": "ink.primary",
+      "background": "bg.canvas"
+    },
+    {
+      "foreground": "ink.primary",
+      "background": "bg.surface"
+    },
+    {
+      "foreground": "ink.primary",
+      "background": "bg.raised"
+    },
+    {
+      "foreground": "ink.secondary",
+      "background": "bg.canvas"
+    },
+    {
+      "foreground": "ink.secondary",
+      "background": "bg.surface"
+    },
+    {
+      "foreground": "ink.secondary",
+      "background": "bg.raised"
+    },
+    {
+      "foreground": "action.text",
+      "background": "bg.canvas"
+    },
+    {
+      "foreground": "ink.on-accent",
+      "background": "action.accent"
+    }
+  ],
+  "memberAccent": {
+    "scopeSwitcherStates": {
+      "selected": {
+        "surface": "bg.raised",
+        "foreground": "ink.primary",
+        "identityMark": "member.accent",
+        "selectionIndicator": "checkmark",
+        "selectionIndicatorStrokeWidthPx": 2,
+        "accessibilitySelected": true
+      },
+      "unselected": {
+        "surface": "bg.sunken",
+        "foreground": "ink.primary",
+        "identityMark": "member.accent",
+        "selectionIndicator": "none",
+        "selectionIndicatorStrokeWidthPx": 0,
+        "accessibilitySelected": false
+      }
+    },
+    "slots": {
+      "member.accent.01": {
+        "light": "#A33F55",
+        "dark": "#FF8297"
+      },
+      "member.accent.02": {
+        "light": "#A65D12",
+        "dark": "#FFC06B"
+      },
+      "member.accent.03": {
+        "light": "#777300",
+        "dark": "#E4D85B"
+      },
+      "member.accent.04": {
+        "light": "#147A4B",
+        "dark": "#52D995"
+      },
+      "member.accent.05": {
+        "light": "#087A83",
+        "dark": "#58DCE5"
+      },
+      "member.accent.06": {
+        "light": "#386EB2",
+        "dark": "#83B9FF"
+      },
+      "member.accent.07": {
+        "light": "#7953B3",
+        "dark": "#C4A0FF"
+      },
+      "member.accent.08": {
+        "light": "#A63D8C",
+        "dark": "#F18BD1"
+      }
+    },
+    "selection": "stable-fnv1a-32"
+  },
+  "categoryHue": {
+    "VIDEO_STREAMING": {
+      "light": "oklch(0.58 0.14 0)",
+      "dark": "oklch(0.72 0.14 0)"
+    },
+    "MUSIC_AUDIO": {
+      "light": "oklch(0.58 0.14 16.3636)",
+      "dark": "oklch(0.72 0.14 16.3636)"
+    },
+    "AUDIOBOOKS_EBOOKS": {
+      "light": "oklch(0.58 0.14 32.7273)",
+      "dark": "oklch(0.72 0.14 32.7273)"
+    },
+    "NEWS_MAGAZINES": {
+      "light": "oklch(0.58 0.14 49.0909)",
+      "dark": "oklch(0.72 0.14 49.0909)"
+    },
+    "GAMING": {
+      "light": "oklch(0.58 0.14 65.4545)",
+      "dark": "oklch(0.72 0.14 65.4545)"
+    },
+    "SOFTWARE_PRODUCTIVITY": {
+      "light": "oklch(0.58 0.14 81.8182)",
+      "dark": "oklch(0.72 0.14 81.8182)"
+    },
+    "CLOUD_STORAGE": {
+      "light": "oklch(0.58 0.14 98.1818)",
+      "dark": "oklch(0.72 0.14 98.1818)"
+    },
+    "AI_TOOLS": {
+      "light": "oklch(0.58 0.14 114.5455)",
+      "dark": "oklch(0.72 0.14 114.5455)"
+    },
+    "MOBILE_PLAN": {
+      "light": "oklch(0.58 0.14 130.9091)",
+      "dark": "oklch(0.72 0.14 130.9091)"
+    },
+    "BROADBAND_TV": {
+      "light": "oklch(0.58 0.14 147.2727)",
+      "dark": "oklch(0.72 0.14 147.2727)"
+    },
+    "FITNESS_WELLNESS": {
+      "light": "oklch(0.58 0.14 163.6364)",
+      "dark": "oklch(0.72 0.14 163.6364)"
+    },
+    "FOOD_MEALKITS": {
+      "light": "oklch(0.58 0.14 180)",
+      "dark": "oklch(0.72 0.14 180)"
+    },
+    "TRANSPORT_MOBILITY": {
+      "light": "oklch(0.58 0.14 196.3636)",
+      "dark": "oklch(0.72 0.14 196.3636)"
+    },
+    "HOME_SECURITY": {
+      "light": "oklch(0.58 0.14 212.7273)",
+      "dark": "oklch(0.72 0.14 212.7273)"
+    },
+    "EDUCATION_KIDS": {
+      "light": "oklch(0.58 0.14 229.0909)",
+      "dark": "oklch(0.72 0.14 229.0909)"
+    },
+    "PETS": {
+      "light": "oklch(0.58 0.14 245.4545)",
+      "dark": "oklch(0.72 0.14 245.4545)"
+    },
+    "SHOPPING_MEMBERSHIPS": {
+      "light": "oklch(0.58 0.14 261.8182)",
+      "dark": "oklch(0.72 0.14 261.8182)"
+    },
+    "VPN_SECURITY": {
+      "light": "oklch(0.58 0.14 278.1818)",
+      "dark": "oklch(0.72 0.14 278.1818)"
+    },
+    "DONATIONS": {
+      "light": "oklch(0.58 0.14 294.5455)",
+      "dark": "oklch(0.72 0.14 294.5455)"
+    },
+    "DATING_SOCIAL": {
+      "light": "oklch(0.58 0.14 310.9091)",
+      "dark": "oklch(0.72 0.14 310.9091)"
+    },
+    "APP_STORE_BILLING": {
+      "light": "oklch(0.58 0.14 327.2727)",
+      "dark": "oklch(0.72 0.14 327.2727)"
+    },
+    "OTHER_SUBSCRIPTION": {
+      "light": "oklch(0.58 0.14 343.6364)",
+      "dark": "oklch(0.72 0.14 343.6364)"
+    }
+  }
+}

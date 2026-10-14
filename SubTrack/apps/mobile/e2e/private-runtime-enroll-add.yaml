@@ -1,0 +1,67 @@
+appId: se.subtrack.app
+---
+- tapOn: ${MAESTRO_OTP_LABEL}
+- inputText: ${MAESTRO_PRIVATE_OTP}
+- hideKeyboard
+- tapOn: ${MAESTRO_VERIFY_OTP}
+- extendedWaitUntil:
+    visible: ${MAESTRO_VERIFY_BANKID}
+    timeout: 30000
+- tapOn: ${MAESTRO_VERIFY_BANKID}
+- extendedWaitUntil:
+    visible: ${MAESTRO_PROFILE_NAME}
+    timeout: 30000
+- tapOn: ${MAESTRO_PROFILE_NAME}
+- inputText: Synthetic Native Proof
+- hideKeyboard
+- tapOn: ${MAESTRO_ENGLISH}
+- scrollUntilVisible:
+    element: ${MAESTRO_SAVE_PROFILE}
+    direction: DOWN
+- tapOn: ${MAESTRO_SAVE_PROFILE}
+- extendedWaitUntil:
+    visible: ${MAESTRO_JUST_ME}
+    timeout: 30000
+- tapOn: ${MAESTRO_JUST_ME}
+- extendedWaitUntil:
+    visible: ${MAESTRO_ADD}
+    timeout: 30000
+- tapOn: ${MAESTRO_ADD}
+- scrollUntilVisible:
+    element: ${MAESTRO_SUBSCRIPTION_NAME}
+    direction: DOWN
+- tapOn: ${MAESTRO_SUBSCRIPTION_NAME}
+- inputText: Native restart proof
+- hideKeyboard
+- scrollUntilVisible:
+    element: ${MAESTRO_CATEGORY}
+    direction: DOWN
+- tapOn: ${MAESTRO_CATEGORY}
+- scrollUntilVisible:
+    element: ${MAESTRO_AMOUNT}
+    direction: DOWN
+- tapOn: ${MAESTRO_AMOUNT}
+- inputText: '129.90'
+- hideKeyboard
+- scrollUntilVisible:
+    element: ${MAESTRO_DATE}
+    direction: DOWN
+- tapOn: ${MAESTRO_DATE}
+- inputText: ${MAESTRO_RENEWAL_DATE}
+- hideKeyboard
+- scrollUntilVisible:
+    element: ${MAESTRO_SAVE_SUBSCRIPTION}
+    direction: DOWN
+- tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}
+- scrollUntilVisible:
+    element: ${MAESTRO_PERSONAL_TITLE}
+    direction: UP
+- extendedWaitUntil:
+    visible: ${MAESTRO_SAVED}
+    timeout: 30000
+- scrollUntilVisible:
+    element: Native restart proof
+    direction: UP
+- assertVisible: Native restart proof
+- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
+- takeScreenshot: accepted-add

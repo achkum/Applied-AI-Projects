@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { catalogs } from '@subtrack/i18n';
 import OtpRoute from '../../../app/register-otp';
 import BankIdRoute from '../../../app/register-bankid';
@@ -11,6 +11,12 @@ const mockReplace = jest.fn();
 const mockVerify = jest.fn();
 const mockResend = jest.fn();
 const mockReset = jest.fn();
+const mockComplete = jest.fn();
+const mockLogin = jest.fn();
+const mockLogout = jest.fn();
+jest.mock('@/state/NativeSession', () => ({
+  useNativeSession: () => ({ phase: 'verification-required', complete: mockComplete, login: mockLogin, logout: mockLogout }),
+}));
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace }),
 }));
@@ -55,6 +61,7 @@ const otp = () => ({
 describe('enrollment route rendering', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockComplete.mockResolvedValue(undefined); mockLogin.mockResolvedValue(undefined); mockLogout.mockResolvedValue(false);
     mockLocale = 'en';
     mockIsDark = false;
     mockFlow = { phase: 'identifier' };
@@ -112,8 +119,8 @@ describe('enrollment route rendering', () => {
   });
 
   it.each(['en', 'sv'] as const)(
-    'gates %s verified proof at unavailable BankID continuation',
-    (locale) => {
+    'requires explicit %s development verification before completing the restricted proof',
+    async (locale) => {
       mockLocale = locale;
       mockFlow = { phase: 'bankid', proof: `v2.${'b'.repeat(43)}` };
       render(<BankIdRoute />);
@@ -122,10 +129,18 @@ describe('enrollment route rendering', () => {
         screen.getByRole('header', { name: copy.bankIdRequired }),
       ).toBeTruthy();
       expect(screen.getByRole('alert').props.children).toBe(
-        copy.bankIdUnavailable,
+        catalogs[locale].onboarding.nativePersonal.demo,
       );
-      expect(screen.getAllByRole('button')).toHaveLength(1);
+      expect(screen.getAllByRole('button')).toHaveLength(2);
+      expect(mockComplete).not.toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
       expect(screen.queryByText(String(mockFlow.proof))).toBeNull();
+      fireEvent.press(screen.getByRole('button', { name: catalogs[locale].onboarding.nativePersonal.verify }));
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/personal'));
+      expect(mockComplete).toHaveBeenCalledWith(mockFlow.proof, locale);
+      expect(mockComplete.mock.calls[0]).toHaveLength(2);
+      expect(mockLogin).not.toHaveBeenCalled();
+      expect(mockReset).toHaveBeenCalledTimes(1);
     },
   );
 });
