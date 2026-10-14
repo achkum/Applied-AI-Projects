@@ -1,0 +1,36 @@
+{
+  admin off
+  http_port 8080
+  https_port 8443
+  auto_https disable_redirects
+  servers {
+    protocols h1 h2
+    timeouts {
+      read_header 10s
+      read_body 15s
+      write 15s
+      idle 30s
+    }
+  }
+}
+
+# Candidate trusted IPv4 TLS only. No default/internal issuer or arbitrary host issuance.
+https://198.44.116.159 {
+  tls {
+    issuer acme {
+      dir https://acme-v02.api.letsencrypt.org/directory
+      profile shortlived
+    }
+  }
+  request_body {
+    max_size 16KB
+  }
+  header {
+    Cache-Control "no-store"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+    -Server
+  }
+  # No API proxy, downloads, success/health claims or access logging until release review.
+  respond "Sandbox preparation: unavailable" 503
+}

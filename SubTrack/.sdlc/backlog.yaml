@@ -4,10 +4,12 @@
 board_kind: mobile_delivery_queue
 milestone_current: M1
 current_delivery: ST-086
-current_slice: ST-247
-execution_phase: combined_native_runtime_qualification
+current_slice: ST-250
+execution_phase: isolated_public_sandbox_delivery
 source_pipeline_slice: ST-249
-source_pipeline_slices: [ST-245, ST-246, ST-247, ST-248, ST-249]
+source_pipeline_slices: [ST-245, ST-246, ST-247, ST-248, ST-249, ST-250]
+immediate_delivery_task: .sdlc/tasks/ST-250.md
+sandbox_authority: "Founder2026-10-14: zero additional cost existing VPS, anyone with test link, synthetic-only beta before production; do not use OpenClaw"
 approved_native_design: docs/product/BILLING_MONTH_ADOPTION.md
 approved_template: docs/product/references/subtrack-billing-month.html
 approved_template_sha256: 4b2de0a2c4a1ce22a05cea087a8db5f0a561dd14a13c0829acd99afe676859c5

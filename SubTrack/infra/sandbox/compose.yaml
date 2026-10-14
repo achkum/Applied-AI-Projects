@@ -1,0 +1,87 @@
+name: subtrack-sandbox
+# Preparation only: explicit profile, no published host ports and no migration runner.
+services:
+  database:
+    profiles: [sandbox-prepared]
+    image: ${SANDBOX_POSTGRES_IMAGE:?verified postgres16 digest required}
+    user: "999:999"
+    environment:
+      POSTGRES_DB: subtrack_sandbox
+      POSTGRES_USER: subtrack_sandbox_bootstrap
+      POSTGRES_PASSWORD_FILE: /run/secrets/database_bootstrap
+      PGDATA: /var/lib/postgresql/data/pgdata
+    command: [postgres, -c, shared_buffers=32MB, -c, max_connections=20, -c, work_mem=2MB]
+    secrets: [database_bootstrap]
+    volumes: [database-data:/var/lib/postgresql/data]
+    networks: [database]
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:size=16m", "/var/run/postgresql:size=4m,uid=999,gid=999"]
+    restart: "no"
+    stop_grace_period: 30s
+    logging: &bounded_logs
+      driver: json-file
+      options: {max-size: 5m, max-file: "2"}
+  api:
+    profiles: [sandbox-prepared]
+    image: ${SANDBOX_API_IMAGE:?reviewed sandbox API digest required}
+    user: "1000:1000"
+    environment:
+      NODE_ENV: production
+      SUBTRACK_RUNTIME: sandbox
+      SANDBOX_STARTUP_ENABLED: "false"
+      SANDBOX_PUBLICATION_ENABLED: "false"
+      SANDBOX_DATABASE_HOST: database
+      SANDBOX_DATABASE_NAME: subtrack_sandbox
+      SANDBOX_DATABASE_ROLE: subtrack_sandbox_runtime
+      SANDBOX_POOL_MAX: "4"
+      SANDBOX_DATABASE_CREDENTIAL_FILE: /run/secrets/database_runtime
+      SANDBOX_AUTH_MATERIAL_FILE: /run/secrets/api_auth_material
+      PORT: "4000"
+    secrets: [database_runtime, api_auth_material]
+    networks: [database, ingress]
+    mem_limit: 384m
+    cpus: 0.75
+    pids_limit: 64
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:size=16m,uid=1000,gid=1000"]
+    restart: "no"
+    stop_grace_period: 20s
+    logging: *bounded_logs
+  gateway:
+    profiles: [sandbox-prepared]
+    image: ${SANDBOX_CADDY_IMAGE:?verified caddy2.11.7 digest required}
+    user: "1000:1000"
+    entrypoint: [caddy]
+    command: [run, --config, /etc/caddy/Caddyfile, --adapter, caddyfile]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - certificate-data:/data
+      - gateway-config:/config
+    networks: [ingress]
+    mem_limit: 96m
+    cpus: 0.25
+    pids_limit: 32
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:size=8m,uid=1000,gid=1000"]
+    restart: "no"
+    stop_grace_period: 10s
+    logging: *bounded_logs
+networks:
+  database: {internal: true}
+  ingress: {}
+volumes:
+  database-data: {}
+  certificate-data: {}
+  gateway-config: {}
+secrets:
+  database_bootstrap: {file: /home/openclaw/subtrack-sandbox/secrets/database-bootstrap}
+  database_runtime: {file: /home/openclaw/subtrack-sandbox/secrets/database-runtime}
+  api_auth_material: {file: /home/openclaw/subtrack-sandbox/secrets/api-auth-material}

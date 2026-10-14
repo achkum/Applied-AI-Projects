@@ -1,0 +1,37 @@
+# Build outside the VPS. No default image/tag and no legacy/fixture entrypoint fallback.
+ARG SANDBOX_NODE_IMAGE
+FROM ${SANDBOX_NODE_IMAGE} AS base
+WORKDIR /workspace
+ENV PNPM_HOME=/pnpm
+ENV PATH=/pnpm:${PATH}
+RUN npm install --global pnpm@12.6.0
+
+FROM base AS build
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json ./
+COPY apps/api ./apps/api
+COPY packages ./packages
+RUN test -f apps/api/src/sandbox/main.ts || (echo 'Reviewed sandbox entrypoint required' >&2; exit 1)
+RUN pnpm install --frozen-lockfile && \
+    pnpm --filter @subtrack/domain build:lifecycle && \
+    pnpm --filter @subtrack/domain build:bank && \
+    pnpm --filter @subtrack/domain build:detection && \
+    pnpm --filter @subtrack/synthetic build:bank && \
+    DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build pnpm --filter @subtrack/api exec prisma generate --schema=prisma/schema.prisma && \
+    pnpm --filter @subtrack/api exec tsc -p tsconfig.build.json && \
+    test -f apps/api/dist/sandbox/main.js
+
+FROM base AS runtime-dependencies
+ENV NODE_ENV=production
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json ./
+COPY apps/api/package.json ./apps/api/package.json
+COPY packages ./packages
+RUN pnpm install --prod --filter @subtrack/api... --frozen-lockfile --ignore-scripts && rm -rf /pnpm/store
+
+FROM runtime-dependencies AS runtime
+ENV NODE_ENV=production SUBTRACK_RUNTIME=sandbox SANDBOX_STARTUP_ENABLED=false SANDBOX_PUBLICATION_ENABLED=false PORT=4000
+COPY --from=build --chown=node:node /workspace/apps/api/dist ./apps/api/dist
+COPY --from=build --chown=node:node /workspace/packages/domain/dist ./packages/domain/dist
+COPY --from=build --chown=node:node /workspace/packages/synthetic/dist ./packages/synthetic/dist
+USER 1000:1000
+EXPOSE 4000
+CMD ["node", "apps/api/dist/sandbox/main.js"]
