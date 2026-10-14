@@ -1,3 +1,4 @@
+import {privateMobileBankBody} from '../../banks/private-mobile-bank-body.js';
 import {createPrivateMobileBank} from '../../banks/private-mobile-bank.js';
 import type {PrivateMobileBankOperation} from '@subtrack/contracts/private-mobile-bank';
 import type {IncomingMessage,ServerResponse} from 'node:http';
@@ -35,7 +36,7 @@ export function createPrivateMobileHttp(authority:DurablePrivateMobileAuthority,
    privateMobileWire(request);const path=request.url;
    if(![...Object.values(PATHS),...Object.values(BANK_PATHS)].includes(path??'')){problem(response,404);return;}
    let body:Record<string,unknown>={};if(path===PATHS.refresh){for await(const chunk of request)if(Buffer.from(chunk as Uint8Array).length!==0)throw new Error('wire');}
-   else body={...await privateBody(request)};
+   else body={...await ((Object.values(BANK_PATHS) as readonly string[]).includes(path??'')?privateMobileBankBody(request):privateBody(request))};
    const key=rawHeader(request,'idempotency-key');const authorization=rawHeader(request,'authorization');
    const needsKey=[PATHS.complete,PATHS.verifyLogin,PATHS.session,PATHS.refresh,PATHS.manual,PATHS.manualEdit,BANK_PATHS.connect,BANK_PATHS.sync,BANK_PATHS.disconnect].includes(path);
    if(needsKey?(!key||!/^[\x21-\x7e]{16,255}$/.test(key)):key!==null)throw new Error('wire');
