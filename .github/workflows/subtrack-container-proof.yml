@@ -14,13 +14,24 @@ on:
       - "SubTrack/tools/containers/smoke-images.sh"
       - ".github/workflows/subtrack-container-proof.yml"
   workflow_dispatch:
+    inputs:
+      sandbox_transfer:
+        description: Stage the independently reviewed qualified sandbox image as a private draft
+        required: false
+        type: boolean
+        default: false
+      source_head:
+        description: Exact reviewed feature source SHA for explicit transfer only
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
 concurrency:
-  group: subtrack-container-proof-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: subtrack-container-proof-${{ github.event_name == 'workflow_dispatch' && inputs.sandbox_transfer && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.sandbox_transfer) }}
 
 jobs:
   container-proof:
@@ -56,3 +67,47 @@ jobs:
           path: ${{ runner.temp }}/st206-container-smoke.json
           if-no-files-found: ignore
           retention-days: 7
+
+  sandbox-draft-transfer:
+    name: Qualify and stage the same sandbox image in a private draft
+    if: github.event_name == 'workflow_dispatch' && inputs.sandbox_transfer == true && github.repository == 'achkum/Applied-AI-Projects' && github.ref == 'refs/heads/st/native-synthetic-bank' && inputs.source_head == github.sha
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout exact reviewed manual head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Assert exact trusted source before execution
+        shell: bash
+        env:
+          ST250_SOURCE_HEAD: ${{ inputs.source_head }}
+        run: |
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REPOSITORY" = achkum/Applied-AI-Projects
+          test "$GITHUB_REF" = refs/heads/st/native-synthetic-bank
+          [[ "$ST250_SOURCE_HEAD" =~ ^[a-f0-9]{40}$ ]]
+          test "$ST250_SOURCE_HEAD" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$ST250_SOURCE_HEAD"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.18.0'
+      - name: Prepare pinned qualification observer dependencies
+        working-directory: SubTrack
+        shell: bash
+        run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = 12.6.0
+          pnpm install --frozen-lockfile
+      - name: Qualify, export, upload exact draft assets and remove local custody
+        working-directory: SubTrack
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ST250_TRANSFER_APPROVED: 'true'
+          ST250_SOURCE_HEAD: ${{ inputs.source_head }}
+          ST250_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: bash tools/sandbox/draft-transfer.sh

@@ -10,6 +10,9 @@ variant="${ST250_QUALIFICATION_VARIANT:-host-v1}";[[ "$variant" == host-v1 || "$
 api_image='';extract_id='';image_label="st250-image-${GITHUB_RUN_ID:-}-${GITHUB_RUN_ATTEMPT:-}"
 out="$base/st250-sandbox-postgresql-receipt.json"
 if [[ "$variant" == image-v2 ]];then out="$base/st250-sandbox-image-postgresql-receipt.json";fi
+retention="${ST250_TRANSFER_RETENTION:-default}";[[ "$retention" == default || "$retention" == parent-transfer ]]
+transfer_parent=''
+
 cleanup(){
  local code=$?;trap - EXIT INT TERM
  set +e
@@ -48,7 +51,7 @@ cleanup(){
    [[ -z "$remaining" ]] || code=1
   else code=1;fi
  fi
- if [[ "$variant" == image-v2 && -n "$api_image" ]];then
+ if [[ "$variant" == image-v2 && -n "$api_image" && ( "$retention" == default || "$code" -ne 0 ) ]];then
   local remaining_image;remaining_image="$(docker image ls --no-trunc --quiet 2>/dev/null)" || code=1
   if grep -Fxq -- "$api_image" <<< "$remaining_image";then
    if [[ "$(docker image inspect --format '{{.Id}}' "$api_image" 2>/dev/null)" == "$api_image" && "$(docker image inspect --format '{{index .Config.Labels "org.subtrack.sandbox-build"}}' "$api_image" 2>/dev/null)" == "$image_label" ]];then docker image rm "$api_image" >/dev/null 2>&1 || code=1;else code=1;fi
@@ -76,8 +79,9 @@ cleanup(){
  rm -rf -- "$work" || code=1
  [[ ! -e "$work" && ! -L "$work" ]] || code=1
  if (( code==0 ));then
-  ST250_CLOSED_CANDIDATE="$receipt" ST250_CLOSED_HANDOFF="$handoff_json" node - "$root" "$out" "$variant" <<'NODE'
-const fs=require('node:fs'),path=require('node:path');const [root,out,variant]=process.argv.slice(2);const {sandboxReceipt,sandboxImageReceipt}=require(path.join(root,'tools/database/sandbox-qualification-receipt.cjs'));try{const measured=JSON.parse(process.env.ST250_CLOSED_CANDIDATE);if(measured.cleanupConfirmed!==false)throw Error('cleanup');const receipt=variant==='image-v2'?sandboxImageReceipt({...measured,cleanupConfirmed:true,checks:{...measured.checks,imageCustodyRemoved:true}},JSON.parse(process.env.ST250_CLOSED_HANDOFF)):sandboxReceipt({...measured,cleanupConfirmed:true});fs.writeFileSync(out,JSON.stringify(receipt)+'\n',{mode:0o600,flag:'wx'});}catch{process.stderr.write('ST250_SANDBOX_PG_FAILURE phase=RECEIPT\n');process.exitCode=1;}
+  if [[ "$retention" == parent-transfer ]];then out="$transfer_parent/qualification.json";fi
+  ST250_CLOSED_CANDIDATE="$receipt" ST250_CLOSED_HANDOFF="$handoff_json" node - "$root" "$out" "$variant" "$retention" <<'NODE'
+const fs=require('node:fs'),path=require('node:path');const [root,out,variant,retention]=process.argv.slice(2);const {sandboxReceipt,sandboxImageReceipt,sandboxTransferCandidate}=require(path.join(root,'tools/database/sandbox-qualification-receipt.cjs'));try{const measured=JSON.parse(process.env.ST250_CLOSED_CANDIDATE);if(measured.cleanupConfirmed!==false)throw Error('cleanup');const h=variant==='image-v2'?JSON.parse(process.env.ST250_CLOSED_HANDOFF):null;const receipt=retention==='parent-transfer'?sandboxTransferCandidate({...measured,schema:'st250-sandbox-transfer-candidate-v1',runId:h.runId,imageLabel:h.imageLabel,parentMarker:h.parentMarker,nonImageCleanupConfirmed:true},h):variant==='image-v2'?sandboxImageReceipt({...measured,cleanupConfirmed:true,checks:{...measured.checks,imageCustodyRemoved:true}},JSON.parse(process.env.ST250_CLOSED_HANDOFF)):sandboxReceipt({...measured,cleanupConfirmed:true});fs.writeFileSync(out,JSON.stringify(receipt)+'\n',{mode:0o600,flag:'wx'});}catch{process.stderr.write('ST250_SANDBOX_PG_FAILURE phase=RECEIPT\n');process.exitCode=1;}
 NODE
   [[ $? -eq 0 ]] || code=1
  else printf 'ST250_SANDBOX_PG_FAILURE phase=CLEANUP_OR_RUNTIME\n' >&2;fi
@@ -85,6 +89,13 @@ NODE
 }
 trap cleanup EXIT
 trap 'exit 1' INT TERM
+if [[ "$retention" == parent-transfer ]];then
+ [[ "$variant" == image-v2 && "${ST250_TRANSFER_PARENT:-}" == "$base"/st250-transfer-* ]]
+ transfer_parent="$ST250_TRANSFER_PARENT"
+ node - "$transfer_parent" "$base" "$head" "${ST250_RUN_ID:-}" <<'NODE'
+const fs=require('node:fs'),path=require('node:path');try{const [parent,base,head,run]=process.argv.slice(2),st=fs.lstatSync(parent);if(!st.isDirectory()||st.mode&0o077||fs.realpathSync(parent)!==parent||path.dirname(parent)!==base||!/^st250-transfer-[A-Za-z0-9]{8}$/.test(path.basename(parent)))throw Error('parent');const file=path.join(parent,'transfer.parent'),f=fs.lstatSync(file);if(!f.isFile()||f.mode&0o077||fs.realpathSync(file)!==file)throw Error('parent');const v=JSON.parse(fs.readFileSync(file));if(Object.keys(v).sort().join(',')!=='runId,schema,sourceHead'||v.schema!=='st250-transfer-parent-v1'||v.sourceHead!==head||v.runId!==run||!/^\d+-\d+$/.test(run))throw Error('parent');for(const name of ['qualification.json','image.iid'])if(fs.existsSync(path.join(parent,name)))throw Error('parent');}catch{process.exitCode=1;}
+NODE
+fi
 [[ ! -e "$out" && ! -L "$out" ]]
 # Fresh hosted runner only: refuse prior custody, a DB listener, API listener or hostname alias.
 [[ ! -e /run/secrets/database_runtime && ! -L /run/secrets/database_runtime && ! -e /run/secrets/api_auth_material && ! -L /run/secrets/api_auth_material ]]
@@ -95,6 +106,7 @@ if [[ "$variant" == image-v2 ]];then
  [[ "${ST250_SOURCE_HEAD:-}" == "$head" && "${ST250_RUN_ID:-}" =~ ^[0-9]+-[0-9]+$ && "$ST250_RUN_ID" == "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" ]]
  SANDBOX_BUILD_MODE=parent-owned-image SANDBOX_IMAGE_PARENT="$work" SANDBOX_IMAGE_MARKER="$marker" SANDBOX_SOURCE_HEAD="$head" SANDBOX_BUILD_RUN="$ST250_RUN_ID" SANDBOX_BUILD_RECEIPT='' bash tools/sandbox/build-api.sh > "$work/image-build-private.log" 2>&1
  api_image="$(cat "$work/image.iid")";[[ "$api_image" =~ ^sha256:[a-f0-9]{64}$ ]]
+ if [[ "$retention" == parent-transfer ]];then cp -- "$work/image.iid" "$transfer_parent/image.iid";fi
  docker create --cidfile "$work/extract.cid" --network none --read-only --cap-drop ALL --security-opt no-new-privileges --label "subtrack.custody=$marker" "$api_image" >/dev/null 2> "$work/extract-private.log"
  extract_id="$(cat "$work/extract.cid")";[[ "$extract_id" =~ ^[a-f0-9]{64}$ ]]
  mkdir -p "$work/image/apps/api/dist/sandbox" "$work/image/apps/api/prisma/sandbox" "$work/image-secrets"
