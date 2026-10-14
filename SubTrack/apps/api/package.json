@@ -15,7 +15,6 @@
     "@types/pg": "8.23.1",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "4.1.11",
-    "pg": "8.23.1",
     "prisma": "6.19.2",
     "vite": "7.3.6",
     "vitest": "4.1.11"
@@ -26,6 +25,7 @@
     "@nestjs/platform-express": "^12.1.0",
     "@nestjs/testing": "^12.1.0",
     "@prisma/client": "6.19.2",
+    "pg": "8.23.1",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",
