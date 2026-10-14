@@ -1,8 +1,8 @@
 name: subtrack-sandbox
-# Preparation only: explicit profile, no published host ports and no migration runner.
+# Default starts nothing. Preparation remains disabled; live/loader are explicit.
 services:
   database:
-    profiles: [sandbox-prepared]
+    profiles: [sandbox-prepared, sandbox-live, sandbox-bootstrap]
     image: ${SANDBOX_POSTGRES_IMAGE:?verified postgres16 digest required}
     user: "999:999"
     environment:
@@ -22,14 +22,20 @@ services:
     tmpfs: ["/tmp:size=16m", "/var/run/postgresql:size=4m,uid=999,gid=999"]
     restart: "no"
     stop_grace_period: 30s
+    healthcheck:
+      test: [CMD, pg_isready, -h, 127.0.0.1, -U, subtrack_sandbox_bootstrap, -d, subtrack_sandbox]
+      interval: 5s
+      timeout: 3s
+      start_period: 20s
+      retries: 12
     logging: &bounded_logs
       driver: json-file
       options: {max-size: 5m, max-file: "2"}
-  api:
+  api: &prepared_api
     profiles: [sandbox-prepared]
     image: ${SANDBOX_API_IMAGE:?reviewed sandbox API digest required}
     user: "1000:1000"
-    environment:
+    environment: &sandbox_api_environment
       NODE_ENV: production
       SUBTRACK_RUNTIME: sandbox
       SANDBOX_STARTUP_ENABLED: "false"
@@ -53,10 +59,35 @@ services:
     restart: "no"
     stop_grace_period: 20s
     logging: *bounded_logs
-  gateway:
+  api-live:
+    <<: *prepared_api
+    profiles: [sandbox-live]
+    environment:
+      <<: *sandbox_api_environment
+      SANDBOX_STARTUP_ENABLED: "true"
+      SANDBOX_PUBLICATION_ENABLED: "true"
+    depends_on:
+      database: {condition: service_healthy}
+  bootstrap:
+    <<: *prepared_api
+    profiles: [sandbox-bootstrap]
+    entrypoint: [node, /opt/subtrack/bootstrap.cjs, install]
+    command: []
+    environment:
+      <<: *sandbox_api_environment
+      SANDBOX_STARTUP_ENABLED: "true"
+      SANDBOX_PUBLICATION_ENABLED: "true"
+    secrets: [database_runtime, api_auth_material, database_bootstrap_loader]
+    volumes: ["../../tools/sandbox/bootstrap.cjs:/opt/subtrack/bootstrap.cjs:ro"]
+    networks: [database]
+    depends_on:
+      database: {condition: service_healthy}
+  gateway: &prepared_gateway
     profiles: [sandbox-prepared]
     image: ${SANDBOX_CADDY_IMAGE:?verified caddy2.11.7 digest required}
     user: "1000:1000"
+    environment:
+      SANDBOX_GATEWAY_PUBLICATION: "false"
     entrypoint: [caddy]
     command: [run, --config, /etc/caddy/Caddyfile, --adapter, caddyfile]
     volumes:
@@ -74,9 +105,26 @@ services:
     restart: "no"
     stop_grace_period: 10s
     logging: *bounded_logs
+  gateway-live:
+    <<: *prepared_gateway
+    profiles: [sandbox-live]
+    entrypoint: [sh, /opt/subtrack/gateway-entrypoint.sh]
+    command: []
+    environment:
+      SANDBOX_GATEWAY_PUBLICATION: "true"
+    secrets: [gateway_key]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./gateway-entrypoint.sh:/opt/subtrack/gateway-entrypoint.sh:ro
+      - certificate-data:/data
+      - gateway-config:/config
+    networks: [ingress, edge]
+    ports: ["80:8080", "443:8443"]
+    depends_on: [api-live]
 networks:
   database: {internal: true}
-  ingress: {}
+  ingress: {internal: true}
+  edge: {}
 volumes:
   database-data: {}
   certificate-data: {}
@@ -85,3 +133,5 @@ secrets:
   database_bootstrap: {file: /home/openclaw/subtrack-sandbox/secrets/database-bootstrap}
   database_runtime: {file: /home/openclaw/subtrack-sandbox/secrets/database-runtime}
   api_auth_material: {file: /home/openclaw/subtrack-sandbox/secrets/api-auth-material}
+  database_bootstrap_loader: {file: /home/openclaw/subtrack-sandbox/secrets/database-bootstrap-loader}
+  gateway_key: {file: /home/openclaw/subtrack-sandbox/secrets/gateway-key}

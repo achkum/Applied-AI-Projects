@@ -23,7 +23,7 @@ https://198.44.116.159 {
     }
   }
   request_body {
-    max_size 16KB
+    max_size 8KB
   }
   header {
     Cache-Control "no-store"
@@ -31,6 +31,33 @@ https://198.44.116.159 {
     Referrer-Policy "no-referrer"
     -Server
   }
-  # No API proxy, downloads, success/health claims or access logging until release review.
-  respond "Sandbox preparation: unavailable" 503
+  # Only explicit live composition can select this branch; preparation stays503.
+  @publication expression `{env.SANDBOX_GATEWAY_PUBLICATION} == "true"`
+  handle @publication {
+    @sandbox {
+      method POST
+      path /v2/sandbox/mobile/bootstrap /v2/sandbox/mobile/resume /v2/sandbox/mobile/refresh /v2/sandbox/mobile/logout /v2/sandbox/mobile/business
+      expression `!{http.request.uri}.contains("?")`
+    }
+    handle @sandbox {
+      # Strip untrusted metadata before proxy construction; header_up wildcard
+      # deletion here would also erase trusted fields (actual2.11.7 probe).
+      request_header -X-Subtrack-Sandbox-*
+      reverse_proxy api-live:4000 {
+        header_up -Forwarded
+        header_up -X-Forwarded-*
+        header_up Host 198.44.116.159
+        header_up X-Subtrack-Sandbox-Gateway {env.SANDBOX_GATEWAY_KEY}
+        header_up X-Subtrack-Sandbox-Source {remote_host}
+        transport http {
+          dial_timeout 3s
+          response_header_timeout 10s
+        }
+      }
+    }
+    respond "Sandbox route unavailable" 404
+  }
+  handle {
+    respond "Sandbox preparation: unavailable" 503
+  }
 }
