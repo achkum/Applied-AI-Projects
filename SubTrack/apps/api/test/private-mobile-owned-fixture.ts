@@ -1,7 +1,7 @@
 import {OwnedPrivateBankDiagnostics,type PrivateBankTwoOwnerStep} from './private-mobile-bank-diagnostics.js';
 import {PrivateMobileSubjectVerifier} from '../src/auth/mobile-private/verified-subject-binding.js';
 import {DevelopmentEnrollmentPersonVerifier} from '../src/auth/identity-provider/development-enrollment-person-verifier.js';
-import {createOwnedOtpStartObserver} from './private-mobile-owned-fixture-observer.js';
+import {createOwnedOtpStartObserver,OwnedDetectionController,type OwnedDetectionScenario} from './private-mobile-owned-fixture-observer.js';
 import {privateMobileRenewalsReceipt,type PrivateMobileRenewalsReceipt} from './private-mobile-renewals-receipt.js';
 import {privateMobileTrackingReceipt,type PrivateMobileTrackingReceipt} from './private-mobile-tracking-receipt.js';
 import {createHash,createPrivateKey,createPublicKey,randomUUID} from 'node:crypto';
@@ -31,6 +31,8 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
  const owner=new Pool({...connection,user:'st233a_fixture_owner',password:config.ownerPassword});
  const actor=new Pool({...connection,user:'subtrack_dev_auth_login',password:config.actorPassword});
  let fault:Readonly<{kind:'before'|'after';skip:number}>|undefined;const bankDiagnostics=new OwnedPrivateBankDiagnostics();
+ const detection=new OwnedDetectionController();const clock=()=>detection.now();
+ let detectionOwner:string|undefined;let adversary:Readonly<{kind:'overflow'|'collision'|'unmatched';id:string;prior:string}>|undefined;
  // Test-only transport faults around real PostgreSQL COMMIT, never inside the production factory.
  const actorPool:Pick<Pool,'connect'>={connect:async()=>{
   const client=await actor.connect();
@@ -40,8 +42,9 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
      if(fault.skip>0)fault={...fault,skip:fault.skip-1};
      else{const kind=fault.kind;fault=undefined;await target.query(kind==='before'?'ROLLBACK':'COMMIT');throw new Error('Owned commit transport uncertainty');}
     }
-    return bankDiagnostics.observedQuery(()=>Reflect.apply(target.query,target,args));
+    return bankDiagnostics.observedQuery(()=>detection.query(args[0] as string,args[1] as readonly unknown[]|undefined,sql=>Reflect.apply(target.query,target,[sql,...args.slice(1)])));
    };
+   if(property==='release')return (error?:Error)=>{detection.released(error!==undefined);target.release(error);};
    const value=Reflect.get(target,property);return typeof value==='function'?value.bind(target):value;
   }});
  }} as Pick<Pool,'connect'>;
@@ -62,18 +65,19 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
   if(new Set(decoded.map(value=>value.toString('hex'))).size!==names.length||typeof record.privateKey!=='string')throw new Error('Fixture unavailable');
   const privateKey=createPrivateKey(record.privateKey);if(privateKey.asymmetricKeyType!=='ed25519')throw new Error('Fixture unavailable');
   const keys={otp:decoded[0]!,rate:decoded[1]!,idempotency:decoded[2]!,anonymous:decoded[3]!,subject:decoded[4]!,person:decoded[5]!,simulator:decoded[6]!,credentialKeys:[decoded[7]!]};
-  const serverConfig:PrivateMobileServerConfig={environment:'development',enabled:true,pool:actorPool,clock:Date.now,manifestHash:config.manifestHash,keys,
+  class OwnedDetectionToken extends V2AccessToken{override verify(token:string){const claims=super.verify(token);if(detection.enabled()&&detectionOwner===undefined)detectionOwner=claims.sub;detection.verified(claims.sub,claims.sid);return claims;}}
+  const serverConfig:PrivateMobileServerConfig={environment:'development',enabled:true,pool:actorPool,clock,manifestHash:config.manifestHash,keys,
    tls:{key:await privateFile(config.leafKeyPath,config),cert:await privateFile(config.leafChainPath,config)},
-   accessTokens:new V2AccessToken({environment:'development',enabled:true,privateKey,publicKey:createPublicKey(privateKey),clock:Date.now}),
+   accessTokens:new OwnedDetectionToken({environment:'development',enabled:true,privateKey,publicKey:createPublicKey(privateKey),clock}),
    ...(options.onOtpIssued?{onSyntheticOtpIssued:options.onOtpIssued}:{})};
   const next=createPrivateMobileServer(serverConfig);
-  const fixtureSubjects=new PrivateMobileSubjectVerifier(new DevelopmentEnrollmentPersonVerifier({environment:'development',enabled:true,simulatorHmacKey:keys.simulator,clock:Date.now}),Date.now,config.manifestHash,keys.subject,
+  const fixtureSubjects=new PrivateMobileSubjectVerifier(new DevelopmentEnrollmentPersonVerifier({environment:'development',enabled:true,simulatorHmacKey:keys.simulator,clock}),clock,config.manifestHash,keys.subject,
    [keys.otp,keys.rate,keys.idempotency,keys.anonymous,keys.person,keys.simulator,...keys.credentialKeys],keys.person);
   otpObserver.attach(next.server);
   try{await new Promise<void>((ok,no)=>{next.server.once('error',no);next.server.listen(3443,'127.0.0.1',()=>{next.server.removeListener('error',no);ok();});});graph=next;secondOwnerSubjects=fixtureSubjects;bankDiagnostics.startGraph();}
   catch(error){otpObserver.stop();next.server.close();throw error;}
  }
- async function stop():Promise<void>{otpObserver.stop();const old=graph;bankDiagnostics.stopGraph();graph=undefined;secondOwnerSubjects=undefined;if(old)await new Promise<void>((ok,no)=>{old.server.close(error=>error?no(error):ok());old.server.closeAllConnections();});}
+ async function stop():Promise<void>{detection.clear();otpObserver.stop();const old=graph;bankDiagnostics.stopGraph();graph=undefined;secondOwnerSubjects=undefined;if(old)await new Promise<void>((ok,no)=>{old.server.close(error=>error?no(error):ok());old.server.closeAllConnections();});}
  async function readbackReceipt():Promise<PrivateMobileReceipt>{
   if(disposed)throw new Error('Fixture unavailable');await fence();const client=await owner.connect();
   try{
@@ -91,6 +95,50 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
    const rows=await client.query('SELECT id::text,custom_name,category_code,cadence::text,expected_amount_minor::text,currency,status::text,source::text,next_charge_date::text,always_private,revision::text FROM public.subscription ORDER BY id');
    const result=privateMobileTrackingReceipt(config.marker,rows.rows);await client.query('COMMIT');return result;
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }
+ async function readbackManualTrackingReceipt():Promise<PrivateMobileTrackingReceipt>{
+  if(disposed)throw new Error('Fixture unavailable');await fence();const client=await owner.connect();
+  try{await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+   const rows=await client.query("SELECT id::text,custom_name,category_code,cadence::text,expected_amount_minor::text,currency,status::text,source::text,next_charge_date::text,always_private,revision::text FROM public.subscription WHERE source='MANUAL' ORDER BY id");
+   const result=privateMobileTrackingReceipt(config.marker,rows.rows);await client.query('COMMIT');return result;
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }
+ async function readbackDetectionReceipt(){
+  if(disposed)throw new Error('Fixture unavailable');await fence();const client=await owner.connect();
+  try{await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');const state=[];
+   for(const table of ['st081_detection.candidate','st081_detection.source_link','st081_detection.feedback','st081_detection.review_receipt','st081_detection.scan_receipt']){
+    const rows=await client.query(`SELECT to_jsonb(t) AS row FROM ${table} t ORDER BY to_jsonb(t)::text`);state.push(rows.rows);
+   }
+   const subscriptions=await client.query("SELECT to_jsonb(s) AS row FROM public.subscription s WHERE source='DETECTED' ORDER BY id");state.push(subscriptions.rows);
+   await client.query('COMMIT');return Object.freeze({candidateCount:state[0]!.length,sourceLinkCount:state[1]!.length,feedbackCount:state[2]!.length,reviewCount:state[3]!.length,scanCount:state[4]!.length,detectedCount:state[5]!.length,digest:createHash('sha256').update(JSON.stringify(state)).digest('hex')});
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }
+ async function enableDetectionQualification(){if(arguments.length!==0||disposed||graph||fault||process.env.NODE_ENV!=='development')throw new Error('Fixture unavailable');await fence();const time=await owner.query('SELECT floor(EXTRACT(EPOCH FROM clock_timestamp())*1000)::text AS now');detection.enable(Number(time.rows[0].now));}
+ async function armDetectionScenario(scenario:OwnedDetectionScenario){
+  if(arguments.length!==1||disposed||!graph||fault||process.env.NODE_ENV!=='development')throw new Error('Fixture unavailable');await fence();const binding=detection.binding();if(!binding)throw new Error('Fixture unavailable');
+  const observed=await owner.query('SELECT identity_id::text,subscription_id::text,undo_until,consumed_at FROM st081_detection.review_receipt WHERE identity_id=$1::uuid AND id=$2::uuid',[binding.owner,binding.receipt]);
+  const row=observed.rows[0];if(observed.rowCount!==1||row.identity_id!==binding.owner||row.subscription_id!==binding.candidate||row.consumed_at!==null||!(row.undo_until instanceof Date)||row.undo_until.getTime()!==binding.deadline)throw new Error('Fixture unavailable');
+  const time=await owner.query('SELECT floor(EXTRACT(EPOCH FROM clock_timestamp())*1000)::text AS now');detection.arm(scenario,Number(time.rows[0].now));
+ }
+ async function prepareDetectionAdversary(kind:'overflow'|'collision'|'unmatched'){
+  if(disposed||!graph||!detection.enabled()||!detectionOwner||adversary||process.env.NODE_ENV!=='development')throw new Error('Fixture unavailable');await fence();
+  if(kind==='collision'){
+   const found=await owner.query('SELECT subscription_id::text AS id,merchant_key AS prior FROM st081_detection.candidate WHERE identity_id=$1::uuid ORDER BY subscription_id LIMIT 1',[detectionOwner]);if(found.rowCount!==1)throw new Error('Fixture unavailable');
+   const saved=await owner.query("UPDATE st081_detection.candidate SET merchant_key='fixture-collision-v1' WHERE identity_id=$1::uuid AND subscription_id=$2::uuid AND merchant_key=$3::text RETURNING subscription_id",[detectionOwner,found.rows[0].id,found.rows[0].prior]);if(saved.rowCount!==1)throw new Error('Fixture unavailable');adversary={kind,id:found.rows[0].id,prior:found.rows[0].prior};
+  }else{
+   const found=await owner.query(`SELECT rt.id::text AS id,rt.amount_minor::text AS amount,rt.raw_description AS description FROM public.raw_transaction rt
+    JOIN public.bank_account ba ON ba.id=rt.account_id AND ba.identity_id=rt.identity_id JOIN public.bank_connection bc ON bc.id=ba.connection_id AND bc.identity_id=ba.identity_id
+    JOIN st248_bank.generation bg ON bg.connection_id=bc.id AND bg.identity_id=bc.identity_id
+    WHERE rt.identity_id=$1::uuid AND bc.provider='SYNTHETIC' AND bc.institution_id='synthetic-demo-v1' AND bc.status='ACTIVE' AND bc.revoked_at IS NULL
+    AND bg.fixture_version='solberg-v1' AND bg.purged_at IS NULL AND bc.last_synced_at IS NOT NULL AND rt.status='BOOKED' AND rt.amount_minor<0 AND rt.is_refund=false AND rt.currency=ba.currency ORDER BY ba.id,rt.transaction_date,rt.id LIMIT 1`,[detectionOwner]);if(found.rowCount!==1)throw new Error('Fixture unavailable');
+   const row=found.rows[0],sql=kind==='overflow'?"UPDATE public.raw_transaction SET amount_minor=-9223372036854775808 WHERE identity_id=$1::uuid AND id=$2::uuid AND amount_minor=$3::bigint RETURNING id":"UPDATE public.raw_transaction SET raw_description='OWNED_UNMATCHED_PRIVATE_DESCRIPTOR' WHERE identity_id=$1::uuid AND id=$2::uuid AND raw_description=$3::text RETURNING id";
+   const prior=kind==='overflow'?row.amount:row.description;if(typeof prior!=='string')throw new Error('Fixture unavailable');if((await owner.query(sql,[detectionOwner,row.id,prior])).rowCount!==1)throw new Error('Fixture unavailable');adversary={kind,id:row.id,prior};
+  }
+ }
+ async function restoreDetectionAdversary(){
+  if(arguments.length!==0||disposed||!adversary||!detectionOwner)throw new Error('Fixture unavailable');await fence();const {kind,id,prior}=adversary;
+  const sql=kind==='collision'?"UPDATE st081_detection.candidate SET merchant_key=$3::text WHERE identity_id=$1::uuid AND subscription_id=$2::uuid AND merchant_key='fixture-collision-v1' RETURNING subscription_id":kind==='overflow'?"UPDATE public.raw_transaction SET amount_minor=$3::bigint WHERE identity_id=$1::uuid AND id=$2::uuid AND amount_minor=-9223372036854775808 RETURNING id":"UPDATE public.raw_transaction SET raw_description=$3::text WHERE identity_id=$1::uuid AND id=$2::uuid AND raw_description='OWNED_UNMATCHED_PRIVATE_DESCRIPTOR' RETURNING id";
+  if((await owner.query(sql,[detectionOwner,id,prior])).rowCount!==1)throw new Error('Fixture unavailable');adversary=undefined;
  }
  async function readbackRenewalsReceipt(candidate:string):Promise<PrivateMobileRenewalsReceipt>{
   if(disposed)throw new Error('Fixture unavailable');await fence();const client=await owner.connect();
@@ -154,7 +202,9 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
     bankDigest:createHash('sha256').update(JSON.stringify(snapshots.slice(0,4))).digest('hex'),receiptDigest:createHash('sha256').update(JSON.stringify(snapshots[4])).digest('hex')});
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }
- return Object.freeze({start,stop,otpStartObservation:()=>otpObserver.observation(),restart:async()=>{fault=undefined;await stop();await start();},readbackReceipt,readbackTrackingReceipt,readbackRenewalsReceipt,readbackBankReceipt,secondOwnerSession,readbackBankOwnerReceipt,
+ return Object.freeze({start,stop,otpStartObservation:()=>otpObserver.observation(),restart:async()=>{fault=undefined;await stop();await start();},readbackReceipt,readbackTrackingReceipt,readbackManualTrackingReceipt,readbackRenewalsReceipt,readbackBankReceipt,secondOwnerSession,readbackBankOwnerReceipt,readbackDetectionReceipt,enableDetectionQualification,armDetectionScenario,
+  detectionScenarioObservation:()=>detection.observation(),clearDetectionScenario:()=>detection.clear(),detectionNow:()=>detection.now(),
+  prepareDetectionOverflow(){if(arguments.length!==0)throw new Error('Fixture unavailable');return prepareDetectionAdversary('overflow');},prepareDetectionCollision(){if(arguments.length!==0)throw new Error('Fixture unavailable');return prepareDetectionAdversary('collision');},prepareUnmatchedDetectionDescriptor(){if(arguments.length!==0)throw new Error('Fixture unavailable');return prepareDetectionAdversary('unmatched');},restoreDetectionAdversary,
   beginBankDiagnostic(step:PrivateBankTwoOwnerStep){if(disposed||!graph||process.env.NODE_ENV!=='development')throw new Error('Fixture unavailable');bankDiagnostics.beginStep(step);},
   bankFailureCategory:(step:PrivateBankTwoOwnerStep)=>bankDiagnostics.failureCategory(step),clearBankDiagnostic:()=>bankDiagnostics.clearStep(),
   injectCommitFault(kind:'before'|'after',skip=0){if(disposed||fault||!['before','after'].includes(kind)||!Number.isInteger(skip)||skip<0||skip>3)throw new Error('Fixture unavailable');fault={kind,skip};},

@@ -29,7 +29,9 @@ jobs:
       - run: corepack pnpm install --frozen-lockfile
       - name: Prepare compiled Synthetic bank runtime exports
         run: |
+          corepack pnpm --filter @subtrack/domain build:lifecycle
           corepack pnpm --filter @subtrack/domain build:bank
+          corepack pnpm --filter @subtrack/domain build:detection
           corepack pnpm --filter @subtrack/synthetic build:bank
       - name: Validate API types and source
         env:
@@ -38,11 +40,11 @@ jobs:
       - name: Validate local daemon readiness descriptor custody
         run: bash tools/database/private-mobile-descriptor.spec.sh
       - name: Actual owned PG16 direct TLS mobile behavior
-        run: bash tools/database/private-mobile-bank-qualify.sh
+        run: bash tools/database/private-mobile-detection-qualify.sh
       - name: Publish sanitized backend proof and verified cleanup receipt
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: st248-private-mobile-postgresql-receipt-${{ github.event.pull_request.head.sha || github.sha }}-attempt-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/st248-private-mobile-bank-receipt.json
+          name: st249-private-mobile-postgresql-receipt-${{ github.event.pull_request.head.sha || github.sha }}-attempt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/st249-private-mobile-detection-receipt.json
           if-no-files-found: ignore
