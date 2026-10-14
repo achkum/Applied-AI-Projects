@@ -1,3 +1,4 @@
+import {selectPodsFatal} from './private-runtime-pods-fatal.mjs';
 // Build-time diagnostics only. No API, harness, Metro or device-flow logs.
 const childLogs = Object.freeze({
   prebuild: 'prebuild.log',
@@ -123,7 +124,10 @@ export function fatalBuildExcerpt({ nativeBuild, phaseJson, log, secrets }) {
     return withheld('secret-input-unavailable');
   if (typeof log !== 'string' || log.length > 4_000_000)
     return withheld('child-log-unavailable');
-  const lines = log.split(/\r?\n/);
+  const pods=JSON.parse(phaseJson).phase==='ios-pods';
+  const selected=pods?selectPodsFatal(log):null;
+  if(pods&&selected===null)return withheld('fatal-block-unavailable');
+  const lines = (selected??log).split(/\r?\n/);
   // Positive fatal blocks only: no raw-tail fallback or unrelated output.
   // CocoaPods may print its generic support footer before the structured
   // exception report. Select the exact parser class block first, not its footer.
@@ -137,7 +141,7 @@ export function fatalBuildExcerpt({ nativeBuild, phaseJson, log, secrets }) {
       line,
     ),
   );
-  const start = parserStart >= 0 ? parserStart : genericStart;
+  const start = selected!==null?0:parserStart >= 0 ? parserStart : genericStart;
   if (start < 0) return withheld('fatal-block-unavailable');
   const block = [];
   for (const line of lines.slice(start, start + 12)) {

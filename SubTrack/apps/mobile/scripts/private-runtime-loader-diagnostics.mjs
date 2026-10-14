@@ -1,3 +1,4 @@
+import {selectPodsFatal} from './private-runtime-pods-fatal.mjs';
 import process from 'node:process';
 import console from 'node:console';
 import { readFileSync } from 'node:fs';
@@ -275,7 +276,7 @@ export function podParserPresence({ nativeBuild, phaseJson, log }) {
     if (!phase || Object.keys(phase).sort().join(',') !== 'exitCode,phase' ||
         phase.phase !== 'ios-pods' || !Number.isInteger(phase.exitCode) || phase.exitCode < 1 || phase.exitCode > 255) return null;
     // eslint-disable-next-line no-control-regex
-    const plain = log.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '');
+    const plain = (selectPodsFatal(log)??'').replace(/\u001b\[[0-9;]*[A-Za-z]/g, '');
     const source = (name) => new RegExp(`(?:^|[\\s/\\\\])${name}:[1-9][0-9]{0,3}(?=[:\\s]|$)`, 'm').test(plain);
     return {
       'json-parser-class': /(?:^|\s|`)JSON::ParserError(?=\s*[-:]|\s*$)/m.test(plain),
@@ -298,12 +299,16 @@ export function buildFailureDiagnostic(phaseJson, log) {
       value.exitCode > 255
     )
       return null;
+    const scoped=value.phase==='ios-pods'?selectPodsFatal(log):log;
+    const causes=value.phase==='ios-pods'?(scoped===null?'[!]':`${scoped}\n[!]`):log;
+    const reasons=nativeFailureReasons(causes);
+    if(value.phase==='ios-pods'&&scoped!==null&&/^\s*Error parsing JSON(?:\s*[-:]|\s*$)/mi.test(scoped)&&!reasons.includes('pods-ruby-json'))reasons.unshift('pods-ruby-json');
     return {
       phase: value.phase,
       exitCode: value.exitCode,
-      category: nativeFailureCategory(log),
-      reasons: nativeFailureReasons(log),
-      ...knownPodFailureContext(log),
+      category: reasons[0]??'unclassified',
+      reasons,
+      ...knownPodFailureContext(scoped??''),
     };
   } catch {
     return null;

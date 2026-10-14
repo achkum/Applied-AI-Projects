@@ -6,6 +6,7 @@ import {
   buildFailureDiagnostic,
   nativeFailureReasons,
   knownPodFailureContext,
+  podParserPresence,
 } from './private-runtime-loader-diagnostics.mjs';
 
 assert.deepEqual(
@@ -280,3 +281,15 @@ assert.equal(
 console.log(
   'Native loader diagnostics: missing libraries only, deduplication, private path/canary rejection and bounded output PASS',
 );
+
+// C21: issue-footer text is not evidence of a Ruby JSON exception.
+const footerOnly=buildFailureDiagnostic('{"phase":"ios-pods","exitCode":1}','[!] Oh no, an error occurred.\nIssue title JSON parse invalid\n/private/canary/autolinking_manager.rb:170:in parse');
+assert.equal(footerOnly.category,'pods-failure');assert.deepEqual(footerOnly.reasons,['pods-failure']);assert.deepEqual(footerOnly.rubySources,[]);
+for(const fatal of ['Error parsing JSON: invalid','JSON parse invalid: failed','unexpected token at unknown']){
+ const diagnostic=buildFailureDiagnostic('{"phase":"ios-pods","exitCode":1}',`[!] Support footer\n### Error\n\`\`\`\n${fatal}\n/private/canary/json/common.rb:12\n\`\`\`\nIssue title unknown keyword: :privacy_file_aggregation_enabled`);
+ assert.equal(diagnostic.category,'pods-ruby-json');assert.deepEqual(diagnostic.reasons,['pods-ruby-json','pods-failure']);assert.deepEqual(diagnostic.rubySources,['json/common.rb:12']);assert.deepEqual(diagnostic.rubyKeywords,[]);
+}
+const nonJson=buildFailureDiagnostic('{"phase":"ios-pods","exitCode":1}',"### Error\nNoMethodError: undefined method `exists?' for File:Class\n/private/canary/autolinking_manager.rb:170:in parse");assert.equal(nonJson.category,'pods-ruby-missing-method');assert.deepEqual(nonJson.rubyMethods,['exists?']);
+const otherPhase=buildFailureDiagnostic('{"phase":"android-compile","exitCode":1}','[!] Support footer\nIssue title JSON parse invalid');assert.equal(otherPhase.category,'pods-ruby-json');
+
+const noFatalPresence=podParserPresence({nativeBuild:true,phaseJson:'{"phase":"ios-pods","exitCode":1}',log:'[!] Support footer\nIssue JSON parse invalid\n/private/autolinking_manager.rb:170'});assert.deepEqual(Object.values(noFatalPresence),Array(5).fill(false));

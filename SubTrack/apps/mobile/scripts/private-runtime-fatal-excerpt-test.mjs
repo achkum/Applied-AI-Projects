@@ -43,7 +43,7 @@ function bundle() {
 function excerpt(overrides = {}) {
   return fatalBuildExcerpt({
     nativeBuild: true,
-    phaseJson,
+    phaseJson:'{"phase":"prebuild","exitCode":1}',
     log: '[!] Fatal build failure',
     secrets: fixtureDiagnosticSecrets(config, bundle()),
     ...overrides,
@@ -220,6 +220,7 @@ test('positive fatal selection is capped, no tail fallback, unrelated or unavail
 });
 test('structured CocoaPods JSON failure wins over support footer without broadening selection', () => {
   const result = excerpt({
+    phaseJson,
     log: [
       '[!] Oh no, an error occurred.',
       'Search for existing GitHub issues similar to yours:',
@@ -240,4 +241,23 @@ test('structured CocoaPods JSON failure wins over support footer without broaden
     'normal compiler tail private-canary',
   ])
     assert.equal(excerpt({ log }).withheld, 'fatal-block-unavailable');
+});
+
+test('C21 scoped CocoaPods structured fatal beats footer, preserves redaction and excludes subsequent issue context',()=>{
+ for(const fatal of ['RuntimeError: owner-canary-password','Error parsing JSON: owner-canary-password','unexpected token at owner-canary-password']){
+ const result=excerpt({phaseJson,log:`[!] Oh no, an error occurred.\nSearch for existing GitHub issues similar to yours:\n### Error\n\`\`\`ruby\n${fatal}\n/private/canary/source.rb:12\n\`\`\`\nprivate-canary support issue title`});
+ assert.equal(result.withheld,null);assert.ok(result.lines[0].includes('[secret]'));assert.equal(JSON.stringify(result).includes('owner-canary-password'),false);assert.equal(JSON.stringify(result).includes('/private/canary'),false);assert.equal(JSON.stringify(result).includes('support issue'),false);
+ }
+ for(const phase of ['prebuild','android-compile','ios-compile']){
+ const result=excerpt({phaseJson:JSON.stringify({phase,exitCode:1}),log:'[!] Original fatal\n### Error\nRuntimeError: should not replace original'});assert.equal(result.lines[0],'[!] Original fatal');
+ }
+ const unknown=excerpt({log:'### Error\nUnknownPrivateError: private-canary'});assert.equal(unknown.withheld,'fatal-block-unavailable');
+});
+
+test('non-Pods legacy JSON fatal still outranks original generic header',()=>{
+ const result=excerpt({phaseJson:'{"phase":"prebuild","exitCode":1}',log:'[!] Original support\nJSON::ParserError: invalid\nSpecific failure'});assert.equal(result.lines[0],'JSON::ParserError: invalid');
+});
+
+test('validated ios-pods footer-only or generic report never falls back to full-log excerpt',()=>{
+ for(const log of ['[!] Oh no, an error occurred.\nSearch for existing GitHub issues similar to yours:\nIssue title JSON parse invalid','[!] Fatal: private-canary','### Error\nUnknownPrivateError: private-canary']){const result=excerpt({phaseJson,log});assert.equal(result.withheld,'fatal-block-unavailable');assert.deepEqual(result.lines,[]);}
 });
