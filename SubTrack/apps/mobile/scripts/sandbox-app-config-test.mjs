@@ -11,7 +11,7 @@ const require = createRequire(path.join(root, 'package.json'));
 const expoRequire = createRequire(require.resolve('expo/package.json'));
 const { getConfig } = expoRequire('@expo/config');
 const staticConfig = JSON.parse(readFileSync(path.join(root, 'app.json'), 'utf8')).expo;
-const names = ['SUBTRACK_APP_VARIANT', 'SUBTRACK_SANDBOX_HTTPS_ORIGIN', 'SUBTRACK_PRIVATE_DEVICE_PROOF',
+const names = ['SUBTRACK_SANDBOX_RUNTIME_ENABLED', 'SUBTRACK_APP_VARIANT', 'SUBTRACK_SANDBOX_HTTPS_ORIGIN', 'SUBTRACK_PRIVATE_DEVICE_PROOF',
   'SUBTRACK_PRIVATE_CA_CERT', 'SUBTRACK_PRIVATE_FIXTURE_CONFIG', 'EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC',
   'EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED', 'EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL'];
 function configured(env) {
@@ -59,7 +59,14 @@ test('unknown variants and noncanonical origins fail before build intent is acce
   assert.throws(() => configured({ SUBTRACK_APP_VARIANT: 'sandbox' }), /Sandbox origin rejected/);
 });
 test('sandbox build rejects private CA/enrollment/diagnostic configuration contamination', () => {
-  for (const name of names.slice(2)) for (const value of ['true', 'false', '']) {
+  for (const name of names.filter(name => !['SUBTRACK_SANDBOX_RUNTIME_ENABLED','SUBTRACK_APP_VARIANT','SUBTRACK_SANDBOX_HTTPS_ORIGIN'].includes(name))) for (const value of ['true', 'false', '']) {
     assert.throws(() => configured({ ...sandbox, [name]: value }), /Sandbox private configuration rejected/);
   }
+});
+
+test('explicit active flag is sandbox-only and remains disabled by default/false',()=>{
+  for(const value of [undefined,'false']) assert.equal(configured({...sandbox,...(value===undefined?{}:{SUBTRACK_SANDBOX_RUNTIME_ENABLED:value})}).extra.subtrackSandbox.runtimeEnabled,false);
+  assert.deepEqual(configured({...sandbox,SUBTRACK_SANDBOX_RUNTIME_ENABLED:'true'}).extra.subtrackSandbox,{variant:'sandbox',apiBaseUrl:sandbox.SUBTRACK_SANDBOX_HTTPS_ORIGIN,runtimeEnabled:true,publicationEnabled:false,privateDiagnosticsEnabled:false});
+  for(const value of ['','TRUE','1',' true','true\n'])assert.throws(()=>configured({...sandbox,SUBTRACK_SANDBOX_RUNTIME_ENABLED:value}),/Sandbox activation rejected/);
+  for(const value of ['true','false',''])assert.throws(()=>configured({SUBTRACK_SANDBOX_RUNTIME_ENABLED:value}),/Sandbox activation rejected/);
 });

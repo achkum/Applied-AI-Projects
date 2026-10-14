@@ -1,3 +1,5 @@
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { getRandomBytesAsync } from 'expo-crypto';
 import { SANDBOX_MOBILE_PATHS, parseSandboxBootstrap, parseSandboxTransport, parseSandboxBusiness,
   parseSandboxCredentials, parseSandboxRequestKey, parseSandboxSecret, parseSandboxProblem, sandboxObject,
@@ -5,7 +7,7 @@ import { SANDBOX_MOBILE_PATHS, parseSandboxBootstrap, parseSandboxTransport, par
 import { parseProfileView } from '@subtrack/contracts/profile';
 import { parseModeView, parsePrivateOwnerPage, parsePrivateManualCreated, parsePrivateManualEdited,
   parsePrivateLifecycleResult } from '@subtrack/contracts/private-onboarding';
-import { resolveSandboxRuntime } from '@/config/sandboxRuntime';
+import { readSandboxMarker, resolveSandboxRuntime } from '@/config/sandboxRuntime';
 import type { NativeMutationConflict } from './privateMobileApi';
 
 export class SandboxRequestError extends Error {
@@ -46,7 +48,7 @@ function knownConflict(value: unknown): NativeMutationConflict {
     !['MANUAL_EDIT_CONFLICT', 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT', 'LIFECYCLE_CONFLICT'].includes(v.code as string)) throw new SandboxRequestError();
   return { conflict: v.code as NativeMutationConflict['conflict'] };
 }
-/** Injectable transport; production composition remains disabled until activation review. */
+/** Injectable transport; the real composition accepts only the reviewed isolated build marker. */
 export function createSandboxMobileApi(ports: Ports) {
   async function key() {
     const bytes = await ports.entropy(16);
@@ -110,5 +112,5 @@ export function createSandboxMobileApi(ports: Ports) {
   });
 }
 export type SandboxMobileApi = ReturnType<typeof createSandboxMobileApi>;
-export const sandboxMobileApi = createSandboxMobileApi({ runtime: () => resolveSandboxRuntime({ platform: 'ios', development: false }),
-  fetch: globalThis.fetch, entropy: getRandomBytesAsync });
+export const sandboxMobileApi = createSandboxMobileApi({ runtime: () => resolveSandboxRuntime({ marker: readSandboxMarker(Constants.expoConfig), platform: Platform.OS }),
+  fetch: (...args) => globalThis.fetch(...args), entropy: getRandomBytesAsync });

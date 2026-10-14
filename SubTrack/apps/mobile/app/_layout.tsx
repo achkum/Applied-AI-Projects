@@ -7,7 +7,7 @@ import {SafeAreaProvider,initialWindowMetrics} from 'react-native-safe-area-cont
 import { RootProvider } from '@/providers/RootProvider';
 import { EnrollmentProvider } from '@/state/EnrollmentFlow';
 import { NativeSessionProvider } from '@/state/NativeSession';
-import { SandboxSessionProvider, sandboxBuildSelected } from '@/state/SandboxSession';
+import { SandboxSessionProvider, sandboxBuildSelected, sandboxSessionAvailable } from '@/state/SandboxSession';
 import { SandboxEntry } from '@/components/onboarding/SandboxEntry';
 import manropeFont from '../assets/fonts/Manrope-VF.ttf';
 import frauncesFont from '../assets/fonts/Fraunces-VF.ttf';
@@ -52,7 +52,7 @@ export default function RootLayout() {
       useSystemFonts={useSystemFonts}
       systemFontFamily={systemFontFamily}
     >
-      {sandboxBuildSelected()?<SandboxSessionProvider><SandboxRouteBoundary><Stack screenOptions={{headerShown:false}}>
+      {sandboxBuildSelected()?<SandboxSessionProvider available={sandboxSessionAvailable()}><SandboxRouteBoundary><Stack screenOptions={{headerShown:false}}>
         <Stack.Screen name="index"/><Stack.Screen name="personal"/><Stack.Screen name="personal-home"/><Stack.Screen name="personal-billing-month"/>
       </Stack></SandboxRouteBoundary></SandboxSessionProvider>:<NativeSessionProvider><EnrollmentProvider><Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />

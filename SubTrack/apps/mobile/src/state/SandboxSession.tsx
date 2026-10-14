@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import { sandboxConfigurationSelected, readSandboxMarker, resolveSandboxRuntime } from '@/config/sandboxRuntime';
 import { sandboxMobileApi, type SandboxMobileApi } from '@/api/sandboxMobileApi';
 import { secureSandboxBundle, type SandboxBundleStore } from '@/utils/secureSandboxBundle';
 import { SandboxSessionCore, type SandboxPhase } from './SandboxSessionCore';
@@ -11,7 +13,10 @@ export interface SandboxSessionFacade {
 }
 const Context = createContext<SandboxSessionFacade | undefined>(undefined);
 // Presence selects the isolated branch even for malformed markers: never fall back privately.
-export function sandboxBuildSelected(config: Readonly<{extra?:Readonly<{subtrackSandbox?:unknown}>}> | null | undefined = Constants.expoConfig): boolean { return config?.extra?.subtrackSandbox !== undefined; }
+export function sandboxBuildSelected(config: unknown = Constants.expoConfig): boolean { return sandboxConfigurationSelected(config); }
+export function sandboxSessionAvailable(config: unknown = Constants.expoConfig, platform = Platform.OS): boolean {
+  return resolveSandboxRuntime({ marker: readSandboxMarker(config), platform }) !== null;
+}
 export function SandboxSessionProvider({ children, store = secureSandboxBundle, api = sandboxMobileApi, available = false }: {
   children: React.ReactNode; store?: SandboxBundleStore; api?: SandboxMobileApi; available?: boolean;
 }) {

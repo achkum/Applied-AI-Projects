@@ -1,3 +1,7 @@
+jest.mock('expo-constants',()=>({__esModule:true,default:{expoConfig:{extra:{}}}}));
+import {readSandboxMarker,resolveSandboxRuntime} from '@/config/sandboxRuntime';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { createSandboxMobileApi, sandboxMobileApi } from './sandboxMobileApi';
 jest.mock('expo-crypto', () => ({ getRandomBytesAsync: jest.fn(async () => new Uint8Array(16).fill(7)) }));
 const id = '123e4567-e89b-42d3-a456-426614174000';
@@ -85,4 +89,11 @@ it('aborted entropy or body delivery cannot fetch/accept and unsupported owner r
   await expect(h.api.readNativeSubscriptions(token, signal())).rejects.toThrow();
   for(const variant of [{source:'MANUAL',currency:'EUR',alwaysPrivate:true},{source:'MANUAL',currency:'SEK',alwaysPrivate:false}]){h.fetch.mockResolvedValue(response(200,{items:[{...row,...variant}],nextCursor:null}));await expect(h.api.readNativeSubscriptions(token,signal())).rejects.toThrow();}
   await expect(h.api.readNativeProfile('malformed',signal())).rejects.toThrow();
+});
+
+it.each(['ios','android'] as const)('default exported API consumes actual %s marker/platform with no private fallback',async platform=>{
+ const constants=Constants as unknown as {expoConfig:unknown},before=constants.expoConfig,descriptor=Object.getOwnPropertyDescriptor(Platform,'OS'),fetchBefore=globalThis.fetch,fetch=jest.fn().mockResolvedValue(response(201,{...credentials,installationCapability:capability}));
+ try{Object.defineProperty(Platform,'OS',{configurable:true,value:platform});globalThis.fetch=fetch;constants.expoConfig={extra:{subtrackSandbox:{variant:'sandbox',apiBaseUrl:'https://198.44.116.159',runtimeEnabled:true,publicationEnabled:false,privateDiagnosticsEnabled:false}}};expect(resolveSandboxRuntime({marker:readSandboxMarker(Constants.expoConfig),platform:Platform.OS})).not.toBeNull();await sandboxMobileApi.bootstrap('en',signal());expect(fetch.mock.calls[0]![0]).toBe('https://198.44.116.159/v2/sandbox/mobile/bootstrap');expect(fetch.mock.calls[0]![1]).toMatchObject({credentials:'omit',redirect:'error',cache:'no-store'});
+  for(const config of [{extra:{}},{extra:{subtrackSandbox:undefined}},{extra:{subtrackSandbox:{variant:'sandbox',apiBaseUrl:'https://198.44.116.159',runtimeEnabled:false,publicationEnabled:false,privateDiagnosticsEnabled:false}}},{extra:{subtrackSandbox:{variant:'sandbox',apiBaseUrl:'https://api.subtrack.app',runtimeEnabled:true,publicationEnabled:false,privateDiagnosticsEnabled:false}}},{extra:Object.defineProperty({},'subtrackSandbox',{get(){throw Error('must not read');}})}]){constants.expoConfig=config;await expect(sandboxMobileApi.bootstrap('en',signal())).rejects.toThrow('Sandbox request unavailable');}expect(fetch).toHaveBeenCalledTimes(1);
+ }finally{constants.expoConfig=before;globalThis.fetch=fetchBefore;if(descriptor)Object.defineProperty(Platform,'OS',descriptor);}
 });

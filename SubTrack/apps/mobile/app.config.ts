@@ -5,7 +5,7 @@ declare const process: { env: Readonly<Record<string, string | undefined>> };
 const SANDBOX_ORIGIN = 'https://198.44.116.159';
 const PRIVATE_PLUGIN = './plugins/private-runtime-ca.cjs';
 
-// Keep this file self-contained: Expo51 config loading does not require a new TS loader.
+// Keep this file self-contained: ExpoSDK54 config loading does not require a new TS loader.
 function sandboxOrigin(value: string | undefined): string {
   if (value !== SANDBOX_ORIGIN) throw new Error('Sandbox origin rejected');
   const url = new URL(value);
@@ -17,6 +17,9 @@ function sandboxOrigin(value: string | undefined): string {
 /** Build preparation only. Local identifiers do not claim Apple/Play registration. */
 export default function appConfig({ config }: ConfigContext): ExpoConfig {
   const variant = process.env.SUBTRACK_APP_VARIANT;
+  const activation = process.env.SUBTRACK_SANDBOX_RUNTIME_ENABLED;
+  if (activation !== undefined && variant !== 'sandbox') throw new Error('Sandbox activation rejected');
+  if (activation !== undefined && activation !== 'true' && activation !== 'false') throw new Error('Sandbox activation rejected');
   if (variant === undefined) return config as ExpoConfig;
   if (variant !== 'sandbox') throw new Error('App variant rejected');
   for (const name of ['SUBTRACK_PRIVATE_DEVICE_PROOF', 'SUBTRACK_PRIVATE_CA_CERT',
@@ -39,7 +42,7 @@ export default function appConfig({ config }: ConfigContext): ExpoConfig {
       subtrackSandbox: {
         variant: 'sandbox',
         apiBaseUrl,
-        runtimeEnabled: false,
+        runtimeEnabled: activation === 'true',
         publicationEnabled: false,
         privateDiagnosticsEnabled: false,
       },

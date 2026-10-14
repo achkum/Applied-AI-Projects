@@ -46,7 +46,7 @@ jest.mock('expo-router', () => {
     },
     { Screen: () => null },
   );
-  return { Stack, usePathname: () => '/' };
+  return { Stack, usePathname: () => '/', useRouter: () => ({replace:jest.fn()}) };
 });
 
 const mockStorage = jest.mocked(AsyncStorage);
@@ -87,7 +87,9 @@ describe('root layout startup imports', () => {
     console.info('ST051b startup assertion timing ms', { renderMs, totalMs: Date.now() - started });
   }, 15_000);
 
-  it('keeps providers and splash pending, then starts once fonts load', async () => {
+  it('keeps malformed sandbox isolation pending until fonts load, then mounts its isolated stack', async () => {
+    const constants=jest.requireActual('expo-constants').default as {expoConfig:{extra:Record<string,unknown>}};
+    const before=constants.expoConfig.extra;constants.expoConfig.extra={...before,subtrackSandbox:undefined};
     mockUseFonts.mockReturnValue([false, null]);
     const app = render(<RootLayout />);
     expect(app.toJSON()).toBeNull(); expect(SplashScreen.hideAsync).not.toHaveBeenCalled();
@@ -99,6 +101,7 @@ describe('root layout startup imports', () => {
     expect(SplashScreen.hideAsync).toHaveBeenCalledTimes(1);
     await act(async () => app.rerender(<RootLayout />));
     expect(SplashScreen.hideAsync).toHaveBeenCalledTimes(1);
+    constants.expoConfig.extra=before;
   });
   it('uses system aliases after font error and catches splash hide rejection', async () => {
     mockUseFonts.mockReturnValue([false, new Error('font load failed')]);
