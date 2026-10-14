@@ -22,6 +22,19 @@ fail(){ printf 'ST250_DEPLOYMENT_UNAVAILABLE stage=VERIFY\n' >&2; exit 1; }
 trap fail ERR
 image_arguments
 compose=(docker compose --project-name subtrack-sandbox --file "$root/infra/sandbox/compose.yaml")
+configure_android_download() {
+  [[ "${ST250_ANDROID_DOWNLOAD_PUBLICATION:-false}" =~ ^(true|false)$ ]] || return 1
+  if [[ "${ST250_ANDROID_DOWNLOAD_PUBLICATION:-false}" == true ]]; then
+    local fields
+    fields="$(node "$root/tools/sandbox/image-import-binding.cjs" android-env "$root" "$namespace/staging/$ST250_TRANSFER_RUN")" || return 1
+    mapfile -t android_fields <<< "$fields"
+    [[ ${#android_fields[@]} == 2 && "${android_fields[0]}" =~ ^[1-9][0-9]*$ && "${android_fields[1]}" =~ ^[a-f0-9]{64}$ ]] || return 1
+    export SANDBOX_ANDROID_VERSION_CODE="${android_fields[0]}" SANDBOX_ANDROID_SIGNED_SHA256="${android_fields[1]}"
+    compose+=(--file "$root/infra/sandbox/compose.android-download.yaml")
+  fi
+}
+
+[[ "${ST250_ANDROID_DOWNLOAD_PUBLICATION:-false}" =~ ^(true|false)$ ]] || fail
 for profile in sandbox-prepared sandbox-live sandbox-bootstrap;do "${compose[@]}" --profile "$profile" config --quiet;done
 if [[ "$1" == validate ]];then printf 'ST250_COMPOSITION_VALID startup=not-performed\n';exit 0;fi
 [[ "$(hostname)" == racknerd-49cd240 && "$(id -u)" == 996 ]]
@@ -39,6 +52,8 @@ staging="$namespace/staging/$ST250_TRANSFER_RUN"
 owned_directory "$namespace/staging";owned_directory "$staging"
 [[ "${ST250_TOOLING_HEAD:-}" =~ ^[a-f0-9]{40}$ && "${ST250_HISTORICAL_SOURCE_CUSTODY_SHA256:-}" =~ ^[a-f0-9]{64}$ && "${ST250_EXPORTED_IMAGE_ID:-}" =~ ^sha256:[a-f0-9]{64}$ ]]
 node "$root/tools/sandbox/image-import-binding.cjs" source "$root" "$staging"
+configure_android_download
+for profile in sandbox-prepared sandbox-live sandbox-bootstrap;do "${compose[@]}" --profile "$profile" config --quiet;done
 [[ "${ST250_TRANSFER_RECEIPT_SHA256:-}" =~ ^[a-f0-9]{64}$ ]]
 [[ "$(sha256sum "$staging/transfer-receipt.json" | cut -d' ' -f1)" == "$ST250_TRANSFER_RECEIPT_SHA256" ]]
 for name in transfer-receipt.json transfer-manifest.json api-image.tar.gz;do
@@ -142,13 +157,14 @@ if [[ "$1" == live ]];then
   node - "$service" "$root" 3< <(docker inspect "$cid") 4< <(docker image inspect "$image") <<'NODE'
 const fs=require('node:fs');
 // BEGIN LIVE VALIDATOR
-function validateLive(c,base,service,root,records,head,identity){
+function validateLive(c,base,service,root,records,head,identity,android=null){
  const eq=(a,b)=>JSON.stringify(a)===JSON.stringify(b),empty=x=>x==null||(Array.isArray(x)&&x.length===0),h=c.HostConfig;
  const limits={database:['999:999',256,64,0.5],'api-live':['1000:1000',384,64,0.75],'gateway-live':['1000:1000',96,32,0.25]}[service];
  if(!limits||!base||!identity||base.Id!==identity.inspectedImageId||c.Image!==identity.containerImageId||c.Config.Image!==identity.requestedImage||!/^sha256:[a-f0-9]{64}$/.test(base.Id)||!c.State.Running||c.Config.User!==limits[0]||c.Config.Labels['org.subtrack.sandbox.namespace']!=='st250-runtime-v1'||c.Config.Labels['org.subtrack.sandbox.source']!==head||c.Config.Labels['com.docker.compose.service']!==service)throw Error();
  if(h.Privileged||!empty(h.CapAdd)||!empty(h.Devices)||!empty(h.DeviceRequests)||!empty(h.DeviceCgroupRules)||!eq(h.CapDrop,['ALL'])||!eq(h.SecurityOpt,['no-new-privileges:true'])||h.Memory!==limits[1]*1048576||h.PidsLimit!==limits[2]||h.NanoCpus!==limits[3]*1e9||h.ReadonlyRootfs!==(service!=='database')||h.PidMode||h.IpcMode!=='private'||h.UTSMode||h.UsernsMode)throw Error();
  if(h.LogConfig.Type!=='json-file'||!eq(Object.entries(h.LogConfig.Config).sort(),[['max-file','2'],['max-size','5m']]))throw Error();
  const overrides={database:{POSTGRES_DB:'subtrack_sandbox',POSTGRES_USER:'subtrack_sandbox_bootstrap',POSTGRES_PASSWORD_FILE:'/run/secrets/database_bootstrap',PGDATA:'/var/lib/postgresql/data/pgdata'},'api-live':{NODE_ENV:'production',SUBTRACK_RUNTIME:'sandbox',SANDBOX_STARTUP_ENABLED:'true',SANDBOX_PUBLICATION_ENABLED:'true',SANDBOX_DATABASE_HOST:'database',SANDBOX_DATABASE_NAME:'subtrack_sandbox',SANDBOX_DATABASE_ROLE:'subtrack_sandbox_runtime',SANDBOX_POOL_MAX:'4',SANDBOX_DATABASE_CREDENTIAL_FILE:'/run/secrets/database_runtime',SANDBOX_AUTH_MATERIAL_FILE:'/run/secrets/api_auth_material',PORT:'4000'},'gateway-live':{SANDBOX_GATEWAY_PUBLICATION:'true'}}[service];
+ if(android!==null){const keys=['schema','artifactSourceHead','toolingSourceHead','apkRun','toolsRun','applicationId','versionCode','signedSha256','bytes','signerCertificateSha256','embeddedConfigSha256','hermesSha256','signedReceiptSha256'];if(Object.getPrototypeOf(android)!==Object.prototype||Reflect.ownKeys(android).length!==keys.length||keys.some(k=>!Object.getOwnPropertyDescriptor(android,k)?.enumerable||!('value'in Object.getOwnPropertyDescriptor(android,k))))throw Error();if(android.schema!=='st250-android-download-binding-v1'||android.applicationId!=='se.subtrack.app.sandbox'||!Number.isSafeInteger(android.versionCode)||android.versionCode<1||android.versionCode>2147483647||! /^[a-f0-9]{64}$/.test(android.signedSha256))throw Error();if(service==='gateway-live')Object.assign(overrides,{SANDBOX_ANDROID_DOWNLOAD_PUBLICATION:'true',SANDBOX_ANDROID_VERSION_CODE:String(android.versionCode),SANDBOX_ANDROID_SIGNED_SHA256:android.signedSha256});}
  const env=x=>{const m=new Map();for(const e of x){const i=e.indexOf('=');if(i<1||m.has(e.slice(0,i)))throw Error();m.set(e.slice(0,i),e.slice(i+1));}return m;};const expected=env(base.Config.Env);for(const[k,v]of Object.entries(overrides))expected.set(k,v);if(!eq([...env(c.Config.Env)].sort(),[...expected].sort()))throw Error();
  const entry=service==='gateway-live'?['sh','/opt/subtrack/gateway-entrypoint.sh']:base.Config.Entrypoint;
  const cmd=service==='database'?['postgres','-c','shared_buffers=32MB','-c','max_connections=20','-c','work_mem=2MB']:service==='gateway-live'?[]:base.Config.Cmd;
@@ -157,12 +173,13 @@ function validateLive(c,base,service,root,records,head,identity){
  const ports=h.PortBindings??{};if(service!=='gateway-live'&&Object.keys(ports).length)throw Error();if(service==='gateway-live'){if(!eq(Object.keys(ports).sort(),['8080/tcp','8443/tcp']))throw Error();for(const[p,n]of[['8080/tcp','80'],['8443/tcp','443']])if(!Array.isArray(ports[p])||ports[p].length!==1||ports[p][0].HostPort!==n||!['','0.0.0.0'].includes(ports[p][0].HostIp))throw Error();}
  const bind=(file,dst)=>({Type:'bind',Source:root+'/'+file,Destination:dst,RW:false}),volume=(role,dst)=>({Type:'volume',Name:'subtrack-sandbox-'+role,Source:records[role].Mountpoint,Destination:dst,RW:true});
  const mounts={database:[bind('secrets/database-bootstrap','/run/secrets/database_bootstrap'),volume('database-data','/var/lib/postgresql/data')],'api-live':[bind('secrets/database-runtime','/run/secrets/database_runtime'),bind('secrets/api-auth-material','/run/secrets/api_auth_material')],'gateway-live':[bind('infra/sandbox/Caddyfile','/etc/caddy/Caddyfile'),bind('infra/sandbox/gateway-entrypoint.sh','/opt/subtrack/gateway-entrypoint.sh'),bind('infra/sandbox/caddy-capless','/usr/bin/caddy'),bind('secrets/gateway-key','/run/secrets/gateway_key'),volume('certificate-data','/data'),volume('gateway-config','/config')]}[service];
+ if(android!==null&&service==='gateway-live')mounts.push(bind('public/android/subtrack-sandbox.apk','/opt/subtrack/public/subtrack-sandbox.apk'));
  if(c.Mounts.length!==mounts.length)throw Error();for(const e of mounts){const m=c.Mounts.find(x=>x.Destination===e.Destination);if(!m||Object.entries(e).some(([k,v])=>m[k]!==v)||(m.Type==='bind'&&m.Name))throw Error();}
  const tmp={database:{'/tmp':'size=16m','/var/run/postgresql':'size=4m,uid=999,gid=999'},'api-live':{'/tmp':'size=16m,uid=1000,gid=1000'},'gateway-live':{'/tmp':'size=8m,uid=1000,gid=1000'}}[service];if(!eq(Object.entries(h.Tmpfs??{}).sort(),Object.entries(tmp).sort()))throw Error();
  return true;
 }
 // END LIVE VALIDATOR
-try{const[service,root]=process.argv.slice(2),a=JSON.parse(fs.readFileSync(3,'utf8')),b=JSON.parse(fs.readFileSync(4,'utf8')),records={},binding=JSON.parse(fs.readFileSync(root+'/runtime/image-import-binding.json','utf8'));if(a.length!==1||b.length!==1)throw Error();for(const role of['database-data','certificate-data','gateway-config'])records[role]=JSON.parse(fs.readFileSync(root+'/runtime/volume-'+role+'.json','utf8'))[0];validateLive(a[0],b[0],service,root,records,process.env.ST250_SOURCE_HEAD,binding.services[{'api-live':'api',database:'database','gateway-live':'gateway'}[service]]);}catch{process.exit(1);}
+try{const[service,root]=process.argv.slice(2),a=JSON.parse(fs.readFileSync(3,'utf8')),b=JSON.parse(fs.readFileSync(4,'utf8')),records={},binding=JSON.parse(fs.readFileSync(root+'/runtime/image-import-binding.json','utf8'));if(a.length!==1||b.length!==1)throw Error();for(const role of['database-data','certificate-data','gateway-config'])records[role]=JSON.parse(fs.readFileSync(root+'/runtime/volume-'+role+'.json','utf8'))[0];const android=process.env.ST250_ANDROID_DOWNLOAD_PUBLICATION==='true'?require(root+'/tools/sandbox/image-import-binding.cjs').validateAndroidDownload(JSON.parse(fs.readFileSync(root+'/runtime/android-download-binding.json','utf8'))):null;validateLive(a[0],b[0],service,root,records,process.env.ST250_SOURCE_HEAD,binding.services[{'api-live':'api',database:'database','gateway-live':'gateway'}[service]],android);}catch{process.exit(1);}
 NODE
  done
  for suffix in database ingress edge;do

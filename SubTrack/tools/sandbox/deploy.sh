@@ -6,6 +6,18 @@ umask 077
 mode="$1";root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 namespace=/home/openclaw/subtrack-sandbox;runtime="$namespace/runtime"
 compose=(docker compose --project-name subtrack-sandbox --file "$root/infra/sandbox/compose.yaml")
+configure_android_download() {
+  [[ "${ST250_ANDROID_DOWNLOAD_PUBLICATION:-false}" =~ ^(true|false)$ ]] || return 1
+  if [[ "${ST250_ANDROID_DOWNLOAD_PUBLICATION:-false}" == true ]]; then
+    local fields
+    fields="$(node "$root/tools/sandbox/image-import-binding.cjs" android-env "$root" "$namespace/staging/$ST250_TRANSFER_RUN")" || return 1
+    mapfile -t android_fields <<< "$fields"
+    [[ ${#android_fields[@]} == 2 && "${android_fields[0]}" =~ ^[1-9][0-9]*$ && "${android_fields[1]}" =~ ^[a-f0-9]{64}$ ]] || return 1
+    export SANDBOX_ANDROID_VERSION_CODE="${android_fields[0]}" SANDBOX_ANDROID_SIGNED_SHA256="${android_fields[1]}"
+    compose+=(--file "$root/infra/sandbox/compose.android-download.yaml")
+  fi
+}
+
 stage=VERIFY;started=false
 # BEGIN STATIC CONTRACT
 initializer_limits() {
@@ -60,6 +72,7 @@ trap failure ERR
 trap 'stage=CANCELLED;failure' INT TERM
 if [[ "$mode" == validate || "$mode" == preflight ]];then bash "$root/tools/sandbox/verify.sh" "$mode";exit 0;fi
 bash "$root/tools/sandbox/verify.sh" staging
+configure_android_download
 [[ ! -e "$runtime/operation.cid" && ! -L "$runtime/operation.cid" ]]
 if [[ "$mode" == initialize ]];then
  stage=INITIALIZE;empty_runtime
@@ -178,6 +191,18 @@ const business=(a,operation,body={},key)=>call('business',{operation,body},'Bear
  process.stdout.write('ST250_HTTPS_READBACK_QUALIFIED owners=2 restart=true isolation=true refresh=true logout=true\n');
 })().catch(()=>{process.stderr.write(diagnostic()+'\n');process.stderr.write('ST250_DEPLOYMENT_UNAVAILABLE stage=HTTPS_READBACK\n');process.exitCode=1;});
 NODE
+if [[ "${ST250_ANDROID_DOWNLOAD_PUBLICATION:-false}" == true ]]; then
+ stage=ANDROID_HOSTING
+ timeout --kill-after=10s 90s node - "$root" <<'NODE'
+const fs=require('node:fs'),crypto=require('node:crypto');
+(async()=>{const root=process.argv[2],m=require(root+'/tools/sandbox/image-import-binding.cjs'),v=m.validateAndroidDownload(JSON.parse(fs.readFileSync(root+'/runtime/android-download-binding.json','utf8'))),origin='https://198.44.116.159';
+ const request=route=>fetch(origin+route,{redirect:'error',signal:AbortSignal.timeout(10000)});
+ const binary=await request('/download/subtrack-sandbox.apk');if(binary.status!==200||binary.headers.get('cache-control')!=='no-store'||binary.headers.get('x-content-type-options')!=='nosniff'||binary.headers.get('content-type')!=='application/vnd.android.package-archive'||binary.headers.get('content-disposition')!=='attachment; filename="subtrack-sandbox.apk"')throw Error();const hash=crypto.createHash('sha256');let bytes=0;for await(const chunk of binary.body){bytes+=chunk.length;if(bytes>v.bytes)throw Error();hash.update(chunk);}if(bytes!==v.bytes||hash.digest('hex')!==v.signedSha256)throw Error();
+ const page=await request('/');if(page.status!==200||page.headers.get('cache-control')!=='no-store'||page.headers.get('content-type')!=='text/html; charset=utf-8')throw Error();let text='',size=0;for await(const chunk of page.body){size+=chunk.length;if(size>65536)throw Error();text+=Buffer.from(chunk).toString('utf8');}if(!text.includes('lang="sv"')||!text.includes('/download/subtrack-sandbox.apk')||!text.includes('iOS testing is pending')||!text.includes('Version code: '+v.versionCode)||!text.includes(v.signedSha256))throw Error();
+ process.stdout.write('ST250_ANDROID_DOWNLOAD_HOSTING_QUALIFIED tls=trusted bytes=matched installed=pending\n');
+})().catch(()=>{process.stderr.write('ST250_DEPLOYMENT_UNAVAILABLE stage=ANDROID_HOSTING\n');process.exitCode=1;});
+NODE
+fi
 node - "$runtime/deployment-receipt.json" "$ST250_SOURCE_HEAD" "$SANDBOX_API_IMAGE" <<'NODE'
 const fs=require('node:fs'),crypto=require('node:crypto');try{const[file,head,image]=process.argv.slice(2),bindingBytes=fs.readFileSync(file.replace(/deployment-receipt\.json$/,'image-import-binding.json')),binding=JSON.parse(bindingBytes);if(!/^[a-f0-9]{40}$/.test(head)||!/^sha256:[a-f0-9]{64}$/.test(image)||binding.artifactSourceHead!==head||binding.importedImageId!==image)throw Error();const receipt={schema:'st250-deployment-v2',sourceHead:head,toolingSourceHead:binding.toolingSourceHead,sourceCustodySha256:binding.sourceCustodySha256,historicalSourceCustodySha256:binding.historicalSourceCustodySha256,apiExportedConfigId:binding.exportedConfigId,apiImageId:image,imageImportBindingSha256:crypto.createHash('sha256').update(bindingBytes).digest('hex'),serviceImageCustody:binding.services,host:'198.44.116.159',tlsVerified:true,ownerIsolationVerified:true,restartReadbackVerified:true,refreshLogoutVerified:true,resourceGraphVerified:true,androidInstalled:false,iosInstalled:false,qualification:'synthetic-only',dataPolicy:'retained'};if(fs.existsSync(file)){const s=fs.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.uid!==996||(s.mode&0o777)!==0o600)throw Error();}fs.writeFileSync(file,JSON.stringify(receipt)+'\n',{mode:0o600});}catch{process.stderr.write('ST250_DEPLOYMENT_UNAVAILABLE stage=RECEIPT\n');process.exitCode=1;}
 NODE

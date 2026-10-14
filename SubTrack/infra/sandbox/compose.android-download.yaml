@@ -1,0 +1,14 @@
+# Optional only after verified active signed-byte custody. Never use by default.
+services:
+  gateway-live:
+    environment:
+      SANDBOX_ANDROID_DOWNLOAD_PUBLICATION: "true"
+      SANDBOX_ANDROID_VERSION_CODE: ${SANDBOX_ANDROID_VERSION_CODE:?verified signed version required}
+      SANDBOX_ANDROID_SIGNED_SHA256: ${SANDBOX_ANDROID_SIGNED_SHA256:?verified signed digest required}
+    volumes:
+      - type: bind
+        source: /home/openclaw/subtrack-sandbox/public/android/subtrack-sandbox.apk
+        target: /opt/subtrack/public/subtrack-sandbox.apk
+        read_only: true
+        bind:
+          create_host_path: false

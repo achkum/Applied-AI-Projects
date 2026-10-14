@@ -35,6 +35,47 @@ https://198.44.116.159 {
   # Only explicit live composition can select this branch; preparation stays503.
   @publication expression `{env.SANDBOX_GATEWAY_PUBLICATION} == "true"`
   handle @publication {
+    # Downloads are independently disabled unless qualified signed custody selects
+    # the reviewed one-file override. The API branch remains available without it.
+    @android_page {
+      method GET
+      path / /download
+      expression `{env.SANDBOX_ANDROID_DOWNLOAD_PUBLICATION} == "true" && !{http.request.uri}.contains("?")`
+    }
+    handle @android_page {
+      header Content-Type "text/html; charset=utf-8"
+      respond <<HTML
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SubTrack · Android sandbox</title></head>
+<body style="margin:0;background:#f5f5f2;color:#171918;font:17px/1.6 system-ui,sans-serif"><main style="max-width:680px;margin:64px auto;padding:0 24px">
+<p style="font-weight:700;letter-spacing:0.06em">SUBTRACK</p><h1>Try the Android sandbox</h1>
+<p>This is a test app using synthetic data. There is no real bank connection or OTP delivery, and this is not a production account.</p>
+<p><a href="/download/subtrack-sandbox.apk" style="display:inline-block;padding:12px 20px;background:#173e31;color:white;text-decoration:none;border-radius:6px">Download Android APK</a></p>
+<p>Version code: {env.SANDBOX_ANDROID_VERSION_CODE}<br>SHA-256: <code style="overflow-wrap:anywhere">{env.SANDBOX_ANDROID_SIGNED_SHA256}</code></p>
+<ol><li>Download the APK on your Android phone.</li><li>If Android asks, allow installation from this browser. Install and open SubTrack.</li><li>After installation, restore the browser’s previous installation permission.</li></ol>
+<p>Updates require the same package and signing identity. iOS testing is pending; no iPhone download is available yet.</p>
+<hr style="border:0;border-top:1px solid #d0d3cf;margin:32px 0">
+<section lang="sv"><h2>Prova Android-sandlådan</h2><p>Det här är en testapp med syntetiska data. Ingen riktig bankanslutning eller OTP-leverans används, och detta är inget produktionskonto.</p>
+<p><a href="/download/subtrack-sandbox.apk">Ladda ner APK för Android</a></p><p>Versionskod: {env.SANDBOX_ANDROID_VERSION_CODE}. SHA-256 visas ovan.</p>
+<ol><li>Ladda ner APK-filen på din Android-telefon.</li><li>Om Android frågar, tillåt installation från den här webbläsaren. Installera och öppna SubTrack.</li><li>Återställ webbläsarens tidigare installationstillstånd efter installationen.</li></ol>
+<p>Uppdateringar kräver samma paket och signeringsidentitet. Testning på iOS väntar; ingen nedladdning för iPhone finns ännu.</p></section>
+</main></body></html>
+HTML
+    }
+    @android_apk {
+      method GET
+      path /download/subtrack-sandbox.apk
+      expression `{env.SANDBOX_ANDROID_DOWNLOAD_PUBLICATION} == "true" && !{http.request.uri}.contains("?")`
+    }
+    handle @android_apk {
+      header {
+        Content-Type "application/vnd.android.package-archive"
+        Content-Disposition "attachment; filename=\"subtrack-sandbox.apk\""
+      }
+      rewrite * /subtrack-sandbox.apk
+      root * /opt/subtrack/public
+      file_server
+    }
     @sandbox {
       method POST
       path /v2/sandbox/mobile/bootstrap /v2/sandbox/mobile/resume /v2/sandbox/mobile/refresh /v2/sandbox/mobile/logout /v2/sandbox/mobile/business
