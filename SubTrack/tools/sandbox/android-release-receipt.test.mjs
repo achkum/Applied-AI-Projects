@@ -53,6 +53,10 @@ test('signed verification binds independent current tooling to immutable histori
  assert.ok(script.indexOf('verificationManifest(process.env,authority,fetchResult.stdout)')<script.indexOf(' receive-signed '));
  assert.ok(script.includes('"${GITHUB_SHA:-}" == "$ST250_SOURCE_HEAD"'));assert.ok(script.includes('"$(git -C "$root" rev-parse HEAD)" == "$ST250_SOURCE_HEAD"'));
  const workflow=readFileSync(new URL('../../../.github/workflows/subtrack-sandbox-android-build.yml',import.meta.url),'utf8'),job=workflow.split('  signed-return-verification:')[1];
+ assert.match(workflow,/\npermissions:\n  contents: read\n/);assert.match(job,/\n    permissions:\n(?:      #.*\n)*      contents: write\n/);assert.ok(job.includes("if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'verify-signed'"));
+ assert.equal((job.match(/GITHUB_TOKEN:/g)??[]).length,1);assert.ok(job.includes('run: bash tools/sandbox/build-android.sh verify-signed'));assert.ok(job.includes('persist-credentials: false'));
+ const receiver=readFileSync(new URL('./android-transfer-receipt.mjs',import.meta.url),'utf8'),readonlyCustody=receiver.slice(receiver.indexOf('function download(kind,'),receiver.indexOf('function dispose(kind,'));
+ assert.ok(readonlyCustody.includes("download('apk',receiptFile,dir)"));assert.ok(readonlyCustody.includes('function receiveSigned('));assert.doesNotMatch(readonlyCustody,/'(?:POST|PUT|PATCH|DELETE)'|--method|gh release/);
  assert.equal((workflow.match(/      verification_tooling_head:/g)??[]).length,2);assert.ok(job.includes('ST250_VERIFICATION_TOOLING_HEAD: ${{ inputs.verification_tooling_head }}'));assert.ok(job.includes('fetch-depth: 0'));assert.ok(job.includes('test "$ST250_VERIFICATION_TOOLING_HEAD" = "$GITHUB_SHA"'));assert.ok(workflow.split('  signed-return-verification:')[0].includes('test "$ST250_SOURCE_HEAD" = "$GITHUB_SHA"'));
 });
 test('Expo generated disabled updates metadata preserves embedded release authority and rejects overrides',()=>{

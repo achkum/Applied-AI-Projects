@@ -208,7 +208,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
-      contents: read
+      # Draft visibility requires push access; this manually gated job only performs GETs.
+      # https://docs.github.com/en/rest/releases/releases#list-releases
+      contents: write
     defaults:
       run:
         shell: bash
