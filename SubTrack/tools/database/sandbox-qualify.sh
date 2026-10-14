@@ -111,19 +111,24 @@ sudo mkdir -p /run/secrets
 sudo install -m0600 -o "$(id -u)" -g "$(id -g)" "$work/database_runtime" /run/secrets/database_runtime
 mounted=1
 sudo install -m0600 -o "$(id -u)" -g "$(id -g)" "$work/api_auth_material" /run/secrets/api_auth_material
-sudo cat /etc/hosts > "$work/hosts.before"
-cat "$work/hosts.before" > "$work/hosts.expected"
-printf '\n127.0.0.1 database # %s\n' "$marker" >> "$work/hosts.expected"
-sudo cp "$work/hosts.expected" /etc/hosts;mapped=1
 network_name="$(basename "$work")-network"
 [[ "$network_name" =~ ^st250-[A-Za-z0-9]{8}-network$ ]]
 network="$(docker network create --internal --label "subtrack.custody=$marker" "$network_name" 2> "$work/docker-private.log")"
 [[ "$network" =~ ^[a-f0-9]{64}$ ]]
-cid="$(docker create --network "$network" --network-alias database --label "subtrack.custody=$marker" -p127.0.0.1:5432:5432 --pids-limit=128 --memory=512m --cpus=2 --tmpfs /var/lib/postgresql/data --env-file "$work/pg.env" "$image" 2> "$work/docker-private.log")"
+cid="$(docker create --network "$network" --network-alias database --label "subtrack.custody=$marker" --pids-limit=128 --memory=512m --cpus=2 --tmpfs /var/lib/postgresql/data --env-file "$work/pg.env" "$image" 2> "$work/docker-private.log")"
 [[ "$cid" =~ ^[a-f0-9]{64}$ ]]
 docker start "$cid" > /dev/null 2>> "$work/docker-private.log"
 for _ in {1..60};do if docker exec "$cid" pg_isready -h127.0.0.1 -Usubtrack_sandbox_bootstrap -dsubtrack_sandbox >/dev/null 2>&1;then break;fi;sleep 1;done
 docker exec "$cid" pg_isready -h127.0.0.1 -Usubtrack_sandbox_bootstrap -dsubtrack_sandbox >/dev/null 2>&1
+printf '%s' "$cid" > "$work/pg.cid"
+node - "$root" "$work" "$cid" "$network" "$marker" <<'NODE'
+const fs=require('node:fs'),path=require('node:path'),{execFileSync}=require('node:child_process');const [root,work,cid,network,marker]=process.argv.slice(2);const log=fs.openSync(path.join(work,'docker-private.log'),'a',0o600);try{const inspect=(kind,id)=>{const rows=JSON.parse(execFileSync('docker',[kind,'inspect',id],{encoding:'utf8',stdio:['ignore','pipe',log],timeout:30000,maxBuffer:131072}));if(rows.length!==1)throw Error('observer');return rows[0];};const c=inspect('container',cid);if(c.Config.Image!=='docker.io/library/postgres@sha256:0ea6700a3b4f0ae6ce746519073558aed4d88a79d8d07622a9a644946c7319c4')throw Error('observer');const ip=require(path.join(root,'tools/database/sandbox-qualification-receipt.cjs')).internalObserverAddress(c,inspect('network',network),{containerId:cid,networkId:network,custodyMarker:marker});fs.writeFileSync(path.join(work,'pg.address'),ip,{mode:0o600,flag:'wx'});}catch{process.stderr.write('ST250_SANDBOX_PG_FAILURE phase=LOAD step=ADMIN_CONNECT category=OTHER\n');process.exitCode=1;}finally{fs.closeSync(log);}
+NODE
+pg_address="$(cat "$work/pg.address")"
+sudo cat /etc/hosts > "$work/hosts.before"
+cat "$work/hosts.before" > "$work/hosts.expected"
+printf '\n%s database # %s\n' "$pg_address" "$marker" >> "$work/hosts.expected"
+sudo cp "$work/hosts.expected" /etc/hosts;mapped=1
 # Only this harness loads DDL; actual main never does so.
 run_mode=run;if [[ "$variant" == image-v2 ]];then run_mode=run-image;fi
 if ! ST250_PG_NETWORK="$network" ST250_IMAGE_MARKER="$marker" timeout --signal=TERM --kill-after=10s 180s node tools/database/sandbox-qualification.cjs "$run_mode" "$work" > "$work/runtime-private.log" 2>&1;then

@@ -6,6 +6,18 @@ const unavailable = () => { throw new Error('Sandbox Android preparation unavail
 const hex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const fields = ['schemaVersion', 'sourceHead', 'unsignedSha256', 'applicationId', 'versionCode', 'variant', 'origin', 'buildType', 'debuggable', 'privateCaIncluded', 'hermesBundled', 'runtimeEnabled', 'bytes', 'signatureVerified', 'zipAligned', 'cleanup'];
 
+export function buildDiagnostic(text) {
+  if (typeof text !== 'string' || text.length > 8 * 1024 * 1024) return 'ST250_ANDROID_BUILD_FAILURE task=OTHER category=UNKNOWN';
+  const failedTask = text.match(/Execution failed for task '(:[^'\r\n]{1,160})'\./)?.[1] ?? '';
+  const task = /compile\w*Kotlin/.test(failedTask) ? 'KOTLIN' :
+    /compile\w*JavaWithJavac/.test(failedTask) ? 'JAVA' : /bundleReleaseJsAndAssets/.test(failedTask) ? 'JS_BUNDLE' :
+      /(?:CMake|externalNativeBuild)/.test(failedTask) ? 'NATIVE' : 'OTHER';
+  const category = /(?:OutOfMemoryError|heap space)/i.test(text) ? 'MEMORY' :
+    /(?:Could not resolve|Could not find|Could not GET|Could not HEAD)/.test(text) ? 'DEPENDENCY' :
+      /(?:Unresolved reference|cannot find symbol|Compilation error|compilation failed)/i.test(text) ? 'COMPILER' : 'UNKNOWN';
+  return `ST250_ANDROID_BUILD_FAILURE task=${task} category=${category}`;
+}
+
 export function validateReceipt(value, signed = false) {
   if (!value || Object.getPrototypeOf(value) !== Object.prototype) unavailable();
   const keys = signed ? [...fields, 'signedSha256', 'signerCertificateSha256'] : fields;
@@ -59,6 +71,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         signatureOutput: readFileSync(signatureFile, 'utf8'), signatureExit: Number(signatureExit), sourceHead });
       if (!/^[a-f0-9]{40}$/.test(sourceHead)) unavailable();
       process.stdout.write(JSON.stringify(result));
+    } else if (mode === 'build-diagnostic' && args.length === 1) {
+      const stat = lstatSync(args[0]);
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 8 * 1024 * 1024) unavailable();
+      process.stdout.write(buildDiagnostic(readFileSync(args[0], 'utf8')) + '\n');
     } else if (mode === 'close' && args.length === 1) {
       process.stdout.write(JSON.stringify(validateReceipt({ ...JSON.parse(readFileSync(args[0], 'utf8')), cleanup: 'REMOVED' })) + '\n');
     } else unavailable();

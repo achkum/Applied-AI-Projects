@@ -31,26 +31,48 @@ cleanup() {
   rm -rf -- "$private"
   [[ ! -e "$private" ]]
 }
-trap 'cleanup >/dev/null 2>&1 || true' EXIT
+stage=PREBUILD
+failure_cleanup() {
+  local status=$?
+  trap - EXIT
+  if (( status != 0 )); then printf 'ST250_ANDROID_FAILURE stage=%s\n' "$stage" >&2; fi
+  cleanup >/dev/null 2>&1 || true
+  exit "$status"
+}
+trap failure_cleanup EXIT
 node node_modules/expo/bin/cli prebuild --platform android --no-install > "$private/prebuild.log" 2>&1
+stage=TEMPLATE
 node "$root/tools/sandbox/android-release-receipt.mjs" template android/app/build.gradle
 [[ "$(grep -c '^newArchEnabled=false$' android/gradle.properties)" == 1 ]]
+stage=TOOLS
 tools="${ANDROID_HOME:?}/build-tools/36.0.0"
 [[ -x "$tools/apksigner" && -x "$tools/zipalign" ]]
 [[ -x "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" ]]
-(cd android && ./gradlew :app:assembleRelease --no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m') > "$private/build.log" 2>&1
+stage=GRADLE
+if (cd android && ./gradlew :app:assembleRelease --no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m') > "$private/build.log" 2>&1; then :
+else
+  node "$root/tools/sandbox/android-release-receipt.mjs" build-diagnostic "$private/build.log" >&2 || true
+  exit 1
+fi
+stage=APK
 apk=android/app/build/outputs/apk/release/app-release-unsigned.apk
 [[ -f "$apk" && ! -L "$apk" ]]
+stage=ALIGN
 "$tools/zipalign" -P 16 -f 4 "$apk" "$private/aligned.apk" > "$private/alignment.log" 2>&1
 "$tools/zipalign" -c -P 16 4 "$private/aligned.apk" >> "$private/alignment.log" 2>&1
+stage=MANIFEST
 "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print "$private/aligned.apk" > "$private/manifest.xml" 2> "$private/manifest.log"
+stage=BUNDLE
 unzip -p "$private/aligned.apk" assets/index.android.bundle > "$private/bundle.hbc"
+stage=SIGNATURE
 if unzip -Z1 "$private/aligned.apk" | grep -Eq '^META-INF/.*\.(RSA|DSA|EC|SF)$|private.runtime|network_security_config'; then exit 1; fi
 signature_exit=0
 "$tools/apksigner" verify --verbose "$private/aligned.apk" > "$private/signature.log" 2>&1 || signature_exit=$?
+stage=RECEIPT
 node "$root/tools/sandbox/android-release-receipt.mjs" inspect "$private/manifest.xml" "$private/bundle.hbc" "$private/aligned.apk" "$private/signature.log" "$signature_exit" "$ST250_SOURCE_HEAD" > "$private/pending.json"
 # APK transfer/upload is deliberately disabled pending artifact zero-spend/custody review.
 pending="$(cat "$private/pending.json")"
+stage=CLEANUP
 cleanup
 trap - EXIT
 # Validate fixed scalar receipt from stdin after actual owned cleanup, without retaining APK.

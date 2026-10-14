@@ -1,12 +1,26 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { unsignedTemplate, inspectUnsigned, validateReceipt } from './android-release-receipt.mjs';
+import { unsignedTemplate, inspectUnsigned, validateReceipt, buildDiagnostic } from './android-release-receipt.mjs';
 
 const template = '    buildTypes {\n        debug {\n            signingConfig signingConfigs.debug\n        }\n        release {\n            // Caution! In production, you need to generate your own keystore file.\n            // see https://reactnative.dev/docs/signed-apk-android.\n            signingConfig signingConfigs.debug\n            minifyEnabled false\n        }\n    }';
 const input = () => ({ manifest: '<manifest package="se.subtrack.app.sandbox" android:versionCode="1"><uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36"/><application android:debuggable="false" android:usesCleartextTraffic="false"/></manifest>',
   bundle: Buffer.from('c61fbc03c103191f00', 'hex'), apk: Buffer.from('synthetic-unsigned-fixture'), sourceHead: 'a'.repeat(40), signatureExit: 1,
   signatureOutput: 'DOES NOT VERIFY\nERROR: Missing META-INF/MANIFEST.MF\n' });
 const receipt = () => ({ ...inspectUnsigned(input()), cleanup: 'REMOVED' });
+
+test('build diagnostics emit finite metadata without compiler text, paths or credentials', () => {
+  const failure = (task, reason) => `> Task :expo:compileReleaseKotlin SUCCESS\nExecution failed for task '${task}'.\n${reason}\nprivate-canary=https://private.invalid/secret`;
+  assert.equal(buildDiagnostic(failure(':app:bundleReleaseJsAndAssets', 'Could not resolve dependency')), 'ST250_ANDROID_BUILD_FAILURE task=JS_BUNDLE category=DEPENDENCY');
+  assert.equal(buildDiagnostic(failure(':expo:compileReleaseKotlin', 'Unresolved reference')), 'ST250_ANDROID_BUILD_FAILURE task=KOTLIN category=COMPILER');
+  assert.equal(buildDiagnostic(failure(':app:compileReleaseJavaWithJavac', 'cannot find symbol')), 'ST250_ANDROID_BUILD_FAILURE task=JAVA category=COMPILER');
+  assert.equal(buildDiagnostic(failure(':app:externalNativeBuildRelease', 'OutOfMemoryError')), 'ST250_ANDROID_BUILD_FAILURE task=NATIVE category=MEMORY');
+  assert.equal(buildDiagnostic(failure(':app:assembleRelease', 'private-canary')), 'ST250_ANDROID_BUILD_FAILURE task=OTHER category=UNKNOWN');
+  assert.equal(buildDiagnostic('Gradle build daemon disappeared unexpectedly'), 'ST250_ANDROID_BUILD_FAILURE task=OTHER category=UNKNOWN');
+  for (const value of [null, {}, Buffer.from('private-canary'), 'x'.repeat(8 * 1024 * 1024 + 1)]) {
+    assert.equal(buildDiagnostic(value), 'ST250_ANDROID_BUILD_FAILURE task=OTHER category=UNKNOWN');
+  }
+  assert.equal(buildDiagnostic('> Task :expo:compileReleaseKotlin SUCCESS'), 'ST250_ANDROID_BUILD_FAILURE task=OTHER category=UNKNOWN');
+});
 
 test('locked release stanza loses only debug signing; unknown/duplicate/idempotent rewrites reject', () => {
   const output = unsignedTemplate(template);
