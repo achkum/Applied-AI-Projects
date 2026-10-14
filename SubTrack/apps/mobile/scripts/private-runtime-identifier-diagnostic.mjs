@@ -78,6 +78,9 @@ const enrollmentRoster = [
   ['subscription-amount', 'amount'],
   ['subscription-save', 'saveSubscription'],
   ['subscription-saved', 'saved'],
+  ['date-field', 'date'],
+  ['personal-title', 'personalTitle'],
+  ['expected-amount', 'expectedAmount'],
 ];
 
 export function enrollmentToolDiagnostic({ phase, enrollment, metro, labels }) {
@@ -92,8 +95,43 @@ export function enrollmentToolDiagnostic({ phase, enrollment, metro, labels }) {
   return closedToolDiagnostic(
     enrollment,
     metro,
-    enrollmentRoster.map(([name, key]) => [name, labels[key]]),
+    [...enrollmentRoster.map(([name, key]) => [name, labels[key]]), ['saved-row', 'Native restart proof']],
   );
+}
+
+/** One exact enrollment invocation owns the event latch. No process values escape. */
+export function createEnrollmentExecution(label) {
+  if (label !== 'enroll-add') return null;
+  let terminal = null;
+  return Object.freeze({
+    record(event, code, signal) {
+      if (terminal !== null || !['error', 'exit', 'close'].includes(event)) return;
+      if (event === 'error') {
+        terminal = Object.freeze({ outcome: 'launch-error', code: 'unavailable', signal: 'none', timeout: 'not-applicable' });
+        return;
+      }
+      const codeBucket = Number.isInteger(code) && code >= 0 && code <= 255
+        ? code === 0 ? 'zero' : code === 1 ? 'one' : 'other-nonzero'
+        : 'unavailable';
+      const signalBucket = signal === null || signal === undefined
+        ? 'none' : signal === 'SIGTERM' ? 'TERM' : signal === 'SIGKILL' ? 'KILL' : 'other';
+      terminal = Object.freeze({ outcome: signalBucket !== 'none' ? 'signal' : codeBucket === 'zero' ? 'completed' : 'exit-nonzero', code: codeBucket, signal: signalBucket, timeout: 'not-applicable' });
+    },
+    snapshot() { return terminal; },
+  });
+}
+
+/** Failure-only projection; log size is never emitted, read, or retained here. */
+export function enrollmentExecutionDiagnostic({ phase, execution, logSize }) {
+  if (phase !== 'flow-enroll-add' || !execution || typeof execution !== 'object' || Array.isArray(execution) || execution.outcome === 'completed') return null;
+  // Records come only from the invocation latch; reject malformed external inputs.
+  if (Object.getPrototypeOf(execution) !== Object.prototype ||
+      Reflect.ownKeys(execution).some(key => typeof key !== 'string') || Reflect.ownKeys(execution).sort().join(',') !== 'code,outcome,signal,timeout' ||
+      !['launch-error', 'exit-nonzero', 'signal'].includes(execution.outcome) ||
+      !['zero', 'one', 'other-nonzero', 'unavailable'].includes(execution.code) ||
+      !['none', 'TERM', 'KILL', 'other'].includes(execution.signal) || execution.timeout !== 'not-applicable') return null;
+  const log = Number.isSafeInteger(logSize) && logSize >= 0 && logSize <= 4_000_000 ? logSize === 0 ? 'empty' : 'nonempty' : 'unavailable';
+  return Object.freeze({ ...execution, log });
 }
 
 function closedToolDiagnostic(identifier, metro, targetRoster) {
