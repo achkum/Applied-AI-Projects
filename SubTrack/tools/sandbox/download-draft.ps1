@@ -16,7 +16,7 @@ function Invoke-Private([string]$Command,[string[]]$Arguments,[string]$Output){
  # Explicit UTF8 avoids Windows PowerShell5.1 native redirection's UTF16LE.
  $utf8=[Text.UTF8Encoding]::new($false,$true)
  $info=[Diagnostics.ProcessStartInfo]::new()
- $info.FileName=(Get-Command $Command -CommandType Application -ErrorAction Stop).Source
+ $info.FileName=(Get-Command $Command -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
  $info.Arguments=($Arguments|ForEach-Object {ConvertTo-NativeArgument $_}) -join ' '
  $info.UseShellExecute=$false;$info.CreateNoWindow=$true
  $info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true

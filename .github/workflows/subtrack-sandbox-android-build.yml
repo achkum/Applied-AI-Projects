@@ -1,5 +1,25 @@
 name: SubTrack sandbox unsigned Android Release build
 on:
+  workflow_call:
+    inputs:
+      delivery_mode:
+        type: string
+        default: none
+      source_head:
+        type: string
+        default: ""
+      free_draft_confirmed:
+        type: boolean
+        default: false
+      unsigned_transfer_receipt:
+        type: string
+        default: ""
+      signed_return_release_id:
+        type: string
+        default: ""
+      signer_certificate_sha256:
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       delivery_mode:
