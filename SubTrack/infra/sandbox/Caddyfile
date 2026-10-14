@@ -44,7 +44,11 @@ https://198.44.116.159 {
       # Strip untrusted metadata before proxy construction; header_up wildcard
       # deletion here would also erase trusted fields (actual2.11.7 probe).
       request_header -X-Subtrack-Sandbox-*
+      # Unused browser/native transport metadata is outside the strict API wire.
+      request_header -Accept-Language
+      request_header -Sec-Fetch-*
       reverse_proxy api-live:4000 {
+        header_up -Via
         header_up -Forwarded
         header_up -X-Forwarded-*
         header_up Host 198.44.116.159

@@ -41,6 +41,16 @@ test('signing tooling authority is separate from artifact head and primary marke
  }finally{fs.rmSync(owner,{recursive:true,force:true});}
 });
 
+test('desktop custody exclusion resolves nested project paths from git root',()=>{
+ const require=createRequire(import.meta.url),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+ const desktop=fs.readFileSync(new URL('./download-android.ps1',import.meta.url),'utf8'),block=desktop.slice(desktop.indexOf('$gitRoot='),desktop.indexOf('$transferRoot='));
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'st250-ignore-'));
+ try{assert.equal(spawnSync('git',['init','--quiet',root]).status,0);fs.mkdirSync(path.join(root,'SubTrack','.codex-local-task-setup'),{recursive:true});
+ const script='function Require([bool]$Value){if(-not $Value){throw "custody"}};function No-Reparse([string]$Path){};function Native([string]$Program,[string[]]$Arguments){$r=& $Program @Arguments;if($LASTEXITCODE -ne 0){throw "native"};return $r};$primary=Join-Path $env:ST250_IGNORE_ROOT "SubTrack";$localRoot=Join-Path $primary ".codex-local-task-setup";'+block+';git -C $gitRoot check-ignore --quiet -- "$relative/probe";exit $LASTEXITCODE';
+ const r=spawnSync('pwsh',['-NoProfile','-NonInteractive','-Command',script],{encoding:'utf8',env:{...process.env,ST250_IGNORE_ROOT:root}});assert.equal(r.status,0,r.stderr);
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});
+
 test('signed return labels preserve measured runtime and unverified testing candidate scope',()=>{
   const fs=createRequire(import.meta.url)('node:fs');
   const source=fs.readFileSync(new URL('./download-android.ps1',import.meta.url),'utf8');

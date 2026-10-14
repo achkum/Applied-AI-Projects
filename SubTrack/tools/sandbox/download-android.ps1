@@ -94,12 +94,12 @@ $localRoot=Join-Path $primary '.codex-local-task-setup';No-Reparse $localRoot
 if(-not(Test-Path -LiteralPath $localRoot)){New-PrivateDirectory $localRoot}else{Require ((Get-Acl -LiteralPath $localRoot).GetOwner([Security.Principal.SecurityIdentifier]).Value -eq $sid.Value)}
 $gitRoot=(Native 'git' @('-C',$primary,'rev-parse','--show-toplevel')).Trim()
 $relative=[IO.Path]::GetRelativePath($gitRoot,$localRoot).Replace('\','/');Require (-not $relative.StartsWith('../'))
-$null=& git -C $primary check-ignore --quiet -- $relative 2>$null
+$null=& git -C $gitRoot check-ignore --quiet -- $relative 2>$null
 if($LASTEXITCODE -ne 0){
   $gitDir=(Native 'git' @('-C',$primary,'rev-parse','--absolute-git-dir')).Trim();No-Reparse $gitDir
   $exclude=Join-Path $gitDir 'info/exclude';No-Reparse $exclude
   [IO.File]::AppendAllText($exclude,"`n/$relative/`n",[Text.UTF8Encoding]::new($false))
-  $null=& git -C $primary check-ignore --quiet -- "$relative/probe" 2>$null;Require ($LASTEXITCODE -eq 0)
+  $null=& git -C $gitRoot check-ignore --quiet -- "$relative/probe" 2>$null;Require ($LASTEXITCODE -eq 0)
 }
 $transferRoot=Join-Path $localRoot 'android-transfer'
 if(-not(Test-Path -LiteralPath $transferRoot)){New-PrivateDirectory $transferRoot}else{Check-PrivateAcl $transferRoot}
