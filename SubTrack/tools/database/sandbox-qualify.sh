@@ -71,7 +71,9 @@ sudo cat /etc/hosts > "$work/hosts.before"
 cat "$work/hosts.before" > "$work/hosts.expected"
 printf '\n127.0.0.1 database # %s\n' "$marker" >> "$work/hosts.expected"
 sudo cp "$work/hosts.expected" /etc/hosts;mapped=1
-network="$(docker network create --internal --label "subtrack.custody=$marker" 2> "$work/docker-private.log")"
+network_name="$(basename "$work")-network"
+[[ "$network_name" =~ ^st250-[A-Za-z0-9]{8}-network$ ]]
+network="$(docker network create --internal --label "subtrack.custody=$marker" "$network_name" 2> "$work/docker-private.log")"
 [[ "$network" =~ ^[a-f0-9]{64}$ ]]
 cid="$(docker create --network "$network" --label "subtrack.custody=$marker" -p127.0.0.1:5432:5432 --pids-limit=128 --memory=512m --cpus=2 --tmpfs /var/lib/postgresql/data --env-file "$work/pg.env" "$image" 2> "$work/docker-private.log")"
 [[ "$cid" =~ ^[a-f0-9]{64}$ ]]

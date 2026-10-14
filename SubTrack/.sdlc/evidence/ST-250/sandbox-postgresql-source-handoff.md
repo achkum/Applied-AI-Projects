@@ -21,9 +21,11 @@ Only a measured private candidate is created after process shutdown and pool clo
 | Git-root-relative path | SHA-256 |
 | --- | --- |
 | `.github/workflows/subtrack-sandbox-postgresql-qualification.yml` | `8ed1b973c19c0b948ac05331d71e6a9c32b38783b0da1d36fc1572ba0fa3de06` |
-| `SubTrack/tools/database/sandbox-qualify.sh` | `22dc8703726e94200d42372e9e610ce34b11cd6aaf929614750659fe33de8514` |
+| `SubTrack/tools/database/sandbox-qualify.sh` | `b00d12c40943c1bf75aa490856d5760f0f7bbfc8c1784a59c0841761a7252792` |
 | `SubTrack/tools/database/sandbox-qualification.cjs` | `ed56c6948ba089814d8b85a4c889963901e6ad787448545c086989192977748e` |
 | `SubTrack/tools/database/sandbox-qualification-receipt.cjs` | `b9807779204342e7d86b2160c7b24f2b5236149eed3d6e4ec1c2e8d9416f7eca` |
-| `SubTrack/tools/database/sandbox-qualification-receipt.test.cjs` | `69cd586a835f32c1a9e09ab602210189955d79c8ce0c89176bb471e55b5aadbe` |
+| `SubTrack/tools/database/sandbox-qualification-receipt.test.cjs` | `d5ba536ecff2ef1d0afc36bd8fea61eddcbe1879c66fab8f1c15768f0b809594` |
 
 Bounded final-review fixes: DELETE isolation SQL uses literal parameter $1::uuid with existing bound owner value; INT/TERM exits1 through EXIT cleanup with all traps disabled there; cleanup disables errexit and guards missing/unreadable candidate reads, preventing a private receipt-read failure from skipping teardown. Syntax checks rerun PASS only; no broad units/SQL execution.
+
+Actual launcher omission repaired after e3be79a run: mandatory named Docker network derived from owned mktemp basename, captured ID/label cleanup unchanged. Actual source-command argv test+Bashsyntax PASS; no SQL or broad repeats. See sandbox-postgresql-network-command-repair.md for independent review hashes.
