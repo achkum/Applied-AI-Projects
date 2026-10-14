@@ -165,11 +165,11 @@ export function readRegular(file,max) {
 const toolFailures=new WeakMap();
 export function toolsArchiveDiagnostic(error){return toolFailures.get(error)??null;}
 function inspectToolsBoundary(action){
-  let step='INPUT_RAW',category='IO';
-  const checkpoint=(next,kind='ASSERTION')=>{step=next;category=kind;};
+  let step='INPUT_RAW',category='IO',classes;
+  const checkpoint=(next,kind='ASSERTION',graphClasses)=>{step=next;category=kind;classes=graphClasses;};
   try{return action(checkpoint);}catch{
     const error=Error('ST250_ANDROID_TRANSFER_UNAVAILABLE');
-    toolFailures.set(error,`ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=${step} category=${category}`);
+    toolFailures.set(error,`ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=${step} category=${category}${classes?` classes=${classes}`:''}`);
     throw error;
   }
 }
@@ -236,8 +236,25 @@ function inspectToolTarBody(bytes, manifest, checkpoint) {
   }
   checkpoint('EXTRA_MEMBER','JSON');if(files.has('repositories')&&JSON.stringify(JSON.parse(files.get('repositories').toString('utf8')))!=='{}')unavailable();
   checkpoint('EXTRA_MEMBER');
-  for(const name of files.keys())if(!allowed.has(name)&&!entries[0].Layers.some(layer=>name===layer.replace(/layer\.tar$/,'json')||name===layer.replace(/layer\.tar$/,'VERSION'))){checkpoint(extraToolMemberClass(name,files.get(name),verifiedIndex,verifiedOci,indexBytes,config.rootfs.diff_ids));unavailable();}
+  const extras=[...files.keys()].filter(name=>!allowed.has(name)&&!entries[0].Layers.some(layer=>name===layer.replace(/layer\.tar$/,'json')||name===layer.replace(/layer\.tar$/,'VERSION')));
+  if(extras.length){const name=extras[0];checkpoint(extraToolMemberClass(name,files.get(name),verifiedIndex,verifiedOci,indexBytes,config.rootfs.diff_ids),'ASSERTION',inspectExtraToolGraph(files,extras,verifiedIndex,manifest.imageId,config.rootfs.diff_ids));unavailable();}
   return true;
+}
+function inspectExtraToolGraph(files,extras,index,imageId,diffIds){
+  const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.prototype.hasOwnProperty.call(v,k));
+  const objects=new Map();for(const [name,bytes]of files){if(!/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)||bytes.length>1048576||digest(bytes)!==name.slice(13))continue;try{const text=bytes.toString('utf8'),value=JSON.parse(text);if(bytes.equals(Buffer.from(text))&&JSON.stringify(value)===text&&value&&typeof value==='object'&&!Array.isArray(value))objects.set(`sha256:${name.slice(13)}`,value);}catch{/* Never expose private parser failures. */}}
+  const target=index?.manifests?.[0],known=new Set([imageId,...(Array.isArray(diffIds)?diffIds:[]),...(target?[target.digest]:[])]),boundLayers=new Set(),boundConfigs=new Set();
+  const descriptor=d=>d&&typeof d==='object'&&!Array.isArray(d)&&Object.keys(d).every(k=>['mediaType','digest','size','data','annotations','platform'].includes(k))&&typeof d.mediaType==='string'&&/^sha256:[a-f0-9]{64}$/.test(d.digest)&&Number.isSafeInteger(d.size)&&d.size>=0;
+  const actual=d=>descriptor(d)&&files.get(`blobs/sha256/${d.digest.slice(7)}`)?.length===d.size&&objects.has(d.digest);
+  const sameTarget=d=>descriptor(d)&&target&&['digest','size','mediaType'].every(k=>d[k]===target[k]);
+  const subjectsBound=value=>exact(value,['_type','subject','predicateType','predicate'])&&value.predicate&&typeof value.predicate==='object'&&!Array.isArray(value.predicate)&&['https://in-toto.io/Statement/v0.1','https://in-toto.io/Statement/v1'].includes(value._type)&&['https://slsa.dev/provenance/v0.2','https://slsa.dev/provenance/v1','https://spdx.dev/Document'].includes(value.predicateType)&&Array.isArray(value.subject)&&value.subject.length>0&&value.subject.length<=16&&value.subject.every(s=>exact(s,['name','digest'])&&typeof s.name==='string'&&s.name.length<=1024&&exact(s.digest,['sha256'])&&known.has(`sha256:${s.digest.sha256}`));
+  const legacyTargets=new Set();for(const value of objects.values())if(value.schemaVersion===2&&Array.isArray(value.manifests))for(const d of value.manifests){if(descriptor(d)&&d.platform?.os==='unknown'&&d.platform?.architecture==='unknown'&&d.annotations?.['vnd.docker.reference.type']==='attestation-manifest'&&d.annotations?.['vnd.docker.reference.digest']===target?.digest&&actual(d))legacyTargets.add(d.digest);}
+  for(const [hash,value]of objects){const artifact=exact(value,['schemaVersion','mediaType','artifactType','config','layers','subject'])&&value.artifactType==='application/vnd.docker.attestation.manifest.v1+json'&&sameTarget(value.subject),legacy=exact(value,['schemaVersion','mediaType','config','layers'])&&legacyTargets.has(hash);if(!(artifact||legacy)||value.schemaVersion!==2||value.mediaType!=='application/vnd.oci.image.manifest.v1+json'||!actual(value.config)||!Array.isArray(value.layers)||value.layers.length<1||value.layers.length>16||!value.layers.every(d=>actual(d)&&d.mediaType==='application/vnd.in-toto+json'&&subjectsBound(objects.get(d.digest))))continue;if(value.config.mediaType==='application/vnd.oci.empty.v1+json'&&value.config.size===2&&value.config.data==='e30=')boundConfigs.add(value.config.digest);for(const d of value.layers)boundLayers.add(d.digest);}
+  const found=new Set();for(const name of extras){if(!/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)){found.add('UNRECOGNIZED');continue;}const hash=`sha256:${name.slice(13)}`,value=objects.get(hash);if(!value){found.add('UNRECOGNIZED');continue;}if(exact(value,[])){found.add(boundConfigs.has(hash)?'EMPTY_JSON_ATTESTATION_CONFIG_BOUND':'EMPTY_JSON_UNBOUND');continue;}
+    if(exact(value,['_type','subject','predicateType','predicate'])&&['https://in-toto.io/Statement/v0.1','https://in-toto.io/Statement/v1'].includes(value._type)&&value.predicate&&typeof value.predicate==='object'&&!Array.isArray(value.predicate)&&Array.isArray(value.subject)&&value.subject.length>0&&value.subject.length<=16){const kind=['https://slsa.dev/provenance/v0.2','https://slsa.dev/provenance/v1'].includes(value.predicateType)?'PROVENANCE':value.predicateType==='https://spdx.dev/Document'?'SBOM':null;if(kind){const subjects=value.subject.every(s=>exact(s,['name','digest'])&&typeof s.name==='string'&&s.name.length<=1024&&exact(s.digest,['sha256'])&&known.has(`sha256:${s.digest.sha256}`));found.add(`INTOTO_${kind}_${subjects&&boundLayers.has(hash)?'BOUND':'UNBOUND'}`);continue;}}
+    found.add('UNRECOGNIZED');
+  }
+  return ['EMPTY_JSON_ATTESTATION_CONFIG_BOUND','EMPTY_JSON_UNBOUND','INTOTO_PROVENANCE_BOUND','INTOTO_PROVENANCE_UNBOUND','INTOTO_SBOM_BOUND','INTOTO_SBOM_UNBOUND','UNRECOGNIZED'].filter(c=>found.has(c)).join(',');
 }
 function extraToolMemberClass(name,bytes,index,oci,indexBytes,diffIds){
   const hash=digest(bytes);if(!/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)||hash!==name.slice(13))return 'EXTRA_OTHER';

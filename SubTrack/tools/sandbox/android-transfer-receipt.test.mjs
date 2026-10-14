@@ -70,7 +70,7 @@ function tar(files){const parts=[];for(const[name,data]of files){const h=Buffer.
 test('tools diagnostic checkpoints expose only closed labels and preserve rejection',()=>{
   const layer=Buffer.from('private-canary'),config=Buffer.from(JSON.stringify({os:'linux',architecture:'amd64',config:{User:'996:996',Entrypoint:['/opt/android/build-tools/36.0.0/apksigner'],Labels:{'se.subtrack.android.source':source,'se.subtrack.android.run':run}},rootfs:{diff_ids:[`sha256:${digest(layer)}`]}})),name=`${digest(config)}.json`,index=Buffer.from(JSON.stringify([{Config:name,RepoTags:null,Layers:['layer/layer.tar']}]));
   const files=[[name,config],['layer/layer.tar',layer],['manifest.json',index]],raw=tar(files),manifest=b=>({...tools(),imageId:`sha256:${digest(config)}`,rawTarSha256:digest(b),rawTarBytes:b.length});
-  const failure=(bytes,m,step,category='ASSERTION')=>assert.throws(()=>inspectToolTar(bytes,m),error=>{assert.equal(error.message,'ST250_ANDROID_TRANSFER_UNAVAILABLE');assert.equal(toolsArchiveDiagnostic(error),`ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=${step} category=${category}`);return true;});
+  const failure=(bytes,m,step,category='ASSERTION')=>assert.throws(()=>inspectToolTar(bytes,m),error=>{assert.equal(error.message,'ST250_ANDROID_TRANSFER_UNAVAILABLE');assert.ok(toolsArchiveDiagnostic(error).startsWith(`ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=${step} category=${category}`));return true;});
   failure(raw,{...manifest(raw),toolsQualified:false},'MANIFEST_FIELDS');
   failure(raw,{...manifest(raw),rawTarSha256:'0'.repeat(64)},'RAW_BINDING');
   const header=Buffer.from(raw);header[0]^=1;failure(header,manifest(header),'TAR_HEADER');
@@ -109,7 +109,7 @@ test('extra tools members classify measured root-index and manifest equivalence 
  const configName=`blobs/sha256/${digest(config)}`,layerName=`blobs/sha256/${digest(layer)}`,cd={mediaType:'application/vnd.oci.image.config.v1+json',digest:`sha256:${digest(config)}`,size:config.length},ld={mediaType:'application/vnd.oci.image.layer.v1.tar',digest:`sha256:${digest(layer)}`,size:layer.length};
  const graph={schemaVersion:2,mediaType:'application/vnd.oci.image.manifest.v1+json',config:cd,layers:[ld]},oci=Buffer.from(JSON.stringify(graph)),descriptor={mediaType:graph.mediaType,digest:`sha256:${digest(oci)}`,size:oci.length,platform:{os:'linux',architecture:'amd64'}},index={schemaVersion:2,mediaType:'application/vnd.oci.image.index.v1+json',manifests:[descriptor]},indexBytes=Buffer.from(JSON.stringify(index));
  const files=[[configName,config],[layerName,layer],[`blobs/sha256/${digest(oci)}`,oci],['index.json',indexBytes],['oci-layout',Buffer.from('{"imageLayoutVersion":"1.0.0"}')],['manifest.json',Buffer.from(JSON.stringify([{Config:configName,RepoTags:null,Layers:[layerName]}]))]];
- const classify=(bytes,expected,name=`blobs/sha256/${digest(bytes)}`)=>{const raw=tar([...files,[name,bytes]]),m={...tools(),imageId:`sha256:${digest(config)}`,rawTarSha256:digest(raw),rawTarBytes:raw.length};assert.throws(()=>inspectToolTar(raw,m),error=>{assert.equal(toolsArchiveDiagnostic(error),`ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=${expected} category=ASSERTION`);return true;});};
+ const classify=(bytes,expected,name=`blobs/sha256/${digest(bytes)}`)=>{const raw=tar([...files,[name,bytes]]),m={...tools(),imageId:`sha256:${digest(config)}`,rawTarSha256:digest(raw),rawTarBytes:raw.length};assert.throws(()=>inspectToolTar(raw,m),error=>{assert.ok(toolsArchiveDiagnostic(error).startsWith(`ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=${expected} category=ASSERTION`));return true;});};
  classify(indexBytes,'ROOT_INDEX_IDENTICAL_BYTES');
  classify(rawLayer,'RAW_SAME_VERIFIED_LAYER');
  const equivalentGzip=Buffer.from(layer);equivalentGzip[9]=equivalentGzip[9]===3?0:3;classify(equivalentGzip,'GZIP_SAME_VERIFIED_LAYER');
@@ -130,6 +130,24 @@ test('extra tools members classify measured root-index and manifest equivalence 
  classify(Buffer.from(JSON.stringify({os:'linux',architecture:'amd64',config:{},rootfs:{}})),'EXTRA_BLOB_CONFIG');
  classify(Buffer.from('private-canary-not-json'),'EXTRA_BLOB_JSON_INVALID_OTHER');classify(Buffer.from('[]'),'EXTRA_BLOB_UNRECOGNIZED');classify(Buffer.alloc(1048577),'EXTRA_BLOB_OVERSIZED_OTHER');
  classify(Buffer.from('private-canary'),'EXTRA_OTHER','blobs/sha256/'+'0'.repeat(64));
+});
+
+test('same-job private graph inspector reports a closed attestation class set and rejects all extras',()=>{
+ const layer=Buffer.from('layer'),config=Buffer.from(JSON.stringify({os:'linux',architecture:'amd64',config:{User:'996:996',Entrypoint:['/opt/android/build-tools/36.0.0/apksigner'],Labels:{'se.subtrack.android.source':source,'se.subtrack.android.run':run}},rootfs:{diff_ids:[`sha256:${digest(layer)}`]}}));
+ const descriptor=(bytes,mediaType)=>({mediaType,digest:`sha256:${digest(bytes)}`,size:bytes.length}),configDescriptor=descriptor(config,'application/vnd.oci.image.config.v1+json'),layerDescriptor=descriptor(layer,'application/vnd.oci.image.layer.v1.tar'),oci=Buffer.from(JSON.stringify({schemaVersion:2,mediaType:'application/vnd.oci.image.manifest.v1+json',config:configDescriptor,layers:[layerDescriptor]})),target=descriptor(oci,'application/vnd.oci.image.manifest.v1+json'),blob=(bytes)=>[`blobs/sha256/${digest(bytes)}`,bytes];
+ const files=[blob(config),blob(layer),blob(oci),['index.json',Buffer.from(JSON.stringify({schemaVersion:2,mediaType:'application/vnd.oci.image.index.v1+json',manifests:[target]}))],['oci-layout',Buffer.from('{"imageLayoutVersion":"1.0.0"}')],['manifest.json',Buffer.from(JSON.stringify([{Config:blob(config)[0],RepoTags:null,Layers:[blob(layer)[0]]}]))]];
+ const inspect=(predicateType,foreign=false,linked=true,extra={})=>{
+  const empty=Buffer.from('{}'),statement=Buffer.from(JSON.stringify({_type:'https://in-toto.io/Statement/v1',subject:[{name:'private-canary',digest:{sha256:foreign?'0'.repeat(64):target.digest.slice(7)}}],predicateType,predicate:{private:'never output'},...extra})),attestation=Buffer.from(JSON.stringify({schemaVersion:2,mediaType:'application/vnd.oci.image.manifest.v1+json',artifactType:'application/vnd.docker.attestation.manifest.v1+json',config:{...descriptor(empty,'application/vnd.oci.empty.v1+json'),data:'e30='},layers:[descriptor(statement,'application/vnd.in-toto+json')],subject:target}));
+  const raw=tar([...files,blob(empty),blob(statement),...(linked?[blob(attestation)]:[])]),m={...tools(),imageId:configDescriptor.digest,rawTarSha256:digest(raw),rawTarBytes:raw.length};let label;assert.throws(()=>inspectToolTar(raw,m),error=>{label=toolsArchiveDiagnostic(error);return true;});assert.ok(!label.includes('private-canary'));assert.ok(!label.includes(target.digest));return label.split(' classes=')[1];
+ };
+ assert.equal(inspect('https://slsa.dev/provenance/v0.2'),'EMPTY_JSON_ATTESTATION_CONFIG_BOUND,INTOTO_PROVENANCE_BOUND,UNRECOGNIZED');
+ assert.equal(inspect('https://slsa.dev/provenance/v1'),'EMPTY_JSON_ATTESTATION_CONFIG_BOUND,INTOTO_PROVENANCE_BOUND,UNRECOGNIZED');
+ assert.equal(inspect('https://spdx.dev/Document'),'EMPTY_JSON_ATTESTATION_CONFIG_BOUND,INTOTO_SBOM_BOUND,UNRECOGNIZED');
+ assert.equal(inspect('https://slsa.dev/provenance/v1',true),'EMPTY_JSON_UNBOUND,INTOTO_PROVENANCE_UNBOUND,UNRECOGNIZED');
+ assert.equal(inspect('https://slsa.dev/provenance/v1',false,false),'EMPTY_JSON_UNBOUND,INTOTO_PROVENANCE_UNBOUND');
+ assert.equal(inspect('unknown'),'EMPTY_JSON_UNBOUND,UNRECOGNIZED');
+ assert.equal(inspect('https://slsa.dev/provenance/v1',false,true,{unknown:true}),'EMPTY_JSON_UNBOUND,UNRECOGNIZED');
+ for(const predicate of [null,false,7,'private-canary',[]])assert.equal(inspect('https://slsa.dev/provenance/v1',false,true,{predicate}),'EMPTY_JSON_UNBOUND,UNRECOGNIZED');
 });
 
 test('ten-field backup binding rejects fabricated partial status wrong protection and extra metadata',()=>{
