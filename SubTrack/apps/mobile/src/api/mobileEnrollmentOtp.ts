@@ -1,3 +1,4 @@
+import {emitEnrollmentDiagnostic,type EnrollmentDiagnostic} from '@/utils/privateRuntimeEnrollmentDiagnostic';
 import { Platform } from 'react-native';
 import { getRandomBytesAsync } from 'expo-crypto';
 import type {
@@ -82,11 +83,14 @@ async function post<T>(
   validate: (value: unknown) => value is T,
   enabled: string | undefined,
   configured: string | undefined,
+  observer?: EnrollmentDiagnostic,
 ): Promise<T> {
-  const origin = baseUrl(enabled, configured);
-  const key = await freshKey();
+  let origin:string,key:string;
+  try{origin=baseUrl(enabled,configured);emitEnrollmentDiagnostic(observer,'config-accepted');}catch(error){emitEnrollmentDiagnostic(observer,'config-rejected');throw error;}
+  try{key=await freshKey();emitEnrollmentDiagnostic(observer,'entropy-accepted');}catch(error){emitEnrollmentDiagnostic(observer,'entropy-rejected');throw error;}
   let response: Response;
   try {
+    emitEnrollmentDiagnostic(observer,'fetch-entered');
     response = await fetch(`${origin}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key },
@@ -96,8 +100,10 @@ async function post<T>(
       cache: 'no-store',
     });
   } catch {
+    emitEnrollmentDiagnostic(observer,'fetch-rejected');
     throw new EnrollmentRequestError('restart');
   }
+  emitEnrollmentDiagnostic(observer,response.status===status?'response-accepted':'response-other');
   if (response.status !== status) {
     if (response.status === 401 && path === '/v2/auth/otp/verify')
       throw new EnrollmentRequestError('incorrect');
@@ -106,10 +112,11 @@ async function post<T>(
   }
   try {
     const value: unknown = await response.json();
-    if (validate(value)) return value;
+    if (validate(value)) {emitEnrollmentDiagnostic(observer,'contract-accepted');return value;}
   } catch {
     /* Invalid success response cannot be trusted. */
   }
+  emitEnrollmentDiagnostic(observer,'contract-rejected');
   throw new EnrollmentRequestError('restart');
 }
 
@@ -123,6 +130,7 @@ export function createMobileEnrollmentClient(
   const start = async (
     channel: 'email' | 'phone',
     identifier: string,
+    observer?: EnrollmentDiagnostic,
   ): Promise<OtpStartResponse> => {
     const body: MobileOtpStartBody = {
       channel: channel === 'phone' ? 'sms' : 'email',
@@ -141,6 +149,7 @@ export function createMobileEnrollmentClient(
         value.nextBrowserNonce === null,
       enabled,
       configured,
+      observer,
     );
   };
 

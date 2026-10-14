@@ -1,3 +1,4 @@
+import {enrollmentStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
 import {qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
 import {renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
 import {qualifyNativeEditStatus,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS} from './private-runtime-edit-status.mjs';
@@ -413,6 +414,9 @@ async function main() {
           return '';
         }
       };
+      const stageDiagnostic=enrollmentStageDiagnostic({phase:currentPhase,log:readTool('metro.log')});
+      if(stageDiagnostic) for(const [stage,count] of Object.entries(stageDiagnostic)) console.error(`ST244_NATIVE enrollment_stage=${stage} count=${count}`);
+      else console.error('ST244_NATIVE enrollment_stage_diagnostic=unavailable');
       // Fixed first-flow child-tool files only. Never API/other-flow output,
       // excerpts, failed screenshots or arbitrary artifact discovery.
       const diagnostic = identifierToolDiagnostic({
