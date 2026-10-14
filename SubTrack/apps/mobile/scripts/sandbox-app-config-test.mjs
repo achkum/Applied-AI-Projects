@@ -28,7 +28,8 @@ function configured(env) {
 }
 const sandbox = { SUBTRACK_APP_VARIANT: 'sandbox', SUBTRACK_SANDBOX_HTTPS_ORIGIN: 'https://198.44.116.159' };
 
-test('actual Expo51 config loader preserves existing default configuration', () => {
+test('actual locked ExpoSDK54 config loader preserves existing default configuration', () => {
+  assert.equal(require('expo/package.json').version,'54.0.37');
   const config = configured({});
   for (const [key, value] of Object.entries(staticConfig)) assert.deepEqual(config[key], value);
   assert.equal(config.extra?.subtrackSandbox, undefined);

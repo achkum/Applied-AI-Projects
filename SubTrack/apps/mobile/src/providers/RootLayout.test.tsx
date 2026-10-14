@@ -65,7 +65,7 @@ describe('root layout startup imports', () => {
     mockStorage.setItem.mockClear();
     mockStorage.getItem.mockResolvedValue(null);
     mockUseFonts.mockReset().mockReturnValue([true, null]);
-    jest.mocked(SplashScreen.hideAsync).mockClear().mockResolvedValue(true);
+    jest.mocked(SplashScreen.hideAsync).mockClear().mockResolvedValue(undefined);
   });
 
   // Match RootIndex's cold native/Babel mount budget; async assertions retain their own deadlines.
