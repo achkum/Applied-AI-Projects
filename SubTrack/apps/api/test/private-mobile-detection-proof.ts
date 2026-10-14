@@ -10,21 +10,33 @@ import {PRIVATE_MOBILE_PATHS as paths,parsePrivateMobileSessionResponse} from '@
 import {PRIVATE_MOBILE_BANK_PATHS as bank,parsePrivateMobileBankMutationResult} from '@subtrack/contracts/private-mobile-bank';
 import {PRIVATE_MOBILE_DETECTION_PATHS as detection,parsePrivateMobileDetectionReadResult,parsePrivateMobileDetectionReviewResult} from '@subtrack/contracts/private-mobile-detection';
 
+export type PrivateDetectionSetupStep='VERIFY_LOGIN'|'SESSION'|'BANK_CONNECT'|'BANK_SYNC';
+const SETUP_EXPECTED:Readonly<Record<PrivateDetectionSetupStep,200|201>>=Object.freeze({VERIFY_LOGIN:200,SESSION:201,BANK_CONNECT:200,BANK_SYNC:200});
+const SETUP_HTTP=Object.freeze([200,201,204,400,401,403,404,409,413,429,500,503]);
+export function privateDetectionSetupStatusFailure(step:PrivateDetectionSetupStep,actual:unknown):string{
+ if(typeof step!=='string'||!Object.prototype.hasOwnProperty.call(SETUP_EXPECTED,step))return 'ST249_DETECTION_PROOF_FAILURE phase=UNKNOWN';
+ const status=typeof actual==='number'&&SETUP_HTTP.includes(actual)?actual:'OTHER';
+ return `ST249_DETECTION_PROOF_FAILURE phase=SETUP step=${step} expected=${SETUP_EXPECTED[step]} actual=${status}`;
+}
+export function safePrivateDetectionSetupFailure(value:unknown):value is string{
+ return typeof value==='string'&&!/[\r\n]/.test(value)&&/^ST249_DETECTION_PROOF_FAILURE phase=SETUP (?:step=SESSION expected=201|step=(?:VERIFY_LOGIN|BANK_CONNECT|BANK_SYNC) expected=200) actual=(?:200|201|204|400|401|403|404|409|413|429|500|503|OTHER)$/.test(value);
+}
+
 async function setup(config:OwnedPrivateMobileConfig){
  const harness=createOwnedPrivateMobileHarness(config),ca=await readFile(config.caPath);
  try{await harness.enableDetectionQualification();await harness.start();}catch(error){await harness.dispose();throw error;}
- async function post(path:string,body:object,status:number,headers:Record<string,string>={}){
+ async function post(path:string,body:object,status:number,headers:Record<string,string>={},setupStep?:PrivateDetectionSetupStep){
   const raw=JSON.stringify(body),result=await new Promise<{status:number;body:string;cache:unknown}>((ok,no)=>{
    const req=request({hostname:'127.0.0.1',port:3443,servername:'localhost',path,method:'POST',ca,headers:{Host:'localhost:3443','Content-Type':'application/json','Content-Length':String(Buffer.byteLength(raw)),...headers}},res=>{
     const chunks:Buffer[]=[];let size=0;res.on('data',(chunk:Buffer)=>{size+=chunk.length;if(size>131072){res.destroy();no(new Error('Owned detection bound'));}else chunks.push(chunk);});res.on('error',no);res.on('end',()=>ok({status:res.statusCode!,body:Buffer.concat(chunks).toString('utf8'),cache:res.headers['cache-control']}));
    });req.setTimeout(15000,()=>req.destroy(new Error('Owned detection deadline')));req.on('error',no);req.end(raw);
-  });assert.equal(result.status,status);assert.equal(result.cache,'no-store');return result.body?JSON.parse(result.body) as Record<string,unknown>:{};
+  });if(setupStep!==undefined&&result.status!==status)throw new Error(privateDetectionSetupStatusFailure(setupStep,result.status));assert.equal(result.status,status);assert.equal(result.cache,'no-store');return result.body?JSON.parse(result.body) as Record<string,unknown>:{};
  }
  const key=()=>({'Idempotency-Key':randomUUID()});
- async function login(){const verified=await post(paths.verifyLogin,{transport:'mobile'},200,key());const session=parsePrivateMobileSessionResponse(await post(paths.session,{transport:'mobile',loginProof:verified.loginProof},201,key()));return {Authorization:`Bearer ${session.accessToken}`};}
+ async function login(initial=false){const verified=await post(paths.verifyLogin,{transport:'mobile'},200,key(),initial?'VERIFY_LOGIN':undefined);const session=parsePrivateMobileSessionResponse(await post(paths.session,{transport:'mobile',loginProof:verified.loginProof},201,key(),initial?'SESSION':undefined));return {Authorization:`Bearer ${session.accessToken}`};}
  let auth:Record<string,string>,connected:ReturnType<typeof parsePrivateMobileBankMutationResult>;
- try{auth=await login();connected=parsePrivateMobileBankMutationResult(await post(bank.connect,{institutionId:'synthetic-demo-v1'},200,{...auth,...key()}));
-  await post(bank.sync,{connectionId:connected.connection.connectionId},200,{...auth,...key()});
+ try{auth=await login(true);connected=parsePrivateMobileBankMutationResult(await post(bank.connect,{institutionId:'synthetic-demo-v1'},200,{...auth,...key()},'BANK_CONNECT'));
+  await post(bank.sync,{connectionId:connected.connection.connectionId},200,{...auth,...key()},'BANK_SYNC');
  }catch(error){await harness.dispose();throw error;}
  const read=async(headers=auth)=>parsePrivateMobileDetectionReadResult(await post(detection.read,{},200,headers));
  const scan=async(headers=auth,intent=key())=>post(detection.scan,{},200,{...headers,...intent});

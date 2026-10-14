@@ -1,0 +1,12 @@
+# ST249 causal setup status diagnostic freeze
+
+2026-10-14. Proposed bounded label before source edits, pending root review. Latest owned PG run49 passed unchanged parent/bank baselines, then failed with DETECTION_SETUP ASSERTION before detection proof main phase catch. Source setup does four actual HTTP calls outside that catch: verify login200, create session201, synthetic bank connect200, synthetic bank sync200. Current raw status assertion erases which call/status failed. No application defect is proven from this evidence; no unchanged rerun or test is justified before closed attribution exists.
+
+Exact owned edits proposed: apps/api/test/private-mobile-detection-proof.ts, apps/api/test/private-mobile-detection.integration.ts, tools/database/private-mobile-detection-qualify.sh, plus existing private-mobile-detection-receipt.spec.ts for closed diagnostic rejection tests. No runtime/storage/auth model, controlled clock, baseline order, cleanup, receipt acceptance flags or expected status assertion changes.
+
+Freeze exact diagnostic grammar:
+ST249_DETECTION_PROOF_FAILURE phase=SETUP step=(VERIFY_LOGIN|SESSION|BANK_CONNECT|BANK_SYNC) expected=(200|201) actual=(200|201|204|400|401|403|404|409|413|429|500|503|OTHER)
+
+Expected is derived from the step constant: SESSION201, all others200. A strict recognizer rejects wrong expected/step pairs, unknown/extra/newline fields and private strings; unexpected/unlisted status maps only to OTHER. Source emits this label only on initial setup HTTP status mismatch. Post retains original exact status/cache assertions and strict result parsers, but checks the same mismatch first to provide the closed label. No route, token, response body, UUID, database error or credentials are exposed. Shape/cache/transport failures retain existing closed category diagnostics; no additional reason labels or expanded scenario are requested.
+
+Proof exports pure closed diagnostic helper/recognizer; integration uses the recognizer to preserve this exact label through checkedStage, and shell filter adds only its same anchored finite grammar. setup login is explicitly diagnostic-enabled only for the initial login, with BANK_CONNECT/BANK_SYNC attached only to the initial calls; subsequent proof/restart calls retain existing phase diagnostics. Focused pure recognizer tests verify four valid pairs, malformed/unknown/hostile cases and status normalization. Source review required before exactly one causal hosted rerun; no change waives a failed assertion.
