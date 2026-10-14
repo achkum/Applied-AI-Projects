@@ -8,8 +8,10 @@ import {useI18n} from '@/context/I18nContext';
 import {useTheme} from '@/context/ThemeContext';
 import {getColorByTheme} from '@/utils/colors';
 import {catalogs} from '@subtrack/i18n';
-export function NativePersonalRenewalsScreen({now=()=>new Date()}:{now?:()=>Date}) {
- const session=useNativeSession(),router=useRouter(),{t,locale}=useI18n(),{theme,isDark}=useTheme();
+import {SandboxNotice} from '../onboarding/SandboxEntry';
+import type {NativeFeatureSession} from '../onboarding/NativePersonalScreen';
+export function NativePersonalRenewalsScreen({now=()=>new Date(),useSession=useNativeSession,readProjection=readNativeRenewals,sandbox=false,inactiveContent}:{now?:()=>Date;useSession?:()=>NativeFeatureSession;readProjection?:typeof readNativeRenewals;sandbox?:boolean;inactiveContent?:React.ReactNode}) {
+ const session=useSession(),router=useRouter(),{t,locale}=useI18n(),{theme,isDark}=useTheme();
  const current=useRef(session);current.current=session;const clock=useRef(now);clock.current=now;
  const generation=useRef(0),feedback=useRef(0),focused=useRef(false),request=useRef<AbortController|null>(null);
  useEffect(()=>()=>{feedback.current++;},[]);
@@ -22,7 +24,7 @@ export function NativePersonalRenewalsScreen({now=()=>new Date()}:{now?:()=>Date
   try{
    const result=await current.current.run(async(token,authoritySignal)=>{
     const abort=()=>controller.abort();if(authoritySignal.aborted)controller.abort();authoritySignal.addEventListener('abort',abort,{once:true});
-    try{return await readNativeRenewals(token,controller.signal,clock.current());}
+    try{const value=await readProjection(token,controller.signal,clock.current());if(sandbox&&value.kind==='ready'&&value.groups.some(group=>group.items.some(row=>row.source!=='MANUAL'||row.currency!=='SEK'||!row.alwaysPrivate)))throw new Error('Sandbox projection unavailable');return value;}
     catch(error){if(controller.signal.aborted&&ticket!==generation.current)return {kind:'obsolete'} as const;throw error;}
     finally{authoritySignal.removeEventListener('abort',abort);}
    });
@@ -43,6 +45,7 @@ export function NativePersonalRenewalsScreen({now=()=>new Date()}:{now?:()=>Date
  return <ScrollView style={{backgroundColor:color('bg.canvas')}} contentContainerStyle={styles.content}>
   <Text accessibilityRole="header" style={[text,{fontFamily:theme.typography.fontFamily.display,fontSize:theme.typography.fontSize['2xl']}]}>{t('onboarding.nativeRenewals.title')}</Text>
   <Text style={text}>{t('onboarding.nativeRenewals.expected')}</Text>
+  {sandbox?<SandboxNotice/>:null}
   {message?<Text accessibilityRole="alert" style={text}>{t(`onboarding.nativePersonal.${message}`)}</Text>:null}
   {session.phase==='active'?<>
    {state==='loading'?<Text accessibilityLiveRegion="polite" style={text}>{t('onboarding.nativePersonal.loading')}</Text>:null}
@@ -57,7 +60,7 @@ export function NativePersonalRenewalsScreen({now=()=>new Date()}:{now?:()=>Date
     </View>)}
    </View>):null}
    {button(t('onboarding.nativeRenewals.refresh'),()=>{void load();},state==='loading')}
-  </>:<>
+  </>:sandbox?inactiveContent:<>
    <Text style={text}>{t('onboarding.nativePersonal.restart')}</Text>
    {button(t('onboarding.nativePersonal.verify'),()=>{const ticket=++feedback.current;setMessage('');void session.login().catch(()=>{if(ticket===feedback.current)setMessage('unavailable');});},session.phase==='busy')}
   </>}

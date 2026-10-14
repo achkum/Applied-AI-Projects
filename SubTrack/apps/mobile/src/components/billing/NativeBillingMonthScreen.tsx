@@ -11,8 +11,10 @@ import {useTheme} from '@/context/ThemeContext';
 import {getColorByTheme} from '@/utils/colors';
 import {catalogs} from '@subtrack/i18n';
 import {BillingIcon} from './BillingIcon';
-export function NativeBillingMonthScreen({now=()=>new Date()}:{now?:()=>Date}){
- const session=useNativeSession(),router=useRouter(),{t,locale}=useI18n(),{theme,isDark,mode,setMode}=useTheme();
+import {SandboxNotice} from '../onboarding/SandboxEntry';
+import type {NativeFeatureSession} from '../onboarding/NativePersonalScreen';
+export function NativeBillingMonthScreen({now=()=>new Date(),useSession=useNativeSession,readProjection=readBillingMonth,sandbox=false,inactiveContent}:{now?:()=>Date;useSession?:()=>NativeFeatureSession;readProjection?:typeof readBillingMonth;sandbox?:boolean;inactiveContent?:React.ReactNode}){
+ const session=useSession(),router=useRouter(),{t,locale}=useI18n(),{theme,isDark,mode,setMode}=useTheme();
  const current=useRef(session);current.current=session;const [month,setMonth]=useState<BillingMonth>(()=>currentBillingMonth(now()));const chosen=useRef(month);chosen.current=month;
  const generation=useRef(0),feedback=useRef(0),focused=useRef(false),request=useRef<AbortController|null>(null);
  const [projection,setProjection]=useState<BillingProjection|null>(null),[state,setState]=useState<'idle'|'loading'|'ready'|'setup-required'|'error'>('idle'),[message,setMessage]=useState('');
@@ -23,7 +25,7 @@ export function NativeBillingMonthScreen({now=()=>new Date()}:{now?:()=>Date}){
  const load=useCallback(async()=>{
   if(!focused.current||current.current.phase!=='active')return;invalidate();const notice=++feedback.current,ticket=generation.current,controller=new AbortController();request.current=controller;setProjection(null);setState('loading');setMessage('');
   try{const result=await current.current.run(async(token,signal)=>{const abort=()=>controller.abort();if(signal.aborted)controller.abort();signal.addEventListener('abort',abort,{once:true});
-   try{return await readBillingMonth(token,controller.signal,chosen.current);}catch(error){if(controller.signal.aborted&&ticket!==generation.current)return {kind:'obsolete'} as const;throw error;}finally{signal.removeEventListener('abort',abort);}
+   try{const value=await readProjection(token,controller.signal,chosen.current);if(sandbox&&value.kind==='ready'&&(value.projection.undatedDetections.length>0||value.projection.days.some(day=>day.items.some(row=>row.source!=='MANUAL'||row.currency!=='SEK'||!row.alwaysPrivate))))throw new Error('Sandbox projection unavailable');return value;}catch(error){if(controller.signal.aborted&&ticket!==generation.current)return {kind:'obsolete'} as const;throw error;}finally{signal.removeEventListener('abort',abort);}
   });if(ticket!==generation.current||!focused.current||result.kind==='obsolete')return;
    if(result.kind==='ready'){setProjection(result.projection);setDay(result.projection.days[0]?.date??null);setState('ready');}else setState('setup-required');
   }catch{if(notice===feedback.current){setProjection(null);setState('error');setMessage('unavailable');}}
@@ -46,6 +48,7 @@ export function NativeBillingMonthScreen({now=()=>new Date()}:{now?:()=>Date}){
    <View style={styles.header}><View style={styles.grow}><Text style={{...text,color:color('ink.secondary'),fontSize:theme.typography.fontSize.sm}}>{t('scope.personal')}</Text><Text accessibilityRole="header" style={display}>{t('onboarding.billingMonth.title')}</Text></View><BillingIcon name="calendar" color={color('action.accent')}/></View>
    <View style={styles.monthNav}>{button(t('onboarding.billingMonth.previous'),'previous',()=>navigate(-1),month.year===1&&month.month===1,true)}<Text accessibilityRole="header" style={{...display,fontSize:theme.typography.fontSize.lg,flexShrink:1,textAlign:'center'}}>{title}</Text>{button(t('onboarding.billingMonth.next'),'next',()=>navigate(1),month.year===9999&&month.month===12,true)}</View>
    <Text style={{...text,color:color('ink.secondary')}}>{t('onboarding.billingMonth.expected')}</Text>
+   {sandbox?<SandboxNotice/>:null}
    {message?<Text accessibilityRole="alert" style={text}>{t(`onboarding.nativePersonal.${message}`)}</Text>:null}
    {session.phase==='active'?<>
     {state==='loading'?<Text accessibilityLiveRegion="polite" style={text}>{t('onboarding.nativePersonal.loading')}</Text>:null}
@@ -60,7 +63,7 @@ export function NativeBillingMonthScreen({now=()=>new Date()}:{now?:()=>Date}){
      {projection.undatedDetections?.length?<View style={[styles.card,{backgroundColor:color('bg.surface'),borderRadius:theme.radius.card}]}><Text accessibilityRole="header" style={strong}>{t('onboarding.nativeDetection.undatedTitle')}</Text><Text style={{...text,color:color('ink.secondary')}}>{t('onboarding.nativeDetection.undatedDescription')}</Text>{projection.undatedDetections.map(item=><View key={item.id}><Text style={strong}>{item.customName??item.merchantName??category(item.categoryCode)}</Text><Text style={text}>{formatted(BigInt(item.expectedAmountMinor),item.currency)}</Text></View>)}{button(t('onboarding.nativeDetection.open'),'manage',()=>router.push('/personal-detections'))}</View>:null}
     </>:null}
     {button(t('onboarding.billingMonth.refresh'),'refresh',()=>{void load();},state==='loading')}
-   </>:<><Text style={text}>{t('onboarding.nativePersonal.restart')}</Text>{button(t('onboarding.nativePersonal.verify'),'calendar',()=>{const ticket=++feedback.current;setMessage('');void session.login().catch(()=>{if(ticket===feedback.current)setMessage('unavailable');});},session.phase==='busy')}</>}
+   </>:sandbox?inactiveContent:<><Text style={text}>{t('onboarding.nativePersonal.restart')}</Text>{button(t('onboarding.nativePersonal.verify'),'calendar',()=>{const ticket=++feedback.current;setMessage('');void session.login().catch(()=>{if(ticket===feedback.current)setMessage('unavailable');});},session.phase==='busy')}</>}
    {button(t('onboarding.billingMonth.manage'),'manage',()=>router.replace('/personal'))}
    {button(t('onboarding.nativeRenewals.open'),'calendar',()=>router.replace('/personal-home'))}
    <View style={styles.theme}>{(['light','dark','system'] as const).map(value=><Pressable key={value} accessibilityRole="button" accessibilityLabel={t(`preferences.themes.${value}`)} accessibilityState={{selected:mode===value}} onPress={()=>{void setMode(value);}} style={styles.themeControl}><Text style={{...text,color:color(mode===value?'action.text':'ink.secondary'),fontFamily:theme.typography.fontFamily['ui.medium']}}>{t(`preferences.themes.${value}`)}</Text></Pressable>)}</View>

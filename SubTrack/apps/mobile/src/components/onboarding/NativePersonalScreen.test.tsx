@@ -8,6 +8,9 @@ import { NativeSessionCore } from '@/state/NativeSessionCore';
 import * as api from '@/api/privateMobileApi';
 import { catalogs } from '@subtrack/i18n';
 import type { NativeBundleStore } from '@/utils/secureSessionBundle';
+import {SandboxSessionProvider,useSandboxSession} from '@/state/SandboxSession';
+import {SandboxEntry} from './SandboxEntry';
+import type {SandboxMobileApi} from '@/api/sandboxMobileApi';
 const mockPush = jest.fn();
 const mockSetLocale = jest.fn(); const mockSetMode = jest.fn();
 jest.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 6 }));
@@ -30,6 +33,27 @@ beforeAll(() => {
 }, 60_000);
 beforeEach(() => { jest.resetAllMocks(); mockSetLocale.mockResolvedValue(undefined); mockSetMode.mockResolvedValue(undefined); jest.mocked(api.verifiedNativeLogin).mockResolvedValue(credentials);
   jest.mocked(api.readNativeProfile).mockResolvedValue(profile); jest.mocked(api.readNativeMode).mockResolvedValue({ mode: 'just-me' }); });
+it('sandbox entry completes profile/Just Me/Add/Edit/status/readback/logout through separate injected authority',async()=>{
+  let currentProfile={...profile,displayName:null as string|null,profileComplete:false};let mode:'just-me'|null=null;let rows:typeof row[]=[];
+  const sandboxCredentials={transport:'sandbox-mobile' as const,sessionId:credentials.sessionId,accessToken:'sandbox.payload.signature',refreshToken:`s250r.${'A'.repeat(43)}`,sessionExpiresAt:10000};
+  const sandboxApi={bootstrap:jest.fn().mockResolvedValue({...sandboxCredentials,installationCapability:`s250c.${'A'.repeat(43)}`}),resume:jest.fn(),refresh:jest.fn(),logout:jest.fn().mockResolvedValue(undefined),
+    readNativeProfile:jest.fn(async()=>currentProfile),saveNativeProfile:jest.fn(async()=>{currentProfile={...profile,profileComplete:true};return currentProfile;}),readNativeMode:jest.fn(async()=>({mode})),chooseNativeJustMe:jest.fn(async()=>{mode='just-me';return{mode};}),
+    readNativeSubscriptions:jest.fn(async()=>({items:rows,nextCursor:null})),createNativeSubscription:jest.fn(async()=>{rows=[{...row,customName:'Persisted sandbox service'}];return{id:row.id};}),
+    editNativeSubscription:jest.fn(async()=>{rows=[{...rows[0]!,customName:'Persisted edited service',revision:'2'}];return{id:row.id,revision:'2'};}),
+    updateNativeSubscriptionStatus:jest.fn(async()=>{rows=[{...rows[0]!,status:'PAUSED' as never,revision:'3'}];return{id:row.id,status:'PAUSED',revision:'3'};})};
+  const store={read:jest.fn().mockResolvedValue(null),write:jest.fn().mockResolvedValue(undefined),clear:jest.fn().mockResolvedValue(undefined)};
+  render(<SandboxSessionProvider available store={store} api={sandboxApi as unknown as SandboxMobileApi}><NativePersonalScreen useSession={useSandboxSession} api={sandboxApi as unknown as import('./NativePersonalScreen').NativePersonalApi} sandbox inactiveContent={<SandboxEntry/>}/></SandboxSessionProvider>);
+  await waitFor(()=>expect(screen.getByRole('button',{name:copy.sandbox.enter}).props.accessibilityState.disabled).toBe(false));
+  expect(screen.queryByRole('button',{name:copy.nativePersonal.verify})).toBeNull();fireEvent.press(screen.getByRole('button',{name:copy.sandbox.enter}));
+  await screen.findByLabelText(copy.nativePersonal.name);fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.name),'Fiction');fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.saveProfile}));
+  await screen.findByText(copy.nativePersonal.profileSaved);fireEvent.press(screen.getByRole('button',{name:copy.mode.choose}));await screen.findByRole('button',{name:copy.manualSubscription.title});
+  expect(screen.queryByRole('button',{name:copy.nativeBank.open})).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeDetection.open})).toBeNull();
+  fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.title}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Fiction');fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.category.VIDEO_STREAMING}));
+  fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.amount),'12.00');fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.save}));await screen.findByText('Persisted sandbox service');
+  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Changed draft');fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText('Persisted edited service');
+  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await waitFor(()=>expect(sandboxApi.updateNativeSubscriptionStatus).toHaveBeenCalledTimes(1));await screen.findByText(`${copy.ownerSubscriptions.category.VIDEO_STREAMING} · ${copy.ownerSubscriptions.status.PAUSED}`);
+  fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.logout}));await screen.findByText(copy.nativePersonal.logoutConfirmed);expect(screen.queryByText('Persisted edited service')).toBeNull();expect(api.verifiedNativeLogin).not.toHaveBeenCalled();
+});
 function mount() { const store: NativeBundleStore = { read: jest.fn().mockResolvedValue(null), write: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) };
   return render(<NativeSessionProvider store={store}><NativePersonalScreen /></NativeSessionProvider>); }
 it('reads current private rows only after fresh verification and clears them immediately on offline logout', async () => {

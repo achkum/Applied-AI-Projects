@@ -18,6 +18,12 @@ jest.mock('@/context/I18nContext',()=>({useI18n:()=>jest.requireActual('../signa
 const credentials={transport:'mobile' as const,sessionId:'123e4567-e89b-42d3-a456-426614174000',accessToken:'header.payload.signature',refreshToken:'v2r.'+'a'.repeat(43)};
 const row={id:credentials.sessionId,revision:'1',source:'MANUAL' as const,visibility:'owner' as const,customName:'Expected saved renewal',merchantId:null,merchantName:null,categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY' as const,status:'ACTIVE' as const,expectedAmountMinor:'9007199254740993',currency:'SEK',nextChargeDate:'2026-03-28',alwaysPrivate:true};
 const copy=catalogs.en.onboarding;const now=()=>new Date(2026,2,28,12);
+it('sandbox renewals show canonical saved rows and use entry instead of private verification',async()=>{
+ const facade={phase:'verification-required' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:jest.fn()};
+ const view=render(<NativePersonalRenewalsScreen now={now} sandbox useSession={()=>facade} inactiveContent={<Text>Sandbox entry control</Text>}/>);expect(screen.getByText(copy.sandbox.notice)).toBeTruthy();expect(screen.getByText('Sandbox entry control')).toBeTruthy();expect(screen.queryByRole('button',{name:copy.nativePersonal.verify})).toBeNull();view.unmount();
+ const {selectNativeRenewals}=jest.requireActual('@/api/privateMobileRenewals');const readProjection=jest.fn().mockResolvedValue({kind:'ready',groups:selectNativeRenewals([row],now())});const active={...facade,phase:'active' as const,run:async<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>work('sandbox-only',new AbortController().signal)};
+ render(<NativePersonalRenewalsScreen now={now} sandbox useSession={()=>active} readProjection={readProjection}/>);await screen.findByText(row.customName);expect(api.readNativeSubscriptions).not.toHaveBeenCalled();expect(readProjection).toHaveBeenCalledWith('sandbox-only',expect.anything(),expect.any(Date));
+});
 beforeAll(()=>{const f=render(<ScrollView><Text>host</Text><Pressable><Text>button</Text></Pressable></ScrollView>);f.unmount();},60000);
 beforeEach(()=>{jest.resetAllMocks();mockFocus.enabled=true;mockFocus.start=undefined;mockFocus.cleanup=undefined;
  jest.mocked(api.verifiedNativeLogin).mockResolvedValue(credentials);jest.mocked(api.revokeNativeSession).mockResolvedValue(undefined);
