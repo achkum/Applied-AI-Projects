@@ -27,10 +27,12 @@
     "test:zod-fixture": "pnpm generate:fixture && node --experimental-strip-types --input-type=module -e \"import { zProbeOnly } from './fixtures/generated/zod.gen.ts'; if (!zProbeOnly.safeParse({ probeId: 'fixture' }).success) process.exit(1);\"",
     "test:private-mobile-bank": "node --experimental-strip-types --test --experimental-test-coverage --test-coverage-include=private-mobile-bank.ts --test-coverage-branches=100 --test-coverage-lines=100 --test-coverage-functions=100 tests/private-mobile-bank.test.mjs"
   },
+  "dependencies": {
+    "zod": "4.6.5"
+  },
   "devDependencies": {
     "@redocly/cli": "2.54.3",
     "@subtrack/config": "workspace:*",
-    "zod": "4.6.5",
     "@hey-api/openapi-ts": "0.99.0"
   }
 }

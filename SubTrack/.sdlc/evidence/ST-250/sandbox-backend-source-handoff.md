@@ -27,7 +27,7 @@ These are controlled source policy units, not a claim that SQL or installed apps
 | `packages/contracts/openapi.yaml` | `f8414e826d694c8545ad32bcd1a895bfe94086955eaec0902ff22d343726f013` |
 | `packages/contracts/sandbox-mobile.ts` | `e532496867642ce6c6f7ebfb8337ee33175fbd0b750ea493744caeff0b3c7529` |
 | `packages/contracts/tests/sandbox-mobile.test.mjs` | `b8d04ccf933668ece308986b169d431b731069d2e87a52e2f6af4b97594468ef` |
-| `packages/contracts/package.json` | `c4bd9f31ae2bb5e15f6285e242ffe390cad9a47c91cf9ab5b45954cbdde398ad` |
+| `packages/contracts/package.json` | `be7213c2a9f86c03ecc4403d8b0aaa0337a2e212fd18842f30ab3713103f10d3` |
 | `apps/api/src/profile/private-mobile-business.ts` | `440a302344adc6c4d7fbdb9398132ff7ea802153b9c34f409f14e8aaf0a9bad9` |
 | `apps/api/src/sandbox/main.ts` | `b38f29fd8d4fffb99c8ad703a5c79ea7c4499ce30e01481fe2877438b64b2456` |
 | `apps/api/prisma/sandbox/001-sandbox-foundation.sql` | `e851ef39ba5da5d1856cf83b1096d0dfad8973b815d3647e694e190e3f5a29eb` |
@@ -46,3 +46,5 @@ These are controlled source policy units, not a claim that SQL or installed apps
 ## Platform HOLD repair
 
 The foundation source now grants USAGE on public only to the existing subtrack_sandbox_owner NOLOGIN/NOSUPERUSER/NOBYPASSRLS definer role, in addition to the two existing application roles. No CREATE, role membership, login, EXECUTE or table privileges were added. Both lock_owner(uuid) and guard_growth() are owned by this role, retain fixed pg_catalog search_path, schema-qualified public references, FORCE RLS and PUBLIC EXECUTE revocation. The former executes public.subtrack_principal_matches and locks public.identity; the latter counts/locks public.identity and accesses subscription/receipt tables. Both require schema USAGE for those references. Source inspection confirms these exact paths; no SQL execution or repeated broad tests were performed for this one-line grant repair.
+
+Packaging declaration repair: existing contracts zod4.6.5 moved from devDependencies to dependencies; exact matching lock importer move. Frozen lock-only validation PASS, no new version/dependency or installed-dependency change. Independent root/privacy recheck pending before image source GO.
