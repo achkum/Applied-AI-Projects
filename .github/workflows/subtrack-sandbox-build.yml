@@ -1,6 +1,18 @@
 name: SubTrack sandbox unsigned iPhone build
 on:
   workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - .github/workflows/subtrack-sandbox-build.yml
+      - SubTrack/tools/sandbox/build-ios.sh
+      - SubTrack/apps/mobile/**
+      - SubTrack/packages/**
+      - SubTrack/package.json
+      - SubTrack/pnpm-lock.yaml
+      - SubTrack/pnpm-workspace.yaml
+      - SubTrack/.npmrc
+      - SubTrack/tsconfig.base.json
 permissions:
   contents: read
 concurrency:
@@ -22,13 +34,17 @@ jobs:
       SUBTRACK_SANDBOX_HTTPS_ORIGIN: https://198.44.116.159
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "24.14.0"
       - name: Frozen dependencies without signing secrets
         run: |
-          corepack enable
-          corepack pnpm install --frozen-lockfile
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = "12.6.0"
+          pnpm install --frozen-lockfile
       - name: SDK54 config and guarded native template tests
         run: |
           node apps/mobile/scripts/sandbox-app-config-test.mjs

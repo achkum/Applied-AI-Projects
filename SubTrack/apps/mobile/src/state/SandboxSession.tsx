@@ -16,7 +16,7 @@ export function SandboxSessionProvider({ children, store = secureSandboxBundle, 
   children: React.ReactNode; store?: SandboxBundleStore; api?: SandboxMobileApi; available?: boolean;
 }) {
   const mounted = useRef(false), [state, setState] = useState<{ phase: SandboxPhase; resumable: boolean }>({ phase: 'verification-required', resumable: false });
-  const core = useRef<SandboxSessionCore>();
+  const core = useRef<SandboxSessionCore | undefined>(undefined);
   if (!core.current) core.current = new SandboxSessionCore(store, api, (phase, resumable) => { if (mounted.current) setState({ phase, resumable }); });
   const session = core.current;
   useEffect(() => { mounted.current = true; if (available) void session.initialize().catch(() => undefined);
