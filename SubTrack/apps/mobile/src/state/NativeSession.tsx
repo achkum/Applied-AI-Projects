@@ -14,7 +14,7 @@ interface SessionContext {
 const Context = createContext<SessionContext | undefined>(undefined);
 export function NativeSessionProvider({ children, store = secureSessionBundle }: { children: React.ReactNode; store?: NativeBundleStore }) {
   const mounted = useRef(false); const [phase, setPhase] = useState<NativePhase>('verification-required');
-  const core = useRef<NativeSessionCore>();
+  const core = useRef<NativeSessionCore | undefined>(undefined);
   if (!core.current) core.current = new NativeSessionCore(store, next => { if (mounted.current) setPhase(next); });
   const session = core.current;
   useEffect(() => {

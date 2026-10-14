@@ -8,8 +8,10 @@ import {fileURLToPath} from 'node:url';
 const require=createRequire(import.meta.url),root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..');
 const {createNativeMoneyResolver,createJestMoneyResolver}=require('./billing-month-resolver.cjs');
 const origin=path.join(root,'packages/money/src/money.ts'),target=path.join(root,'packages/money/src/formatter.ts');
-const native=require(path.join(root,'node_modules/.pnpm/metro-resolver@0.80.12/node_modules/metro-resolver/src/resolve.js'));
-const context={originModulePath:origin,resolveRequest:native,sourceExts:['js','jsx','json','ts','tsx'],assetExts:new Set(['ttf','png']),preferNativePlatform:true,redirectModulePath:p=>p,doesFileExist:p=>existsSync(p)&&statSync(p).isFile(),getPackageForModule:()=>null,getPackage:()=>null,unstable_enablePackageExports:true,unstable_fileSystemLookup:p=>{try{const s=statSync(p);return {exists:true,type:s.isFile()?'f':'d',realPath:realpathSync(p)};}catch{return {exists:false};}}};
+const expoConfig=require.resolve('@expo/metro-config/package.json',{paths:[require.resolve('expo/package.json')]});
+const metroRequire=createRequire(expoConfig),native=metroRequire('metro-resolver').resolve;
+assert.equal(metroRequire('metro-resolver/package.json').version,'0.83.3');
+const context={originModulePath:origin,resolveRequest:native,sourceExts:['js','jsx','json','ts','tsx'],assetExts:new Set(['ttf','png']),preferNativePlatform:true,redirectModulePath:p=>p,doesFileExist:p=>existsSync(p)&&statSync(p).isFile(),getPackageForModule:()=>null,getPackage:()=>null,unstable_enablePackageExports:true,fileSystemLookup:p=>{try{const s=statSync(p);return {exists:true,type:s.isFile()?'f':'d',realPath:realpathSync(p)};}catch{return {exists:false};}}};
 test('actual pinned native resolver fails original explicit JS edge and resolves only fixed native bridge',()=>{
  const bridge=createNativeMoneyResolver({origin,target});
  for(const platform of ['ios','android']){assert.throws(()=>native(context,'./formatter.js',platform),error=>error.constructor.name==='FailedToResolvePathError');assert.equal(native(context,'./formatter',platform).filePath,target);assert.equal(bridge(context,'./formatter.js',platform).filePath,target);}

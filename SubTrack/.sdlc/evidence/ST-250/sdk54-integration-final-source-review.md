@@ -1,0 +1,5 @@
+# SDK54 final integration amendment review
+
+2026-10-14 root independent SOURCE GO for type-only SandboxSession initializer, SHA bfedf650415ecdbbda15769964028df62c040d1b76448f3cda3d8be5fb220178. ActualintegratedSDK54types and10affectednative suites163tests pass, unchangeddependencies/lock. DiffonlyexplicitundefineduseRef constructor initializer; originalsameCorecreation/phase/generation/cleanupprivacy semantics retained.
+
+Root independentlyread preciseunsignedworkflowamendment SHA0459be37531291185a647e39ed62769b7dde6418914d62de119b30ec8d38fd5e: ordinaryPRninepaths andexacthead/nonpersistedcheckout, samecontentsreadonly/standardmacos15/Xcode26.2/unsignedsource. ProvenCorepack12packagingfault repairedwithnpmglobalexact12.6 installer/directfrozenlock. No targetevent/secrets/signing/upload/paidrunner. ActualYAMLassertionspass; nativearchivebuildstillpending, no installedclaim. Original17sourceplatform/privacyGO andactualintegratedtypes/suites justifycuration, no unchangedbroadsuite repeated.

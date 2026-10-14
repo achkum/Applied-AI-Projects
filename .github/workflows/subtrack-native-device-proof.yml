@@ -26,7 +26,7 @@ jobs:
             runner: ubuntu-24.04
             database_mode: docker
           - platform: ios
-            runner: macos-14
+            runner: macos-15
             database_mode: local
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
@@ -106,13 +106,13 @@ jobs:
         run: |
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           bash apps/mobile/scripts/private-runtime-android.sh boot
-      - name: iOS 17.5 / Xcode 15.4 simulator (Expo SDK51)
+      - name: iOS 26.2 / Xcode 26.2 simulator (Expo SDK54)
         if: matrix.platform == 'ios'
         run: |
-          test -d /Applications/Xcode_15.4.app
-          sudo xcode-select --switch /Applications/Xcode_15.4.app
-          test "$(xcodebuild -version | head -1)" = 'Xcode 15.4'
-          proof_udid="$(xcrun simctl create SubTrack-proof com.apple.CoreSimulator.SimDeviceType.iPhone-15 com.apple.CoreSimulator.SimRuntime.iOS-17-5)"
+          test -d /Applications/Xcode_26.2.app
+          sudo xcode-select --switch /Applications/Xcode_26.2.app
+          test "$(xcodebuild -version | head -1)" = 'Xcode 26.2'
+          proof_udid="$(xcrun simctl create SubTrack-proof com.apple.CoreSimulator.SimDeviceType.iPhone-17 com.apple.CoreSimulator.SimRuntime.iOS-26-2)"
           xcrun simctl boot "$proof_udid"
           xcrun simctl bootstatus "$proof_udid" -b
           printf 'SUBTRACK_SIMULATOR_UDID=%s\n' "$proof_udid" >> "$GITHUB_ENV"
