@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, lstatSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { validateManifest, dataField, inspectApkRuntime, apkAssets } from './android-transfer-receipt.mjs';
+import { validateManifest, dataField, inspectApkRuntime, apkAssets, apkDiagnostic } from './android-transfer-receipt.mjs';
 
 const unavailable = () => { throw new Error('Sandbox Android preparation unavailable'); };
 const hex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
@@ -43,18 +43,23 @@ export function unsignedTemplate(source) {
   return source.replace(marker, marker.replace('signingConfig signingConfigs.debug', 'signingConfig null'));
 }
 
-export function inspectUnsigned({ manifest, bundle, apk, signatureOutput, signatureExit, sourceHead, runtimeEnabled=false }) {
+const receiptFailures=new WeakMap();
+export function unsignedReceiptDiagnostic(error){return receiptFailures.get(error)??null;}
+function unsignedBoundary(action){let step='INPUTS';const checkpoint=next=>{step=next;};try{return action(checkpoint);}catch(error){const failure=Error('Sandbox Android preparation unavailable');receiptFailures.set(failure,`ST250_ANDROID_RECEIPT_DIAGNOSTIC operation=UNSIGNED step=${step}${apkDiagnostic(error)?` predicate=${apkDiagnostic(error)}`:''}`);throw failure;}}
+export function inspectUnsigned(input){return unsignedBoundary(checkpoint=>inspectUnsignedBody(input,checkpoint));}
+function inspectUnsignedBody({ manifest, bundle, apk, signatureOutput, signatureExit, sourceHead, runtimeEnabled=false },checkpoint) {
+  checkpoint('XML_POLICY');
   if (typeof manifest !== 'string' || manifest.length > 1024 * 1024 || manifest.match(/<manifest\b/g)?.length !== 1 ||
       !/\bpackage="se\.subtrack\.app\.sandbox"/.test(manifest) ||
       /android:debuggable="true"|android:usesCleartextTraffic="true"|android:networkSecurityConfig=/.test(manifest) ||
       /private-runtime|localhost:3443|PRIVATE_CA|EXDevLauncher|expo\.modules\.updates\.ENABLED/i.test(manifest)) unavailable();
-  const version = manifest.match(/\bandroid:versionCode="([1-9][0-9]*)"/);
+  checkpoint('SDK_VERSION');const version = manifest.match(/\bandroid:versionCode="([1-9][0-9]*)"/);
   if (!version || !/android:targetSdkVersion="36"/.test(manifest) || !/android:minSdkVersion="24"/.test(manifest)) unavailable();
-  if (!Buffer.isBuffer(bundle) || bundle.length < 8 || !bundle.subarray(0, 8).equals(Buffer.from('c61fbc03c103191f', 'hex')) ||
-      !Buffer.isBuffer(apk) || apk.length < 1 || apk.length > 200 * 1024 * 1024 || apk.includes(Buffer.from('APK Sig Block 42')) ||
-      signatureExit !== 1 || typeof signatureOutput !== 'string' || signatureOutput.length > 16384 ||
+  checkpoint('HERMES');if (!Buffer.isBuffer(bundle) || bundle.length < 8 || !bundle.subarray(0, 8).equals(Buffer.from('c61fbc03c103191f', 'hex'))) unavailable();
+  checkpoint('UNSIGNED_APK');if (!Buffer.isBuffer(apk) || apk.length < 1 || apk.length > 200 * 1024 * 1024) unavailable();checkpoint('UNSIGNED_SIGNING_BLOCK');if(apk.includes(Buffer.from('APK Sig Block 42'))) unavailable();
+  checkpoint('UNSIGNED_SIGNATURE');if (signatureExit !== 1 || typeof signatureOutput !== 'string' || signatureOutput.length > 16384 ||
       !/DOES NOT VERIFY/.test(signatureOutput) || !/ERROR: Missing META-INF\/MANIFEST\.MF/.test(signatureOutput)) unavailable();
-  const measured=inspectApkRuntime(apk,Number(version[1]),runtimeEnabled);if(!apkAssets(apk).hermes.equals(bundle))unavailable();return { schemaVersion: runtimeEnabled?2:1, ...(runtimeEnabled?measured:{}), sourceHead, unsignedSha256: createHash('sha256').update(apk).digest('hex'),
+  checkpoint('APK_RUNTIME');const measured=inspectApkRuntime(apk,Number(version[1]),runtimeEnabled);checkpoint('BUNDLE_PARITY');if(!apkAssets(apk).hermes.equals(bundle))unavailable();return { schemaVersion: runtimeEnabled?2:1, ...(runtimeEnabled?measured:{}), sourceHead, unsignedSha256: createHash('sha256').update(apk).digest('hex'),
     applicationId: 'se.subtrack.app.sandbox', versionCode: Number(version[1]), variant: 'sandbox', origin: 'https://198.44.116.159',
     buildType: 'release', debuggable: false, privateCaIncluded: false, hermesBundled: true, runtimeEnabled,
     bytes: apk.length, signatureVerified: false, zipAligned: true };
@@ -90,11 +95,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (!lstatSync(args[0]).isFile() || lstatSync(args[0]).isSymbolicLink()) unavailable();
       writeFileSync(args[0], unsignedTemplate(readFileSync(args[0], 'utf8')));
     } else if (mode === 'inspect' && args.length === 6) {
-      const [manifestFile, bundleFile, apkFile, signatureFile, signatureExit, sourceHead] = args;
-      const result = inspectUnsigned({ manifest: readFileSync(manifestFile, 'utf8'), bundle: readFileSync(bundleFile), apk: readFileSync(apkFile),
-        signatureOutput: readFileSync(signatureFile, 'utf8'), signatureExit: Number(signatureExit), sourceHead,runtimeEnabled:process.env.SUBTRACK_SANDBOX_RUNTIME_ENABLED==='true' });
-      if (!/^[a-f0-9]{40}$/.test(sourceHead)) unavailable();
-      process.stdout.write(JSON.stringify(result));
+      const result=unsignedBoundary(checkpoint=>{const [manifestFile,bundleFile,apkFile,signatureFile,signatureExit,sourceHead]=args;
+        checkpoint('INPUT_MANIFEST');const manifest=readFileSync(manifestFile,'utf8');checkpoint('INPUT_HERMES');const bundle=readFileSync(bundleFile);checkpoint('INPUT_APK');const apk=readFileSync(apkFile);checkpoint('INPUT_SIGNATURE');const signatureOutput=readFileSync(signatureFile,'utf8');
+        const value=inspectUnsignedBody({manifest,bundle,apk,signatureOutput,signatureExit:Number(signatureExit),sourceHead,runtimeEnabled:process.env.SUBTRACK_SANDBOX_RUNTIME_ENABLED==='true'},checkpoint);checkpoint('SOURCE_HEAD');if(!/^[a-f0-9]{40}$/.test(sourceHead))unavailable();return value;});process.stdout.write(JSON.stringify(result));
     } else if (mode === 'build-diagnostic' && args.length === 1) {
       const stat = lstatSync(args[0]);
       if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 8 * 1024 * 1024) unavailable();
@@ -105,5 +108,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     } else if (mode === 'close' && args.length === 1) {
       process.stdout.write(JSON.stringify(validateReceipt({ ...JSON.parse(readFileSync(args[0], 'utf8')), cleanup: 'REMOVED' })) + '\n');
     } else unavailable();
-  } catch { process.stderr.write('Sandbox Android preparation unavailable\n'); process.exitCode = 1; }
+  } catch(error) {const diagnostic=unsignedReceiptDiagnostic(error);if(diagnostic)process.stderr.write(diagnostic+'\n');process.stderr.write('Sandbox Android preparation unavailable\n');process.exitCode=1;}
 }

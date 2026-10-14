@@ -4,7 +4,18 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { gzipSync,crc32 as zipCrc,deflateRawSync } from 'node:zlib';
-import { JDK_IMAGE,SDK_SHA256,digest,validateManifest,validateTransfer,bind,validateRemote,canonical,tag,inspectToolTar,toolsArchiveDiagnostic,closeTransferCandidate,validateBackupBinding,assertSignedUpdate,validateSignerIdentity,apkAssets,inspectActiveApk,validateSignedPending } from './android-transfer-receipt.mjs';
+import { JDK_IMAGE,SDK_SHA256,digest,validateManifest,validateTransfer,bind,validateRemote,canonical,tag,inspectToolTar,toolsArchiveDiagnostic,closeTransferCandidate,validateBackupBinding,assertSignedUpdate,validateSignerIdentity,apkAssets,apkDiagnostic,inspectActiveApk,validateSignedPending } from './android-transfer-receipt.mjs';
+
+test('actual APK predicate diagnostics identify closed ZIP and config boundaries without inspecting errors',()=>{
+ const fails=(bytes,stage)=>assert.throws(()=>inspectActiveApk(bytes,2),e=>{assert.equal(apkDiagnostic(e),stage);assert.equal(e.message,'ST250_ANDROID_TRANSFER_UNAVAILABLE');return true;});
+ fails(Buffer.from('private-canary'),'ZIP_DIRECTORY');
+ const bad=makeApk(true,2),cd=bad.readUInt32LE(bad.length-6);bad.writeUInt16LE(1,cd+8);fails(bad,'ZIP_ENTRY_FLAGS');
+ fails(makeApk(true,2,{duplicate:true}),'ZIP_ENTRY_NAMES');
+ const crc=makeApk(true,2);crc[30+Buffer.byteLength('assets/app.config')]^=1;fails(crc,'ZIP_ASSET_CRC');
+ fails(makeApk(true,2,{configText:'private-canary'}),'CONFIG_JSON');fails(makeApk(true,2,{configText:'{}'}),'CONFIG_SCHEMA');
+ fails(makeApk(true,2,{marker:{runtimeEnabled:false}}),'CONFIG_MARKER');fails(makeApk(true,3),'CONFIG_VERSION');
+ let invoked=false;const hostile=Object.defineProperty({},'stack',{get(){invoked=true;throw Error('private-canary');}});assert.equal(apkDiagnostic(hostile),null);assert.equal(invoked,false);
+});
 
 test('signer host custody uses measured GID987 while container remains GID996',()=>{
  const require=createRequire(import.meta.url),fs=require('node:fs'),sign=fs.readFileSync(new URL('./sign-android.sh',import.meta.url),'utf8'),desktop=fs.readFileSync(new URL('./download-android.ps1',import.meta.url),'utf8');

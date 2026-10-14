@@ -100,6 +100,7 @@ services:
     command: [run, --config, /etc/caddy/Caddyfile, --adapter, caddyfile]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy-capless:/usr/bin/caddy:ro
       - certificate-data:/data
       - gateway-config:/config
     networks: [ingress]
@@ -124,6 +125,7 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./gateway-entrypoint.sh:/opt/subtrack/gateway-entrypoint.sh:ro
+      - ./caddy-capless:/usr/bin/caddy:ro
       - certificate-data:/data
       - gateway-config:/config
     networks: [ingress, edge]

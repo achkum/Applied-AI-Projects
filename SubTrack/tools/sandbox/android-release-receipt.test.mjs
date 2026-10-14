@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { unsignedTemplate, inspectUnsigned, inspectSigned, validateReceipt, buildDiagnostic } from './android-release-receipt.mjs';
+import { unsignedTemplate, inspectUnsigned, inspectSigned, validateReceipt, buildDiagnostic, unsignedReceiptDiagnostic } from './android-release-receipt.mjs';
 
 
 function makeApk(runtime=false,version=1,options={}){
@@ -18,6 +18,13 @@ const input = () => ({ manifest: '<manifest package="se.subtrack.app.sandbox" an
   bundle: Buffer.from('c61fbc03c103191f00', 'hex'), apk: makeApk(), sourceHead: 'a'.repeat(40), signatureExit: 1,
   signatureOutput: 'DOES NOT VERIFY\nERROR: Missing META-INF/MANIFEST.MF\n' });
 const receipt = () => ({ ...inspectUnsigned(input()), cleanup: 'REMOVED' });
+test('unsigned receipt predicate diagnostics are closed and preserve first failure without raw values',()=>{
+ const cases=[[{manifest:'private-canary'},'XML_POLICY'],[{manifest:input().manifest.replace('targetSdkVersion="36"','targetSdkVersion="35"')},'SDK_VERSION'],[{bundle:Buffer.from('private-canary')},'HERMES'],[{apk:Buffer.from('APK Sig Block 42')},'UNSIGNED_SIGNING_BLOCK'],[{signatureOutput:'private-canary'},'UNSIGNED_SIGNATURE'],[{apk:makeApk(false,1,{configText:'private-canary'})},'APK_RUNTIME predicate=CONFIG_JSON'],[{apk:makeApk(false,2)},'APK_RUNTIME predicate=CONFIG_VERSION'],[{bundle:Buffer.from('c61fbc03c103191f01','hex')},'BUNDLE_PARITY']];
+ for(const [patch,step]of cases)assert.throws(()=>inspectUnsigned({...input(),...patch}),e=>{assert.equal(unsignedReceiptDiagnostic(e),`ST250_ANDROID_RECEIPT_DIAGNOSTIC operation=UNSIGNED step=${step}`);assert.equal(e.message,'Sandbox Android preparation unavailable');return true;});
+ const zip=makeApk(),cd=zip.readUInt32LE(zip.length-6);zip.writeUInt16LE(1,cd+8);assert.throws(()=>inspectUnsigned({...input(),apk:zip}),e=>{assert.equal(unsignedReceiptDiagnostic(e),'ST250_ANDROID_RECEIPT_DIAGNOSTIC operation=UNSIGNED step=APK_RUNTIME predicate=ZIP_ENTRY_FLAGS');return true;});
+ let invoked=false;const hostile=Object.defineProperty({},'message',{get(){invoked=true;throw Error('private-canary');}});assert.equal(unsignedReceiptDiagnostic(hostile),null);assert.equal(invoked,false);
+ const cli=spawnSync(process.execPath,[fileURLToPath(new URL('./android-release-receipt.mjs',import.meta.url)),'inspect','private-canary-missing','private-canary-missing','private-canary-missing','private-canary-missing','1','a'.repeat(40)],{encoding:'utf8'});assert.equal(cli.status,1);assert.equal(cli.stdout,'');assert.equal(cli.stderr,'ST250_ANDROID_RECEIPT_DIAGNOSTIC operation=UNSIGNED step=INPUT_MANIFEST\nSandbox Android preparation unavailable\n');
+});
 
 test('actual signed inspection binds verified one-signer certificate manifest and unchanged Hermes to authenticated unsigned bytes',()=>{
   const unsigned=input(),value=inspectUnsigned(unsigned),cert='e'.repeat(64);
