@@ -162,11 +162,32 @@ export function readRegular(file,max) {
   const stat=lstatSync(file); if(!stat.isFile()||stat.isSymbolicLink()||!bounded(stat.size,max))unavailable();
   return readFileSync(file);
 }
-export function inspectToolTar(bytes, manifest) {
+const toolFailures=new WeakMap();
+export function toolsArchiveDiagnostic(error){return toolFailures.get(error)??null;}
+function inspectToolsBoundary(action){
+  let step='INPUT_RAW',category='IO';
+  const checkpoint=(next,kind='ASSERTION')=>{step=next;category=kind;};
+  try{return action(checkpoint);}catch{
+    const error=Error('ST250_ANDROID_TRANSFER_UNAVAILABLE');
+    toolFailures.set(error,`ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=${step} category=${category}`);
+    throw error;
+  }
+}
+export function inspectToolTarFiles(rawFile,manifestFile){return inspectToolsBoundary(checkpoint=>{
+  const bytes=readRegular(rawFile,2147483648);
+  checkpoint('INPUT_MANIFEST','IO');const input=readRegular(manifestFile,16384);
+  checkpoint('INPUT_MANIFEST','JSON');const manifest=canonical(input,v=>v);
+  return inspectToolTarBody(bytes,manifest,checkpoint);
+});}
+export function inspectToolTar(bytes,manifest){return inspectToolsBoundary(checkpoint=>inspectToolTarBody(bytes,manifest,checkpoint));}
+function inspectToolTarBody(bytes, manifest, checkpoint) {
+  checkpoint('MANIFEST_FIELDS');
   validateManifest(manifest,'tools');
+  checkpoint('RAW_BINDING');
   if (!Buffer.isBuffer(bytes) || bytes.length!==manifest.rawTarBytes || digest(bytes)!==manifest.rawTarSha256) unavailable();
   const files=new Map();let offset=0;
   while(offset+512<=bytes.length) {
+    checkpoint('TAR_HEADER');
     const header=bytes.subarray(offset,offset+512);if(header.every(b=>b===0))break;
     const name=header.subarray(0,100).toString('utf8').split('\0')[0],prefix=header.subarray(345,500).toString('utf8').split('\0')[0];
     const full=prefix?`${prefix}/${name}`:name,size=parseInt(header.subarray(124,136).toString('ascii').replace(/\0.*$/,''),8),type=header[156];
@@ -175,32 +196,44 @@ export function inspectToolTar(bytes, manifest) {
     if(type!==53)files.set(full,bytes.subarray(offset+512,offset+512+size));
     offset+=512+Math.ceil(size/512)*512;
   }
-  if(!bytes.subarray(offset).every(b=>b===0))unavailable();
+  checkpoint('TAR_TRAILER');if(!bytes.subarray(offset).every(b=>b===0))unavailable();
+  checkpoint('DOCKER_MANIFEST','JSON');
   const entries=JSON.parse(files.get('manifest.json')?.toString('utf8')??'null');
+  checkpoint('DOCKER_MANIFEST');
   if(!Array.isArray(entries)||entries.length!==1||entries[0].RepoTags?.length||!Array.isArray(entries[0].Layers)||entries[0].Layers.length<1)unavailable();
-  const configBytes=files.get(entries[0].Config);if(!configBytes||`sha256:${digest(configBytes)}`!==manifest.imageId)unavailable();
+  checkpoint('CONFIG_DIGEST');const configBytes=files.get(entries[0].Config);if(!configBytes||`sha256:${digest(configBytes)}`!==manifest.imageId)unavailable();
+  checkpoint('CONFIG_POLICY','JSON');
   const config=JSON.parse(configBytes.toString('utf8'));
+  checkpoint('CONFIG_POLICY');
   if((config.config?.Env??[]).some(value=>/(?:token|password|secret|credential|private.?key|ssh_auth_sock)/i.test(value.split('=')[0])))unavailable();
-  if(config.os!=='linux'||config.architecture!=='amd64'||config.config?.User!=='996:996'||JSON.stringify(config.config?.Entrypoint)!=='["/opt/android/build-tools/36.0.0/apksigner"]'||config.config?.Labels?.['se.subtrack.android.source']!==manifest.sourceHead||config.config?.Labels?.['se.subtrack.android.run']!==manifest.runId||config.rootfs?.diff_ids?.length!==entries[0].Layers.length)unavailable();
+  if(config.os!=='linux'||config.architecture!=='amd64'||config.config?.User!=='996:996'||JSON.stringify(config.config?.Entrypoint)!=='["/opt/android/build-tools/36.0.0/apksigner"]'||config.config?.Labels?.['se.subtrack.android.source']!==manifest.sourceHead||config.config?.Labels?.['se.subtrack.android.run']!==manifest.runId)unavailable();
+  checkpoint('ROOTFS');if(config.rootfs?.diff_ids?.length!==entries[0].Layers.length)unavailable();
   for(const [index,name]of entries[0].Layers.entries()){
+    checkpoint('ROOTFS');
     const layer=files.get(name);if(!layer)unavailable();
+    checkpoint('LAYER_DECOMPRESS','DECOMPRESSION');
     const raw=layer[0]===31&&layer[1]===139?gunzipSync(layer,{maxOutputLength:512*1024*1024}):layer;
+    checkpoint('LAYER_DIFFID');
     if(`sha256:${digest(raw)}`!==config.rootfs.diff_ids[index])unavailable();
   }
   // Export only one tool image: reject unrelated object members outside its layers/config.
   const allowed=new Set(['manifest.json','repositories',entries[0].Config,...entries[0].Layers]);
   if(files.has('index.json')||files.has('oci-layout')){
+    checkpoint('OCI_INDEX','JSON');
     const layout=JSON.parse(files.get('oci-layout')?.toString('utf8')??'null'),index=JSON.parse(files.get('index.json')?.toString('utf8')??'null');
+    checkpoint('OCI_INDEX');
     if(layout?.imageLayoutVersion!=='1.0.0'||index?.schemaVersion!==2||index.manifests?.length!==1)unavailable();
-    const descriptor=index.manifests[0];
+    checkpoint('OCI_DESCRIPTOR');const descriptor=index.manifests[0];
     if(!/^sha256:[a-f0-9]{64}$/.test(descriptor.digest)||descriptor.annotations?.['org.opencontainers.image.ref.name']||descriptor.annotations?.['io.containerd.image.name'])unavailable();
     const name=`blobs/sha256/${descriptor.digest.slice(7)}`,blob=files.get(name);if(!blob||blob.length!==descriptor.size||`sha256:${digest(blob)}`!==descriptor.digest)unavailable();
-    const oci=JSON.parse(blob.toString('utf8'));
+    checkpoint('OCI_CONFIG','JSON');const oci=JSON.parse(blob.toString('utf8'));
+    checkpoint('OCI_CONFIG');
     if(oci.schemaVersion!==2||oci.config?.digest!==manifest.imageId||entries[0].Config!==`blobs/sha256/${manifest.imageId.slice(7)}`||oci.config.size!==configBytes.length||oci.layers?.length!==entries[0].Layers.length)unavailable();
-    for(const [i,layer]of oci.layers.entries()){const name=`blobs/sha256/${layer.digest?.slice(7)}`,blob=files.get(name);if(!/^sha256:[a-f0-9]{64}$/.test(layer.digest)||name!==entries[0].Layers[i]||!blob||blob.length!==layer.size||`sha256:${digest(blob)}`!==layer.digest)unavailable();}
+    checkpoint('OCI_LAYER');for(const [i,layer]of oci.layers.entries()){const name=`blobs/sha256/${layer.digest?.slice(7)}`,blob=files.get(name);if(!/^sha256:[a-f0-9]{64}$/.test(layer.digest)||name!==entries[0].Layers[i]||!blob||blob.length!==layer.size||`sha256:${digest(blob)}`!==layer.digest)unavailable();}
     allowed.add('index.json');allowed.add('oci-layout');allowed.add(name);
   }
-  if(files.has('repositories')&&JSON.stringify(JSON.parse(files.get('repositories').toString('utf8')))!=='{}')unavailable();
+  checkpoint('EXTRA_MEMBER','JSON');if(files.has('repositories')&&JSON.stringify(JSON.parse(files.get('repositories').toString('utf8')))!=='{}')unavailable();
+  checkpoint('EXTRA_MEMBER');
   for(const name of files.keys())if(!allowed.has(name)&&!entries[0].Layers.some(layer=>name===layer.replace(/layer\.tar$/,'json')||name===layer.replace(/layer\.tar$/,'VERSION')))unavailable();
   return true;
 }
@@ -318,11 +351,11 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href) {
     else if(mode==='pins'&&args.length===0)console.log(JSON.stringify({jdk:JDK_IMAGE,sdkUrl:SDK_URL,sdkSha256:SDK_SHA256}));
     else if(mode==='download'&&args.length===3)download(args[0],args[1],args[2]);
     else if(mode==='receive-signed'&&args.length===4)receiveSigned(args[0],args[1],args[2],args[3]);
-    else if(mode==='inspect-tools-tar'&&args.length===2)inspectToolTar(readRegular(args[0],2147483648),canonical(readRegular(args[1],16384),v=>validateManifest(v,'tools')));
+    else if(mode==='inspect-tools-tar'&&args.length===2)inspectToolTarFiles(args[0],args[1]);
     else if(mode==='close-transfer'&&args.length===1){let text='';for await(const chunk of process.stdin){text+=chunk;if(text.length>16384)unavailable();}console.log(JSON.stringify(closeTransferCandidate(JSON.parse(text),args[0])));}
     else if(mode==='validate-backup'&&args.length===1)canonical(readRegular(args[0],16384),validateBackupBinding);
     else if(mode==='validate-identity'&&args.length===1)canonical(readRegular(args[0],16384),validateSignerIdentity);
     else if(mode==='dispose'&&args.length===2)dispose(args[0],args[1]);
     else unavailable();
-  } catch {process.stderr.write('ST250_ANDROID_TRANSFER_UNAVAILABLE\n');process.exitCode=1;}
+  } catch(error) {const diagnostic=toolsArchiveDiagnostic(error);if(diagnostic)process.stderr.write(diagnostic+'\n');process.stderr.write('ST250_ANDROID_TRANSFER_UNAVAILABLE\n');process.exitCode=1;}
 }

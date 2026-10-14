@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { gzipSync,crc32 as zipCrc,deflateRawSync } from 'node:zlib';
-import { JDK_IMAGE,SDK_SHA256,digest,validateManifest,validateTransfer,bind,validateRemote,canonical,tag,inspectToolTar,closeTransferCandidate,validateBackupBinding,assertSignedUpdate,validateSignerIdentity,apkAssets,inspectActiveApk,validateSignedPending } from './android-transfer-receipt.mjs';
+import { JDK_IMAGE,SDK_SHA256,digest,validateManifest,validateTransfer,bind,validateRemote,canonical,tag,inspectToolTar,toolsArchiveDiagnostic,closeTransferCandidate,validateBackupBinding,assertSignedUpdate,validateSignerIdentity,apkAssets,inspectActiveApk,validateSignedPending } from './android-transfer-receipt.mjs';
 
 test('signed return labels preserve measured runtime and unverified testing candidate scope',()=>{
   const fs=createRequire(import.meta.url)('node:fs');
@@ -67,6 +67,20 @@ test('authenticated remote draft requires exact ids digest roster staging target
   assert.throws(()=>validateRemote({...release,assets:[{...release.assets[0],digest:'sha256:'+'0'.repeat(64)},release.assets[1]]},m,r,'apk'));
 });
 function tar(files){const parts=[];for(const[name,data]of files){const h=Buffer.alloc(512);h.write(name);h.write('0000600\0',100);h.write('0000000\0',108);h.write('0000000\0',116);h.write(data.length.toString(8).padStart(11,'0')+'\0',124);h[156]=48;h.fill(32,148,156);const sum=h.reduce((s,b)=>s+b,0);h.write(sum.toString(8).padStart(6,'0')+'\0 ',148);parts.push(h,data,Buffer.alloc((512-data.length%512)%512));}parts.push(Buffer.alloc(1024));return Buffer.concat(parts);}
+test('tools diagnostic checkpoints expose only closed labels and preserve rejection',()=>{
+  const layer=Buffer.from('private-canary'),config=Buffer.from(JSON.stringify({os:'linux',architecture:'amd64',config:{User:'996:996',Entrypoint:['/opt/android/build-tools/36.0.0/apksigner'],Labels:{'se.subtrack.android.source':source,'se.subtrack.android.run':run}},rootfs:{diff_ids:[`sha256:${digest(layer)}`]}})),name=`${digest(config)}.json`,index=Buffer.from(JSON.stringify([{Config:name,RepoTags:null,Layers:['layer/layer.tar']}]));
+  const files=[[name,config],['layer/layer.tar',layer],['manifest.json',index]],raw=tar(files),manifest=b=>({...tools(),imageId:`sha256:${digest(config)}`,rawTarSha256:digest(b),rawTarBytes:b.length});
+  const failure=(bytes,m,step,category='ASSERTION')=>assert.throws(()=>inspectToolTar(bytes,m),error=>{assert.equal(error.message,'ST250_ANDROID_TRANSFER_UNAVAILABLE');assert.equal(toolsArchiveDiagnostic(error),`ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=${step} category=${category}`);return true;});
+  failure(raw,{...manifest(raw),toolsQualified:false},'MANIFEST_FIELDS');
+  failure(raw,{...manifest(raw),rawTarSha256:'0'.repeat(64)},'RAW_BINDING');
+  const header=Buffer.from(raw);header[0]^=1;failure(header,manifest(header),'TAR_HEADER');
+  const trailer=Buffer.from(raw);trailer[trailer.length-1]=1;failure(trailer,manifest(trailer),'TAR_TRAILER');
+  const json=tar(files.map(([n,b])=>[n,n==='manifest.json'?Buffer.from('private-canary-invalid-json'):b]));failure(json,manifest(json),'DOCKER_MANIFEST','JSON');
+  const codec=tar(files.map(([n,b])=>[n,n==='layer/layer.tar'?Buffer.from([31,139,0]):b]));failure(codec,manifest(codec),'LAYER_DECOMPRESS','DECOMPRESSION');
+  const extra=tar([...files,['private-canary',layer]]);failure(extra,manifest(extra),'EXTRA_MEMBER');
+  let invoked=false;const hostile=Object.defineProperty({},'message',{get(){invoked=true;throw Error('private-canary');}});assert.equal(toolsArchiveDiagnostic(hostile),null);assert.equal(invoked,false);
+  const cli=spawnSync(process.execPath,[fileURLToPath(new URL('./android-transfer-receipt.mjs',import.meta.url)),'inspect-tools-tar','private-canary-nonexistent','private-canary-nonexistent'],{encoding:'utf8'});assert.equal(cli.status,1);assert.equal(cli.stdout,'');assert.equal(cli.stderr,'ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=INPUT_RAW category=IO\nST250_ANDROID_TRANSFER_UNAVAILABLE\n');
+});
 test('tools tar config and every uncompressed layer digest bind one anonymous Linuxamd64 UID996 image',()=>{
   const layer=Buffer.from('tool image layer fixture'),config=Buffer.from(JSON.stringify({os:'linux',architecture:'amd64',config:{User:'996:996',Entrypoint:['/opt/android/build-tools/36.0.0/apksigner'],Labels:{'se.subtrack.android.source':source,'se.subtrack.android.run':run}},rootfs:{diff_ids:[`sha256:${digest(layer)}`]}}));
   const configName=`${digest(config)}.json`,index=Buffer.from(JSON.stringify([{Config:configName,RepoTags:null,Layers:['layer/layer.tar']}]));
