@@ -1,3 +1,4 @@
+import {privateBankFailureCategory,privateBankFailureLabel,type PrivateBankProofPhase,type PrivateBankTwoOwnerStep} from './private-mobile-bank-diagnostics.js';
 import assert from 'node:assert/strict';
 import {request} from 'node:https';
 import {readFile} from 'node:fs/promises';
@@ -8,7 +9,8 @@ import {PRIVATE_MOBILE_PATHS as paths,parsePrivateMobileSessionResponse} from '@
 import {PRIVATE_MOBILE_BANK_PATHS as bank,parsePrivateMobileBankMutationResult,parsePrivateMobileBankReadResult} from '@subtrack/contracts/private-mobile-bank';
 /** Actual owned PG16 bank extension; parent manual flow first establishes the verified profile. */
 export async function runPrivateMobileBankProof(config:OwnedPrivateMobileConfig){
- const harness=createOwnedPrivateMobileHarness(config),ca=await readFile(config.caPath);let phase='START';
+ const harness=createOwnedPrivateMobileHarness(config),ca=await readFile(config.caPath);let phase:PrivateBankProofPhase='START';let twoOwnerStep:PrivateBankTwoOwnerStep|null=null;
+ const step=(value:PrivateBankTwoOwnerStep)=>{twoOwnerStep=value;harness.beginBankDiagnostic(value);};
  async function post(path:string,body:object,status:number,headers:Record<string,string>={}){
   const raw=JSON.stringify(body);
   const result=await new Promise<{status:number;body:string}>((ok,no)=>{
@@ -40,38 +42,40 @@ export async function runPrivateMobileBankProof(config:OwnedPrivateMobileConfig)
   phase='RESTART';await harness.restart();auth=await login();const read=parsePrivateMobileBankReadResult(await post(bank.read,{},200,auth));
   assert.ok(JSON.stringify(read).includes(id));assert.equal((await harness.readbackBankReceipt()).transactionDigest,before.transactionDigest);
   phase='TWO_OWNER';
-  const aliceOwner=ownerClaim(auth.Authorization),aliceBank=await harness.readbackBankOwnerReceipt(aliceOwner);
-  const bobCredentials=parsePrivateMobileSessionResponse(await harness.secondOwnerSession());
-  const bobAuth={Authorization:`Bearer ${bobCredentials.accessToken}`};const bobOwner=ownerClaim(bobAuth.Authorization);assert.notEqual(bobOwner,aliceOwner);
-  assert.equal((await post(bank.read,{},409,bobAuth)).code,'MODE_CONFLICT');
-  await post(paths.profile,{displayName:'Owned second fixture',avatarColourToken:'member.accent.02',avatarEmoji:'\u{1f642}',language:'en',theme:'system'},200,bobAuth);
-  await post(paths.mode,{mode:'just-me'},200,bobAuth);
-  assert.deepEqual(parsePrivateMobileBankReadResult(await post(bank.read,{},200,bobAuth)).connections,[]);
-  await post(paths.verifyLogin,{transport:'mobile',demoIdentity:'bob'},400,key());
-  const bobEmpty=await harness.readbackBankOwnerReceipt(bobOwner);
-  for(const [path,body]of [[bank.sync,{connectionId:id}],[bank.disconnect,{connectionId:id,purge:false}],[bank.disconnect,{connectionId:id,purge:true}]] as const){
+  step('A_SNAPSHOT');const aliceOwner=ownerClaim(auth.Authorization),aliceBank=await harness.readbackBankOwnerReceipt(aliceOwner);
+  step('B_SESSION');const bobCredentials=parsePrivateMobileSessionResponse(await harness.secondOwnerSession());
+  step('B_DISTINCT');const bobAuth={Authorization:`Bearer ${bobCredentials.accessToken}`};const bobOwner=ownerClaim(bobAuth.Authorization);assert.notEqual(bobOwner,aliceOwner);
+  step('B_PROFILE_GATE');assert.equal((await post(bank.read,{},409,bobAuth)).code,'MODE_CONFLICT');
+  step('B_PROFILE_PATCH');await post(paths.profile,{displayName:'Owned second fixture',avatarColourToken:'member.accent.02',avatarEmoji:'\u{1f642}',language:'en',theme:'system'},200,bobAuth);
+  step('B_MODE');await post(paths.mode,{mode:'just-me'},200,bobAuth);
+  step('B_EMPTY_READ');assert.deepEqual(parsePrivateMobileBankReadResult(await post(bank.read,{},200,bobAuth)).connections,[]);
+  step('PUBLIC_SELECTOR');await post(paths.verifyLogin,{transport:'mobile',demoIdentity:'bob'},400,key());
+  step('B_EMPTY_SNAPSHOT');const bobEmpty=await harness.readbackBankOwnerReceipt(bobOwner);
+  for(const [path,body,label,snapshot]of [[bank.sync,{connectionId:id},'B_TO_A_SYNC','B_TO_A_SYNC_SNAPSHOT'],[bank.disconnect,{connectionId:id,purge:false},'B_TO_A_RETAIN','B_TO_A_RETAIN_SNAPSHOT'],[bank.disconnect,{connectionId:id,purge:true},'B_TO_A_PURGE','B_TO_A_PURGE_SNAPSHOT']] as const){
+   step(label);
    assert.equal((await post(path,body,409,{...bobAuth,...key()})).code,'BANK_STATE_CONFLICT');
-   assert.deepEqual(await harness.readbackBankOwnerReceipt(aliceOwner),aliceBank);assert.deepEqual(await harness.readbackBankOwnerReceipt(bobOwner),bobEmpty);assert.deepEqual(await harness.readbackTrackingReceipt(),manual);
+   step(snapshot);assert.deepEqual(await harness.readbackBankOwnerReceipt(aliceOwner),aliceBank);assert.deepEqual(await harness.readbackBankOwnerReceipt(bobOwner),bobEmpty);assert.deepEqual(await harness.readbackTrackingReceipt(),manual);
   }
-  const bobId=parsePrivateMobileBankMutationResult(await post(bank.connect,{institutionId:'synthetic-demo-v1'},200,{...bobAuth,...key()})).connection.connectionId;
+  step('B_CONNECT');const bobId=parsePrivateMobileBankMutationResult(await post(bank.connect,{institutionId:'synthetic-demo-v1'},200,{...bobAuth,...key()})).connection.connectionId;
   assert.notEqual(bobId,id);
-  const bobSynced=parsePrivateMobileBankMutationResult(await post(bank.sync,{connectionId:bobId},200,{...bobAuth,...key()}));
+  step('B_SYNC');const bobSynced=parsePrivateMobileBankMutationResult(await post(bank.sync,{connectionId:bobId},200,{...bobAuth,...key()}));
   assert.equal(bobSynced.connection.accountCount,1);assert.ok(bobSynced.connection.transactionCount>0);
-  assert.deepEqual(parsePrivateMobileBankReadResult(await post(bank.read,{},200,bobAuth)).connections,[bobSynced.connection]);
-  const aliceReadDuringBob=parsePrivateMobileBankReadResult(await post(bank.read,{},200,auth));assert.deepEqual(aliceReadDuringBob,read);assert.ok(aliceReadDuringBob.connections.every(connection=>connection.connectionId!==bobId));
-  const bobBeforeForeign=await harness.readbackBankOwnerReceipt(bobOwner);
-  for(const [path,body]of [[bank.sync,{connectionId:bobId}],[bank.disconnect,{connectionId:bobId,purge:false}],[bank.disconnect,{connectionId:bobId,purge:true}]] as const){
+  step('B_POSITIVE_READ');assert.deepEqual(parsePrivateMobileBankReadResult(await post(bank.read,{},200,bobAuth)).connections,[bobSynced.connection]);
+  step('A_POSITIVE_READ');const aliceReadDuringBob=parsePrivateMobileBankReadResult(await post(bank.read,{},200,auth));assert.deepEqual(aliceReadDuringBob,read);assert.ok(aliceReadDuringBob.connections.every(connection=>connection.connectionId!==bobId));
+  step('B_POSITIVE_SNAPSHOT');const bobBeforeForeign=await harness.readbackBankOwnerReceipt(bobOwner);
+  for(const [path,body,label,snapshot]of [[bank.sync,{connectionId:bobId},'A_TO_B_SYNC','A_TO_B_SYNC_SNAPSHOT'],[bank.disconnect,{connectionId:bobId,purge:false},'A_TO_B_RETAIN','A_TO_B_RETAIN_SNAPSHOT'],[bank.disconnect,{connectionId:bobId,purge:true},'A_TO_B_PURGE','A_TO_B_PURGE_SNAPSHOT']] as const){
+   step(label);
    assert.equal((await post(path,body,409,{...auth,...key()})).code,'BANK_STATE_CONFLICT');
-   assert.deepEqual(await harness.readbackBankOwnerReceipt(bobOwner),bobBeforeForeign);assert.deepEqual(await harness.readbackBankOwnerReceipt(aliceOwner),aliceBank);assert.deepEqual(await harness.readbackTrackingReceipt(),manual);
+   step(snapshot);assert.deepEqual(await harness.readbackBankOwnerReceipt(bobOwner),bobBeforeForeign);assert.deepEqual(await harness.readbackBankOwnerReceipt(aliceOwner),aliceBank);assert.deepEqual(await harness.readbackTrackingReceipt(),manual);
   }
   assert.deepEqual(await harness.readbackBankOwnerReceipt(aliceOwner),aliceBank);
-  const bobPurged=parsePrivateMobileBankMutationResult(await post(bank.disconnect,{connectionId:bobId,purge:true},200,{...bobAuth,...key()}));
+  step('B_PURGE');const bobPurged=parsePrivateMobileBankMutationResult(await post(bank.disconnect,{connectionId:bobId,purge:true},200,{...bobAuth,...key()}));
   assert.equal(bobPurged.connection.disposition,'purged');assert.equal(bobPurged.connection.transactionCount,0);
-  assert.deepEqual(parsePrivateMobileBankReadResult(await post(bank.read,{},200,bobAuth)).connections,[]);
-  await post(paths.logout,{},204,bobAuth);await post(bank.read,{},401,bobAuth);
-  assert.deepEqual(await harness.readbackBankOwnerReceipt(aliceOwner),aliceBank);assert.deepEqual(await harness.readbackTrackingReceipt(),manual);
-  const twoOwners=await harness.readbackReceipt();assert.equal(twoOwners.identityCount,2);assert.equal(twoOwners.profileCompleteCount,2);assert.equal(twoOwners.justMeCount,2);assert.equal(twoOwners.subscriptionCount,1);
-  phase='EXPIRED_SESSION';
+  step('B_EMPTY_AFTER_PURGE');assert.deepEqual(parsePrivateMobileBankReadResult(await post(bank.read,{},200,bobAuth)).connections,[]);
+  step('B_LOGOUT');await post(paths.logout,{},204,bobAuth);step('B_LOGOUT_DENIED');await post(bank.read,{},401,bobAuth);
+  step('A_FINAL_SNAPSHOT');assert.deepEqual(await harness.readbackBankOwnerReceipt(aliceOwner),aliceBank);assert.deepEqual(await harness.readbackTrackingReceipt(),manual);
+  step('TWO_OWNER_COUNTS');const twoOwners=await harness.readbackReceipt();assert.equal(twoOwners.identityCount,2);assert.equal(twoOwners.profileCompleteCount,2);assert.equal(twoOwners.justMeCount,2);assert.equal(twoOwners.subscriptionCount,1);
+  harness.clearBankDiagnostic();twoOwnerStep=null;phase='EXPIRED_SESSION';
   const expiryObserver=new Pool({host:config.host,port:config.port,database:config.database,user:'st233a_fixture_owner',password:config.ownerPassword,max:1});
   const claims=JSON.parse(Buffer.from(auth.Authorization.slice(7).split('.')[1]!,'base64url').toString('utf8')) as {sub:string;sid:string};
   const beforeExpiry=await harness.readbackBankReceipt();
@@ -124,5 +128,5 @@ export async function runPrivateMobileBankProof(config:OwnedPrivateMobileConfig)
   phase='LOGOUT';await post(paths.logout,{},204,auth);await post(bank.read,{},401,auth);
   const final=await harness.readbackReceipt();assert.equal(final.identityCount,2);assert.equal(final.profileCompleteCount,2);assert.equal(final.justMeCount,2);assert.equal(final.subscriptionCount,1);
   return Object.freeze({...final,version:1,dedup:true,restart:true,retainedReachable:true,purged:true,replay:true,ownerIsolation:true,twoVerifiedOwners:true,rlsNegative:true,manualPreserved:true,uncertaintyRollback:true,dependencyRollback:true,parallelConnect:true,expiredSessionDenied:true,logoutDenied:true});
- }catch{throw new Error(`ST248_BANK_PROOF_FAILURE phase=${phase}`);}finally{await harness.dispose();}
+ }catch(error){const category=twoOwnerStep===null?privateBankFailureCategory(error):harness.bankFailureCategory(twoOwnerStep)??privateBankFailureCategory(error);throw new Error(privateBankFailureLabel(phase,twoOwnerStep,category));}finally{await harness.dispose();}
 }

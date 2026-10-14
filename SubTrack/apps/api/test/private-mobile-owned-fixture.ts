@@ -1,3 +1,4 @@
+import {OwnedPrivateBankDiagnostics,type PrivateBankTwoOwnerStep} from './private-mobile-bank-diagnostics.js';
 import {PrivateMobileSubjectVerifier} from '../src/auth/mobile-private/verified-subject-binding.js';
 import {DevelopmentEnrollmentPersonVerifier} from '../src/auth/identity-provider/development-enrollment-person-verifier.js';
 import {createOwnedOtpStartObserver} from './private-mobile-owned-fixture-observer.js';
@@ -29,7 +30,7 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
  const connection={host:config.host,port:config.port,database:config.database,max:4,connectionTimeoutMillis:5000,idleTimeoutMillis:5000};
  const owner=new Pool({...connection,user:'st233a_fixture_owner',password:config.ownerPassword});
  const actor=new Pool({...connection,user:'subtrack_dev_auth_login',password:config.actorPassword});
- let fault:Readonly<{kind:'before'|'after';skip:number}>|undefined;
+ let fault:Readonly<{kind:'before'|'after';skip:number}>|undefined;const bankDiagnostics=new OwnedPrivateBankDiagnostics();
  // Test-only transport faults around real PostgreSQL COMMIT, never inside the production factory.
  const actorPool:Pick<Pool,'connect'>={connect:async()=>{
   const client=await actor.connect();
@@ -39,7 +40,7 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
      if(fault.skip>0)fault={...fault,skip:fault.skip-1};
      else{const kind=fault.kind;fault=undefined;await target.query(kind==='before'?'ROLLBACK':'COMMIT');throw new Error('Owned commit transport uncertainty');}
     }
-    return Reflect.apply(target.query,target,args);
+    return bankDiagnostics.observedQuery(()=>Reflect.apply(target.query,target,args));
    };
    const value=Reflect.get(target,property);return typeof value==='function'?value.bind(target):value;
   }});
@@ -69,10 +70,10 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
   const fixtureSubjects=new PrivateMobileSubjectVerifier(new DevelopmentEnrollmentPersonVerifier({environment:'development',enabled:true,simulatorHmacKey:keys.simulator,clock:Date.now}),Date.now,config.manifestHash,keys.subject,
    [keys.otp,keys.rate,keys.idempotency,keys.anonymous,keys.person,keys.simulator,...keys.credentialKeys],keys.person);
   otpObserver.attach(next.server);
-  try{await new Promise<void>((ok,no)=>{next.server.once('error',no);next.server.listen(3443,'127.0.0.1',()=>{next.server.removeListener('error',no);ok();});});graph=next;secondOwnerSubjects=fixtureSubjects;}
+  try{await new Promise<void>((ok,no)=>{next.server.once('error',no);next.server.listen(3443,'127.0.0.1',()=>{next.server.removeListener('error',no);ok();});});graph=next;secondOwnerSubjects=fixtureSubjects;bankDiagnostics.startGraph();}
   catch(error){otpObserver.stop();next.server.close();throw error;}
  }
- async function stop():Promise<void>{otpObserver.stop();const old=graph;graph=undefined;secondOwnerSubjects=undefined;if(old)await new Promise<void>((ok,no)=>{old.server.close(error=>error?no(error):ok());old.server.closeAllConnections();});}
+ async function stop():Promise<void>{otpObserver.stop();const old=graph;bankDiagnostics.stopGraph();graph=undefined;secondOwnerSubjects=undefined;if(old)await new Promise<void>((ok,no)=>{old.server.close(error=>error?no(error):ok());old.server.closeAllConnections();});}
  async function readbackReceipt():Promise<PrivateMobileReceipt>{
   if(disposed)throw new Error('Fixture unavailable');await fence();const client=await owner.connect();
   try{
@@ -154,6 +155,8 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }
  return Object.freeze({start,stop,otpStartObservation:()=>otpObserver.observation(),restart:async()=>{fault=undefined;await stop();await start();},readbackReceipt,readbackTrackingReceipt,readbackRenewalsReceipt,readbackBankReceipt,secondOwnerSession,readbackBankOwnerReceipt,
+  beginBankDiagnostic(step:PrivateBankTwoOwnerStep){if(disposed||!graph||process.env.NODE_ENV!=='development')throw new Error('Fixture unavailable');bankDiagnostics.beginStep(step);},
+  bankFailureCategory:(step:PrivateBankTwoOwnerStep)=>bankDiagnostics.failureCategory(step),clearBankDiagnostic:()=>bankDiagnostics.clearStep(),
   injectCommitFault(kind:'before'|'after',skip=0){if(disposed||fault||!['before','after'].includes(kind)||!Number.isInteger(skip)||skip<0||skip>3)throw new Error('Fixture unavailable');fault={kind,skip};},
   dispose:async()=>{if(disposed)return;fault=undefined;await stop();disposed=true;await Promise.all([actor.end(),owner.end()]);}});
 }
