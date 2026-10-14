@@ -1,5 +1,12 @@
 name: SubTrack persistent sandbox PostgreSQL qualification
 on:
+  pull_request:
+    paths:
+      - 'SubTrack/apps/api/**'
+      - 'SubTrack/packages/**'
+      - 'SubTrack/pnpm-lock.yaml'
+      - 'SubTrack/tools/database/sandbox-*'
+      - '.github/workflows/subtrack-sandbox-postgresql-qualification.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22.18.0'
@@ -36,7 +43,7 @@ jobs:
       - name: Publish only closed receipt after verified custody removal
         uses: actions/upload-artifact@v4
         with:
-          name: st250-sandbox-postgresql-receipt-${{ github.sha }}
+          name: st250-sandbox-postgresql-receipt-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/st250-sandbox-postgresql-receipt.json
           if-no-files-found: error
           retention-days: 14

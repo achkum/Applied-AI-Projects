@@ -1,6 +1,14 @@
 name: SubTrack sandbox API image preparation
 
 on:
+  pull_request:
+    paths:
+      - 'SubTrack/apps/api/**'
+      - 'SubTrack/packages/**'
+      - 'SubTrack/infra/sandbox/Dockerfile.api'
+      - 'SubTrack/pnpm-lock.yaml'
+      - 'SubTrack/tools/sandbox/build-api.sh'
+      - '.github/workflows/subtrack-sandbox-api-build.yml'
   workflow_dispatch:
     inputs:
       source_head:
@@ -23,12 +31,12 @@ jobs:
       - name: Checkout reviewed source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ inputs.source_head }}
+          ref: ${{ github.event.pull_request.head.sha || inputs.source_head }}
           persist-credentials: false
       - name: Build and inspect isolated image
         shell: bash
         env:
-          SANDBOX_SOURCE_HEAD: ${{ inputs.source_head }}
+          SANDBOX_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || inputs.source_head }}
           SANDBOX_BUILD_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
           SANDBOX_BUILD_RECEIPT: ${{ runner.temp }}/st250-api-image.json
         run: bash SubTrack/tools/sandbox/build-api.sh
