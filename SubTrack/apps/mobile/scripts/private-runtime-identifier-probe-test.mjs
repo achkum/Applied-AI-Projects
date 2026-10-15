@@ -187,3 +187,9 @@ test('pre-input frame remains exact-source iOS PR293 only, first-flow/zero-total
  assert.ok(validation.includes('validatedPreinputArtifact'));assert.ok(validation.includes("steps.sealed_preinput.outputs.ready == 'true'"));assert.ok(validation.includes('path: ${{ runner.temp }}/subtrack-native-proof/sealed/preinput-ios.st253sealed'));assert.equal(/path:.*(?:\*|\.png|private\/)/.test(validation),false);assert.ok(validation.includes('retention-days: 1'));
  assert.equal(workflow.includes('pull_request_target'),false);assert.equal(driver.includes('await identifierProbes('),false);
 });
+
+
+test('encrypted frame failure projection is a fixed stage only after the capture helper settles and cleanup completes',()=>{
+ const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');const start=driver.indexOf("if (currentPhase === 'flow-identifier' && captureContext && preinputMetadata)");const end=driver.indexOf("if (currentPhase === 'flow-identifier')",start+1);const block=driver.slice(start,end);
+ assert.ok(block.includes("let sealed=false,withheldStage='CUSTODY'"));assert.ok(block.includes('if(PREINPUT_WITHHELD_STAGES.includes(value))withheldStage=value'));assert.ok(block.includes('onStage:captureStage'));assert.ok(block.includes("captureStage('CAPTURE');await nativeRead(['simctl','io',udid,'screenshot',file])"));assert.ok(block.indexOf('await captureSealedPreinput')<block.indexOf('console.error(`ST244_NATIVE preinput_frame='));assert.ok(block.includes("preinput_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}"));assert.equal(/console\.(?:error|log)\([^`]/.test(block),false);
+});

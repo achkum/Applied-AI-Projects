@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join,resolve,dirname,basename} from 'node:path';
-import {projectEnrollmentMetadata,prepareEnrollmentMetadata,enrollmentMetadataLines,preinputWelcomeMetadata,preparePreinputMetadata,preinputCaptureContext,recordPreinputSimulator,zeroAllApi,validPreinputPng,sealPreinputPng,validSealedPreinput,validatedPreinputArtifact,captureSealedPreinput,PREINPUT_RECIPIENT_SHA256} from './private-runtime-maestro-metadata.mjs';
+import {projectEnrollmentMetadata,prepareEnrollmentMetadata,enrollmentMetadataLines,preinputWelcomeMetadata,preparePreinputMetadata,preinputCaptureContext,recordPreinputSimulator,zeroAllApi,validPreinputPng,sealPreinputPng,validSealedPreinput,validatedPreinputArtifact,captureSealedPreinput,PREINPUT_RECIPIENT_SHA256,PREINPUT_WITHHELD_STAGES} from './private-runtime-maestro-metadata.mjs';
 import {createEnrollmentExecution} from './private-runtime-identifier-diagnostic.mjs';
 const kinds=['tapOnElement','inputTextCommand','hideKeyboardCommand','assertConditionCommand','scrollUntilVisible','takeScreenshotCommand','applyConfigurationCommand'];
 const row=(kind='tapOnElement',patch={})=>({command:{[kind]:{}},metadata:{status:'FAILED',sequenceNumber:1,depth:0,...patch}});
@@ -194,4 +194,18 @@ test('sealed format rejects zero/truncated AAD, malformed canonical metadata and
  const sealed=sealPreinputPng(samplePng(),binding,recipientPem);for(const n of [0,2048]){const value=Buffer.from(sealed);value.writeUInt32BE(n,10);assert.equal(validSealedPreinput(value,captureContext,binding.simulatorCustody),false);}
  const malformed=Buffer.from(sealed);malformed[14]=0;assert.equal(validSealedPreinput(malformed,captureContext,binding.simulatorCustody),false);
  await privateTemporary(async({root})=>{mock.method(crypto,'publicEncrypt',()=>Buffer.alloc(0));syncBuiltinESMExports();assert.equal(await captureSealedPreinput(captureOptions(root)),false);assert.equal(fs.existsSync(join(root,'preinput-ios-frame')),false);});
+});
+
+
+test('closed withheld stage locates reader/guard failures without upgrading eligibility or exposing private values',async()=>{
+ assert.deepEqual(PREINPUT_WITHHELD_STAGES,['CHILD_LIFECYCLE','METADATA_OWNERSHIP','METADATA_SHAPE','CUSTODY','API_BEFORE','APP_CUSTODY','CAPTURE','PNG','API_AFTER','SEAL','RAW_CLEANUP','SEALED_OUTPUT','SEALED_READBACK']);assert.ok(Object.isFrozen(PREINPUT_WITHHELD_STAGES));
+ for(const kind of ['lifecycle','ownership','shape','oversize'])await privateTemporary(async({root})=>{const reader=initialReader(root,kind==='lifecycle'?[]:undefined);const file=join(root,'identifier','2026-10-15_120000','private-runtime-identifier','commands.json');if(kind==='ownership')fs.unlinkSync(file);if(kind==='shape')fs.writeFileSync(file,'private-canary');if(kind==='oversize')fs.writeFileSync(file,Buffer.alloc(4*1024*1024+1));let stage;assert.equal(await captureSealedPreinput(captureOptions(root,{reader,onStage:value=>{stage=value;}})),false);assert.equal(stage,kind==='lifecycle'?'CHILD_LIFECYCLE':kind==='ownership'?'METADATA_OWNERSHIP':'METADATA_SHAPE');assert.equal(reader.take(),null);});
+ for(const [kind,expected]of [['context','CUSTODY'],['api-before','API_BEFORE'],['app','APP_CUSTODY'],['capture','CAPTURE'],['png','PNG'],['api-after','API_AFTER'],['seal','SEAL'],['cleanup','RAW_CLEANUP'],['output','SEALED_OUTPUT'],['readback','SEALED_READBACK'],['sealed-cleanup','RAW_CLEANUP'],['success','SEALED_READBACK']])await privateTemporary(async({root})=>{let last,calls=0;const report=value=>{assert.ok(PREINPUT_WITHHELD_STAGES.includes(value));last=value;};const options=captureOptions(root,{onStage:report,observe:()=>{calls++;return kind==='api-before'||kind==='api-after'&&calls>1?{state:'active',arrivals:'one'}:zeroApi;},capture:async file=>{if(kind==='app')throw Error('private app');report('CAPTURE');if(kind==='capture')throw Error('private capture');fs.writeFileSync(file,kind==='png'?Buffer.from('private-canary'):samplePng());}});
+  if(kind==='context')options.context=null;if(kind==='seal')options.recipientPem='private-canary';if(kind==='output')fs.mkdirSync(join(dirname(root),'sealed'));if(kind==='cleanup'){const original=fs.rmdirSync;replace('rmdirSync',path=>{if(path.endsWith('preinput-ios-frame'))throw Error('private cleanup');return original(path);});}
+  if(kind==='readback'||kind==='sealed-cleanup'){const original=fs.writeFileSync;replace('writeFileSync',(path,value,settings)=>original(path,path.endsWith('.st253sealed')?Buffer.from('invalid sealed data'):value,settings));}
+  if(kind==='sealed-cleanup'){const original=fs.unlinkSync;replace('unlinkSync',path=>{if(path.endsWith('.st253sealed'))throw Error('private cleanup');return original(path);});}
+  assert.equal(await captureSealedPreinput(options),kind==='success');assert.equal(last,expected);
+ });
+ await privateTemporary(async({root})=>{assert.equal(await captureSealedPreinput(captureOptions(root,{onStage:()=>{throw Error('private diagnostic consumer');}})),true);});
+ await privateTemporary(async({root})=>{let last;assert.equal(await captureSealedPreinput(captureOptions(root,{reader:{take:()=>null,failureStage:()=> 'private-canary'},onStage:value=>{last=value;}})),false);assert.equal(last,'CHILD_LIFECYCLE');});
 });

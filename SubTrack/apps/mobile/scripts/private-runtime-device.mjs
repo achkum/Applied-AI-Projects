@@ -1,5 +1,5 @@
 import {qualifyNativeBank,acceptedNativeBankScreenshot,ACCEPTED_NATIVE_BANK_SCREENSHOTS} from './private-runtime-bank.mjs';
-import {prepareEnrollmentMetadata,enrollmentMetadataLines,preparePreinputMetadata,preinputCaptureContext,captureSealedPreinput} from './private-runtime-maestro-metadata.mjs';
+import {prepareEnrollmentMetadata,enrollmentMetadataLines,preparePreinputMetadata,preinputCaptureContext,captureSealedPreinput,PREINPUT_WITHHELD_STAGES} from './private-runtime-maestro-metadata.mjs';
 import {enrollmentStageDiagnostic,startupStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
 import {fixtureMonthLabels,qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
 import {renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
@@ -387,8 +387,9 @@ async function main() {
     }
     if (currentPhase === 'flow-identifier' && captureContext && preinputMetadata) {
       const nativeRead=(args)=>new Promise((ok,no)=>execFile('xcrun',args,{timeout:10000,killSignal:'SIGKILL',maxBuffer:65536,encoding:'utf8'},(error,stdout)=>error?no(new Error('Private diagnostic unavailable')):ok(stdout)));
-      let sealed=false;
-      try{sealed=await captureSealedPreinput({privateRoot:privateDir,reader:preinputMetadata,context:captureContext,observe:()=>harness.allApiObservation(),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),
+      let sealed=false,withheldStage='CUSTODY';
+      const captureStage=value=>{if(PREINPUT_WITHHELD_STAGES.includes(value))withheldStage=value;};
+      try{sealed=await captureSealedPreinput({onStage:captureStage,privateRoot:privateDir,reader:preinputMetadata,context:captureContext,observe:()=>harness.allApiObservation(),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),
         capture:async(file,udid)=>{
           assert.equal(udid,process.env.SUBTRACK_SIMULATOR_UDID);
           const booted=JSON.parse(await nativeRead(['simctl','list','devices','booted','--json']));
@@ -398,9 +399,9 @@ async function main() {
           assert.ok(installed.startsWith('/')&&installed.includes(`/CoreSimulator/Devices/${udid}/data/Containers/Bundle/Application/`)&&installed.endsWith('/SubTrack.app')&&!/[\r\n\0]/.test(installed));
           const built=join(privateDir,'derived/Build/Products/Debug-iphonesimulator/SubTrack.app');
           for(const name of ['Info.plist','SubTrack']){const installedFile=join(installed,name),builtFile=join(built,name),oneStat=lstatSync(installedFile),twoStat=lstatSync(builtFile);assert.ok(oneStat.isFile()&&!oneStat.isSymbolicLink()&&twoStat.isFile()&&!twoStat.isSymbolicLink()&&oneStat.size>0&&oneStat.size<=67108864&&twoStat.size===oneStat.size);const one=readFileSync(installedFile),two=readFileSync(builtFile);assert.ok(one.length===oneStat.size&&two.length===twoStat.size);assert.equal(createHash('sha256').update(one).digest('hex'),createHash('sha256').update(two).digest('hex'));}
-          await nativeRead(['simctl','io',udid,'screenshot',file]);
+          captureStage('CAPTURE');await nativeRead(['simctl','io',udid,'screenshot',file]);
         }});}catch{/* Preserve the original failed qualification and private error. */}
-      console.error(`ST244_NATIVE preinput_frame=${sealed?'sealed':'withheld'}`);
+      console.error(`ST244_NATIVE preinput_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}`);
     }
     if (currentPhase === 'flow-identifier') {
       const syntheticOtpIssued = code !== null;
