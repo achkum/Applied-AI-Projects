@@ -86,8 +86,8 @@ export default function RegisterBankIdRoute() {
               if (ticket !== generation.current) return;
               pending.current = false; completed.current = true; reset(); router.replace('/personal');
             } catch { if (ticket === generation.current) { pending.current = false; completed.current = provider==='production'; if(provider==='production')reset(); setError(true); } }
-          }} style={styles.back}>
-          <Text style={{ color: color('ink.primary'), fontFamily: theme.typography.fontFamily.ui }}>{t('onboarding.nativePersonal.verify')}</Text>
+          }} style={[styles.action,{backgroundColor:color(session.sessionPhase==='busy'||pending.current?'bg.sunken':'action.accent'),borderRadius:theme.radius.pill}]}>
+          <Text style={{ color: color(session.sessionPhase==='busy'||pending.current?'ink.secondary':'ink.on-accent'), fontFamily: theme.typography.fontFamily.ui }}>{t('onboarding.nativePersonal.verify')}</Text>
         </Pressable>
       </View>
     </ScrollView></SafeAreaView>
@@ -101,6 +101,13 @@ const styles = StyleSheet.create({
     minHeight: 48,
     justifyContent: 'center',
     paddingHorizontal: 8,
+  },
+  action: {
+    minHeight: 48,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   card: { padding: 20 },
 });

@@ -166,18 +166,14 @@ export default function RegisterOtpRoute() {
           style={[
             styles.action,
             {
-              backgroundColor: color(
-                busy || code.length !== 6 ? 'bg.sunken' : 'ink.primary',
-              ),
+              backgroundColor: color(busy || code.length !== 6 ? 'bg.sunken' : 'action.accent'),
               borderRadius: theme.radius.pill,
             },
           ]}
         >
           <Text
             style={{
-              color: color(
-                busy || code.length !== 6 ? 'ink.secondary' : 'bg.raised',
-              ),
+              color: color(busy || code.length !== 6 ? 'ink.secondary' : 'ink.on-accent'),
               fontFamily: theme.typography.fontFamily.ui,
             }}
           >

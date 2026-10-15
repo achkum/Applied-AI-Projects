@@ -152,7 +152,7 @@
       "verifyPending": "Please wait…",
       "wrongCode": "The code could not be verified. Check it and try again.",
       "requestCode": "Request a new code",
-      "resendCountdown": "Request a new code in {seconds}s",
+      "resendCountdown": "Request a new code in %{seconds}s",
       "bankIdUnavailable": "BankID is not available here yet.",
       "requestUnavailable": "Could not continue. Restart verification."
     },
