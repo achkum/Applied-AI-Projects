@@ -42,7 +42,7 @@ import {
 } from './private-runtime-identifier-diagnostic.mjs';
 import { initialIdentifierFlow } from './private-runtime-flow-policy.mjs';
 import { graphStatus } from './private-runtime-bundle-policy.mjs';
-import { identifierProbes } from './private-runtime-identifier-probe.mjs';
+import { identifierProbes, runIdentifierProbe } from './private-runtime-identifier-probe.mjs';
 import { failedSaveObservations } from './private-runtime-save-probe.mjs';
 
 let currentPhase = 'runtime-preconditions';
@@ -396,31 +396,21 @@ async function main() {
         run: async (name, label) => {
           const logPath = join(privateDir, `identifier-probe-${name}.log`);
           const fd = openSync(logPath, 'w', 0o600);
-          let exitCode = null;
-          let timedOut = false;
+          let execution;
           try {
-            await new Promise((accept) => {
-              const child = spawn('timeout', [
-                '--signal=TERM', '--kill-after=5s', '20s',
-                'maestro', 'test', '--test-output-dir',
-                join(privateDir, `identifier-probe-${name}`),
-                join(app, 'e2e/private-runtime-identifier-probe.yaml'),
-              ], {
-                cwd: app,
-                env: { ...process.env, MAESTRO_IDENTIFIER_PROBE_LABEL: label },
-                stdio: ['ignore', fd, fd],
-              });
-              child.on('error', () => accept());
-              child.on('close', (status) => {
-                exitCode = status;
-                timedOut = status === 124 || status === 137;
-                accept();
-              });
+            execution = await runIdentifierProbe([
+              'test', '--test-output-dir',
+              join(privateDir, `identifier-probe-${name}`),
+              join(app, 'e2e/private-runtime-identifier-probe.yaml'),
+            ], {
+              cwd: app,
+              env: { ...process.env, MAESTRO_IDENTIFIER_PROBE_LABEL: label },
+              stdio: ['ignore', fd, fd],
             });
           } finally {
             closeSync(fd);
           }
-          return { exitCode, timedOut, log: readFileSync(logPath, 'utf8') };
+          return { ...execution, log: readFileSync(logPath, 'utf8') };
         },
       });
       if (observations)
