@@ -1,11 +1,25 @@
 import { EventEmitter } from 'node:events';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Server } from 'node:https';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import * as bankDiagnostics from './private-mobile-bank-diagnostics.js';
 import { createOwnedOtpStartObserver,createOwnedManualSaveObserver,OwnedInitialDetectionScanObserver,safeInitialScanObservation } from './private-mobile-owned-fixture-observer';
 import {PRIVATE_MOBILE_DETECTION_STATEMENTS as sql} from '../src/detection/private-mobile-detection-statements.js';
 
 describe('initial detection scan RAM-only SQL observation',()=>{
+ it('ignores non-string query metadata and labels an unmapped named operation honestly',async()=>{
+  const observer=new OwnedInitialDetectionScanObserver(),result=Object.freeze({accepted:true}),promise=Promise.resolve(result);observer.begin();await observer.query(sql.detectionActiveGenerationLock,()=>promise);
+  expect(observer.query(null,()=>promise)).toBe(promise);expect(observer.observation()).toEqual({lastOperation:'GENERATION_LOCK'});
+  expect(await observer.query(sql.detectionScanReceiptRead,()=>promise)).toBe(result);expect(observer.observation()).toEqual({lastOperation:'UNKNOWN'});observer.clear();
+ });
+ it('fails closed if host reflection fails without propagating its private exception',()=>{
+  const reflection=vi.spyOn(Object,'getOwnPropertyDescriptors').mockImplementationOnce(()=>{throw new Error('private reflection canary');});let result:unknown;
+  try{result=safeInitialScanObservation({lastOperation:'BOOKED_READ'});}finally{reflection.mockRestore();}expect(result).toBe(false);
+ });
+ it('downgrades an unexpected mapper category without changing the original SQL error',async()=>{
+  const mapper=vi.spyOn(bankDiagnostics,'privateBankFailureCategory').mockReturnValueOnce('ASSERTION'),observer=new OwnedInitialDetectionScanObserver(),error=Object.assign(new Error('private SQL canary'),{code:'42501'});observer.begin();
+  try{await expect(observer.query(sql.detectionBookedRows,async()=>{throw error;})).rejects.toBe(error);expect(observer.observation()).toEqual({operation:'BOOKED_READ',sqlCategory:'OTHER'});}finally{mapper.mockRestore();observer.clear();}
+ });
  it('is passive outside scope and returns the original promise/result/error',async()=>{
   const observer=new OwnedInitialDetectionScanObserver(),result=Object.freeze({privateRow:'canary'}),promise=Promise.resolve(result);
   expect(observer.query(sql.detectionBookedRows,()=>promise)).toBe(promise);expect(await promise).toBe(result);expect(observer.observation()).toBeUndefined();
