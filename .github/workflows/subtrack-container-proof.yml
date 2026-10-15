@@ -53,6 +53,11 @@ on:
         required: false
         type: string
         default: ""
+      verification_tooling_head:
+        description: Exact reviewed current head required for signed-return verification
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -195,3 +200,4 @@ jobs:
       unsigned_transfer_receipt: ${{ inputs.unsigned_transfer_receipt }}
       signed_return_release_id: ${{ inputs.signed_return_release_id }}
       signer_certificate_sha256: ${{ inputs.signer_certificate_sha256 }}
+      verification_tooling_head: ${{ inputs.verification_tooling_head }}
