@@ -1,9 +1,36 @@
 import {describe,it,expect} from 'vitest';
+import {readFileSync} from 'node:fs';
+import {resolve} from 'node:path';
 import {privateMobileDetectionReceipt,PRIVATE_DETECTION_FLAGS,PRIVATE_DETECTION_INHERITED_FLAGS} from './private-mobile-detection-receipt.js';
-import {privateDetectionSetupStatusFailure,safePrivateDetectionSetupFailure,type PrivateDetectionSetupStep} from './private-mobile-detection-proof.js';
+import {privateDetectionSetupStatusFailure,safePrivateDetectionSetupFailure,type PrivateDetectionSetupStep,PRIVATE_DETECTION_SCAN_STEPS,privateDetectionScanFailure,safePrivateDetectionScanFailure,privateDetectionScanStep,type PrivateDetectionScanStep,type PrivateDetectionScanCategory} from './private-mobile-detection-proof.js';
 import {safePrivateDetectionFailure,privateDetectionStageFailure} from './private-mobile-detection.integration.js';
 const valid=()=>({version:1,head:'a'.repeat(40),proof:'direct-tls-postgresql16',cleanup:'removed',identityCount:2,profileCompleteCount:2,justMeCount:2,manualSubscriptionCount:1,detectedSubscriptionCount:2,...Object.fromEntries([...PRIVATE_DETECTION_FLAGS,...PRIVATE_DETECTION_INHERITED_FLAGS].map(k=>[k,true]))});
+// Exercise the actual qualifier allowlist, rather than a separate shell-policy copy.
+const qualifier=readFileSync(resolve(__dirname,'../../../tools/database/private-mobile-detection-qualify.sh'),'utf8');
+const shellAllowlist=new RegExp(qualifier.match(/grep -E '([^']+)'/)![1]!);
+const shellPreserves=(label:string)=>shellAllowlist.exec(label)?.[0]===label;
 describe('owned detection sanitized acceptance receipt',()=>{
+ it('preserves every closed SCAN label across proof, integration and actual qualifier',()=>{
+  for(const step of PRIVATE_DETECTION_SCAN_STEPS){
+   for(const actual of [200,201,204,400,401,403,404,409,413,429,500,503,999,null,{},'private-response']){
+    const label=privateDetectionScanFailure(step,'HTTP',actual);expect(safePrivateDetectionScanFailure(label)).toBe(true);expect(safePrivateDetectionFailure(label)).toBe(true);expect(privateDetectionStageFailure('DETECTION_SETUP',new Error(label))).toBe(label);expect(shellPreserves(label)).toBe(true);expect(label).not.toContain('private-response');
+   }
+   for(const category of ['WIRE','ASSERTION','READBACK','UNKNOWN'] as const){const label=privateDetectionScanFailure(step,category);expect(safePrivateDetectionScanFailure(label)).toBe(true);expect(safePrivateDetectionFailure(label)).toBe(true);expect(privateDetectionStageFailure('DETECTION_SETUP',new Error(label))).toBe(label);expect(shellPreserves(label)).toBe(true);}
+  }
+ });
+ it('rejects tampered SCAN status pairs, fields and private content at all output boundaries',()=>{
+  const http=privateDetectionScanFailure('INITIAL_SCAN_HTTP','HTTP',500),plain=privateDetectionScanFailure('READ_WIRE','WIRE');
+  for(const label of [http+' token=private',http+'\r',http+'\n',http.replace('expected=200','expected=201'),http.replace('actual=500','actual=502'),http.replace('actual=500','actual=private-response'),http.replace('INITIAL_SCAN_HTTP','PRIVATE_OWNER'),http.replace('category=HTTP','category=PERMISSION'),plain+' actual=500',plain.replace('category=WIRE','category=HTTP'),plain.replace('SCAN','REVIEW'),plain+' body=private']){expect(safePrivateDetectionScanFailure(label)).toBe(false);expect(safePrivateDetectionFailure(label)).toBe(false);expect(shellPreserves(label)).toBe(false);expect(privateDetectionStageFailure('DETECTION_SETUP',new Error(label))).not.toBe(label);}
+  for(const value of [null,{},[],500])expect(safePrivateDetectionScanFailure(value)).toBe(false);
+  expect(privateDetectionScanFailure('PRIVATE_OWNER' as PrivateDetectionScanStep,'HTTP',500)).toBe('ST249_DETECTION_PROOF_FAILURE phase=UNKNOWN');expect(privateDetectionScanFailure('DEDUP','PRIVATE_BODY' as PrivateDetectionScanCategory)).toBe('ST249_DETECTION_PROOF_FAILURE phase=UNKNOWN');
+ });
+ it('labels actual failed work without exposing errors and preserves only an approved nested failure',async()=>{
+  const measured=privateDetectionScanFailure('INITIAL_SCAN_HTTP','HTTP',500);
+  await expect(privateDetectionScanStep('INITIAL_SCAN_HTTP','HTTP',async()=>{throw new Error(measured);})).rejects.toThrow(measured);
+  for(const [step,category] of [['READ_WIRE','WIRE'],['INBOX_CARDINALITY','ASSERTION'],['FIRST_READBACK','READBACK']] as const){await expect(privateDetectionScanStep(step,category,async()=>{throw new Error('private row/token/body');})).rejects.toThrow(privateDetectionScanFailure(step,category));}
+  let invoked=false;const hostile=new Error();Object.defineProperty(hostile,'message',{get(){invoked=true;return measured;}});await expect(privateDetectionScanStep('DEDUP','UNKNOWN',async()=>{throw hostile;})).rejects.toThrow(privateDetectionScanFailure('DEDUP','UNKNOWN'));expect(invoked).toBe(false);
+  const result=Object.freeze({accepted:true});expect(await privateDetectionScanStep('FIRST_READBACK','READBACK',async()=>result)).toBe(result);
+ });
  it('preserves only four exact initial setup status labels through driver diagnostics',()=>{for(const step of ['VERIFY_LOGIN','SESSION','BANK_CONNECT','BANK_SYNC'] as const){for(const actual of [200,201,204,400,401,403,404,409,413,429,500,503,999,null,{},'private-response']){const label=privateDetectionSetupStatusFailure(step,actual);expect(safePrivateDetectionSetupFailure(label)).toBe(true);expect(safePrivateDetectionFailure(label)).toBe(true);expect(privateDetectionStageFailure('DETECTION_SETUP',new Error(label))).toBe(label);expect(label).not.toContain('private-response');}}expect(privateDetectionSetupStatusFailure('UNKNOWN' as PrivateDetectionSetupStep,500)).toBe('ST249_DETECTION_PROOF_FAILURE phase=UNKNOWN');});
  it('rejects malformed setup labels, wrong expected pairs and private diagnostic fields',()=>{const valid=privateDetectionSetupStatusFailure('SESSION',500);for(const label of [null,{},valid+'\n',valid+' token=private',valid.replace('SESSION','BANK_CONNECT'),valid.replace('expected=201','expected=200'),valid.replace('actual=500','actual=502'),valid.replace('SESSION','PRIVATE_OWNER'),valid.replace('actual=500','actual=private-response')]){expect(safePrivateDetectionSetupFailure(label)).toBe(false);expect(safePrivateDetectionFailure(label)).toBe(false);}});
  it('accepts only measured complete closed gates and freezes a copy',()=>{for(const n of [2,100]){const input={...valid(),detectedSubscriptionCount:n},output=privateMobileDetectionReceipt(input);expect(output).toEqual(input);expect(output).not.toBe(input);expect(Object.isFrozen(output)).toBe(true);}});

@@ -21,16 +21,36 @@ export function privateDetectionSetupStatusFailure(step:PrivateDetectionSetupSte
 export function safePrivateDetectionSetupFailure(value:unknown):value is string{
  return typeof value==='string'&&!/[\r\n]/.test(value)&&/^ST249_DETECTION_PROOF_FAILURE phase=SETUP (?:step=SESSION expected=201|step=(?:VERIFY_LOGIN|BANK_CONNECT|BANK_SYNC) expected=200) actual=(?:200|201|204|400|401|403|404|409|413|429|500|503|OTHER)$/.test(value);
 }
+export const PRIVATE_DETECTION_SCAN_STEPS=Object.freeze(['INITIAL_SCAN_HTTP','READ_HTTP','READ_WIRE','INBOX_CARDINALITY','INBOX_CANONICAL','FIRST_READBACK','REPLAY_NEW_KEY','REPLAY_SAME_KEY','REPLAY_READBACK','FRESH_SCAN','DEDUP'] as const);
+export type PrivateDetectionScanStep=typeof PRIVATE_DETECTION_SCAN_STEPS[number];
+export type PrivateDetectionScanCategory='HTTP'|'WIRE'|'ASSERTION'|'READBACK'|'UNKNOWN';
+const scanSteps=PRIVATE_DETECTION_SCAN_STEPS.join('|');
+const scanFailure=new RegExp(`^ST249_DETECTION_PROOF_FAILURE phase=SCAN step=(${scanSteps}) (?:category=HTTP expected=200 actual=(?:${SETUP_HTTP.join('|')}|OTHER)|category=(?:WIRE|ASSERTION|READBACK|UNKNOWN))$`);
+export function safePrivateDetectionScanFailure(value:unknown):value is string{return typeof value==='string'&&!/[\r\n]/.test(value)&&scanFailure.test(value);}
+export function privateDetectionScanFailure(step:PrivateDetectionScanStep,category:PrivateDetectionScanCategory,actual?:unknown):string{
+ if(!(PRIVATE_DETECTION_SCAN_STEPS as readonly unknown[]).includes(step)||!['HTTP','WIRE','ASSERTION','READBACK','UNKNOWN'].includes(category))return 'ST249_DETECTION_PROOF_FAILURE phase=UNKNOWN';
+ const status=typeof actual==='number'&&SETUP_HTTP.includes(actual)?actual:'OTHER';
+ return `ST249_DETECTION_PROOF_FAILURE phase=SCAN step=${step} category=${category}`+(category==='HTTP'?` expected=200 actual=${status}`:'');
+}
+function preservedScanFailure(error:unknown):string|undefined{
+ try{const descriptor=error instanceof Error?Object.getOwnPropertyDescriptor(error,'message'):undefined;if(descriptor&&'value'in descriptor&&safePrivateDetectionScanFailure(descriptor.value))return descriptor.value;}catch{/* No private accessor/proxy values are evaluated. */}
+ return undefined;
+}
+export async function privateDetectionScanStep<T>(step:PrivateDetectionScanStep,category:PrivateDetectionScanCategory,work:()=>Promise<T>):Promise<T>{
+ try{return await work();}catch(error){throw new Error(preservedScanFailure(error)??privateDetectionScanFailure(step,category));}
+}
 
 async function setup(config:OwnedPrivateMobileConfig){
  const harness=createOwnedPrivateMobileHarness(config),ca=await readFile(config.caPath);
  try{await harness.enableDetectionQualification();await harness.start();}catch(error){await harness.dispose();throw error;}
- async function post(path:string,body:object,status:number,headers:Record<string,string>={},setupStep?:PrivateDetectionSetupStep){
+ async function post(path:string,body:object,status:number,headers:Record<string,string>={},setupStep?:PrivateDetectionSetupStep,scanStep?:PrivateDetectionScanStep){
   const raw=JSON.stringify(body),result=await new Promise<{status:number;body:string;cache:unknown}>((ok,no)=>{
    const req=request({hostname:'127.0.0.1',port:3443,servername:'localhost',path,method:'POST',ca,headers:{Host:'localhost:3443','Content-Type':'application/json','Content-Length':String(Buffer.byteLength(raw)),...headers}},res=>{
     const chunks:Buffer[]=[];let size=0;res.on('data',(chunk:Buffer)=>{size+=chunk.length;if(size>131072){res.destroy();no(new Error('Owned detection bound'));}else chunks.push(chunk);});res.on('error',no);res.on('end',()=>ok({status:res.statusCode!,body:Buffer.concat(chunks).toString('utf8'),cache:res.headers['cache-control']}));
    });req.setTimeout(15000,()=>req.destroy(new Error('Owned detection deadline')));req.on('error',no);req.end(raw);
-  });if(setupStep!==undefined&&result.status!==status)throw new Error(privateDetectionSetupStatusFailure(setupStep,result.status));assert.equal(result.status,status);assert.equal(result.cache,'no-store');return result.body?JSON.parse(result.body) as Record<string,unknown>:{};
+  });if(setupStep!==undefined&&result.status!==status)throw new Error(privateDetectionSetupStatusFailure(setupStep,result.status));if(scanStep!==undefined&&result.status!==status)throw new Error(privateDetectionScanFailure(scanStep,'HTTP',result.status));assert.equal(result.status,status);
+  if(scanStep!==undefined){await privateDetectionScanStep(scanStep,'ASSERTION',async()=>assert.equal(result.cache,'no-store'));return privateDetectionScanStep(scanStep==='READ_HTTP'?'READ_WIRE':scanStep,'WIRE',async()=>result.body?JSON.parse(result.body) as Record<string,unknown>:{});}
+  assert.equal(result.cache,'no-store');return result.body?JSON.parse(result.body) as Record<string,unknown>:{};
  }
  const key=()=>({'Idempotency-Key':randomUUID()});
  async function login(initial=false){const verified=await post(paths.verifyLogin,{transport:'mobile'},200,key(),initial?'VERIFY_LOGIN':undefined);const session=parsePrivateMobileSessionResponse(await post(paths.session,{transport:'mobile',loginProof:verified.loginProof},201,key(),initial?'SESSION':undefined));return {Authorization:`Bearer ${session.accessToken}`};}
@@ -38,8 +58,8 @@ async function setup(config:OwnedPrivateMobileConfig){
  try{auth=await login(true);connected=parsePrivateMobileBankMutationResult(await post(bank.connect,{institutionId:'synthetic-demo-v1'},200,{...auth,...key()},'BANK_CONNECT'));
   await post(bank.sync,{connectionId:connected.connection.connectionId},200,{...auth,...key()},'BANK_SYNC');
  }catch(error){await harness.dispose();throw error;}
- const read=async(headers=auth)=>parsePrivateMobileDetectionReadResult(await post(detection.read,{},200,headers));
- const scan=async(headers=auth,intent=key())=>post(detection.scan,{},200,{...headers,...intent});
+ const read=async(headers=auth,diagnostic=false)=>{const result=await post(detection.read,{},200,headers,undefined,diagnostic?'READ_HTTP':undefined);return diagnostic?privateDetectionScanStep('READ_WIRE','WIRE',async()=>parsePrivateMobileDetectionReadResult(result)):parsePrivateMobileDetectionReadResult(result);};
+ const scan=async(headers=auth,intent=key(),step?:PrivateDetectionScanStep)=>post(detection.scan,{},200,{...headers,...intent},undefined,step);
  return {harness,post,key,login,auth,connection:connected.connection.connectionId,read,scan};
 }
 const actorClaims=(auth:Record<string,string>)=>{
@@ -56,9 +76,9 @@ export async function runPrivateMobileDetectionProof(config:OwnedPrivateMobileCo
   phase='OVERFLOW';await harness.prepareDetectionOverflow();
   try{const before=await harness.readbackDetectionReceipt();await post(detection.scan,{},500,{...auth,...key()});assert.deepEqual(await harness.readbackDetectionReceipt(),before);mark('detectionAmountOverflowRollback');}finally{await harness.restoreDetectionAdversary();}
   assert.deepEqual(await harness.readbackBankReceipt(),source);
-  phase='SCAN';await scan();mark('detectionScan');const inbox=await read();assert.ok(inbox.items.length>=2);assert.equal(inbox.nextCursor,null);
-  const names=['Netflix','Spotify','iCloud','LinkedIn Premium'];assert.ok(inbox.items.every(item=>names.includes(item.displayName)&&item.status==='DETECTED'&&BigInt(item.expectedAmountMinor)>0n));mark('detectionCanonicalInbox');mark('detectionTrustedNamesOnly');
-  const first=await harness.readbackDetectionReceipt(),intent=key();await scan(auth,intent);const repeated=await harness.readbackDetectionReceipt();await scan(auth,intent);assert.deepEqual(await harness.readbackDetectionReceipt(),repeated);await scan();const fresh=await harness.readbackDetectionReceipt();assert.equal(fresh.candidateCount,first.candidateCount);assert.equal(fresh.sourceLinkCount,first.sourceLinkCount);mark('detectionRescanDedup');
+  phase='SCAN';await privateDetectionScanStep('INITIAL_SCAN_HTTP','HTTP',()=>scan(auth,key(),'INITIAL_SCAN_HTTP'));mark('detectionScan');const inbox=await privateDetectionScanStep('READ_HTTP','HTTP',()=>read(auth,true));await privateDetectionScanStep('INBOX_CARDINALITY','ASSERTION',async()=>{assert.ok(inbox.items.length>=2);assert.equal(inbox.nextCursor,null);});
+  const names=['Netflix','Spotify','iCloud','LinkedIn Premium'];await privateDetectionScanStep('INBOX_CANONICAL','ASSERTION',async()=>assert.ok(inbox.items.every(item=>names.includes(item.displayName)&&item.status==='DETECTED'&&BigInt(item.expectedAmountMinor)>0n)));mark('detectionCanonicalInbox');mark('detectionTrustedNamesOnly');
+  const first=await privateDetectionScanStep('FIRST_READBACK','READBACK',()=>harness.readbackDetectionReceipt()),intent=key();await privateDetectionScanStep('REPLAY_NEW_KEY','HTTP',()=>scan(auth,intent,'REPLAY_NEW_KEY'));const repeated=await privateDetectionScanStep('REPLAY_READBACK','READBACK',()=>harness.readbackDetectionReceipt());await privateDetectionScanStep('REPLAY_SAME_KEY','HTTP',()=>scan(auth,intent,'REPLAY_SAME_KEY'));const replayed=await privateDetectionScanStep('REPLAY_READBACK','READBACK',()=>harness.readbackDetectionReceipt());await privateDetectionScanStep('REPLAY_SAME_KEY','ASSERTION',async()=>assert.deepEqual(replayed,repeated));await privateDetectionScanStep('FRESH_SCAN','HTTP',()=>scan(auth,key(),'FRESH_SCAN'));const fresh=await privateDetectionScanStep('REPLAY_READBACK','READBACK',()=>harness.readbackDetectionReceipt());await privateDetectionScanStep('DEDUP','ASSERTION',async()=>{assert.equal(fresh.candidateCount,first.candidateCount);assert.equal(fresh.sourceLinkCount,first.sourceLinkCount);});mark('detectionRescanDedup');
   phase='PARALLEL';const parallel=key();await Promise.all([scan(auth,parallel),scan(auth,parallel),scan(auth,key()),scan(auth,key())]);assert.equal((await harness.readbackDetectionReceipt()).candidateCount,first.candidateCount);mark('detectionParallelScan');
   phase='COLLISION';await harness.prepareDetectionCollision();try{const before=await harness.readbackDetectionReceipt();await post(detection.scan,{},500,{...auth,...key()});assert.deepEqual(await harness.readbackDetectionReceipt(),before);mark('detectionCollisionRollback');}finally{await harness.restoreDetectionAdversary();}
   phase='UNMATCHED';await harness.prepareUnmatchedDetectionDescriptor();try{await scan();assert.ok((await read()).items.every(item=>names.includes(item.displayName)));assert.equal((await harness.readbackDetectionReceipt()).candidateCount,first.candidateCount);}finally{await harness.restoreDetectionAdversary();}
@@ -108,7 +128,7 @@ export async function runPrivateMobileDetectionProof(config:OwnedPrivateMobileCo
   assert.deepEqual(await harness.readbackManualTrackingReceipt(),manual);mark('detectionManualPreserved');assert.deepEqual(await harness.readbackBankReceipt(),sourceBoth);mark('detectionSourcePreserved');
   const final=await harness.readbackReceipt(),d=await harness.readbackDetectionReceipt();assert.equal(final.identityCount,2);assert.equal(final.profileCompleteCount,2);assert.equal(final.justMeCount,2);assert.equal(final.subscriptionCount,d.detectedCount+1);
   return Object.freeze({flags:Object.freeze(flags),identityCount:final.identityCount,profileCompleteCount:final.profileCompleteCount,justMeCount:final.justMeCount,manualSubscriptionCount:manual.subscriptionCount,detectedSubscriptionCount:d.detectedCount});
- }catch{throw new Error(`ST249_DETECTION_PROOF_FAILURE phase=${phase}`);}finally{await harness.dispose();}
+ }catch(error){throw new Error(phase==='SCAN'?(preservedScanFailure(error)??'ST249_DETECTION_PROOF_FAILURE phase=SCAN step=INITIAL_SCAN_HTTP category=UNKNOWN'):`ST249_DETECTION_PROOF_FAILURE phase=${phase}`);}finally{await harness.dispose();}
 }
 
 export const DETECTION_TIMING_FLAGS:Readonly<Record<OwnedDetectionScenario,PrivateDetectionFlag>>=Object.freeze({

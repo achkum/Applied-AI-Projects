@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {dirname,join,resolve} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,URL} from 'node:url';
 
 const driverUrl=new URL('./private-runtime-device.mjs',import.meta.url);
 const source=readFileSync(driverUrl,'utf8');

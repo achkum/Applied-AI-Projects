@@ -8,6 +8,7 @@ current_slice: ST-250
 independent_native_slice: ST-251
 delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
+native_bundle_repair_slice: ST-254
 execution_phase: isolated_public_sandbox_delivery
 source_pipeline_slice: ST-249
 source_pipeline_slices: [ST-245, ST-246, ST-247, ST-248, ST-249, ST-250]
