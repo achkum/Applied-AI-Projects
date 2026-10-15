@@ -439,6 +439,7 @@ async function main() {
         metro: readTool('metro.log'),
         labels: {
           createAccount: labels.MAESTRO_CREATE_ACCOUNT,
+          email: labels.MAESTRO_EMAIL_LABEL,
           otp: labels.MAESTRO_OTP_LABEL,
         },
       });

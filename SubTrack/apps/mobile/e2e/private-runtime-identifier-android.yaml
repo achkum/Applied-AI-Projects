@@ -5,10 +5,17 @@ appId: se.subtrack.app
     visible: ${MAESTRO_CREATE_ACCOUNT}
     timeout: 120000
 - tapOn: ${MAESTRO_CREATE_ACCOUNT}
+- extendedWaitUntil:
+    visible:
+      id: native-identifier-input
+    timeout: 30000
 - tapOn:
     id: native-identifier-input
 - inputText: native-proof@example.test
 - hideKeyboard
+- assertVisible:
+    text: ${MAESTRO_CONTINUE}
+    enabled: true
 - tapOn: ${MAESTRO_CONTINUE}
 - extendedWaitUntil:
     visible: ${MAESTRO_OTP_LABEL}

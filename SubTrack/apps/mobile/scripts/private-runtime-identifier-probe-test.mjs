@@ -3,6 +3,16 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
 import { probeResult, identifierProbes } from './private-runtime-identifier-probe.mjs';
+test('identifier navigation waits for the actual input and requires enabled Continue before one tap',()=>{
+  for(const name of ['identifier','identifier-android']){
+    const flow=readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8');
+    assert.match(flow,/visible: \$\{MAESTRO_CREATE_ACCOUNT\}\r?\n {4}timeout: 120000/);
+    assert.match(flow,/- tapOn: \$\{MAESTRO_CREATE_ACCOUNT\}\r?\n- extendedWaitUntil:\r?\n {4}visible:\r?\n {6}id: native-identifier-input\r?\n {4}timeout: 30000\r?\n- tapOn:\r?\n {4}id: native-identifier-input\r?\n- inputText: [^\r\n]+\r?\n- hideKeyboard\r?\n- assertVisible:\r?\n {4}text: \$\{MAESTRO_CONTINUE\}\r?\n {4}enabled: true\r?\n- tapOn: \$\{MAESTRO_CONTINUE\}/);
+    assert.equal(flow.match(/- tapOn: \$\{MAESTRO_CREATE_ACCOUNT\}/g).length,1);assert.equal(flow.match(/- tapOn: \$\{MAESTRO_CONTINUE\}/g).length,1);
+    assert.match(flow,/visible: \$\{MAESTRO_OTP_LABEL\}\r?\n {4}timeout: 30000/);
+  }
+  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');assert.ok(driver.includes('email: labels.MAESTRO_EMAIL_LABEL,'));
+});
 test('editable native flow targets select fixed input IDs while keeping single actions and visible acceptance',()=>{
   const read=name=>readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n');
   for(const name of ['identifier','identifier-android']){const flow=read(name);assert.equal(flow.match(/- tapOn:\n {4}id: native-identifier-input/g).length,1);assert.equal(flow.includes('- tapOn: ${MAESTRO_EMAIL_LABEL}'),false);assert.ok(flow.includes('visible: ${MAESTRO_CREATE_ACCOUNT}'));assert.ok(flow.includes('visible: ${MAESTRO_OTP_LABEL}\n    timeout: 30000'));assert.equal(flow.match(/^- inputText:/gm).length,1);}

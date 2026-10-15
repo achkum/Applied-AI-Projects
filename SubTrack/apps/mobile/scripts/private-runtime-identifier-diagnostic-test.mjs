@@ -6,7 +6,7 @@ import {
   createEnrollmentExecution,
   enrollmentExecutionDiagnostic,
 } from './private-runtime-identifier-diagnostic.mjs';
-const labels = { createAccount: 'Create account', otp: 'Verification code' };
+const labels = { createAccount: 'Create account', email: 'Email address', otp: 'Verification code' };
 function classify(overrides = {}) {
   return identifierToolDiagnostic({
     phase: 'flow-identifier',
@@ -42,6 +42,16 @@ function enrollment(overrides = {}) {
     ...overrides,
   });
 }
+test('identifier email target accepts only the fixed input ID or literal trusted display label',()=>{
+  for(const label of ['Email address','E-postadress','Email address (work)']){
+    for(const text of [label,'native-identifier-input']){const result=classify({labels:{...labels,email:label},identifier:`Tap on "${text}" FAILED private-canary`});assert.deepEqual(result.targets,['email-field']);assert.equal(JSON.stringify(result).includes('private-canary'),false);assert.equal(JSON.stringify(result).includes('native-identifier-input'),false);}
+    for(const text of [`${label}-private`,`private-${label}`,`${label}_private`])assert.deepEqual(classify({labels:{...labels,email:label},identifier:`Tap on "${text}" FAILED`}).targets,[]);
+  }
+  for(const text of ['native-identifier-input-private','private-native-identifier-input','native-identifier-input_private','native-unknown-input','Email addressPrivate'])assert.deepEqual(classify({identifier:`Tap on "${text}" FAILED`}).targets,[]);
+  assert.deepEqual(classify({identifier:'Tap on native-identifier-input COMPLETED\nTap on unknown FAILED'}).targets,[]);
+  assert.equal(classify({phase:'flow-enroll-add',identifier:'Tap on native-identifier-input FAILED'}).withheld,'outside-identifier');
+  assert.equal(classify({identifier:'x'.repeat(4_000_001)+' native-identifier-input FAILED'}).withheld,'tool-input-unavailable');
+});
 test('fixed public editable IDs are aliases of existing targets only and reject token lookalikes',()=>{
   const aliases=[['native-registration-otp','otp-field'],['native-profile-name','profile-name'],['native-subscription-name','subscription-name'],['native-subscription-amount','subscription-amount'],['native-subscription-date','date-field']];
   for(const [id,target] of aliases){
@@ -51,7 +61,7 @@ test('fixed public editable IDs are aliases of existing targets only and reject 
     for(const unknown of [`${id}-private`,`private-${id}`,`${id}_private`])assert.deepEqual(enrollment({enrollment:`Tap on id: ${unknown} FAILED`}).targets,[]);
   }
   assert.deepEqual(classify({identifier:'Tap on id: native-registration-otp FAILED'}).targets,['otp-field']);
-  assert.deepEqual(classify({identifier:'Tap on id: native-identifier-input FAILED'}).targets,[]);
+  assert.deepEqual(classify({identifier:'Tap on id: native-identifier-input FAILED'}).targets,['email-field']);
   assert.equal(enrollment({phase:'flow-identifier',enrollment:'Tap on id: native-profile-name FAILED'}).withheld,'outside-enrollment');
   assert.equal(enrollment({labels:{},enrollment:'Tap on id: native-profile-name FAILED'}).withheld,'trusted-target-unavailable');
   assert.equal(enrollment({enrollment:'x'.repeat(4_000_001)+' native-profile-name'}).withheld,'tool-input-unavailable');
@@ -76,6 +86,7 @@ test('only first-flow fixed child-tool inputs and valid trusted target inputs ar
     { createAccount: '', otp: 'code' },
     { createAccount: 'account', otp: 1 },
     { createAccount: 'account', otp: '' },
+    { ...labels, email: 1 }, { ...labels, email: '' }, { ...labels, email: undefined },
   ])
     assert.equal(
       classify({ labels: value }).withheld,
