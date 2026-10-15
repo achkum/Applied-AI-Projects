@@ -41,6 +41,16 @@ it('shows both same-day entries, exact saved totals, detail isolation and manage
  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.details.replace('%{name}',row.customName)}));expect(screen.getByText(copy.billingMonth.manual)).toBeTruthy();expect(screen.getByText(copy.billingMonth.private)).toBeTruthy();expect(screen.queryByRole('button',{name:copy.billingMonth.next})).toBeNull();
  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.manage}));expect(mockReplace).toHaveBeenCalledWith('/personal');
 });
+it('renders every selectable month date and shows a date-scoped empty state without hiding other saved dates',async()=>{
+ const second={...row,id:'223e4567-e89b-42d3-a456-426614174000',customName:'Second same-day service',expectedAmountMinor:'7'};
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row,second],nextCursor:null});mount();await login();await screen.findByText(row.customName);
+ const day28=copy.billingMonth.day.replace('%{date}','2026-03-28'),day29=copy.billingMonth.day.replace('%{date}','2026-03-29'),day31=copy.billingMonth.day.replace('%{date}','2026-03-31');
+ expect(screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-03-01')})).toBeTruthy();expect(screen.getByRole('button',{name:day31})).toBeTruthy();
+ expect(screen.getByRole('button',{name:day28}).props.accessibilityState.selected).toBe(true);
+ fireEvent.press(screen.getByRole('button',{name:day29}));expect(screen.getByText('2026-03-29')).toBeTruthy();expect(screen.getByText(copy.billingMonth.dayEmpty)).toBeTruthy();
+ expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText(second.customName)).toBeNull();expect(screen.queryByText(copy.billingMonth.empty)).toBeNull();
+ fireEvent.press(screen.getByRole('button',{name:day28}));await screen.findByText(row.customName);expect(screen.getByText(second.customName)).toBeTruthy();expect(screen.queryByText(copy.billingMonth.dayEmpty)).toBeNull();
+});
 it('reads new calendar month and date selection without expanding the original saved dates',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row,{...row,id:'223e4567-e89b-42d3-a456-426614174000',nextChargeDate:'2026-03-30',customName:'Later day'}],nextCursor:null});mount();await login();await screen.findByText(row.customName);
  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-03-30')}));await screen.findByText('Later day');expect(screen.queryByText(row.customName)).toBeNull();

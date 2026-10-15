@@ -1,0 +1,5 @@
+
+## Full calendar while native acceptance runs
+The approved calendar ribbon now contains every validated date of the selected month, including empty days. Date generation supports Gregorian leap centuries and years0001..9999 without JS small-year coercion. Existing event-only day groups, exact expected totals, owner pagination and authority/stale guards are unchanged. Selecting an empty date shows explicit bilingual no-saved-expected-subscription text; event selection restores all same-day rows, and a wholly empty month retains its month notice. No paid/history/zero-unknown-spend inference.
+
+Focused helper/screen19testsPASS; helper line/branch coverage100% (statements98.7%, functions90.9%); mobile types, scopedlint and i18nparityPASS. Independent client/design/security/Money SOURCE GO matched all6code/catalog hashes and confirmed navigation/yearbounds/accessibility/detail/blur/logout semantics. Actual installed pixels and full native acceptance remain separate. This stays local while c26 native run38685066402 is active; no push/cancellation/deployment.

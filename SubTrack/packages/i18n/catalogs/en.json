@@ -283,6 +283,7 @@
       "next": "Next month",
       "expected": "Saved expected dates and amounts, not confirmed charges. Refresh to read current subscriptions.",
       "empty": "No active saved dates in this month. Missing dates remain unknown.",
+      "dayEmpty": "No saved expected subscriptions on this date.",
       "subtotal": "Subtotal of saved expected dates, by currency",
       "day": "Expected renewals on %{date}",
       "details": "View details for %{name}",

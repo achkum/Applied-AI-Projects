@@ -283,6 +283,7 @@
       "next": "Nästa månad",
       "expected": "Sparade förväntade datum och belopp, inte bekräftade debiteringar. Uppdatera för att läsa aktuella abonnemang.",
       "empty": "Inga aktiva sparade datum den här månaden. Saknade datum är fortfarande okända.",
+      "dayEmpty": "Inga sparade förväntade abonnemang det här datumet.",
       "subtotal": "Delsumma av sparade förväntade datum, per valuta",
       "day": "Förväntade förnyelser %{date}",
       "details": "Visa detaljer för %{name}",

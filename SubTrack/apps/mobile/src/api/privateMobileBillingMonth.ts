@@ -10,6 +10,11 @@ const fail=()=>new Error('Private billing month unavailable');
 export function checkBillingMonth(month:BillingMonth):BillingMonth{
  if(!month||!Number.isInteger(month.year)||month.year<1||month.year>9999||!Number.isInteger(month.month)||month.month<1||month.month>12)throw fail();return month;
 }
+export function billingMonthCalendarDates(input:BillingMonth):readonly string[]{
+ const {year,month}=checkBillingMonth(input),daysByMonth=[31,0,31,30,31,30,31,31,30,31,30,31];
+ const days=month===2?(year%4===0&&(year%100!==0||year%400===0)?29:28):daysByMonth[month-1]!;
+ return Array.from({length:days},(_,index)=>`${String(year).padStart(4,'0')}-${String(month).padStart(2,'0')}-${String(index+1).padStart(2,'0')}`);
+}
 export function currentBillingMonth(now:Date):BillingMonth{if(!(now instanceof Date)||!Number.isFinite(now.getTime()))throw fail();return checkBillingMonth({year:now.getFullYear(),month:now.getMonth()+1});}
 export function shiftBillingMonth(input:BillingMonth,direction:-1|1):BillingMonth{
  const month=checkBillingMonth(input);if(direction!==-1&&direction!==1)throw fail();
