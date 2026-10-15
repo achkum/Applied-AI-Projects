@@ -1,6 +1,46 @@
 import {describe,it,expect} from 'vitest';
 import {OwnedDetectionController,OWNED_DETECTION_SCENARIOS} from './private-mobile-owned-fixture-observer.js';
 import {PRIVATE_MOBILE_DETECTION_STATEMENTS as sql} from '../src/detection/private-mobile-detection-statements.js';
+import type {PoolClient} from 'pg';
+import {prepareOwnedDetectionOverflow,restoreOwnedDetectionOverflow} from './private-mobile-owned-fixture.js';
+
+const overflowOwner='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',overflowAccount='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',overflowConnection='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+function overflowFixture(){
+ const rows=Array.from({length:3},(_,i)=>({id:`eeeeeeee-eeee-4eee-8eee-${String(i).padStart(12,'0')}`,identity_id:overflowOwner,account_id:overflowAccount,connection_id:overflowConnection,amount:String(-14900-i),date:`2026-${String(i+7).padStart(2,'0')}-01`,currency:'SEK',description:['NETFLIX','Netflix','NETFLIX.COM'][i]!,fixture_version:'solberg-v1',connection_status:'ACTIVE',revoked_at:null,purged_at:null,last_synced_at:new Date('2026-10-01T00:00:00Z')}));
+ let data:Record<string,unknown>[]=rows.map(row=>({...row})),snapshot:Record<string,unknown>[]|undefined,updates=0,failAt=0,drift=false;
+ const calls:{operation:string;values:readonly unknown[]|undefined}[]=[];
+ const query=async(text:string,values?:readonly unknown[])=>{
+  const operation=['BEGIN','COMMIT','ROLLBACK'].includes(text)?text:text.startsWith('SELECT')?'READ':'WRITE';calls.push({operation,values});
+  if(operation==='BEGIN'){snapshot=data.map(row=>({...row}));updates=0;return {command:'BEGIN',rowCount:null,rows:[]};}
+  if(operation==='COMMIT'){snapshot=undefined;return {command:'COMMIT',rowCount:null,rows:[]};}
+  if(operation==='ROLLBACK'){if(snapshot)data=snapshot;snapshot=undefined;return {command:'ROLLBACK',rowCount:null,rows:[]};}
+  if(operation==='READ'){expect(values?.[0]).toBe(overflowOwner);expect(values?.[1]).toEqual(['NETFLIX','Netflix','NETFLIX*','NETFLIX.COM']);return {command:'SELECT',rowCount:data.length,rows:data.map(row=>({...row}))};}
+  updates++;if(updates===failAt)throw new Error('private storage failure');
+  expect(values?.slice(0,4)).toEqual([overflowOwner,overflowAccount,overflowConnection,'SEK']);const row=data.find(row=>row.id===values?.[4]);if(!row||row.amount!==values?.[5])return {command:'UPDATE',rowCount:0,rows:[]};row.amount=values?.[6];
+  return {command:'UPDATE',rowCount:1,rows:[{id:drift?overflowAccount:row.id}]};
+ };
+ return {client:{query} as unknown as Pick<PoolClient,'query'>,calls,rows:()=>data,replace:(value:Record<string,unknown>[])=>{data=value;},fail:(at:number)=>{failAt=at;},drift:()=>{drift=true;},originals:rows.map(row=>({...row}))};
+}
+describe('real-detector overflow cohort and atomic fixture custody',()=>{
+ it('proves a recurring fully-overflowing cohort before writes and restores each exact original amount',async()=>{
+  const f=overflowFixture(),cohort=await prepareOwnedDetectionOverflow(f.client,overflowOwner);expect(f.calls.map(call=>call.operation)).toEqual(['BEGIN','READ','WRITE','WRITE','WRITE','COMMIT']);expect(f.rows().every(row=>row.amount==='-9223372036854775808')).toBe(true);expect(Object.isFrozen(cohort)).toBe(true);expect(Object.isFrozen(cohort.originals)).toBe(true);
+  await restoreOwnedDetectionOverflow(f.client,cohort);expect(f.rows()).toEqual(f.originals);expect(f.calls.slice(6).map(call=>call.operation)).toEqual(['BEGIN','READ','WRITE','WRITE','WRITE','COMMIT']);await expect(restoreOwnedDetectionOverflow(f.client,cohort)).rejects.toThrow('Fixture unavailable');
+ });
+ it('rejects incomplete, duplicate, foreign, stale, ambiguous, untrusted and nonrecurring cohorts before mutation',async()=>{
+  for(const patch of [{identity_id:overflowAccount},{account_id:overflowConnection},{connection_id:overflowAccount},{currency:'USD'},{description:'private descriptor'},{fixture_version:'stale'},{connection_status:'REVOKED'},{revoked_at:new Date()},{purged_at:new Date()},{last_synced_at:null},{id:'substituted'},{date:'2026-02-30'},{amount:'1'},{amount:'-9223372036854775809'}]){
+   const f=overflowFixture();Object.assign(f.rows()[1]!,patch);await expect(prepareOwnedDetectionOverflow(f.client,overflowOwner)).rejects.toThrow('Fixture unavailable');expect(f.calls.some(call=>call.operation==='WRITE')).toBe(false);expect(f.calls.at(-1)!.operation).toBe('ROLLBACK');
+  }
+  for(const kind of ['short','duplicate','overbound','nonrecurring','already-overflowing']){const f=overflowFixture();if(kind==='short')f.replace(f.rows().slice(0,2));if(kind==='duplicate')f.rows()[1]!.id=f.rows()[0]!.id;if(kind==='overbound')f.replace(Array(10001).fill(f.rows()[0]!));if(kind==='nonrecurring'){f.rows()[1]!.date='2026-09-15';f.rows()[2]!.date='2026-12-28';}if(kind==='already-overflowing')for(const row of f.rows())row.amount='-9223372036854775808';await expect(prepareOwnedDetectionOverflow(f.client,overflowOwner)).rejects.toThrow('Fixture unavailable');expect(f.calls.some(call=>call.operation==='WRITE')).toBe(false);}
+ });
+ it('rolls back partial perturbation and substituted UPDATE outcomes',async()=>{
+  const f=overflowFixture();f.fail(2);await expect(prepareOwnedDetectionOverflow(f.client,overflowOwner)).rejects.toThrow();expect(f.rows()).toEqual(f.originals);expect(f.calls.at(-1)!.operation).toBe('ROLLBACK');
+  const drift=overflowFixture();drift.drift();await expect(prepareOwnedDetectionOverflow(drift.client,overflowOwner)).rejects.toThrow('Fixture unavailable');expect(drift.rows()).toEqual(drift.originals);
+ });
+ it('rejects substituted/stale restoration and atomically rolls back a partial restore',async()=>{
+  for(const change of ['missing','extra','foreign','stale','amount','description']){const f=overflowFixture(),cohort=await prepareOwnedDetectionOverflow(f.client,overflowOwner);if(change==='missing')f.replace(f.rows().slice(1));if(change==='extra')f.replace([...f.rows(),{...f.rows()[0]!,id:overflowAccount}]);if(change==='foreign')f.rows()[0]!.identity_id=overflowAccount;if(change==='stale')f.rows()[0]!.fixture_version='stale';if(change==='amount')f.rows()[0]!.amount='-1';if(change==='description')f.rows()[0]!.description='private';const before=f.rows().map(row=>({...row}));await expect(restoreOwnedDetectionOverflow(f.client,cohort)).rejects.toThrow('Fixture unavailable');expect(f.rows()).toEqual(before);expect(f.calls.at(-1)!.operation).toBe('ROLLBACK');}
+  const f=overflowFixture(),cohort=await prepareOwnedDetectionOverflow(f.client,overflowOwner),perturbed=f.rows().map(row=>({...row}));await expect(restoreOwnedDetectionOverflow(f.client,{...cohort})).rejects.toThrow('Fixture unavailable');f.fail(2);await expect(restoreOwnedDetectionOverflow(f.client,cohort)).rejects.toThrow();expect(f.rows()).toEqual(perturbed);f.fail(0);await restoreOwnedDetectionOverflow(f.client,cohort);expect(f.rows()).toEqual(f.originals);
+ });
+});
 const owner='owned-owner';
 async function original(control:OwnedDetectionController){control.verified(owner,'owned-session');await control.query(sql.detectionReceiptInsert,[owner,'owned-receipt','owned-candidate','confirm',null,null,null,null,null,null,null,'1970-01-01T02:00:10.000Z'],async()=>({command:'INSERT',rowCount:1}));await control.query('COMMIT',undefined,async()=>({command:'COMMIT',rowCount:null}));}
 const result=async()=>({command:'SELECT',rowCount:1});

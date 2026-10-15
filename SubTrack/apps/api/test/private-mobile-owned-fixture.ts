@@ -8,6 +8,10 @@ import {createHash,createPrivateKey,createPublicKey,randomUUID} from 'node:crypt
 import {readFile,lstat,realpath} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';
 import {Pool} from 'pg';
+import type {PoolClient} from 'pg';
+import {createRequire} from 'node:module';
+import {pathToFileURL} from 'node:url';
+import type {BigintTransactionSeries} from '@subtrack/domain/detection';
 import {createPrivateMobileServer,type PrivateMobileServerConfig} from '../src/auth/mobile-private/private-mobile-server.js';
 import {V2AccessToken} from '../src/auth/sessions-v2/v2-access-token.js';
 import {derivePrivateMobileManifest} from './private-mobile-manifest.js';
@@ -19,6 +23,67 @@ export type OwnedPrivateMobileConfig=Readonly<{
 }>;
 export type PrivateMobileReceipt=Readonly<{version:1;markerHash:string;identityCount:number;profileCompleteCount:number;justMeCount:number;subscriptionCount:number;subscriptionDigest:string}>;
 const HEX64=/^[a-f0-9]{64}$/;
+const OVERFLOW_MIN='-9223372036854775808',OVERFLOW_MAX=9223372036854775807n;
+const OVERFLOW_ALIASES=Object.freeze(['NETFLIX','Netflix','NETFLIX*','NETFLIX.COM']);
+const OVERFLOW_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+type OverflowCohort=Readonly<{owner:string;account:string;connection:string;currency:string;originals:readonly Readonly<{id:string;amount:string}>[]}>;
+const overflowCustody=new WeakSet<OverflowCohort>();
+const OVERFLOW_READ=`SELECT rt.id::text AS id,rt.identity_id::text AS identity_id,ba.id::text AS account_id,bc.id::text AS connection_id,
+rt.amount_minor::text AS amount,rt.transaction_date::text AS date,rt.currency,rt.raw_description AS description,
+bg.fixture_version,bc.status::text AS connection_status,bc.revoked_at,bg.purged_at,bc.last_synced_at
+FROM public.raw_transaction rt JOIN public.bank_account ba ON ba.id=rt.account_id AND ba.identity_id=rt.identity_id
+JOIN public.bank_connection bc ON bc.id=ba.connection_id AND bc.identity_id=ba.identity_id
+JOIN st248_bank.generation bg ON bg.connection_id=bc.id AND bg.identity_id=bc.identity_id
+WHERE rt.identity_id=$1::uuid AND bc.provider='SYNTHETIC' AND bc.institution_id='synthetic-demo-v1'
+AND bc.status='ACTIVE' AND bc.revoked_at IS NULL AND bg.fixture_version='solberg-v1' AND bg.purged_at IS NULL
+AND bc.last_synced_at IS NOT NULL AND rt.status='BOOKED' AND rt.amount_minor<0 AND rt.is_refund=false
+AND rt.currency=ba.currency AND rt.raw_description=ANY($2::text[])
+ORDER BY ba.id,rt.transaction_date,rt.id LIMIT 10001 FOR UPDATE OF rt,ba,bc,bg`;
+const OVERFLOW_WRITE=`UPDATE public.raw_transaction rt SET amount_minor=$7::bigint
+WHERE rt.identity_id=$1::uuid AND rt.account_id=$2::uuid AND rt.id=$5::uuid AND rt.currency=$4::char(3)
+AND rt.amount_minor=$6::bigint AND rt.status='BOOKED' AND rt.is_refund=false AND rt.raw_description=ANY($8::text[])
+AND EXISTS(SELECT 1 FROM public.bank_account ba JOIN public.bank_connection bc ON bc.id=ba.connection_id AND bc.identity_id=ba.identity_id
+JOIN st248_bank.generation bg ON bg.connection_id=bc.id AND bg.identity_id=bc.identity_id
+WHERE ba.id=rt.account_id AND ba.identity_id=rt.identity_id AND ba.currency=rt.currency AND bc.id=$3::uuid
+AND bc.provider='SYNTHETIC' AND bc.institution_id='synthetic-demo-v1' AND bc.status='ACTIVE' AND bc.revoked_at IS NULL
+AND bg.fixture_version='solberg-v1' AND bg.purged_at IS NULL AND bc.last_synced_at IS NOT NULL)
+RETURNING rt.id::text AS id`;
+const overflowUnavailable=():never=>{throw new Error('Fixture unavailable');};
+/** Actual compiled detector validates the negative control before any bank evidence is changed. */
+export async function prepareOwnedDetectionOverflow(client:Pick<PoolClient,'query'>,owner:string):Promise<OverflowCohort>{
+ if(!OVERFLOW_UUID.test(owner))return overflowUnavailable();
+ await client.query('BEGIN');
+ try{
+  const found=await client.query(OVERFLOW_READ,[owner,OVERFLOW_ALIASES]);
+  if(found.command!=='SELECT'||found.rowCount!==found.rows.length||found.rows.length<3||found.rows.length>10000)return overflowUnavailable();
+  const first=found.rows[0],ids=new Set<string>();
+  if(!OVERFLOW_UUID.test(first.account_id)||!OVERFLOW_UUID.test(first.connection_id)||first.currency!=='SEK')return overflowUnavailable();
+  const transactions=found.rows.map(row=>{
+   if(row.identity_id!==owner||row.account_id!==first.account_id||row.connection_id!==first.connection_id||row.currency!==first.currency||!OVERFLOW_UUID.test(row.id)||ids.has(row.id)||!OVERFLOW_ALIASES.includes(row.description)||row.fixture_version!=='solberg-v1'||row.connection_status!=='ACTIVE'||row.revoked_at!==null||row.purged_at!==null||!(row.last_synced_at instanceof Date)||!Number.isFinite(row.last_synced_at.getTime())||typeof row.amount!=='string'||!/^-[1-9][0-9]{0,18}$/.test(row.amount)||BigInt(row.amount)<BigInt(OVERFLOW_MIN)||typeof row.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(row.date))return overflowUnavailable();
+   const date=new Date(`${row.date}T00:00:00.000Z`);if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==row.date)return overflowUnavailable();ids.add(row.id);
+   return {id:row.id as string,accountId:first.account_id as string,date,amountMinor:BigInt(row.amount),currency:first.currency as string,direction:'DEBIT' as const,pending:false};
+  });
+  const runtime=createRequire(__filename),core=await import(pathToFileURL(runtime.resolve('@subtrack/domain/detection-runtime')).href) as typeof import('@subtrack/domain/detection-runtime');
+  const series:BigintTransactionSeries={ownerId:owner,accountId:first.account_id,merchantKey:'netflix',currency:first.currency,categoryCode:'VIDEO_STREAMING',transactions};
+  const original=core.detectRecurringBigint(series).filter(candidate=>candidate.cadence==='MONTHLY'),overflow=core.detectRecurringBigint({...series,transactions:transactions.map(row=>({...row,amountMinor:BigInt(OVERFLOW_MIN)}))}).filter(candidate=>candidate.cadence==='MONTHLY');
+  if(original.length!==1||original[0]!.amountBand.representative.minorUnits<=0n||original[0]!.amountBand.representative.minorUnits>OVERFLOW_MAX||overflow.length!==1||overflow[0]!.amountBand.representative.minorUnits<=OVERFLOW_MAX)return overflowUnavailable();
+  const cohort:OverflowCohort=Object.freeze({owner,account:first.account_id,connection:first.connection_id,currency:first.currency,originals:Object.freeze(found.rows.map(row=>Object.freeze({id:row.id as string,amount:row.amount as string})))});
+  for(const row of cohort.originals){const saved=await client.query(OVERFLOW_WRITE,[owner,cohort.account,cohort.connection,cohort.currency,row.id,row.amount,OVERFLOW_MIN,OVERFLOW_ALIASES]);if(saved.command!=='UPDATE'||saved.rowCount!==1||saved.rows.length!==1||saved.rows[0].id!==row.id)return overflowUnavailable();}
+  await client.query('COMMIT');overflowCustody.add(cohort);return cohort;
+ }catch(error){await client.query('ROLLBACK');throw error;}
+}
+export async function restoreOwnedDetectionOverflow(client:Pick<PoolClient,'query'>,cohort:OverflowCohort):Promise<void>{
+ if(!overflowCustody.has(cohort))return overflowUnavailable();
+ await client.query('BEGIN');
+ try{
+  const found=await client.query(OVERFLOW_READ,[cohort.owner,OVERFLOW_ALIASES]),expected=new Set(cohort.originals.map(row=>row.id));
+  if(found.command!=='SELECT'||found.rowCount!==cohort.originals.length||found.rows.length!==cohort.originals.length)return overflowUnavailable();
+  for(const row of found.rows){if(!expected.delete(row.id)||row.identity_id!==cohort.owner||row.account_id!==cohort.account||row.connection_id!==cohort.connection||row.currency!==cohort.currency||row.amount!==OVERFLOW_MIN||row.fixture_version!=='solberg-v1'||row.connection_status!=='ACTIVE'||row.revoked_at!==null||row.purged_at!==null||!OVERFLOW_ALIASES.includes(row.description))return overflowUnavailable();}
+  if(expected.size!==0)return overflowUnavailable();
+  for(const row of cohort.originals){const restored=await client.query(OVERFLOW_WRITE,[cohort.owner,cohort.account,cohort.connection,cohort.currency,row.id,OVERFLOW_MIN,row.amount,OVERFLOW_ALIASES]);if(restored.command!=='UPDATE'||restored.rowCount!==1||restored.rows.length!==1||restored.rows[0].id!==row.id)return overflowUnavailable();}
+  await client.query('COMMIT');overflowCustody.delete(cohort);
+ }catch(error){await client.query('ROLLBACK');throw error;}
+}
 async function privateFile(path:string,config:OwnedPrivateMobileConfig):Promise<Buffer>{
  if(dirname(resolve(path))!==resolve(config.tempDir)||await realpath(path)!==resolve(path))throw new Error('Fixture custody rejected');
  const stat=await lstat(path);if(!stat.isFile()||(stat.mode&0o077)!==0)throw new Error('Fixture custody rejected');
@@ -32,7 +97,7 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
  const actor=new Pool({...connection,user:'subtrack_dev_auth_login',password:config.actorPassword});
  let fault:Readonly<{kind:'before'|'after';skip:number}>|undefined;const bankDiagnostics=new OwnedPrivateBankDiagnostics();
  const initialScan=new OwnedInitialDetectionScanObserver();const detection=new OwnedDetectionController();const clock=()=>detection.now();
- let detectionOwner:string|undefined;let adversary:Readonly<{kind:'overflow'|'collision'|'unmatched';id:string;prior:string}>|undefined;
+ let detectionOwner:string|undefined;let adversary:Readonly<{kind:'collision'|'unmatched';id:string;prior:string}|{kind:'overflow';cohort:OverflowCohort}>|undefined;
  // Test-only transport faults around real PostgreSQL COMMIT, never inside the production factory.
  const actorPool:Pick<Pool,'connect'>={connect:async()=>{
   const client=await actor.connect();
@@ -122,6 +187,7 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
  }
  async function prepareDetectionAdversary(kind:'overflow'|'collision'|'unmatched'){
   if(disposed||!graph||!detection.enabled()||!detectionOwner||adversary||process.env.NODE_ENV!=='development')throw new Error('Fixture unavailable');await fence();
+  if(kind==='overflow'){const client=await owner.connect();try{adversary={kind,cohort:await prepareOwnedDetectionOverflow(client,detectionOwner)};}finally{client.release();}return;}
   if(kind==='collision'){
    const found=await owner.query('SELECT subscription_id::text AS id,merchant_key AS prior FROM st081_detection.candidate WHERE identity_id=$1::uuid ORDER BY subscription_id LIMIT 1',[detectionOwner]);if(found.rowCount!==1)throw new Error('Fixture unavailable');
    const saved=await owner.query("UPDATE st081_detection.candidate SET merchant_key='fixture-"+"collision-v1' WHERE identity_id=$1::uuid AND subscription_id=$2::uuid AND merchant_key=$3::text RETURNING subscription_id",[detectionOwner,found.rows[0].id,found.rows[0].prior]);if(saved.rowCount!==1)throw new Error('Fixture unavailable');adversary={kind,id:found.rows[0].id,prior:found.rows[0].prior};
@@ -131,13 +197,13 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
     JOIN st248_bank.generation bg ON bg.connection_id=bc.id AND bg.identity_id=bc.identity_id
     WHERE rt.identity_id=$1::uuid AND bc.provider='SYNTHETIC' AND bc.institution_id='synthetic-demo-v1' AND bc.status='ACTIVE' AND bc.revoked_at IS NULL
     AND bg.fixture_version='solberg-v1' AND bg.purged_at IS NULL AND bc.last_synced_at IS NOT NULL AND rt.status='BOOKED' AND rt.amount_minor<0 AND rt.is_refund=false AND rt.currency=ba.currency ORDER BY ba.id,rt.transaction_date,rt.id LIMIT 1`,[detectionOwner]);if(found.rowCount!==1)throw new Error('Fixture unavailable');
-   const row=found.rows[0],sql=kind==='overflow'?"UPDATE public.raw_transaction SET amount_minor=-9223372036854775808 WHERE identity_id=$1::uuid AND id=$2::uuid AND amount_minor=$3::bigint RETURNING id":"UPDATE public.raw_transaction SET raw_description='OWNED_UNMATCHED_PRIVATE_DESCRIPTOR' WHERE identity_id=$1::uuid AND id=$2::uuid AND raw_description=$3::text RETURNING id";
-   const prior=kind==='overflow'?row.amount:row.description;if(typeof prior!=='string')throw new Error('Fixture unavailable');if((await owner.query(sql,[detectionOwner,row.id,prior])).rowCount!==1)throw new Error('Fixture unavailable');adversary={kind,id:row.id,prior};
+   const row=found.rows[0],sql="UPDATE public.raw_transaction SET raw_description='OWNED_UNMATCHED_PRIVATE_DESCRIPTOR' WHERE identity_id=$1::uuid AND id=$2::uuid AND raw_description=$3::text RETURNING id";
+   const prior=row.description;if(typeof prior!=='string')throw new Error('Fixture unavailable');if((await owner.query(sql,[detectionOwner,row.id,prior])).rowCount!==1)throw new Error('Fixture unavailable');adversary={kind,id:row.id,prior};
   }
  }
  async function restoreDetectionAdversary(){
-  if(arguments.length!==0||disposed||!adversary||!detectionOwner)throw new Error('Fixture unavailable');await fence();const {kind,id,prior}=adversary;
-  const sql=kind==='collision'?"UPDATE st081_detection.candidate SET merchant_key=$3::text WHERE identity_id=$1::uuid AND subscription_id=$2::uuid AND merchant_key='fixture-"+"collision-v1' RETURNING subscription_id":kind==='overflow'?"UPDATE public.raw_transaction SET amount_minor=$3::bigint WHERE identity_id=$1::uuid AND id=$2::uuid AND amount_minor=-9223372036854775808 RETURNING id":"UPDATE public.raw_transaction SET raw_description=$3::text WHERE identity_id=$1::uuid AND id=$2::uuid AND raw_description='OWNED_UNMATCHED_PRIVATE_DESCRIPTOR' RETURNING id";
+  if(arguments.length!==0||disposed||!adversary||!detectionOwner)throw new Error('Fixture unavailable');await fence();if(adversary.kind==='overflow'){const client=await owner.connect();try{await restoreOwnedDetectionOverflow(client,adversary.cohort);adversary=undefined;}finally{client.release();}return;}const {kind,id,prior}=adversary;
+  const sql=kind==='collision'?"UPDATE st081_detection.candidate SET merchant_key=$3::text WHERE identity_id=$1::uuid AND subscription_id=$2::uuid AND merchant_key='fixture-"+"collision-v1' RETURNING subscription_id":"UPDATE public.raw_transaction SET raw_description=$3::text WHERE identity_id=$1::uuid AND id=$2::uuid AND raw_description='OWNED_UNMATCHED_PRIVATE_DESCRIPTOR' RETURNING id";
   if((await owner.query(sql,[detectionOwner,id,prior])).rowCount!==1)throw new Error('Fixture unavailable');adversary=undefined;
  }
  async function readbackRenewalsReceipt(candidate:string):Promise<PrivateMobileRenewalsReceipt>{
