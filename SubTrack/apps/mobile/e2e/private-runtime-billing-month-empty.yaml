@@ -15,9 +15,20 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_TITLE}
     timeout: 30000
+# Only an exact previous-month header admits the single adjacent-month action.
+- runFlow:
+    when:
+      visible: ${MAESTRO_MONTH_PREVIOUS}
+    commands:
+      - tapOn: ${MAESTRO_MONTH_NEXT}
+- extendedWaitUntil:
+    visible: ${MAESTRO_MONTH_TARGET}
+    timeout: 30000
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_EMPTY}
     timeout: 30000
+- runFlow: private-runtime-month-day.yaml
+- assertVisible: ${MAESTRO_MONTH_DAY_EMPTY}
 - assertNotVisible: Native edited restart proof
 - scrollUntilVisible:
     element: ${MAESTRO_MONTH_REFRESH}
@@ -29,8 +40,16 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_EMPTY}
     timeout: 30000
+- runFlow: private-runtime-month-day.yaml
+- assertVisible: ${MAESTRO_MONTH_DAY_EMPTY}
 - assertNotVisible: Native edited restart proof
 - takeScreenshot: accepted-billing-month-empty
+- tapOn: ${MAESTRO_MANAGE}
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}
     direction: DOWN

@@ -1,7 +1,7 @@
 import {qualifyNativeBank,acceptedNativeBankScreenshot,ACCEPTED_NATIVE_BANK_SCREENSHOTS} from './private-runtime-bank.mjs';
 import {prepareEnrollmentMetadata,enrollmentMetadataLines} from './private-runtime-maestro-metadata.mjs';
 import {enrollmentStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
-import {qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
+import {fixtureMonthLabels,qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
 import {renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
 import {qualifyNativeEditStatus,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS} from './private-runtime-edit-status.mjs';
 // Local installed-device qualification only. No EAS, cloud Maestro or store upload.
@@ -185,6 +185,7 @@ async function main() {
   labels.MAESTRO_MONTH_DAY=labels.MAESTRO_MONTH_DAY_TEMPLATE.replace('%{date}',renewalDate);
   labels.MAESTRO_MONTH_SAVED_DATE=labels.MAESTRO_MONTH_SAVED_DATE_TEMPLATE.replace('%{date}',renewalDate);
   async function flow(name, extraEnv = {}) {
+    const calendarEnv=(name==='billing-month'||name==='billing-month-empty')?fixtureMonthLabels(renewalDate):{};
     markPhase(`flow-${name}`);
     await run(
       'maestro',
@@ -201,7 +202,7 @@ async function main() {
         ),
       ],
       name,
-      { ...labels, ...extraEnv },
+      { ...labels, ...calendarEnv, ...extraEnv },
     );
   }
   function copyAcceptedScreenshots(directory) {

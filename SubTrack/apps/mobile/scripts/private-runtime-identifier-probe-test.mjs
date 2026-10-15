@@ -94,9 +94,16 @@ test('runtime integration uses only bounded read-only probe and retains failure 
   assert.ok(source.includes('const syntheticOtpIssued = code !== null;'));
   assert.ok(source.includes('issued: syntheticOtpIssued'));
   assert.ok(source.includes('harness.otpStartObservation()'));
-  const addFlow = readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml', import.meta.url), 'utf8');
-  assert.ok(addFlow.includes('- tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}\n- scrollUntilVisible:\n    element: ${MAESTRO_PERSONAL_TITLE}\n    direction: UP\n- extendedWaitUntil:\n    visible: ${MAESTRO_SAVED}\n    timeout: 30000'));
+  const addFlow = readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml', import.meta.url), 'utf8').replace(/\r\n/g,'\n');
+  assert.ok(addFlow.includes('- tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- assertVisible:\n    id: native-personal-title\n    text: ${MAESTRO_PERSONAL_TITLE}\n- extendedWaitUntil:\n    visible: ${MAESTRO_SAVED}\n    timeout: 30000'));
   assert.equal(addFlow.match(/tapOn: \$\{MAESTRO_SAVE_SUBSCRIPTION\}/g).length, 1);
   assert.ok(source.includes('process.exitCode = 1;'));
   assert.ok(source.includes('await harness.dispose();'));
+});
+
+test('authoritative setup hands off through Month and real Manage before the unchanged mandatory Add',()=>{
+ const read=name=>readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n');const add=read('enroll-add');
+ assert.ok(add.includes('- tapOn: ${MAESTRO_JUST_ME}\n- extendedWaitUntil:\n    visible: ${MAESTRO_MONTH_TITLE}\n    timeout: 30000\n- tapOn: ${MAESTRO_MANAGE}\n- extendedWaitUntil:\n    visible: ${MAESTRO_ADD}\n    timeout: 30000\n- tapOn: ${MAESTRO_ADD}'));
+ assert.equal(add.split('- tapOn: ${MAESTRO_MANAGE}').length-1,1);assert.ok(add.includes('id: native-personal-title\n    text: ${MAESTRO_PROFILE_TITLE}'));
+ assert.equal(read('save-header'),'appId: se.subtrack.app\n---\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- assertVisible:\n    id: native-personal-title\n    text: ${MAESTRO_PERSONAL_TITLE}\n');
 });

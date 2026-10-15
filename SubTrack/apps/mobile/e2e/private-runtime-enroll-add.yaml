@@ -12,6 +12,9 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_PROFILE_NAME}
     timeout: 30000
+- assertVisible:
+    id: native-personal-title
+    text: ${MAESTRO_PROFILE_TITLE}
 - tapOn:
     id: native-profile-name
 - inputText: Synthetic Native Proof
@@ -25,6 +28,10 @@ appId: se.subtrack.app
     visible: ${MAESTRO_JUST_ME}
     timeout: 30000
 - tapOn: ${MAESTRO_JUST_ME}
+- extendedWaitUntil:
+    visible: ${MAESTRO_MONTH_TITLE}
+    timeout: 30000
+- tapOn: ${MAESTRO_MANAGE}
 - extendedWaitUntil:
     visible: ${MAESTRO_ADD}
     timeout: 30000
@@ -65,8 +72,12 @@ appId: se.subtrack.app
     enabled: true
 - tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}
 - scrollUntilVisible:
-    element: ${MAESTRO_PERSONAL_TITLE}
+    element:
+      id: native-personal-title
     direction: UP
+- assertVisible:
+    id: native-personal-title
+    text: ${MAESTRO_PERSONAL_TITLE}
 - extendedWaitUntil:
     visible: ${MAESTRO_SAVED}
     timeout: 30000

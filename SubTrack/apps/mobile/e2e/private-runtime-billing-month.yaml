@@ -15,35 +15,23 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_TITLE}
     timeout: 30000
-# Wait for the single real saved row or a genuinely empty current local month.
-- extendedWaitUntil:
-    visible: "${MAESTRO_MONTH_DAY}|${MAESTRO_MONTH_EMPTY}"
-    timeout: 30000
-# UTC tomorrow can be in the adjacent local month. One ordinary navigation only.
+# Only an exact previous-month header admits the single adjacent-month action.
 - runFlow:
     when:
-      notVisible: ${MAESTRO_MONTH_DAY}
+      visible: ${MAESTRO_MONTH_PREVIOUS}
     commands:
       - tapOn: ${MAESTRO_MONTH_NEXT}
 - extendedWaitUntil:
-    visible: ${MAESTRO_MONTH_DAY}
+    visible: ${MAESTRO_MONTH_TARGET}
     timeout: 30000
-- tapOn: ${MAESTRO_MONTH_DAY}
-- assertVisible: ${MAESTRO_RENEWAL_DATE}
+- runFlow: private-runtime-month-day.yaml
 - assertVisible: Native restart proof
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}
 - scrollUntilVisible:
     element: ${MAESTRO_MONTH_REFRESH}
     direction: DOWN
 - tapOn: ${MAESTRO_MONTH_REFRESH}
-- scrollUntilVisible:
-    element: ${MAESTRO_MONTH_DAY}
-    direction: UP
-- extendedWaitUntil:
-    visible: ${MAESTRO_MONTH_DAY}
-    timeout: 30000
-- tapOn: ${MAESTRO_MONTH_DAY}
-- assertVisible: ${MAESTRO_RENEWAL_DATE}
+- runFlow: private-runtime-month-day.yaml
 - assertVisible: Native restart proof
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}
 - tapOn: ${MAESTRO_MONTH_DETAIL}
@@ -58,6 +46,12 @@ appId: se.subtrack.app
     element: ${MAESTRO_MONTH_CLOSE}
     direction: DOWN
 - tapOn: ${MAESTRO_MONTH_CLOSE}
+- tapOn: ${MAESTRO_MANAGE}
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}
     direction: DOWN

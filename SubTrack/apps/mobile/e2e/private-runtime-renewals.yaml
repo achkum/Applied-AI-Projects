@@ -31,6 +31,12 @@ appId: se.subtrack.app
 - assertVisible: ${MAESTRO_RENEWAL_DATE}
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-renewals
+- tapOn: ${MAESTRO_MANAGE}
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}
     direction: DOWN

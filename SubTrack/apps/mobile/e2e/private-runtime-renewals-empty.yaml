@@ -29,6 +29,12 @@ appId: se.subtrack.app
     timeout: 30000
 - assertNotVisible: Native edited restart proof
 - takeScreenshot: accepted-renewals-empty
+- tapOn: ${MAESTRO_MANAGE}
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}
     direction: DOWN
