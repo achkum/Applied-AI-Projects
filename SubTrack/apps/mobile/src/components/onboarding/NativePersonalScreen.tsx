@@ -43,6 +43,13 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
   const [draft, setDraft] = useState({ customName: '', categoryCode: '', cadence: 'MONTHLY', amount: '', date: '' });
   const generation = useRef(0); const pending = useRef(false);
   const feedbackGeneration = useRef(0);
+  const currentPhase = useRef(session.phase); currentPhase.current = session.phase;
+  const currentLoad = useRef(load); currentLoad.current = load;
+  const focusCleanup = useRef<() => void>(() => undefined);
+  focusCleanup.current = () => {
+    feedbackGeneration.current++; generation.current++; pending.current = false;
+    clear(); setLoading(false); setMessage('');
+  };
   useEffect(() => () => { feedbackGeneration.current++; }, []);
   async function applyPreferences(current: ProfileView, ticket: number) {
     if (ticket !== generation.current) return;
@@ -79,9 +86,10 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
     if (session.phase === 'active') void load();
     return () => { generation.current++;pending.current=false;request.current?.abort();request.current=null; };
   }, [session.phase]);
-  useFocusEffect(useCallback(() => { if (session.phase === 'active') void load(); return () => {
-    feedbackGeneration.current++;generation.current++;pending.current=false;clear();setLoading(false);setMessage('');
-  }; }, [session.phase]));
+  useFocusEffect(useCallback(() => {
+    if (currentPhase.current === 'active') void currentLoad.current();
+    return () => focusCleanup.current();
+  }, []));
   async function action(operation: (token: string, signal: AbortSignal) => Promise<(ticket: number) => void | Promise<void>>) {
     if (pending.current || session.phase !== 'active') return;
     const ticket = ++generation.current; pending.current = true; setLoading(true); setMessage('');

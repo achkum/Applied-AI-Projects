@@ -32,7 +32,7 @@ beforeAll(() => {
   expect(fixture.getByText('host ready')).toBeTruthy();
   fixture.unmount();
 }, 60_000);
-beforeEach(() => {mockLocale.value='en'; jest.resetAllMocks(); mockSetLocale.mockResolvedValue(undefined); mockSetMode.mockResolvedValue(undefined); jest.mocked(api.verifiedNativeLogin).mockResolvedValue(credentials);
+beforeEach(() => {mockLocale.value='en'; jest.resetAllMocks(); jest.mocked(useFocusEffect).mockImplementation(effect => { React.useEffect(effect, [effect]); }); mockSetLocale.mockResolvedValue(undefined); mockSetMode.mockResolvedValue(undefined); jest.mocked(api.verifiedNativeLogin).mockResolvedValue(credentials);
   jest.mocked(api.readNativeProfile).mockResolvedValue(profile); jest.mocked(api.readNativeMode).mockResolvedValue({ mode: 'just-me' }); });
 it('sandbox entry completes profile/Just Me/Add/Edit/status/readback/logout through separate injected authority',async()=>{
   let currentProfile={...profile,displayName:null as string|null,profileComplete:false};let mode:'just-me'|null=null;let rows:typeof row[]=[];
@@ -80,6 +80,23 @@ it('uses exact localized Money input and displays authoritative reread rather th
   fireEvent.press(screen.getByRole('button', { name: copy.manualSubscription.save }));
   await screen.findByText(copy.nativePersonal.saved); expect(screen.getByText(row.customName)).toBeTruthy(); expect(screen.queryByText('Submitted draft')).toBeNull();
   expect(api.createNativeSubscription).toHaveBeenCalledWith(expect.objectContaining({ expectedAmountMinor: '9007199254740993' }), credentials.accessToken, expect.any(AbortSignal));
+});
+
+it('preserves failed Add feedback when the real session core requires fresh verification',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});
+ jest.mocked(api.createNativeSubscription).mockRejectedValue(new Error('offline'));
+ mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
+ fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(copy.ownerSubscriptions.empty);
+ fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.title}));
+ fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Unpersisted draft');
+ fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.category.VIDEO_STREAMING}));
+ fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.amount),'129.90');
+ fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.save}));
+ await screen.findByText(copy.nativePersonal.unavailable);
+ expect(screen.getByRole('button',{name:copy.nativePersonal.verify})).toBeTruthy();
+ expect(screen.queryByLabelText(copy.manualSubscription.name)).toBeNull();
+ expect(screen.queryByText('Unpersisted draft')).toBeNull();
+ expect(api.createNativeSubscription).toHaveBeenCalledTimes(1);
 });
 
 it('completes profile and Just me only from separate authoritative reads',async()=>{

@@ -19,3 +19,7 @@ Current tester APK remains version2 at https://198.44.116.159/download. Backend 
 - git diff --check passes.
 
 Installed native testing and applicable remote CI remain separate gates. No native completion percentage or production readiness claim.
+
+## Save-failure lifecycle correction
+
+Installed Android/iOS Add failure exposed erased feedback: phase-dependent focus cleanup ran when real session rejection changed phase. The focus callback now stays stable and uses current phase/load/cleanup refs; actual blur/unmount retains owner-state clearing, abort and stale-result fences. Regression exercises failed create through real NativeSessionProvider with effect-backed focus lifecycle, asserting unavailable/re-verification and cleared private draft.31 screen tests, scoped lint and mobile types PASS. Independent client/security SOURCE GO matched screen SHA 3a26782b8cb7ea4137ee602985de5f74d1f7df62c929c2847624352fd25504d6 and test SHA 1bee2155d99a22db7c966d5e2a2992e4a7806cbe37ed3b7a5df52cbc2164b863. Existing blur/stale completion regression retained. Underlying create failure is still unproven; no installed acceptance or deployment claim.
