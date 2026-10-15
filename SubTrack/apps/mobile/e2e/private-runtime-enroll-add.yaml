@@ -32,6 +32,10 @@ appId: se.subtrack.app
     visible: ${MAESTRO_MONTH_TITLE}
     timeout: 30000
 - tapOn: ${MAESTRO_MANAGE}
+- scrollUntilVisible:
+    element:
+      id: native-personal-title
+    direction: UP
 - extendedWaitUntil:
     visible:
       id: native-personal-title

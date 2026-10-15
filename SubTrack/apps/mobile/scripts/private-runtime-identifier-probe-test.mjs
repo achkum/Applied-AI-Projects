@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
-import { probeResult, identifierProbes } from './private-runtime-identifier-probe.mjs';
+import childProcess, {spawn as realSpawn} from 'node:child_process';
+import {syncBuiltinESMExports} from 'node:module';
+import {EventEmitter} from 'node:events';
+import process from 'node:process';
+import {setTimeout,clearTimeout} from 'node:timers';
+import { probeResult, identifierProbes, runIdentifierProbe } from './private-runtime-identifier-probe.mjs';
 test('identifier navigation waits for the actual input and requires enabled Continue before one tap',()=>{
   for(const name of ['identifier','identifier-android']){
     const flow=readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8');
@@ -24,6 +29,7 @@ test('editable native flow targets select fixed input IDs while keeping single a
 });
 
 const labels = {
+  MAESTRO_CREATE_ACCOUNT: 'Create account',
   MAESTRO_REQUEST_UNAVAILABLE: 'Could not continue. Restart verification.',
   MAESTRO_IDENTIFIER_LOADING: 'Please wait…',
   MAESTRO_EMAIL_LABEL: 'Email address',
@@ -76,12 +82,13 @@ test('fixed sequential roster, inconclusive child errors, and private data never
     },
   });
   assert.deepEqual(calls, [
+    ['welcome-create-account', labels.MAESTRO_CREATE_ACCOUNT],
     ['request-unavailable', labels.MAESTRO_REQUEST_UNAVAILABLE],
     ['loading', labels.MAESTRO_IDENTIFIER_LOADING],
     ['email-field', labels.MAESTRO_EMAIL_LABEL],
     ['otp-field', labels.MAESTRO_OTP_LABEL],
   ]);
-  assert.deepEqual(observations, { 'request-unavailable': 'visible', loading: 'launch-error', 'email-field': 'timeout', 'otp-field': 'not-confirmed' });
+  assert.deepEqual(observations, { 'welcome-create-account': 'not-confirmed', 'request-unavailable': 'visible', loading: 'launch-error', 'email-field': 'timeout', 'otp-field': 'not-confirmed' });
   assert.equal(/private-canary|123456|person@example/.test(JSON.stringify(observations)), false);
 });
 
@@ -89,8 +96,11 @@ test('runtime integration uses only bounded read-only probe and retains failure 
   const yaml = readFileSync(new URL('../e2e/private-runtime-identifier-probe.yaml', import.meta.url), 'utf8');
   assert.equal(yaml.replace(/\r\n/g, '\n'), 'appId: se.subtrack.app\n---\n- assertVisible: ${MAESTRO_IDENTIFIER_PROBE_LABEL}\n');
   const source = readFileSync(new URL('./private-runtime-device.mjs', import.meta.url), 'utf8');
-  assert.ok(source.includes("spawn('timeout', ["));
-  assert.ok(source.includes("'--signal=TERM', '--kill-after=5s', '20s'"));
+  assert.ok(source.includes('execution = await runIdentifierProbe(['));
+  const identifierBlock=source.slice(source.indexOf('const observations = await identifierProbes'),source.indexOf('const readTool'));
+  assert.equal(identifierBlock.includes("spawn('timeout'"), false);
+  assert.ok(source.includes("stdio: ['ignore', fd, fd]"));
+  assert.ok(source.includes("return { ...execution, log: readFileSync(logPath, 'utf8') };"));
   assert.ok(source.includes('const syntheticOtpIssued = code !== null;'));
   assert.ok(source.includes('issued: syntheticOtpIssued'));
   assert.ok(source.includes('harness.otpStartObservation()'));
@@ -103,11 +113,66 @@ test('runtime integration uses only bounded read-only probe and retains failure 
 
 test('authoritative setup hands off through Month and real Manage before the unchanged mandatory Add',()=>{
  const read=name=>readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n');const add=read('enroll-add');
- assert.ok(add.includes('- tapOn: ${MAESTRO_JUST_ME}\n- extendedWaitUntil:\n    visible: ${MAESTRO_MONTH_TITLE}\n    timeout: 30000\n- tapOn: ${MAESTRO_MANAGE}\n- extendedWaitUntil:\n    visible:\n      id: native-personal-title\n      text: ${MAESTRO_PERSONAL_TITLE}\n    timeout: 30000\n- scrollUntilVisible:\n    element: ${MAESTRO_ADD}\n    direction: DOWN\n- extendedWaitUntil:\n    visible: ${MAESTRO_ADD}\n    timeout: 30000\n- tapOn: ${MAESTRO_ADD}'));
+ assert.ok(add.includes('- tapOn: ${MAESTRO_JUST_ME}\n- extendedWaitUntil:\n    visible: ${MAESTRO_MONTH_TITLE}\n    timeout: 30000\n- tapOn: ${MAESTRO_MANAGE}\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- extendedWaitUntil:\n    visible:\n      id: native-personal-title\n      text: ${MAESTRO_PERSONAL_TITLE}\n    timeout: 30000\n- scrollUntilVisible:\n    element: ${MAESTRO_ADD}\n    direction: DOWN\n- extendedWaitUntil:\n    visible: ${MAESTRO_ADD}\n    timeout: 30000\n- tapOn: ${MAESTRO_ADD}'));
  assert.equal(add.split('- tapOn: ${MAESTRO_MANAGE}').length-1,1);assert.ok(add.includes('id: native-personal-title\n    text: ${MAESTRO_PROFILE_TITLE}'));
  assert.equal(read('save-header'),'appId: se.subtrack.app\n---\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- assertVisible:\n    id: native-personal-title\n    text: ${MAESTRO_PERSONAL_TITLE}\n');
 });
 
 test('after create feedback at the exact header, persisted row below it is searched DOWN with original amount acceptance',()=>{
  const flow=readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');assert.ok(flow.includes('text: ${MAESTRO_PERSONAL_TITLE}\n- extendedWaitUntil:\n    visible: ${MAESTRO_SAVED}\n    timeout: 30000\n- scrollUntilVisible:\n    element: Native restart proof\n    direction: DOWN\n- assertVisible: Native restart proof\n- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}\n- takeScreenshot: accepted-add'));assert.equal(flow.split('- tapOn: ${MAESTRO_ADD}').length-1,1);assert.equal(flow.split('- tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}').length-1,1);
+});
+
+function childFixture({pid=24680,platform='darwin',throwSpawn=false,signalError=false}={}) {
+  const child=new EventEmitter();child.pid=pid;
+  const timers=[],signals=[],spawned=[];
+  const schedule=(action,ms)=>{const timer={action,ms,cancelled:false};timers.push(timer);return timer;};
+  const cancel=timer=>{if(timer)timer.cancelled=true;};
+  const ports={platform,parentPid:13579,schedule,cancel,spawn:(command,args,options)=>{
+    spawned.push({command,args,options});if(throwSpawn)throw Error('private-canary');return child;
+  },kill:(pid,signal)=>{signals.push([pid,signal]);if(signalError)throw Error('private-canary');}};
+  const result=runIdentifierProbe(['test','owned-flow.yaml'],{cwd:'owned',stdio:'ignore',env:{PUBLIC:'test'}},ports);
+  return {child,timers,signals,spawned,result,ports};
+}
+
+test('portable child port fixes invocation, owns successful spawn only and latches normal completion',async()=>{
+  const f=childFixture();assert.deepEqual(f.spawned,[{command:'maestro',args:['test','owned-flow.yaml'],options:{cwd:'owned',stdio:'ignore',env:{PUBLIC:'test'},detached:true}}]);
+  assert.equal(f.timers[0].ms,20000);f.child.emit('spawn');f.child.emit('close',0,null);assert.deepEqual(await f.result,{exitCode:0,timedOut:false});assert.ok(f.timers.every(t=>t.cancelled));
+  f.timers[0].action();f.child.emit('error',Error('private-canary'));assert.deepEqual(f.signals,[]);
+  for(const code of [null,-1,256,'private-canary']){const g=childFixture();g.child.emit('spawn');g.child.emit('close',code,'SIGTERM');assert.deepEqual(await g.result,{exitCode:-1,timedOut:false});assert.equal(probeResult({...await g.result,log:''}),'exit-other');}
+});
+
+test('spawn failures and invalid PID custody never send a signal',async()=>{
+  const thrown=childFixture({throwSpawn:true});assert.deepEqual(await thrown.result,{exitCode:null,timedOut:false});assert.deepEqual(thrown.signals,[]);
+  const failure=childFixture();failure.child.emit('error',Error('private-canary'));failure.child.emit('close',-1,null);failure.child.emit('spawn');assert.deepEqual(await failure.result,{exitCode:null,timedOut:false});assert.deepEqual(failure.signals,[]);
+  for(const pid of [undefined,NaN,1,0,-1,13579,1.5]){const f=childFixture({pid});if(pid===undefined)f.child.pid=undefined;f.child.emit('spawn');assert.deepEqual(await f.result,{exitCode:null,timedOut:false});f.timers[0].action();assert.deepEqual(f.signals,[]);assert.ok(f.timers[0].cancelled);}
+  const missing=childFixture();missing.child.emit('close',0,null);assert.deepEqual(await missing.result,{exitCode:null,timedOut:false});
+  const owned=childFixture();owned.child.emit('spawn');owned.child.emit('error',Error('private-canary'));assert.deepEqual(await owned.result,{exitCode:null,timedOut:false});assert.deepEqual(owned.signals,[[-24680,'SIGKILL']]);
+});
+
+test('timeout keeps POSIX group cleanup after leader close, then escalates exactly once at five seconds',async()=>{
+  const f=childFixture();f.child.emit('spawn');f.timers[0].action();assert.deepEqual(f.signals,[[-24680,'SIGTERM']]);assert.equal(f.timers[1].ms,5000);
+  let settled=false;void f.result.then(()=>{settled=true;});f.child.emit('close',0,null);f.child.emit('error',Error('private-canary'));await Promise.resolve();assert.equal(settled,false);assert.equal(f.timers[1].cancelled,false);
+  f.timers[1].action();assert.deepEqual(await f.result,{exitCode:0,timedOut:true});assert.deepEqual(f.signals,[[-24680,'SIGTERM'],[-24680,'SIGKILL']]);assert.ok(f.timers.every(t=>t.cancelled));f.timers[1].action();assert.equal(f.signals.length,2);assert.equal(probeResult({...await f.result,log:'private-canary'}),'timeout');
+  const open=childFixture({signalError:true});open.child.emit('spawn');open.timers[0].action();open.timers[1].action();assert.deepEqual(await open.result,{exitCode:-1,timedOut:true});assert.equal(open.signals.length,2);open.child.emit('close',1,null);
+  const notSpawned=childFixture();notSpawned.timers[0].action();notSpawned.child.emit('close',1,null);notSpawned.timers[1].action();assert.deepEqual(await notSpawned.result,{exitCode:1,timedOut:true});assert.deepEqual(notSpawned.signals,[]);
+});
+
+test('Windows uses only the captured positive child PID and clears cleanup on its terminal close',async()=>{
+  const f=childFixture({platform:'win32'});assert.equal(f.spawned[0].options.detached,false);f.child.emit('spawn');f.timers[0].action();f.child.emit('close',null,'SIGTERM');assert.deepEqual(await f.result,{exitCode:-1,timedOut:true});assert.deepEqual(f.signals,[[24680,'SIGTERM']]);f.timers[1].action();assert.equal(f.signals.length,1);
+  const child=new EventEmitter();child.pid=24680;const timers=[];const result=runIdentifierProbe([],{stdio:'ignore'},{platform:'win32',parentPid:13579,spawn:()=>child,kill:(_pid,signal)=>child.emit('close',null,signal),schedule:(action,ms)=>{const t={action,ms};timers.push(t);return t;},cancel:()=>{}});child.emit('spawn');timers[0].action();assert.deepEqual(await result,{exitCode:-1,timedOut:true});assert.equal(timers.length,1);
+  const raced=new EventEmitter();raced.pid=24680;const raceTimers=[],raceSignals=[];
+  const race=runIdentifierProbe([],{stdio:'ignore'},{platform:'win32',parentPid:13579,spawn:()=>raced,kill:(pid,signal)=>{raceSignals.push([pid,signal]);if(signal==='SIGKILL')raced.emit('close',9,null);},schedule:(action,ms)=>{const timer={action,ms};raceTimers.push(timer);return timer;},cancel:()=>{}});
+  raced.emit('spawn');raceTimers[0].action();raceTimers[1].action();assert.deepEqual(await race,{exitCode:9,timedOut:true});assert.deepEqual(raceSignals,[[24680,'SIGTERM'],[24680,'SIGKILL']]);
+
+});
+
+test('real Node spawn port reports actual process exit, missing executable and signal termination',async(t)=>{
+  const capture=[];
+  const adapt=(program,script)=>({spawn:(command,args,options)=>{capture.push([command,args,options.detached]);return realSpawn(program,script,options);}});
+  const done=await runIdentifierProbe(['test','owned'],{stdio:'ignore'},adapt(process.execPath,['-e','process.exit(7)']));assert.deepEqual(done,{exitCode:7,timedOut:false});assert.equal(capture[0][0],'maestro');assert.deepEqual(capture[0][1],['test','owned']);
+  assert.deepEqual(await runIdentifierProbe([],{stdio:'ignore'},adapt('subtrack-no-such-executable-private-probe',[])),{exitCode:null,timedOut:false});
+  const live=adapt(process.execPath,['-e','setInterval(()=>{},1000)']);const stopped=await runIdentifierProbe([],{stdio:'ignore'},{...live,schedule:(action,ms)=>setTimeout(action,ms===20000?100:25),cancel:clearTimeout});assert.equal(stopped.timedOut,true);assert.equal(probeResult({...stopped,log:''}),'timeout');
+  const child=new EventEmitter();child.pid=24680;
+  t.mock.method(childProcess,'spawn',()=>child);syncBuiltinESMExports();
+  try{const defaults=runIdentifierProbe([],{stdio:'ignore'});child.emit('spawn');child.emit('close',0,null);assert.deepEqual(await defaults,{exitCode:0,timedOut:false});}finally{t.mock.restoreAll();syncBuiltinESMExports();}
 });
