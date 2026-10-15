@@ -2,7 +2,8 @@ import {describe,it,expect} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {privateMobileDetectionReceipt,PRIVATE_DETECTION_FLAGS,PRIVATE_DETECTION_INHERITED_FLAGS} from './private-mobile-detection-receipt.js';
-import {privateDetectionSetupStatusFailure,safePrivateDetectionSetupFailure,type PrivateDetectionSetupStep,PRIVATE_DETECTION_SCAN_STEPS,privateDetectionScanFailure,safePrivateDetectionScanFailure,privateDetectionScanStep,type PrivateDetectionScanStep,type PrivateDetectionScanCategory} from './private-mobile-detection-proof.js';
+import {privateDetectionSetupStatusFailure,safePrivateDetectionSetupFailure,type PrivateDetectionSetupStep,PRIVATE_DETECTION_SCAN_STEPS,privateDetectionScanFailure,safePrivateDetectionScanFailure,privateDetectionScanStep,privateDetectionInitialScanFailure,type PrivateDetectionScanStep,type PrivateDetectionScanCategory} from './private-mobile-detection-proof.js';
+import {INITIAL_SCAN_OPERATIONS,INITIAL_SCAN_SQL_CATEGORIES} from './private-mobile-owned-fixture-observer.js';
 import {safePrivateDetectionFailure,privateDetectionStageFailure} from './private-mobile-detection.integration.js';
 const valid=()=>({version:1,head:'a'.repeat(40),proof:'direct-tls-postgresql16',cleanup:'removed',identityCount:2,profileCompleteCount:2,justMeCount:2,manualSubscriptionCount:1,detectedSubscriptionCount:2,...Object.fromEntries([...PRIVATE_DETECTION_FLAGS,...PRIVATE_DETECTION_INHERITED_FLAGS].map(k=>[k,true]))});
 // Exercise the actual qualifier allowlist, rather than a separate shell-policy copy.
@@ -10,6 +11,18 @@ const qualifier=readFileSync(resolve(__dirname,'../../../tools/database/private-
 const shellAllowlist=new RegExp(qualifier.match(/grep -E '([^']+)'/)![1]!);
 const shellPreserves=(label:string)=>shellAllowlist.exec(label)?.[0]===label;
 describe('owned detection sanitized acceptance receipt',()=>{
+ it('preserves only closed initial500 SQL or last-operation detail through both output filters',()=>{
+  const initial=privateDetectionScanFailure('INITIAL_SCAN_HTTP','HTTP',500);
+  for(const operation of INITIAL_SCAN_OPERATIONS){
+   const observations=[{lastOperation:operation},...INITIAL_SCAN_SQL_CATEGORIES.map(sqlCategory=>({operation,sqlCategory}))];
+   for(const observation of observations){const label=privateDetectionInitialScanFailure(initial,observation);expect(label).not.toBe(initial);expect(safePrivateDetectionScanFailure(label)).toBe(true);expect(safePrivateDetectionFailure(label)).toBe(true);expect(privateDetectionStageFailure('DETECTION_SETUP',new Error(label))).toBe(label);expect(shellPreserves(label)).toBe(true);}
+  }
+  const measured=privateDetectionInitialScanFailure(initial,{operation:'BOOKED_READ',sqlCategory:'PERMISSION'});
+  for(const label of [measured.replace('INITIAL_SCAN_HTTP','READ_HTTP'),measured.replace('actual=500','actual=503'),measured.replace('expected=200','expected=201'),measured.replace('BOOKED_READ','private'),measured.replace('PERMISSION','ASSERTION'),measured+' row=private',measured+' lastOperation=BOOKED_READ',initial+' lastOperation=BOOKED_READ sqlCategory=OTHER',measured+'\r',measured+'\n']){expect(safePrivateDetectionFailure(label)).toBe(false);expect(shellPreserves(label)).toBe(false);}
+  for(const step of PRIVATE_DETECTION_SCAN_STEPS)for(const actual of [200,503,'OTHER']){const label=privateDetectionScanFailure(step,'HTTP',actual);expect(privateDetectionInitialScanFailure(label,{lastOperation:'BOOKED_READ'})).toBe(label);}
+  let invoked=false;expect(privateDetectionInitialScanFailure(initial,{get lastOperation(){invoked=true;return 'BOOKED_READ';}})).toBe(initial);expect(invoked).toBe(false);expect(privateDetectionInitialScanFailure('private',{lastOperation:'UNKNOWN'})).toBe('ST249_DETECTION_PROOF_FAILURE phase=UNKNOWN');
+ });
+
  it('preserves every closed SCAN label across proof, integration and actual qualifier',()=>{
   for(const step of PRIVATE_DETECTION_SCAN_STEPS){
    for(const actual of [200,201,204,400,401,403,404,409,413,429,500,503,999,null,{},'private-response']){

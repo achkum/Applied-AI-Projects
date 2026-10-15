@@ -1,7 +1,7 @@
 import {OwnedPrivateBankDiagnostics,type PrivateBankTwoOwnerStep} from './private-mobile-bank-diagnostics.js';
 import {PrivateMobileSubjectVerifier} from '../src/auth/mobile-private/verified-subject-binding.js';
 import {DevelopmentEnrollmentPersonVerifier} from '../src/auth/identity-provider/development-enrollment-person-verifier.js';
-import {createOwnedOtpStartObserver,OwnedDetectionController,type OwnedDetectionScenario} from './private-mobile-owned-fixture-observer.js';
+import {createOwnedOtpStartObserver,OwnedDetectionController,OwnedInitialDetectionScanObserver,type OwnedDetectionScenario} from './private-mobile-owned-fixture-observer.js';
 import {privateMobileRenewalsReceipt,type PrivateMobileRenewalsReceipt} from './private-mobile-renewals-receipt.js';
 import {privateMobileTrackingReceipt,type PrivateMobileTrackingReceipt} from './private-mobile-tracking-receipt.js';
 import {createHash,createPrivateKey,createPublicKey,randomUUID} from 'node:crypto';
@@ -31,7 +31,7 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
  const owner=new Pool({...connection,user:'st233a_fixture_owner',password:config.ownerPassword});
  const actor=new Pool({...connection,user:'subtrack_dev_auth_login',password:config.actorPassword});
  let fault:Readonly<{kind:'before'|'after';skip:number}>|undefined;const bankDiagnostics=new OwnedPrivateBankDiagnostics();
- const detection=new OwnedDetectionController();const clock=()=>detection.now();
+ const initialScan=new OwnedInitialDetectionScanObserver();const detection=new OwnedDetectionController();const clock=()=>detection.now();
  let detectionOwner:string|undefined;let adversary:Readonly<{kind:'overflow'|'collision'|'unmatched';id:string;prior:string}>|undefined;
  // Test-only transport faults around real PostgreSQL COMMIT, never inside the production factory.
  const actorPool:Pick<Pool,'connect'>={connect:async()=>{
@@ -42,7 +42,7 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
      if(fault.skip>0)fault={...fault,skip:fault.skip-1};
      else{const kind=fault.kind;fault=undefined;await target.query(kind==='before'?'ROLLBACK':'COMMIT');throw new Error('Owned commit transport uncertainty');}
     }
-    return bankDiagnostics.observedQuery(()=>detection.query(args[0] as string,args[1] as readonly unknown[]|undefined,sql=>Reflect.apply(target.query,target,[sql,...args.slice(1)])));
+    return initialScan.query(args[0],()=>bankDiagnostics.observedQuery(()=>detection.query(args[0] as string,args[1] as readonly unknown[]|undefined,sql=>Reflect.apply(target.query,target,[sql,...args.slice(1)]))));
    };
    if(property==='release')return (error?:Error)=>{detection.released(error!==undefined);target.release(error);};
    const value=Reflect.get(target,property);return typeof value==='function'?value.bind(target):value;
@@ -77,7 +77,7 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
   try{await new Promise<void>((ok,no)=>{next.server.once('error',no);next.server.listen(3443,'127.0.0.1',()=>{next.server.removeListener('error',no);ok();});});graph=next;secondOwnerSubjects=fixtureSubjects;bankDiagnostics.startGraph();}
   catch(error){otpObserver.stop();next.server.close();throw error;}
  }
- async function stop():Promise<void>{detection.clear();otpObserver.stop();const old=graph;bankDiagnostics.stopGraph();graph=undefined;secondOwnerSubjects=undefined;if(old)await new Promise<void>((ok,no)=>{old.server.close(error=>error?no(error):ok());old.server.closeAllConnections();});}
+ async function stop():Promise<void>{initialScan.clear();detection.clear();otpObserver.stop();const old=graph;bankDiagnostics.stopGraph();graph=undefined;secondOwnerSubjects=undefined;if(old)await new Promise<void>((ok,no)=>{old.server.close(error=>error?no(error):ok());old.server.closeAllConnections();});}
  async function readbackReceipt():Promise<PrivateMobileReceipt>{
   if(disposed)throw new Error('Fixture unavailable');await fence();const client=await owner.connect();
   try{
@@ -203,6 +203,7 @@ export function createOwnedPrivateMobileHarness(config:OwnedPrivateMobileConfig,
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }
  return Object.freeze({start,stop,otpStartObservation:()=>otpObserver.observation(),restart:async()=>{fault=undefined;await stop();await start();},readbackReceipt,readbackTrackingReceipt,readbackManualTrackingReceipt,readbackRenewalsReceipt,readbackBankReceipt,secondOwnerSession,readbackBankOwnerReceipt,readbackDetectionReceipt,enableDetectionQualification,armDetectionScenario,
+  beginInitialScanDiagnostic(){if(arguments.length!==0||disposed||!graph||!detection.enabled()||process.env.NODE_ENV!=='development')throw new Error('Fixture unavailable');initialScan.begin();},initialScanDiagnostic:()=>initialScan.observation(),clearInitialScanDiagnostic:()=>initialScan.clear(),
   detectionScenarioObservation:()=>detection.observation(),clearDetectionScenario:()=>detection.clear(),detectionNow:()=>detection.now(),
   prepareDetectionOverflow(){if(arguments.length!==0)throw new Error('Fixture unavailable');return prepareDetectionAdversary('overflow');},prepareDetectionCollision(){if(arguments.length!==0)throw new Error('Fixture unavailable');return prepareDetectionAdversary('collision');},prepareUnmatchedDetectionDescriptor(){if(arguments.length!==0)throw new Error('Fixture unavailable');return prepareDetectionAdversary('unmatched');},restoreDetectionAdversary,
   beginBankDiagnostic(step:PrivateBankTwoOwnerStep){if(disposed||!graph||process.env.NODE_ENV!=='development')throw new Error('Fixture unavailable');bankDiagnostics.beginStep(step);},

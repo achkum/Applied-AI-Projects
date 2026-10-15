@@ -5,7 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {Pool} from 'pg';
 import {createOwnedPrivateMobileHarness,type OwnedPrivateMobileConfig} from './private-mobile-owned-fixture.js';
 import {PRIVATE_DETECTION_FLAGS,type PrivateDetectionFlag} from './private-mobile-detection-receipt.js';
-import {OWNED_DETECTION_SCENARIOS,OWNED_DETECTION_BOUNDARIES,type OwnedDetectionScenario} from './private-mobile-owned-fixture-observer.js';
+import {OWNED_DETECTION_SCENARIOS,OWNED_DETECTION_BOUNDARIES,INITIAL_SCAN_OPERATIONS,INITIAL_SCAN_SQL_CATEGORIES,safeInitialScanObservation,type OwnedDetectionScenario} from './private-mobile-owned-fixture-observer.js';
 import {PRIVATE_MOBILE_PATHS as paths,parsePrivateMobileSessionResponse} from '@subtrack/contracts/private-mobile';
 import {PRIVATE_MOBILE_BANK_PATHS as bank,parsePrivateMobileBankMutationResult} from '@subtrack/contracts/private-mobile-bank';
 import {PRIVATE_MOBILE_DETECTION_PATHS as detection,parsePrivateMobileDetectionReadResult,parsePrivateMobileDetectionReviewResult} from '@subtrack/contracts/private-mobile-detection';
@@ -26,7 +26,13 @@ export type PrivateDetectionScanStep=typeof PRIVATE_DETECTION_SCAN_STEPS[number]
 export type PrivateDetectionScanCategory='HTTP'|'WIRE'|'ASSERTION'|'READBACK'|'UNKNOWN';
 const scanSteps=PRIVATE_DETECTION_SCAN_STEPS.join('|');
 const scanFailure=new RegExp(`^ST249_DETECTION_PROOF_FAILURE phase=SCAN step=(${scanSteps}) (?:category=HTTP expected=200 actual=(?:${SETUP_HTTP.join('|')}|OTHER)|category=(?:WIRE|ASSERTION|READBACK|UNKNOWN))$`);
-export function safePrivateDetectionScanFailure(value:unknown):value is string{return typeof value==='string'&&!/[\r\n]/.test(value)&&scanFailure.test(value);}
+const initialScan500='ST249_DETECTION_PROOF_FAILURE phase=SCAN step=INITIAL_SCAN_HTTP category=HTTP expected=200 actual=500';
+const observedScanFailure=new RegExp(`^${initialScan500} (?:operation=(${INITIAL_SCAN_OPERATIONS.join('|')}) sqlCategory=(${INITIAL_SCAN_SQL_CATEGORIES.join('|')})|lastOperation=(${INITIAL_SCAN_OPERATIONS.join('|')}))$`);
+export function safePrivateDetectionScanFailure(value:unknown):value is string{return typeof value==='string'&&!/[\r\n]/.test(value)&&(scanFailure.test(value)||observedScanFailure.test(value));}
+export function privateDetectionInitialScanFailure(label:unknown,observation:unknown):string{
+ if(label!==initialScan500||!safeInitialScanObservation(observation))return typeof label==='string'&&safePrivateDetectionScanFailure(label)?label:'ST249_DETECTION_PROOF_FAILURE phase=UNKNOWN';
+ return label+('operation'in observation?` operation=${observation.operation} sqlCategory=${observation.sqlCategory}`:` lastOperation=${observation.lastOperation}`);
+}
 export function privateDetectionScanFailure(step:PrivateDetectionScanStep,category:PrivateDetectionScanCategory,actual?:unknown):string{
  if(!(PRIVATE_DETECTION_SCAN_STEPS as readonly unknown[]).includes(step)||!['HTTP','WIRE','ASSERTION','READBACK','UNKNOWN'].includes(category))return 'ST249_DETECTION_PROOF_FAILURE phase=UNKNOWN';
  const status=typeof actual==='number'&&SETUP_HTTP.includes(actual)?actual:'OTHER';
@@ -76,7 +82,7 @@ export async function runPrivateMobileDetectionProof(config:OwnedPrivateMobileCo
   phase='OVERFLOW';await harness.prepareDetectionOverflow();
   try{const before=await harness.readbackDetectionReceipt();await post(detection.scan,{},500,{...auth,...key()});assert.deepEqual(await harness.readbackDetectionReceipt(),before);mark('detectionAmountOverflowRollback');}finally{await harness.restoreDetectionAdversary();}
   assert.deepEqual(await harness.readbackBankReceipt(),source);
-  phase='SCAN';await privateDetectionScanStep('INITIAL_SCAN_HTTP','HTTP',()=>scan(auth,key(),'INITIAL_SCAN_HTTP'));mark('detectionScan');const inbox=await privateDetectionScanStep('READ_HTTP','HTTP',()=>read(auth,true));await privateDetectionScanStep('INBOX_CARDINALITY','ASSERTION',async()=>{assert.ok(inbox.items.length>=2);assert.equal(inbox.nextCursor,null);});
+  phase='SCAN';harness.beginInitialScanDiagnostic();try{await privateDetectionScanStep('INITIAL_SCAN_HTTP','HTTP',()=>scan(auth,key(),'INITIAL_SCAN_HTTP'));}catch(error){throw new Error(privateDetectionInitialScanFailure(preservedScanFailure(error),harness.initialScanDiagnostic()));}finally{harness.clearInitialScanDiagnostic();}mark('detectionScan');const inbox=await privateDetectionScanStep('READ_HTTP','HTTP',()=>read(auth,true));await privateDetectionScanStep('INBOX_CARDINALITY','ASSERTION',async()=>{assert.ok(inbox.items.length>=2);assert.equal(inbox.nextCursor,null);});
   const names=['Netflix','Spotify','iCloud','LinkedIn Premium'];await privateDetectionScanStep('INBOX_CANONICAL','ASSERTION',async()=>assert.ok(inbox.items.every(item=>names.includes(item.displayName)&&item.status==='DETECTED'&&BigInt(item.expectedAmountMinor)>0n)));mark('detectionCanonicalInbox');mark('detectionTrustedNamesOnly');
   const first=await privateDetectionScanStep('FIRST_READBACK','READBACK',()=>harness.readbackDetectionReceipt()),intent=key();await privateDetectionScanStep('REPLAY_NEW_KEY','HTTP',()=>scan(auth,intent,'REPLAY_NEW_KEY'));const repeated=await privateDetectionScanStep('REPLAY_READBACK','READBACK',()=>harness.readbackDetectionReceipt());await privateDetectionScanStep('REPLAY_SAME_KEY','HTTP',()=>scan(auth,intent,'REPLAY_SAME_KEY'));const replayed=await privateDetectionScanStep('REPLAY_READBACK','READBACK',()=>harness.readbackDetectionReceipt());await privateDetectionScanStep('REPLAY_SAME_KEY','ASSERTION',async()=>assert.deepEqual(replayed,repeated));await privateDetectionScanStep('FRESH_SCAN','HTTP',()=>scan(auth,key(),'FRESH_SCAN'));const fresh=await privateDetectionScanStep('REPLAY_READBACK','READBACK',()=>harness.readbackDetectionReceipt());await privateDetectionScanStep('DEDUP','ASSERTION',async()=>{assert.equal(fresh.candidateCount,first.candidateCount);assert.equal(fresh.sourceLinkCount,first.sourceLinkCount);});mark('detectionRescanDedup');
   phase='PARALLEL';const parallel=key();await Promise.all([scan(auth,parallel),scan(auth,parallel),scan(auth,key()),scan(auth,key())]);assert.equal((await harness.readbackDetectionReceipt()).candidateCount,first.candidateCount);mark('detectionParallelScan');

@@ -1,6 +1,54 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Server } from 'node:https';
 import {PRIVATE_MOBILE_DETECTION_STATEMENTS} from '../src/detection/private-mobile-detection-statements.js';
+import {types} from 'node:util';
+import {privateBankFailureCategory} from './private-mobile-bank-diagnostics.js';
+
+export const INITIAL_SCAN_OPERATIONS=Object.freeze(['SET_CONTEXT','GENERATION_LOCK','BOOKED_READ','SUBSCRIPTION_READ','CANDIDATE_WRITE','SOURCE_LINK_WRITE','SCAN_RECEIPT_WRITE','UNKNOWN'] as const);
+export const INITIAL_SCAN_SQL_CATEGORIES=Object.freeze(['PERMISSION','UNDEFINED_COLUMN','UNDEFINED_TABLE','FOREIGN_KEY','UNIQUE','CHECK','NOT_NULL','TYPE_MISMATCH','INVALID_INPUT','NUMERIC_RANGE','SERIALIZATION','DEADLOCK','OTHER'] as const);
+type ScanOperation=typeof INITIAL_SCAN_OPERATIONS[number];
+type ScanSqlCategory=typeof INITIAL_SCAN_SQL_CATEGORIES[number];
+export type InitialScanObservation=Readonly<{operation:ScanOperation;sqlCategory:ScanSqlCategory}|{lastOperation:ScanOperation}>;
+const initialScanOperations:Readonly<Record<string,ScanOperation>>=Object.freeze({detectionModeRead:'UNKNOWN',detectionActiveGenerationLock:'GENERATION_LOCK',detectionBookedRows:'BOOKED_READ',detectionCandidateLookup:'SUBSCRIPTION_READ',detectionSubscriptionInsert:'CANDIDATE_WRITE',detectionCandidateInsert:'CANDIDATE_WRITE',detectionSourceLinkInsert:'SOURCE_LINK_WRITE',detectionScanReceiptInsert:'SCAN_RECEIPT_WRITE'});
+export function safeInitialScanObservation(value:unknown):value is InitialScanObservation{
+ try{
+  if(!value||typeof value!=='object'||types.isProxy(value)||Object.getPrototypeOf(value)!==Object.prototype)return false;
+  const keys=Reflect.ownKeys(value),fields=Object.getOwnPropertyDescriptors(value);
+  if(keys.some(key=>typeof key!=='string'||!('value'in fields[key]!)))return false;
+  return keys.length===1&&keys[0]==='lastOperation'&&(INITIAL_SCAN_OPERATIONS as readonly unknown[]).includes(fields.lastOperation!.value)
+   ||keys.length===2&&keys.includes('operation')&&keys.includes('sqlCategory')&&(INITIAL_SCAN_OPERATIONS as readonly unknown[]).includes(fields.operation!.value)&&(INITIAL_SCAN_SQL_CATEGORIES as readonly unknown[]).includes(fields.sqlCategory!.value);
+ }catch{return false;}
+}
+function initialScanSqlCategory(error:unknown):ScanSqlCategory{
+ if(types.isProxy(error)||!types.isNativeError(error))return 'OTHER';
+ const descriptor=Object.getOwnPropertyDescriptor(error,'code');
+ if(!descriptor||!('value'in descriptor)||typeof descriptor.value!=='string')return 'OTHER';
+ // Reuse the existing closed mapper on a fresh Error, never on hostile prototypes.
+ const safe=new Error();Object.defineProperty(safe,'code',{value:descriptor.value});
+ const category=privateBankFailureCategory(safe);return (INITIAL_SCAN_SQL_CATEGORIES as readonly string[]).includes(category)?category as ScanSqlCategory:'OTHER';
+}
+/** Only fixed enums survive a single owned initial request; results and errors pass through unchanged. */
+export class OwnedInitialDetectionScanObserver{
+ private frame:Readonly<{generation:symbol;lastOperation:ScanOperation;first?:Readonly<{operation:ScanOperation;sqlCategory:ScanSqlCategory}>}>|undefined;
+ begin():void{if(this.frame)throw new Error('Owned scan observation unavailable');this.frame={generation:Symbol(),lastOperation:'UNKNOWN'};}
+ clear():void{this.frame=undefined;}
+ observation():InitialScanObservation|undefined{return this.frame?Object.freeze(this.frame.first?{...this.frame.first}:{lastOperation:this.frame.lastOperation}):undefined;}
+ query<T>(sql:unknown,work:()=>Promise<T>):Promise<T>{
+  const frame=this.frame;if(!frame)return work();
+  const name=typeof sql==='string'?Object.entries(PRIVATE_MOBILE_DETECTION_STATEMENTS).find(([,text])=>text===sql)?.[0]:undefined;
+  const operation=name?initialScanOperations[name]??'UNKNOWN':undefined;
+  if(!frame||!operation)return work();
+  return (async()=>{
+  try{const result=await work();if(frame&&this.frame?.generation===frame.generation&&operation)this.frame={...this.frame,lastOperation:operation};return result;}
+  catch(error){
+   if(frame&&this.frame?.generation===frame.generation&&operation&&!this.frame.first){
+    this.frame={...this.frame,first:Object.freeze({operation,sqlCategory:initialScanSqlCategory(error)})};
+   }
+   throw error;
+  }
+  })();
+ }
+}
 
 export const OWNED_DETECTION_SCENARIOS=Object.freeze(['undo-equality-entry','undo-expiry-after-final-fence','undo-expiry-after-epoch','undo-expiry-beforecommit-microtask','undo-expiry-finalverify-sync','undo-finalverify-microtask-order','undo-expiry-rollback-before','undo-expiry-rollback-after','review-commit-before','review-commit-after'] as const);
 export type OwnedDetectionScenario=typeof OWNED_DETECTION_SCENARIOS[number];
