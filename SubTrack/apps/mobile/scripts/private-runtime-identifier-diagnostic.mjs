@@ -62,6 +62,7 @@ export function identifierToolDiagnostic({ phase, identifier, metro, labels }) {
   return closedToolDiagnostic(identifier, metro, [
     ['welcome-create-account', labels.createAccount],
     ['otp-field', labels.otp],
+    ['otp-field', 'native-registration-otp'],
   ]);
 }
 
@@ -82,6 +83,7 @@ const enrollmentRoster = [
   ['personal-title', 'personalTitle'],
   ['expected-amount', 'expectedAmount'],
 ];
+const fixedInputIds=new Set(['native-registration-otp','native-profile-name','native-subscription-name','native-subscription-amount','native-subscription-date']);
 
 export function enrollmentToolDiagnostic({ phase, enrollment, metro, labels }) {
   if (phase !== 'flow-enroll-add') return { withheld: 'outside-enrollment' };
@@ -95,7 +97,10 @@ export function enrollmentToolDiagnostic({ phase, enrollment, metro, labels }) {
   return closedToolDiagnostic(
     enrollment,
     metro,
-    [...enrollmentRoster.map(([name, key]) => [name, labels[key]]), ['saved-row', 'Native restart proof']],
+    [...enrollmentRoster.map(([name, key]) => [name, labels[key]]),
+      ['otp-field', 'native-registration-otp'], ['profile-name', 'native-profile-name'],
+      ['subscription-name', 'native-subscription-name'], ['subscription-amount', 'native-subscription-amount'],
+      ['date-field', 'native-subscription-date'], ['saved-row', 'Native restart proof']],
   );
 }
 
@@ -160,7 +165,7 @@ function closedToolDiagnostic(identifier, metro, targetRoster) {
     (a, b) => b[1].length - a[1].length,
   );
   for (const line of failedLines) {
-    const target = sortedTargets.find(([, label]) => line.includes(label));
+    const target = sortedTargets.find(([, label]) => fixedInputIds.has(label)?new RegExp(`(^|[^\\w-])${label}(?![\\w-])`).test(line):line.includes(label));
     if (target) targets.add(target[0]);
   }
   const bundler = metroReasons

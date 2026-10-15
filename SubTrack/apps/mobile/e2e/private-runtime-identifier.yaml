@@ -6,7 +6,8 @@ appId: se.subtrack.app
     visible: ${MAESTRO_CREATE_ACCOUNT}
     timeout: 120000
 - tapOn: ${MAESTRO_CREATE_ACCOUNT}
-- tapOn: ${MAESTRO_EMAIL_LABEL}
+- tapOn:
+    id: native-identifier-input
 - inputText: native-proof@example.test
 - hideKeyboard
 - tapOn: ${MAESTRO_CONTINUE}

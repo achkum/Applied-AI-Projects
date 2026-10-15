@@ -14,16 +14,20 @@ appId: se.subtrack.app
     direction: UP
 - tapOn: ${MAESTRO_EDIT}
 - scrollUntilVisible:
-    element: ${MAESTRO_SUBSCRIPTION_NAME}
+    element:
+      id: native-subscription-name
     direction: DOWN
-- tapOn: ${MAESTRO_SUBSCRIPTION_NAME}
+- tapOn:
+    id: native-subscription-name
 - eraseText
 - inputText: Native edited restart proof
 - hideKeyboard
 - scrollUntilVisible:
-    element: ${MAESTRO_DATE}
+    element:
+      id: native-subscription-date
     direction: DOWN
-- tapOn: ${MAESTRO_DATE}
+- tapOn:
+    id: native-subscription-date
 - eraseText
 - hideKeyboard
 - scrollUntilVisible:

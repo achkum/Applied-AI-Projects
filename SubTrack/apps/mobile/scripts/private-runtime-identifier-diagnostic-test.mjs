@@ -42,6 +42,21 @@ function enrollment(overrides = {}) {
     ...overrides,
   });
 }
+test('fixed public editable IDs are aliases of existing targets only and reject token lookalikes',()=>{
+  const aliases=[['native-registration-otp','otp-field'],['native-profile-name','profile-name'],['native-subscription-name','subscription-name'],['native-subscription-amount','subscription-amount'],['native-subscription-date','date-field']];
+  for(const [id,target] of aliases){
+    assert.deepEqual(enrollment({enrollment:`Tap on id: ${id} FAILED`}).targets,[target]);
+    assert.deepEqual(enrollment({enrollment:`Scroll until id: "${id}" visible FAILED`}).targets,[target]);
+    assert.deepEqual(enrollment({enrollment:`Tap on id: ${id} COMPLETED\nTap on unknown FAILED`}).targets,[]);
+    for(const unknown of [`${id}-private`,`private-${id}`,`${id}_private`])assert.deepEqual(enrollment({enrollment:`Tap on id: ${unknown} FAILED`}).targets,[]);
+  }
+  assert.deepEqual(classify({identifier:'Tap on id: native-registration-otp FAILED'}).targets,['otp-field']);
+  assert.deepEqual(classify({identifier:'Tap on id: native-identifier-input FAILED'}).targets,[]);
+  assert.equal(enrollment({phase:'flow-identifier',enrollment:'Tap on id: native-profile-name FAILED'}).withheld,'outside-enrollment');
+  assert.equal(enrollment({labels:{},enrollment:'Tap on id: native-profile-name FAILED'}).withheld,'trusted-target-unavailable');
+  assert.equal(enrollment({enrollment:'x'.repeat(4_000_001)+' native-profile-name'}).withheld,'tool-input-unavailable');
+  assert.equal(JSON.stringify(enrollment({enrollment:'Tap on id: native-subscription-name FAILED private-canary 123456'})).includes('private-canary'),false);
+});
 test('only first-flow fixed child-tool inputs and valid trusted target inputs are accepted', () => {
   assert.equal(
     classify({ phase: 'flow-enroll-add' }).withheld,

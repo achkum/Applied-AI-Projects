@@ -101,6 +101,7 @@ export default function RegisterOtpRoute() {
           {t('onboarding.registration.otpLabel')}
         </Text>
         <TextInput
+          testID="native-registration-otp"
           autoFocus
           accessibilityLabel={t('onboarding.registration.otpLabel')}
           accessibilityHint={t('onboarding.registration.otpHint')}

@@ -83,6 +83,7 @@ export function IdentifierEntry({ onValidIdentifier }: IdentifierEntryProps) {
         {label}
       </Text>
       <TextInput
+        testID="native-identifier-input"
         accessibilityLabel={label}
         accessibilityHint={error ? t(`onboarding.identifier.errors.${error}`) : undefined}
         value={value}

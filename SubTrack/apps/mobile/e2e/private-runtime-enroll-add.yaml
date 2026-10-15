@@ -1,6 +1,7 @@
 appId: se.subtrack.app
 ---
-- tapOn: ${MAESTRO_OTP_LABEL}
+- tapOn:
+    id: native-registration-otp
 - inputText: ${MAESTRO_PRIVATE_OTP}
 - hideKeyboard
 - tapOn: ${MAESTRO_VERIFY_OTP}
@@ -11,7 +12,8 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_PROFILE_NAME}
     timeout: 30000
-- tapOn: ${MAESTRO_PROFILE_NAME}
+- tapOn:
+    id: native-profile-name
 - inputText: Synthetic Native Proof
 - hideKeyboard
 - tapOn: ${MAESTRO_ENGLISH}
@@ -28,9 +30,11 @@ appId: se.subtrack.app
     timeout: 30000
 - tapOn: ${MAESTRO_ADD}
 - scrollUntilVisible:
-    element: ${MAESTRO_SUBSCRIPTION_NAME}
+    element:
+      id: native-subscription-name
     direction: DOWN
-- tapOn: ${MAESTRO_SUBSCRIPTION_NAME}
+- tapOn:
+    id: native-subscription-name
 - inputText: Native restart proof
 - hideKeyboard
 - scrollUntilVisible:
@@ -38,15 +42,19 @@ appId: se.subtrack.app
     direction: DOWN
 - tapOn: ${MAESTRO_CATEGORY}
 - scrollUntilVisible:
-    element: ${MAESTRO_AMOUNT}
+    element:
+      id: native-subscription-amount
     direction: DOWN
-- tapOn: ${MAESTRO_AMOUNT}
+- tapOn:
+    id: native-subscription-amount
 - inputText: '129.90'
 - hideKeyboard
 - scrollUntilVisible:
-    element: ${MAESTRO_DATE}
+    element:
+      id: native-subscription-date
     direction: DOWN
-- tapOn: ${MAESTRO_DATE}
+- tapOn:
+    id: native-subscription-date
 - inputText: ${MAESTRO_RENEWAL_DATE}
 - hideKeyboard
 - scrollUntilVisible:

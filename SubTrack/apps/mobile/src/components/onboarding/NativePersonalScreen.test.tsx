@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, ScrollView, Text, TextInput } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import {useFocusEffect} from 'expo-router';
-import { NativePersonalScreen } from './NativePersonalScreen';
+import { NativePersonalScreen, validateManualDraft } from './NativePersonalScreen';
 import { NativeSessionProvider } from '@/state/NativeSession';
 import { NativeSessionCore } from '@/state/NativeSessionCore';
 import * as api from '@/api/privateMobileApi';
@@ -82,6 +82,60 @@ it('uses exact localized Money input and displays authoritative reread rather th
   expect(api.createNativeSubscription).toHaveBeenCalledWith(expect.objectContaining({ expectedAmountMinor: '9007199254740993' }), credentials.accessToken, expect.any(AbortSignal));
 });
 
+it.each([
+  ['name', 'invalidName', ''],
+  ['category', 'invalidCategory', undefined],
+  ['amount', 'invalidAmount', '0'],
+  ['date', 'invalidDate', '2026-02-30'],
+] as const)('shows the actionable %s validation in both locales without writing or clearing the draft', async (fieldName, message, invalidValue) => {
+  for (const locale of ['en', 'sv'] as const) {
+    mockLocale.value = locale;
+    const localized = catalogs[locale].onboarding;
+    jest.mocked(api.readNativeSubscriptions).mockResolvedValue({ items: [], nextCursor: null });
+    const view = mount();
+    await waitFor(() => expect(screen.getByRole('button', { name: localized.nativePersonal.verify }).props.accessibilityState.disabled).toBe(false));
+    fireEvent.press(screen.getByRole('button', { name: localized.nativePersonal.verify })); await screen.findByText(localized.ownerSubscriptions.empty);
+    fireEvent.press(screen.getByRole('button', { name: localized.manualSubscription.title }));
+    const badValue = typeof invalidValue === 'string' ? invalidValue : '';
+    fireEvent.changeText(screen.getByLabelText(localized.manualSubscription.name), fieldName === 'name' ? badValue : 'Retained draft');
+    if (fieldName !== 'category') fireEvent.press(screen.getByRole('button', { name: localized.ownerSubscriptions.category.VIDEO_STREAMING }));
+    const validAmount = locale === 'sv' ? '12,00' : '12.00';
+    fireEvent.changeText(screen.getByLabelText(localized.nativePersonal.amount), fieldName === 'amount' ? badValue : validAmount);
+    if (fieldName === 'date') fireEvent.changeText(screen.getByLabelText(localized.nativePersonal.date), badValue);
+    fireEvent.press(screen.getByRole('button', { name: localized.manualSubscription.save }));
+    await screen.findByText(localized.manualSubscription[message]);
+    expect(api.createNativeSubscription).not.toHaveBeenCalled();
+    expect(api.editNativeSubscription).not.toHaveBeenCalled();
+    expect(screen.getByTestId('native-subscription-name').props.value).toBe(fieldName === 'name' ? badValue : 'Retained draft');
+    expect(screen.getByTestId('native-subscription-name').props.accessibilityLabel).toBe(localized.manualSubscription.name);
+    expect(screen.getByTestId('native-subscription-amount').props.value).toBe(fieldName === 'amount' ? badValue : validAmount);
+    expect(screen.getByTestId('native-subscription-amount').props.accessibilityLabel).toBe(localized.nativePersonal.amount);
+    expect(screen.getByTestId('native-subscription-date').props.value).toBe(fieldName === 'date' ? badValue : '');
+    expect(screen.getByTestId('native-subscription-date').props.accessibilityLabel).toBe(localized.nativePersonal.date);
+    view.unmount();
+  }
+});
+
+it('accepts the Swedish decimal separator and persists the canonical full Add body', async () => {
+  mockLocale.value = 'sv';
+  const localized = catalogs.sv.onboarding;
+  jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({ items: [], nextCursor: null }).mockResolvedValueOnce({ items: [row], nextCursor: null });
+  jest.mocked(api.createNativeSubscription).mockResolvedValue({ id: row.id }); mount();
+  await waitFor(() => expect(screen.getByRole('button', { name: localized.nativePersonal.verify }).props.accessibilityState.disabled).toBe(false));
+  fireEvent.press(screen.getByRole('button', { name: localized.nativePersonal.verify })); await screen.findByText(localized.ownerSubscriptions.empty);
+  fireEvent.press(screen.getByRole('button', { name: localized.manualSubscription.title }));
+  fireEvent.changeText(screen.getByLabelText(localized.manualSubscription.name), 'Swedish draft');
+  fireEvent.press(screen.getByRole('button', { name: localized.ownerSubscriptions.category.VIDEO_STREAMING }));
+  fireEvent.changeText(screen.getByLabelText(localized.nativePersonal.amount), '129,90');
+  fireEvent.press(screen.getByRole('button', { name: localized.manualSubscription.save })); await screen.findByText(localized.nativePersonal.saved);
+  expect(api.createNativeSubscription).toHaveBeenCalledWith(expect.objectContaining({ customName: 'Swedish draft', categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', expectedAmountMinor: '12990', nextChargeDate: null }), credentials.accessToken, expect.any(AbortSignal));
+});
+
+it('classifies an invalid cadence through the canonical parser without weakening the full-form gate', () => {
+  expect(validateManualDraft({ customName: 'Retained draft', categoryCode: 'VIDEO_STREAMING', cadence: 'UNSUPPORTED', amount: '12.00', date: '' }, 'en'))
+    .toEqual({ body: null, error: 'invalidCadence' });
+});
+
 it('preserves failed Add feedback when the real session core requires fresh verification',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});
  jest.mocked(api.createNativeSubscription).mockRejectedValue(new Error('offline'));
@@ -107,7 +161,7 @@ it('completes profile and Just me only from separate authoritative reads',async(
   jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});mount();
   await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
   fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));
-  await screen.findByLabelText(copy.nativePersonal.name);fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.name),'Synthetic');
+  await screen.findByLabelText(copy.nativePersonal.name);expect(screen.getByTestId('native-profile-name').props.accessibilityLabel).toBe(copy.nativePersonal.name);fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.name),'Synthetic');
   fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.saveProfile}));await screen.findByText(copy.nativePersonal.profileSaved);
   expect(screen.queryByText('Ignored patch response')).toBeNull();
   fireEvent.press(screen.getByRole('button',{name:copy.mode.choose}));await screen.findByText(copy.ownerSubscriptions.empty);
@@ -303,7 +357,7 @@ it('legacy category draft uses the accepted fallback until the owner chooses an 
  await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));expect(screen.queryByText('onboarding.ownerSubscriptions.category.LEGACY_CATEGORY')).toBeNull();
  expect(screen.getAllByText(copy.ownerSubscriptions.categoryFallback).length).toBeGreaterThan(0);
- fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativePersonal.invalid);expect(api.editNativeSubscription).not.toHaveBeenCalled();
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.manualSubscription.invalidCategory);expect(api.editNativeSubscription).not.toHaveBeenCalled();
 });
 
 it('opens the native renewals agenda only after current profile and Just me readback',async()=>{

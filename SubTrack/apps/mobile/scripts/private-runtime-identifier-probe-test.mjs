@@ -3,6 +3,15 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
 import { probeResult, identifierProbes } from './private-runtime-identifier-probe.mjs';
+test('editable native flow targets select fixed input IDs while keeping single actions and visible acceptance',()=>{
+  const read=name=>readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n');
+  for(const name of ['identifier','identifier-android']){const flow=read(name);assert.equal(flow.match(/- tapOn:\n {4}id: native-identifier-input/g).length,1);assert.equal(flow.includes('- tapOn: ${MAESTRO_EMAIL_LABEL}'),false);assert.ok(flow.includes('visible: ${MAESTRO_CREATE_ACCOUNT}'));assert.ok(flow.includes('visible: ${MAESTRO_OTP_LABEL}\n    timeout: 30000'));assert.equal(flow.match(/^- inputText:/gm).length,1);}
+  const add=read('enroll-add');for(const id of ['native-registration-otp','native-profile-name','native-subscription-name','native-subscription-amount','native-subscription-date'])assert.equal(add.split(`- tapOn:\n    id: ${id}`).length-1,1);
+  for(const id of ['native-subscription-name','native-subscription-amount','native-subscription-date'])assert.ok(add.includes(`element:\n      id: ${id}\n    direction: DOWN`));
+  assert.ok(add.includes('visible: ${MAESTRO_PROFILE_NAME}\n    timeout: 30000'));assert.equal(add.match(/^- inputText:/gm).length,5);
+  const edit=read('edit-status');for(const id of ['native-subscription-name','native-subscription-date']){assert.equal(edit.split(`- tapOn:\n    id: ${id}`).length-1,1);assert.ok(edit.includes(`element:\n      id: ${id}\n    direction: DOWN`));}assert.equal(edit.match(/^- inputText:/gm).length,1);assert.ok(edit.includes('visible: ${MAESTRO_EDIT_SAVED}\n    timeout: 30000'));
+  for(const [flow,names] of [[add,['MAESTRO_OTP_LABEL','MAESTRO_PROFILE_NAME','MAESTRO_SUBSCRIPTION_NAME','MAESTRO_AMOUNT','MAESTRO_DATE']],[edit,['MAESTRO_SUBSCRIPTION_NAME','MAESTRO_DATE']]])for(const name of names)assert.equal(flow.includes(`- tapOn: \u0024{${name}}`),false);
+});
 
 const labels = {
   MAESTRO_REQUEST_UNAVAILABLE: 'Could not continue. Restart verification.',

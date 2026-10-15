@@ -19,6 +19,32 @@ import { BillingIcon } from '../billing/BillingIcon';
 
 export type NativeFeatureSession = Pick<ReturnType<typeof useNativeSession>, 'phase' | 'login' | 'refresh' | 'logout' | 'run'>;
 export type NativePersonalApi = Pick<typeof privateApi, 'readNativeProfile' | 'saveNativeProfile' | 'readNativeMode' | 'chooseNativeJustMe' | 'readNativeSubscriptions' | 'createNativeSubscription' | 'editNativeSubscription' | 'updateNativeSubscriptionStatus'>;
+type ManualDraft = { customName: string; categoryCode: string; cadence: string; amount: string; date: string };
+type ManualValidationMessage = 'invalidName' | 'invalidCategory' | 'invalidCadence' | 'invalidAmount' | 'invalidDate';
+export function validateManualDraft(draft: ManualDraft, locale: 'sv' | 'en'):
+  { body: ReturnType<typeof parsePrivateManualCreate>; error: null } | { body: null; error: ManualValidationMessage } {
+  const valid = { customName: 'Valid', categoryCode: 'OTHER_SUBSCRIPTION', cadence: 'MONTHLY' as const, expectedAmountMinor: '1', nextChargeDate: null };
+  const checks: readonly [ManualValidationMessage, () => void][] = [
+    ['invalidName', () => { parsePrivateManualCreate({ ...valid, customName: draft.customName }); }],
+    ['invalidCategory', () => { parsePrivateManualCreate({ ...valid, categoryCode: draft.categoryCode }); }],
+    ['invalidCadence', () => { parsePrivateManualCreate({ ...valid, cadence: draft.cadence }); }],
+  ];
+  for (const [error, check] of checks) { try { check(); } catch { return { body: null, error }; } }
+
+  let expectedAmountMinor: string;
+  try { expectedAmountMinor = parsePositiveSekInput(draft.amount, locale).toString(); }
+  catch { return { body: null, error: 'invalidAmount' }; }
+  try { parsePrivateManualCreate({ ...valid, expectedAmountMinor }); }
+  catch { return { body: null, error: 'invalidAmount' }; }
+
+  try { parsePrivateManualCreate({ ...valid, nextChargeDate: draft.date || null }); }
+  catch { return { body: null, error: 'invalidDate' }; }
+
+  try {
+    return { body: parsePrivateManualCreate({ customName: draft.customName, categoryCode: draft.categoryCode, cadence: draft.cadence,
+      expectedAmountMinor, nextChargeDate: draft.date || null }), error: null };
+  } catch { return { body: null, error: 'invalidDate' }; }
+}
 export function NativePersonalScreen({ useSession = useNativeSession, api = privateApi, sandbox = false, inactiveContent }: {
   useSession?: () => NativeFeatureSession; api?: NativePersonalApi; sandbox?: boolean; inactiveContent?: React.ReactNode;
 } = {}) {
@@ -119,14 +145,14 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
   const button = (label: string, onPress: () => void, disabled = loading, selected?: boolean) => <Pressable key={label} accessibilityRole="button" accessibilityLabel={label}
     accessibilityState={{ disabled, ...(selected === undefined ? {} : { selected }) }} disabled={disabled} onPress={onPress}
     style={[styles.button, { backgroundColor: color('bg.raised'), borderColor: color(selected ? 'action.accent' : 'line.hairline'), borderRadius: theme.radius.card }]}><Text style={text}>{label}</Text></Pressable>;
-  const field = (label: string, value: string, onChangeText: (value: string) => void, decimal = false) => <View key={label} style={styles.field}>
-    <Text style={text}>{label}</Text><TextInput accessibilityLabel={label} value={value} editable={!loading} onChangeText={onChangeText}
+  const field = (label: string, value: string, onChangeText: (value: string) => void, decimal = false, testID?: string) => <View key={label} style={styles.field}>
+    <Text style={text}>{label}</Text><TextInput testID={testID} accessibilityLabel={label} value={value} editable={!loading} onChangeText={onChangeText}
       autoCorrect={false} autoCapitalize="none" keyboardType={decimal ? 'decimal-pad' : 'default'} style={input} /></View>;
   return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView style={{ backgroundColor: color('bg.canvas') }} contentContainerStyle={styles.content}>
     <Text accessibilityRole="header" style={[text, { fontFamily: theme.typography.fontFamily.display, fontSize: theme.typography.fontSize['2xl'] }]}>{t('onboarding.nativePersonal.title')}</Text>
     {sandbox ? <SandboxNotice /> : <Text style={text}>{t('onboarding.nativePersonal.demo')}</Text>}
     {session.phase === 'storage-error' ? <Text accessibilityRole="alert" style={text}>{t('onboarding.nativePersonal.storageError')}</Text> : null}
-    {message ? <Text accessibilityRole="alert" style={text}>{t(message.startsWith('edit.') ? `onboarding.nativeSubscriptionEdit.${message.slice(5)}` : `onboarding.nativePersonal.${message}`)}</Text> : null}
+    {message ? <Text accessibilityRole="alert" style={text}>{t(message.startsWith('edit.') ? `onboarding.nativeSubscriptionEdit.${message.slice(5)}` : message.startsWith('manualSubscription.') ? `onboarding.${message}` : `onboarding.nativePersonal.${message}`)}</Text> : null}
     {session.phase !== 'active' ? sandbox ? inactiveContent : <>
       <Text style={text}>{t('onboarding.nativePersonal.restart')}</Text>
       {button(t('onboarding.nativePersonal.verify'), () => { const ticket = ++feedbackGeneration.current; setMessage(''); void session.login().catch(() => {
@@ -137,7 +163,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
       {loading ? <Text accessibilityLiveRegion="polite" style={text}>{t('onboarding.nativePersonal.loading')}</Text> : null}
       {profile && !profile.profileComplete ? <>
         <Text accessibilityRole="header" style={text}>{t('onboarding.nativePersonal.profile')}</Text>
-        {field(t('onboarding.nativePersonal.name'), name, setName)}{field(t('onboarding.nativePersonal.emoji'), emoji, setEmoji)}
+        {field(t('onboarding.nativePersonal.name'), name, setName, false, 'native-profile-name')}{field(t('onboarding.nativePersonal.emoji'), emoji, setEmoji)}
         <Text style={text}>{t('onboarding.nativePersonal.language')}</Text><View style={styles.actions}>{(['sv', 'en'] as const).map(value => button(t(`preferences.languageName.${value}`), () => setLanguage(value), loading, language === value))}</View>
         <Text style={text}>{t('onboarding.nativePersonal.theme')}</Text><View style={styles.actions}>{(['system', 'light', 'dark'] as const).map(value => button(t(`preferences.themes.${value}`), () => setProfileTheme(value), loading, profileTheme === value))}</View>
         {button(t('onboarding.nativePersonal.saveProfile'), () => {
@@ -204,20 +230,20 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
             const selected = editing; void action(async (token, signal) => { const page = await rereadLoaded(token, signal); const current = page.items.find(row => row.id === selected.id);
               return () => { setItems(page.items);  setReview(current ?? null); setReviewBlocked(!current); setMessage(current ? 'edit.conflict' : 'readbackUnavailable'); }; });
           }) : null}
-          {field(t('onboarding.manualSubscription.name'), draft.customName, value => setDraft(prior => ({ ...prior, customName: value })))}
+          {field(t('onboarding.manualSubscription.name'), draft.customName, value => setDraft(prior => ({ ...prior, customName: value })), false, 'native-subscription-name')}
           <Text style={text}>{t('onboarding.manualSubscription.category')}</Text><View style={styles.actions}>{Object.entries(catalogs[locale].onboarding.ownerSubscriptions.category).map(([code, label]) =>
             button(label, () => setDraft(prior => ({ ...prior, categoryCode: code })), loading, draft.categoryCode === code))}</View>
           <Text style={text}>{draft.categoryCode ? categoryLabel(draft.categoryCode) : t('onboarding.manualSubscription.placeholder')}</Text>
           <Text style={text}>{t('onboarding.manualSubscription.cadence')}</Text><View style={styles.actions}>{(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMIANNUAL', 'ANNUAL'] as const).map(code =>
             button(t(`onboarding.ownerSubscriptions.cadence.${code}`), () => setDraft(prior => ({ ...prior, cadence: code })), loading, draft.cadence === code))}</View>
           <Text style={text}>{t(`onboarding.ownerSubscriptions.cadence.${draft.cadence}`)}</Text>
-          {field(t('onboarding.nativePersonal.amount'), draft.amount, value => setDraft(prior => ({ ...prior, amount: value })), true)}
-          {field(t('onboarding.nativePersonal.date'), draft.date, value => setDraft(prior => ({ ...prior, date: value })))}
+          {field(t('onboarding.nativePersonal.amount'), draft.amount, value => setDraft(prior => ({ ...prior, amount: value })), true, 'native-subscription-amount')}
+          {field(t('onboarding.nativePersonal.date'), draft.date, value => setDraft(prior => ({ ...prior, date: value })), false, 'native-subscription-date')}
           {button(t(editing ? 'onboarding.nativeSubscriptionEdit.save' : 'onboarding.manualSubscription.save'), () => {
             if (review || reviewBlocked) return;
-            let body; try { body = parsePrivateManualCreate({ customName: draft.customName, categoryCode: draft.categoryCode, cadence: draft.cadence,
-              expectedAmountMinor: parsePositiveSekInput(draft.amount, locale).toString(), nextChargeDate: draft.date || null }); }
-            catch { setMessage('invalid'); return; }
+            const validated = validateManualDraft(draft, locale);
+            if (validated.error) { setMessage(`manualSubscription.${validated.error}`); return; }
+            const body = validated.body;
             if (editing) {
               const selected = editing; const edit = parsePrivateMobileManualEdit({ ...body, id: selected.id, expectedRevision: selected.revision });
               void action(async (token, signal) => { const result = await editNativeSubscription(edit, token, signal);

@@ -88,7 +88,7 @@ describe('enrollment route rendering', () => {
       render(<OtpRoute />);
       const copy = catalogs[locale].onboarding.registration;
       expect(screen.getByRole('header', { name: copy.otpTitle })).toBeTruthy();
-      const input = screen.getByLabelText(copy.otpLabel);
+      const input = screen.getByTestId('native-registration-otp');expect(input).toBe(screen.getByLabelText(copy.otpLabel));
       expect(input.props.keyboardType).toBe('number-pad');
       const verifyButton = screen.getByRole('button', {
         name: copy.verifyLabel,
