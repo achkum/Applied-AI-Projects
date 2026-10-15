@@ -11,10 +11,11 @@ import {useTheme} from '@/context/ThemeContext';
 import {getColorByTheme} from '@/utils/colors';
 import {catalogs} from '@subtrack/i18n';
 import {BillingIcon} from './BillingIcon';
-import {SandboxNotice} from '../onboarding/SandboxEntry';
 import type {NativeFeatureSession} from '../onboarding/NativePersonalScreen';
+import {NativeProductNav, type NativeProductDestination} from './NativeProductNav';
+import {NativeProductHeading,NativeProductBadge} from './NativeProductUI';
 export function NativeBillingMonthScreen({now=()=>new Date(),useSession=useNativeSession,readProjection=readBillingMonth,sandbox=false,inactiveContent}:{now?:()=>Date;useSession?:()=>NativeFeatureSession;readProjection?:typeof readBillingMonth;sandbox?:boolean;inactiveContent?:React.ReactNode}){
- const session=useSession(),router=useRouter(),{t,locale}=useI18n(),{theme,isDark,mode,setMode}=useTheme();
+ const session=useSession(),router=useRouter(),{t,locale}=useI18n(),{theme,isDark}=useTheme();
  const current=useRef(session);current.current=session;const [month,setMonth]=useState<BillingMonth>(()=>currentBillingMonth(now()));const chosen=useRef(month);chosen.current=month;
  const generation=useRef(0),feedback=useRef(0),focused=useRef(false),request=useRef<AbortController|null>(null);
  const [projection,setProjection]=useState<BillingProjection|null>(null),[state,setState]=useState<'idle'|'loading'|'ready'|'setup-required'|'error'>('idle'),[message,setMessage]=useState('');
@@ -35,7 +36,7 @@ export function NativeBillingMonthScreen({now=()=>new Date(),useSession=useNativ
  const color=(key:string)=>getColorByTheme(theme,isDark,key),text={color:color('ink.primary'),fontFamily:theme.typography.fontFamily.ui,fontSize:theme.typography.fontSize.md};
  const strong={...text,fontFamily:theme.typography.fontFamily['ui.semibold']};const display={...text,fontFamily:theme.typography.fontFamily.display,fontSize:theme.typography.fontSize['2xl']};
  const category=(code:string)=>Object.prototype.hasOwnProperty.call(catalogs[locale].onboarding.ownerSubscriptions.category,code)?t(`onboarding.ownerSubscriptions.category.${code}`):t('onboarding.ownerSubscriptions.categoryFallback');
- const button=(label:string,name:React.ComponentProps<typeof BillingIcon>['name'],onPress:()=>void,disabled=false,compact=false)=><Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled}} disabled={disabled} onPress={onPress} style={[styles.control,{borderColor:color('line.hairline'),backgroundColor:color('bg.surface'),opacity:disabled?0.5:1}]}><BillingIcon name={name} color={color('action.accent')}/>{compact?null:<Text style={{...text,fontFamily:theme.typography.fontFamily['ui.medium'],flexShrink:1}}>{label}</Text>}</Pressable>;
+ const button=(label:string,name:React.ComponentProps<typeof BillingIcon>['name'],onPress:()=>void,disabled=false,compact=false,showLabel=!compact)=><Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled}} disabled={disabled} onPress={onPress} style={[styles.control,compact?styles.compactControl:null,{borderColor:color('line.hairline'),backgroundColor:color('bg.surface'),opacity:disabled?0.5:1}]}><BillingIcon name={name} color={color('action.accent')} size={compact?20:24}/>{showLabel?<Text style={{...text,fontFamily:theme.typography.fontFamily['ui.medium'],flexShrink:1}}>{label}</Text>:null}</Pressable>;
  const titleDate=new Date(0);titleDate.setFullYear(month.year,month.month-1,1);const title=new Intl.DateTimeFormat(locale==='sv'?'sv-SE':'en-SE',{month:'long',year:'numeric'}).format(titleDate);
  function navigate(direction:-1|1){const next=shiftBillingMonth(month,direction);chosen.current=next;setMonth(next);void load();}
  function closeDetail(){const id=detail?.id,ticket=generation.current;setDetail(null);requestAnimationFrame(()=>{if(ticket!==generation.current||!id)return;const node=rowRefs.current.get(id);const handle=node&&findNodeHandle(node);if(handle)AccessibilityInfo.setAccessibilityFocus(handle);});}
@@ -43,13 +44,14 @@ export function NativeBillingMonthScreen({now=()=>new Date(),useSession=useNativ
  const selected=projection?.days.find(value=>value.date===day);
  const calendarDates=projection?billingMonthCalendarDates(projection.month):[];
  const detailVisible=session.phase==='active'&&detail!==null;
+ const navigateTab=(destination:NativeProductDestination)=>{if(destination==='manage')router.replace('/personal');else if(destination==='upcoming')router.replace('/personal-home');};
  return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}>
   <View style={styles.full} accessibilityElementsHidden={detailVisible} importantForAccessibility={detailVisible?'no-hide-descendants':'auto'}>
   <ScrollView contentContainerStyle={styles.content}>
-   <View style={styles.header}><View style={styles.grow}><Text style={{...text,color:color('ink.secondary'),fontSize:theme.typography.fontSize.sm}}>{t('scope.personal')}</Text><Text accessibilityRole="header" style={display}>{t('onboarding.billingMonth.title')}</Text></View><BillingIcon name="calendar" color={color('action.accent')}/></View>
+   <NativeProductHeading eyebrow={t('scope.personal')} title={t('onboarding.billingMonth.title')} trailing={<BillingIcon name="calendar" color={color('action.accent')}/>} />
    <View style={styles.monthNav}>{button(t('onboarding.billingMonth.previous'),'previous',()=>navigate(-1),month.year===1&&month.month===1,true)}<Text accessibilityRole="header" style={{...display,fontSize:theme.typography.fontSize.lg,flexShrink:1,textAlign:'center'}}>{title}</Text>{button(t('onboarding.billingMonth.next'),'next',()=>navigate(1),month.year===9999&&month.month===12,true)}</View>
    <Text style={{...text,color:color('ink.secondary')}}>{t('onboarding.billingMonth.expected')}</Text>
-   {sandbox?<SandboxNotice/>:null}
+   {sandbox?<NativeProductBadge label={t('onboarding.sandbox.noticeShort')}/>:null}
    {message?<Text accessibilityRole="alert" style={text}>{t(`onboarding.nativePersonal.${message}`)}</Text>:null}
    {session.phase==='active'?<>
     {state==='loading'?<Text accessibilityLiveRegion="polite" style={text}>{t('onboarding.nativePersonal.loading')}</Text>:null}
@@ -63,13 +65,9 @@ export function NativeBillingMonthScreen({now=()=>new Date(),useSession=useNativ
      {day?<View style={[styles.card,{backgroundColor:color('bg.surface'),borderRadius:theme.radius.card}]}><Text accessibilityRole="header" style={{...display,fontSize:theme.typography.fontSize.lg}}>{day}</Text>{selected?selected.items.map(item=><Pressable key={item.id} ref={node=>{if(node)rowRefs.current.set(item.id,node);else rowRefs.current.delete(item.id);}} accessibilityRole="button" accessibilityLabel={t('onboarding.billingMonth.details',{name:item.customName??item.merchantName??category(item.categoryCode)})} onPress={()=>setDetail(item)} style={[styles.row,{borderTopColor:color('line.hairline')}]}><View style={styles.grow}><Text style={strong}>{item.customName??item.merchantName??category(item.categoryCode)}</Text><Text style={{...text,color:color('ink.secondary'),fontSize:theme.typography.fontSize.sm}}>{category(item.categoryCode)}</Text></View><Text style={{...strong,fontVariant:['tabular-nums'],textAlign:'right',flexShrink:1}}>{formatted(BigInt(item.expectedAmountMinor),item.currency)}</Text></Pressable>):<Text style={text}>{t('onboarding.billingMonth.dayEmpty')}</Text>}</View>:null}
      {projection.undatedDetections?.length?<View style={[styles.card,{backgroundColor:color('bg.surface'),borderRadius:theme.radius.card}]}><Text accessibilityRole="header" style={strong}>{t('onboarding.nativeDetection.undatedTitle')}</Text><Text style={{...text,color:color('ink.secondary')}}>{t('onboarding.nativeDetection.undatedDescription')}</Text>{projection.undatedDetections.map(item=><View key={item.id}><Text style={strong}>{item.customName??item.merchantName??category(item.categoryCode)}</Text><Text style={text}>{formatted(BigInt(item.expectedAmountMinor),item.currency)}</Text></View>)}{button(t('onboarding.nativeDetection.open'),'manage',()=>router.push('/personal-detections'))}</View>:null}
     </>:null}
-    {button(t('onboarding.billingMonth.refresh'),'refresh',()=>{void load();},state==='loading')}
+    {button(t('onboarding.billingMonth.refresh'),'refresh',()=>{void load();},state==='loading',true,true)}
    </>:sandbox?inactiveContent:<><Text style={text}>{t('onboarding.nativePersonal.restart')}</Text>{button(t('onboarding.nativePersonal.verify'),'calendar',()=>{const ticket=++feedback.current;setMessage('');void session.login().catch(()=>{if(ticket===feedback.current)setMessage('unavailable');});},session.phase==='busy')}</>}
-   {button(t('onboarding.billingMonth.manage'),'manage',()=>router.replace('/personal'))}
-   {button(t('onboarding.nativeRenewals.open'),'calendar',()=>router.replace('/personal-home'))}
-   <View style={styles.theme}>{(['light','dark','system'] as const).map(value=><Pressable key={value} accessibilityRole="button" accessibilityLabel={t(`preferences.themes.${value}`)} accessibilityState={{selected:mode===value}} onPress={()=>{void setMode(value);}} style={styles.themeControl}><Text style={{...text,color:color(mode===value?'action.text':'ink.secondary'),fontFamily:theme.typography.fontFamily['ui.medium']}}>{t(`preferences.themes.${value}`)}</Text></Pressable>)}</View>
-   {button(t('onboarding.nativePersonal.logout'),'logout',()=>{const ticket=++feedback.current;invalidate();setProjection(null);setState('idle');setMessage('');void session.logout().then(ack=>{if(ticket===feedback.current)setMessage(ack?'logoutConfirmed':'logoutLocal');}).catch(()=>{if(ticket===feedback.current)setMessage('storageError');});})}
-  </ScrollView></View>
+  </ScrollView><NativeProductNav active="month" onNavigate={navigateTab}/></View>
   <Modal visible={detailVisible} transparent animationType="none" onRequestClose={closeDetail} onShow={()=>{const handle=heading.current&&findNodeHandle(heading.current);if(handle)AccessibilityInfo.setAccessibilityFocus(handle);}}>
    <View style={[styles.scrim,{backgroundColor:color('sheet.scrim')}]}><SafeAreaView accessibilityViewIsModal style={[styles.sheet,{backgroundColor:color('bg.surface'),borderTopLeftRadius:theme.radius.card,borderTopRightRadius:theme.radius.card}]}>
     <ScrollView contentContainerStyle={styles.content}>{session.phase==='active'&&detail?<>
@@ -84,4 +82,4 @@ export function NativeBillingMonthScreen({now=()=>new Date(),useSession=useNativ
   </Modal>
  </SafeAreaView>;
 }
-const styles=StyleSheet.create({full:{flex:1},content:{padding:20,gap:16,paddingBottom:32},header:{flexDirection:'row',alignItems:'center',gap:12},grow:{flex:1,minWidth:0},monthNav:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},control:{minHeight:48,padding:12,borderWidth:1,borderRadius:18,flexDirection:'row',alignItems:'center',gap:8,flexShrink:1},ribbon:{gap:8},day:{minWidth:48,minHeight:64,padding:12,borderWidth:1,borderRadius:18,alignItems:'center',gap:4},card:{padding:16,gap:12},row:{flexDirection:'row',alignItems:'center',gap:12,minHeight:64,paddingVertical:16,borderTopWidth:1},theme:{flexDirection:'row',flexWrap:'wrap',gap:8},themeControl:{minWidth:48,minHeight:48,padding:12},scrim:{flex:1,justifyContent:'flex-end'},sheet:{maxHeight:'85%'}});
+const styles=StyleSheet.create({full:{flex:1},content:{padding:20,gap:16,paddingBottom:32},header:{flexDirection:'row',alignItems:'center',gap:12},grow:{flex:1,minWidth:0},monthNav:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},control:{minHeight:48,padding:12,borderWidth:1,borderRadius:18,flexDirection:'row',alignItems:'center',gap:8,flexShrink:1},compactControl:{alignSelf:'flex-start'},ribbon:{gap:8},day:{minWidth:48,minHeight:64,padding:12,borderWidth:1,borderRadius:18,alignItems:'center',gap:4},card:{padding:16,gap:12},row:{flexDirection:'row',alignItems:'center',gap:12,minHeight:64,paddingVertical:16,borderTopWidth:1},scrim:{flex:1,justifyContent:'flex-end'},sheet:{maxHeight:'85%'}});

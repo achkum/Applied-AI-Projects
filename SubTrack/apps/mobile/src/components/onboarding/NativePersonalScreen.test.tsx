@@ -12,10 +12,11 @@ import {SandboxSessionProvider,useSandboxSession} from '@/state/SandboxSession';
 import {SandboxEntry} from './SandboxEntry';
 import type {SandboxMobileApi} from '@/api/sandboxMobileApi';
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
 const mockLocale:{value:'en'|'sv'}={value:'en'};
 const mockSetLocale = jest.fn(); const mockSetMode = jest.fn();
 jest.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 6 }));
-jest.mock('expo-router', () => ({ useFocusEffect: jest.fn(), useRouter: () => ({ replace: jest.fn(), push: mockPush }) }));
+jest.mock('expo-router', () => ({ useFocusEffect: jest.fn(), useRouter: () => ({ replace: mockReplace, push: mockPush }) }));
 jest.mock('@/api/privateMobileApi', () => ({ verifiedNativeLogin: jest.fn(), revokeNativeSession: jest.fn(), rotateNativeSession: jest.fn(), completeNativeEnrollment: jest.fn(),
   readNativeProfile: jest.fn(), saveNativeProfile: jest.fn(), readNativeMode: jest.fn(), chooseNativeJustMe: jest.fn(), readNativeSubscriptions: jest.fn(), editNativeSubscription: jest.fn(), updateNativeSubscriptionStatus: jest.fn(), createNativeSubscription: jest.fn() }));
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ ...jest.requireActual('../signature/testUtils/contextMocks').makeTheme(false),theme:jest.requireActual('../../../../../packages/ui-tokens/generated/billing-month.native.json'), setMode: mockSetMode }) }));
@@ -43,17 +44,27 @@ it('sandbox entry completes profile/Just Me/Add/Edit/status/readback/logout thro
     editNativeSubscription:jest.fn(async()=>{rows=[{...rows[0]!,customName:'Persisted edited service',revision:'2'}];return{id:row.id,revision:'2'};}),
     updateNativeSubscriptionStatus:jest.fn(async()=>{rows=[{...rows[0]!,status:'PAUSED' as never,revision:'3'}];return{id:row.id,status:'PAUSED',revision:'3'};})};
   const store={read:jest.fn().mockResolvedValue(null),write:jest.fn().mockResolvedValue(undefined),clear:jest.fn().mockResolvedValue(undefined)};
-  render(<SandboxSessionProvider available store={store} api={sandboxApi as unknown as SandboxMobileApi}><NativePersonalScreen useSession={useSandboxSession} api={sandboxApi as unknown as import('./NativePersonalScreen').NativePersonalApi} sandbox inactiveContent={<SandboxEntry/>}/></SandboxSessionProvider>);
+  const onSetupComplete=jest.fn();render(<SandboxSessionProvider available store={store} api={sandboxApi as unknown as SandboxMobileApi}><NativePersonalScreen useSession={useSandboxSession} api={sandboxApi as unknown as import('./NativePersonalScreen').NativePersonalApi} sandbox inactiveContent={<SandboxEntry/>} onSetupComplete={onSetupComplete}/></SandboxSessionProvider>);
   await waitFor(()=>expect(screen.getByRole('button',{name:copy.sandbox.enter}).props.accessibilityState.disabled).toBe(false));
   expect(screen.queryByRole('button',{name:copy.nativePersonal.verify})).toBeNull();fireEvent.press(screen.getByRole('button',{name:copy.sandbox.enter}));
   await screen.findByLabelText(copy.nativePersonal.name);fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.name),'Fiction');fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.saveProfile}));
-  await screen.findByText(copy.nativePersonal.profileSaved);fireEvent.press(screen.getByRole('button',{name:copy.mode.choose}));await screen.findByRole('button',{name:copy.manualSubscription.title});
-  expect(screen.queryByRole('button',{name:copy.nativeBank.open})).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeDetection.open})).toBeNull();
+  await screen.findByText(copy.nativePersonal.profileSaved);fireEvent.press(screen.getByRole('button',{name:copy.mode.choose}));await screen.findByRole('tab',{name:copy.productNav.manage});expect(onSetupComplete).toHaveBeenCalledWith('mutation');
+  expect(screen.getByRole('button',{name:copy.nativeBank.open}).props.accessibilityState.disabled).toBe(true);expect(screen.getByRole('button',{name:copy.nativeDetection.open}).props.accessibilityState.disabled).toBe(true);expect(screen.getByText(copy.sandbox.manageUnavailable)).toBeTruthy();
   fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.title}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Fiction');fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.category.VIDEO_STREAMING}));
   fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.amount),'12.00');fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.save}));await screen.findByText('Persisted sandbox service');
   fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Changed draft');fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText('Persisted edited service');
   fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await waitFor(()=>expect(sandboxApi.updateNativeSubscriptionStatus).toHaveBeenCalledTimes(1));await screen.findByText(`${copy.ownerSubscriptions.category.VIDEO_STREAMING} · ${copy.ownerSubscriptions.status.PAUSED}`);
   fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.logout}));await screen.findByText(copy.nativePersonal.logoutConfirmed);expect(screen.queryByText('Persisted edited service')).toBeNull();expect(api.verifiedNativeLogin).not.toHaveBeenCalled();
+});
+it.each(['en','sv'] as const)('uses the localized single profile heading during setup in %s',async locale=>{
+ mockLocale.value=locale;const localized=catalogs[locale].onboarding;jest.mocked(api.readNativeProfile).mockResolvedValue({...profile,displayName:null,profileComplete:false});
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:localized.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
+ fireEvent.press(screen.getByRole('button',{name:localized.nativePersonal.verify}));
+ expect(await screen.findByRole('header',{name:localized.profile.title})).toBeTruthy();
+ expect(screen.getByTestId('native-personal-title')).toBe(screen.getByRole('header',{name:localized.profile.title}));
+ expect(screen.getAllByTestId('native-personal-title')).toHaveLength(1);
+ expect(screen.getAllByText(localized.nativePersonal.introduction)).toHaveLength(1);
 });
 function mount() { const store: NativeBundleStore = { read: jest.fn().mockResolvedValue(null), write: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) };
   return render(<NativeSessionProvider store={store}><NativePersonalScreen /></NativeSessionProvider>); }
@@ -362,9 +373,9 @@ it('legacy category draft uses the accepted fallback until the owner chooses an 
 
 it('opens the native renewals agenda only after current profile and Just me readback',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});mount();
- expect(screen.queryByRole('button',{name:copy.nativeRenewals.open})).toBeNull();
+ expect(screen.queryByRole('tab',{name:copy.productNav.upcoming})).toBeNull();
  await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));
- await screen.findByRole('button',{name:copy.nativeRenewals.open});fireEvent.press(screen.getByRole('button',{name:copy.nativeRenewals.open}));expect(mockPush).toHaveBeenCalledWith('/personal-home');
+ await screen.findByRole('tab',{name:copy.productNav.upcoming});fireEvent.press(screen.getByRole('tab',{name:copy.productNav.upcoming}));expect(mockReplace).toHaveBeenCalledWith('/personal-home');
 });
 
 it('personal list focus after the agenda rereads changed saved rows',async()=>{

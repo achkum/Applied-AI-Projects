@@ -1,0 +1,13 @@
+import {SandboxOnboardingCore,SANDBOX_TEST_CODE} from './SandboxOnboardingCore';
+import type {IdentifierResult} from '@subtrack/contracts/identifiers';
+const identifier={valid:true,channel:'email',identifier:'synthetic@example.test'} as Extract<IdentifierResult,{valid:true}>;
+it('uses only local public stages, exact test code and bounded cooldown without retaining contact',async()=>{
+ const changed=jest.fn();let now=100;const core=new SandboxOnboardingCore(changed,()=>now),establish=jest.fn().mockResolvedValue(undefined);
+ await expect(core.complete(establish)).rejects.toThrow();expect(establish).not.toHaveBeenCalled();await core.start(identifier);expect(changed).toHaveBeenLastCalledWith({phase:'otp',pending:false,cooldownUntil:30100});await core.start(identifier);await core.resend();expect(changed).toHaveBeenCalledTimes(1);await core.verify('123456');expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({error:'incorrect'}));now=30100;await core.resend();expect(changed).toHaveBeenLastCalledWith({phase:'otp',pending:false,cooldownUntil:60100});await core.verify(SANDBOX_TEST_CODE);expect(establish).not.toHaveBeenCalled();expect(await core.complete(establish)).toBe('sandbox-session-ready');expect(establish).toHaveBeenCalledTimes(1);expect(changed).toHaveBeenLastCalledWith({phase:'identifier'});expect(JSON.stringify(changed.mock.calls)).not.toContain(identifier.identifier);
+});
+it('rejects invalid identifiers, ignores wrong-phase verification and requires explicit login confirmation',async()=>{
+ const changed=jest.fn(),core=new SandboxOnboardingCore(changed);await core.verify(SANDBOX_TEST_CODE);await core.resend();expect(changed).not.toHaveBeenCalled();await core.start({...identifier,identifier:'invalid'});expect(changed).toHaveBeenLastCalledWith({phase:'identifier',error:'restart'});expect(await core.login()).toBe('sandbox-confirmation-required');expect(changed).toHaveBeenLastCalledWith({phase:'bankid'});
+});
+it('fences reset and delayed establishment, rejects double confirmation and permits explicit retry after failure',async()=>{
+ const changed=jest.fn(),core=new SandboxOnboardingCore(changed);let finish!:()=>void;await core.login();const pending=core.complete(()=>new Promise<void>(resolve=>{finish=resolve;}));await expect(core.complete(jest.fn())).rejects.toThrow();core.reset();finish();await expect(pending).rejects.toThrow();expect(changed).toHaveBeenLastCalledWith({phase:'identifier'});await core.login();await expect(core.complete(async()=>{throw Error('private');})).rejects.toThrow('Sandbox session unavailable');expect(changed).toHaveBeenLastCalledWith({phase:'bankid',error:'restart'});await expect(core.complete(async()=>undefined)).resolves.toBe('sandbox-session-ready');
+});

@@ -17,6 +17,7 @@ import {
 import { useI18n } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getColorByTheme } from '@/utils/colors';
+import { NativeProductButton } from '@/components/billing/NativeProductUI';
 
 export interface IdentifierEntryProps {
   onValidIdentifier: (result: Extract<IdentifierResult, { valid: true }>) => void;
@@ -67,12 +68,12 @@ export function IdentifierEntry({ onValidIdentifier }: IdentifierEntryProps) {
               accessibilityState={{ selected }}
               onPress={() => selectChannel(option)}
               style={[styles.channel, {
-                backgroundColor: selected ? color('bg.raised') : color('bg.sunken'),
+                backgroundColor: selected ? color('action.accent') : color('bg.surface'),
                 borderColor: selected ? color('ink.primary') : color('ink.secondary'),
                 borderRadius: theme.radius.pill,
               }]}
             >
-              <Text style={{ color: color('ink.primary'), fontFamily: theme.typography.fontFamily.ui }}>
+              <Text style={{ color: color(selected ? 'ink.on-accent' : 'ink.primary'), fontFamily: theme.typography.fontFamily.ui }}>
                 {t(`onboarding.identifier.${option}Channel`)}
               </Text>
             </Pressable>
@@ -114,23 +115,7 @@ export function IdentifierEntry({ onValidIdentifier }: IdentifierEntryProps) {
           {t(`onboarding.identifier.errors.${error}`)}
         </Text>
       )}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('onboarding.identifier.continueLabel')}
-        accessibilityState={{ disabled: !canContinue }}
-        disabled={!canContinue}
-        onPress={submit}
-        style={[styles.continue, {
-          backgroundColor: color(canContinue ? 'ink.primary' : 'bg.raised'),
-          borderRadius: theme.radius.pill,
-          borderWidth: 1,
-          borderColor: color('ink.secondary'),
-        }]}
-      >
-        <Text style={{ color: color(canContinue ? 'bg.raised' : 'ink.secondary'), fontFamily: theme.typography.fontFamily.ui }}>
-          {t('onboarding.identifier.continueLabel')}
-        </Text>
-      </Pressable>
+      <NativeProductButton accessibilityRole="button" label={t('onboarding.identifier.continueLabel')} variant="primary" disabled={!canContinue} onPress={submit} />
     </View>
   );
 }
@@ -148,5 +133,4 @@ const styles = StyleSheet.create({
   label: { fontWeight: '600' },
   input: { minHeight: 52, borderWidth: 1, paddingHorizontal: 16 },
   error: {},
-  continue: { minHeight: 48, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
 });

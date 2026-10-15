@@ -49,6 +49,10 @@
   "onboarding": {
     "sandbox": {
       "notice": "Sandlåda · Simulerad verifiering. Använd endast påhittade testuppgifter.",
+      "noticeShort": "Sandlåda · simulerad verifiering",
+      "simulatedOtp": "Endast sandlåda: ange testkoden %{code}. Inget meddelande har skickats och ingen kontaktmetod har verifierats.",
+      "simulatedBankId": "Endast sandlåda: detta är en simulerad bekräftelse. Ingen riktig BankID-kontroll eller identitetsverifiering används.",
+      "manageUnavailable": "Bank- och identifieringsfunktioner är inte tillgängliga i den här isolerade testmiljön.",
       "enter": "Skapa en testyta",
       "resume": "Återuppta den här testytan",
       "unavailable": "Sandlådan är för närvarande otillgänglig. Din begäran har inte upprepats.",
@@ -59,6 +63,12 @@
       "createAccount": "Skapa konto",
       "logIn": "Logga in",
       "exploreDemo": "Utforska demohushåll"
+    },
+    "productNav": {
+      "label": "Huvudnavigering",
+      "month": "Månad",
+      "upcoming": "Kommande",
+      "manage": "Hantera"
     },
     "login": {
       "title": "Logga in",
@@ -281,7 +291,7 @@
       "open": "Öppna faktureringsmånad",
       "previous": "Föregående månad",
       "next": "Nästa månad",
-      "expected": "Sparade förväntade datum och belopp, inte bekräftade debiteringar. Uppdatera för att läsa aktuella abonnemang.",
+      "expected": "Förväntade abonnemang. Sparade datum och belopp är uppskattningar, inte debiteringar.",
       "empty": "Inga aktiva sparade datum den här månaden. Saknade datum är fortfarande okända.",
       "dayEmpty": "Inga sparade förväntade abonnemang det här datumet.",
       "subtotal": "Delsumma av sparade förväntade datum, per valuta",
@@ -297,6 +307,8 @@
     },
     "nativePersonal": {
       "title": "Dina personliga abonnemang",
+      "introduction": "Skapa din privata profil för att komma igång.",
+      "manageDescription": "Dina abonnemang är privata. Lägg till eller ändra förväntade belopp och datum här.",
       "demo": "Utvecklingssimulator: ny BankID-verifiering använder det syntetiska Alice-kontot. Detta är inte riktigt BankID.",
       "verify": "Verifiera med utvecklingssimulatorn",
       "restart": "Efter omstart krävs ny verifierad inloggning. Dina sparade abonnemang finns kvar i databasen.",
@@ -308,8 +320,9 @@
       "logoutConfirmed": "Utloggning och serverns återkallelse har bekräftats.",
       "refresh": "Rotera denna session",
       "profile": "Din profil",
-      "saveProfile": "Spara profil och läs på nytt",
-      "profileSaved": "Profilen har sparats och bekräftats med en separat läsning.",
+      "saveProfile": "Spara och fortsätt",
+      "savePreferences": "Spara inställningar",
+      "profileSaved": "Profilen har sparats.",
       "name": "Visningsnamn",
       "emoji": "Avatar-emoji",
       "language": "Språk",

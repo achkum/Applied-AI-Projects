@@ -49,6 +49,10 @@
   "onboarding": {
     "sandbox": {
       "notice": "Sandbox · Simulated verification. Use fictional test data only.",
+      "noticeShort": "Sandbox · simulated verification",
+      "simulatedOtp": "Sandbox only: enter test code %{code}. No message was sent and no contact method was verified.",
+      "simulatedBankId": "Sandbox only: this is a simulated confirmation. No real BankID check or identity proof is used.",
+      "manageUnavailable": "Bank and detection tools are unavailable in this isolated test workspace.",
       "enter": "Create a test workspace",
       "resume": "Resume this test workspace",
       "unavailable": "Sandbox access is currently unavailable. Your request has not been retried.",
@@ -59,6 +63,12 @@
       "createAccount": "Create account",
       "logIn": "Log in",
       "exploreDemo": "Explore demo household"
+    },
+    "productNav": {
+      "label": "Main navigation",
+      "month": "Month",
+      "upcoming": "Upcoming",
+      "manage": "Manage"
     },
     "login": {
       "title": "Log in",
@@ -281,7 +291,7 @@
       "open": "Open billing month",
       "previous": "Previous month",
       "next": "Next month",
-      "expected": "Saved expected dates and amounts, not confirmed charges. Refresh to read current subscriptions.",
+      "expected": "Expected subscriptions. Saved dates and amounts are estimates, not charges.",
       "empty": "No active saved dates in this month. Missing dates remain unknown.",
       "dayEmpty": "No saved expected subscriptions on this date.",
       "subtotal": "Subtotal of saved expected dates, by currency",
@@ -297,6 +307,8 @@
     },
     "nativePersonal": {
       "title": "Your personal subscriptions",
+      "introduction": "Set up your private profile to get started.",
+      "manageDescription": "Your subscriptions are private to you. Add or update expected amounts and dates here.",
       "demo": "Development simulator: fresh BankID verification uses the synthetic Alice account. This is not real BankID.",
       "verify": "Verify with the development simulator",
       "restart": "App restart requires fresh verified login. Your saved subscriptions stay in the database.",
@@ -308,8 +320,9 @@
       "logoutConfirmed": "Logged out and server revocation confirmed.",
       "refresh": "Rotate this session",
       "profile": "Your profile",
-      "saveProfile": "Save profile and reread",
-      "profileSaved": "Profile saved and separately confirmed.",
+      "saveProfile": "Save and continue",
+      "savePreferences": "Save preferences",
+      "profileSaved": "Profile saved.",
       "name": "Display name",
       "emoji": "Avatar emoji",
       "language": "Language",

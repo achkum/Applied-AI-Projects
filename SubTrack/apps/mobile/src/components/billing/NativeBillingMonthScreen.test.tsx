@@ -22,7 +22,7 @@ const copy=catalogs.en.onboarding;const now=()=>new Date(2026,2,28,12);
 it('sandbox dependency port reuses Month totals and replaces private inactive controls',async()=>{
  const facade={phase:'verification-required' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:jest.fn()};
  const view=render(<NativeBillingMonthScreen now={now} sandbox useSession={()=>facade} inactiveContent={<Text>Sandbox entry control</Text>}/>);
- expect(screen.getByText(copy.sandbox.notice)).toBeTruthy();expect(screen.getByText('Sandbox entry control')).toBeTruthy();expect(screen.queryByRole('button',{name:copy.nativePersonal.verify})).toBeNull();view.unmount();
+ expect(screen.getByText(copy.sandbox.noticeShort)).toBeTruthy();expect(screen.getByText('Sandbox entry control')).toBeTruthy();expect(screen.queryByRole('button',{name:copy.nativePersonal.verify})).toBeNull();view.unmount();
  const {selectBillingMonth}=jest.requireActual('@/api/privateMobileBillingMonth');const readProjection=jest.fn().mockResolvedValue({kind:'ready',projection:selectBillingMonth([row],{year:2026,month:3})});
  const active={...facade,phase:'active' as const,run:async<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>work('sandbox-only',new AbortController().signal)};
  render(<NativeBillingMonthScreen now={now} sandbox useSession={()=>active} readProjection={readProjection}/>);await screen.findByText(row.customName);expect(readProjection).toHaveBeenCalledWith('sandbox-only',expect.anything(),{year:2026,month:3});expect(api.readNativeSubscriptions).not.toHaveBeenCalled();expect(screen.queryByRole('button',{name:copy.nativeDetection.open})).toBeNull();
@@ -40,6 +40,12 @@ it('shows both same-day entries, exact saved totals, detail isolation and manage
  expect(screen.getByText(second.customName)).toBeTruthy();expect(screen.getByText(formatMinorUnits(BigInt(row.expectedAmountMinor)+7n,'SEK',{locale:'en',display:'code'}).replace(/[\u00a0\u202f]/g,' '))).toBeTruthy();
  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.details.replace('%{name}',row.customName)}));expect(screen.getByText(copy.billingMonth.manual)).toBeTruthy();expect(screen.getByText(copy.billingMonth.private)).toBeTruthy();expect(screen.queryByRole('button',{name:copy.billingMonth.next})).toBeNull();
  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.manage}));expect(mockReplace).toHaveBeenCalledWith('/personal');
+});
+it('keeps account controls in Manage and exposes only real Month, Upcoming and Manage destinations',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});mount();await login();await screen.findByText(copy.billingMonth.empty);
+ expect(screen.queryByRole('button',{name:copy.nativePersonal.logout})).toBeNull();for(const theme of Object.values(catalogs.en.preferences.themes))expect(screen.queryByRole('button',{name:theme})).toBeNull();
+ fireEvent.press(screen.getByRole('tab',{name:copy.productNav.upcoming}));expect(mockReplace).toHaveBeenCalledWith('/personal-home');
+ fireEvent.press(screen.getByRole('tab',{name:copy.productNav.manage}));expect(mockReplace).toHaveBeenLastCalledWith('/personal');
 });
 it('renders every selectable month date and shows a date-scoped empty state without hiding other saved dates',async()=>{
  const second={...row,id:'223e4567-e89b-42d3-a456-426614174000',customName:'Second same-day service',expectedAmountMinor:'7'};
@@ -64,9 +70,6 @@ it('refresh and return from focus reread owner state; current errors retire auth
 it('late rejected reads after blur cannot replace a fresh month or retire its session',async()=>{
  let reject!:(e:Error)=>void;const pending=new Promise<never>((_,fail)=>{reject=fail;});jest.mocked(api.readNativeSubscriptions).mockImplementationOnce(()=>pending).mockResolvedValueOnce({items:[row],nextCursor:null});mount();await login();await waitFor(()=>expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(1));
  act(()=>{mockFocus.enabled=false;mockFocus.cleanup?.();});expect(jest.mocked(api.readNativeSubscriptions).mock.calls[0]![1].aborted).toBe(true);act(()=>{mockFocus.enabled=true;mockFocus.cleanup=mockFocus.start?.();});await act(async()=>{reject(new Error('obsolete private failure'));});await screen.findByText(row.customName);expect(screen.queryByText(copy.nativePersonal.unavailable)).toBeNull();expect(api.revokeNativeSession).not.toHaveBeenCalled();
-});
-it('logout hides detail and owner projection, retaining acknowledgement against late rejection',async()=>{
- let reject!:(e:Error)=>void;const pending=new Promise<never>((_,fail)=>{reject=fail;});jest.mocked(api.readNativeSubscriptions).mockImplementationOnce(()=>pending);mount();await login();await waitFor(()=>expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(1));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.logout}));await act(async()=>{reject(new Error('old-owner error'));});await screen.findByText(copy.nativePersonal.logoutConfirmed);expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText(copy.nativePersonal.unavailable)).toBeNull();expect(screen.getByText(copy.nativePersonal.logoutConfirmed)).toBeTruthy();
 });
 it('incomplete authority shows setup before requesting subscriptions',async()=>{
  jest.mocked(api.readNativeMode).mockResolvedValue({mode:null});mount();await login();await screen.findByText(copy.nativeRenewals.setup);expect(api.readNativeSubscriptions).not.toHaveBeenCalled();

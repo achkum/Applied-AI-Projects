@@ -4,10 +4,11 @@ import { useSandboxSession } from '@/state/SandboxSession';
 import { useI18n } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getColorByTheme } from '@/utils/colors';
+import { NativeProductBadge } from '@/components/billing/NativeProductUI';
 
 export function SandboxNotice() {
-  const { t } = useI18n(), { theme, isDark } = useTheme();
-  return <Text accessibilityRole="text" style={{ color: getColorByTheme(theme, isDark, 'ink.secondary'), fontFamily: theme.typography.fontFamily.ui, fontSize: theme.typography.fontSize.sm }}>{t('onboarding.sandbox.notice')}</Text>;
+  const { t } = useI18n();
+  return <NativeProductBadge label={t('onboarding.sandbox.noticeShort')} />;
 }
 export function SandboxEntry({notice=true}:{notice?:boolean}={}) {
   const session = useSandboxSession(), { t, locale } = useI18n(), { theme, isDark } = useTheme();

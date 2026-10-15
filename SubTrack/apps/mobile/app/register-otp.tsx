@@ -8,16 +8,17 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import { useI18n } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getColorByTheme } from '@/utils/colors';
-import { useEnrollment } from '@/state/EnrollmentFlow';
+import {useOnboarding,SANDBOX_TEST_CODE} from '@/state/OnboardingAdapter';
 
 export default function RegisterOtpRoute() {
   const router = useRouter();
   const { t } = useI18n();
   const { theme, isDark } = useTheme();
-  const { flow, verify, resend, reset } = useEnrollment();
+  const { flow, verify, resend, reset, provider } = useOnboarding();
   const [code, setCode] = useState('');
   const [seconds, setSeconds] = useState(0);
   const color = (key: string) => getColorByTheme(theme, isDark, key);
@@ -42,7 +43,7 @@ export default function RegisterOtpRoute() {
     router.replace('/register');
   };
   return (
-    <ScrollView
+    <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView
       style={{ backgroundColor: color('bg.canvas') }}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
@@ -81,6 +82,7 @@ export default function RegisterOtpRoute() {
       >
         {t('onboarding.registration.otpIntroduction')}
       </Text>
+      {provider==='sandbox'?<Text accessibilityRole="text" style={{color:color('ink.secondary')}}>{t('onboarding.sandbox.simulatedOtp', {code:SANDBOX_TEST_CODE})}</Text>:null}
       <View
         style={[
           styles.card,
@@ -118,7 +120,7 @@ export default function RegisterOtpRoute() {
             {
               color: color('ink.primary'),
               backgroundColor: color('bg.canvas'),
-              borderColor: color(flow.error ? 'ember.amber' : 'ink.secondary'),
+              borderColor: color(flow.error ? 'action.accent' : 'line.hairline'),
               borderRadius: theme.radius.card,
               fontFamily: theme.typography.fontFamily.mono,
               fontSize: theme.typography.fontSize['2xl'],
@@ -211,19 +213,19 @@ export default function RegisterOtpRoute() {
           </Text>
         </Pressable>
       </View>
-    </ScrollView>
+    </ScrollView></SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { flexGrow: 1, gap: 16, padding: 24 },
+  content: { flexGrow: 1, gap: 16, padding: 20 },
   back: {
     alignSelf: 'flex-start',
     minHeight: 48,
     justifyContent: 'center',
     paddingHorizontal: 8,
   },
-  card: { gap: 12, padding: 24 },
+  card: { gap: 12, padding: 20 },
   input: {
     minHeight: 56,
     borderWidth: 1,

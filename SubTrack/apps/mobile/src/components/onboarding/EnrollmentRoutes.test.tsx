@@ -1,9 +1,11 @@
+jest.mock('react-native-safe-area-context',()=>jest.requireActual('react-native-safe-area-context/jest/mock').default);
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { catalogs } from '@subtrack/i18n';
 import OtpRoute from '../../../app/register-otp';
 import BankIdRoute from '../../../app/register-bankid';
 
+let mockProvider:'production'|'sandbox'='production';
 let mockLocale: 'en' | 'sv' = 'en';
 let mockIsDark = false;
 let mockFlow: Record<string, unknown> = { phase: 'identifier' };
@@ -14,20 +16,8 @@ const mockReset = jest.fn();
 const mockComplete = jest.fn();
 const mockLogin = jest.fn();
 const mockLogout = jest.fn();
-jest.mock('@/state/NativeSession', () => ({
-  useNativeSession: () => ({ phase: 'verification-required', complete: mockComplete, login: mockLogin, logout: mockLogout }),
-}));
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace }),
-}));
-jest.mock('@/state/EnrollmentFlow', () => ({
-  useEnrollment: () => ({
-    flow: mockFlow,
-    verify: mockVerify,
-    resend: mockResend,
-    reset: mockReset,
-  }),
-}));
+jest.mock('@/state/OnboardingAdapter',()=>({SANDBOX_TEST_CODE:'000000',useOnboarding:()=>({provider:mockProvider,flow:mockFlow,sessionPhase:'verification-required',verify:mockVerify,resend:mockResend,reset:mockReset,complete:mockComplete,login:mockLogin,logout:mockLogout})}));
+jest.mock('expo-router',()=>({useRouter:()=>({replace:mockReplace})}));
 jest.mock('@/context/ThemeContext', () => ({
   useTheme: () =>
     jest
@@ -62,6 +52,7 @@ describe('enrollment route rendering', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockComplete.mockResolvedValue(undefined); mockLogin.mockResolvedValue(undefined); mockLogout.mockResolvedValue(false);
+    mockProvider='production';
     mockLocale = 'en';
     mockIsDark = false;
     mockFlow = { phase: 'identifier' };
@@ -137,10 +128,17 @@ describe('enrollment route rendering', () => {
       expect(screen.queryByText(String(mockFlow.proof))).toBeNull();
       fireEvent.press(screen.getByRole('button', { name: catalogs[locale].onboarding.nativePersonal.verify }));
       await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/personal'));
-      expect(mockComplete).toHaveBeenCalledWith(mockFlow.proof, locale);
-      expect(mockComplete.mock.calls[0]).toHaveLength(2);
+      expect(mockComplete).toHaveBeenCalledWith(locale);
+      expect(mockComplete.mock.calls[0]).toHaveLength(1);
       expect(mockLogin).not.toHaveBeenCalled();
       expect(mockReset).toHaveBeenCalledTimes(1);
     },
   );
+});
+
+it('sandbox uses the same OTP and BankID routes with truthful inline simulation and no proof arguments',async()=>{
+ jest.clearAllMocks();mockProvider='sandbox';mockLocale='en';mockFlow=otp();const view=render(<OtpRoute/>);expect(screen.getByText(catalogs.en.onboarding.sandbox.simulatedOtp.replace('%{code}','000000'))).toBeTruthy();view.unmount();mockFlow={phase:'bankid'};render(<BankIdRoute/>);expect(screen.getByText(catalogs.en.onboarding.sandbox.simulatedBankId)).toBeTruthy();fireEvent.press(screen.getByRole('button',{name:catalogs.en.onboarding.nativePersonal.verify}));await waitFor(()=>expect(mockComplete).toHaveBeenCalledWith('en'));expect(mockLogin).not.toHaveBeenCalled();expect(mockComplete.mock.calls[0]).toHaveLength(1);
+});
+it('back from simulated BankID retires only local flow and keeps installation custody',()=>{
+ jest.clearAllMocks();mockProvider='sandbox';mockFlow={phase:'bankid'};render(<BankIdRoute/>);fireEvent.press(screen.getByRole('button',{name:catalogs.en.onboarding.registration.backLabel}));expect(mockReset).toHaveBeenCalledTimes(1);expect(mockLogout).not.toHaveBeenCalled();
 });
