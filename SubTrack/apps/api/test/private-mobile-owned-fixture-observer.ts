@@ -290,3 +290,11 @@ export function createOwnedManualSaveObserver() {
     },
   });
 }
+
+/** All owned HTTP requests since the initial graph, without reading any request/response field. */
+export function createOwnedAllApiObserver(){
+ let attached:Server|undefined,listener:(()=>void)|undefined,attachments=0,count=0,generation=0;
+ function stop(){generation++;const old=attached,callback=listener;attached=undefined;listener=undefined;try{if(old&&callback)old.removeListener('request',callback);}catch{/* Unavailable observation cannot change server cleanup. */}}
+ function attach(server:Server){stop();attachments++;attached=server;const ticket=generation;listener=()=>{if(attached===server&&generation===ticket)count=Math.min(2,count+1);};try{server.prependListener('request',listener);}catch{stop();}}
+ return Object.freeze({attach,stop,observation:()=>Object.freeze({state:attached&&attachments===1?'active':'unavailable',arrivals:bucket(count)})});
+}

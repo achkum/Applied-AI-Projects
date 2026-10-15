@@ -1,5 +1,5 @@
 import {qualifyNativeBank,acceptedNativeBankScreenshot,ACCEPTED_NATIVE_BANK_SCREENSHOTS} from './private-runtime-bank.mjs';
-import {prepareEnrollmentMetadata,enrollmentMetadataLines} from './private-runtime-maestro-metadata.mjs';
+import {prepareEnrollmentMetadata,enrollmentMetadataLines,preparePreinputMetadata,preinputCaptureContext,captureSealedPreinput} from './private-runtime-maestro-metadata.mjs';
 import {enrollmentStageDiagnostic,startupStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
 import {fixtureMonthLabels,qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
 import {renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
@@ -10,7 +10,7 @@ import process from 'node:process';
 import console from 'node:console';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, execFileSync, execFile } from 'node:child_process';
 import {
   openSync,
   closeSync,
@@ -20,6 +20,7 @@ import {
   readdirSync,
   copyFileSync,
   statSync,
+  lstatSync,
 } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -117,10 +118,14 @@ async function main() {
   assert.equal(config.database, 'st237_private_https_profile');
 
   let enrollmentExecution = null;
-  let enrollmentMetadata = null;
+  let enrollmentMetadata = null, preinputMetadata = null;
+  const captureContext=platform==='ios'?preinputCaptureContext(process.env,head):null;
   async function run(command, args, label, extraEnv = {}, cwd = app) {
     const execution = command === 'maestro' && label === 'enroll-add' && args.at(-1) === join(app, 'e2e/private-runtime-enroll-add.yaml')
       ? createEnrollmentExecution(label) : null;
+    let preinput=null;
+    if(captureContext&&command==='maestro'&&label==='identifier'&&args.at(-1)===join(app,'e2e/private-runtime-identifier.yaml'))try{preinput=preparePreinputMetadata(privateDir);}catch{/* Optional diagnostics never prevent the original flow. */}
+    if(preinput)preinputMetadata=preinput;
     if (execution) {enrollmentExecution = execution;enrollmentMetadata=prepareEnrollmentMetadata(privateDir,execution);}
     const fd = openSync(join(privateDir, `${label}.log`), 'w', 0o600);
     try {
@@ -131,20 +136,21 @@ async function main() {
           env: { ...process.env, ...extraEnv },
           stdio: ['ignore', fd, fd],
         }); } catch {
-          execution?.record('error');
+          execution?.record('error');preinput?.record('error');
           reject(new Error(`Private qualification ${label} could not start`));
           return;
         }
         child.on('error', () => {
-          execution?.record('error');
+          execution?.record('error');preinput?.record('error');
           reject(new Error(`Private qualification ${label} could not start`));
         });
         child.on('exit', (code, signal) => {
-          execution?.record('exit', code, signal);
+          execution?.record('exit', code, signal);preinput?.record('exit',code,signal);
+          if(preinput)return;
           if (code === 0) accept();
           else reject(new Error(`Private qualification ${label} failed`));
         });
-        child.on('close', (code, signal) => execution?.record('close', code, signal));
+        child.on('close', (code, signal) => {execution?.record('close',code,signal);if(preinput){preinput.record('close',code,signal);if(code===0)accept();else reject(new Error(`Private qualification ${label} failed`));}});
       });
     } finally {
       closeSync(fd);
@@ -378,6 +384,23 @@ async function main() {
       console.error(
         `ST244_NATIVE phase=startup-graph result=${status?.result ?? 'metadata-withheld'} category=${status?.category ?? 'withheld'}`,
       );
+    }
+    if (currentPhase === 'flow-identifier' && captureContext && preinputMetadata) {
+      const nativeRead=(args)=>new Promise((ok,no)=>execFile('xcrun',args,{timeout:10000,killSignal:'SIGKILL',maxBuffer:65536,encoding:'utf8'},(error,stdout)=>error?no(new Error('Private diagnostic unavailable')):ok(stdout)));
+      let sealed=false;
+      try{sealed=await captureSealedPreinput({privateRoot:privateDir,reader:preinputMetadata,context:captureContext,observe:()=>harness.allApiObservation(),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),
+        capture:async(file,udid)=>{
+          assert.equal(udid,process.env.SUBTRACK_SIMULATOR_UDID);
+          const booted=JSON.parse(await nativeRead(['simctl','list','devices','booted','--json']));
+          const devices=booted.devices?.['com.apple.CoreSimulator.SimRuntime.iOS-26-2'];
+          assert.ok(Array.isArray(devices)&&devices.filter(device=>device.udid===udid&&device.state==='Booted'&&device.isAvailable===true&&device.name==='SubTrack-proof').length===1);
+          const installed=(await nativeRead(['simctl','get_app_container',udid,'se.subtrack.app','app'])).trim();
+          assert.ok(installed.startsWith('/')&&installed.includes(`/CoreSimulator/Devices/${udid}/data/Containers/Bundle/Application/`)&&installed.endsWith('/SubTrack.app')&&!/[\r\n\0]/.test(installed));
+          const built=join(privateDir,'derived/Build/Products/Debug-iphonesimulator/SubTrack.app');
+          for(const name of ['Info.plist','SubTrack']){const installedFile=join(installed,name),builtFile=join(built,name),oneStat=lstatSync(installedFile),twoStat=lstatSync(builtFile);assert.ok(oneStat.isFile()&&!oneStat.isSymbolicLink()&&twoStat.isFile()&&!twoStat.isSymbolicLink()&&oneStat.size>0&&oneStat.size<=67108864&&twoStat.size===oneStat.size);const one=readFileSync(installedFile),two=readFileSync(builtFile);assert.ok(one.length===oneStat.size&&two.length===twoStat.size);assert.equal(createHash('sha256').update(one).digest('hex'),createHash('sha256').update(two).digest('hex'));}
+          await nativeRead(['simctl','io',udid,'screenshot',file]);
+        }});}catch{/* Preserve the original failed qualification and private error. */}
+      console.error(`ST244_NATIVE preinput_frame=${sealed?'sealed':'withheld'}`);
     }
     if (currentPhase === 'flow-identifier') {
       const syntheticOtpIssued = code !== null;

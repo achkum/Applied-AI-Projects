@@ -39,6 +39,10 @@ jobs:
       EXPO_NO_TELEMETRY: "1"
       MAESTRO_CLI_NO_ANALYTICS: "true"
       SUBTRACK_PRIVATE_DEVICE_PROOF: "true"
+      ST253_CAPTURE_ENABLED: ${{ matrix.platform == 'ios' && github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' && 'true' || 'false' }}
+      ST253_CAPTURE_PLATFORM: ${{ matrix.platform }}
+      ST253_CAPTURE_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+      ST253_CAPTURE_SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
       EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC: "true"
       EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED: "true"
       EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL: https://localhost:3443
@@ -119,6 +123,13 @@ jobs:
           xcrun simctl boot "$proof_udid"
           xcrun simctl bootstatus "$proof_udid" -b
           printf 'SUBTRACK_SIMULATOR_UDID=%s\n' "$proof_udid" >> "$GITHUB_ENV"
+          SUBTRACK_SIMULATOR_UDID="$proof_udid" NODE_ENV=development node --input-type=module <<'NODE'
+          import {mkdirSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {preinputCaptureContext,recordPreinputSimulator} from './apps/mobile/scripts/private-runtime-maestro-metadata.mjs';
+          const context=preinputCaptureContext(process.env,process.env.ST253_CAPTURE_SOURCE_HEAD);
+          if(context){const root=join(process.env.RUNNER_TEMP,'subtrack-native-proof','private');mkdirSync(root,{recursive:true,mode:0o700});recordPreinputSimulator(root,context);}
+          NODE
           brew install postgresql@16
           printf '%s\n' "$(brew --prefix postgresql@16)/bin" >> "$GITHUB_PATH"
       - name: Owned PostgreSQL16 and ephemeral TLS fixture
@@ -130,7 +141,9 @@ jobs:
       - name: Installed workflow, API restart, same database row and logout
         env:
           NODE_ENV: development
-        run: node apps/mobile/scripts/private-runtime-device.mjs '${{ matrix.platform }}'
+        run: |
+          umask 077
+          node apps/mobile/scripts/private-runtime-device.mjs '${{ matrix.platform }}'
       - name: Sanitized native evidence only
         if: success()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -139,6 +152,29 @@ jobs:
           path: ${{ runner.temp }}/subtrack-native-proof/public/
           if-no-files-found: error
           retention-days: 7
+      - name: Validate sealed pre-input diagnostic only
+        id: sealed_preinput
+        if: failure() && matrix.platform == 'ios' && env.ST253_CAPTURE_ENABLED == 'true'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {execFileSync} from 'node:child_process';
+          import {preinputCaptureContext,validatedPreinputArtifact} from './apps/mobile/scripts/private-runtime-maestro-metadata.mjs';
+          const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),context=preinputCaptureContext(process.env,head);
+          const ready=context&&validatedPreinputArtifact(join(process.env.RUNNER_TEMP,'subtrack-native-proof','private'),context);
+          appendFileSync(process.env.GITHUB_OUTPUT,`ready=${ready===true?'true':'false'}\n`);
+          NODE
+      - name: Recipient-encrypted pre-input diagnostic
+        if: failure() && steps.sealed_preinput.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sealed-ios-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/subtrack-native-proof/sealed/preinput-ios.st253sealed
+          if-no-files-found: error
+          retention-days: 1
       - name: Owned fixture and debug server cleanup
         if: always()
         run: |

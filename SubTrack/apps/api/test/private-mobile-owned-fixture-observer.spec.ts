@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Server } from 'node:https';
 import { describe, expect, it, vi } from 'vitest';
 import * as bankDiagnostics from './private-mobile-bank-diagnostics.js';
-import { createOwnedOtpStartObserver,createOwnedManualSaveObserver,OwnedInitialDetectionScanObserver,safeInitialScanObservation } from './private-mobile-owned-fixture-observer';
+import { createOwnedOtpStartObserver,createOwnedManualSaveObserver,createOwnedAllApiObserver,OwnedInitialDetectionScanObserver,safeInitialScanObservation } from './private-mobile-owned-fixture-observer';
 import {PRIVATE_MOBILE_DETECTION_STATEMENTS as sql} from '../src/detection/private-mobile-detection-statements.js';
 
 describe('initial detection scan RAM-only SQL observation',()=>{
@@ -229,4 +229,19 @@ describe('first owned OTP response closed metadata',()=>{
   let touched=false;
   for(const kind of ['accessor','fixed','nonfunction','sealed','hidden']){const f=fixture(),{r}=output(f);if(kind==='accessor')Object.defineProperty(r,'end',{configurable:true,get(){touched=true;throw Error('private');}});if(kind==='fixed')Object.defineProperty(r,'end',{configurable:false,value:()=>undefined});if(kind==='nonfunction')Object.assign(r,{end:null});if(kind==='sealed')Object.preventExtensions(r);if(kind==='hidden')Object.defineProperty(r,'end',{enumerable:false});const before=Object.getOwnPropertyDescriptor(r,'end');f.request(r);r.emit('finish');expect(Object.getOwnPropertyDescriptor(r,'end')).toEqual(before);expect(f.observer.firstResponse()).toEqual({state:'complete',status:'400',code:'OTHER'});expect(f.observer.observation().rejected4xx).toBe('one');}expect(touched).toBe(false);
  });
+});
+
+describe('all owned API arrival observation for strictly pre-input private capture',()=>{
+ it('counts every request before handlers without accessing fields and preserves their error identity',()=>{
+  const observer=createOwnedAllApiObserver(),server=new EventEmitter() as Server;expect(observer.observation()).toEqual({state:'unavailable',arrivals:'zero'});observer.stop();observer.attach(server);expect(observer.observation()).toEqual({state:'active',arrivals:'zero'});
+  const hostile=new Proxy({},{get(){throw Error('Private field accessed');}}),original=new Error('Private handler canary');server.on('request',()=>{throw original;});expect(()=>server.emit('request',hostile,hostile)).toThrow(original);expect(observer.observation()).toEqual({state:'active',arrivals:'one'});
+  server.removeAllListeners('request');observer.stop();observer.attach(server);server.emit('request',hostile,hostile);server.emit('request');expect(observer.observation()).toEqual({state:'unavailable',arrivals:'multiple'});observer.stop();expect(server.listenerCount('request')).toBe(0);
+ });
+ it('retires stale callbacks and never resets a positive history across a new graph',()=>{
+  const observer=createOwnedAllApiObserver(),first=new EventEmitter() as Server,next=new EventEmitter() as Server;observer.attach(first);const stale=first.listeners('request')[0] as ()=>void;first.emit('request');observer.stop();stale();expect(observer.observation()).toEqual({state:'unavailable',arrivals:'one'});observer.attach(next);stale();expect(observer.observation()).toEqual({state:'unavailable',arrivals:'one'});next.emit('request');expect(observer.observation()).toEqual({state:'unavailable',arrivals:'multiple'});observer.stop();observer.stop();
+ });
+});
+
+it('all API diagnostic attachment and listener cleanup failures cannot alter server errors',()=>{
+ const observer=createOwnedAllApiObserver(),server=new EventEmitter() as Server;vi.spyOn(server,'prependListener').mockImplementationOnce(()=>{throw Error('private attach');});expect(()=>observer.attach(server)).not.toThrow();expect(observer.observation()).toEqual({state:'unavailable',arrivals:'zero'});observer.attach(server);const stale=server.listeners('request')[0] as ()=>void;vi.spyOn(server,'removeListener').mockImplementationOnce(()=>{throw Error('private cleanup');});expect(()=>observer.stop()).not.toThrow();stale();expect(observer.observation()).toEqual({state:'unavailable',arrivals:'zero'});
 });
