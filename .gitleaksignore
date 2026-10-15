@@ -73,3 +73,6 @@ fdba661775038e7428255941d8709bafbd723658:SubTrack/.sdlc/evidence/ST-252/linux-pu
 
 # ST248 independently reviewed fixed public UUID in mocked idempotency test only.
 b98d934cfdf71d8aecce15866b7dc398935aa8ca:SubTrack/apps/mobile/src/api/sandboxMobileApi.test.ts:generic-api-key:101
+
+# ST248 independently reviewed nonfunctional mapper-unit credential literals only.
+cf3e26472a9673dc7eed9628174f0ed6b88b881a:SubTrack/tools/database/sandbox-qualification-receipt.test.cjs:generic-api-key:33
