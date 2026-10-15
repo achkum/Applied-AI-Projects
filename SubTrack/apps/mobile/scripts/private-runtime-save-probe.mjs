@@ -5,6 +5,7 @@ const roster = [
   ['unavailable', 'MAESTRO_SAVE_UNAVAILABLE'],
   ['readback-unavailable', 'MAESTRO_READBACK_UNAVAILABLE'],
   ['loading', 'MAESTRO_PERSONAL_LOADING'],
+  ['verify', 'MAESTRO_VERIFY_BANKID'],
 ];
 
 export async function failedSaveObservations({ phase, diagnostic, labels, observe, run, scroll }) {

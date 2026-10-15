@@ -52,6 +52,9 @@ appId: se.subtrack.app
 - scrollUntilVisible:
     element: ${MAESTRO_SAVE_SUBSCRIPTION}
     direction: DOWN
+- assertVisible:
+    text: ${MAESTRO_SAVE_SUBSCRIPTION}
+    enabled: true
 - tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}
 - scrollUntilVisible:
     element: ${MAESTRO_PERSONAL_TITLE}

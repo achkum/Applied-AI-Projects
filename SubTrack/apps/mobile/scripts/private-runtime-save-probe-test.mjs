@@ -1,13 +1,21 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { URL } from 'node:url';
 import { failedSaveObservations } from './private-runtime-save-probe.mjs';
 import { podParserPresence } from './private-runtime-loader-diagnostics.mjs';
 
-const labels = Object.fromEntries(['MAESTRO_SAVED', 'MAESTRO_SAVE_INVALID', 'MAESTRO_SAVE_UNAVAILABLE', 'MAESTRO_READBACK_UNAVAILABLE', 'MAESTRO_PERSONAL_LOADING', 'MAESTRO_PERSONAL_TITLE'].map(key => [key, 'Trusted label']));
+const labels = Object.fromEntries(['MAESTRO_SAVED', 'MAESTRO_SAVE_INVALID', 'MAESTRO_SAVE_UNAVAILABLE', 'MAESTRO_READBACK_UNAVAILABLE', 'MAESTRO_PERSONAL_LOADING', 'MAESTRO_VERIFY_BANKID', 'MAESTRO_PERSONAL_TITLE'].map(key => [key, 'Trusted label']));
 const diagnostic = { withheld: null, targets: ['subscription-saved'], commands: ['wait-visible'], reasons: ['assertion'] };
 const receipt = n => ({ version: 1, identityCount: 1, profileCompleteCount: 1, justMeCount: 1, subscriptionCount: n, markerHash: 'a'.repeat(64), subscriptionDigest: 'b'.repeat(64) });
 const success = { exitCode: 0, timedOut: false, log: 'private-canary' };
 const options = { phase: 'flow-enroll-add', diagnostic, labels, observe: async () => receipt(1), run: async () => success, scroll: async () => success };
+
+test('enrollment flow asserts Save is enabled immediately before its single tap', () => {
+  const flow = readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml', import.meta.url), 'utf8');
+  assert.match(flow, /- assertVisible:\r?\n {4}text: \$\{MAESTRO_SAVE_SUBSCRIPTION\}\r?\n {4}enabled: true\r?\n- tapOn: \$\{MAESTRO_SAVE_SUBSCRIPTION\}/);
+  assert.equal(flow.match(/- tapOn: \$\{MAESTRO_SAVE_SUBSCRIPTION\}/g)?.length, 1);
+});
 
 test('failure phase, exact trusted target and clean diagnostic gate every observation', async () => {
   const never = () => { throw Error('Must not call'); };
@@ -27,8 +35,8 @@ test('one observer call, sequential before/header/after and fixed output only', 
     scroll: async () => { calls.push('header'); return success; },
   });
   assert.equal(calls.filter(x => x === 'observer').length, 1);
-  assert.equal(calls.length, 12);
-  assert.equal(calls[6], 'header');
+  assert.equal(calls.length, 14);
+  assert.equal(calls[7], 'header');
   assert.equal(result.count, 'one');
   assert.equal(result.header, 'visible');
   assert.equal(JSON.stringify(result).includes('private-canary'), false);
@@ -46,7 +54,7 @@ test('invalid receipts and failed tools stay unavailable; unsuccessful header ne
     scroll: async () => ({ ...success, timedOut: true }),
   });
   assert.equal(result.count, 'unavailable');
-  assert.deepEqual(Object.values(result.before), Array(5).fill('launch-error'));
+  assert.deepEqual(Object.values(result.before), Array(6).fill('launch-error'));
   assert.equal(result.after, null);
   assert.equal(result.header, 'timeout');
   const brokenScroll = await failedSaveObservations({ ...options, scroll: async () => { throw Error('private-canary'); } });
