@@ -34,12 +34,19 @@ appId: se.subtrack.app
     element: ${MAESTRO_SAVE_EDIT}
     direction: DOWN
 - tapOn: ${MAESTRO_SAVE_EDIT}
+- scrollUntilVisible:
+    element:
+      id: native-personal-title
+    direction: UP
+- assertVisible:
+    id: native-personal-title
+    text: ${MAESTRO_PERSONAL_TITLE}
 - extendedWaitUntil:
     visible: ${MAESTRO_EDIT_SAVED}
     timeout: 30000
 - scrollUntilVisible:
     element: Native edited restart proof
-    direction: UP
+    direction: DOWN
 - assertVisible: Native edited restart proof
 - takeScreenshot: accepted-edit
 - scrollUntilVisible:

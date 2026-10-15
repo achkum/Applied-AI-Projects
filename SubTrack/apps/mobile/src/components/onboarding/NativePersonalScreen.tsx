@@ -191,7 +191,8 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
         return () => { setMode(current.mode); setItems(page.items); if (onSetupComplete && !setupCompletionNotified.current) { setupCompletionNotified.current = true; onSetupComplete('mutation'); } };
       }); }, loading, undefined, true) : null}
       {profile?.profileComplete && mode === 'just-me' ? <>
-        <NativeProductCard>
+        {!adding ? button(t('onboarding.manualSubscription.title'), () => { setEditing(null); setReview(null); setReviewBlocked(false); setDraft({ customName: '', categoryCode: '', cadence: 'MONTHLY', amount: '', date: '' }); setAdding(true); }, loading, undefined, true) : null}
+        {!adding ? <NativeProductCard>
         <NativeProductHeading title={t('onboarding.ownerSubscriptions.title')} />
         <Text style={text}>{t('onboarding.nativePersonal.theme')}</Text>
         <View style={styles.actions}>{(['system', 'light', 'dark'] as const).map(value => button(t(`preferences.themes.${value}`), () => setProfileTheme(value), loading, profileTheme === value))}</View>
@@ -244,9 +245,9 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
               }))}
           </> : null}</View>)}
         </View>) : null}
-        {button(t('onboarding.manualSubscription.title'), () => { setEditing(null); setReview(null); setReviewBlocked(false); setDraft({ customName: '', categoryCode: '', cadence: 'MONTHLY', amount: '', date: '' }); setAdding(true); })}
-        </NativeProductCard>
-        {adding ? <>
+        {button(t('onboarding.nativePersonal.reload'), () => { void load(); })}
+        </NativeProductCard> : null}
+        {adding ? <NativeProductCard>
           {review ? <><Text style={text}>{review.customName} · {categoryLabel(review.categoryCode)} · {t(`onboarding.ownerSubscriptions.cadence.${review.cadence}`)} · {formatMinorUnits(BigInt(review.expectedAmountMinor), review.currency, {locale, display:'code'})} · {review.nextChargeDate ?? t('onboarding.manualSubscription.placeholder')} · {t(`onboarding.ownerSubscriptions.status.${review.status}`)}</Text>
             {button(t('onboarding.nativeSubscriptionEdit.review'), () => { setEditing(review); setReview(null); setReviewBlocked(false); setMessage(''); })}</> : null}
           {reviewBlocked && editing ? button(t('onboarding.nativeSubscriptionEdit.review'), () => {
@@ -284,8 +285,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
                 setMessage(page.items.some(item => item.id === result.id) ? 'saved' : 'readbackUnavailable'); }; });
           }, loading || Boolean(review) || reviewBlocked)}
           {button(t('onboarding.manualSubscription.cancel'), () => { setAdding(false); setEditing(null); setReview(null); setReviewBlocked(false); setDraft({ customName: '', categoryCode: '', cadence: 'MONTHLY', amount: '', date: '' }); })}
-        </> : null}
-        {button(t('onboarding.nativePersonal.reload'), () => { void load(); })}
+        </NativeProductCard> : null}
       </> : null}
     </>}
     {button(t('onboarding.nativePersonal.logout'), () => { const ticket = ++feedbackGeneration.current; generation.current++; pending.current = false; setLoading(false); clear(); setMessage('');

@@ -35,3 +35,7 @@ test('Maestro uses bilingual catalog labels and starts from parent logout withou
  const flow=readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8');assert.ok(flow.indexOf('${MAESTRO_VERIFY_BANKID}')<flow.indexOf('${MAESTRO_EDIT}'));assert.match(flow,/accepted-edited-restart/);
  const restart=readFileSync(new URL('../e2e/private-runtime-edit-status-api-restart.yaml',import.meta.url),'utf8');assert.match(restart,/accepted-edited-api-restart/);assert.match(restart,/MAESTRO_LOGOUT_CONFIRMED/);
 });
+
+test('single edit save returns to exact Manage header feedback then searches persisted edited row DOWN',()=>{
+ const flow=readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');assert.ok(flow.includes('- tapOn: ${MAESTRO_SAVE_EDIT}\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- assertVisible:\n    id: native-personal-title\n    text: ${MAESTRO_PERSONAL_TITLE}\n- extendedWaitUntil:\n    visible: ${MAESTRO_EDIT_SAVED}\n    timeout: 30000\n- scrollUntilVisible:\n    element: Native edited restart proof\n    direction: DOWN\n- assertVisible: Native edited restart proof\n- takeScreenshot: accepted-edit'));assert.equal(flow.split('- tapOn: ${MAESTRO_SAVE_EDIT}').length-1,1);assert.match(flow,/assertNotVisible: \$\{MAESTRO_ARCHIVE\}/);
+});

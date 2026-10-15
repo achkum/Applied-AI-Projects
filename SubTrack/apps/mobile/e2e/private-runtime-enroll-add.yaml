@@ -33,6 +33,14 @@ appId: se.subtrack.app
     timeout: 30000
 - tapOn: ${MAESTRO_MANAGE}
 - extendedWaitUntil:
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_ADD}
+    direction: DOWN
+- extendedWaitUntil:
     visible: ${MAESTRO_ADD}
     timeout: 30000
 - tapOn: ${MAESTRO_ADD}
@@ -83,7 +91,7 @@ appId: se.subtrack.app
     timeout: 30000
 - scrollUntilVisible:
     element: Native restart proof
-    direction: UP
+    direction: DOWN
 - assertVisible: Native restart proof
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-add
