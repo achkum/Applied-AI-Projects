@@ -98,7 +98,7 @@ async function main() {
   const installedNativeVersion = mobileRequire(
     'react-native/package.json',
   ).version;
-  assert.equal(installedNativeVersion, '0.74.5');
+  assert.equal(installedNativeVersion, '0.81.5');
   const repo = resolve(app, '../..');
   const root = join(process.env.RUNNER_TEMP, 'subtrack-native-proof');
   const privateDir = join(root, 'private');

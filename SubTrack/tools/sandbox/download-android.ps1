@@ -1,11 +1,13 @@
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory)][ValidateSet('Download','Stage','Initialize','Backup','VerifyBackup','Sign','ReturnSigned')][string]$Mode,
+  [Parameter(Mandatory)][ValidateSet('Download','Stage','StageApk','Initialize','Backup','VerifyBackup','Sign','ReturnSigned')][string]$Mode,
   [Parameter(Mandatory)][string]$PrimaryCheckout,
   [ValidateSet('apk','tools')][string]$Kind='apk',
   [string]$ReceiptFile,
   [ValidatePattern('^[a-f0-9]{40}$')][string]$SourceHead,
   [ValidatePattern('^[a-f0-9]{40}$')][string]$SigningToolingHead,
+  [ValidatePattern('^[a-f0-9]{40}$')][string]$SignerExecutionHead,
+  [ValidatePattern('^[a-f0-9]{40}$')][string]$ToolsSourceHead,
   [ValidatePattern('^[1-9][0-9]*-[1-9][0-9]*$')][string]$ToolsRun,
   [ValidatePattern('^[1-9][0-9]*-[1-9][0-9]*$')][string]$ApkRun,
   [ValidatePattern('^sha256:[a-f0-9]{64}$')][string]$ToolsImage,
@@ -112,16 +114,21 @@ if($Mode -eq 'Download'){
   Write-Output 'ST250_ANDROID_DOWNLOAD_VERIFIED';return
 }
 Require ($SourceHead -match '^[a-f0-9]{40}$' -and $SigningToolingHead -match '^[a-f0-9]{40}$' -and $ToolsRun -match '^[1-9][0-9]*-[1-9][0-9]*$' -and $ApkRun -match '^[1-9][0-9]*-[1-9][0-9]*$' -and $ToolsImage -match '^sha256:[a-f0-9]{64}$')
-Require ((Native 'git' @('-C',$PSScriptRoot,'rev-parse','HEAD')).Trim() -eq $SigningToolingHead)
+if(-not $SignerExecutionHead){$SignerExecutionHead=$SigningToolingHead}
+if(-not $ToolsSourceHead){$ToolsSourceHead=$SourceHead}
+Require ($SignerExecutionHead -match '^[a-f0-9]{40}$' -and $ToolsSourceHead -match '^[a-f0-9]{40}$')
+Require ((Native 'git' @('-C',$PSScriptRoot,'rev-parse','HEAD')).Trim() -eq $SignerExecutionHead)
+[void](Native 'git' @('-C',$PSScriptRoot,'diff','--quiet',$SignerExecutionHead,'--',':(top)SubTrack/tools/sandbox/download-android.ps1'))
 $sourceHashes=@{}
 foreach($name in @('sign-android.sh','android-release-receipt.mjs','android-transfer-receipt.mjs','image-import-binding.cjs')){
-  [void](Native 'git' @('-C',$PSScriptRoot,'cat-file','-e',"${SigningToolingHead}:SubTrack/tools/sandbox/$name"))
-  [void](Native 'git' @('-C',$PSScriptRoot,'diff','--quiet',$SigningToolingHead,'--',":(top)SubTrack/tools/sandbox/$name"))
+  [void](Native 'git' @('-C',$PSScriptRoot,'cat-file','-e',"${SignerExecutionHead}:SubTrack/tools/sandbox/$name"))
+  [void](Native 'git' @('-C',$PSScriptRoot,'diff','--quiet',$SignerExecutionHead,'--',":(top)SubTrack/tools/sandbox/$name"))
   $sourceHashes[$name]=Sha (Join-Path $PSScriptRoot $name)
 }
-$remoteEnv="ST250_SOURCE_HEAD=$SourceHead ST250_SIGNING_TOOLING_HEAD=$SigningToolingHead ST250_ANDROID_TOOLS_RUN=$ToolsRun ST250_ANDROID_APK_RUN=$ApkRun SANDBOX_ANDROID_SIGNING_IMAGE=$ToolsImage ST250_SIGN_SOURCE_SHA256=$($sourceHashes['sign-android.sh']) ST250_RECEIPT_SOURCE_SHA256=$($sourceHashes['android-release-receipt.mjs']) ST250_TRANSFER_SOURCE_SHA256=$($sourceHashes['android-transfer-receipt.mjs']) ST250_IMPORT_SOURCE_SHA256=$($sourceHashes['image-import-binding.cjs'])"
+$remoteEnv="ST250_SOURCE_HEAD=$SourceHead ST250_SIGNING_TOOLING_HEAD=$SigningToolingHead ST250_TOOLS_SOURCE_HEAD=$ToolsSourceHead ST250_SIGNER_EXECUTION_HEAD=$SignerExecutionHead ST250_ANDROID_TOOLS_RUN=$ToolsRun ST250_ANDROID_APK_RUN=$ApkRun SANDBOX_ANDROID_SIGNING_IMAGE=$ToolsImage ST250_SIGN_SOURCE_SHA256=$($sourceHashes['sign-android.sh']) ST250_RECEIPT_SOURCE_SHA256=$($sourceHashes['android-release-receipt.mjs']) ST250_TRANSFER_SOURCE_SHA256=$($sourceHashes['android-transfer-receipt.mjs']) ST250_IMPORT_SOURCE_SHA256=$($sourceHashes['image-import-binding.cjs'])"
 function Sign-Remote([string]$Action,[string]$Extra=''){Require ($Action -in @('import-tools','preflight','initialize','restore-probe','backup-accept','sign'));Remote "env $remoteEnv $Extra bash $remoteRoot/tools/sandbox/sign-android.sh $Action"}
 if($Mode -eq 'Stage'){
+  Require ($ToolsSourceHead -eq $SourceHead)
   [void](Remote "set -eu; test `"`$(id -u):`$(id -g)`" = 996:987; test -d $remoteRoot; test ! -L $remoteRoot; test `"`$(realpath -e $remoteRoot)`" = $remoteRoot; umask 077; mkdir -p $remoteRoot/staging/android $remoteRoot/staging/android-tools $remoteRoot/staging/android-restore; test ! -L $remoteRoot/staging; test ! -L $remoteRoot/staging/android; test ! -L $remoteRoot/staging/android-tools; test ! -L $remoteRoot/staging/android-restore; test ! -e $remoteRoot/staging/android/$ApkRun; test ! -e $remoteRoot/staging/android-tools/$ToolsRun; mkdir -m 700 $remoteRoot/staging/android/$ApkRun $remoteRoot/staging/android-tools/$ToolsRun")
   foreach($entry in @(@('apk',$ApkRun,'android','unsigned.apk'),@('tools',$ToolsRun,'android-tools','tools-image.tar.gz'))){
     $dir=Join-Path $transferRoot "$($entry[0])-$($entry[1])";Check-PrivateAcl $dir
@@ -137,6 +144,43 @@ if($Mode -eq 'Stage'){
   }
   [void](Remote "set -eu; chmod 600 $remoteRoot/staging/android/$ApkRun/* $remoteRoot/staging/android-tools/$ToolsRun/*")
   [void](Sign-Remote 'import-tools');[void](Sign-Remote 'preflight');Write-Output 'ST250_ANDROID_VPS_STAGED';return
+}
+if($Mode -eq 'StageApk'){
+  # Raw immutable Git blobs, not checkout newline conversions, establish toolchain compatibility.
+  function Git-Dockerfile([string]$Head){
+    $object="${Head}:SubTrack/infra/sandbox/Dockerfile.android-signing"
+    $size=(Native 'git' @('-C',$PSScriptRoot,'cat-file','-s',$object)).Trim();Require ($size -match '^[1-9][0-9]*$' -and [long]$size -le 65536)
+    $start=[Diagnostics.ProcessStartInfo]::new();$start.FileName='git';$start.UseShellExecute=$false;$start.CreateNoWindow=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
+    foreach($argument in @('-C',$PSScriptRoot,'show',$object)){$start.ArgumentList.Add($argument)}
+    $process=[Diagnostics.Process]::new();$process.StartInfo=$start;$memory=[IO.MemoryStream]::new()
+    try{Require $process.Start();$copy=$process.StandardOutput.BaseStream.CopyToAsync($memory);$stderr=$process.StandardError.ReadToEndAsync();if(-not $process.WaitForExit(15000)){$process.Kill($true);throw 'ST250_ANDROID_GIT_TIMEOUT'};$copy.GetAwaiter().GetResult();$privateError=$stderr.GetAwaiter().GetResult();Require ($process.ExitCode -eq 0 -and $memory.Length -eq [long]$size -and $privateError.Length -le 65536);return ,$memory.ToArray()}
+    finally{$process.Dispose();$memory.Dispose()}
+  }
+  $apkLocal=Join-Path $transferRoot "apk-$ApkRun";$toolsLocal=Join-Path $transferRoot "tools-$ToolsRun";Check-PrivateAcl $apkLocal;Check-PrivateAcl $toolsLocal
+  $reuseTemp=Join-Path $transferRoot ('reuse-'+[Guid]::NewGuid().ToString('N'));New-PrivateDirectory $reuseTemp
+  try{
+    $apkDockerfile=Join-Path $reuseTemp 'apk-Dockerfile';$toolsDockerfile=Join-Path $reuseTemp 'tools-Dockerfile'
+    $verifiedApk=Join-Path $reuseTemp 'verified-apk';New-PrivateDirectory $verifiedApk
+    [void](Native 'node' @($module,'download','apk',(Join-Path $apkLocal 'receipt.json'),$verifiedApk))
+    foreach($name in @('manifest.json','receipt.json','unsigned.apk')){Set-PrivateAcl (Join-Path $verifiedApk $name) $false;Require ((Sha (Join-Path $verifiedApk $name)) -eq (Sha (Join-Path $apkLocal $name)))}
+    $freshManifest=Native 'node' @($module,'validate','apk',(Join-Path $verifiedApk 'manifest.json'))|ConvertFrom-Json
+    Require ($freshManifest.sourceHead -eq $SourceHead -and $freshManifest.runId -eq $ApkRun)
+    Write-Private $apkDockerfile (Git-Dockerfile $SourceHead);Write-Private $toolsDockerfile (Git-Dockerfile $ToolsSourceHead)
+    $pin='d2867b142a15cb44ce58361baa188e93da1c8c95fda7f7f5c41c6a00f0813e31';Require ((Sha $apkDockerfile) -eq $pin -and (Sha $toolsDockerfile) -eq $pin)
+    [void](Remote "set -eu; test `"`$(id -u):`$(id -g)`" = 996:987; d=$remoteRoot/staging/android-tools/$ToolsRun; test -d `"`$d`"; test ! -L `"`$d`"; test `"`$(realpath -e `"`$d`")`" = $remoteRoot/staging/android-tools/$ToolsRun; test `"`$(stat -c '%a:%u:%g' `"`$d`")`" = 700:996:987; for n in manifest.json receipt.json import-binding.json; do test -f `"`$d/`$n`"; test ! -L `"`$d/`$n`"; test `"`$(stat -c '%a:%u:%g' `"`$d/`$n`")`" = 600:996:987; test `"`$(stat -c '%s' `"`$d/`$n`")`" -le 16384; done")
+    foreach($name in @('manifest.json','receipt.json','import-binding.json')){Scp-In "$remoteRoot/staging/android-tools/$ToolsRun/$name" (Join-Path $reuseTemp $name)}
+    foreach($name in @('manifest.json','receipt.json')){Require ((Sha (Join-Path $reuseTemp $name)) -eq (Sha (Join-Path $toolsLocal $name)))}
+    $proof=Join-Path $reuseTemp 'tools-reuse.json'
+    [void](Native 'node' @($module,'tools-reuse',$toolsLocal,(Join-Path $reuseTemp 'import-binding.json'),$SourceHead,$SignerExecutionHead,$SigningToolingHead,$apkDockerfile,$toolsDockerfile,$proof));Set-PrivateAcl $proof $false
+    $reuseRecord=Get-Content -LiteralPath $proof -Raw|ConvertFrom-Json
+    Require ($reuseRecord.toolsSourceHead -eq $ToolsSourceHead -and $reuseRecord.toolsRun -eq $ToolsRun)
+    # Existing execution source and tool import are validated, never overwritten or loaded.
+    foreach($name in $sourceHashes.Keys){$expected=$sourceHashes[$name];[void](Remote "set -eu; f=$remoteRoot/tools/sandbox/$name; test -f `"`$f`"; test ! -L `"`$f`"; test `"`$(realpath -e `"`$f`")`" = $remoteRoot/tools/sandbox/$name; test `"`$(sha256sum `"`$f`" | cut -d' ' -f1)`" = $expected")}
+    [void](Remote "set -eu; d=$remoteRoot/staging/android/$ApkRun; p=$remoteRoot/staging/android; test -d `"`$p`"; test ! -L `"`$p`"; test `"`$(realpath -e `"`$p`")`" = $remoteRoot/staging/android; test `"`$(stat -c '%a:%u:%g' `"`$p`")`" = 700:996:987; test ! -e `"`$d`"; test ! -L `"`$d`"; umask 077; mkdir -m 700 `"`$d`"")
+    foreach($name in @('manifest.json','receipt.json','unsigned.apk','tools-reuse.json')){$file=if($name -eq 'tools-reuse.json'){$proof}else{Join-Path $verifiedApk $name};$hash=Sha $file;Scp-Out $file "$remoteRoot/staging/android/$ApkRun/$name";[void](Remote "set -eu; f=$remoteRoot/staging/android/$ApkRun/$name; test -f `"`$f`"; test ! -L `"`$f`"; test `"`$(sha256sum `"`$f`" | cut -d' ' -f1)`" = $hash; chmod 600 `"`$f`"; test `"`$(stat -c '%a:%u:%g' `"`$f`")`" = 600:996:987")}
+    [void](Sign-Remote 'preflight');Write-Output 'ST252_ANDROID_APK_STAGED_WITH_RETAINED_TOOLS'
+  }finally{Remove-Owned $reuseTemp $transferRoot}
+  return
 }
 if($Mode -eq 'Initialize'){
   $initialized=Sign-Remote 'initialize';Require ($initialized -match 'ST250_ANDROID_SIGNER_INITIALIZED certificate=([a-f0-9]{64}) backup=pending')

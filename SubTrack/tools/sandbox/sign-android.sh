@@ -13,6 +13,8 @@ fi
 command -v node >/dev/null
 [[ "${SSH_CONNECTION:-}" =~ [[:space:]]198\.44\.116\.159[[:space:]][0-9]+$ ]]
 [[ "${ST250_SOURCE_HEAD:-}" =~ ^[a-f0-9]{40}$ && "${ST250_SIGNING_TOOLING_HEAD:-}" =~ ^[a-f0-9]{40}$ && "${ST250_ANDROID_TOOLS_RUN:-}" =~ ^[1-9][0-9]*-[1-9][0-9]*$ && "${ST250_ANDROID_APK_RUN:-}" =~ ^[1-9][0-9]*-[1-9][0-9]*$ ]]
+export ST250_TOOLS_SOURCE_HEAD="${ST250_TOOLS_SOURCE_HEAD:-$ST250_SOURCE_HEAD}" ST250_SIGNER_EXECUTION_HEAD="${ST250_SIGNER_EXECUTION_HEAD:-$ST250_SIGNING_TOOLING_HEAD}"
+[[ "$ST250_TOOLS_SOURCE_HEAD" =~ ^[a-f0-9]{40}$ && "$ST250_SIGNER_EXECUTION_HEAD" =~ ^[a-f0-9]{40}$ ]]
 for current in /home /home/openclaw "$root" "$root/staging"; do
   [[ -d "$current" && ! -L "$current" && "$(realpath -e "$current")" == "$current" ]]
 done
@@ -29,10 +31,11 @@ done
 image="${SANDBOX_ANDROID_SIGNING_IMAGE:?}"
 [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]]
 [[ "$(awk '/MemAvailable:/{print $2}' /proc/meminfo)" -ge 1310720 ]]
-node --input-type=module - "$root/tools/sandbox/android-transfer-receipt.mjs" "$tools" "$apkdir" "$image" "$ST250_SOURCE_HEAD" <<'NODE'
+node --input-type=module - "$root/tools/sandbox/android-transfer-receipt.mjs" "$tools" "$apkdir" "$image" "$ST250_SOURCE_HEAD" "$ST250_TOOLS_SOURCE_HEAD" <<'NODE'
 import fs from 'node:fs';import path from 'node:path';import {pathToFileURL} from 'node:url';
-const [module,tools,apk,image,head]=process.argv.slice(2),m=await import(pathToFileURL(module));
-for(const [dir,kind]of[[tools,'tools'],[apk,'apk']]){const mb=m.readRegular(path.join(dir,'manifest.json'),16384),v=m.canonical(mb,x=>m.validateManifest(x,kind)),r=m.canonical(m.readRegular(path.join(dir,'receipt.json'),16384),x=>m.validateTransfer(x,kind));if(v.sourceHead!==head||v.runId!==path.basename(dir)||(kind==='tools'&&v.imageId!==image))throw Error('custody');if(kind==='tools')await m.toolsCustody(dir);else m.bind(v,r,m.readRegular(path.join(dir,'unsigned.apk'),200*1024*1024),mb,kind);}
+const [module,tools,apk,image,head,toolsHead]=process.argv.slice(2),m=await import(pathToFileURL(module));
+for(const [dir,kind]of[[tools,'tools'],[apk,'apk']]){const mb=m.readRegular(path.join(dir,'manifest.json'),16384),v=m.canonical(mb,x=>m.validateManifest(x,kind)),r=m.canonical(m.readRegular(path.join(dir,'receipt.json'),16384),x=>m.validateTransfer(x,kind));if(v.sourceHead!==(kind==='tools'?toolsHead:head)||v.runId!==path.basename(dir)||(kind==='tools'&&v.imageId!==image))throw Error('custody');if(kind==='tools')await m.toolsCustody(dir);else m.bind(v,r,m.readRegular(path.join(dir,'unsigned.apk'),200*1024*1024),mb,kind);}
+if(head!==toolsHead){m.validateToolsReuse(m.canonical(m.readRegular(path.join(apk,'tools-reuse.json'),16384),v=>v),await m.toolsCustody(tools),m.readRegular(path.join(tools,'import-binding.json'),16384),head,process.env.ST250_SIGNER_EXECUTION_HEAD,process.env.ST250_SIGNING_TOOLING_HEAD);}
 NODE
 keydir="$root/android-signing"
 private="$(mktemp -d "$root/staging/st250-android-sign.XXXXXXXX")"; chmod 700 "$private"
@@ -80,6 +83,7 @@ finish() { status=$?; trap - EXIT INT TERM; cleanup || status=1; if (( status !=
 trap finish EXIT
 trap 'exit 1' INT TERM
 if [[ "$mode" == import-tools ]]; then
+  [[ "$ST250_TOOLS_SOURCE_HEAD" == "$ST250_SOURCE_HEAD" ]]
   stage=IMPORT
   ! docker image inspect "$image" > /dev/null 2>&1
   raw_bytes="$(node -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.argv[1])).rawTarBytes))' "$tools/manifest.json")"
@@ -188,6 +192,11 @@ if [[ -e "$history" || -L "$history" ]]; then [[ -f "$history" && ! -L "$history
 node --input-type=module - "$root/tools/sandbox/android-transfer-receipt.mjs" "$apkdir/manifest.json" "$cert" "$history" <<'NODE'
 import fs from'node:fs';import{pathToFileURL}from'node:url';const[module,file,cert,history]=process.argv.slice(2),m=await import(pathToFileURL(module));m.assertSignedUpdate(m.canonical(fs.readFileSync(file),v=>m.validateManifest(v,'apk')),cert,fs.existsSync(history)?JSON.parse(fs.readFileSync(history)):null);
 NODE
+# A live predecessor must keep its genuine per-run history before latest history advances.
+node --input-type=module - "$root" "$root/tools/sandbox/android-transfer-receipt.mjs" "$cert" <<'NODE'
+import fs from'node:fs';import path from'node:path';import{pathToFileURL}from'node:url';import{createRequire}from'node:module';const[root,module,cert]=process.argv.slice(2),wire=await import(pathToFileURL(module)),index=path.join(root,'runtime/android-download-binding.json');
+if(fs.existsSync(index)){const gateway=createRequire(import.meta.url)(path.join(root,'tools/sandbox/image-import-binding.cjs')),record=gateway.validateAndroidDownload(JSON.parse(wire.readRegular(index,16384))),ledger=JSON.parse(wire.readRegular(path.join(root,'.source-custody.json'),16384)),run=record.apkRun;if(ledger.schema!=='st250-source-custody-v4'||record.signerCertificateSha256!==cert)throw Error('history');const published=gateway.validateAndroidDownload(ledger.androidDownload);for(const key of Object.keys(record))if(published[key]!==record[key])throw Error('history');const dir=path.join(root,'staging/android-hosting',run),file=path.join(dir,'signed-history.json');for(const [p,d]of [[dir,true],[file,false]]){const s=fs.lstatSync(p);if((d?!s.isDirectory():!s.isFile())||s.isSymbolicLink()||fs.realpathSync(p)!==p||s.uid!==996||s.gid!==987||(s.mode&0o777)!==(d?0o700:0o600))throw Error('history');}wire.validateRunSignedHistory(JSON.parse(wire.readRegular(file,16384)),wire.canonical(wire.readRegular(path.join(root,'staging/android',run,'manifest.json'),16384),v=>wire.validateManifest(v,'apk')),cert,record.signedSha256,run);}
+NODE
 run_sign "$keydir"
 destination="$root/staging/android-signed/$ST250_ANDROID_APK_RUN"; [[ ! -e "$destination" && ! -L "$destination" ]]
 mkdir -p -m 700 "$root/staging/android-signed"; [[ ! -L "$root/staging/android-signed" ]]; mkdir -m 700 "$destination"
@@ -200,6 +209,13 @@ next_history="$keydir/.signed-history-$ST250_ANDROID_APK_RUN.next"
 node --input-type=module - "$next_history" "$cert" "$apkdir/manifest.json" "$destination/pending.json" "$ST250_ANDROID_APK_RUN" <<'NODE'
 import fs from'node:fs';const[file,cert,manifest,pending,run]=process.argv.slice(2),m=JSON.parse(fs.readFileSync(manifest)),p=JSON.parse(fs.readFileSync(pending));fs.writeFileSync(file,JSON.stringify({schema:m.runtimeEnabled===true?'st250-android-signed-history-v2':'st250-android-signed-history-v1',signerCertificateSha256:cert,versionCode:m.versionCode,sourceHead:m.sourceHead,unsignedSha256:m.unsignedSha256,signedSha256:p.signedSha256,apkRun:run,runtimeEnabled:m.runtimeEnabled,...(m.runtimeEnabled?{embeddedConfigSha256:m.embeddedConfigSha256,hermesSha256:m.hermesSha256}:{})}),{flag:'wx',mode:0o600});
 NODE
+hosting="$root/staging/android-hosting/$ST250_ANDROID_APK_RUN"
+[[ ! -e "$hosting" && ! -L "$hosting" ]]
+mkdir -p -m 700 "$root/staging/android-hosting"
+[[ ! -L "$root/staging/android-hosting" && "$(realpath -e "$root/staging/android-hosting")" == "$root/staging/android-hosting" && "$(stat -c '%a:%u:%g' "$root/staging/android-hosting")" == 700:996:987 ]]
+mkdir -m 700 "$hosting"
+cp --no-clobber "$next_history" "$hosting/signed-history.json"; chmod 600 "$hosting/signed-history.json"
+cmp "$next_history" "$hosting/signed-history.json"
 mv -- "$next_history" "$history"
 cleanup; trap - EXIT
 printf 'ST250_ANDROID_SIGNED_RETURN_READY manifest=unverified runtime=measured cleanup=receiver-pending\n'

@@ -60,7 +60,9 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --filter @subtrack/domain build:lifecycle
           pnpm --filter @subtrack/domain build:bank
+          pnpm --filter @subtrack/domain build:detection
           pnpm --filter @subtrack/synthetic build:bank
+          node --test apps/mobile/scripts/private-runtime-preconditions.test.mjs
           bash apps/mobile/scripts/private-runtime-tools.sh
           node apps/mobile/scripts/private-runtime-ca-test.mjs
           node apps/mobile/scripts/private-runtime-loader-diagnostics-test.mjs
