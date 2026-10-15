@@ -1,5 +1,10 @@
 import { probeResult } from './private-runtime-identifier-probe.mjs';
 
+const fieldRoster = [
+  ['invalid-name', 'MAESTRO_SAVE_INVALID_NAME'], ['invalid-category', 'MAESTRO_SAVE_INVALID_CATEGORY'],
+  ['invalid-cadence', 'MAESTRO_SAVE_INVALID_CADENCE'], ['invalid-amount', 'MAESTRO_SAVE_INVALID_AMOUNT'],
+  ['invalid-date', 'MAESTRO_SAVE_INVALID_DATE'],
+];
 const roster = [
   ['saved', 'MAESTRO_SAVED'], ['invalid', 'MAESTRO_SAVE_INVALID'],
   ['unavailable', 'MAESTRO_SAVE_UNAVAILABLE'],
@@ -13,7 +18,7 @@ export async function failedSaveObservations({ phase, diagnostic, labels, observ
       diagnostic.targets?.length !== 1 || diagnostic.targets[0] !== 'subscription-saved' ||
       diagnostic.commands?.length !== 1 || diagnostic.commands[0] !== 'wait-visible' ||
       diagnostic.reasons?.length !== 1 || diagnostic.reasons[0] !== 'assertion' ||
-      !labels || !roster.every(([, key]) => typeof labels[key] === 'string' && labels[key].length > 0) ||
+      !labels || ![...fieldRoster,...roster].every(([, key]) => typeof labels[key] === 'string' && labels[key].length > 0) ||
       typeof labels.MAESTRO_PERSONAL_TITLE !== 'string' || !labels.MAESTRO_PERSONAL_TITLE) return null;
   let count = 'unavailable';
   try {
@@ -27,6 +32,11 @@ export async function failedSaveObservations({ phase, diagnostic, labels, observ
   } catch { /* No observer errors or rows escape. */ }
   async function probes(stage) {
     const results = {};
+    for (const [name,key] of fieldRoster) {
+      try { results[name] = probeResult(await run(stage,name,labels[key])); }
+      catch { results[name] = 'launch-error'; }
+      if (results[name] === 'visible') return results;
+    }
     for (const [name, key] of roster) {
       try { results[name] = probeResult(await run(stage, name, labels[key])); }
       catch { results[name] = 'launch-error'; }
@@ -39,6 +49,7 @@ export async function failedSaveObservations({ phase, diagnostic, labels, observ
     const result = await scroll(labels.MAESTRO_PERSONAL_TITLE);
     header = probeResult(result);
   } catch { header = 'launch-error'; }
-  const after = header === 'visible' ? await probes('after-scroll') : null;
+  const fieldConfirmed = fieldRoster.some(([name]) => before[name] === 'visible');
+  const after = header === 'visible' && !fieldConfirmed ? await probes('after-scroll') : null;
   return { count, before, header, after };
 }
