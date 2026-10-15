@@ -12,7 +12,7 @@ const row=(kind='tapOnElement',patch={})=>({command:{[kind]:{}},metadata:{status
 const bytes=value=>Buffer.from(JSON.stringify(value));
 const prefix=(patch={})=>({command:{defineVariablesCommand:{env:{private:'private-canary'}}},metadata:{status:'COMPLETED',sequenceNumber:0,depth:0,...patch}});
 const flowBytes=rows=>bytes([prefix(),...rows]);
-const invalid=value=>assert.deepEqual(projectEnrollmentMetadata(value),{metadata:'INVALID',command:'UNKNOWN',errorClass:'UNKNOWN'});
+const invalid=value=>assert.deepEqual(projectEnrollmentMetadata(value),{metadata:'INVALID',command:'UNKNOWN',target:'UNKNOWN',errorClass:'UNKNOWN'});
 function temporary(action){const base=fs.realpathSync(tmpdir()),root=fs.mkdtempSync(join(base,'st-c22-'));try{return action(root);}finally{mock.restoreAll();syncBuiltinESMExports();assert.equal(dirname(resolve(root)),base);assert.ok(basename(root).startsWith('st-c22-'));fs.rmSync(root,{recursive:true,force:true});}}
 function fixture(root){const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution),flow=join(root,'enroll-add','2026-10-14_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});const file=join(flow,'commands.json');fs.writeFileSync(file,flowBytes([row()]));execution.record('exit',1,null);return {execution,reader,flow,file};}
 function replace(name,implementation){mock.method(fs,name,implementation);syncBuiltinESMExports();}
@@ -45,9 +45,9 @@ test('fresh invocation reader is failure-only, bounded and refuses missing/ambig
  temporary(root=>{const {reader}=fixture(root);for(let i=0;i<33;i++)fs.writeFileSync(join(root,'enroll-add','private-'+i),'');assert.equal(reader.read('flow-enroll-add').metadata,'UNAVAILABLE');});
 });
 test('exact line grammar cannot upgrade malformed/duplicate/injected status; error class always UNKNOWN',()=>{
- assert.deepEqual(enrollmentMetadataLines(projectEnrollmentMetadata(flowBytes([row()]))),['enrollment-structured-metadata=AVAILABLE','enrollment-failed-command=TAP','enrollment-error-class=UNKNOWN']);
- for(const value of [null,[],{metadata:'AVAILABLE',command:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'UNAVAILABLE',command:'TAP',errorClass:'UNKNOWN'},{metadata:'INVALID',command:'private-canary',errorClass:'UNKNOWN'},{metadata:'private-canary',command:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'INVALID',command:'UNKNOWN',errorClass:'AssertionFailure'},{metadata:'INVALID',command:'UNKNOWN',errorClass:'UNKNOWN',extra:true}])assert.equal(enrollmentMetadataLines(value),null);
- assert.deepEqual(enrollmentMetadataLines(projectEnrollmentMetadata(Buffer.from('private-canary'))),['enrollment-structured-metadata=INVALID','enrollment-failed-command=UNKNOWN','enrollment-error-class=UNKNOWN']);
+ assert.deepEqual(enrollmentMetadataLines(projectEnrollmentMetadata(flowBytes([row()]))),['enrollment-structured-metadata=AVAILABLE','enrollment-failed-command=TAP','enrollment-failed-target=UNKNOWN','enrollment-error-class=UNKNOWN']);
+ for(const value of [null,[],{metadata:'AVAILABLE',command:'UNKNOWN',target:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'UNAVAILABLE',command:'TAP',target:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'INVALID',command:'private-canary',target:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'private-canary',command:'UNKNOWN',target:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'INVALID',command:'UNKNOWN',target:'UNKNOWN',errorClass:'AssertionFailure'},{metadata:'INVALID',command:'UNKNOWN',target:'UNKNOWN',errorClass:'UNKNOWN',extra:true}])assert.equal(enrollmentMetadataLines(value),null);
+ assert.deepEqual(enrollmentMetadataLines(projectEnrollmentMetadata(Buffer.from('private-canary'))),['enrollment-structured-metadata=INVALID','enrollment-failed-command=UNKNOWN','enrollment-failed-target=UNKNOWN','enrollment-error-class=UNKNOWN']);
 });
 test('actual bounded tree symlinks and changed inode/path/open/read fences never upgrade ownership',()=>{
  temporary(root=>{const file=join(root,'not-directory');fs.writeFileSync(file,'');const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(file,execution);execution.record('error');assert.equal(reader.read('flow-enroll-add').metadata,'UNAVAILABLE');});
@@ -61,7 +61,7 @@ test('actual bounded tree symlinks and changed inode/path/open/read fences never
 test('pinned producer requires exactly one completed initial top-level private definition prelude',()=>{
  const completed=prefix({timestamp:1,duration:2,evaluatedCommand:{defineVariablesCommand:{env:{private:'private-canary'}}},error:{message:'private-canary',debugMessage:'private-canary'},artifacts:[{type:'SCREENSHOT',path:'private-canary'}]});
  const production=[completed,row('applyConfigurationCommand',{status:'COMPLETED'}),row('inputTextCommand',{status:'COMPLETED',sequenceNumber:2}),row('assertConditionCommand',{sequenceNumber:3})];
- assert.deepEqual(projectEnrollmentMetadata(bytes(production)),{metadata:'AVAILABLE',command:'ASSERT_CONDITION',errorClass:'UNKNOWN'});
+ assert.deepEqual(projectEnrollmentMetadata(bytes(production)),{metadata:'AVAILABLE',command:'ASSERT_CONDITION',target:'UNKNOWN',errorClass:'UNKNOWN'});
  assert.equal(JSON.stringify(enrollmentMetadataLines(projectEnrollmentMetadata(bytes(production)))).includes('canary'),false);
  for(const value of [[],[row()],[row('applyConfigurationCommand',{status:'COMPLETED'}),row('tapOnElement',{sequenceNumber:2})],
   [prefix({status:'FAILED'}),row()], [prefix({status:'PENDING'}),row()], [prefix({status:'RUNNING'}),row()], [prefix({status:'WARNED'}),row()], [prefix({status:'SKIPPED'}),row()], [prefix({status:'unknown'}),row()],
@@ -75,4 +75,16 @@ test('pinned producer requires exactly one completed initial top-level private d
  const missingDepth=prefix();delete missingDepth.metadata.depth;invalid(bytes([missingDepth,row()]));
  invalid(Buffer.from('[{"command":{"defineVariablesCommand":{},"defineVariablesCommand":{}},"metadata":{"status":"COMPLETED","sequenceNumber":0,"depth":0}}]'));
  invalid(bytes([prefix(),row('defineVariablesCommand')]));
+});
+
+test('failed scroll targets come only from exact original source selectors and expected direction',()=>{
+ const project=(selector,direction='DOWN',patch={})=>projectEnrollmentMetadata(flowBytes([{...row('scrollUntilVisible',{evaluatedCommand:{scrollUntilVisible:{selector:{textRegex:'private-canary'}}},error:{message:'native-personal-title'}}),command:{scrollUntilVisible:{selector,direction,...patch}}}]));
+ for(const [id,target]of [['native-personal-title','personal-title'],['native-subscription-name','subscription-name'],['native-subscription-amount','subscription-amount'],['native-subscription-date','date-field']])assert.equal(project({idRegex:id,optional:false,textRegex:null,size:null},id==='native-personal-title'?'UP':'DOWN').target,target);
+ for(const [text,target]of [['${MAESTRO_SAVE_PROFILE}','profile-save'],['${MAESTRO_ADD}','add-open'],['${MAESTRO_CATEGORY}','subscription-category'],['${MAESTRO_SAVE_SUBSCRIPTION}','subscription-save'],['Native restart proof','saved-row']])assert.equal(project({textRegex:text}).target,target);
+ for(const selector of [null,[],{}, {idRegex:42},{textRegex:42},{idRegex:'private-canary'}, {textRegex:'private-canary'}, {idRegex:'native-personal-title',textRegex:'${MAESTRO_ADD}'}, {idRegex:'native-personal-title',enabled:true}, {idRegex:'native-personal-title',optional:true}, {idRegex:'native-personal-title',extra:null}])assert.equal(project(selector,'UP').target,'UNKNOWN');
+ for(const direction of ['DOWN','private-canary',null])assert.equal(project({idRegex:'native-personal-title'},direction).target,'UNKNOWN');
+ assert.equal(project({idRegex:'native-subscription-name'},'UP').target,'UNKNOWN');assert.equal(project({},'DOWN',{selector:null}).target,'UNKNOWN');
+ const result=project({idRegex:'native-personal-title'},'UP');assert.deepEqual(enrollmentMetadataLines(result),['enrollment-structured-metadata=AVAILABLE','enrollment-failed-command=SCROLL_UNTIL_VISIBLE','enrollment-failed-target=personal-title','enrollment-error-class=UNKNOWN']);
+ for(const patch of [{target:'private-canary'},{command:'TAP'},{metadata:'UNAVAILABLE'},{extra:'private-canary'}])assert.equal(enrollmentMetadataLines({...result,...patch}),null);
+ assert.equal(JSON.stringify(project({textRegex:'private-canary'})).includes('canary'),false);
 });

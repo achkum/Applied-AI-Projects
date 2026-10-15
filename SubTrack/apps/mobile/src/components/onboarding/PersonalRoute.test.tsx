@@ -1,3 +1,5 @@
+import {observeStartupStage} from '@/utils/privateRuntimeEnrollmentDiagnostic';
+jest.mock('@/utils/privateRuntimeEnrollmentDiagnostic',()=>({observeStartupStage:jest.fn()}));
 jest.mock('react-native-safe-area-context',()=>jest.requireActual('react-native-safe-area-context/jest/mock').default);
 import React from 'react';
 import {render} from '@testing-library/react-native';
@@ -23,3 +25,5 @@ it('completed installation starts through authoritative setup readback, never bl
 it('resumed sessions arriving after initial redirect still require authoritative setup before home',()=>{render(<WelcomeRoute/>);expect(mockReplace).toHaveBeenCalledWith({pathname:'/personal',params:{setup:'1'}});});
 
 it.each([false,true])('native welcome keeps the same supported actions and omits deferred web demo sandbox=%s',sandbox=>{mockSandbox=sandbox;render(<WelcomeRoute/>);expect(mockWelcomeProps.environment).toBe(sandbox?'sandbox':'production');expect(mockWelcomeProps.onCreateAccount).toEqual(expect.any(Function));expect(mockWelcomeProps.onLogIn).toEqual(expect.any(Function));expect(Object.prototype.hasOwnProperty.call(mockWelcomeProps,'onExploreDemo')).toBe(false);});
+
+it('Welcome emits only its fixed commit milestone without changing entry callbacks',()=>{render(<WelcomeRoute/>);expect(observeStartupStage).toHaveBeenCalledWith('welcome-committed');expect(mockWelcomeProps.onCreateAccount).toEqual(expect.any(Function));expect(mockWelcomeProps.onLogIn).toEqual(expect.any(Function));});

@@ -1,6 +1,6 @@
 import {qualifyNativeBank,acceptedNativeBankScreenshot,ACCEPTED_NATIVE_BANK_SCREENSHOTS} from './private-runtime-bank.mjs';
 import {prepareEnrollmentMetadata,enrollmentMetadataLines} from './private-runtime-maestro-metadata.mjs';
-import {enrollmentStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
+import {enrollmentStageDiagnostic,startupStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
 import {fixtureMonthLabels,qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
 import {renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
 import {qualifyNativeEditStatus,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS} from './private-runtime-edit-status.mjs';
@@ -42,7 +42,6 @@ import {
 } from './private-runtime-identifier-diagnostic.mjs';
 import { initialIdentifierFlow } from './private-runtime-flow-policy.mjs';
 import { graphStatus } from './private-runtime-bundle-policy.mjs';
-import { identifierProbes, runIdentifierProbe } from './private-runtime-identifier-probe.mjs';
 import { failedSaveObservations } from './private-runtime-save-probe.mjs';
 
 let currentPhase = 'runtime-preconditions';
@@ -389,33 +388,6 @@ async function main() {
         console.error(`ST244_NATIVE identifier_response=${otpResponse.state} status=${otpResponse.status} code=${otpResponse.code}`);
       else console.error('ST244_NATIVE identifier_response=withheld');
       console.error(`ST244_NATIVE identifier_otp_issued=${syntheticOtpIssued}`);
-      const observations = await identifierProbes({
-        phase: currentPhase,
-        issued: syntheticOtpIssued,
-        labels,
-        run: async (name, label) => {
-          const logPath = join(privateDir, `identifier-probe-${name}.log`);
-          const fd = openSync(logPath, 'w', 0o600);
-          let execution;
-          try {
-            execution = await runIdentifierProbe([
-              'test', '--test-output-dir',
-              join(privateDir, `identifier-probe-${name}`),
-              join(app, 'e2e/private-runtime-identifier-probe.yaml'),
-            ], {
-              cwd: app,
-              env: { ...process.env, MAESTRO_IDENTIFIER_PROBE_LABEL: label },
-              stdio: ['ignore', fd, fd],
-            });
-          } finally {
-            closeSync(fd);
-          }
-          return { ...execution, log: readFileSync(logPath, 'utf8') };
-        },
-      });
-      if (observations)
-        for (const [target, result] of Object.entries(observations))
-          console.error(`ST244_NATIVE identifier_probe=${target} observation=${result}`);
       const readTool = (name) => {
         try {
           return readFileSync(join(privateDir, name), 'utf8');
@@ -423,6 +395,9 @@ async function main() {
           return '';
         }
       };
+      const startup=startupStageDiagnostic({phase:currentPhase,log:readTool('metro.log')});
+      if(startup) for(const [stage,count] of Object.entries(startup)) console.error(`ST244_NATIVE startup_stage=${stage} count=${count}`);
+      else console.error('ST244_NATIVE startup_stage_diagnostic=unavailable');
       const stageDiagnostic=enrollmentStageDiagnostic({phase:currentPhase,log:readTool('metro.log')});
       if(stageDiagnostic) for(const [stage,count] of Object.entries(stageDiagnostic)) console.error(`ST244_NATIVE enrollment_stage=${stage} count=${count}`);
       else console.error('ST244_NATIVE enrollment_stage_diagnostic=unavailable');

@@ -1,3 +1,5 @@
+import {observeStartupStage} from '@/utils/privateRuntimeEnrollmentDiagnostic';
+jest.mock('@/utils/privateRuntimeEnrollmentDiagnostic',()=>({observeStartupStage:jest.fn()}));
 import React from 'react';
 import { Text, View } from 'react-native';
 import { act, render, screen, waitFor } from '@testing-library/react-native';
@@ -113,4 +115,9 @@ describe('root layout startup imports', () => {
     expect(SplashScreen.hideAsync).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('provider-state').props.children).toBe('en|Me|system');
   });
+});
+
+test('private startup milestones preserve the font loading gate and explicitly include system fallback',async()=>{
+ jest.mocked(observeStartupStage).mockClear();mockUseFonts.mockReturnValue([false,null]);const app=render(<RootLayout/>);expect(app.toJSON()).toBeNull();expect(observeStartupStage).toHaveBeenCalledWith('root-entered');expect(observeStartupStage).not.toHaveBeenCalledWith('fonts-ready');
+ mockUseFonts.mockReturnValue([false,new Error('private-canary')]);await act(async()=>app.rerender(<RootLayout/>));expect(observeStartupStage).toHaveBeenCalledWith('fonts-ready');expect(await screen.findByTestId('router-stack')).toBeTruthy();expect(SplashScreen.hideAsync).toHaveBeenCalled();
 });

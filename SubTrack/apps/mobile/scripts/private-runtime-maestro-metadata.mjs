@@ -4,7 +4,8 @@ import {TextDecoder} from 'node:util';
 const MAX_BYTES=4*1024*1024;
 const KINDS=Object.freeze({tapOnElement:'TAP',inputTextCommand:'INPUT',hideKeyboardCommand:'HIDE_KEYBOARD',assertConditionCommand:'ASSERT_CONDITION',scrollUntilVisible:'SCROLL_UNTIL_VISIBLE',takeScreenshotCommand:'SCREENSHOT',applyConfigurationCommand:'CONFIGURATION'});
 const STATUSES=['PENDING','RUNNING','COMPLETED','FAILED','WARNED','SKIPPED'];
-const closed=(metadata,command='UNKNOWN')=>Object.freeze({metadata,command,errorClass:'UNKNOWN'});
+const TARGETS=Object.freeze(['personal-title','profile-save','add-open','subscription-name','subscription-category','subscription-amount','date-field','subscription-save','saved-row','UNKNOWN']);
+const closed=(metadata,command='UNKNOWN',target='UNKNOWN')=>Object.freeze({metadata,command,target,errorClass:'UNKNOWN'});
 const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 const integer=value=>Number.isSafeInteger(value)&&value>=0;
 function strictJson(bytes){
@@ -27,6 +28,18 @@ function strictJson(bytes){
  const result=value(0);space();if(at!==text.length)throw Error('invalid');return result;
 }
 function commandKind(command){if(!plain(command))throw Error('invalid');const keys=Object.keys(command);if(keys.length!==1||!Object.hasOwn(KINDS,keys[0])||!plain(command[keys[0]]))throw Error('invalid');return KINDS[keys[0]];}
+// Pinned original commands retain source selectors; evaluatedCommand and prose never supply a target.
+function scrollTarget(command){
+ const scroll=command.scrollUntilVisible;if(!plain(scroll)||!plain(scroll.selector))return 'UNKNOWN';
+ const selector=scroll.selector,keys=Object.keys(selector);
+ if(keys.some(key=>!['idRegex','textRegex','optional','size','below','above','leftOf','rightOf','containsChild','containsDescendants','traits','index','enabled','selected','checked','focused','childOf','css'].includes(key)||(!['idRegex','textRegex'].includes(key)&&selector[key]!==null&&!(key==='optional'&&selector[key]===false))))return 'UNKNOWN';
+ const id=selector.idRegex??null,text=selector.textRegex??null;
+ if(id!==null&&text!==null)return 'UNKNOWN';
+ const ids=Object.freeze({'native-personal-title':'personal-title','native-subscription-name':'subscription-name','native-subscription-amount':'subscription-amount','native-subscription-date':'date-field'});
+ const texts=Object.freeze({'${MAESTRO_SAVE_PROFILE}':'profile-save','${MAESTRO_ADD}':'add-open','${MAESTRO_CATEGORY}':'subscription-category','${MAESTRO_SAVE_SUBSCRIPTION}':'subscription-save','Native restart proof':'saved-row'});
+ const target=typeof id==='string'&&Object.hasOwn(ids,id)?ids[id]:typeof text==='string'&&Object.hasOwn(texts,text)?texts[text]:'UNKNOWN';
+ return target!=='UNKNOWN'&&scroll.direction===(target==='personal-title'?'UP':'DOWN')?target:'UNKNOWN';
+}
 function validateMetadata(metadata){
  if(!plain(metadata)||Object.keys(metadata).some(key=>!['status','sequenceNumber','depth','timestamp','duration','error','evaluatedCommand','artifacts'].includes(key))||!STATUSES.includes(metadata.status)||!integer(metadata.sequenceNumber)||!integer(metadata.depth)||metadata.depth>32)throw Error('invalid');
  for(const field of ['timestamp','duration'])if(Object.hasOwn(metadata,field)&&!integer(metadata[field]))throw Error('invalid');
@@ -39,8 +52,8 @@ export function projectEnrollmentMetadata(bytes){
  try{const rows=strictJson(bytes);if(!Array.isArray(rows)||rows.length===0||rows.length>128)throw Error('invalid');let last=-1;const failed=[];
   for(const [index,row] of rows.entries()){if(!plain(row)||Object.keys(row).sort().join(',')!=='command,metadata')throw Error('invalid');validateMetadata(row.metadata);if(row.metadata.sequenceNumber<=last)throw Error('invalid');last=row.metadata.sequenceNumber;
    if(index===0){if(!plain(row.command)||Object.keys(row.command).join(',')!=='defineVariablesCommand'||!plain(row.command.defineVariablesCommand)||row.metadata.status!=='COMPLETED'||row.metadata.depth!==0)throw Error('invalid');continue;}
-   const kind=commandKind(row.command);if(row.metadata.status==='FAILED'){if(row.metadata.depth!==0)throw Error('invalid');failed.push(kind);}}
-  return failed.length===1?closed('AVAILABLE',failed[0]):closed('UNAVAILABLE');
+   const kind=commandKind(row.command);if(row.metadata.status==='FAILED'){if(row.metadata.depth!==0)throw Error('invalid');failed.push({kind,target:kind==='SCROLL_UNTIL_VISIBLE'?scrollTarget(row.command):'UNKNOWN'});}}
+  return failed.length===1?closed('AVAILABLE',failed[0].kind,failed[0].target):closed('UNAVAILABLE');
  }catch{return closed('INVALID');}
 }
 function directory(path){const stat=lstatSync(path,{bigint:true});if(stat.isSymbolicLink()||!stat.isDirectory()||realpathSync(path)!==resolve(path))throw Error('unavailable');return stat;}
@@ -67,6 +80,6 @@ export function prepareEnrollmentMetadata(privateRoot,execution){
 }
 /** Only this exact fixed grammar may leave the private invocation. */
 export function enrollmentMetadataLines(result){
- if(!plain(result)||Object.keys(result).sort().join(',')!=='command,errorClass,metadata'||!['AVAILABLE','UNAVAILABLE','INVALID'].includes(result.metadata)||!['UNKNOWN',...Object.values(KINDS)].includes(result.command)||result.errorClass!=='UNKNOWN'||(result.metadata!=='AVAILABLE'&&result.command!=='UNKNOWN')||(result.metadata==='AVAILABLE'&&result.command==='UNKNOWN'))return null;
- return Object.freeze([`enrollment-structured-metadata=${result.metadata}`,`enrollment-failed-command=${result.command}`,'enrollment-error-class=UNKNOWN']);
+ if(!plain(result)||Object.keys(result).sort().join(',')!=='command,errorClass,metadata,target'||!['AVAILABLE','UNAVAILABLE','INVALID'].includes(result.metadata)||!['UNKNOWN',...Object.values(KINDS)].includes(result.command)||!TARGETS.includes(result.target)||(result.command!=='SCROLL_UNTIL_VISIBLE'&&result.target!=='UNKNOWN')||result.errorClass!=='UNKNOWN'||(result.metadata!=='AVAILABLE'&&result.command!=='UNKNOWN')||(result.metadata==='AVAILABLE'&&result.command==='UNKNOWN'))return null;
+ return Object.freeze([`enrollment-structured-metadata=${result.metadata}`,`enrollment-failed-command=${result.command}`,`enrollment-failed-target=${result.target}`,'enrollment-error-class=UNKNOWN']);
 }

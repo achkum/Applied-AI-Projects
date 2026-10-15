@@ -96,13 +96,11 @@ test('runtime integration uses only bounded read-only probe and retains failure 
   const yaml = readFileSync(new URL('../e2e/private-runtime-identifier-probe.yaml', import.meta.url), 'utf8');
   assert.equal(yaml.replace(/\r\n/g, '\n'), 'appId: se.subtrack.app\n---\n- assertVisible: ${MAESTRO_IDENTIFIER_PROBE_LABEL}\n');
   const source = readFileSync(new URL('./private-runtime-device.mjs', import.meta.url), 'utf8');
-  assert.ok(source.includes('execution = await runIdentifierProbe(['));
-  const identifierBlock=source.slice(source.indexOf('const observations = await identifierProbes'),source.indexOf('const readTool'));
-  assert.equal(identifierBlock.includes("spawn('timeout'"), false);
-  assert.ok(source.includes("stdio: ['ignore', fd, fd]"));
-  assert.ok(source.includes("return { ...execution, log: readFileSync(logPath, 'utf8') };"));
+  assert.equal(source.includes('await identifierProbes('),false);
+  assert.equal(source.includes('await runIdentifierProbe('),false);
+  assert.ok(source.includes('startupStageDiagnostic({phase:currentPhase,log:readTool(\'metro.log\')})'));
+  assert.ok(source.includes('startup_stage_diagnostic=unavailable'));
   assert.ok(source.includes('const syntheticOtpIssued = code !== null;'));
-  assert.ok(source.includes('issued: syntheticOtpIssued'));
   assert.ok(source.includes('harness.otpStartObservation()'));
   const addFlow = readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml', import.meta.url), 'utf8').replace(/\r\n/g,'\n');
   assert.ok(addFlow.includes('- tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- assertVisible:\n    id: native-personal-title\n    text: ${MAESTRO_PERSONAL_TITLE}\n- extendedWaitUntil:\n    visible: ${MAESTRO_SAVED}\n    timeout: 30000'));

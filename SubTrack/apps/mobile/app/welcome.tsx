@@ -1,4 +1,5 @@
 import React,{useEffect} from 'react';
+import {observeStartupStage} from '@/utils/privateRuntimeEnrollmentDiagnostic';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -10,6 +11,7 @@ import { WelcomeActions } from '@/components/onboarding/WelcomeActions';
 
 export default function WelcomeRoute() {
   const router = useRouter();
+  useEffect(()=>{observeStartupStage('welcome-committed');},[]);
   const onboarding=useOnboarding();
   useEffect(()=>{if(onboarding.sessionPhase==='active')router.replace({pathname:'/personal',params:{setup:'1'}});},[onboarding.sessionPhase,router]);
   const { t } = useI18n();
