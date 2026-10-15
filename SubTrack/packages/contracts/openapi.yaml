@@ -69,7 +69,7 @@ paths:
     post:
       operationId: executeSandboxMobileBusiness
       summary: Current owner profile, Just Me and manual subscription operations
-      description: Eight finite operations. Idempotency-Key is required only for manual/manual-edit and forbidden for the others. No bank, detection or household operations.
+      description: Twelve finite operations. Idempotency-Key is required for manual/manual-edit and bank-connect/bank-sync/bank-disconnect; forbidden for reads and all other operations. Banking uses only the fixed Synthetic provider and current installation owner. No detection or household operations.
       security: [{ SandboxAccess: [] }]
       parameters:
         - name: Idempotency-Key
@@ -93,6 +93,8 @@ paths:
                   - { $ref: '#/components/schemas/PrivateOwnerPage' }
                   - { $ref: '#/components/schemas/PrivateManualEdited' }
                   - { $ref: '#/components/schemas/SubscriptionLifecycleResult' }
+                  - { $ref: '#/components/schemas/PrivateMobileBankReadResult' }
+                  - { $ref: '#/components/schemas/PrivateMobileBankMutationResult' }
         '201':
           description: Known committed manual subscription.
           headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
@@ -2311,7 +2313,7 @@ components:
         type: { type: string, const: 'about:blank' }
         title: { type: string, const: Sandbox request unavailable }
         status: { type: integer, enum: [400, 401, 404, 409, 429, 500] }
-        code: { type: string, enum: [INVALID_SANDBOX_REQUEST, SANDBOX_AUTHENTICATION_REQUIRED, SUBSCRIPTION_NOT_FOUND, SANDBOX_RESTART_REQUIRED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_CONFLICT, LIFECYCLE_CONFLICT, SANDBOX_CAPACITY_EXHAUSTED, SANDBOX_UNAVAILABLE] }
+        code: { type: string, enum: [INVALID_SANDBOX_REQUEST, SANDBOX_AUTHENTICATION_REQUIRED, SUBSCRIPTION_NOT_FOUND, SANDBOX_RESTART_REQUIRED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_CONFLICT, LIFECYCLE_CONFLICT, BANK_STATE_CONFLICT, BANK_IDEMPOTENCY_CONFLICT, SANDBOX_CAPACITY_EXHAUSTED, SANDBOX_UNAVAILABLE] }
     SandboxBootstrapBody:
       type: object
       additionalProperties: false
@@ -2396,6 +2398,30 @@ components:
           properties:
             operation: { type: string, const: status }
             body: { $ref: '#/components/schemas/PrivateMobileStatusRequest' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-read }
+            body: { $ref: '#/components/schemas/PrivateMobileBankRead' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-connect }
+            body: { $ref: '#/components/schemas/PrivateMobileBankConnect' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-sync }
+            body: { $ref: '#/components/schemas/PrivateMobileBankSync' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-disconnect }
+            body: { $ref: '#/components/schemas/PrivateMobileBankDisconnect' }
     SandboxEmptyBody:
       type: object
       additionalProperties: false

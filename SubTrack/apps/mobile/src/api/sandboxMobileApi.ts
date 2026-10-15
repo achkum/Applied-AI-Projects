@@ -8,6 +8,8 @@ import { parseProfileView } from '@subtrack/contracts/profile';
 import { parseModeView, parsePrivateOwnerPage, parsePrivateManualCreated, parsePrivateManualEdited,
   parsePrivateLifecycleResult } from '@subtrack/contracts/private-onboarding';
 import { readSandboxMarker, resolveSandboxRuntime } from '@/config/sandboxRuntime';
+import {parsePrivateMobileBankReadResult,parsePrivateMobileBankMutationResult,parsePrivateMobileBankRequestKey} from '@subtrack/contracts/private-mobile-bank';
+import type {BankIntent,BankConflict} from './privateMobileBank';
 import type { NativeMutationConflict } from './privateMobileApi';
 
 export class SandboxRequestError extends Error {
@@ -48,6 +50,11 @@ function knownConflict(value: unknown): NativeMutationConflict {
     !['MANUAL_EDIT_CONFLICT', 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT', 'LIFECYCLE_CONFLICT'].includes(v.code as string)) throw new SandboxRequestError();
   return { conflict: v.code as NativeMutationConflict['conflict'] };
 }
+function bankConflict(value: unknown): BankConflict {
+  const v = parseSandboxProblem(value);
+  if (v.status !== 409 || !['MODE_CONFLICT', 'BANK_STATE_CONFLICT', 'BANK_IDEMPOTENCY_CONFLICT'].includes(v.code)) throw new SandboxRequestError();
+  return { conflict: v.code as BankConflict['conflict'] };
+}
 /** Injectable transport; the real composition accepts only the reviewed isolated build marker. */
 export function createSandboxMobileApi(ports: Ports) {
   async function key() {
@@ -58,13 +65,13 @@ export function createSandboxMobileApi(ports: Ports) {
     return parseSandboxRequestKey(`${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`);
   }
   async function request<T>(path: string, body: object | undefined, status: number, decode: (v: unknown) => T,
-    signal: AbortSignal, authorization?: string, needsKey = false, conflict = false): Promise<T | NativeMutationConflict> {
+    signal: AbortSignal, authorization?: string, needsKey = false, conflict = false, suppliedKey?: string, decodeConflict: (value: unknown) => NativeMutationConflict | BankConflict = knownConflict): Promise<T | NativeMutationConflict | BankConflict> {
     const runtime = ports.runtime();
     if (!runtime || runtime.apiBaseUrl !== 'https://198.44.116.159' || signal.aborted) throw new SandboxRequestError();
     const controller = new AbortController(), abort = () => controller.abort();
     signal.addEventListener('abort', abort, { once: true }); const deadline = setTimeout(abort, 10000);
     try {
-      const intent = needsKey ? await key() : undefined;
+      const intent = suppliedKey ?? (needsKey ? await key() : undefined);
       if (signal.aborted || controller.signal.aborted) throw new SandboxRequestError();
       const response = await ports.fetch(runtime.apiBaseUrl + path, { method: 'POST', credentials: 'omit', redirect: 'error',
         cache: 'no-store', signal: controller.signal, headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
@@ -78,16 +85,45 @@ export function createSandboxMobileApi(ports: Ports) {
       if (media !== (isConflict ? 'application/problem+json' : 'application/json')) throw new SandboxRequestError();
       const raw = await response.text();
       if (signal.aborted || controller.signal.aborted || raw.length > (isConflict ? 4096 : 131072)) throw new SandboxRequestError();
-      return isConflict ? knownConflict(JSON.parse(raw) as unknown) : decode(JSON.parse(raw) as unknown);
+      return isConflict ? decodeConflict(JSON.parse(raw) as unknown) : decode(JSON.parse(raw) as unknown);
     } catch { throw new SandboxRequestError(); }
     finally { clearTimeout(deadline); signal.removeEventListener('abort', abort); }
   }
   async function business<T>(operation: SandboxBusinessOperation, body: unknown, token: string, signal: AbortSignal,
     decode: (value: unknown) => T, status = 200, conflict = false) {
     return request(SANDBOX_MOBILE_PATHS.business, parseSandboxBusiness({ operation, body }), status, decode, signal,
-      sandboxAccess(token), operation === 'manual' || operation === 'manual-edit', conflict);
+      sandboxAccess(token), operation === 'manual' || operation === 'manual-edit', conflict) as Promise<T | NativeMutationConflict>;
+  }
+  async function bank(operation: 'read' | BankIntent['operation'], body: object, token: string, signal: AbortSignal, requestKey?: string) {
+    parsePrivateMobileBankRequestKey(operation, requestKey);
+    return request(SANDBOX_MOBILE_PATHS.business, parseSandboxBusiness({operation: `bank-${operation}`, body}), 200,
+      value => operation === 'read' ? parsePrivateMobileBankReadResult(value) : parsePrivateMobileBankMutationResult(value),
+      signal, sandboxAccess(token), false, true, requestKey, bankConflict);
   }
   return Object.freeze({
+    bankRequestKey: key,
+    readNativeBank: async (token: string, signal: AbortSignal) => {
+      const profile = await business('profile-read', {}, token, signal, parseProfileView) as ReturnType<typeof parseProfileView>;
+      const mode = await business('mode-read', {}, token, signal, parseModeView) as ReturnType<typeof parseModeView>;
+      if (signal.aborted) throw new SandboxRequestError();
+      if (!profile.profileComplete || mode.mode !== 'just-me') return {kind: 'setup-required'} as const;
+      const result = await bank('read', {}, token, signal);
+      if ('conflict' in result) {
+        if (result.conflict !== 'MODE_CONFLICT') throw new SandboxRequestError();
+        return {kind: 'setup-required'} as const;
+      }
+      const read = parsePrivateMobileBankReadResult(result);
+      return {kind: 'ready', connections: read.connections} as const;
+    },
+    mutateNativeBank: async (intent: BankIntent, requestKey: string, token: string, signal: AbortSignal) => {
+      const {operation, ...body} = intent;
+      const result = await bank(operation, body, token, signal, requestKey);
+      if ('conflict' in result) return bankConflict({type: 'about:blank', title: 'Sandbox request unavailable', status: 409, code: result.conflict});
+      const mutation = parsePrivateMobileBankMutationResult(result);
+      if (mutation.operation !== operation || ('connectionId' in intent && mutation.connection.connectionId !== intent.connectionId) ||
+        (operation === 'disconnect' && intent.purge && mutation.connection.disposition !== 'purged')) throw new SandboxRequestError();
+      return mutation;
+    },
     bootstrap: async (locale: 'sv' | 'en', signal: AbortSignal) => request(SANDBOX_MOBILE_PATHS.bootstrap,
       parseSandboxBootstrap({ transport: 'sandbox-mobile', locale }), 201, v => credentials(v, true), signal, undefined, true) as Promise<ReturnType<typeof parseSandboxCredentials> & { installationCapability: string }>,
     resume: async (capability: string, signal: AbortSignal) => request(SANDBOX_MOBILE_PATHS.resume,

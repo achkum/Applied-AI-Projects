@@ -81,7 +81,7 @@ async function sync(tx:OwnerTx,owner:string,connectionId:string,now:number):Prom
  await new IngestionWorker(bound,new DurableSyntheticIngestionStore(tx,owner,account)).syncUser(owner,{from,until});
  await changed(tx,'bankSynced',[owner,connectionId,until.toISOString(),'ACTIVE'],'UPDATE',connectionId);
 }
-export function createPrivateMobileBank(authority:DurablePrivateMobileAuthority){
+export function createPrivateMobileBank(authority:Pick<DurablePrivateMobileAuthority,'withCurrentMobileAuthority'|'now'>){
  return Object.freeze({async execute(accessToken:string,operation:PrivateMobileBankOperation,body:unknown,key?:string):Promise<Result>{
   let parsed:Readonly<{connectionId?:string;purge?:boolean;institutionId?:string}>;
   try{

@@ -205,7 +205,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
               setProfile(current); setProfileTheme(current.theme); setMessage('profileSaved'); }; });
         }, loading, undefined, true)}
         {button(t('onboarding.nativeDetection.open'), () => router.push('/personal-detections'), loading || sandbox)}
-        {button(t('onboarding.nativeBank.open'), () => router.push('/personal-bank'), loading || sandbox)}
+        {button(t('onboarding.nativeBank.open'), () => router.push('/personal-bank'), loading)}
         {sandbox ? <Text style={text}>{t('onboarding.sandbox.manageUnavailable')}</Text> : null}
         {items.length === 0 && !loading ? <Text style={text}>{t('onboarding.ownerSubscriptions.empty')}</Text> : null}
         <View style={styles.search}>

@@ -1,8 +1,9 @@
+import {parsePrivateMobileBankRead,parsePrivateMobileBankConnect,parsePrivateMobileBankSync,parsePrivateMobileBankDisconnect} from '@subtrack/contracts/private-mobile-bank';
 import {parseProfilePatch,parseJustMeChoice} from '@subtrack/contracts/profile';
 import {parsePrivateOwnerPageRequest,parsePrivateManualCreate} from '@subtrack/contracts/private-onboarding';
 import {parsePrivateMobileManualEdit,parsePrivateMobileStatus} from '@subtrack/contracts/private-mobile';
 export const SANDBOX_MOBILE_PATHS=Object.freeze({bootstrap:'/v2/sandbox/mobile/bootstrap',resume:'/v2/sandbox/mobile/resume',refresh:'/v2/sandbox/mobile/refresh',logout:'/v2/sandbox/mobile/logout',business:'/v2/sandbox/mobile/business'});
-export const SANDBOX_BUSINESS_OPERATIONS=Object.freeze(['profile-read','profile','mode-read','mode','owner-read','manual','manual-edit','status'] as const);
+export const SANDBOX_BUSINESS_OPERATIONS=Object.freeze(['profile-read','profile','mode-read','mode','owner-read','manual','manual-edit','status','bank-read','bank-connect','bank-sync','bank-disconnect'] as const);
 export type SandboxBusinessOperation=typeof SANDBOX_BUSINESS_OPERATIONS[number];
 export type SandboxCredentials=Readonly<{transport:'sandbox-mobile';sessionId:string;accessToken:string;refreshToken:string;sessionExpiresAt:number}>;
 export type SandboxBootstrapCredentials=SandboxCredentials&Readonly<{installationCapability:string}>;
@@ -28,6 +29,10 @@ export function parseSandboxBusiness(value:unknown):Readonly<{operation:SandboxB
  else if(operation==='manual-edit')body=parsePrivateMobileManualEdit(v.body);
  else if(operation==='status')body=parsePrivateMobileStatus(v.body);
  else if(operation==='owner-read')body=parsePrivateOwnerPageRequest(v.body);
+ else if(operation==='bank-read')body=parsePrivateMobileBankRead(v.body);
+ else if(operation==='bank-connect')body=parsePrivateMobileBankConnect(v.body);
+ else if(operation==='bank-sync')body=parsePrivateMobileBankSync(v.body);
+ else if(operation==='bank-disconnect')body=parsePrivateMobileBankDisconnect(v.body);
  else body=sandboxObject(v.body,[]);
  return Object.freeze({operation,body:Object.freeze(body)});
 }
@@ -39,5 +44,5 @@ export function parseSandboxCredentials(value:unknown,bootstrap:boolean):Sandbox
  if(v.transport!=='sandbox-mobile'||typeof v.sessionId!=='string'||!UUID.test(v.sessionId)||typeof v.accessToken!=='string'||v.accessToken.length>4096||!/^[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+$/.test(v.accessToken)||typeof v.sessionExpiresAt!=='number'||!Number.isSafeInteger(v.sessionExpiresAt)||v.sessionExpiresAt<=0)return fail();
  const result={transport:'sandbox-mobile' as const,sessionId:v.sessionId,accessToken:v.accessToken,refreshToken:parseSandboxSecret(v.refreshToken,'refresh'),sessionExpiresAt:v.sessionExpiresAt};return Object.freeze(bootstrap?{...result,installationCapability:parseSandboxSecret(v.installationCapability,'capability')}:result);
 }
-export const SANDBOX_PROBLEM_CODES=Object.freeze({400:['INVALID_SANDBOX_REQUEST'],401:['SANDBOX_AUTHENTICATION_REQUIRED'],404:['SUBSCRIPTION_NOT_FOUND'],409:['SANDBOX_RESTART_REQUIRED','MODE_CONFLICT','MANUAL_IDEMPOTENCY_CONFLICT','MANUAL_EDIT_IDEMPOTENCY_CONFLICT','MANUAL_EDIT_CONFLICT','LIFECYCLE_CONFLICT'],429:['SANDBOX_CAPACITY_EXHAUSTED'],500:['SANDBOX_UNAVAILABLE']} as const);
+export const SANDBOX_PROBLEM_CODES=Object.freeze({400:['INVALID_SANDBOX_REQUEST'],401:['SANDBOX_AUTHENTICATION_REQUIRED'],404:['SUBSCRIPTION_NOT_FOUND'],409:['SANDBOX_RESTART_REQUIRED','MODE_CONFLICT','MANUAL_IDEMPOTENCY_CONFLICT','MANUAL_EDIT_IDEMPOTENCY_CONFLICT','MANUAL_EDIT_CONFLICT','LIFECYCLE_CONFLICT','BANK_STATE_CONFLICT','BANK_IDEMPOTENCY_CONFLICT'],429:['SANDBOX_CAPACITY_EXHAUSTED'],500:['SANDBOX_UNAVAILABLE']} as const);
 export function parseSandboxProblem(value:unknown):Readonly<{type:'about:blank';title:'Sandbox request unavailable';status:400|401|404|409|429|500;code:string}>{const v=sandboxObject(value,['type','title','status','code']);if(v.type!=='about:blank'||v.title!=='Sandbox request unavailable'||typeof v.status!=='number'||!Object.prototype.hasOwnProperty.call(SANDBOX_PROBLEM_CODES,v.status)||typeof v.code!=='string'||!(SANDBOX_PROBLEM_CODES[v.status as keyof typeof SANDBOX_PROBLEM_CODES] as readonly string[]).includes(v.code))return fail();return Object.freeze(v) as ReturnType<typeof parseSandboxProblem>;}

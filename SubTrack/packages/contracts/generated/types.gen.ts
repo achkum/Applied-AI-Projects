@@ -8,7 +8,7 @@ export type SandboxProblem = {
     type: 'about:blank';
     title: 'Sandbox request unavailable';
     status: 400 | 401 | 404 | 409 | 429 | 500;
-    code: 'INVALID_SANDBOX_REQUEST' | 'SANDBOX_AUTHENTICATION_REQUIRED' | 'SUBSCRIPTION_NOT_FOUND' | 'SANDBOX_RESTART_REQUIRED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_CONFLICT' | 'LIFECYCLE_CONFLICT' | 'SANDBOX_CAPACITY_EXHAUSTED' | 'SANDBOX_UNAVAILABLE';
+    code: 'INVALID_SANDBOX_REQUEST' | 'SANDBOX_AUTHENTICATION_REQUIRED' | 'SUBSCRIPTION_NOT_FOUND' | 'SANDBOX_RESTART_REQUIRED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_CONFLICT' | 'LIFECYCLE_CONFLICT' | 'BANK_STATE_CONFLICT' | 'BANK_IDEMPOTENCY_CONFLICT' | 'SANDBOX_CAPACITY_EXHAUSTED' | 'SANDBOX_UNAVAILABLE';
 };
 
 export type SandboxBootstrapBody = {
@@ -61,6 +61,18 @@ export type SandboxBusinessBody = {
 } | {
     operation: 'status';
     body: PrivateMobileStatusRequest;
+} | {
+    operation: 'bank-read';
+    body: PrivateMobileBankRead;
+} | {
+    operation: 'bank-connect';
+    body: PrivateMobileBankConnect;
+} | {
+    operation: 'bank-sync';
+    body: PrivateMobileBankSync;
+} | {
+    operation: 'bank-disconnect';
+    body: PrivateMobileBankDisconnect;
 };
 
 export type SandboxEmptyBody = {
@@ -1297,7 +1309,7 @@ export type ExecuteSandboxMobileBusinessResponses = {
     /**
      * Known committed current owner business result.
      */
-    200: ProfileView | ModeView | PrivateOwnerPage | PrivateManualEdited | SubscriptionLifecycleResult;
+    200: ProfileView | ModeView | PrivateOwnerPage | PrivateManualEdited | SubscriptionLifecycleResult | PrivateMobileBankReadResult | PrivateMobileBankMutationResult;
     /**
      * Known committed manual subscription.
      */

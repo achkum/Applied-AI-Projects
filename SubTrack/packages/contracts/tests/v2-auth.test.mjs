@@ -98,9 +98,9 @@ test('detection and sandbox POSTs have explicit distinct key and closed business
     assert.deepEqual(document.paths[sandboxIssuancePaths[2]].post.security, [{ SandboxRefresh: [] }]);
     for (const path of [...sandboxLogoutPaths, ...sandboxBusinessPaths]) assert.deepEqual(document.paths[path].post.security, [{ SandboxAccess: [] }]);
     const business = document.paths[sandboxBusinessPaths[0]].post;
-    assert.match(business.description, /Idempotency-Key is required only for manual\/manual-edit and forbidden for the others/);
+    assert.match(business.description, /Idempotency-Key is required for manual\/manual-edit and bank-connect\/bank-sync\/bank-disconnect; forbidden for reads and all other operations/);
     const choices = business.requestBody.content['application/json'].schema.oneOf;
-    assert.deepEqual(choices.map(choice => choice.properties.operation.const), ['profile-read', 'profile', 'mode-read', 'mode', 'owner-read', 'manual', 'manual-edit', 'status']);
+    assert.deepEqual(choices.map(choice => choice.properties.operation.const), ['profile-read', 'profile', 'mode-read', 'mode', 'owner-read', 'manual', 'manual-edit', 'status', 'bank-read', 'bank-connect', 'bank-sync', 'bank-disconnect']);
     for (const choice of choices) {
       assert.equal(choice.additionalProperties, false); assert.deepEqual(choice.required, ['operation', 'body']);
       assert.deepEqual(Object.keys(choice.properties).sort(), ['body', 'operation']);
@@ -111,6 +111,14 @@ test('detection and sandbox POSTs have explicit distinct key and closed business
     assert.ok(choices.find(choice => choice.properties.operation.const === 'manual').properties.body.properties.nextChargeDate);
     assert.deepEqual(choices.find(choice => choice.properties.operation.const === 'manual-edit').properties.body.required,
       ['id', 'customName', 'categoryCode', 'cadence', 'expectedAmountMinor', 'nextChargeDate', 'expectedRevision']);
+    for (const [name, fields] of [['bank-read', []], ['bank-connect', ['institutionId']], ['bank-sync', ['connectionId']], ['bank-disconnect', ['connectionId', 'purge']]]) {
+      const body = choices.find(choice => choice.properties.operation.const === name).properties.body;
+      assert.deepEqual(Object.keys(body.properties ?? {}).sort(), [...fields].sort());
+      assert.deepEqual(body.required ?? [], fields);
+      if (name === 'bank-connect') assert.equal(body.properties.institutionId.const, 'synthetic-demo-v1');
+      if (name === 'bank-sync' || name === 'bank-disconnect') assert.equal(body.properties.connectionId.format, 'uuid');
+      if (name === 'bank-disconnect') assert.equal(body.properties.purge.type, 'boolean');
+    }
     assert.equal(document.paths[sandboxIssuancePaths[2]].post.requestBody, undefined);
     assert.equal(document.paths[sandboxLogoutPaths[0]].post.requestBody.content['application/json'].schema.properties.transport.const, 'sandbox-mobile');
   } finally { rmSync(dir, { recursive: true, force: true }); }

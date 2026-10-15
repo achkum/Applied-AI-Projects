@@ -128,3 +128,6 @@ Screen names are in `Code` style and match the route names in the web and mobile
 1. "Explore demo household" creates an ephemeral session in the `demo` tenant, seeded with Familjen Lindqvist.
 2. It is read-only, apart from local UI state. A banner reads "Demo: data is fictional".
 3. **AC:** demo users can never reach real tenants. Demo sessions are rate-limited.
+
+## Native tester environment implementation boundary
+Android and iOS use the same welcome, registration, verification, profile, Billing Month, Manage and Bank page components in production and sandbox. Environment-specific session/API/provider ports carry the approved isolated tester identity and explicitly simulated verification; no sandbox-only product pages are added. Production still requires real enrollment proof. The shared Bank page can use Synthetic Demo connect/sync/repeat/disconnect and explicit retained-versus-purged state through the tester adapter. Detection remains unavailable until its separate integration passes acceptance; bank rows do not automatically become subscriptions or paid history. This implementation is pending real database and installed-device qualification, so it is not a claim about the currently downloadable version.

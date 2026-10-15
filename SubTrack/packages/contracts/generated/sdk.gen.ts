@@ -86,7 +86,7 @@ export const logoutSandboxMobile = <ThrowOnError extends boolean = false>(option
 /**
  * Current owner profile, Just Me and manual subscription operations
  *
- * Eight finite operations. Idempotency-Key is required only for manual/manual-edit and forbidden for the others. No bank, detection or household operations.
+ * Twelve finite operations. Idempotency-Key is required for manual/manual-edit and bank-connect/bank-sync/bank-disconnect; forbidden for reads and all other operations. Banking uses only the fixed Synthetic provider and current installation owner. No detection or household operations.
  */
 export const executeSandboxMobileBusiness = <ThrowOnError extends boolean = false>(options: Options<ExecuteSandboxMobileBusinessData, ThrowOnError>): RequestResult<ExecuteSandboxMobileBusinessResponses, ExecuteSandboxMobileBusinessErrors, ThrowOnError> => (options.client ?? client).post<ExecuteSandboxMobileBusinessResponses, ExecuteSandboxMobileBusinessErrors, ThrowOnError>({
     security: [{
