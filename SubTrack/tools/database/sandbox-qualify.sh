@@ -111,7 +111,7 @@ if [[ "$variant" == image-v2 ]];then
  extract_id="$(cat "$work/extract.cid")";[[ "$extract_id" =~ ^[a-f0-9]{64}$ ]]
  mkdir -p "$work/image/apps/api/dist/sandbox" "$work/image/apps/api/prisma/sandbox" "$work/image-secrets"
  docker cp "$extract_id:/workspace/apps/api/dist/sandbox/." "$work/image/apps/api/dist/sandbox" >/dev/null 2>> "$work/extract-private.log"
- for name in 001-sandbox-foundation.sql 002-sandbox-mobile-business.sql;do docker cp "$extract_id:/workspace/apps/api/prisma/sandbox/$name" "$work/image/apps/api/prisma/sandbox/$name" >/dev/null 2>> "$work/extract-private.log";done
+ for name in 001-sandbox-foundation.sql 002-sandbox-mobile-business.sql 003-sandbox-synthetic-bank.sql;do docker cp "$extract_id:/workspace/apps/api/prisma/sandbox/$name" "$work/image/apps/api/prisma/sandbox/$name" >/dev/null 2>> "$work/extract-private.log";done
  [[ "$(realpath "$work/image")" == "$work/image" && -z "$(find "$work/image" -type l -print -quit)" ]]
  sudo chown -R "$(id -u):$(id -g)" "$work/image"
  for name in database_runtime api_auth_material;do
