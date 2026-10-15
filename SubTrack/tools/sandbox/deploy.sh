@@ -118,10 +118,13 @@ bash "$root/tools/sandbox/verify.sh" runtime
 for name in before.ids new.ids bootstrap-private.log live-private.log;do
  if [[ -e "$runtime/$name" || -L "$runtime/$name" ]];then [[ -f "$runtime/$name" && ! -L "$runtime/$name" && "$(realpath -e "$runtime/$name")" == "$runtime/$name" && "$(stat -c %u "$runtime/$name")" == 996 && "$(stat -c %a "$runtime/$name")" == 600 ]];fi
 done
+# BEGIN LAST QUALIFIED RECEIPT
+# Retain the last qualified proof through activation/readback and any failure.
+# Its old tooling metadata stays honest until the successful final atomic write.
 if [[ -e "$runtime/deployment-receipt.json" || -L "$runtime/deployment-receipt.json" ]];then
  [[ -f "$runtime/deployment-receipt.json" && ! -L "$runtime/deployment-receipt.json" && "$(stat -c %u "$runtime/deployment-receipt.json")" == 996 && "$(stat -c %a "$runtime/deployment-receipt.json")" == 600 ]]
- rm -- "$runtime/deployment-receipt.json"
 fi
+# END LAST QUALIFIED RECEIPT
 docker ps --all --no-trunc --filter label=org.subtrack.sandbox.namespace=st250-runtime-v1 --format '{{.ID}}' > "$runtime/before.ids"
 : > "$runtime/new.ids";started=true
 if [[ "$mode" == bootstrap ]];then
@@ -204,6 +207,6 @@ const fs=require('node:fs'),crypto=require('node:crypto');
 NODE
 fi
 node - "$runtime/deployment-receipt.json" "$ST250_SOURCE_HEAD" "$SANDBOX_API_IMAGE" <<'NODE'
-const fs=require('node:fs'),crypto=require('node:crypto');try{const[file,head,image]=process.argv.slice(2),bindingBytes=fs.readFileSync(file.replace(/deployment-receipt\.json$/,'image-import-binding.json')),binding=JSON.parse(bindingBytes);if(!/^[a-f0-9]{40}$/.test(head)||!/^sha256:[a-f0-9]{64}$/.test(image)||binding.artifactSourceHead!==head||binding.importedImageId!==image)throw Error();const receipt={schema:'st250-deployment-v2',sourceHead:head,toolingSourceHead:binding.toolingSourceHead,sourceCustodySha256:binding.sourceCustodySha256,historicalSourceCustodySha256:binding.historicalSourceCustodySha256,apiExportedConfigId:binding.exportedConfigId,apiImageId:image,imageImportBindingSha256:crypto.createHash('sha256').update(bindingBytes).digest('hex'),serviceImageCustody:binding.services,host:'198.44.116.159',tlsVerified:true,ownerIsolationVerified:true,restartReadbackVerified:true,refreshLogoutVerified:true,resourceGraphVerified:true,androidInstalled:false,iosInstalled:false,qualification:'synthetic-only',dataPolicy:'retained'};if(fs.existsSync(file)){const s=fs.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.uid!==996||(s.mode&0o777)!==0o600)throw Error();}fs.writeFileSync(file,JSON.stringify(receipt)+'\n',{mode:0o600});}catch{process.stderr.write('ST250_DEPLOYMENT_UNAVAILABLE stage=RECEIPT\n');process.exitCode=1;}
+const fs=require('node:fs'),crypto=require('node:crypto');try{const[file,head,image]=process.argv.slice(2),bindingBytes=fs.readFileSync(file.replace(/deployment-receipt\.json$/,'image-import-binding.json')),binding=JSON.parse(bindingBytes);if(!/^[a-f0-9]{40}$/.test(head)||!/^sha256:[a-f0-9]{64}$/.test(image)||binding.artifactSourceHead!==head||binding.importedImageId!==image)throw Error();const receipt={schema:'st250-deployment-v2',sourceHead:head,toolingSourceHead:binding.toolingSourceHead,sourceCustodySha256:binding.sourceCustodySha256,historicalSourceCustodySha256:binding.historicalSourceCustodySha256,apiExportedConfigId:binding.exportedConfigId,apiImageId:image,imageImportBindingSha256:crypto.createHash('sha256').update(bindingBytes).digest('hex'),serviceImageCustody:binding.services,host:'198.44.116.159',tlsVerified:true,ownerIsolationVerified:true,restartReadbackVerified:true,refreshLogoutVerified:true,resourceGraphVerified:true,androidInstalled:false,iosInstalled:false,qualification:'synthetic-only',dataPolicy:'retained'};const temp=file+'.next';let fd,created=false;try{if(fs.existsSync(file)){const s=fs.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.uid!==996||(s.mode&0o777)!==0o600)throw Error();}fd=fs.openSync(temp,'wx',0o600);created=true;fs.writeFileSync(fd,JSON.stringify(receipt)+'\n');fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;if(fs.existsSync(file)){const s=fs.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.uid!==996||(s.mode&0o777)!==0o600)throw Error();}fs.renameSync(temp,file);created=false;}finally{if(fd!==undefined)fs.closeSync(fd);if(created)fs.unlinkSync(temp);}}catch{process.stderr.write('ST250_DEPLOYMENT_UNAVAILABLE stage=RECEIPT\n');process.exitCode=1;}
 NODE
 printf 'ST250_BACKEND_QUALIFIED source=%s apiImage=%s tls=trusted readback=verified native=pending\n' "$ST250_SOURCE_HEAD" "$SANDBOX_API_IMAGE"
