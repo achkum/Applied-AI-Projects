@@ -187,6 +187,12 @@
       "expectedAmount": "Expected amount",
       "expectedDate": "Expected charge date"
     },
+    "ownerSubscriptionList": {
+      "search": "Search subscriptions",
+      "clear": "Clear search",
+      "noMatch": "No matching subscriptions. Try another name or category.",
+      "expectedSubtotal": "Active expected amounts per saved billing cycle"
+    },
     "ownerSubscriptions": {
       "title": "Your subscriptions",
       "loading": "Loading your subscriptions…",

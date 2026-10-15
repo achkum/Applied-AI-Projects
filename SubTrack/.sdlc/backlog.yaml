@@ -5,6 +5,7 @@ board_kind: mobile_delivery_queue
 milestone_current: M1
 current_delivery: ST-086
 current_slice: ST-250
+independent_native_slice: ST-251
 execution_phase: isolated_public_sandbox_delivery
 source_pipeline_slice: ST-249
 source_pipeline_slices: [ST-245, ST-246, ST-247, ST-248, ST-249, ST-250]

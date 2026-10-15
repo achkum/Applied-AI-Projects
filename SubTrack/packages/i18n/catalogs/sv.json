@@ -187,6 +187,12 @@
       "expectedAmount": "Förväntat belopp",
       "expectedDate": "Förväntat debiteringsdatum"
     },
+    "ownerSubscriptionList": {
+      "search": "Sök prenumerationer",
+      "clear": "Rensa sökningen",
+      "noMatch": "Inga matchande prenumerationer. Prova ett annat namn eller en kategori.",
+      "expectedSubtotal": "Förväntade belopp för aktiva prenumerationer per sparad faktureringsperiod"
+    },
     "ownerSubscriptions": {
       "title": "Dina prenumerationer",
       "loading": "Läser in dina prenumerationer…",

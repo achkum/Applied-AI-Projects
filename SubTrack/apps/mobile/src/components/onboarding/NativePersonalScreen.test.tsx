@@ -12,13 +12,14 @@ import {SandboxSessionProvider,useSandboxSession} from '@/state/SandboxSession';
 import {SandboxEntry} from './SandboxEntry';
 import type {SandboxMobileApi} from '@/api/sandboxMobileApi';
 const mockPush = jest.fn();
+const mockLocale:{value:'en'|'sv'}={value:'en'};
 const mockSetLocale = jest.fn(); const mockSetMode = jest.fn();
 jest.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 6 }));
 jest.mock('expo-router', () => ({ useFocusEffect: jest.fn(), useRouter: () => ({ replace: jest.fn(), push: mockPush }) }));
 jest.mock('@/api/privateMobileApi', () => ({ verifiedNativeLogin: jest.fn(), revokeNativeSession: jest.fn(), rotateNativeSession: jest.fn(), completeNativeEnrollment: jest.fn(),
   readNativeProfile: jest.fn(), saveNativeProfile: jest.fn(), readNativeMode: jest.fn(), chooseNativeJustMe: jest.fn(), readNativeSubscriptions: jest.fn(), editNativeSubscription: jest.fn(), updateNativeSubscriptionStatus: jest.fn(), createNativeSubscription: jest.fn() }));
-jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ ...jest.requireActual('../signature/testUtils/contextMocks').makeTheme(false), setMode: mockSetMode }) }));
-jest.mock('@/context/I18nContext', () => ({ useI18n: () => ({ ...jest.requireActual('../signature/testUtils/contextMocks').makeI18n('en'), setLocale: mockSetLocale }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ ...jest.requireActual('../signature/testUtils/contextMocks').makeTheme(false),theme:jest.requireActual('../../../../../packages/ui-tokens/generated/billing-month.native.json'), setMode: mockSetMode }) }));
+jest.mock('@/context/I18nContext', () => ({ useI18n: () => ({ ...jest.requireActual('../signature/testUtils/contextMocks').makeI18n(mockLocale.value), setLocale: mockSetLocale }) }));
 const credentials = { transport: 'mobile' as const, sessionId: '123e4567-e89b-42d3-a456-426614174000', accessToken: 'header.payload.signature', refreshToken: 'v2r.' + 'a'.repeat(43) };
 const profile = { displayName: 'Synthetic', avatarColourToken: null, avatarEmoji: null, language: 'en' as const, theme: 'system' as const, defaultCurrency: 'SEK' as const, profileComplete: true };
 const row = { id: credentials.sessionId, revision: '1', source: 'MANUAL' as const, visibility: 'owner' as const, customName: 'Current database name', merchantId: null, merchantName: null,
@@ -31,7 +32,7 @@ beforeAll(() => {
   expect(fixture.getByText('host ready')).toBeTruthy();
   fixture.unmount();
 }, 60_000);
-beforeEach(() => { jest.resetAllMocks(); mockSetLocale.mockResolvedValue(undefined); mockSetMode.mockResolvedValue(undefined); jest.mocked(api.verifiedNativeLogin).mockResolvedValue(credentials);
+beforeEach(() => {mockLocale.value='en'; jest.resetAllMocks(); mockSetLocale.mockResolvedValue(undefined); mockSetMode.mockResolvedValue(undefined); jest.mocked(api.verifiedNativeLogin).mockResolvedValue(credentials);
   jest.mocked(api.readNativeProfile).mockResolvedValue(profile); jest.mocked(api.readNativeMode).mockResolvedValue({ mode: 'just-me' }); });
 it('sandbox entry completes profile/Just Me/Add/Edit/status/readback/logout through separate injected authority',async()=>{
   let currentProfile={...profile,displayName:null as string|null,profileComplete:false};let mode:'just-me'|null=null;let rows:typeof row[]=[];
@@ -97,18 +98,17 @@ it('completes profile and Just me only from separate authoritative reads',async(
   expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(1);
 });
 
-it('keeps an off-page Add explicit until a subsequent authoritative page contains the created ID',async()=>{
+it('confirms Add only after automatically reading the complete authoritative owner list',async()=>{
   const rows=Array.from({length:50},(_,index)=>({...row,id:'123e4567-e89b-42d3-a456-'+String(index).padStart(12,'0'),customName:'Earlier '+index}));
-  jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:rows,nextCursor:'cursor-one'})
+  jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:rows,nextCursor:null})
     .mockResolvedValueOnce({items:rows,nextCursor:'cursor-one'}).mockResolvedValueOnce({items:[row],nextCursor:null});
   jest.mocked(api.createNativeSubscription).mockResolvedValue({id:row.id});mount();
   await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
   fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText('Earlier 0');
   fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.title}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Not authoritative draft');
   fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.category.VIDEO_STREAMING}));fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.amount),'1.00');
-  fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.save}));await screen.findByText(copy.nativePersonal.readbackUnavailable);
-  expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText('Not authoritative draft')).toBeNull();
-  fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.loadMore}));await screen.findByText(copy.nativePersonal.saved);
+  fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.save}));await screen.findByText(copy.nativePersonal.saved);
+  expect(screen.queryByText('Not authoritative draft')).toBeNull();expect(screen.queryByRole('button',{name:copy.ownerSubscriptions.loadMore})).toBeNull();
   expect(screen.getByText(row.customName)).toBeTruthy();expect(api.readNativeSubscriptions).toHaveBeenLastCalledWith(credentials.accessToken,expect.any(AbortSignal),'cursor-one');
 });
 
@@ -227,7 +227,7 @@ const earlierPage = () => Array.from({length:50},(_,index)=>({...row,id:`123e456
 async function laterPageScreen(first:ReturnType<typeof earlierPage>) {
  mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
  fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(first[0]!.customName);
- fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.loadMore}));await screen.findByText(row.customName);
+ await screen.findByText(row.customName);expect(screen.queryByRole('button',{name:copy.ownerSubscriptions.loadMore})).toBeNull();
 }
 it('rereads both loaded owner pages after later-page Edit, retaining acknowledged target',async()=>{
  const first=earlierPage();const current={...row,customName:'Later saved edit',revision:'2'};
@@ -304,4 +304,30 @@ it('personal list focus after the agenda rereads changed saved rows',async()=>{
 
 it('confirmed detected rows use a read-only badge and inbox link without manual edit/status controls',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,source:'DETECTED'}],nextCursor:null});mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);expect(screen.getByText(copy.nativeDetection.detected)).toBeTruthy();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.edit})).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.pause})).toBeNull();fireEvent.press(screen.getAllByRole('button',{name:copy.nativeDetection.open})[0]!);expect(mockPush).toHaveBeenCalledWith('/personal-detections');
+});
+
+
+it('searches the terminal second page with Unicode names, localized category and clear/no-match states',async()=>{
+ const second={...row,id:'223e4567-e89b-42d3-a456-426614174001',customName:'Café Fictional',expectedAmountMinor:'2500'};
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:'next-page'}).mockResolvedValueOnce({items:[second],nextCursor:null});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(second.customName);
+ expect(api.readNativeSubscriptions).toHaveBeenLastCalledWith(credentials.accessToken,expect.any(AbortSignal),'next-page');const search=screen.getByLabelText(copy.ownerSubscriptionList.search);fireEvent.changeText(search,'CAFE\u0301');expect(screen.getByText(second.customName)).toBeTruthy();expect(screen.queryByText(row.customName)).toBeNull();
+ fireEvent.changeText(search,'absent');expect(screen.getByText(copy.ownerSubscriptionList.noMatch)).toBeTruthy();expect(screen.queryByText(second.customName)).toBeNull();fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptionList.clear}));expect(screen.getByText(second.customName)).toBeTruthy();expect(screen.getByText(row.customName)).toBeTruthy();
+ fireEvent.changeText(search,copy.ownerSubscriptions.category.VIDEO_STREAMING.toUpperCase());expect(screen.getByText(second.customName)).toBeTruthy();expect(screen.getByText(row.customName)).toBeTruthy();
+});
+
+it('renders active per-cadence currency totals and recomputes category groups after persisted edit/status readback',async()=>{
+ const saved={...row,expectedAmountMinor:'12990'},edited={...saved,revision:'2',categoryCode:'MUSIC_AUDIO'},paused={...edited,status:'PAUSED' as const};jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[saved],nextCursor:null}).mockResolvedValueOnce({items:[edited],nextCursor:null}).mockResolvedValueOnce({items:[paused],nextCursor:null});jest.mocked(api.editNativeSubscription).mockResolvedValue({id:saved.id,revision:'2'});jest.mocked(api.updateNativeSubscriptionStatus).mockResolvedValue({id:saved.id,status:'PAUSED'});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(saved.customName);expect(screen.getByText(copy.ownerSubscriptionList.expectedSubtotal)).toBeTruthy();
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.category.MUSIC_AUDIO}));fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativeSubscriptionEdit.saved);expect(screen.getByRole('header',{name:copy.ownerSubscriptions.category.MUSIC_AUDIO})).toBeTruthy();expect(screen.queryByRole('header',{name:copy.ownerSubscriptions.category.VIDEO_STREAMING})).toBeNull();
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);expect(screen.getByText(saved.customName)).toBeTruthy();expect(screen.queryByText(copy.ownerSubscriptionList.expectedSubtotal)).toBeNull();expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeTruthy();
+});
+
+it('blur aborts a complete read and clears query/data while stale completion cannot revive the view',async()=>{
+ let complete:(page:{items:typeof row[];nextCursor:null})=>void=()=>{throw Error('not started')};jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:null}).mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve;})).mockResolvedValue({items:[row],nextCursor:null});mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);fireEvent.changeText(screen.getByLabelText(copy.ownerSubscriptionList.search),'database');fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.reload}));await waitFor(()=>expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(2));
+ const focusCalls=jest.mocked(useFocusEffect).mock.calls;const callback=focusCalls[focusCalls.length-1]![0];let cleanup:void|(()=>void);act(()=>{cleanup=callback();});act(()=>{if(cleanup)cleanup();});expect(screen.queryByText(row.customName)).toBeNull();const signal=jest.mocked(api.readNativeSubscriptions).mock.calls[1]![1];expect(signal.aborted).toBe(true);await act(async()=>{complete({items:[row],nextCursor:null});});expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText(copy.nativePersonal.unavailable)).toBeNull();act(()=>{callback();});await screen.findByText(row.customName);expect(screen.getByLabelText(copy.ownerSubscriptionList.search).props.value).toBe('');
+});
+
+it('uses Swedish search/category/subtotal labels and clears search immediately on logout',async()=>{
+ mockLocale.value='sv';jest.mocked(api.readNativeProfile).mockResolvedValue({...profile,language:'sv'});jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,customName:'Fiktiv tjänst'}],nextCursor:null});jest.mocked(api.revokeNativeSession).mockResolvedValue(undefined);mount();const sv=catalogs.sv.onboarding;await waitFor(()=>expect(screen.getByRole('button',{name:sv.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:sv.nativePersonal.verify}));await screen.findByText('Fiktiv tjänst');fireEvent.changeText(screen.getByLabelText(sv.ownerSubscriptionList.search),sv.ownerSubscriptions.category.VIDEO_STREAMING);expect(screen.getByText('Fiktiv tjänst')).toBeTruthy();expect(screen.getByText(sv.ownerSubscriptionList.expectedSubtotal)).toBeTruthy();fireEvent.press(screen.getByRole('button',{name:sv.nativePersonal.logout}));expect(screen.queryByText('Fiktiv tjänst')).toBeNull();expect(screen.queryByLabelText(sv.ownerSubscriptionList.search)).toBeNull();
 });
