@@ -9,12 +9,13 @@ type Row=Record<string,unknown>;
 function fixture(create=createPrivateMobileDetection){
  let now=Date.parse('2026-10-14T00:00:00.000Z');const calls:{name:string;values:readonly unknown[]}[]=[];
  const subscriptions=new Map<string,Row>(),candidates=new Map<string,Row>(),receipts=new Map<string,Row>(),feedback=new Map<string,Row>();let scan:Row|undefined;
- let complete=true,active=true;let fault:string|undefined;let advanceAt:string|undefined;const overrides=new Map<string,()=>Row[]>();
+ let complete=true,active=true;let fault:string|undefined;let advanceAt:string|undefined;const overrides=new Map<string,()=>Row[]>();const resultOverrides=new Map<string,()=>{rows:Row[];rowCount:number|null;command:string}>();
  const booked:Row[]=Array.from({length:3},(_,i)=>({account_id:ACCOUNT,transaction_id:`eeeeeeee-eeee-4eee-8eee-${String(i).padStart(12,'0')}`,transaction_date:`2026-${String(i+7).padStart(2,'0')}-01`,amount_minor:'-14900',currency:'SEK',raw_description:'NETFLIX.COM'}));
  const execute=vi.fn(async(name:string,values:readonly unknown[])=>{
   calls.push({name,values});expect(values[0]).toBe(OWNER);if(name===fault)throw new Error('private-storage-canary');
   if(name===advanceAt)now+=10001;
-  const result=(rows:Row[],command='SELECT')=>({rows,rowCount:rows.length,command});
+  const result=(rows:Row[],command='SELECT',rowCount=rows.length)=>({rows,rowCount,command});
+  if(resultOverrides.has(name))return resultOverrides.get(name)!();
   if(overrides.has(name))return result(overrides.get(name)!(),name.endsWith('Insert')?'INSERT':name.endsWith('Update')||name.endsWith('Consume')||name.endsWith('Supersede')?'UPDATE':'SELECT');
   switch(name){
    case 'detectionModeRead':return result([{onboarding_mode:'just-me',profile_complete:complete}]);
@@ -24,7 +25,8 @@ function fixture(create=createPrivateMobileDetection){
    case 'detectionScanReceiptRead':return result(scan&&Buffer.isBuffer(scan.key_h)&&scan.key_h.equals(values[1] as Buffer)?[scan]:[]);
    case 'detectionScanReceiptInsert':scan={connection_id:values[1],key_h:values[2],request_h:values[3],result_status:values[5]};return result([{connection_id:values[1]}],'INSERT');
    case 'detectionCandidateLookup':return result([...candidates.values()].filter(r=>Buffer.isBuffer(r.candidate_h)&&r.candidate_h.equals(values[2] as Buffer)));
-   case 'detectionSubscriptionInsert':subscriptions.set(values[1] as string,{id:values[1],revision:'1',source:'DETECTED',status:'DETECTED',always_private:true});return result([{id:values[1],revision:'1'}],'INSERT');
+   case 'detectionSubscriptionInsert':subscriptions.set(values[1] as string,{id:values[1],identity_id:values[0],revision:'1',source:'DETECTED',status:'DETECTED',always_private:true});return result([],'INSERT',1);
+   case 'detectionSubscriptionReadback':{const row=subscriptions.get(values[1] as string);return result(row&&row.identity_id===values[0]&&row.source===values[2]&&row.status===values[3]&&row.always_private===true?[{id:row.id,revision:row.revision}]:[]);}
    case 'detectionCandidateInsert':candidates.set(values[1] as string,{subscription_id:values[1],connection_id:values[2],account_id:values[3],merchant_key:values[4],currency:values[5],cadence:values[6],algorithm_version:values[7],candidate_h:values[8],status:'DETECTED',revision:'1'});return result([{subscription_id:values[1]}],'INSERT');
    case 'detectionSourceLinkInsert':return result([{raw_transaction_id:values[2]}],'INSERT');
    case 'detectionCandidateLock':return result(subscriptions.has(values[1] as string)?[subscriptions.get(values[1] as string)!]:[]);
@@ -39,10 +41,28 @@ function fixture(create=createPrivateMobileDetection){
   }
  });
  const authority={now:()=>now,withCurrentMobileAuthority:async<T>(_token:string,work:(tx:OwnerTx,owner:MobileOwner)=>Promise<T>,guard?:PrivateMobilePrecommitGuard)=>{const result=await work({execute} as unknown as OwnerTx,{identityId:OWNER,sessionId:SESSION});if(guard?.()==='UNDO_EXPIRED')throw new Error('fixture-known-expiry');return result;}} as unknown as DurablePrivateMobileAuthority;
- return {api:create(authority),calls,booked,candidates,subscriptions,receipts,feedback,override:(name:string,rows:()=>Row[])=>{overrides.set(name,rows);},setNow:(n:number)=>{now=n;},advance:()=>{now+=10001;},fault:(name:string)=>{fault=name;},advanceAt:(name:string)=>{advanceAt=name;},incomplete:()=>{complete=false;},noBank:()=>{active=false;},execute};
+ return {api:create(authority),calls,booked,candidates,subscriptions,receipts,feedback,override:(name:string,rows:()=>Row[])=>{overrides.set(name,rows);},overrideResult:(name:string,result:()=>{rows:Row[];rowCount:number|null;command:string})=>{resultOverrides.set(name,result);},setNow:(n:number)=>{now=n;},advance:()=>{now+=10001;},fault:(name:string)=>{fault=name;},advanceAt:(name:string)=>{advanceAt=name;},incomplete:()=>{complete=false;},noBank:()=>{active=false;},execute};
 }
 beforeEach(()=>vi.stubEnv('NODE_ENV','development'));afterEach(()=>vi.unstubAllEnvs());
 describe('durable Synthetic detection named owner workflow',()=>{
+ it('verifies a non-returning subscription insert through the next owner-bound command before candidate writes',async()=>{
+  const f=fixture();expect(await f.api.execute('token','scan',{},'scan-key-read-new1')).toEqual({status:200,value:{scan:'complete'}});
+  const insertAt=f.calls.findIndex(call=>call.name==='detectionSubscriptionInsert'),readAt=f.calls.findIndex(call=>call.name==='detectionSubscriptionReadback'),candidateAt=f.calls.findIndex(call=>call.name==='detectionCandidateInsert');
+  expect(readAt).toBe(insertAt+1);expect(candidateAt).toBe(readAt+1);expect(f.calls[readAt]!.values).toEqual([OWNER,f.calls[insertAt]!.values[1],'DETECTED','DETECTED']);
+  expect(await f.execute.mock.results[insertAt]!.value).toEqual({command:'INSERT',rowCount:1,rows:[]});expect(await f.execute.mock.results[readAt]!.value).toEqual({command:'SELECT',rowCount:1,rows:[{id:f.calls[insertAt]!.values[1],revision:'1'}]});
+ });
+ it('rejects unexpected non-returning insert command/count/rows before readback or downstream writes',async()=>{
+  for(const value of [{command:'SELECT',rowCount:1,rows:[]},{command:'UPDATE',rowCount:1,rows:[]},{command:'INSERT',rowCount:0,rows:[]},{command:'INSERT',rowCount:2,rows:[]},{command:'INSERT',rowCount:null,rows:[]},{command:'INSERT',rowCount:1,rows:[{id:ACCOUNT,revision:'1'}]}]){
+   const f=fixture();f.overrideResult('detectionSubscriptionInsert',()=>value);await expect(f.api.execute('token','scan',{},'scan-key-insertbad')).rejects.toThrow('Detection unavailable');expect(f.calls.some(call=>['detectionSubscriptionReadback','detectionCandidateInsert','detectionSourceLinkInsert','detectionScanReceiptInsert'].includes(call.name))).toBe(false);
+  }
+ });
+ it('rejects missing/substituted/ambiguous readback and wrong revision before candidate writes',async()=>{
+  for(const rows of [[],[{id:ACCOUNT,revision:'1'}],[{revision:'1'}],[{id:undefined,revision:'1'}],[{id:'same',revision:1}],[{id:'same',revision:'01'}],[{id:'same',revision:'0'}],[{id:'same',revision:'2'}],[{id:'same'}],[{id:'same',revision:'1'},{id:'same',revision:'1'}]]){
+   const f=fixture();f.override('detectionSubscriptionReadback',()=>rows.map(row=>({...row,...('id'in row&&row.id==='same'?{id:f.calls.at(-1)!.values[1]}:{})})));await expect(f.api.execute('token','scan',{},'scan-key-readbackbad')).rejects.toThrow('Detection unavailable');expect(f.calls.some(call=>['detectionCandidateInsert','detectionSourceLinkInsert','detectionScanReceiptInsert'].includes(call.name))).toBe(false);
+  }
+  for(const command of ['INSERT','UPDATE']){const f=fixture();f.overrideResult('detectionSubscriptionReadback',()=>({command,rowCount:1,rows:[{id:f.calls.at(-1)!.values[1],revision:'1'}]}));await expect(f.api.execute('token','scan',{},'scan-key-readcommand')).rejects.toThrow('Detection unavailable');expect(f.candidates.size).toBe(0);}
+  for(const rowCount of [0,2,null]){const f=fixture();f.overrideResult('detectionSubscriptionReadback',()=>({command:'SELECT',rowCount,rows:[{id:f.calls.at(-1)!.values[1],revision:'1'}]}));await expect(f.api.execute('token','scan',{},'scan-key-readcount')).rejects.toThrow('Detection unavailable');expect(f.candidates.size).toBe(0);}
+ });
  it('canonical scan uses existing bigint core, preserves repeat identity/source links and receipts',async()=>{
   const f=fixture();expect(await f.api.execute('token','scan',{},'scan-key-first-0001')).toEqual({status:200,value:{scan:'complete'}});expect(f.candidates.size).toBe(1);
   const inserted=f.calls.filter(x=>x.name==='detectionSubscriptionInsert');expect(inserted[0]!.values[4]).toBe('Netflix');expect(inserted[0]!.values[7]).toBe('14900');expect(f.calls.filter(x=>x.name==='detectionSourceLinkInsert')).toHaveLength(3);
@@ -88,7 +108,7 @@ describe('durable Synthetic detection named owner workflow',()=>{
  });
  it('invalid execution command/count, ambiguous owner row or corrupt trusted revision/deadline refuses commit',async()=>{
   for(const value of [{command:'UPDATE',rowCount:1,rows:[{profile_complete:true,onboarding_mode:'just-me'}]},{command:'SELECT',rowCount:2,rows:[{profile_complete:true,onboarding_mode:'just-me'}]},{command:'SELECT',rowCount:2,rows:[{profile_complete:true,onboarding_mode:'just-me'},{profile_complete:true,onboarding_mode:'just-me'}]}]){const f=fixture();f.execute.mockResolvedValueOnce(value);await expect(f.api.execute('token','scan',{},'scan-key-uncertain')).rejects.toThrow('Detection unavailable');}
-  for(const revision of ['2','0']){const f=fixture();f.override('detectionSubscriptionInsert',()=>[{id:f.calls.at(-1)!.values[1],revision}]);await expect(f.api.execute('token','scan',{},'scan-key-revision1')).rejects.toThrow('Detection unavailable');}
+  for(const revision of ['2','0']){const f=fixture();f.override('detectionSubscriptionReadback',()=>[{id:f.calls.at(-1)!.values[1],revision}]);await expect(f.api.execute('token','scan',{},'scan-key-revision1')).rejects.toThrow('Detection unavailable');}
   for(const patch of [{revision:'9223372036854775807'},{revision:'0'}]){const f=fixture();await f.api.execute('token','scan',{},'scan-key-maxrev-01');const id=[...f.candidates.keys()][0]!;Object.assign(f.subscriptions.get(id)!,patch);await expect(f.api.execute('token','confirm',{candidateId:id,expectedRevision:patch.revision},'review-key-maxrev01')).rejects.toThrow();}
   for(const patch of [{revision:'9',status:'ACTIVE'},{revision:'2',status:'REJECTED'}]){const f=fixture();await f.api.execute('token','scan',{},'scan-key-postrev01');const id=[...f.candidates.keys()][0]!;f.override('detectionCompareUpdate',()=>[{id,...patch}]);await expect(f.api.execute('token','confirm',{candidateId:id,expectedRevision:'1'},'review-key-postrev')).rejects.toThrow('Detection unavailable');}
   for(const undoUntil of [null,'private',new Date(NaN)]){const f=fixture();await f.api.execute('token','scan',{},'scan-key-datebad01');const id=[...f.candidates.keys()][0]!,confirmed=await f.api.execute('token','confirm',{candidateId:id,expectedRevision:'1'},'review-key-datebad');const receiptId=(confirmed as {value:{receiptId:string}}).value.receiptId;f.receipts.get(receiptId)!.undo_until=undoUntil;await expect(f.api.execute('token','undo',{receiptId},'review-key-baddate')).rejects.toThrow('Detection unavailable');}

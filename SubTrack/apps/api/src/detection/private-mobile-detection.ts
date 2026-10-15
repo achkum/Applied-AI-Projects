@@ -69,7 +69,12 @@ export class DurableSyntheticDetectionStore{
     if(old.connection_id!==connection||old.account_id!==candidate.accountId||old.merchant_key!==candidate.merchantKey||old.currency!==candidate.currency||old.cadence!==candidate.cadence||old.algorithm_version!==ALGORITHM||!equal(old.candidate_h,hash))return fail();uuid(old.subscription_id);revision(old.revision);continue;
    }
    const id=randomUUID(),completed=new Date(now).toISOString();
-   const saved=await required(this.tx,'detectionSubscriptionInsert',[this.owner,id,null,candidate.accountId,merchant.canonicalName,merchant.category,candidate.cadence,candidate.amountBand.representative.minorUnits.toString(),candidate.currency,'DETECTED','DETECTED',candidate.confidence,JSON.stringify(candidate.reasons.map(r=>r.code)),completed],'INSERT','id',id);if(saved.revision!=='1')return fail();
+   // The canonical STABLE visibility lookup cannot see a newly inserted row in
+   // INSERT RETURNING's command snapshot. Read it in the next command, under
+   // the same owner authority and transaction, without changing RLS or grants.
+   const inserted=await this.tx.execute('detectionSubscriptionInsert',[this.owner,id,null,candidate.accountId,merchant.canonicalName,merchant.category,candidate.cadence,candidate.amountBand.representative.minorUnits.toString(),candidate.currency,'DETECTED','DETECTED',candidate.confidence,JSON.stringify(candidate.reasons.map(r=>r.code)),completed]);
+   if(inserted.command!=='INSERT'||inserted.rowCount!==1||inserted.rows.length!==0)return fail();
+   const saved=await required(this.tx,'detectionSubscriptionReadback',[this.owner,id,'DETECTED','DETECTED'],'SELECT','id',id);if(saved.revision!=='1')return fail();
    await required(this.tx,'detectionCandidateInsert',[this.owner,id,connection,candidate.accountId,merchant.key,candidate.currency,candidate.cadence,ALGORITHM,hash,PROVIDER,INSTITUTION,FIXTURE,'ACTIVE','DETECTED','DETECTED'],'INSERT','subscription_id',id);
    for(const transaction of candidate.transactionIds)await required(this.tx,'detectionSourceLinkInsert',[this.owner,id,uuid(transaction),'BOOKED',PROVIDER,INSTITUTION,FIXTURE,'ACTIVE'],'INSERT','raw_transaction_id',transaction);
   }
