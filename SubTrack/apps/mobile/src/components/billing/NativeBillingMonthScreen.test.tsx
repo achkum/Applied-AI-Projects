@@ -62,6 +62,34 @@ it('reads new calendar month and date selection without expanding the original s
  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-03-30')}));await screen.findByText('Later day');expect(screen.queryByText(row.customName)).toBeNull();
  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.next}));await screen.findByText(copy.billingMonth.empty);expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(2);
 });
+it('reveals the selected saved day using measured ribbon geometry without snapping during browsing',async()=>{
+ const selectedRow={...row,nextChargeDate:'2026-03-17'};jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[selectedRow],nextCursor:null});
+ const scrollTo=jest.spyOn(ScrollView.prototype,'scrollTo').mockImplementation(()=>{});
+ try{
+  mount();await login();await screen.findByText(selectedRow.customName);
+  const ribbon=screen.UNSAFE_getAllByType(ScrollView).find(node=>node.props.horizontal);expect(ribbon).toBeTruthy();expect(screen.getByTestId('native-month-ribbon').props.horizontal).toBe(true);expect(screen.UNSAFE_getAllByType(ScrollView).filter(node=>node.props.testID==='native-month-ribbon')).toHaveLength(1);
+  const day=screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-03-17')});
+  fireEvent(ribbon!,'layout',{nativeEvent:{layout:{x:0,y:0,width:240,height:64}}});
+  fireEvent(ribbon!,'contentSizeChange',1800,64);
+  fireEvent(day,'layout',{nativeEvent:{layout:{x:100,y:0,width:52,height:64}}});expect(scrollTo).not.toHaveBeenCalled();
+  fireEvent(day,'layout',{nativeEvent:{layout:{x:920,y:0,width:52,height:64}}});
+  expect(scrollTo).toHaveBeenCalledWith({x:732,y:0,animated:false});
+  scrollTo.mockClear();fireEvent(ribbon!,'scroll',{nativeEvent:{contentOffset:{x:732,y:0},layoutMeasurement:{width:240,height:64},contentSize:{width:1800,height:64}}});
+  expect(scrollTo).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-03-18')}));expect(scrollTo).not.toHaveBeenCalled();
+ }finally{scrollTo.mockRestore();}
+});
+it('ignores old month day geometry after navigation invalidates the ribbon',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row],nextCursor:null});
+ const scrollTo=jest.spyOn(ScrollView.prototype,'scrollTo').mockImplementation(()=>{});
+ try{
+  mount();await login();await screen.findByText(row.customName);const staleDay=screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-03-28')}),lateLayout=staleDay.props.onLayout,staleRibbon=screen.UNSAFE_getAllByType(ScrollView).find(node=>node.props.horizontal)!,lateScroll=staleRibbon.props.onScroll;
+  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.next}));await screen.findByText(copy.billingMonth.empty);expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(2);
+  scrollTo.mockClear();lateLayout({nativeEvent:{layout:{x:1600,y:0,width:52,height:64}}});lateScroll({nativeEvent:{contentOffset:{x:700,y:0},layoutMeasurement:{width:240,height:64},contentSize:{width:1800,height:64}}});expect(scrollTo).not.toHaveBeenCalled();
+  const ribbon=screen.UNSAFE_getAllByType(ScrollView).find(node=>node.props.horizontal)!;fireEvent(ribbon,'layout',{nativeEvent:{layout:{x:0,y:0,width:240,height:64}}});fireEvent(ribbon,'contentSizeChange',1800,64);
+  fireEvent(screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-04-01')}),'layout',{nativeEvent:{layout:{x:0,y:0,width:52,height:64}}});expect(scrollTo).not.toHaveBeenCalled();
+ }finally{scrollTo.mockRestore();}
+});
 it('refresh and return from focus reread owner state; current errors retire authority',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:null}).mockResolvedValueOnce({items:[{...row,status:'PAUSED'}],nextCursor:null}).mockRejectedValueOnce(new Error('private failure'));mount();await login();await screen.findByText(row.customName);
  act(()=>{mockFocus.enabled=false;mockFocus.cleanup?.();});expect(screen.queryByText(row.customName)).toBeNull();act(()=>{mockFocus.enabled=true;mockFocus.cleanup=mockFocus.start?.();});await screen.findByText(copy.billingMonth.empty);
