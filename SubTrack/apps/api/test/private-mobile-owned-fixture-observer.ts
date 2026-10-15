@@ -140,6 +140,35 @@ export class OwnedDetectionController{
 type Bucket = 'zero' | 'one' | 'multiple';
 type Status = 'accepted202' | 'rejected4xx' | 'failed5xx' | 'other' | 'incomplete';
 export type OwnedOtpStartObservation = Readonly<Record<Status | 'arrivals', Bucket>>;
+type OtpStatus='400'|'409'|'429'|'OTHER';
+type OtpCode='INVALID_MOBILE_REQUEST'|'AUTH_RESTART_REQUIRED'|'OTHER';
+type OtpResponse=Readonly<{state:'unavailable'|'incomplete'|'complete';status:OtpStatus;code:OtpCode}>;
+const otpStatus=(status:number):OtpStatus=>status===400?'400':status===409?'409':status===429?'429':'OTHER';
+function otpCode(status:OtpStatus,body:unknown):OtpCode{
+  if(status==='OTHER'||typeof body!=='string'||body.length>4096)return 'OTHER';
+  const title=status==='400'?'Bad Request':status==='409'?'Conflict':'Too Many Requests';
+  for(const code of ['INVALID_MOBILE_REQUEST','AUTH_RESTART_REQUIRED'] as const)
+    if(body===JSON.stringify({type:'about:blank',title,status:Number(status),code}))return code;
+  return 'OTHER';
+}
+/** Only the owned adapter's canonical single-string end is classified; all other forms stay opaque. */
+function observeOtpEnd(response:ServerResponse,active:()=>boolean,record:(status:OtpStatus,code:OtpCode)=>void):()=>void{
+  const own=Object.getOwnPropertyDescriptor(response,'end');
+  if(own&&(!('value'in own)||!own.configurable))return()=>{};
+  const original=own?own.value:response.end;
+  if(typeof original!=='function'||!Object.isExtensible(response))return()=>{};
+  let attempted=false;
+  function end(this:ServerResponse,...args:unknown[]){
+    if(this===response&&active()){
+      const status=otpStatus(response.statusCode);
+      record(status,!attempted&&!response.headersSent&&args.length===1?otpCode(status,args[0]):'OTHER');attempted=true;
+    }
+    try{return Reflect.apply(original,this,args);}
+    catch(error){if(this===response&&active())record('OTHER','OTHER');throw error;}
+  }
+  Object.defineProperty(response,'end',{configurable:true,writable:true,enumerable:own?.enumerable??false,value:end});
+  return()=>{if(own)Object.defineProperty(response,'end',own);else Reflect.deleteProperty(response,'end');};
+}
 const bucket = (count: number): Bucket => count === 0 ? 'zero' : count === 1 ? 'one' : 'multiple';
 
 /** Passive owned-fixture diagnostics only. Never reads bodies, headers or identifiers. */
@@ -148,6 +177,7 @@ export function createOwnedOtpStartObserver() {
   let server: Server | undefined;
   let requestListener: ((input: IncomingMessage, response: ServerResponse) => void) | undefined;
   let arrivals = 0;
+  let firstResponse:OtpResponse=Object.freeze({state:'unavailable',status:'OTHER',code:'OTHER'});
   const counts: Record<Status, number> = { accepted202: 0, rejected4xx: 0, failed5xx: 0, other: 0, incomplete: 0 };
   // Response handles exist solely to remove these two listeners during teardown.
   const pending = new Map<ServerResponse, () => void>();
@@ -159,12 +189,17 @@ export function createOwnedOtpStartObserver() {
     for (const remove of pending.values()) remove();
     pending.clear();
     arrivals = 0;
+    firstResponse=Object.freeze({state:'unavailable',status:'OTHER',code:'OTHER'});
     for (const status of Object.keys(counts) as Status[]) counts[status] = 0;
   }
   function request(ticket: number, input: IncomingMessage, response: ServerResponse) {
     if (!server || ticket !== generation || input.method !== 'POST' || input.url !== '/v2/auth/otp/start') return;
+    const first=arrivals===0;let status:OtpStatus='OTHER',code:OtpCode='OTHER',restoreEnd=()=>{};
     arrivals++;
+    if(first)firstResponse=Object.freeze({state:'incomplete',status:'OTHER',code:'OTHER'});
+    const active=()=>!!server&&ticket===generation&&pending.has(response);
     function remove() {
+      restoreEnd();
       response.removeListener('finish', finish);
       response.removeListener('close', close);
     }
@@ -175,11 +210,13 @@ export function createOwnedOtpStartObserver() {
       counts[status]++;
     }
     function finish() {
-      const status = response.statusCode;
-      record(status === 202 ? 'accepted202' : status >= 400 && status <= 499 ? 'rejected4xx' : status >= 500 && status <= 599 ? 'failed5xx' : 'other');
+      const observed = response.statusCode;
+      if(first&&active())firstResponse=Object.freeze({state:'complete',status:otpStatus(observed),code:otpStatus(observed)===status?code:'OTHER'});
+      record(observed === 202 ? 'accepted202' : observed >= 400 && observed <= 499 ? 'rejected4xx' : observed >= 500 && observed <= 599 ? 'failed5xx' : 'other');
     }
     function close() { record('incomplete'); }
     pending.set(response, remove);
+    if(first)restoreEnd=observeOtpEnd(response,active,(nextStatus,nextCode)=>{status=nextStatus;code=nextCode;});
     response.on('finish', finish);
     response.on('close', close);
   }
@@ -190,6 +227,7 @@ export function createOwnedOtpStartObserver() {
       server.on('request', requestListener);
     },
     stop,
+    firstResponse():OtpResponse{return firstResponse;},
     observation(): OwnedOtpStartObservation {
       return Object.freeze({ arrivals: bucket(arrivals), accepted202: bucket(counts.accepted202), rejected4xx: bucket(counts.rejected4xx), failed5xx: bucket(counts.failed5xx), other: bucket(counts.other), incomplete: bucket(counts.incomplete + pending.size) });
     },

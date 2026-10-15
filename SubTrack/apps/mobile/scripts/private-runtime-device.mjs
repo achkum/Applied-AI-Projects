@@ -383,6 +383,10 @@ async function main() {
       const syntheticOtpIssued = code !== null;
       const requestObservation = harness.otpStartObservation();
       console.error(`ST244_NATIVE identifier_request_arrivals=${requestObservation.arrivals} accepted202=${requestObservation.accepted202} rejected4xx=${requestObservation.rejected4xx} failed5xx=${requestObservation.failed5xx} other=${requestObservation.other} incomplete=${requestObservation.incomplete}`);
+      const otpResponse = harness.otpStartResponseObservation();
+      if (otpResponse && ['unavailable', 'incomplete', 'complete'].includes(otpResponse.state) && ['400', '409', '429', 'OTHER'].includes(otpResponse.status) && ['INVALID_MOBILE_REQUEST', 'AUTH_RESTART_REQUIRED', 'OTHER'].includes(otpResponse.code))
+        console.error(`ST244_NATIVE identifier_response=${otpResponse.state} status=${otpResponse.status} code=${otpResponse.code}`);
+      else console.error('ST244_NATIVE identifier_response=withheld');
       console.error(`ST244_NATIVE identifier_otp_issued=${syntheticOtpIssued}`);
       const observations = await identifierProbes({
         phase: currentPhase,

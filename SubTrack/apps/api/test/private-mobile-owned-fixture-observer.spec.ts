@@ -203,3 +203,30 @@ describe('passive owned manual save observations', () => {
     f.observer.stop(); f.observer.stop();
   });
 });
+
+
+describe('first owned OTP response closed metadata',()=>{
+ const body=(status=400,code='INVALID_MOBILE_REQUEST')=>JSON.stringify({type:'about:blank',title:status===400?'Bad Request':status===409?'Conflict':'Too Many Requests',status,code});
+ function output(f:ReturnType<typeof fixture>,status=400){const r=f.response(status);const original=vi.fn(function(this:unknown,...args:unknown[]){return {receiver:this,args};});Object.assign(r,{end:original,headersSent:false});return {r,original};}
+ it('classifies all exact public pairs only after finish and restores the original descriptor',()=>{
+  for(const status of [400,409,429])for(const code of ['INVALID_MOBILE_REQUEST','AUTH_RESTART_REQUIRED']){const f=fixture(),{r,original}=output(f,status);const descriptor=Object.getOwnPropertyDescriptor(r,'end');expect(f.observer.firstResponse()).toEqual({state:'unavailable',status:'OTHER',code:'OTHER'});f.request(r);expect(f.observer.firstResponse().state).toBe('incomplete');const args=[body(status,code)],result=Reflect.apply(r.end,r,args);expect(result).toEqual({receiver:r,args});expect(original).toHaveBeenCalledExactlyOnceWith(...args);expect(f.observer.firstResponse().state).toBe('incomplete');r.emit('finish');expect(f.observer.firstResponse()).toEqual({state:'complete',status:String(status),code});expect(Object.isFrozen(f.observer.firstResponse())).toBe(true);expect(Object.getOwnPropertyDescriptor(r,'end')).toEqual(descriptor);}
+ });
+ it('keeps malformed, oversized, streamed, overloaded and hostile values opaque without coercion',()=>{
+  let touched=false;const hostile=new Proxy({},{get(){touched=true;throw Error('private');},ownKeys(){touched=true;throw Error('private');}});
+  for(const args of [[],[body(),'utf8'],[body(),()=>undefined],[null],[Buffer.from(body())],[hostile],['x'.repeat(4097)],[''],[' '+body()],[body(400,'UNKNOWN')],[body(409)]]){const f=fixture(),{r}=output(f);f.request(r);Reflect.apply(r.end,r,args);r.emit('finish');expect(f.observer.firstResponse()).toEqual({state:'complete',status:'400',code:'OTHER'});}
+  expect(touched).toBe(false);
+  for(const state of ['streamed','repeated','changed','success']){const f=fixture(),{r}=output(f,state==='success'?202:400);f.request(r);if(state==='streamed')Object.assign(r,{headersSent:true});r.end(body());if(state==='repeated')r.end(body());if(state==='changed')r.statusCode=409;r.emit('finish');expect(f.observer.firstResponse().code).toBe('OTHER');}
+ });
+ it('forwards callbacks, return values, foreign receivers and thrown identities without changing observations',()=>{
+  const f=fixture(),{r}=output(f);const error=Error('private'),callback=vi.fn(),original=vi.fn(function(this:unknown,...args:unknown[]){if(args[0]==='throw')throw error;return callback;});r.end=original as unknown as ServerResponse['end'];f.request(r);const wrapped=r.end;
+  expect(Reflect.apply(wrapped,{},['foreign',callback])).toBe(callback);expect(()=>Reflect.apply(wrapped,{},['throw'])).toThrow(error);expect(()=>Reflect.apply(wrapped,r,['throw'])).toThrow(error);r.emit('finish');expect(f.observer.firstResponse()).toEqual({state:'complete',status:'400',code:'OTHER'});expect(callback).not.toHaveBeenCalled();
+  f.observer.stop();expect(()=>Reflect.apply(wrapped,r,['throw'])).toThrow(error);expect(f.observer.firstResponse().state).toBe('unavailable');
+ });
+ it('binds the first request only and restores inherited methods on close and stop with stale callbacks fenced',()=>{
+  for(const cleanup of ['close','stop']){const f=fixture(),{r:second}=output(f,429),r=f.response(400);const original=vi.fn();Object.setPrototypeOf(r,Object.assign(Object.create(Object.getPrototypeOf(r)),{end:original}));f.request(r);const end=r.end,finish=r.listeners('finish')[0] as ()=>void;f.request(second);second.end(body(429));second.emit('finish');expect(f.observer.firstResponse().state).toBe('incomplete');if(cleanup==='close')r.emit('close');else f.observer.stop();expect(Object.hasOwn(r,'end')).toBe(false);Reflect.apply(end,r,[body()]);finish();expect(f.observer.firstResponse().state).toBe(cleanup==='close'?'incomplete':'unavailable');expect(original).toHaveBeenCalledExactlyOnceWith(body());}
+ });
+ it('does not execute own accessors or replace unsupported end descriptors and still counts finish',()=>{
+  let touched=false;
+  for(const kind of ['accessor','fixed','nonfunction','sealed','hidden']){const f=fixture(),{r}=output(f);if(kind==='accessor')Object.defineProperty(r,'end',{configurable:true,get(){touched=true;throw Error('private');}});if(kind==='fixed')Object.defineProperty(r,'end',{configurable:false,value:()=>undefined});if(kind==='nonfunction')Object.assign(r,{end:null});if(kind==='sealed')Object.preventExtensions(r);if(kind==='hidden')Object.defineProperty(r,'end',{enumerable:false});const before=Object.getOwnPropertyDescriptor(r,'end');f.request(r);r.emit('finish');expect(Object.getOwnPropertyDescriptor(r,'end')).toEqual(before);expect(f.observer.firstResponse()).toEqual({state:'complete',status:'400',code:'OTHER'});expect(f.observer.observation().rejected4xx).toBe('one');}expect(touched).toBe(false);
+ });
+});
