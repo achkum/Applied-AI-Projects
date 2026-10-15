@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 
 const app = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const config = JSON.parse(fs.readFileSync(path.join(app, 'app.json'), 'utf8')).expo;
-for (const [file, size] of [['icon.png',1024],['splash.png',512],['adaptive-icon.png',1024]]) {
+for (const [file, size] of [['icon.png',1024],['splash.png',1024],['adaptive-icon.png',1024]]) {
   const bytes = fs.readFileSync(path.join(app, 'assets', file));
   assert.equal(bytes.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
   assert.equal(bytes.subarray(12,16).toString('ascii'),'IHDR');
