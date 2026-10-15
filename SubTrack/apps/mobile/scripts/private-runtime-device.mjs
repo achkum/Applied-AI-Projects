@@ -516,6 +516,7 @@ async function main() {
         } finally { closeSync(fd); }
         return { exitCode, timedOut, log: readFileSync(logPath, 'utf8') };
       };
+      const manualBefore = harness.manualSaveObservation();
       const saveObservations = await failedSaveObservations({
         phase: currentPhase, diagnostic, labels,
         observe: () => harness.readbackReceipt(),
@@ -523,6 +524,13 @@ async function main() {
         scroll: label => saveProbe(label, true, 'save-probe-header'),
       });
       if (saveObservations) {
+        const manualAfter = harness.manualSaveObservation();
+        const manualFields = ['arrivals', 'finished201', 'rejected4xx', 'failed5xx', 'other', 'incomplete'];
+        for (const [stage, observation] of [['before', manualBefore], ['after', manualAfter]]) {
+          if (observation && Object.keys(observation).length === manualFields.length && manualFields.every(field => Object.hasOwn(observation, field) && ['zero', 'one', 'multiple'].includes(observation[field])))
+            console.error(`ST244_NATIVE failed_save_manual stage=${stage} ${manualFields.map(field => `${field}=${observation[field]}`).join(' ')}`);
+          else console.error(`ST244_NATIVE failed_save_manual stage=${stage} observation=withheld`);
+        }
         console.error(`ST244_NATIVE failed_save_count=${saveObservations.count} header=${saveObservations.header}`);
         for (const stage of ['before', 'after'])
           for (const [target, observation] of Object.entries(saveObservations[stage] ?? {}))
