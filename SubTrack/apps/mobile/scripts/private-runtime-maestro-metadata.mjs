@@ -82,14 +82,16 @@ export const PREINPUT_METADATA_CHECKS=Object.freeze([
  ...['TIMESTAMP','FLOW','BUNDLE'].flatMap(prefix=>['LIST','LIMIT'].map(check=>`${prefix}_${check}`)),
  'TIMESTAMP_COUNT','TIMESTAMP_ENTRY_TYPE','TIMESTAMP_NAME','FLOW_COUNT','FLOW_NAME','FLOW_ENTRY_TYPE','BUNDLE_SYMLINK',
  ...['STAT','TYPE','EMPTY','CANONICAL','OPEN','OPEN_STAT','OPEN_TYPE','OPEN_IDENTITY','OPEN_SIZE','READ','AFTER_STAT','AFTER_TYPE','AFTER_IDENTITY','AFTER_SIZE'].map(check=>`COMMAND_${check}`),'CLOSE',
+ 'RUNNER_NAME','RUNNER_ENTRY_TYPE','RUNNER_STAT','RUNNER_TYPE','RUNNER_CANONICAL','FINAL_PORTFOLIO_LIST','FINAL_PORTFOLIO_LIMIT','FINAL_PORTFOLIO_SET','FINAL_RUNNER_STAT','FINAL_RUNNER_TYPE','FINAL_RUNNER_CANONICAL','FINAL_RUNNER_IDENTITY',
 ]);
 /** Fresh enrollment output ownership is captured before its unchanged child invocation. */
-function prepareCommandMetadata(privateRoot,execution,flowName,phaseName,project){
+function prepareCommandMetadata(privateRoot,execution,flowName,phaseName,project,platform='android'){
  let ownership=null,failed='UNKNOWN';
  const fail=name=>{if(failed==='UNKNOWN')failed=name;};
  const attempt=(name,operation)=>{try{return operation();}catch(error){fail(name);throw error;}};
  const require=(name,condition)=>{if(!condition){fail(name);throw Error('unavailable');}};
  function ownedDirectory(path,prefix){const stat=attempt(`${prefix}_STAT`,()=>lstatSync(path,{bigint:true}));require(`${prefix}_TYPE`,!stat.isSymbolicLink()&&stat.isDirectory());require(`${prefix}_CANONICAL`,attempt(`${prefix}_CANONICAL`,()=>realpathSync(path))===resolve(path));return stat;}
+ function ownedRunner(path,prefix){const stat=attempt(`${prefix}_STAT`,()=>lstatSync(path,{bigint:true}));require(`${prefix}_TYPE`,!stat.isSymbolicLink()&&stat.isFile());require(`${prefix}_CANONICAL`,attempt(`${prefix}_CANONICAL`,()=>realpathSync(path))===resolve(path));return stat;}
  function ownedInventory(path,prefix){const entries=attempt(`${prefix}_LIST`,()=>readdirSync(path,{withFileTypes:true}));require(`${prefix}_LIMIT`,entries.length<=32);return entries;}
  try{const parent=resolve(privateRoot),parentStat=ownedDirectory(parent,'CAPTURE_PARENT'),root=join(parent,flowName);attempt('CREATE_ROOT',()=>mkdirSync(root,{mode:0o700}));ownership={parent,parentStat,root,rootStat:ownedDirectory(root,'CAPTURE_ROOT')};}catch{/* No file errors or paths escape. */}
  return Object.freeze({metadataCheck:()=>failed,read(phase){
@@ -99,16 +101,20 @@ function prepareCommandMetadata(privateRoot,execution,flowName,phaseName,project
   let descriptor=null;
   try{const {parent,parentStat,root,rootStat}=ownership;require('READ_PARENT_IDENTITY',same(ownedDirectory(parent,'READ_PARENT'),parentStat));require('READ_ROOT_IDENTITY',same(ownedDirectory(root,'READ_ROOT'),rootStat));
    const times=ownedInventory(root,'TIMESTAMP');require('TIMESTAMP_COUNT',times.length===1);require('TIMESTAMP_ENTRY_TYPE',!times[0].isSymbolicLink()&&times[0].isDirectory());require('TIMESTAMP_NAME',/^\d{4}-\d{2}-\d{2}_\d{6}$/.test(times[0].name));
-   const timestamp=join(root,times[0].name),timestampStat=ownedDirectory(timestamp,'TIMESTAMP');const flows=ownedInventory(timestamp,'FLOW');require('FLOW_COUNT',flows.length===1);require('FLOW_NAME',flows[0].name===`private-runtime-${flowName}`);require('FLOW_ENTRY_TYPE',!flows[0].isSymbolicLink()&&flows[0].isDirectory());
+   const timestamp=join(root,times[0].name),timestampStat=ownedDirectory(timestamp,'TIMESTAMP');const flows=ownedInventory(timestamp,'FLOW'),expected=`private-runtime-${flowName}`,ios=platform==='ios',selected=ios&&flows.length>1?flows.filter(entry=>entry.name===expected):flows;require('FLOW_COUNT',selected.length===1);require('FLOW_NAME',selected[0].name===expected);require('FLOW_ENTRY_TYPE',!selected[0].isSymbolicLink()&&selected[0].isDirectory());
+   // Pinned cli2.11 iOS session writes these siblings beside the exact per-flow bundle. Never read their contents.
+   const runners=[];if(ios)for(const entry of flows){if(entry===selected[0])continue;require('RUNNER_NAME',/^xctest_runner_\d{4}-\d{2}-\d{2}_\d{6}\.log$/.test(entry.name));require('RUNNER_ENTRY_TYPE',!entry.isSymbolicLink()&&entry.isFile());const path=join(timestamp,entry.name);runners.push({path,stat:ownedRunner(path,'RUNNER')});}
    const flow=join(timestamp,`private-runtime-${flowName}`),flowStat=ownedDirectory(flow,'FLOW');const entries=ownedInventory(flow,'BUNDLE');require('BUNDLE_SYMLINK',!entries.some(entry=>entry.isSymbolicLink()));
    const file=join(flow,'commands.json'),before=attempt('COMMAND_STAT',()=>lstatSync(file,{bigint:true}));require('COMMAND_TYPE',!before.isSymbolicLink()&&before.isFile());if(before.size>BigInt(MAX_BYTES))return closed('INVALID');require('COMMAND_EMPTY',before.size!==0n);
    require('COMMAND_CANONICAL',attempt('COMMAND_CANONICAL',()=>realpathSync(file))===resolve(file));descriptor=attempt('COMMAND_OPEN',()=>openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW));const opened=attempt('COMMAND_OPEN_STAT',()=>fstatSync(descriptor,{bigint:true}));require('COMMAND_OPEN_TYPE',opened.isFile());require('COMMAND_OPEN_IDENTITY',same(opened,before));require('COMMAND_OPEN_SIZE',opened.size===before.size);
    const bytes=attempt('COMMAND_READ',()=>readFileSync(descriptor)),after=attempt('COMMAND_AFTER_STAT',()=>lstatSync(file,{bigint:true}));require('COMMAND_AFTER_TYPE',!after.isSymbolicLink());require('COMMAND_AFTER_IDENTITY',same(after,opened));require('COMMAND_AFTER_SIZE',after.size===opened.size);
-   require('FINAL_ROOT_IDENTITY',same(ownedDirectory(root,'FINAL_ROOT'),rootStat));require('FINAL_PARENT_IDENTITY',same(ownedDirectory(parent,'FINAL_PARENT'),parentStat));require('FINAL_TIMESTAMP_IDENTITY',same(ownedDirectory(timestamp,'FINAL_TIMESTAMP'),timestampStat));require('FINAL_FLOW_IDENTITY',same(ownedDirectory(flow,'FINAL_FLOW'),flowStat));return project(bytes);
+   require('FINAL_ROOT_IDENTITY',same(ownedDirectory(root,'FINAL_ROOT'),rootStat));require('FINAL_PARENT_IDENTITY',same(ownedDirectory(parent,'FINAL_PARENT'),parentStat));require('FINAL_TIMESTAMP_IDENTITY',same(ownedDirectory(timestamp,'FINAL_TIMESTAMP'),timestampStat));require('FINAL_FLOW_IDENTITY',same(ownedDirectory(flow,'FINAL_FLOW'),flowStat));
+   if(ios){const finalEntries=ownedInventory(timestamp,'FINAL_PORTFOLIO'),beforeNames=flows.map(entry=>entry.name).sort(),afterNames=finalEntries.map(entry=>entry.name).sort();require('FINAL_PORTFOLIO_SET',beforeNames.length===afterNames.length&&beforeNames.every((name,index)=>name===afterNames[index])&&finalEntries.some(entry=>entry.name===expected&&!entry.isSymbolicLink()&&entry.isDirectory()));for(const runner of runners)require('FINAL_RUNNER_IDENTITY',same(ownedRunner(runner.path,'FINAL_RUNNER'),runner.stat));}
+   return project(bytes);
   }catch{return closed('UNAVAILABLE');}finally{if(descriptor!==null)attempt('CLOSE',()=>closeSync(descriptor));}
  }});
 }
-export function prepareEnrollmentMetadata(privateRoot,execution){return prepareCommandMetadata(privateRoot,execution,'enroll-add','flow-enroll-add',projectEnrollmentMetadata);}
+export function prepareEnrollmentMetadata(privateRoot,execution,platform='android'){if(!['android','ios'].includes(platform))throw Error('Invalid metadata platform');return prepareCommandMetadata(privateRoot,execution,'enroll-add','flow-enroll-add',projectEnrollmentMetadata,platform);}
 /** Only this exact fixed grammar may leave the private invocation. */
 export function enrollmentMetadataLines(result){
  if(!plain(result)||Object.keys(result).sort().join(',')!=='command,errorClass,metadata,occurrence,target'||!['AVAILABLE','UNAVAILABLE','INVALID'].includes(result.metadata)||!['UNKNOWN',...Object.values(KINDS)].includes(result.command)||!TARGETS.includes(result.target)||!ENROLLMENT_HEADER_OCCURRENCES.includes(result.occurrence)||(result.occurrence!=='UNKNOWN'&&(result.metadata!=='AVAILABLE'||result.command!=='SCROLL_UNTIL_VISIBLE'||result.target!=='personal-title'))||(result.command!=='SCROLL_UNTIL_VISIBLE'&&result.target!=='UNKNOWN')||result.errorClass!=='UNKNOWN'||(result.metadata!=='AVAILABLE'&&result.command!=='UNKNOWN')||(result.metadata==='AVAILABLE'&&result.command==='UNKNOWN'))return null;
@@ -135,7 +141,7 @@ export function preinputWelcomeMetadata(bytes){
 export function preparePreinputMetadata(privateRoot){
  let exit=false,closedExit=false,invalid=false,taken=false,failure='CHILD_LIFECYCLE';const invocation=randomUUID();
  const execution={snapshot:()=>({outcome:exit&&closedExit&&!invalid?'exit-nonzero':'unavailable'})};
- const reader=prepareCommandMetadata(privateRoot,execution,'identifier','flow-identifier',bytes=>Object.freeze({eligible:preinputWelcomeMetadata(bytes)}));
+ const reader=prepareCommandMetadata(privateRoot,execution,'identifier','flow-identifier',bytes=>Object.freeze({eligible:preinputWelcomeMetadata(bytes)}),'ios');
  return Object.freeze({record(event,code,signal){if(event==='error'){invalid=true;return;}if((event!=='exit'&&event!=='close')||code!==1||signal!==null){invalid=true;return;}if(event==='exit'){if(exit||closedExit)invalid=true;exit=true;}else{if(!exit||closedExit)invalid=true;closedExit=true;}},take(){if(taken)return null;taken=true;let result;try{result=reader.read('flow-identifier');}catch{failure='METADATA_OWNERSHIP';return null;}if(!exit||!closedExit||invalid)return null;failure=result.eligible===false||result.metadata==='INVALID'?'METADATA_SHAPE':'METADATA_OWNERSHIP';return result.eligible===true?Object.freeze({invocation}):null;},failureStage:()=>failure,ownershipCheck:()=>reader.metadataCheck()});
 }
 export function preinputCaptureContext(environment,head){

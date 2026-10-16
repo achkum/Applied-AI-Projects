@@ -11,6 +11,7 @@ import {tmpdir} from 'node:os';
 import {join,resolve,dirname,basename} from 'node:path';
 import {projectEnrollmentMetadata,prepareEnrollmentMetadata,enrollmentMetadataLines,preinputWelcomeMetadata,preparePreinputMetadata,preinputCaptureContext,recordPreinputSimulator,zeroAllApi,validPreinputPng,sealPreinputPng,validSealedPreinput,validatedPreinputArtifact,captureSealedPreinput,PREINPUT_RECIPIENT_SHA256,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS,ENROLLMENT_HEADER_OCCURRENCES} from './private-runtime-maestro-metadata.mjs';
 import {createEnrollmentExecution} from './private-runtime-identifier-diagnostic.mjs';
+const IOS_RUNNER_CHECKS=Object.freeze(['RUNNER_NAME','RUNNER_ENTRY_TYPE','RUNNER_STAT','RUNNER_TYPE','RUNNER_CANONICAL','FINAL_PORTFOLIO_LIST','FINAL_PORTFOLIO_LIMIT','FINAL_PORTFOLIO_SET','FINAL_RUNNER_STAT','FINAL_RUNNER_TYPE','FINAL_RUNNER_CANONICAL','FINAL_RUNNER_IDENTITY']);
 const kinds=['tapOnElement','inputTextCommand','hideKeyboardCommand','assertConditionCommand','scrollUntilVisible','takeScreenshotCommand','applyConfigurationCommand'];
 const row=(kind='tapOnElement',patch={})=>({command:{[kind]:{}},metadata:{status:'FAILED',sequenceNumber:1,depth:0,...patch}});
 const bytes=value=>Buffer.from(JSON.stringify(value));
@@ -218,7 +219,7 @@ test('pinned cli2.11 producer layout is read through exact original ownership ch
 
 test('complete first-failed ownership enum covers every existing boundary without paths or metadata values',async()=>{
  const observed=new Set();assert.ok(Object.isFrozen(PREINPUT_METADATA_CHECKS));assert.equal(new Set(PREINPUT_METADATA_CHECKS).size,PREINPUT_METADATA_CHECKS.length);
- for(const check of PREINPUT_METADATA_CHECKS)await privateTemporary(async({root})=>{
+ const originalChecks=PREINPUT_METADATA_CHECKS.filter(check=>!IOS_RUNNER_CHECKS.includes(check));assert.equal(originalChecks.length,65);for(const check of originalChecks)await privateTemporary(async({root})=>{
   const output=join(root,'identifier'),stamp=join(output,'2026-10-15_120000'),flow=join(stamp,'private-runtime-identifier'),file=join(flow,'commands.json');
   const directories={CAPTURE_PARENT:[root,1],CAPTURE_ROOT:[output,1],READ_PARENT:[root,2],READ_ROOT:[output,2],TIMESTAMP:[stamp,1],FLOW:[flow,1],FINAL_ROOT:[output,3],FINAL_PARENT:[root,3],FINAL_TIMESTAMP:[stamp,2],FINAL_FLOW:[flow,2]};
   const originals={lstat:fs.lstatSync,realpath:fs.realpathSync,readdir:fs.readdirSync,mkdir:fs.mkdirSync,open:fs.openSync,fstat:fs.fstatSync,read:fs.readFileSync,close:fs.closeSync};
@@ -237,7 +238,7 @@ test('complete first-failed ownership enum covers every existing boundary withou
   replace('closeSync',fd=>{const result=originals.close(fd);if(taking&&check==='CLOSE')throw Error('private close');return result;});
   const reader=preparePreinputMetadata(root);originals.mkdir(flow,{recursive:true});fs.writeFileSync(file,bytes(initialRecords()));reader.record('exit',1,null);reader.record('close',1,null);taking=true;
   assert.equal(reader.take(),null,check);assert.equal(reader.failureStage(),'METADATA_OWNERSHIP',check);assert.equal(reader.ownershipCheck(),check,check);assert.equal(reader.take(),null);assert.equal(JSON.stringify({stage:reader.failureStage(),check:reader.ownershipCheck()}).includes('private-canary'),false);observed.add(reader.ownershipCheck());
- });assert.deepEqual([...observed].sort(),[...PREINPUT_METADATA_CHECKS].sort());
+ });assert.deepEqual([...observed].sort(),originalChecks.sort());
 });
 
 test('ownership records first failure even when close fails later; diagnostic rejection never authorizes capture',async()=>{
@@ -293,4 +294,46 @@ test('unknown, mixed, skipped, gapped, nested, repeated or continued original po
  const multiple=sourceHeaderFailure(1);multiple[2].metadata.status='FAILED';assert.equal(projectEnrollmentMetadata(bytes(multiple)).metadata,'UNAVAILABLE');
  const base=projectEnrollmentMetadata(bytes(sourceHeaderFailure(0)));for(const patch of [{occurrence:'private-canary'},{occurrence:undefined},{target:'add-open'},{command:'TAP'},{metadata:'UNAVAILABLE'},{extra:'private-canary'}])assert.equal(enrollmentMetadataLines({...base,...patch}),null);
  const missing={...base};delete missing.occurrence;assert.equal(enrollmentMetadataLines(missing),null);
+});
+
+
+const runnerName='xctest_runner_2026-10-16_120000.log';
+function addRunnerLog(root,flow='identifier',name=runnerName){const stamp=join(root,flow,'2026-10-15_120000'),file=join(stamp,name);fs.writeFileSync(file,'private runner canary',{mode:0o600});return {stamp,file};}
+
+test('pinned iOS timestamp runner logs coexist with one exact flow, grow without content reads and preserve occurrence',async()=>{
+ // MaestroSessionManager419 -> LocalXCTestInstaller -> XCRunnerCLIUtils.xctestLogFile13-15.
+ await privateTemporary(async({root})=>{const reader=initialReader(root),{stamp,file}=addRunnerLog(root);fs.writeFileSync(join(stamp,'xctest_runner_2026-10-16_120001.log'),'private second log');const actual=fs.readFileSync;let grew=false;replace('readFileSync',(...args)=>{assert.equal(typeof args[0]==='string'&&args[0].endsWith('.log'),false);const value=actual(...args);if(!grew){fs.appendFileSync(file,' private append');grew=true;}return value;});assert.equal(await captureSealedPreinput(captureOptions(root,{reader})),true);assert.equal(reader.ownershipCheck(),'UNKNOWN');assert.equal(grew,true);});
+ await privateTemporary(async({root})=>{const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution,'ios'),flow=join(root,'enroll-add','2026-10-15_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});fs.writeFileSync(join(flow,'commands.json'),bytes(sourceHeaderFailure(1)));addRunnerLog(root,'enroll-add');execution.record('exit',1,null);const result=reader.read('flow-enroll-add');assert.equal(result.metadata,'AVAILABLE');assert.equal(result.occurrence,'SAVED_HEADER');});
+ for(const platform of [undefined,'android'])await privateTemporary(async({root})=>{const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution,platform),flow=join(root,'enroll-add','2026-10-15_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});fs.writeFileSync(join(flow,'commands.json'),flowBytes([row()]));addRunnerLog(root,'enroll-add');execution.record('exit',1,null);assert.equal(reader.read('flow-enroll-add').metadata,'UNAVAILABLE');assert.equal(reader.metadataCheck(),'FLOW_COUNT');});
+ for(const platform of [null,'web',true,{},['ios']])temporary(root=>assert.throws(()=>prepareEnrollmentMetadata(root,{},platform),/Invalid metadata platform/));
+});
+
+test('every new iOS runner/final-set guard is closed and never reads runner contents',async()=>{
+ assert.deepEqual(PREINPUT_METADATA_CHECKS.slice(-IOS_RUNNER_CHECKS.length),IOS_RUNNER_CHECKS);const observed=[];
+ for(const check of IOS_RUNNER_CHECKS)await privateTemporary(async({root})=>{const reader=initialReader(root),{stamp,file}=addRunnerLog(root),actualStat=fs.lstatSync,actualCanonical=fs.realpathSync,actualList=fs.readdirSync,actualRead=fs.readFileSync;let stats=0,canonical=0,lists=0;
+  const alter=(stat,patch)=>Object.assign(Object.create(Object.getPrototypeOf(stat)),stat,patch);
+  replace('lstatSync',(path,options)=>{const stat=actualStat(path,options);if(path!==file)return stat;stats++;const prefix=stats===1?'RUNNER':'FINAL_RUNNER';if(check===`${prefix}_STAT`)throw Error('private stat');if(check===`${prefix}_TYPE`)return alter(stat,{isSymbolicLink:()=>true});if(check==='FINAL_RUNNER_IDENTITY'&&stats===2)return alter(stat,{ino:stat.ino+1n});return stat;});
+  replace('realpathSync',path=>{if(path===file){canonical++;if(check===`${canonical===1?'RUNNER':'FINAL_RUNNER'}_CANONICAL`)return join(root,'private-canary');}return actualCanonical(path);});
+  replace('readdirSync',(path,options)=>{const entries=actualList(path,options);if(path!==stamp)return entries;lists++;
+   if(lists===1&&check==='RUNNER_NAME')return entries.map(entry=>entry.name===runnerName?{...entry,name:'private-canary',isSymbolicLink:()=>false,isFile:()=>true}:entry);
+   if(lists===1&&check==='RUNNER_ENTRY_TYPE')return entries.map(entry=>entry.name===runnerName?{...entry,isSymbolicLink:()=>true,isFile:()=>true}:entry);
+   if(lists===2){if(check==='FINAL_PORTFOLIO_LIST')throw Error('private list');if(check==='FINAL_PORTFOLIO_LIMIT')return Array.from({length:33},()=>entries[0]);if(check==='FINAL_PORTFOLIO_SET')return entries.filter(entry=>entry.name!==runnerName);}
+   return entries;
+  });replace('readFileSync',(...args)=>{assert.equal(typeof args[0]==='string'&&args[0].endsWith('.log'),false);return actualRead(...args);});
+  assert.equal(reader.take(),null,check);assert.equal(reader.failureStage(),'METADATA_OWNERSHIP',check);assert.equal(reader.ownershipCheck(),check,check);assert.equal(reader.take(),null);observed.push(reader.ownershipCheck());
+ });assert.deepEqual(observed,IOS_RUNNER_CHECKS);
+});
+
+test('unknown siblings, extra flows, log directories and changes to accepted iOS siblings stay rejected',async()=>{
+ for(const kind of ['unknown','lookalike','log-directory','extra-flow','many','add-final','replace-final','alias-final','flow-alias-final'])await privateTemporary(async({root})=>{const reader=initialReader(root),{stamp,file}=addRunnerLog(root);let expected;
+  if(kind==='unknown'){fs.writeFileSync(join(stamp,'private-canary'),'private');expected='RUNNER_NAME';}
+  if(kind==='lookalike'){fs.renameSync(file,join(stamp,'xctest_runner_2026-10-16_120000.log.extra'));expected='RUNNER_NAME';}
+  if(kind==='log-directory'){fs.unlinkSync(file);fs.mkdirSync(file);expected='RUNNER_ENTRY_TYPE';}
+  if(kind==='extra-flow'){fs.mkdirSync(join(stamp,'private-runtime-identifier-2'));expected='RUNNER_NAME';}
+  if(kind==='many'){for(let i=0;i<31;i++)fs.writeFileSync(join(stamp,`xctest_runner_2026-10-16_1201${String(i).padStart(2,'0')}.log`),'private');expected='FLOW_LIMIT';}
+  if(kind==='add-final'||kind==='replace-final'){const actual=fs.readFileSync;let changed=false;replace('readFileSync',(...args)=>{const result=actual(...args);if(!changed&&typeof args[0]==='number'){changed=true;if(kind==='add-final')fs.writeFileSync(join(stamp,'private-canary'),'private');else{fs.renameSync(file,join(root,'retained-private-log'));fs.writeFileSync(file,'different inode');}}return result;});expected=kind==='add-final'?'FINAL_PORTFOLIO_SET':'FINAL_RUNNER_IDENTITY';}
+  if(kind==='alias-final'){const actual=fs.lstatSync;let n=0;replace('lstatSync',(path,options)=>{const stat=actual(path,options);if(path===file&&++n===2)return Object.assign(Object.create(Object.getPrototypeOf(stat)),stat,{isSymbolicLink:()=>true});return stat;});expected='FINAL_RUNNER_TYPE';}
+  if(kind==='flow-alias-final'){const actual=fs.readdirSync;let n=0;replace('readdirSync',(path,options)=>{const entries=actual(path,options);if(path===stamp&&++n===2)return entries.map(entry=>entry.name==='private-runtime-identifier'?{...entry,isSymbolicLink:()=>true,isDirectory:()=>true}:entry);return entries;});expected='FINAL_PORTFOLIO_SET';}
+  assert.equal(reader.take(),null,kind);assert.equal(reader.ownershipCheck(),expected,kind);
+ });
 });

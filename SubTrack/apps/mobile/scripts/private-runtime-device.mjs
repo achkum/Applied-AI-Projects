@@ -126,7 +126,7 @@ async function main() {
     let preinput=null;
     if(captureContext&&command==='maestro'&&label==='identifier'&&args.at(-1)===join(app,'e2e/private-runtime-identifier.yaml'))try{preinput=preparePreinputMetadata(privateDir);}catch{/* Optional diagnostics never prevent the original flow. */}
     if(preinput)preinputMetadata=preinput;
-    if (execution) {enrollmentExecution = execution;enrollmentMetadata=prepareEnrollmentMetadata(privateDir,execution);}
+    if (execution) {enrollmentExecution = execution;enrollmentMetadata=prepareEnrollmentMetadata(privateDir,execution,platform);}
     const fd = openSync(join(privateDir, `${label}.log`), 'w', 0o600);
     try {
       await new Promise((accept, reject) => {

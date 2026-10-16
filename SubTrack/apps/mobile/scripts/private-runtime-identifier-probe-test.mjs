@@ -207,3 +207,8 @@ test('ownership detail is fixed, withheld-only and emitted after cleanup; legacy
 test('header occurrence shares the owned original metadata formatter and never uses the legacy log projection',()=>{
  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');const start=driver.indexOf("if (currentPhase === 'flow-enroll-add')");const block=driver.slice(start,driver.indexOf('let enrollmentLogSize',start));assert.ok(block.includes('const metadata=enrollmentMetadata?.read(currentPhase)'));assert.ok(block.includes('for(const line of enrollmentMetadataLines(metadata))'));assert.equal(block.includes('readTool'),false);assert.equal(block.includes('identifierToolDiagnostic'),false);
 });
+
+
+test('runtime passes the already validated installed platform to enrollment metadata custody',()=>{
+ const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');assert.ok(driver.includes('prepareEnrollmentMetadata(privateDir,execution,platform)'));assert.ok(driver.indexOf("assert.ok(platform === 'android' || platform === 'ios')")<driver.indexOf('prepareEnrollmentMetadata(privateDir,execution,platform)'));
+});
