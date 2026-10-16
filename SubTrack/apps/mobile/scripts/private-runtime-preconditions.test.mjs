@@ -28,3 +28,11 @@ test('actual NODE_ENV and platform guards fail before package loading or fixture
  for(const environment of ['production','test',undefined]){const requested=[];const env=environment===undefined?'':environment;assert.throws(()=>run('android',pinned,env,requested),{code:'ERR_ASSERTION'});assert.deepEqual(requested,[]);}
  for(const platform of ['web','unknown',undefined]){const requested=[];assert.throws(()=>run(platform,pinned,'development',requested),{code:'ERR_ASSERTION'});assert.deepEqual(requested,[]);}
 });
+
+test('successful artifact records the actual installed locked Expo version after SDK maintenance',()=>{
+ const expression=source.match(/^\s+expo: (.+),$/m)?.[1];assert.ok(expression);
+ const app=fileURLToPath(new URL('../',import.meta.url));
+ const actual=Function('readFileSync','join','app',`return (${expression});`)(readFileSync,join,app);
+ const locked=JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8')).dependencies.expo;
+ assert.equal(actual,locked);assert.equal(actual,'54.0.37');
+});

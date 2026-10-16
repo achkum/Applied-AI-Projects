@@ -13,9 +13,9 @@ android_fix_handoff:
   execution: "ACTIVE single-agent Android repair: Save UI/exact durable value confirmed; focused Welcome restart repair batched; automation paused"
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
-  tested_source_head: 27c4f932a44b8bf1472f8aabe2f57664e5b3082b
+  tested_source_head: cc25052eb06215d36d0064f1d7f19cff086c67fa
   issues:
-    - "P0 ST-253: Run38958190974/job117166274936 at27c4f932 passes first Save amount UI and exact durable12990/SEK row predicate. SDK overlay removed; Gradle cache restores18s, build/install/startup5m18s versus8m38s cold. Current downstream failure is flow-restart after API+app restart, original failed command unobserved. Candidate constrains background Welcome redirect to focus and adds closed original-log restart diagnostics. No repeated amount diagnosis; downstream acceptance/screens/signing still pending."
+    - "P0 ST-253: Run38960798969/job117175061188 atcc25052e again confirms Save amount UI and exact durable row. Native build/install/startup3m48s. Restart failure is first bankid-verify wait, before login/readback; full restart child14m09s, internal timing unknown. Focus ownership fix remains source-correct but did not resolve this checkpoint. Candidate adds Welcome readiness to all six cold restart flows and closed fixture/owned-device UI presence evidence if the first restart still fails. No old amount probes repeated."
     - "P0 ST-247/ST-253: Installed welcome/signup/profile/Manage/Billing Month and launcher must match the approved HTML design. New shared UI exists in source; installed successor visual and functional acceptance remains incomplete. Sandbox must use production screens."
     - "P0 ST-086/ST-253: Complete Android account/profile/Just me, add/read/edit/status, restart persistence and logout acceptance against isolated durable backend. Current run stops after first Save; downstream behavior is unverified."
     - "P0 ST-252/ST-167: Build, retain-sign, publish and verify a corrected Android successor APK with existing backend data. Download still serves V2; do not resend it as fixed. Preserve applicable review/CI and delivery branch authority."
