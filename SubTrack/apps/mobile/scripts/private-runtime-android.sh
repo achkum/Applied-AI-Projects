@@ -74,7 +74,7 @@ const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
 const context=androidCaptureContext(process.env,head);
 let stage='CONTEXT';
 try{if(!context)throw Error();androidAvdStage(process.argv[4],context,process.argv[3],process.env,value=>{stage=value;});}
-catch{if(['CONTEXT','CREATION','PROCESS','EXECUTABLE','ARGUMENTS','ADB','RECEIPT'].includes(stage))console.log(`ST244_ANDROID custody_check=${stage}`);process.exitCode=1;}
+catch{if(['CONTEXT','CREATION','AVD_HOME','AVD_RECEIPTS','AVD_INTENT','AVD_DATA','AVD_INDEX','AVD_CONFIG','AVD_SCHEMA','AVD_INTENT_BINDING','AVD_DATA_BINDING','AVD_INDEX_BINDING','AVD_CONFIG_BINDING','AVD_PATH','PROCESS','EXECUTABLE','ARGUMENTS','ADB','RECEIPT'].includes(stage))console.log(`ST244_ANDROID custody_check=${stage}`);process.exitCode=1;}
 NODE
 }
 diagnostic started
