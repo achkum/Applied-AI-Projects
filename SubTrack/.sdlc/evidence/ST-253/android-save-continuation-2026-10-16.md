@@ -96,3 +96,5 @@ Final edit batch48tests PASS, diagnostic helper100%line/branch/functioncoverage;
 
 
 Run38968817393/job117201857624 at1e286c57 confirms Save/exact row, restart35s, Upcoming and Month again. Current native build/install/startup4m53s, SDK66s. Edit failure41s now projects original scroll/element-not-found/subscription-name: the Edit lookup/tap passed. Source !adding removes the long list on Edit and replaces it with the shorter form, leaving the first field above retained viewport. Correct only immediate name scroll UP; retain all mutations/assertions/durable gates. No raw UI exported or signed successor ready yet.
+
+Run38970785429 at6a82ee78 stopped in local proof preflight before SDK/build: author missed identifier-probe source consumer requiring both fields DOWN. Corrected that existing test to explicit name UP/date DOWN, retaining fixed IDs/single actions. All six discovered source consumers90tests PASS; scoped lint/diff PASS. No app execution or acceptance claimed from aborted run; no SDK reinstallation occurred in it.
