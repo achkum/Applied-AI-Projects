@@ -13,7 +13,8 @@ test('identifier navigation waits for the actual input and requires enabled Cont
   for(const name of ['identifier','identifier-android']){
     const flow=readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8');
     assert.match(flow,/visible: \$\{MAESTRO_CREATE_ACCOUNT\}\r?\n {4}timeout: 120000/);
-    assert.match(flow,/- tapOn: \$\{MAESTRO_CREATE_ACCOUNT\}\r?\n- extendedWaitUntil:\r?\n {4}visible:\r?\n {6}id: native-identifier-input\r?\n {4}timeout: 30000\r?\n- tapOn:\r?\n {4}id: native-identifier-input\r?\n- inputText: [^\r\n]+\r?\n- hideKeyboard\r?\n- assertVisible:\r?\n {4}text: \$\{MAESTRO_CONTINUE\}\r?\n {4}enabled: true\r?\n- tapOn: \$\{MAESTRO_CONTINUE\}/);
+    const navigationFlow=name==='identifier-android'?flow.replace(/- takeScreenshot: accepted-signup\r?\n/,''):flow;
+    assert.match(navigationFlow,/- tapOn: \$\{MAESTRO_CREATE_ACCOUNT\}\r?\n- extendedWaitUntil:\r?\n {4}visible:\r?\n {6}id: native-identifier-input\r?\n {4}timeout: 30000\r?\n- tapOn:\r?\n {4}id: native-identifier-input\r?\n- inputText: [^\r\n]+\r?\n- hideKeyboard\r?\n- assertVisible:\r?\n {4}text: \$\{MAESTRO_CONTINUE\}\r?\n {4}enabled: true\r?\n- tapOn: \$\{MAESTRO_CONTINUE\}/);
     assert.equal(flow.match(/- tapOn: \$\{MAESTRO_CREATE_ACCOUNT\}/g).length,1);assert.equal(flow.match(/- tapOn: \$\{MAESTRO_CONTINUE\}/g).length,1);
     assert.match(flow,/visible: \$\{MAESTRO_OTP_LABEL\}\r?\n {4}timeout: 30000/);
   }

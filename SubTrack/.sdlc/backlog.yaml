@@ -10,12 +10,12 @@ delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
 android_fix_handoff:
   updated: "2026-10-16"
-  execution: "STOPPED for founder-requested new-session handoff; single agent only; hourly automation remains paused"
+  execution: "ACTIVE founder-requested Android repair; single agent only; hourly automation remains paused"
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
   tested_source_head: 8493987f3e3e9262b9aec47a0d2bc47477d10811
   issues:
-    - "P0 ST-253: Android enroll/add fails scrolling to native-personal-title after Save (SAVED_HEADER), run38927710444/job117063406161. Form entry and Save tap executed; successful creation/durable readback NOT established. Determine actual save response and resulting UI before fixing."
+    - "P0 ST-253: run38943568439/job117116950992 proves one manual POST, finished201 and one persisted row; SAVED_HEADER and all feedback probes time out (UI inconclusive). Pinned Hermes rejects BigInt Intl calls in saved-row formatter; exact-money repair44a371b8 passes162 money tests/100%coverage and awaits installed Android run38946375949. No runtime fix acceptance yet."
     - "P0 ST-247/ST-253: Installed welcome/signup/profile/Manage/Billing Month and launcher must match the approved HTML design. New shared UI exists in source; installed successor visual and functional acceptance remains incomplete. Sandbox must use production screens."
     - "P0 ST-086/ST-253: Complete Android account/profile/Just me, add/read/edit/status, restart persistence and logout acceptance against isolated durable backend. Current run stops after first Save; downstream behavior is unverified."
     - "P0 ST-252/ST-167: Build, retain-sign, publish and verify a corrected Android successor APK with existing backend data. Download still serves V2; do not resend it as fixed. Preserve applicable review/CI and delivery branch authority."

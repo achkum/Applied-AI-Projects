@@ -3,7 +3,7 @@ import {prepareEnrollmentMetadata,enrollmentMetadataLines,preparePreinputMetadat
 import {enrollmentStageDiagnostic,startupStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
 import {fixtureMonthLabels,qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
 import {renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
-import {qualifyNativeEditStatus,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS} from './private-runtime-edit-status.mjs';
+import {qualifyNativeEditStatus,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS,ACCEPTED_ANDROID_SETUP_SCREENSHOTS} from './private-runtime-edit-status.mjs';
 // Local installed-device qualification only. No EAS, cloud Maestro or store upload.
 import assert from 'node:assert/strict';
 import process from 'node:process';
@@ -218,7 +218,7 @@ async function main() {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const file = join(directory, entry.name);
       if (entry.isDirectory()) copyAcceptedScreenshots(file);
-      else if (acceptedNativeScreenshot(entry.name)||acceptedNativeRenewalsScreenshot(entry.name)||acceptedNativeMonthScreenshot(entry.name)||acceptedNativeBankScreenshot(entry.name))
+      else if (acceptedNativeScreenshot(entry.name,platform)||acceptedNativeRenewalsScreenshot(entry.name)||acceptedNativeMonthScreenshot(entry.name)||acceptedNativeBankScreenshot(entry.name))
         copyFileSync(file, join(publicDir, entry.name));
     }
   }
@@ -280,7 +280,7 @@ async function main() {
     const bank=await qualifyNativeBank({flow,restart:()=>harness.restart(),readback:()=>harness.readbackBankReceipt(),tracking:()=>harness.readbackTrackingReceipt(),phase:markPhase});
     markPhase('accepted-evidence');
     copyAcceptedScreenshots(privateDir);
-    for (const name of [...ACCEPTED_NATIVE_SCREENSHOTS,...ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS,...ACCEPTED_NATIVE_MONTH_SCREENSHOTS,...ACCEPTED_NATIVE_BANK_SCREENSHOTS]) {
+    for (const name of [...(platform==='android'?ACCEPTED_ANDROID_SETUP_SCREENSHOTS:[]),...ACCEPTED_NATIVE_SCREENSHOTS,...ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS,...ACCEPTED_NATIVE_MONTH_SCREENSHOTS,...ACCEPTED_NATIVE_BANK_SCREENSHOTS]) {
       assert.ok(statSync(join(publicDir, name)).size > 0);
     }
     const apk = join(app, 'android/app/build/outputs/apk/debug/app-debug.apk');

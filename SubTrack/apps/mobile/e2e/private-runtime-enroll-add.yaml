@@ -15,6 +15,7 @@ appId: se.subtrack.app
 - assertVisible:
     id: native-personal-title
     text: ${MAESTRO_PROFILE_TITLE}
+- takeScreenshot: accepted-profile
 - tapOn:
     id: native-profile-name
 - inputText: Synthetic Native Proof

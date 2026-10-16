@@ -4,11 +4,13 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_CREATE_ACCOUNT}
     timeout: 120000
+- takeScreenshot: accepted-welcome
 - tapOn: ${MAESTRO_CREATE_ACCOUNT}
 - extendedWaitUntil:
     visible:
       id: native-identifier-input
     timeout: 30000
+- takeScreenshot: accepted-signup
 - tapOn:
     id: native-identifier-input
 - inputText: native-proof@example.test
