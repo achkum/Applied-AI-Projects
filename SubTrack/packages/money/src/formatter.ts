@@ -93,28 +93,22 @@ export function formatMinorUnits(
   const scale = 10n ** BigInt(digits);
   const whole = absolute / scale;
   const remainder = absolute % scale;
-  const template = currencyFormatter.formatToParts(minorUnits < 0n ? -1n : 1n);
-  const integerParts = new Intl.NumberFormat(tag, {
+  // The pinned Android Hermes Intl accepts Number metadata, not BigInt.
+  // Both supported locales use Latin digits and groups of three. Only fixed
+  // samples enter Intl; all monetary digits remain exact decimal strings.
+  const template = currencyFormatter.formatToParts(minorUnits < 0n ? -1 : 1);
+  const separator = new Intl.NumberFormat(tag, {
     useGrouping: true,
     maximumFractionDigits: 0,
-  }).formatToParts(whole);
-  const fractionParts = digits === 0
-    ? []
-    : new Intl.NumberFormat(tag, {
-        useGrouping: false,
-        minimumIntegerDigits: digits,
-        maximumFractionDigits: 0,
-      }).formatToParts(remainder);
-  const localizedFraction = fractionParts
-    .filter((part) => part.type === 'integer')
+  }).formatToParts(1000)
+    .filter((part) => part.type === 'group')
     .map((part) => part.value)
     .join('');
+  const groupedWhole = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, separator);
+  const localizedFraction = remainder.toString().padStart(digits, '0');
   return template.map((part) => {
     if (part.type === 'integer') {
-      return integerParts
-        .filter((integerPart) => integerPart.type === 'integer' || integerPart.type === 'group')
-        .map((integerPart) => integerPart.value)
-        .join('');
+      return groupedWhole;
     }
     if (part.type === 'fraction') return localizedFraction;
     return part.value;
