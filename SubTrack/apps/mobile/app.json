@@ -30,6 +30,21 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-font",
+        {
+          "android": {
+            "fonts": [
+              "./assets/fonts/Geist-Regular.ttf",
+              "./assets/fonts/Geist-Medium.ttf",
+              "./assets/fonts/Geist-SemiBold.ttf",
+              "./assets/fonts/BricolageGrotesque-SemiBold.ttf",
+              "./assets/fonts/BricolageGrotesque-Bold.ttf",
+              "./assets/fonts/BricolageGrotesque-ExtraBold.ttf"
+            ]
+          }
+        }
+      ],
       "./plugins/private-runtime-ca.cjs"
     ],
     "scheme": "subtrack",

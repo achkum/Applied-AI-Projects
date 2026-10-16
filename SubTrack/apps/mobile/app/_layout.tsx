@@ -1,3 +1,4 @@
+import {androidFontFamily} from '@/utils/androidFontFamilies';
 import React from 'react';
 import {observeStartupStage} from '@/utils/privateRuntimeEnrollmentDiagnostic';
 import { Stack, usePathname, useRouter } from 'expo-router';
@@ -37,7 +38,7 @@ function NativeStatusBar(){const {isDark}=useTheme();return <StatusBar barStyle=
 
 export default function RootLayout() {
   observeStartupStage('root-entered');
-  const [fontsLoaded, fontError] = useFonts(Platform.OS === 'android' || Platform.OS === 'ios' ? {Geist400:geist400,Geist500:geist500,Geist600:geist600,Bricolage600:bricolage600,Bricolage700:bricolage700,Bricolage800:bricolage800} : {Manrope:manropeFont,Fraunces:frauncesFont});
+  const [fontsLoaded, fontError] = useFonts(Platform.OS === 'android' ? Object.fromEntries(Object.entries({Geist400:geist400,Geist500:geist500,Geist600:geist600,Bricolage600:bricolage600,Bricolage700:bricolage700,Bricolage800:bricolage800}).map(([alias,source])=>[androidFontFamily(alias),source])) : Platform.OS === 'ios' ? {Geist400:geist400,Geist500:geist500,Geist600:geist600,Bricolage600:bricolage600,Bricolage700:bricolage700,Bricolage800:bricolage800} : {Manrope:manropeFont,Fraunces:frauncesFont});
   const ready = fontsLoaded || fontError != null;
 
   React.useEffect(() => {

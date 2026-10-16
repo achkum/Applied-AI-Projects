@@ -1,7 +1,7 @@
 import {observeStartupStage} from '@/utils/privateRuntimeEnrollmentDiagnostic';
 jest.mock('@/utils/privateRuntimeEnrollmentDiagnostic',()=>({observeStartupStage:jest.fn()}));
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Text, View, Platform } from 'react-native';
 import { act, render, screen, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RootLayout from '../../app/_layout';
@@ -127,4 +127,14 @@ test.each([[true,null,'fonts-loaded'],[false,new Error('private-canary'),'fonts-
  mockUseFonts.mockReturnValue([loaded,error]);jest.mocked(observeStartupStage).mockClear();render(<RootLayout/>);
  await screen.findByTestId('router-stack');expect(observeStartupStage).toHaveBeenCalledWith('fonts-ready');expect(observeStartupStage).toHaveBeenCalledWith(stage);
  expect(observeStartupStage).not.toHaveBeenCalledWith(stage==='fonts-loaded'?'fonts-fallback':'fonts-loaded');
+});
+
+
+test('Android root uses the same native asset basename aliases as the theme',async()=>{
+ const original=Platform.OS;Object.defineProperty(Platform,'OS',{configurable:true,value:'android'});
+ try{
+  mockUseFonts.mockReturnValue([true,null]);render(<RootLayout/>);await screen.findByTestId('router-stack');
+  expect(Object.keys(mockUseFonts.mock.calls[mockUseFonts.mock.calls.length-1]![0])).toEqual(['Geist-Regular','Geist-Medium','Geist-SemiBold','BricolageGrotesque-SemiBold','BricolageGrotesque-Bold','BricolageGrotesque-ExtraBold']);
+  expect(screen.getByTestId('font-state').props.children).toBe('Geist-Regular|BricolageGrotesque-Bold');
+ }finally{Object.defineProperty(Platform,'OS',{configurable:true,value:original});}
 });
