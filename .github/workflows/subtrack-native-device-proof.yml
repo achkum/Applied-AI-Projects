@@ -9,6 +9,12 @@ on:
       - "SubTrack/tools/database/private-mobile*"
       - ".github/workflows/subtrack-native-device-proof.yml"
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Installed proof platform (PR gates retain both platforms)
+        type: choice
+        options: [android, all]
+        default: android
 permissions:
   contents: read
 concurrency:
@@ -21,13 +27,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        include:
-          - platform: android
-            runner: ubuntu-24.04
-            database_mode: docker
-          - platform: ios
-            runner: macos-15
-            database_mode: local
+        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.platform == 'android' && '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"}]' || '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"},{"platform":"ios","runner":"macos-15","database_mode":"local"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     defaults:

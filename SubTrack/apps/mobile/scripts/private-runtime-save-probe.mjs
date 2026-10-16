@@ -13,11 +13,15 @@ const roster = [
   ['verify', 'MAESTRO_VERIFY_BANKID'],
 ];
 
-export async function failedSaveObservations({ phase, diagnostic, labels, observe, run, scroll }) {
-  if (phase !== 'flow-enroll-add' || !diagnostic || diagnostic.withheld ||
+export async function failedSaveObservations({ phase, diagnostic, metadata, labels, observe, run, scroll }) {
+  const savedHeader = metadata !== null && typeof metadata === 'object' &&
+    Object.keys(metadata).sort().join(',') === 'command,errorClass,metadata,occurrence,target' &&
+    metadata.metadata === 'AVAILABLE' && metadata.command === 'SCROLL_UNTIL_VISIBLE' &&
+    metadata.target === 'personal-title' && metadata.occurrence === 'SAVED_HEADER' && metadata.errorClass === 'UNKNOWN';
+  if (phase !== 'flow-enroll-add' || (!savedHeader && (!diagnostic || diagnostic.withheld ||
       diagnostic.targets?.length !== 1 || diagnostic.targets[0] !== 'subscription-saved' ||
       diagnostic.commands?.length !== 1 || diagnostic.commands[0] !== 'wait-visible' ||
-      diagnostic.reasons?.length !== 1 || diagnostic.reasons[0] !== 'assertion' ||
+      diagnostic.reasons?.length !== 1 || diagnostic.reasons[0] !== 'assertion')) ||
       !labels || ![...fieldRoster,...roster].every(([, key]) => typeof labels[key] === 'string' && labels[key].length > 0) ||
       typeof labels.MAESTRO_PERSONAL_TITLE !== 'string' || !labels.MAESTRO_PERSONAL_TITLE) return null;
   let count = 'unavailable';

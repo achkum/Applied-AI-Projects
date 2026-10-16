@@ -527,7 +527,7 @@ async function main() {
       };
       const manualBefore = harness.manualSaveObservation();
       const saveObservations = await failedSaveObservations({
-        phase: currentPhase, diagnostic, labels,
+        phase: currentPhase, diagnostic, metadata: platform === 'android' ? metadata : null, labels,
         observe: () => harness.readbackReceipt(),
         run: (stage, name, label) => saveProbe(label, false, `save-probe-${stage}-${name}`),
         scroll: label => saveProbe(label, true, 'save-probe-header'),

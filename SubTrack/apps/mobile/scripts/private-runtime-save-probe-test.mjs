@@ -93,3 +93,26 @@ test('pods presence is guarded and matches exact class/source only without priva
   for (const overrides of [{ nativeBuild: false }, { phaseJson: 'invalid JSON' }, { phaseJson: '{}' }, { phaseJson: JSON.stringify({ phase: 'ios-compile', exitCode: 1 }) }, { phaseJson: JSON.stringify({ phase: 'ios-pods', exitCode: 0 }) }, { log: null }, { log: 'x'.repeat(4_000_001) }]) assert.equal(podParserPresence({ ...input, ...overrides }), null);
   for (const log of ['PrivateJSON::ParserError - secret', 'JSON::ParserErrorPrivate - secret', 'unexpected token at secret', '/private/notjson/common.rb:216', '/private/notnative_modules.rb:20']) assert.deepEqual(Object.values(podParserPresence({ ...input, log })), Array(5).fill(false));
 });
+
+
+test('exact structured saved-header failure enables existing observations despite withheld legacy prose', async () => {
+  const metadata = { metadata: 'AVAILABLE', command: 'SCROLL_UNTIL_VISIBLE', target: 'personal-title', occurrence: 'SAVED_HEADER', errorClass: 'UNKNOWN' };
+  const withheld = { withheld: 'unknown-tool-diagnostic' };
+  for (const diagnostic of [withheld, null]) {
+    const result = await failedSaveObservations({ ...options, diagnostic, metadata });
+    assert.equal(result.count, 'one');
+    assert.equal(result.header, 'visible');
+  }
+  for (const invalid of [null, {}, { ...metadata, extra: 'private-canary' },
+    ...Object.keys(metadata).filter(key => key !== 'errorClass').map(key => ({ ...metadata, [key]: 'UNKNOWN' })),
+    { ...metadata, occurrence: 'ENTRY_HEADER' }, { ...metadata, metadata: 'INVALID' }, { ...metadata, errorClass: 'private-canary' }]) {
+    let calls = 0;
+    const never = () => { calls++; throw Error('private-canary'); };
+    const result = await failedSaveObservations({ ...options, diagnostic: withheld, metadata: invalid, observe: never, run: never, scroll: never });
+    assert.equal(result, null); assert.equal(calls, 0);
+  }
+  assert.equal(await failedSaveObservations({ ...options, diagnostic: withheld, metadata, phase: 'native-build' }), null);
+  assert.equal(await failedSaveObservations({ ...options, diagnostic: withheld, metadata, labels: {} }), null);
+  const driver = readFileSync(new URL('./private-runtime-device.mjs', import.meta.url), 'utf8');
+  assert.match(driver, /metadata: platform === 'android' \? metadata : null, labels/);
+});
