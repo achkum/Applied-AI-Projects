@@ -119,7 +119,7 @@ test('authoritative setup hands off through Month and real Manage before the unc
 });
 
 test('after create feedback at the exact header, persisted row below it is searched DOWN with original amount acceptance',()=>{
- const flow=readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');assert.ok(flow.includes('text: ${MAESTRO_PERSONAL_TITLE}\n- extendedWaitUntil:\n    visible: ${MAESTRO_SAVED}\n    timeout: 30000\n- scrollUntilVisible:\n    element: Native restart proof\n    direction: DOWN\n- assertVisible: Native restart proof\n- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}\n- takeScreenshot: accepted-add'));assert.equal(flow.split('- tapOn: ${MAESTRO_ADD}').length-1,1);assert.equal(flow.split('- tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}').length-1,1);
+ const flow=readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');assert.ok(flow.includes('text: ${MAESTRO_PERSONAL_TITLE}\n- extendedWaitUntil:\n    visible: ${MAESTRO_SAVED}\n    timeout: 30000\n- scrollUntilVisible:\n    element: Native restart proof\n    direction: DOWN\n    centerElement: true\n- assertVisible: Native restart proof\n- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}\n- takeScreenshot: accepted-add'));assert.equal(flow.split('- tapOn: ${MAESTRO_ADD}').length-1,1);assert.equal(flow.split('- tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}').length-1,1);
 });
 
 function childFixture({pid=24680,platform='darwin',throwSpawn=false,signalError=false}={}) {

@@ -69,6 +69,7 @@ jobs:
           pnpm --filter @subtrack/synthetic build:bank
           node --test apps/mobile/scripts/private-runtime-preconditions.test.mjs
           bash apps/mobile/scripts/private-runtime-tools.sh
+          node apps/mobile/scripts/private-runtime-pipeline-test.mjs
           node apps/mobile/scripts/private-runtime-ca-test.mjs
           node apps/mobile/scripts/private-runtime-loader-diagnostics-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-flow-policy.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-flow-policy-test.mjs
@@ -99,10 +100,47 @@ jobs:
       - name: Android pinned emulator provisioning
         if: matrix.platform == 'android'
         run: bash apps/mobile/scripts/private-runtime-emulator.sh
+      - name: Verify Android cache root
+        if: matrix.platform == 'android'
+        run: test "$ANDROID_HOME" = /usr/local/lib/android/sdk
+      - name: Restore pinned Android packages
+        id: android_sdk_cache
+        if: matrix.platform == 'android'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            /usr/local/lib/android/sdk/system-images/android-34/google_apis/x86_64
+            /usr/local/lib/android/sdk/platforms/android-36
+            /usr/local/lib/android/sdk/build-tools/36.0.0
+            /usr/local/lib/android/sdk/ndk/27.1.12297006
+          key: subtrack-android-sdk-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/apps/mobile/scripts/private-runtime-android.sh') }}
       - name: Android SDK package installation (bounded)
+        id: android_sdk
         if: matrix.platform == 'android'
         run: |
           bash apps/mobile/scripts/private-runtime-android.sh sdk
+      - name: Save verified Android packages
+        if: matrix.platform == 'android' && steps.android_sdk.outcome == 'success' && steps.android_sdk_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            /usr/local/lib/android/sdk/system-images/android-34/google_apis/x86_64
+            /usr/local/lib/android/sdk/platforms/android-36
+            /usr/local/lib/android/sdk/build-tools/36.0.0
+            /usr/local/lib/android/sdk/ndk/27.1.12297006
+          key: ${{ steps.android_sdk_cache.outputs.cache-primary-key }}
+      - name: Restore public Android Gradle inputs and library tasks
+        id: android_gradle_cache
+        if: matrix.platform == 'android'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/*/transforms
+            ~/.gradle/caches/transforms-*
+            ~/.gradle/caches/build-cache-*
+            ~/.gradle/wrapper
+          key: subtrack-android-gradle-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/apps/mobile/scripts/private-runtime-build.sh', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}
       - name: Android startup orchestration checks
         if: matrix.platform == 'android'
         run: node apps/mobile/scripts/private-runtime-android-test.mjs
@@ -140,11 +178,35 @@ jobs:
           config_path="${fixture_ready#ST244_FIXTURE_READY config=}"
           printf 'SUBTRACK_PRIVATE_FIXTURE_CONFIG=%s\n' "$config_path" >> "$GITHUB_ENV"
       - name: Installed workflow, API restart, same database row and logout
+        id: installed_proof
         env:
           NODE_ENV: development
         run: |
           umask 077
           node apps/mobile/scripts/private-runtime-device.mjs '${{ matrix.platform }}'
+      - name: Save public Android Gradle inputs and library tasks
+        if: always() && matrix.platform == 'android' && steps.installed_proof.outcome != 'skipped' && steps.android_gradle_cache.outcome == 'success' && steps.android_gradle_cache.outputs.cache-hit != 'true'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          let ready=false;
+          try {const state=JSON.parse(readFileSync(join(process.env.RUNNER_TEMP,'subtrack-native-proof/private/build-phase.json'),'utf8'));ready=state.phase==='metro'&&state.exitCode===0;}catch{}
+          if(ready)appendFileSync(process.env.GITHUB_ENV,'SUBTRACK_ANDROID_GRADLE_CACHE_READY=true\n');
+          NODE
+      - name: Persist verified public Android Gradle cache
+        if: always() && matrix.platform == 'android' && env.SUBTRACK_ANDROID_GRADLE_CACHE_READY == 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/*/transforms
+            ~/.gradle/caches/transforms-*
+            ~/.gradle/caches/build-cache-*
+            ~/.gradle/wrapper
+          key: ${{ steps.android_gradle_cache.outputs.cache-primary-key }}
       - name: Sanitized native evidence only
         if: success()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

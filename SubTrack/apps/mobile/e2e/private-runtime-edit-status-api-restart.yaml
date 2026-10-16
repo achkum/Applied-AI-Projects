@@ -12,6 +12,10 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: Native edited restart proof
     timeout: 30000
+- scrollUntilVisible:
+    element: Native edited restart proof
+    direction: DOWN
+    centerElement: true
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - assertNotVisible: ${MAESTRO_PAUSE}
 - assertNotVisible: ${MAESTRO_RESUME}

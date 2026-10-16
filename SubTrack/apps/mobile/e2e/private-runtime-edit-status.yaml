@@ -47,6 +47,7 @@ appId: se.subtrack.app
 - scrollUntilVisible:
     element: Native edited restart proof
     direction: DOWN
+    centerElement: true
 - assertVisible: Native edited restart proof
 - takeScreenshot: accepted-edit
 - scrollUntilVisible:
@@ -89,6 +90,10 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: Native edited restart proof
     timeout: 30000
+- scrollUntilVisible:
+    element: Native edited restart proof
+    direction: DOWN
+    centerElement: true
 - assertNotVisible: ${MAESTRO_ARCHIVE}
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-edited-restart

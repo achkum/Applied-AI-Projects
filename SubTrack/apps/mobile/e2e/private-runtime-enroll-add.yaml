@@ -98,6 +98,7 @@ appId: se.subtrack.app
 - scrollUntilVisible:
     element: Native restart proof
     direction: DOWN
+    centerElement: true
 - assertVisible: Native restart proof
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-add

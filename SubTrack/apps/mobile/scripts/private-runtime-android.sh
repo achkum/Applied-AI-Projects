@@ -78,6 +78,16 @@ catch{if(['CONTEXT','CREATION','AVD_HOME','AVD_RECEIPTS','AVD_INTENT','AVD_DATA'
 NODE
 }
 diagnostic started
+# Cache hits are only a hint: validate each pinned package before reuse.
+sdk_packages_ready() {
+  [[ -f "$system_images/source.properties" && -f "$ANDROID_HOME/platforms/android-36/source.properties" && -f "$ANDROID_HOME/build-tools/36.0.0/source.properties" && -f "$ANDROID_HOME/ndk/27.1.12297006/source.properties" ]] || return 1
+  grep -Eq '^AndroidVersion\.ApiLevel[[:space:]]*=[[:space:]]*34[[:space:]]*$' "$system_images/source.properties" || return 1
+  grep -Eq '^AndroidVersion\.ApiLevel[[:space:]]*=[[:space:]]*36[[:space:]]*$' "$ANDROID_HOME/platforms/android-36/source.properties" || return 1
+  grep -Eq '^Pkg\.Revision[[:space:]]*=[[:space:]]*36\.0\.0[[:space:]]*$' "$ANDROID_HOME/build-tools/36.0.0/source.properties" || return 1
+  grep -Eq '^Pkg\.Revision[[:space:]]*=[[:space:]]*27\.1\.12297006[[:space:]]*$' "$ANDROID_HOME/ndk/27.1.12297006/source.properties" || return 1
+  [[ -f "$system_images/system.img" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt2" && -x "$ANDROID_HOME/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" ]]
+}
+
 case "$phase" in
   sdk)
     [[ -x "$sdk_bin/sdkmanager" ]] || fail sdkmanager-unavailable
@@ -86,11 +96,14 @@ case "$phase" in
     [[ -x "$emulator_bin" ]] || fail emulator-unavailable
     printf '%s\n' "$ANDROID_HOME/platform-tools" >> "${GITHUB_PATH:?}"
     printf 'ANDROID_SDK_ROOT=%s\nANDROID_AVD_HOME=%s\nANDROID_EMULATOR_HOME=%s\n' "$ANDROID_SDK_ROOT" "$ANDROID_AVD_HOME" "$ANDROID_EMULATOR_HOME" >> "${GITHUB_ENV:?}"
-    if timeout --signal=TERM --kill-after=15s 600s "$sdk_bin/sdkmanager" \
-      'system-images;android-34;google_apis;x86_64' 'platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125' \
+    if sdk_packages_ready; then
+      diagnostic sdk-reused
+    elif timeout --signal=TERM --kill-after=15s 600s "$sdk_bin/sdkmanager" \
+      'system-images;android-34;google_apis;x86_64' 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.1.12297006' \
       </dev/null > "$proof_private/sdk-install.log" 2>&1; then
-      [[ -f "$ANDROID_HOME/ndk/26.1.10909125/source.properties" ]] || fail sdk-ndk-revision-missing
-      grep -Eq '^Pkg\.Revision[[:space:]]*=[[:space:]]*26\.1\.10909125[[:space:]]*$' "$ANDROID_HOME/ndk/26.1.10909125/source.properties" || fail sdk-ndk-revision-mismatch
+      [[ -f "$ANDROID_HOME/ndk/27.1.12297006/source.properties" ]] || fail sdk-ndk-revision-missing
+      grep -Eq '^Pkg\.Revision[[:space:]]*=[[:space:]]*27\.1\.12297006[[:space:]]*$' "$ANDROID_HOME/ndk/27.1.12297006/source.properties" || fail sdk-ndk-revision-mismatch
+      sdk_packages_ready || fail sdk-package-incomplete
       diagnostic sdk-installed
     else
       code=$?

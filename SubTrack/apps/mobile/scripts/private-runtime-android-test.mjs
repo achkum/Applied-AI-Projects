@@ -52,8 +52,19 @@ try {
   }
   executable(
     sdkmanager,
-    '[[ "$#" == 4 && "$1" == "system-images;android-34;google_apis;x86_64" && "$2" == "platforms;android-34" && "$3" == "build-tools;34.0.0" && "$4" == "ndk;26.1.10909125" ]] || exit 40\nif read -r unexpected; then exit 41; fi\nmkdir -p "$ANDROID_HOME/ndk/26.1.10909125"\nprintf "Pkg.Revision = 26.1.10909125\\n" > "$ANDROID_HOME/ndk/26.1.10909125/source.properties"\nprintf private-tool-canary\nexit 0',
+    '[[ "$#" == 4 && "$1" == "system-images;android-34;google_apis;x86_64" && "$2" == "platforms;android-36" && "$3" == "build-tools;36.0.0" && "$4" == "ndk;27.1.12297006" ]] || exit 40\nif read -r unexpected; then exit 41; fi\nmkdir -p "$ANDROID_HOME/ndk/27.1.12297006"\nprintf "Pkg.Revision = 27.1.12297006\\n" > "$ANDROID_HOME/ndk/27.1.12297006/source.properties"\nprintf private-tool-canary\nexit 0',
   );
+  const provision = readFileSync(sdkmanager, 'utf8').replace('printf private-tool-canary', `
+mkdir -p "$ANDROID_HOME/system-images/android-34/google_apis/x86_64" "$ANDROID_HOME/platforms/android-36" "$ANDROID_HOME/build-tools/36.0.0" "$ANDROID_HOME/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin"
+printf 'AndroidVersion.ApiLevel = 34\\n' > "$ANDROID_HOME/system-images/android-34/google_apis/x86_64/source.properties"
+printf 'AndroidVersion.ApiLevel = 36\\n' > "$ANDROID_HOME/platforms/android-36/source.properties"
+printf 'Pkg.Revision = 36.0.0\\n' > "$ANDROID_HOME/build-tools/36.0.0/source.properties"
+touch "$ANDROID_HOME/system-images/android-34/google_apis/x86_64/system.img" "$ANDROID_HOME/platforms/android-36/android.jar"
+printf '#!/usr/bin/env bash\\nexit 0\\n' > "$ANDROID_HOME/build-tools/36.0.0/aapt2"
+printf '#!/usr/bin/env bash\\nexit 0\\n' > "$ANDROID_HOME/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
+chmod 700 "$ANDROID_HOME/build-tools/36.0.0/aapt2" "$ANDROID_HOME/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
+printf private-tool-canary`);
+  writeFileSync(sdkmanager, provision);
   const positive = sdkPhase();
   assert.equal(positive.status, 0);
   assert.match(positive.stdout, /event=sdk-installed/);
@@ -69,13 +80,29 @@ try {
     ),
     /private-tool-canary/,
   );
-  const revision = join(sdk, 'ndk/26.1.10909125/source.properties');
+  executable(sdkmanager, 'exit 42');
+  const warm = sdkPhase();
+  assert.equal(warm.status, 0);
+  assert.match(warm.stdout, /event=sdk-reused/);
+  // A corrupt cached package must return to the installer rather than pass.
+  const platformMetadata = join(sdk, 'platforms/android-36/source.properties');
+  writeFileSync(platformMetadata, 'AndroidVersion.ApiLevel = 35');
+  const corrupt = sdkPhase();assert.equal(corrupt.status,1);assert.match(corrupt.stdout,/event=sdk-install-exit-42/);
+  writeFileSync(platformMetadata, 'AndroidVersion.ApiLevel = 36');
+  // Successful installer still refuses incomplete cached package content.
+  rmSync(join(sdk, 'platforms/android-36/android.jar'));
+  executable(sdkmanager, 'exit 0');
+  const incomplete = sdkPhase();
+  assert.equal(incomplete.status, 1);
+  assert.match(incomplete.stdout, /event=sdk-package-incomplete/);
+  writeFileSync(join(sdk, 'platforms/android-36/android.jar'), 'fixture');
+  const revision = join(sdk, 'ndk/27.1.12297006/source.properties');
   executable(sdkmanager, 'exit 0');
   rmSync(revision);
   const missingNdk = sdkPhase();
   assert.equal(missingNdk.status, 1);
   assert.match(missingNdk.stdout, /event=sdk-ndk-revision-missing/);
-  for (const content of ['Pkg.Revision = 26.2.11394342', 'Pkg.Revision = 26.1.10909125-private-canary', 'arbitrary-private-canary']) {
+  for (const content of ['Pkg.Revision = 26.2.11394342', 'Pkg.Revision = 27.1.12297006-private-canary', 'arbitrary-private-canary']) {
     writeFileSync(revision, content);
     const mismatch = sdkPhase();
     assert.equal(mismatch.status, 1);

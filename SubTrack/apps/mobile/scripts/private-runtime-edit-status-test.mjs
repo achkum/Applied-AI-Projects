@@ -37,7 +37,7 @@ test('Maestro uses bilingual catalog labels and starts from parent logout withou
 });
 
 test('single edit save returns to exact Manage header feedback then searches persisted edited row DOWN',()=>{
- const flow=readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');assert.ok(flow.includes('- tapOn: ${MAESTRO_SAVE_EDIT}\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- assertVisible:\n    id: native-personal-title\n    text: ${MAESTRO_PERSONAL_TITLE}\n- extendedWaitUntil:\n    visible: ${MAESTRO_EDIT_SAVED}\n    timeout: 30000\n- scrollUntilVisible:\n    element: Native edited restart proof\n    direction: DOWN\n- assertVisible: Native edited restart proof\n- takeScreenshot: accepted-edit'));assert.equal(flow.split('- tapOn: ${MAESTRO_SAVE_EDIT}').length-1,1);assert.match(flow,/assertNotVisible: \$\{MAESTRO_ARCHIVE\}/);
+ const flow=readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');assert.ok(flow.includes('- tapOn: ${MAESTRO_SAVE_EDIT}\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- assertVisible:\n    id: native-personal-title\n    text: ${MAESTRO_PERSONAL_TITLE}\n- extendedWaitUntil:\n    visible: ${MAESTRO_EDIT_SAVED}\n    timeout: 30000\n- scrollUntilVisible:\n    element: Native edited restart proof\n    direction: DOWN\n    centerElement: true\n- assertVisible: Native edited restart proof\n- takeScreenshot: accepted-edit'));assert.equal(flow.split('- tapOn: ${MAESTRO_SAVE_EDIT}').length-1,1);assert.match(flow,/assertNotVisible: \$\{MAESTRO_ARCHIVE\}/);
 });
 
 
@@ -54,4 +54,15 @@ test('setup pixels are Android-only accepted names from established pre-input ch
  assert.match(driver,/acceptedNativeScreenshot\(entry.name,platform\)/);
  assert.ok(driver.includes("platform==='android'?ACCEPTED_ANDROID_SETUP_SCREENSHOTS:[]"));
  assert.ok(driver.indexOf("markPhase('accepted-evidence')")<driver.indexOf('copyAcceptedScreenshots(privateDir)'));
+});
+
+
+test('saved and restarted row checkpoints center the name before retaining exact amount assertions',()=>{
+ for(const [file,row] of [['enroll-add','Native restart proof'],['restart','Native restart proof'],['edit-status','Native edited restart proof'],['edit-status-api-restart','Native edited restart proof'],['renewals','Native restart proof']]){
+  const flow=readFileSync(new URL(`../e2e/private-runtime-${file}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n');
+  const center=`- scrollUntilVisible:\n    element: ${row}\n    direction: DOWN\n    centerElement: true`;
+  const positions=[...flow.matchAll(/- assertVisible: \$\{MAESTRO_EXPECTED_AMOUNT\}/g)].map(match=>match.index);
+  assert.ok(positions.length>0);for(const index of positions)assert.ok(flow.lastIndexOf(center,index)>=0);
+  for(const key of ['MAESTRO_SAVE_SUBSCRIPTION','MAESTRO_SAVE_EDIT'])assert.ok(flow.split('- tapOn: ${'+key+'}').length-1<=1);
+ }
 });

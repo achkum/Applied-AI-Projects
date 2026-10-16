@@ -10,6 +10,10 @@ appId: se.subtrack.app
     visible: Native restart proof
     timeout: 30000
 - scrollUntilVisible:
+    element: Native restart proof
+    direction: DOWN
+    centerElement: true
+- scrollUntilVisible:
     element: ${MAESTRO_RENEWALS_OPEN}
     direction: UP
 - tapOn: ${MAESTRO_RENEWALS_OPEN}
@@ -19,6 +23,10 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: Native restart proof
     timeout: 30000
+- scrollUntilVisible:
+    element: Native restart proof
+    direction: DOWN
+    centerElement: true
 - assertVisible: ${MAESTRO_RENEWAL_DATE}
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - scrollUntilVisible:
@@ -28,6 +36,10 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: Native restart proof
     timeout: 30000
+- scrollUntilVisible:
+    element: Native restart proof
+    direction: DOWN
+    centerElement: true
 - assertVisible: ${MAESTRO_RENEWAL_DATE}
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-renewals
