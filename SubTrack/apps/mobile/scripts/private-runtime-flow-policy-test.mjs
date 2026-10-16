@@ -22,8 +22,11 @@ test('platform selection and initial flow preserve freshness while keeping all a
     'utf8',
   );
   assert.equal(
-    android,
-    ios.replace(/- launchApp:\r?\n {4}clearState: true/, '- launchApp'),
+    android.replace(/\r\n/g, '\n'),
+    ios.replace(/\r\n/g, '\n')
+      .replace(/- launchApp:\n {4}clearState: true/, '- launchApp')
+      .replace('- tapOn: ${MAESTRO_CREATE_ACCOUNT}', '- takeScreenshot: accepted-welcome\n- tapOn: ${MAESTRO_CREATE_ACCOUNT}')
+      .replace('- tapOn:\n    id: native-identifier-input', '- takeScreenshot: accepted-signup\n- tapOn:\n    id: native-identifier-input'),
   );
   const build = readFileSync(
     new URL('./private-runtime-build.sh', import.meta.url),
