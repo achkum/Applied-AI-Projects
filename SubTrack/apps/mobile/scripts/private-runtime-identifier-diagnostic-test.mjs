@@ -315,14 +315,17 @@ test('C18 source-bound targets come only from failed lines, with private values 
 });
 
 test('restart-family original failure projection is phase-bound, fixed and private',()=>{
- const trusted={createAccount:'Create account',verifyBankId:'Verify with BankID',expectedAmount:'Expected amount: 129,90[ \\u00a0\\u202f]+SEK',logout:'Log out',logoutConfirmed:'Logged out'};
+ const trusted={createAccount:'Create account',verifyBankId:'Verify with BankID',expectedAmount:'Expected amount: 129,90[ \\u00a0\\u202f]+SEK',logout:'Log out',logoutConfirmed:'Logged out',edit:'Edit',saveEdit:'Save changes',editSaved:'Saved changes',pause:'Pause tracking',resume:'Resume tracking',cancelled:'Mark cancelled',archive:'Archive'};
  const options={phase:'flow-restart',restart:'FAILED Assert that "Verify with BankID" is visible\nAssertion is false: private-canary',metro:'',labels:trusted};
  for(const phase of ['flow-restart','flow-edit-status','flow-edit-status-api-restart']){
   const result=restartToolDiagnostic({...options,phase});assert.deepEqual(result.targets,['bankid-verify']);assert.deepEqual(result.commands,['wait-visible']);assert.deepEqual(result.reasons,['assertion']);assert.equal(JSON.stringify(result).includes('private-canary'),false);
  }
  for(const phase of ['flow-enroll-add','flow-identifier','other',undefined])assert.deepEqual(restartToolDiagnostic({...options,phase}),{withheld:'outside-restart'});
  for(const labels of [null,{},...Object.keys(trusted).map(key=>({...trusted,[key]:''})),{...trusted,logout:42}])assert.deepEqual(restartToolDiagnostic({...options,labels}),{withheld:'trusted-target-unavailable'});
- for(const [text,target] of [['Native restart proof','saved-row'],['Native edited restart proof','edited-row'],...Object.entries(trusted).map(([key,value])=>[value,{createAccount:'welcome-create-account',verifyBankId:'bankid-verify',expectedAmount:'expected-amount',logout:'logout',logoutConfirmed:'logout-confirmed'}[key]])])assert.deepEqual(restartToolDiagnostic({...options,restart:`FAILED Assert visible ${text}`}).targets,[target]);
+ for(const [text,target] of [['Native restart proof','saved-row'],['Native edited restart proof','edited-row'],...Object.entries(trusted).map(([key,value])=>[value,{createAccount:'welcome-create-account',verifyBankId:'bankid-verify',expectedAmount:'expected-amount',logout:'logout',logoutConfirmed:'logout-confirmed',edit:'edit',saveEdit:'save-edit',editSaved:'edit-saved',pause:'pause',resume:'resume',cancelled:'cancelled',archive:'archive'}[key]])])assert.deepEqual(restartToolDiagnostic({...options,restart:`FAILED Assert visible ${text}`}).targets,[target]);
+ const canonical=restartToolDiagnostic({...options,restart:'No visible element found: Text matching regex: Edit\nprivate-canary'});
+ assert.deepEqual(canonical.commands,['scroll']);assert.deepEqual(canonical.reasons,['element-not-found']);assert.deepEqual(canonical.targets,['edit']);assert.equal(JSON.stringify(canonical).includes('private-canary'),false);
+ for(const [id,target] of [['native-subscription-name','subscription-name'],['native-subscription-date','date-field']]){assert.deepEqual(restartToolDiagnostic({...options,restart:`No visible element found: ${id}`}).targets,[target]);assert.deepEqual(restartToolDiagnostic({...options,restart:`No visible element found: ${id}-foreign`}).targets,[]);}
  assert.equal(restartToolDiagnostic({...options,restart:'private-canary only'}).withheld,'unknown-tool-diagnostic');
  for(const patch of [{restart:null},{restart:'x'.repeat(4_000_001)},{metro:null}])assert.equal(restartToolDiagnostic({...options,...patch}).withheld,'tool-input-unavailable');
 });

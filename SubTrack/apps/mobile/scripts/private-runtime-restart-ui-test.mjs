@@ -38,5 +38,6 @@ test('changed state, unowned process, malformed capture and all failure paths wi
 });
 test('actual producer uses original receipt, fresh owned device, bounded memory and exclusive cleanup',()=>{
  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');
+ assert.ok(driver.includes("if(platform==='android'&&currentPhase==='flow-restart'){"));
  for(const text of ['acceptedCreatedReceipt=before;','expected:acceptedCreatedReceipt','harness.readbackReceipt()','private-runtime-android.sh\',\'owned-device','randomUUID()','mkdir\',\'-m\',\'700','uiautomator\',\'dump\',\'--compressed','maxBuffer:1048576','rmdir'])assert.ok(driver.includes(text));
 });

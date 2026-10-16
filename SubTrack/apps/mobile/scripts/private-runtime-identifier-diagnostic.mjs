@@ -4,11 +4,11 @@ const commands = [
   ['tap', /tap on/i],
   ['input', /input text/i],
   ['hide-keyboard', /hide keyboard/i],
-  ['scroll', /scroll until|scroll (?:up|down)|scrollUntilVisible/i],
+  ['scroll', /scroll until|scroll (?:up|down)|scrollUntilVisible|no visible element found/i],
 ];
 const toolReasons = [
   ['assertion', /assertion is false|assertion failed/i],
-  ['element-not-found', /element.*not found|no.*matching.*element/i],
+  ['element-not-found', /element.*not found|no.*matching.*element|no visible element found/i],
   ['launch', /failed to launch|unable to launch/i],
   ['device-unavailable', /no devices found|device.*not found|device.*offline/i],
   [
@@ -108,12 +108,12 @@ export function enrollmentToolDiagnostic({ phase, enrollment, metro, labels }) {
   );
 }
 
-const restartRoster=[['welcome-create-account','createAccount'],['bankid-verify','verifyBankId'],['expected-amount','expectedAmount'],['logout','logout'],['logout-confirmed','logoutConfirmed']];
+const restartRoster=[['welcome-create-account','createAccount'],['bankid-verify','verifyBankId'],['expected-amount','expectedAmount'],['logout','logout'],['logout-confirmed','logoutConfirmed'],['edit','edit'],['save-edit','saveEdit'],['edit-saved','editSaved'],['pause','pause'],['resume','resume'],['cancelled','cancelled'],['archive','archive']];
 /** Original restart-family child output only; no new tool invocation or UI capture. */
 export function restartToolDiagnostic({phase,restart,metro,labels}){
  if(!['flow-restart','flow-edit-status','flow-edit-status-api-restart'].includes(phase))return {withheld:'outside-restart'};
  if(!labels||!restartRoster.every(([,key])=>typeof labels[key]==='string'&&labels[key].length>0))return {withheld:'trusted-target-unavailable'};
- return closedToolDiagnostic(restart,metro,[...restartRoster.map(([name,key])=>[name,labels[key]]),['edited-row','Native edited restart proof'],['saved-row','Native restart proof']]);
+ return closedToolDiagnostic(restart,metro,[...restartRoster.map(([name,key])=>[name,labels[key]]),['edited-row','Native edited restart proof'],['saved-row','Native restart proof'],['subscription-name','native-subscription-name'],['date-field','native-subscription-date']]);
 }
 
 /** One exact enrollment invocation owns the event latch. No process values escape. */
@@ -165,7 +165,7 @@ function closedToolDiagnostic(identifier, metro, targetRoster) {
   const tool = identifier.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '');
   const failedLines = tool
     .split(/\r?\n/)
-    .filter((line) => /FAILED|ERROR|assertion is false|not found/i.test(line));
+    .filter((line) => /FAILED|ERROR|assertion is false|not found|no visible element found/i.test(line));
   const failedCommands = commands
     .filter(([, pattern]) => failedLines.some((line) => pattern.test(line)))
     .map(([name]) => name);

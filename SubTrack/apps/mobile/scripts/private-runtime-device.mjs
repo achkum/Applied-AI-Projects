@@ -465,19 +465,21 @@ async function main() {
     }
     if(['flow-restart','flow-edit-status','flow-edit-status-api-restart'].includes(currentPhase)){
       const readOwned=name=>{try{return readFileSync(join(privateDir,name),'utf8');}catch{return '';}};
-      const diagnostic=restartToolDiagnostic({phase:currentPhase,restart:readOwned(`${currentPhase.slice(5)}.log`),metro:readOwned('metro.log'),labels:{createAccount:labels.MAESTRO_CREATE_ACCOUNT,verifyBankId:labels.MAESTRO_VERIFY_BANKID,expectedAmount:labels.MAESTRO_EXPECTED_AMOUNT,logout:labels.MAESTRO_LOGOUT,logoutConfirmed:labels.MAESTRO_LOGOUT_CONFIRMED}});
+      const diagnostic=restartToolDiagnostic({phase:currentPhase,restart:readOwned(`${currentPhase.slice(5)}.log`),metro:readOwned('metro.log'),labels:{createAccount:labels.MAESTRO_CREATE_ACCOUNT,verifyBankId:labels.MAESTRO_VERIFY_BANKID,expectedAmount:labels.MAESTRO_EXPECTED_AMOUNT,logout:labels.MAESTRO_LOGOUT,logoutConfirmed:labels.MAESTRO_LOGOUT_CONFIRMED,edit:labels.MAESTRO_EDIT,saveEdit:labels.MAESTRO_SAVE_EDIT,editSaved:labels.MAESTRO_EDIT_SAVED,pause:labels.MAESTRO_PAUSE,resume:labels.MAESTRO_RESUME,cancelled:labels.MAESTRO_MARK_CANCELLED,archive:labels.MAESTRO_ARCHIVE}});
       if(diagnostic.withheld)console.error(`ST244_NATIVE restart_diagnostic=withheld reason=${diagnostic.withheld}`);
       else console.error(`ST244_NATIVE restart_diagnostic=fixed commands=${diagnostic.commands.join(',')||'none'} reasons=${diagnostic.reasons.join(',')||'none'} targets=${diagnostic.targets.join(',')||'none'} metro=${diagnostic.metro.join(',')||'none'} modules=${diagnostic.modules.join(',')||'none'}`);
-      const adb=join(process.env.ANDROID_HOME??'','platform-tools/adb');
-      const deviceDirectory='/data/local/tmp/subtrack-restart-'+randomUUID(),deviceFile=deviceDirectory+'/ui.xml';
-      let deviceCreated=false,deviceAttempted=false;
-      const quiet=args=>execFileSync(adb,['-s','emulator-5554',...args],{timeout:20000,killSignal:'SIGKILL',stdio:'ignore'});
-      const ui=await observeRestartUi({platform,phase:currentPhase,diagnostic,expected:acceptedCreatedReceipt,markerHash:createHash('sha256').update(config.marker).digest('hex'),labels:{welcome:labels.MAESTRO_CREATE_ACCOUNT,verify:labels.MAESTRO_VERIFY_BANKID,manage:labels.MAESTRO_PERSONAL_TITLE,month:labels.MAESTRO_MONTH_TITLE},observe:()=>harness.readbackReceipt(),
-        owned:()=>{execFileSync('bash',['scripts/private-runtime-android.sh','owned-device'],{cwd:app,timeout:15000,stdio:'ignore'});return true;},
-        capture:()=>{deviceAttempted=true;quiet(['shell','mkdir','-m','700',deviceDirectory]);deviceCreated=true;quiet(['shell','uiautomator','dump','--compressed',deviceFile]);try{return execFileSync(adb,['-s','emulator-5554','exec-out','cat',deviceFile],{timeout:10000,killSignal:'SIGKILL',maxBuffer:1048576,stdio:['ignore','pipe','ignore']});}catch(error){if(Buffer.isBuffer(error.stdout))error.stdout.fill(0);throw Error('Restart UI unavailable');}},
-        cleanup:()=>{if(deviceAttempted&&!deviceCreated)return false;if(deviceCreated){quiet(['shell','rm','-f',deviceFile]);quiet(['shell','rmdir',deviceDirectory]);}return true;}});
-      if(ui)console.error(`ST244_NATIVE restart_ui welcome=${ui.welcome} verify=${ui.verify} manage=${ui.manage} month=${ui.month} developer=${ui.developer} route_error=${ui.routeError} link_chooser=${ui.linkChooser}`);
-      else console.error('ST244_NATIVE restart_ui=withheld');
+      if(platform==='android'&&currentPhase==='flow-restart'){
+        const adb=join(process.env.ANDROID_HOME??'','platform-tools/adb');
+        const deviceDirectory='/data/local/tmp/subtrack-restart-'+randomUUID(),deviceFile=deviceDirectory+'/ui.xml';
+        let deviceCreated=false,deviceAttempted=false;
+        const quiet=args=>execFileSync(adb,['-s','emulator-5554',...args],{timeout:20000,killSignal:'SIGKILL',stdio:'ignore'});
+        const ui=await observeRestartUi({platform,phase:currentPhase,diagnostic,expected:acceptedCreatedReceipt,markerHash:createHash('sha256').update(config.marker).digest('hex'),labels:{welcome:labels.MAESTRO_CREATE_ACCOUNT,verify:labels.MAESTRO_VERIFY_BANKID,manage:labels.MAESTRO_PERSONAL_TITLE,month:labels.MAESTRO_MONTH_TITLE},observe:()=>harness.readbackReceipt(),
+          owned:()=>{execFileSync('bash',['scripts/private-runtime-android.sh','owned-device'],{cwd:app,timeout:15000,stdio:'ignore'});return true;},
+          capture:()=>{deviceAttempted=true;quiet(['shell','mkdir','-m','700',deviceDirectory]);deviceCreated=true;quiet(['shell','uiautomator','dump','--compressed',deviceFile]);try{return execFileSync(adb,['-s','emulator-5554','exec-out','cat',deviceFile],{timeout:10000,killSignal:'SIGKILL',maxBuffer:1048576,stdio:['ignore','pipe','ignore']});}catch(error){if(Buffer.isBuffer(error.stdout))error.stdout.fill(0);throw Error('Restart UI unavailable');}},
+          cleanup:()=>{if(deviceAttempted&&!deviceCreated)return false;if(deviceCreated){quiet(['shell','rm','-f',deviceFile]);quiet(['shell','rmdir',deviceDirectory]);}return true;}});
+        if(ui)console.error(`ST244_NATIVE restart_ui welcome=${ui.welcome} verify=${ui.verify} manage=${ui.manage} month=${ui.month} developer=${ui.developer} route_error=${ui.routeError} link_chooser=${ui.linkChooser}`);
+        else console.error('ST244_NATIVE restart_ui=withheld');
+      }
     }
     if (currentPhase === 'flow-enroll-add') {
       // Target and occurrence share this owned original-command bundle; legacy text never supplies either.

@@ -11,7 +11,7 @@ appId: se.subtrack.app
     timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_EDIT}
-    direction: UP
+    direction: DOWN
 - tapOn: ${MAESTRO_EDIT}
 - scrollUntilVisible:
     element:
