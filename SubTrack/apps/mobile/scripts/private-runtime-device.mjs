@@ -2,7 +2,7 @@ import {qualifyNativeBank,acceptedNativeBankScreenshot,ACCEPTED_NATIVE_BANK_SCRE
 import {prepareEnrollmentMetadata,enrollmentMetadataLines,preparePreinputMetadata,preinputCaptureContext,captureSealedPreinput,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS,androidCaptureContext,prepareAndroidEntryMetadata,measureAndroidApp,recordAndroidApp,captureSealedAndroidEntry} from './private-runtime-maestro-metadata.mjs';
 import {enrollmentStageDiagnostic,startupStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
 import {fixtureMonthLabels,qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
-import {renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
+import {assertRenewalsReceipt,renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
 import {qualifyNativeEditStatus,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS,ACCEPTED_ANDROID_SETUP_SCREENSHOTS} from './private-runtime-edit-status.mjs';
 // Local installed-device qualification only. No EAS, cloud Maestro or store upload.
 import assert from 'node:assert/strict';
@@ -253,6 +253,11 @@ async function main() {
     code = null;
     markPhase('readback-before');
     const before = await harness.readbackReceipt();
+    const created = await harness.readbackRenewalsReceipt(renewalDate);
+    assertRenewalsReceipt(created);
+    assert.equal(created.activeSavedDateReadback,true);
+    assert.equal(created.archivedEmptyReadback,false);
+    console.log('ST244_NATIVE created_row_expected_value=confirmed');
     markPhase('api-restart');
     await harness.restart();
     await flow('restart');

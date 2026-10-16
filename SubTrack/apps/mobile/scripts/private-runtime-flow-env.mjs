@@ -30,7 +30,7 @@ export function flowEnvironment(locale = 'en') {
     MAESTRO_MONTH_SAVED_DATE_TEMPLATE: onboarding.billingMonth.savedDate,
     MAESTRO_MONTH_MANUAL: onboarding.billingMonth.manual,
     MAESTRO_MONTH_CLOSE: catalog.actions.close,
-    MAESTRO_MONTH_AMOUNT: '129,90\\s+SEK',
+    MAESTRO_MONTH_AMOUNT: String.raw`129,90[ \u00a0\u202f]+SEK`,
     MAESTRO_DATE: onboarding.nativePersonal.date,
     MAESTRO_RENEWALS_OPEN: onboarding.productNav.upcoming,
     MAESTRO_RENEWALS_TITLE: onboarding.nativeRenewals.title,
@@ -75,6 +75,6 @@ export function flowEnvironment(locale = 'en') {
     MAESTRO_LOGOUT: onboarding.nativePersonal.logout,
     MAESTRO_LOGOUT_CONFIRMED: onboarding.nativePersonal.logoutConfirmed,
     MAESTRO_EXPECTED_AMOUNT_LABEL: onboarding.manualSubscription.expectedAmount,
-    MAESTRO_EXPECTED_AMOUNT: `${onboarding.manualSubscription.expectedAmount}: 129,90\\s+SEK`,
+    MAESTRO_EXPECTED_AMOUNT: String.raw`${onboarding.manualSubscription.expectedAmount}: 129,90[ \u00a0\u202f]+SEK`,
   };
 }

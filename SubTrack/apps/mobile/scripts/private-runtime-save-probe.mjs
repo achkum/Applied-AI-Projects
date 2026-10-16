@@ -43,12 +43,12 @@ export async function failedSaveObservations({ phase, diagnostic, metadata, labe
   if (amountFailure) {
     const label = labels.MAESTRO_EXPECTED_AMOUNT_LABEL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const variants = [
-      ['code-prefix-dot', String.raw`${label}:\s*SEK\s*129\.90`],
-      ['code-suffix-dot', String.raw`${label}:\s*129\.90\s+SEK`],
-      ['code-prefix-comma', String.raw`${label}:\s*SEK\s*129,90`],
-      ['code-suffix-comma', String.raw`${label}:\s*129,90\s+SEK`],
-      ['symbol-suffix-comma', String.raw`${label}:\s*129,90\s+kr`],
-      ['symbol-suffix-dot', String.raw`${label}:\s*129\.90\s+kr`],
+      ['code-prefix-dot', String.raw`${label}:[ \u00a0\u202f]*SEK[ \u00a0\u202f]*129\.90`],
+      ['code-suffix-dot', String.raw`${label}:[ \u00a0\u202f]*129\.90[ \u00a0\u202f]+SEK`],
+      ['code-prefix-comma', String.raw`${label}:[ \u00a0\u202f]*SEK[ \u00a0\u202f]*129,90`],
+      ['code-suffix-comma', String.raw`${label}:[ \u00a0\u202f]*129,90[ \u00a0\u202f]+SEK`],
+      ['symbol-suffix-comma', String.raw`${label}:[ \u00a0\u202f]*129,90[ \u00a0\u202f]+kr`],
+      ['symbol-suffix-dot', String.raw`${label}:[ \u00a0\u202f]*129\.90[ \u00a0\u202f]+kr`],
     ];
     const amount = {};
     for (const [name, pattern] of variants) {
