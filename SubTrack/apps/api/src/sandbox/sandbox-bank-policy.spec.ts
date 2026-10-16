@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import {resolve} from 'node:path';
 import {sandboxStatement,isSandboxBankOperation,SANDBOX_BANK_OPERATIONS} from './sandbox-bank-policy.js';
 import {PRIVATE_MOBILE_BANK_STATEMENTS,PRIVATE_BANK_PURGE_STATEMENTS} from '../banks/private-mobile-bank-statements.js';
+import {PRIVATE_MANUAL_EDIT_STATEMENTS} from '../subscriptions/private-manual-edit-statements.js';
 import {createPrivateMobileBank} from '../banks/private-mobile-bank.js';
 const owner='123e4567-e89b-42d3-a456-426614174000',connection='123e4567-e89b-42d3-a456-426614174001';
 const migration=readFileSync(resolve(__dirname,'../../prisma/sandbox/003-sandbox-synthetic-bank.sql'),'utf8');
@@ -17,6 +18,15 @@ describe('public bank closed source SQL and owner parameter policy',()=>{
   let reads=0;const accessor=[owner];Object.defineProperty(accessor,0,{get(){reads++;throw Error('private');}});const hidden=[owner];Object.defineProperty(hidden,0,{value:owner,enumerable:false});const extra=Object.assign([owner],{private:true}),proxy=new Proxy([owner],{get(){reads++;throw Error('private');}}),proxyValue=new Proxy(Buffer.from('private'),{get(){reads++;throw Error('private');}});
   const invalid:readonly [unknown,unknown,unknown][]=[['profileRead',[owner],'invalid'],['profileRead',[owner],null],[null,[owner],owner],['unregistered',[owner],owner],['profileRead',null,owner],['profileRead',proxy,owner],['profileRead',Object.setPrototypeOf([owner],null),owner],['profileRead',extra,owner],['profileRead',Object.assign(new Array(2),{1:owner}),owner],['profileRead',accessor,owner],['profileRead',hidden,owner],['profileRead',[owner,proxyValue],owner],['profileRead',[owner,{}],owner],['profileRead',[owner,undefined],owner],['profileRead',[owner,NaN],owner],['profileRead',[owner,()=>undefined],owner],['profileRead',[connection],owner],['manualIdMint',[owner],owner],['manualSubscriptionInsert',[owner,connection],owner],['bankPurgeAccounts',[owner],owner],['bankPurgeAccounts',[owner,1],owner],['bankPurgeAccounts',[owner,'not-uuid'],owner],['bankPurgeAccounts',[owner,connection,true],owner]];
   for(const [name,values,id]of invalid)expect(()=>sandboxStatement(name as string,values as unknown[],id as string)).toThrow('Sandbox statement unavailable');expect(reads).toBe(0);
+ });
+ it('accepts the exact scalar manual-edit argument tuples produced by both consumers',()=>{
+  const target=[owner,connection,'MANUAL','SEK'],update=[owner,connection,'1','Example','VIDEO_STREAMING','MONTHLY','999',null,'MANUAL','SEK'];
+  expect(sandboxStatement('manualEditTargetLock',target,owner).values).toEqual(target);expect(sandboxStatement('manualEditCompareUpdate',update,owner).values).toEqual(update);
+  for(const statement of [PRIVATE_MANUAL_EDIT_STATEMENTS.manualEditTargetLock,PRIVATE_MANUAL_EDIT_STATEMENTS.manualEditCompareUpdate]){
+   for(const cadence of ['WEEKLY','MONTHLY','QUARTERLY','SEMIANNUAL','ANNUAL'])expect(statement).toContain(`'${cadence}'`);
+   expect(statement).not.toContain('CUSTOM');expect(statement).not.toMatch(/ANY\s*\(/);
+  }
+  expect(()=>sandboxStatement('manualEditTargetLock',[...target,['MONTHLY']],owner)).toThrow('Sandbox statement unavailable');
  });
  it('rejects a tampered frozen purge mapping instead of accepting a new DELETE',async()=>{
   vi.resetModules();vi.doMock('../banks/private-mobile-bank-statements.js',()=>({PRIVATE_BANK_PURGE_STATEMENTS,PRIVATE_MOBILE_BANK_STATEMENTS:{...PRIVATE_MOBILE_BANK_STATEMENTS,bankPurgeAccounts:'DELETE FROM public.identity'}}));

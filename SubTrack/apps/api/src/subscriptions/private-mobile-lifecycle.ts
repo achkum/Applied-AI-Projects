@@ -11,7 +11,6 @@ export const PRIVATE_MOBILE_LIFECYCLE_STATEMENTS=Object.freeze({...PRIVATE_MANUA
  mobileStatusUpdate:`UPDATE public.subscription SET status=$4::public.subscription_status,updated_at=pg_catalog.clock_timestamp() WHERE identity_id=$1::uuid AND id=$2::uuid AND status=$3::public.subscription_status RETURNING id::text AS id,status::text AS status`,
 });
 export type MobileLifecycleResult={status:200;value:object}|{status:404|409;code:'SUBSCRIPTION_NOT_FOUND'|'MANUAL_EDIT_IDEMPOTENCY_CONFLICT'|'MANUAL_EDIT_CONFLICT'|'LIFECYCLE_CONFLICT'};
-const cadences=['WEEKLY','MONTHLY','QUARTERLY','SEMIANNUAL','ANNUAL'];
 async function one(tx:OwnerTx,name:string,values:readonly unknown[],command='SELECT'){
  const r=await tx.execute(name,values);if(r.command!==command||r.rowCount!==r.rows.length||r.rows.length>1)throw new Error('Mobile lifecycle unavailable');return r.rows[0];
 }
@@ -24,12 +23,12 @@ export async function executeMobileEdit(tx:OwnerTx,owner:string,body:Record<stri
   const value=parsePrivateManualEdited({id:receipt.subscription_id,revision:receipt.result_revision});
   return timingSafeEqual(receipt.request_hash,hash)?{status:200,value}:{status:409,code:'MANUAL_EDIT_IDEMPOTENCY_CONFLICT'};
  }
- const row=await one(tx,'manualEditTargetLock',[owner,id,'MANUAL','SEK',cadences]);
+ const row=await one(tx,'manualEditTargetLock',[owner,id,'MANUAL','SEK']);
  if(!row)return {status:404,code:'SUBSCRIPTION_NOT_FOUND'};
  const target=parsePrivateManualEdited(row);
  if(target.id!==id)throw new Error('Mobile lifecycle unavailable');
  if(target.revision!==body.expectedRevision)return {status:409,code:'MANUAL_EDIT_CONFLICT'};
- const updated=await one(tx,'manualEditCompareUpdate',[owner,id,body.expectedRevision,body.customName,body.categoryCode,body.cadence,body.expectedAmountMinor,body.nextChargeDate,'MANUAL','SEK',cadences],'UPDATE');
+ const updated=await one(tx,'manualEditCompareUpdate',[owner,id,body.expectedRevision,body.customName,body.categoryCode,body.cadence,body.expectedAmountMinor,body.nextChargeDate,'MANUAL','SEK'],'UPDATE');
  const value=parsePrivateManualEdited(updated);
  if(value.id!==id||BigInt(value.revision)!==BigInt(body.expectedRevision as string)+1n)throw new Error('Mobile lifecycle unavailable');
  const saved=await one(tx,'manualEditReceiptInsert',[owner,keyHash,hash,id,value.revision],'INSERT');
