@@ -193,3 +193,12 @@ test('encrypted frame failure projection is a fixed stage only after the capture
  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');const start=driver.indexOf("if (currentPhase === 'flow-identifier' && captureContext && preinputMetadata)");const end=driver.indexOf("if (currentPhase === 'flow-identifier')",start+1);const block=driver.slice(start,end);
  assert.ok(block.includes("let sealed=false,withheldStage='CUSTODY'"));assert.ok(block.includes('if(PREINPUT_WITHHELD_STAGES.includes(value))withheldStage=value'));assert.ok(block.includes('onStage:captureStage'));assert.ok(block.includes("captureStage('CAPTURE');await nativeRead(['simctl','io',udid,'screenshot',file])"));assert.ok(block.indexOf('await captureSealedPreinput')<block.indexOf('console.error(`ST244_NATIVE preinput_frame='));assert.ok(block.includes("preinput_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}"));assert.equal(/console\.(?:error|log)\([^`]/.test(block),false);
 });
+
+
+test('ownership detail is fixed, withheld-only and emitted after cleanup; legacy text targets are explicitly unobserved',()=>{
+ const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');
+ assert.ok(driver.includes("if(!sealed&&withheldStage==='METADATA_OWNERSHIP')try{const check=preinputMetadata.ownershipCheck();if(PREINPUT_METADATA_CHECKS.includes(check))metadataCheck=check;}"));
+ assert.ok(driver.includes("let metadataCheck='UNKNOWN'"));assert.ok(driver.includes("withheldStage==='METADATA_OWNERSHIP'?` metadata_check=${metadataCheck}`:''"));
+ assert.ok(driver.indexOf('await captureSealedPreinput')<driver.indexOf("let metadataCheck='UNKNOWN'"));
+ assert.ok(driver.includes('identifier_diagnostic=fixed source=legacy-text target_observation=unobserved'));assert.ok(driver.includes("legacy_targets=${diagnostic.targets.join(',') || 'none'}"));
+});

@@ -1,5 +1,5 @@
 import {qualifyNativeBank,acceptedNativeBankScreenshot,ACCEPTED_NATIVE_BANK_SCREENSHOTS} from './private-runtime-bank.mjs';
-import {prepareEnrollmentMetadata,enrollmentMetadataLines,preparePreinputMetadata,preinputCaptureContext,captureSealedPreinput,PREINPUT_WITHHELD_STAGES} from './private-runtime-maestro-metadata.mjs';
+import {prepareEnrollmentMetadata,enrollmentMetadataLines,preparePreinputMetadata,preinputCaptureContext,captureSealedPreinput,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS} from './private-runtime-maestro-metadata.mjs';
 import {enrollmentStageDiagnostic,startupStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
 import {fixtureMonthLabels,qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
 import {renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
@@ -401,7 +401,9 @@ async function main() {
           for(const name of ['Info.plist','SubTrack']){const installedFile=join(installed,name),builtFile=join(built,name),oneStat=lstatSync(installedFile),twoStat=lstatSync(builtFile);assert.ok(oneStat.isFile()&&!oneStat.isSymbolicLink()&&twoStat.isFile()&&!twoStat.isSymbolicLink()&&oneStat.size>0&&oneStat.size<=67108864&&twoStat.size===oneStat.size);const one=readFileSync(installedFile),two=readFileSync(builtFile);assert.ok(one.length===oneStat.size&&two.length===twoStat.size);assert.equal(createHash('sha256').update(one).digest('hex'),createHash('sha256').update(two).digest('hex'));}
           captureStage('CAPTURE');await nativeRead(['simctl','io',udid,'screenshot',file]);
         }});}catch{/* Preserve the original failed qualification and private error. */}
-      console.error(`ST244_NATIVE preinput_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}`);
+      let metadataCheck='UNKNOWN';
+      if(!sealed&&withheldStage==='METADATA_OWNERSHIP')try{const check=preinputMetadata.ownershipCheck();if(PREINPUT_METADATA_CHECKS.includes(check))metadataCheck=check;}catch{/* Unknown stays fixed; no private exception escapes. */}
+      console.error(`ST244_NATIVE preinput_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}${!sealed&&withheldStage==='METADATA_OWNERSHIP'?` metadata_check=${metadataCheck}`:''}`);
     }
     if (currentPhase === 'flow-identifier') {
       const syntheticOtpIssued = code !== null;
@@ -443,7 +445,7 @@ async function main() {
         );
       else
         console.error(
-          `ST244_NATIVE identifier_diagnostic=fixed commands=${diagnostic.commands.join(',') || 'none'} reasons=${diagnostic.reasons.join(',') || 'none'} targets=${diagnostic.targets.join(',') || 'none'} metro=${diagnostic.metro.join(',') || 'none'} modules=${diagnostic.modules.join(',') || 'none'}`,
+          `ST244_NATIVE identifier_diagnostic=fixed source=legacy-text target_observation=unobserved commands=${diagnostic.commands.join(',') || 'none'} reasons=${diagnostic.reasons.join(',') || 'none'} legacy_targets=${diagnostic.targets.join(',') || 'none'} metro=${diagnostic.metro.join(',') || 'none'} modules=${diagnostic.modules.join(',') || 'none'}`,
         );
     }
     if (currentPhase === 'flow-enroll-add') {

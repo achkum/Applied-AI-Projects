@@ -63,24 +63,36 @@ export function projectEnrollmentMetadata(bytes){
 }
 function directory(path){const stat=lstatSync(path,{bigint:true});if(stat.isSymbolicLink()||!stat.isDirectory()||realpathSync(path)!==resolve(path))throw Error('unavailable');return stat;}
 const same=(left,right)=>left.dev===right.dev&&left.ino===right.ino;
-function inventory(path){const entries=readdirSync(path,{withFileTypes:true});if(entries.length>32)throw Error('unavailable');return entries;}
+export const PREINPUT_METADATA_CHECKS=Object.freeze([
+ ...['CAPTURE_PARENT','CAPTURE_ROOT','READ_PARENT','READ_ROOT','TIMESTAMP','FLOW','FINAL_ROOT','FINAL_PARENT','FINAL_TIMESTAMP','FINAL_FLOW'].flatMap(prefix=>['STAT','TYPE','CANONICAL'].map(check=>`${prefix}_${check}`)),
+ 'CREATE_ROOT',...['READ_PARENT','READ_ROOT','FINAL_ROOT','FINAL_PARENT','FINAL_TIMESTAMP','FINAL_FLOW'].map(prefix=>`${prefix}_IDENTITY`),
+ ...['TIMESTAMP','FLOW','BUNDLE'].flatMap(prefix=>['LIST','LIMIT'].map(check=>`${prefix}_${check}`)),
+ 'TIMESTAMP_COUNT','TIMESTAMP_ENTRY_TYPE','TIMESTAMP_NAME','FLOW_COUNT','FLOW_NAME','FLOW_ENTRY_TYPE','BUNDLE_SYMLINK',
+ ...['STAT','TYPE','EMPTY','CANONICAL','OPEN','OPEN_STAT','OPEN_TYPE','OPEN_IDENTITY','OPEN_SIZE','READ','AFTER_STAT','AFTER_TYPE','AFTER_IDENTITY','AFTER_SIZE'].map(check=>`COMMAND_${check}`),'CLOSE',
+]);
 /** Fresh enrollment output ownership is captured before its unchanged child invocation. */
 function prepareCommandMetadata(privateRoot,execution,flowName,phaseName,project){
- let ownership=null;
- try{const parent=resolve(privateRoot),parentStat=directory(parent),root=join(parent,flowName);mkdirSync(root,{mode:0o700});ownership={parent,parentStat,root,rootStat:directory(root)};}catch{/* No file errors or paths escape. */}
- return Object.freeze({read(phase){
+ let ownership=null,failed='UNKNOWN';
+ const fail=name=>{if(failed==='UNKNOWN')failed=name;};
+ const attempt=(name,operation)=>{try{return operation();}catch(error){fail(name);throw error;}};
+ const require=(name,condition)=>{if(!condition){fail(name);throw Error('unavailable');}};
+ function ownedDirectory(path,prefix){const stat=attempt(`${prefix}_STAT`,()=>lstatSync(path,{bigint:true}));require(`${prefix}_TYPE`,!stat.isSymbolicLink()&&stat.isDirectory());require(`${prefix}_CANONICAL`,attempt(`${prefix}_CANONICAL`,()=>realpathSync(path))===resolve(path));return stat;}
+ function ownedInventory(path,prefix){const entries=attempt(`${prefix}_LIST`,()=>readdirSync(path,{withFileTypes:true}));require(`${prefix}_LIMIT`,entries.length<=32);return entries;}
+ try{const parent=resolve(privateRoot),parentStat=ownedDirectory(parent,'CAPTURE_PARENT'),root=join(parent,flowName);attempt('CREATE_ROOT',()=>mkdirSync(root,{mode:0o700}));ownership={parent,parentStat,root,rootStat:ownedDirectory(root,'CAPTURE_ROOT')};}catch{/* No file errors or paths escape. */}
+ return Object.freeze({metadataCheck:()=>failed,read(phase){
   let snapshot;try{snapshot=execution.snapshot();}catch{return null;}
   if(phase!==phaseName||!snapshot||!['launch-error','exit-nonzero','signal'].includes(snapshot.outcome))return null;
   if(!ownership)return closed('UNAVAILABLE');
   let descriptor=null;
-  try{const {parent,parentStat,root,rootStat}=ownership;if(!same(directory(parent),parentStat)||!same(directory(root),rootStat))throw Error('unavailable');
-   const times=inventory(root);if(times.length!==1||times[0].isSymbolicLink()||!times[0].isDirectory()||!/^\d{4}-\d{2}-\d{2}_\d{6}$/.test(times[0].name))throw Error('unavailable');
-   const timestamp=join(root,times[0].name);const timestampStat=directory(timestamp);const flows=inventory(timestamp);if(flows.length!==1||flows[0].name!==`private-runtime-${flowName}`||flows[0].isSymbolicLink()||!flows[0].isDirectory())throw Error('unavailable');
-   const flow=join(timestamp,`private-runtime-${flowName}`);const flowStat=directory(flow);const entries=inventory(flow);if(entries.some(entry=>entry.isSymbolicLink()))throw Error('unavailable');
-   const file=join(flow,'commands.json'),before=lstatSync(file,{bigint:true});if(before.isSymbolicLink()||!before.isFile())throw Error('unavailable');if(before.size>BigInt(MAX_BYTES))return closed('INVALID');if(before.size===0n)return closed('UNAVAILABLE');
-   if(realpathSync(file)!==resolve(file))throw Error('unavailable');descriptor=openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW);const opened=fstatSync(descriptor,{bigint:true});if(!opened.isFile()||!same(opened,before)||opened.size!==before.size)throw Error('unavailable');
-   const bytes=readFileSync(descriptor);const after=lstatSync(file,{bigint:true});if(after.isSymbolicLink()||!same(after,opened)||after.size!==opened.size||!same(directory(root),rootStat)||!same(directory(parent),parentStat)||!same(directory(timestamp),timestampStat)||!same(directory(flow),flowStat))throw Error('unavailable');return project(bytes);
-  }catch{return closed('UNAVAILABLE');}finally{if(descriptor!==null)closeSync(descriptor);}
+  try{const {parent,parentStat,root,rootStat}=ownership;require('READ_PARENT_IDENTITY',same(ownedDirectory(parent,'READ_PARENT'),parentStat));require('READ_ROOT_IDENTITY',same(ownedDirectory(root,'READ_ROOT'),rootStat));
+   const times=ownedInventory(root,'TIMESTAMP');require('TIMESTAMP_COUNT',times.length===1);require('TIMESTAMP_ENTRY_TYPE',!times[0].isSymbolicLink()&&times[0].isDirectory());require('TIMESTAMP_NAME',/^\d{4}-\d{2}-\d{2}_\d{6}$/.test(times[0].name));
+   const timestamp=join(root,times[0].name),timestampStat=ownedDirectory(timestamp,'TIMESTAMP');const flows=ownedInventory(timestamp,'FLOW');require('FLOW_COUNT',flows.length===1);require('FLOW_NAME',flows[0].name===`private-runtime-${flowName}`);require('FLOW_ENTRY_TYPE',!flows[0].isSymbolicLink()&&flows[0].isDirectory());
+   const flow=join(timestamp,`private-runtime-${flowName}`),flowStat=ownedDirectory(flow,'FLOW');const entries=ownedInventory(flow,'BUNDLE');require('BUNDLE_SYMLINK',!entries.some(entry=>entry.isSymbolicLink()));
+   const file=join(flow,'commands.json'),before=attempt('COMMAND_STAT',()=>lstatSync(file,{bigint:true}));require('COMMAND_TYPE',!before.isSymbolicLink()&&before.isFile());if(before.size>BigInt(MAX_BYTES))return closed('INVALID');require('COMMAND_EMPTY',before.size!==0n);
+   require('COMMAND_CANONICAL',attempt('COMMAND_CANONICAL',()=>realpathSync(file))===resolve(file));descriptor=attempt('COMMAND_OPEN',()=>openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW));const opened=attempt('COMMAND_OPEN_STAT',()=>fstatSync(descriptor,{bigint:true}));require('COMMAND_OPEN_TYPE',opened.isFile());require('COMMAND_OPEN_IDENTITY',same(opened,before));require('COMMAND_OPEN_SIZE',opened.size===before.size);
+   const bytes=attempt('COMMAND_READ',()=>readFileSync(descriptor)),after=attempt('COMMAND_AFTER_STAT',()=>lstatSync(file,{bigint:true}));require('COMMAND_AFTER_TYPE',!after.isSymbolicLink());require('COMMAND_AFTER_IDENTITY',same(after,opened));require('COMMAND_AFTER_SIZE',after.size===opened.size);
+   require('FINAL_ROOT_IDENTITY',same(ownedDirectory(root,'FINAL_ROOT'),rootStat));require('FINAL_PARENT_IDENTITY',same(ownedDirectory(parent,'FINAL_PARENT'),parentStat));require('FINAL_TIMESTAMP_IDENTITY',same(ownedDirectory(timestamp,'FINAL_TIMESTAMP'),timestampStat));require('FINAL_FLOW_IDENTITY',same(ownedDirectory(flow,'FINAL_FLOW'),flowStat));return project(bytes);
+  }catch{return closed('UNAVAILABLE');}finally{if(descriptor!==null)attempt('CLOSE',()=>closeSync(descriptor));}
  }});
 }
 export function prepareEnrollmentMetadata(privateRoot,execution){return prepareCommandMetadata(privateRoot,execution,'enroll-add','flow-enroll-add',projectEnrollmentMetadata);}
@@ -111,7 +123,7 @@ export function preparePreinputMetadata(privateRoot){
  let exit=false,closedExit=false,invalid=false,taken=false,failure='CHILD_LIFECYCLE';const invocation=randomUUID();
  const execution={snapshot:()=>({outcome:exit&&closedExit&&!invalid?'exit-nonzero':'unavailable'})};
  const reader=prepareCommandMetadata(privateRoot,execution,'identifier','flow-identifier',bytes=>Object.freeze({eligible:preinputWelcomeMetadata(bytes)}));
- return Object.freeze({record(event,code,signal){if(event==='error'){invalid=true;return;}if((event!=='exit'&&event!=='close')||code!==1||signal!==null){invalid=true;return;}if(event==='exit'){if(exit||closedExit)invalid=true;exit=true;}else{if(!exit||closedExit)invalid=true;closedExit=true;}},take(){if(taken)return null;taken=true;const result=reader.read('flow-identifier');if(!exit||!closedExit||invalid)return null;failure=result.eligible===false||result.metadata==='INVALID'?'METADATA_SHAPE':'METADATA_OWNERSHIP';return result.eligible===true?Object.freeze({invocation}):null;},failureStage:()=>failure});
+ return Object.freeze({record(event,code,signal){if(event==='error'){invalid=true;return;}if((event!=='exit'&&event!=='close')||code!==1||signal!==null){invalid=true;return;}if(event==='exit'){if(exit||closedExit)invalid=true;exit=true;}else{if(!exit||closedExit)invalid=true;closedExit=true;}},take(){if(taken)return null;taken=true;let result;try{result=reader.read('flow-identifier');}catch{failure='METADATA_OWNERSHIP';return null;}if(!exit||!closedExit||invalid)return null;failure=result.eligible===false||result.metadata==='INVALID'?'METADATA_SHAPE':'METADATA_OWNERSHIP';return result.eligible===true?Object.freeze({invocation}):null;},failureStage:()=>failure,ownershipCheck:()=>reader.metadataCheck()});
 }
 export function preinputCaptureContext(environment,head){
  try{const e=environment;if(e.ST253_CAPTURE_ENABLED!=='true'||e.ST253_CAPTURE_PLATFORM!=='ios'||e.ST253_CAPTURE_HEAD_REPOSITORY!=='achkum/Applied-AI-Projects'||e.NODE_ENV!=='development'||e.SUBTRACK_PRIVATE_DEVICE_PROOF!=='true'||e.EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC!=='true'||e.EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED!=='true'||e.EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL!=='https://localhost:3443'||e.GITHUB_REPOSITORY!=='achkum/Applied-AI-Projects'||e.GITHUB_EVENT_NAME!=='pull_request'||e.GITHUB_REF!=='refs/pull/293/merge'||e.GITHUB_HEAD_REF!=='codex/native-owner-search'||e.ST253_CAPTURE_SOURCE_HEAD!==head||!/^[a-f0-9]{40}$/.test(head)||! /^[1-9][0-9]{0,19}$/.test(e.GITHUB_RUN_ID)||! /^[1-9][0-9]{0,3}$/.test(e.GITHUB_RUN_ATTEMPT)||! /^[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/.test(e.SUBTRACK_SIMULATOR_UDID))return null;

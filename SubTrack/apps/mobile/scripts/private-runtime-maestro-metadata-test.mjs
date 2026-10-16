@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join,resolve,dirname,basename} from 'node:path';
-import {projectEnrollmentMetadata,prepareEnrollmentMetadata,enrollmentMetadataLines,preinputWelcomeMetadata,preparePreinputMetadata,preinputCaptureContext,recordPreinputSimulator,zeroAllApi,validPreinputPng,sealPreinputPng,validSealedPreinput,validatedPreinputArtifact,captureSealedPreinput,PREINPUT_RECIPIENT_SHA256,PREINPUT_WITHHELD_STAGES} from './private-runtime-maestro-metadata.mjs';
+import {projectEnrollmentMetadata,prepareEnrollmentMetadata,enrollmentMetadataLines,preinputWelcomeMetadata,preparePreinputMetadata,preinputCaptureContext,recordPreinputSimulator,zeroAllApi,validPreinputPng,sealPreinputPng,validSealedPreinput,validatedPreinputArtifact,captureSealedPreinput,PREINPUT_RECIPIENT_SHA256,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS} from './private-runtime-maestro-metadata.mjs';
 import {createEnrollmentExecution} from './private-runtime-identifier-diagnostic.mjs';
 const kinds=['tapOnElement','inputTextCommand','hideKeyboardCommand','assertConditionCommand','scrollUntilVisible','takeScreenshotCommand','applyConfigurationCommand'];
 const row=(kind='tapOnElement',patch={})=>({command:{[kind]:{}},metadata:{status:'FAILED',sequenceNumber:1,depth:0,...patch}});
@@ -208,4 +208,43 @@ test('closed withheld stage locates reader/guard failures without upgrading elig
  });
  await privateTemporary(async({root})=>{assert.equal(await captureSealedPreinput(captureOptions(root,{onStage:()=>{throw Error('private diagnostic consumer');}})),true);});
  await privateTemporary(async({root})=>{let last;assert.equal(await captureSealedPreinput(captureOptions(root,{reader:{take:()=>null,failureStage:()=> 'private-canary'},onStage:value=>{last=value;}})),false);assert.equal(last,'CHILD_LIFECYCLE');});
+});
+
+
+test('pinned cli2.11 producer layout is read through exact original ownership checks despite ordinary artifact siblings',async()=>{
+ // TestDebugReporter timestamp + createFlowDir; ArtifactsGenerator writes commands.json inside it.
+ await privateTemporary(async({root})=>{const reader=initialReader(root),flow=join(root,'identifier','2026-10-15_120000','private-runtime-identifier');for(const directory of ['logs','screenshots','screen-hierarchy'])fs.mkdirSync(join(flow,directory),{mode:0o700});fs.writeFileSync(join(flow,'manifest.json'),'{}');fs.writeFileSync(join(flow,'logs','maestro.log'),'private-canary');fs.writeFileSync(join(flow,'screenshots','step-3-assert.png'),samplePng());assert.ok(reader.take());assert.equal(reader.ownershipCheck(),'UNKNOWN');});
+});
+
+test('complete first-failed ownership enum covers every existing boundary without paths or metadata values',async()=>{
+ const observed=new Set();assert.ok(Object.isFrozen(PREINPUT_METADATA_CHECKS));assert.equal(new Set(PREINPUT_METADATA_CHECKS).size,PREINPUT_METADATA_CHECKS.length);
+ for(const check of PREINPUT_METADATA_CHECKS)await privateTemporary(async({root})=>{
+  const output=join(root,'identifier'),stamp=join(output,'2026-10-15_120000'),flow=join(stamp,'private-runtime-identifier'),file=join(flow,'commands.json');
+  const directories={CAPTURE_PARENT:[root,1],CAPTURE_ROOT:[output,1],READ_PARENT:[root,2],READ_ROOT:[output,2],TIMESTAMP:[stamp,1],FLOW:[flow,1],FINAL_ROOT:[output,3],FINAL_PARENT:[root,3],FINAL_TIMESTAMP:[stamp,2],FINAL_FLOW:[flow,2]};
+  const originals={lstat:fs.lstatSync,realpath:fs.realpathSync,readdir:fs.readdirSync,mkdir:fs.mkdirSync,open:fs.openSync,fstat:fs.fstatSync,read:fs.readFileSync,close:fs.closeSync};
+  let taking=false;const statCounts=new Map(),canonicalCounts=new Map();const alter=(stat,patch)=>Object.assign(Object.create(Object.getPrototypeOf(stat)),stat,patch);
+  replace('lstatSync',(path,options)=>{const key=String(path),n=(statCounts.get(key)??0)+1;statCounts.set(key,n);
+   for(const [prefix,[target,ordinal]]of Object.entries(directories))if(key===target&&n===ordinal){if(check===`${prefix}_STAT`)throw Error('private stat');const stat=originals.lstat(path,options);if(check===`${prefix}_TYPE`)return alter(stat,{isSymbolicLink:()=>true});if(check===`${prefix}_IDENTITY`)return alter(stat,{ino:stat.ino+1n});return stat;}
+   if(key===file){if(check===(n===1?'COMMAND_STAT':'COMMAND_AFTER_STAT'))throw Error('private stat');const stat=originals.lstat(path,options);if(n===1&&check==='COMMAND_TYPE')return alter(stat,{isFile:()=>false});if(n===1&&check==='COMMAND_EMPTY')return alter(stat,{size:0n});if(n===2&&check==='COMMAND_AFTER_TYPE')return alter(stat,{isSymbolicLink:()=>true});if(n===2&&check==='COMMAND_AFTER_IDENTITY')return alter(stat,{ino:stat.ino+1n});if(n===2&&check==='COMMAND_AFTER_SIZE')return alter(stat,{size:stat.size+1n});return stat;}
+   return originals.lstat(path,options);
+  });
+  replace('realpathSync',path=>{const key=String(path),n=(canonicalCounts.get(key)??0)+1;canonicalCounts.set(key,n);for(const [prefix,[target,ordinal]]of Object.entries(directories))if(key===target&&n===ordinal&&check===`${prefix}_CANONICAL`)return join(root,'private-canary');return key===file&&check==='COMMAND_CANONICAL'?join(root,'private-canary'):originals.realpath(path);});
+  replace('mkdirSync',(path,options)=>{if(String(path)===output&&check==='CREATE_ROOT')throw Error('private mkdir');return originals.mkdir(path,options);});
+  replace('readdirSync',(path,options)=>{const prefix=String(path)===output?'TIMESTAMP':String(path)===stamp?'FLOW':'BUNDLE';if(check===`${prefix}_LIST`)throw Error('private list');const entries=originals.readdir(path,options);if(check===`${prefix}_LIMIT`)return Array.from({length:33},()=>entries[0]);if(check===`${prefix}_COUNT`)return [];if(check===`${prefix}_ENTRY_TYPE`)return [{...entries[0],isSymbolicLink:()=>false,isDirectory:()=>false}];if(check===`${prefix}_NAME`)return [{...entries[0],name:'private-canary',isSymbolicLink:()=>false,isDirectory:()=>true}];if(check==='BUNDLE_SYMLINK'&&prefix==='BUNDLE')return [{...entries[0],isSymbolicLink:()=>true}];return entries;});
+  replace('openSync',(path,flags,...rest)=>{if(taking){assert.equal(flags,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);if(check==='COMMAND_OPEN')throw Error('private open');}return originals.open(path,flags,...rest);});
+  replace('fstatSync',(fd,options)=>{if(check==='COMMAND_OPEN_STAT')throw Error('private fstat');const stat=originals.fstat(fd,options);return check==='COMMAND_OPEN_TYPE'?alter(stat,{isFile:()=>false}):check==='COMMAND_OPEN_IDENTITY'?alter(stat,{ino:stat.ino+1n}):check==='COMMAND_OPEN_SIZE'?alter(stat,{size:stat.size+1n}):stat;});
+  replace('readFileSync',(...args)=>{if(check==='COMMAND_READ')throw Error('private read');return originals.read(...args);});
+  replace('closeSync',fd=>{const result=originals.close(fd);if(taking&&check==='CLOSE')throw Error('private close');return result;});
+  const reader=preparePreinputMetadata(root);originals.mkdir(flow,{recursive:true});fs.writeFileSync(file,bytes(initialRecords()));reader.record('exit',1,null);reader.record('close',1,null);taking=true;
+  assert.equal(reader.take(),null,check);assert.equal(reader.failureStage(),'METADATA_OWNERSHIP',check);assert.equal(reader.ownershipCheck(),check,check);assert.equal(reader.take(),null);assert.equal(JSON.stringify({stage:reader.failureStage(),check:reader.ownershipCheck()}).includes('private-canary'),false);observed.add(reader.ownershipCheck());
+ });assert.deepEqual([...observed].sort(),[...PREINPUT_METADATA_CHECKS].sort());
+});
+
+test('ownership records first failure even when close fails later; diagnostic rejection never authorizes capture',async()=>{
+ await privateTemporary(async({root})=>{const reader=initialReader(root),actualRead=fs.readFileSync,actualClose=fs.closeSync;replace('readFileSync',(...args)=>{if(typeof args[0]==='number')throw Error('private first error');return actualRead(...args);});replace('closeSync',fd=>{actualClose(fd);throw Error('private later close');});assert.equal(reader.take(),null);assert.equal(reader.ownershipCheck(),'COMMAND_READ');assert.equal(reader.failureStage(),'METADATA_OWNERSHIP');assert.equal(await captureSealedPreinput(captureOptions(root,{reader})),false);});
+});
+
+
+test('a non-directory private root remains ineligible before consuming the diagnostic ticket',async()=>{
+ await privateTemporary(async({root})=>{fs.unlinkSync(join(root,'preinput-ios-custody.json'));fs.rmdirSync(root);fs.writeFileSync(root,'private-canary');let consumed=false;assert.equal(await captureSealedPreinput(captureOptions(root,{reader:{take:()=>{consumed=true;return null;}}})),false);assert.equal(consumed,false);});
 });
