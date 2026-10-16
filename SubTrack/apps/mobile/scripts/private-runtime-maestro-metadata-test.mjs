@@ -6,17 +6,17 @@ import {Buffer} from 'node:buffer';
 import assert from 'node:assert/strict';
 import test,{mock} from 'node:test';
 import fs from 'node:fs';
-import {syncBuiltinESMExports} from 'node:module';
+import {syncBuiltinESMExports,createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join,resolve,dirname,basename} from 'node:path';
-import {projectEnrollmentMetadata,prepareEnrollmentMetadata,enrollmentMetadataLines,preinputWelcomeMetadata,preparePreinputMetadata,preinputCaptureContext,recordPreinputSimulator,zeroAllApi,validPreinputPng,sealPreinputPng,validSealedPreinput,validatedPreinputArtifact,captureSealedPreinput,PREINPUT_RECIPIENT_SHA256,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS} from './private-runtime-maestro-metadata.mjs';
+import {projectEnrollmentMetadata,prepareEnrollmentMetadata,enrollmentMetadataLines,preinputWelcomeMetadata,preparePreinputMetadata,preinputCaptureContext,recordPreinputSimulator,zeroAllApi,validPreinputPng,sealPreinputPng,validSealedPreinput,validatedPreinputArtifact,captureSealedPreinput,PREINPUT_RECIPIENT_SHA256,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS,ENROLLMENT_HEADER_OCCURRENCES} from './private-runtime-maestro-metadata.mjs';
 import {createEnrollmentExecution} from './private-runtime-identifier-diagnostic.mjs';
 const kinds=['tapOnElement','inputTextCommand','hideKeyboardCommand','assertConditionCommand','scrollUntilVisible','takeScreenshotCommand','applyConfigurationCommand'];
 const row=(kind='tapOnElement',patch={})=>({command:{[kind]:{}},metadata:{status:'FAILED',sequenceNumber:1,depth:0,...patch}});
 const bytes=value=>Buffer.from(JSON.stringify(value));
 const prefix=(patch={})=>({command:{defineVariablesCommand:{env:{private:'private-canary'}}},metadata:{status:'COMPLETED',sequenceNumber:0,depth:0,...patch}});
 const flowBytes=rows=>bytes([prefix(),...rows]);
-const invalid=value=>assert.deepEqual(projectEnrollmentMetadata(value),{metadata:'INVALID',command:'UNKNOWN',target:'UNKNOWN',errorClass:'UNKNOWN'});
+const invalid=value=>assert.deepEqual(projectEnrollmentMetadata(value),{metadata:'INVALID',command:'UNKNOWN',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'});
 function temporary(action){const base=fs.realpathSync(tmpdir()),root=fs.mkdtempSync(join(base,'st-c22-'));try{return action(root);}finally{mock.restoreAll();syncBuiltinESMExports();assert.equal(dirname(resolve(root)),base);assert.ok(basename(root).startsWith('st-c22-'));fs.rmSync(root,{recursive:true,force:true});}}
 function fixture(root){const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution),flow=join(root,'enroll-add','2026-10-14_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});const file=join(flow,'commands.json');fs.writeFileSync(file,flowBytes([row()]));execution.record('exit',1,null);return {execution,reader,flow,file};}
 function replace(name,implementation){mock.method(fs,name,implementation);syncBuiltinESMExports();}
@@ -49,9 +49,9 @@ test('fresh invocation reader is failure-only, bounded and refuses missing/ambig
  temporary(root=>{const {reader}=fixture(root);for(let i=0;i<33;i++)fs.writeFileSync(join(root,'enroll-add','private-'+i),'');assert.equal(reader.read('flow-enroll-add').metadata,'UNAVAILABLE');});
 });
 test('exact line grammar cannot upgrade malformed/duplicate/injected status; error class always UNKNOWN',()=>{
- assert.deepEqual(enrollmentMetadataLines(projectEnrollmentMetadata(flowBytes([row()]))),['enrollment-structured-metadata=AVAILABLE','enrollment-failed-command=TAP','enrollment-failed-target=UNKNOWN','enrollment-error-class=UNKNOWN']);
- for(const value of [null,[],{metadata:'AVAILABLE',command:'UNKNOWN',target:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'UNAVAILABLE',command:'TAP',target:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'INVALID',command:'private-canary',target:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'private-canary',command:'UNKNOWN',target:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'INVALID',command:'UNKNOWN',target:'UNKNOWN',errorClass:'AssertionFailure'},{metadata:'INVALID',command:'UNKNOWN',target:'UNKNOWN',errorClass:'UNKNOWN',extra:true}])assert.equal(enrollmentMetadataLines(value),null);
- assert.deepEqual(enrollmentMetadataLines(projectEnrollmentMetadata(Buffer.from('private-canary'))),['enrollment-structured-metadata=INVALID','enrollment-failed-command=UNKNOWN','enrollment-failed-target=UNKNOWN','enrollment-error-class=UNKNOWN']);
+ assert.deepEqual(enrollmentMetadataLines(projectEnrollmentMetadata(flowBytes([row()]))),['enrollment-structured-metadata=AVAILABLE','enrollment-failed-command=TAP','enrollment-failed-target=UNKNOWN','enrollment-failed-occurrence=UNKNOWN','enrollment-error-class=UNKNOWN']);
+ for(const value of [null,[],{metadata:'AVAILABLE',command:'UNKNOWN',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'UNAVAILABLE',command:'TAP',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'INVALID',command:'private-canary',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'private-canary',command:'UNKNOWN',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'INVALID',command:'UNKNOWN',target:'UNKNOWN',errorClass:'AssertionFailure'},{metadata:'INVALID',command:'UNKNOWN',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN',extra:true}])assert.equal(enrollmentMetadataLines(value),null);
+ assert.deepEqual(enrollmentMetadataLines(projectEnrollmentMetadata(Buffer.from('private-canary'))),['enrollment-structured-metadata=INVALID','enrollment-failed-command=UNKNOWN','enrollment-failed-target=UNKNOWN','enrollment-failed-occurrence=UNKNOWN','enrollment-error-class=UNKNOWN']);
 });
 test('actual bounded tree symlinks and changed inode/path/open/read fences never upgrade ownership',()=>{
  temporary(root=>{const file=join(root,'not-directory');fs.writeFileSync(file,'');const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(file,execution);execution.record('error');assert.equal(reader.read('flow-enroll-add').metadata,'UNAVAILABLE');});
@@ -65,7 +65,7 @@ test('actual bounded tree symlinks and changed inode/path/open/read fences never
 test('pinned producer requires exactly one completed initial top-level private definition prelude',()=>{
  const completed=prefix({timestamp:1,duration:2,evaluatedCommand:{defineVariablesCommand:{env:{private:'private-canary'}}},error:{message:'private-canary',debugMessage:'private-canary'},artifacts:[{type:'SCREENSHOT',path:'private-canary'}]});
  const production=[completed,row('applyConfigurationCommand',{status:'COMPLETED'}),row('inputTextCommand',{status:'COMPLETED',sequenceNumber:2}),row('assertConditionCommand',{sequenceNumber:3})];
- assert.deepEqual(projectEnrollmentMetadata(bytes(production)),{metadata:'AVAILABLE',command:'ASSERT_CONDITION',target:'UNKNOWN',errorClass:'UNKNOWN'});
+ assert.deepEqual(projectEnrollmentMetadata(bytes(production)),{metadata:'AVAILABLE',command:'ASSERT_CONDITION',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'});
  assert.equal(JSON.stringify(enrollmentMetadataLines(projectEnrollmentMetadata(bytes(production)))).includes('canary'),false);
  for(const value of [[],[row()],[row('applyConfigurationCommand',{status:'COMPLETED'}),row('tapOnElement',{sequenceNumber:2})],
   [prefix({status:'FAILED'}),row()], [prefix({status:'PENDING'}),row()], [prefix({status:'RUNNING'}),row()], [prefix({status:'WARNED'}),row()], [prefix({status:'SKIPPED'}),row()], [prefix({status:'unknown'}),row()],
@@ -88,7 +88,7 @@ test('failed scroll targets come only from exact original source selectors and e
  for(const selector of [null,[],{}, {idRegex:42},{textRegex:42},{idRegex:'private-canary'}, {textRegex:'private-canary'}, {idRegex:'native-personal-title',textRegex:'${MAESTRO_ADD}'}, {idRegex:'native-personal-title',enabled:true}, {idRegex:'native-personal-title',optional:true}, {idRegex:'native-personal-title',extra:null}])assert.equal(project(selector,'UP').target,'UNKNOWN');
  for(const direction of ['DOWN','private-canary',null])assert.equal(project({idRegex:'native-personal-title'},direction).target,'UNKNOWN');
  assert.equal(project({idRegex:'native-subscription-name'},'UP').target,'UNKNOWN');assert.equal(project({},'DOWN',{selector:null}).target,'UNKNOWN');
- const result=project({idRegex:'native-personal-title'},'UP');assert.deepEqual(enrollmentMetadataLines(result),['enrollment-structured-metadata=AVAILABLE','enrollment-failed-command=SCROLL_UNTIL_VISIBLE','enrollment-failed-target=personal-title','enrollment-error-class=UNKNOWN']);
+ const result=project({idRegex:'native-personal-title'},'UP');assert.deepEqual(enrollmentMetadataLines(result),['enrollment-structured-metadata=AVAILABLE','enrollment-failed-command=SCROLL_UNTIL_VISIBLE','enrollment-failed-target=personal-title','enrollment-failed-occurrence=UNKNOWN','enrollment-error-class=UNKNOWN']);
  for(const patch of [{target:'private-canary'},{command:'TAP'},{metadata:'UNAVAILABLE'},{extra:'private-canary'}])assert.equal(enrollmentMetadataLines({...result,...patch}),null);
  assert.equal(JSON.stringify(project({textRegex:'private-canary'})).includes('canary'),false);
 });
@@ -247,4 +247,50 @@ test('ownership records first failure even when close fails later; diagnostic re
 
 test('a non-directory private root remains ineligible before consuming the diagnostic ticket',async()=>{
  await privateTemporary(async({root})=>{fs.unlinkSync(join(root,'preinput-ios-custody.json'));fs.rmdirSync(root);fs.writeFileSync(root,'private-canary');let consumed=false;assert.equal(await captureSealedPreinput(captureOptions(root,{reader:{take:()=>{consumed=true;return null;}}})),false);assert.equal(consumed,false);});
+});
+
+
+function sourceEnrollmentRecords(){
+ const mobileRequire=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobileRequire.resolve('expo/package.json'))('yaml');
+ const [config,flow]=yaml.parseAllDocuments(fs.readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml',import.meta.url),'utf8')).map(document=>document.toJSON());assert.equal(config.appId,'se.subtrack.app');
+ const selector=value=>typeof value==='string'?{textRegex:value}:{...(value.id?{idRegex:value.id}:{}),...(value.text?{textRegex:value.text}:{}),...(value.enabled===undefined?{}:{enabled:value.enabled})};
+ const commands=flow.map(step=>{const object=typeof step==='string'?{[step]:null}:step;const [kind,value]=Object.entries(object)[0];assert.equal(Object.keys(object).length,1);switch(kind){
+  case 'tapOn':return {tapOnElement:{selector:selector(value)}};
+  case 'inputText':return {inputTextCommand:{text:String(value)}};
+  case 'hideKeyboard':return {hideKeyboardCommand:{}};
+  case 'extendedWaitUntil':return {assertConditionCommand:{condition:{visible:selector(value.visible)},timeout:String(value.timeout)}};
+  case 'assertVisible':return {assertConditionCommand:{condition:{visible:selector(value)}}};
+  case 'scrollUntilVisible':return {scrollUntilVisible:{selector:selector(value.element),direction:value.direction}};
+  case 'takeScreenshot':return {takeScreenshotCommand:{path:value}};
+  default:throw Error('Unexpected source flow command');
+ }});
+ return [prefix(),{command:{applyConfigurationCommand:{config}},metadata:{}},...commands.map(command=>({command,metadata:{}}))].map((record,index)=>({...record,metadata:{...record.metadata,status:'COMPLETED',sequenceNumber:index,depth:0}}));
+}
+function sourceHeaderFailure(which){const records=sourceEnrollmentRecords(),headers=records.flatMap((record,index)=>record.command.scrollUntilVisible?.selector.idRegex==='native-personal-title'?[index]:[]);assert.equal(headers.length,2);const at=headers[which];assert.equal(records[at-1].command.tapOnElement.selector.textRegex,which===0?'${MAESTRO_MANAGE}':'${MAESTRO_SAVE_SUBSCRIPTION}');const result=records.slice(0,at+1);result.at(-1).metadata.status='FAILED';result.at(-1).metadata.evaluatedCommand={scrollUntilVisible:{selector:{idRegex:'private-canary'},direction:'DOWN'}};result.at(-1).metadata.error={message:'private-canary SAVED_HEADER ENTRY_HEADER'};return result;}
+
+test('actual enroll-add source converted to pinned original producer records distinguishes identical entry and saved header executions',async()=>{
+ assert.deepEqual(ENROLLMENT_HEADER_OCCURRENCES,['ENTRY_HEADER','SAVED_HEADER','UNKNOWN']);assert.ok(Object.isFrozen(ENROLLMENT_HEADER_OCCURRENCES));
+ for(const [index,occurrence]of ['ENTRY_HEADER','SAVED_HEADER'].entries()){
+  const records=sourceHeaderFailure(index),result=projectEnrollmentMetadata(bytes(records));assert.equal(result.metadata,'AVAILABLE');assert.equal(result.command,'SCROLL_UNTIL_VISIBLE');assert.equal(result.target,'personal-title');assert.equal(result.occurrence,occurrence);assert.ok(enrollmentMetadataLines(result).includes(`enrollment-failed-occurrence=${occurrence}`));assert.equal(JSON.stringify(result).includes('private-canary'),false);
+  await privateTemporary(async({root})=>{const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution),flow=join(root,'enroll-add','2026-10-16_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});fs.writeFileSync(join(flow,'commands.json'),bytes(records));execution.record('exit',1,null);assert.equal(reader.read('flow-enroll-add').occurrence,occurrence);});
+ }
+});
+
+test('unknown, mixed, skipped, gapped, nested, repeated or continued original portfolios never guess a header occurrence',()=>{
+ const mutations=[
+  rows=>{rows[0].metadata.sequenceNumber=1;for(let i=1;i<rows.length;i++)rows[i].metadata.sequenceNumber=i+1;},
+  rows=>{rows[2].metadata.sequenceNumber=rows[2].metadata.sequenceNumber+1;for(let i=3;i<rows.length;i++)rows[i].metadata.sequenceNumber++;},
+  rows=>{rows[2].metadata.depth=1;},rows=>{rows[2].metadata.status='SKIPPED';},rows=>{rows[2].metadata.status='WARNED';},rows=>{rows[2].metadata.status='RUNNING';},
+  rows=>{delete rows[1].command.applyConfigurationCommand.config;},rows=>{rows[1].command.applyConfigurationCommand.config=null;},rows=>{rows[1].command.applyConfigurationCommand.config.appId='private-canary';},rows=>{rows[1].command.applyConfigurationCommand.config.onFlowStart={commands:[]};},rows=>{rows[1].command.applyConfigurationCommand.config.onFlowComplete={commands:[]};},
+  rows=>{rows[2].command={applyConfigurationCommand:{config:{appId:'se.subtrack.app'}}};},
+  rows=>{const scroll=rows.find(record=>record.command.scrollUntilVisible);scroll.command.scrollUntilVisible.selector={idRegex:'native-personal-title',textRegex:'private-canary'};},
+  rows=>{const scroll=rows.find(record=>record.command.scrollUntilVisible);scroll.command.scrollUntilVisible.direction='private-canary';},
+  rows=>{const scroll=rows.find(record=>record.command.scrollUntilVisible);scroll.command.scrollUntilVisible.selector={idRegex:'private-canary'};scroll.metadata.evaluatedCommand={scrollUntilVisible:{selector:{idRegex:'native-personal-title'},direction:'UP'}};},
+  rows=>{rows[2].command={scrollUntilVisible:{selector:{idRegex:'native-personal-title'},direction:'UP'}};rows[3].command={scrollUntilVisible:{selector:{idRegex:'native-personal-title'},direction:'UP'}};},
+  rows=>{rows.push({command:{tapOnElement:{}},metadata:{status:'COMPLETED',depth:0,sequenceNumber:rows.length}});},
+ ];for(const mutate of mutations){const records=sourceHeaderFailure(1);mutate(records);const result=projectEnrollmentMetadata(bytes(records));assert.equal(result.metadata,'AVAILABLE');assert.equal(result.target,'personal-title');assert.equal(result.occurrence,'UNKNOWN');}
+ const mixed=sourceHeaderFailure(0);mixed.at(-1).command.scrollUntilVisible.selector.textRegex='private-canary';assert.equal(projectEnrollmentMetadata(bytes(mixed)).occurrence,'UNKNOWN');
+ const multiple=sourceHeaderFailure(1);multiple[2].metadata.status='FAILED';assert.equal(projectEnrollmentMetadata(bytes(multiple)).metadata,'UNAVAILABLE');
+ const base=projectEnrollmentMetadata(bytes(sourceHeaderFailure(0)));for(const patch of [{occurrence:'private-canary'},{occurrence:undefined},{target:'add-open'},{command:'TAP'},{metadata:'UNAVAILABLE'},{extra:'private-canary'}])assert.equal(enrollmentMetadataLines({...base,...patch}),null);
+ const missing={...base};delete missing.occurrence;assert.equal(enrollmentMetadataLines(missing),null);
 });

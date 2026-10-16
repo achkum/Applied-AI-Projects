@@ -10,7 +10,8 @@ const MAX_BYTES=4*1024*1024;
 const KINDS=Object.freeze({tapOnElement:'TAP',inputTextCommand:'INPUT',hideKeyboardCommand:'HIDE_KEYBOARD',assertConditionCommand:'ASSERT_CONDITION',scrollUntilVisible:'SCROLL_UNTIL_VISIBLE',takeScreenshotCommand:'SCREENSHOT',applyConfigurationCommand:'CONFIGURATION'});
 const STATUSES=['PENDING','RUNNING','COMPLETED','FAILED','WARNED','SKIPPED'];
 const TARGETS=Object.freeze(['personal-title','profile-save','add-open','subscription-name','subscription-category','subscription-amount','date-field','subscription-save','saved-row','UNKNOWN']);
-const closed=(metadata,command='UNKNOWN',target='UNKNOWN')=>Object.freeze({metadata,command,target,errorClass:'UNKNOWN'});
+export const ENROLLMENT_HEADER_OCCURRENCES=Object.freeze(['ENTRY_HEADER','SAVED_HEADER','UNKNOWN']);
+const closed=(metadata,command='UNKNOWN',target='UNKNOWN',occurrence='UNKNOWN')=>Object.freeze({metadata,command,target,occurrence,errorClass:'UNKNOWN'});
 const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 const integer=value=>Number.isSafeInteger(value)&&value>=0;
 function strictJson(bytes){
@@ -52,13 +53,25 @@ function validateMetadata(metadata){
  if(Object.hasOwn(metadata,'error')){if(!plain(metadata.error)||Object.keys(metadata.error).some(key=>!['message','debugMessage'].includes(key))||Object.values(metadata.error).some(value=>typeof value!=='string'))throw Error('invalid');}
  if(Object.hasOwn(metadata,'artifacts')){if(!Array.isArray(metadata.artifacts)||metadata.artifacts.some(artifact=>!plain(artifact)||Object.keys(artifact).sort().join(',')!=='path,type'||typeof artifact.path!=='string'||typeof artifact.type!=='string'))throw Error('invalid');}
 }
+// Pinned Orchestra emits original executedSteps in sequence; gaps/hooks/continued failures are not a source prefix.
+function headerOccurrence(rows){
+ if(rows.some((row,index)=>row.metadata.sequenceNumber!==index||row.metadata.depth!==0||row.metadata.status!==(index===rows.length-1?'FAILED':'COMPLETED')))return 'UNKNOWN';
+ const config=rows[1]?.command.applyConfigurationCommand?.config;
+ if(!plain(config)||config.appId!=='se.subtrack.app'||config.onFlowStart!=null||config.onFlowComplete!=null)return 'UNKNOWN';
+ let headers=0;
+ for(let index=1;index<rows.length-1;index++){
+  const kind=commandKind(rows[index].command);if(kind==='CONFIGURATION'&&index!==1)return 'UNKNOWN';
+  if(kind==='SCROLL_UNTIL_VISIBLE'){const target=scrollTarget(rows[index].command);if(target==='UNKNOWN')return 'UNKNOWN';if(target==='personal-title')headers++;}
+ }
+ return headers===0?'ENTRY_HEADER':headers===1?'SAVED_HEADER':'UNKNOWN';
+}
 /** Strict producer-shaped projection; payloads and error prose never classify a command. */
 export function projectEnrollmentMetadata(bytes){
  try{const rows=strictJson(bytes);if(!Array.isArray(rows)||rows.length===0||rows.length>128)throw Error('invalid');let last=-1;const failed=[];
   for(const [index,row] of rows.entries()){if(!plain(row)||Object.keys(row).sort().join(',')!=='command,metadata')throw Error('invalid');validateMetadata(row.metadata);if(row.metadata.sequenceNumber<=last)throw Error('invalid');last=row.metadata.sequenceNumber;
    if(index===0){if(!plain(row.command)||Object.keys(row.command).join(',')!=='defineVariablesCommand'||!plain(row.command.defineVariablesCommand)||row.metadata.status!=='COMPLETED'||row.metadata.depth!==0)throw Error('invalid');continue;}
    const kind=commandKind(row.command);if(row.metadata.status==='FAILED'){if(row.metadata.depth!==0)throw Error('invalid');failed.push({kind,target:kind==='SCROLL_UNTIL_VISIBLE'?scrollTarget(row.command):'UNKNOWN'});}}
-  return failed.length===1?closed('AVAILABLE',failed[0].kind,failed[0].target):closed('UNAVAILABLE');
+  return failed.length===1?closed('AVAILABLE',failed[0].kind,failed[0].target,failed[0].target==='personal-title'?headerOccurrence(rows):'UNKNOWN'):closed('UNAVAILABLE');
  }catch{return closed('INVALID');}
 }
 function directory(path){const stat=lstatSync(path,{bigint:true});if(stat.isSymbolicLink()||!stat.isDirectory()||realpathSync(path)!==resolve(path))throw Error('unavailable');return stat;}
@@ -98,8 +111,8 @@ function prepareCommandMetadata(privateRoot,execution,flowName,phaseName,project
 export function prepareEnrollmentMetadata(privateRoot,execution){return prepareCommandMetadata(privateRoot,execution,'enroll-add','flow-enroll-add',projectEnrollmentMetadata);}
 /** Only this exact fixed grammar may leave the private invocation. */
 export function enrollmentMetadataLines(result){
- if(!plain(result)||Object.keys(result).sort().join(',')!=='command,errorClass,metadata,target'||!['AVAILABLE','UNAVAILABLE','INVALID'].includes(result.metadata)||!['UNKNOWN',...Object.values(KINDS)].includes(result.command)||!TARGETS.includes(result.target)||(result.command!=='SCROLL_UNTIL_VISIBLE'&&result.target!=='UNKNOWN')||result.errorClass!=='UNKNOWN'||(result.metadata!=='AVAILABLE'&&result.command!=='UNKNOWN')||(result.metadata==='AVAILABLE'&&result.command==='UNKNOWN'))return null;
- return Object.freeze([`enrollment-structured-metadata=${result.metadata}`,`enrollment-failed-command=${result.command}`,`enrollment-failed-target=${result.target}`,'enrollment-error-class=UNKNOWN']);
+ if(!plain(result)||Object.keys(result).sort().join(',')!=='command,errorClass,metadata,occurrence,target'||!['AVAILABLE','UNAVAILABLE','INVALID'].includes(result.metadata)||!['UNKNOWN',...Object.values(KINDS)].includes(result.command)||!TARGETS.includes(result.target)||!ENROLLMENT_HEADER_OCCURRENCES.includes(result.occurrence)||(result.occurrence!=='UNKNOWN'&&(result.metadata!=='AVAILABLE'||result.command!=='SCROLL_UNTIL_VISIBLE'||result.target!=='personal-title'))||(result.command!=='SCROLL_UNTIL_VISIBLE'&&result.target!=='UNKNOWN')||result.errorClass!=='UNKNOWN'||(result.metadata!=='AVAILABLE'&&result.command!=='UNKNOWN')||(result.metadata==='AVAILABLE'&&result.command==='UNKNOWN'))return null;
+ return Object.freeze([`enrollment-structured-metadata=${result.metadata}`,`enrollment-failed-command=${result.command}`,`enrollment-failed-target=${result.target}`,`enrollment-failed-occurrence=${result.occurrence}`,'enrollment-error-class=UNKNOWN']);
 }
 
 export const PREINPUT_RECIPIENT_SHA256='78dcbab092c04038de65ae94c8ede017230bcdd2e920893b11a246a30e122c5f';

@@ -449,6 +449,7 @@ async function main() {
         );
     }
     if (currentPhase === 'flow-enroll-add') {
+      // Target and occurrence share this owned original-command bundle; legacy text never supplies either.
       const metadata=enrollmentMetadata?.read(currentPhase);
       if(metadata) for(const line of enrollmentMetadataLines(metadata))console.error(`ST244_NATIVE ${line}`);
       let enrollmentLogSize = null;

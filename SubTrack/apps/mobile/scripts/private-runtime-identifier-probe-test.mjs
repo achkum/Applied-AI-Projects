@@ -202,3 +202,8 @@ test('ownership detail is fixed, withheld-only and emitted after cleanup; legacy
  assert.ok(driver.indexOf('await captureSealedPreinput')<driver.indexOf("let metadataCheck='UNKNOWN'"));
  assert.ok(driver.includes('identifier_diagnostic=fixed source=legacy-text target_observation=unobserved'));assert.ok(driver.includes("legacy_targets=${diagnostic.targets.join(',') || 'none'}"));
 });
+
+
+test('header occurrence shares the owned original metadata formatter and never uses the legacy log projection',()=>{
+ const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');const start=driver.indexOf("if (currentPhase === 'flow-enroll-add')");const block=driver.slice(start,driver.indexOf('let enrollmentLogSize',start));assert.ok(block.includes('const metadata=enrollmentMetadata?.read(currentPhase)'));assert.ok(block.includes('for(const line of enrollmentMetadataLines(metadata))'));assert.equal(block.includes('readTool'),false);assert.equal(block.includes('identifierToolDiagnostic'),false);
+});
