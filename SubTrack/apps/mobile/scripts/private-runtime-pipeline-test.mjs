@@ -11,29 +11,25 @@ const workflow = yaml.parse(read('../../../../.github/workflows/subtrack-native-
 const steps = workflow.jobs['installed-native'].steps;
 const step = name => {const found=steps.find(item=>item.name===name);assert.ok(found,name);return found;};
 const cacheSteps = steps.filter(item => item.uses?.startsWith('actions/cache/'));
-assert.equal(cacheSteps.length,4);
+assert.equal(cacheSteps.length,2);
 for(const item of cacheSteps){
   assert.match(item.uses,/@0057852bfaa89a56745cba8c7296529d2fc39830$/);
   assert.ok(item.if.includes("matrix.platform == 'android'"));
   assert.equal(item.with['restore-keys'],undefined);
 }
-const sdkPaths = ['/usr/local/lib/android/sdk/system-images/android-34/google_apis/x86_64','/usr/local/lib/android/sdk/platforms/android-36','/usr/local/lib/android/sdk/build-tools/36.0.0','/usr/local/lib/android/sdk/ndk/27.1.12297006'];
 const gradlePaths = ['~/.gradle/caches/modules-2','~/.gradle/caches/*/transforms','~/.gradle/caches/transforms-*','~/.gradle/caches/build-cache-*','~/.gradle/wrapper'];
-for(const [restore,save,paths] of [[cacheSteps[0],cacheSteps[1],sdkPaths],[cacheSteps[2],cacheSteps[3],gradlePaths]]){
+for(const [restore,save,paths] of [[cacheSteps[0],cacheSteps[1],gradlePaths]]){
   assert.match(restore.uses,/cache\/restore@/);assert.match(save.uses,/cache\/save@/);
   assert.deepEqual(restore.with.path.trim().split('\n'),paths);
   assert.deepEqual(save.with.path.trim().split('\n'),paths);
   assert.equal(save.with.key, '${{ steps.'+restore.id+'.outputs.cache-primary-key }}');
 }
-assert.equal(step('Verify Android cache root').run.trim(),'test "$ANDROID_HOME" = /usr/local/lib/android/sdk');
-assert.ok(steps.indexOf(step('Verify Android cache root'))<steps.indexOf(cacheSteps[0]));
-assert.ok(cacheSteps[0].with.key.includes("hashFiles('SubTrack/apps/mobile/scripts/private-runtime-android.sh')"));
-for(const path of ['SubTrack/pnpm-lock.yaml','SubTrack/apps/mobile/scripts/private-runtime-build.sh','SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle'])assert.ok(cacheSteps[2].with.key.includes(path));
-assert.ok(cacheSteps[1].if.includes("steps.android_sdk.outcome == 'success'"));
+assert.ok(cacheSteps.every(item=>!item.with.path.includes('/android/sdk')));
+for(const path of ['SubTrack/pnpm-lock.yaml','SubTrack/apps/mobile/scripts/private-runtime-build.sh','SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle'])assert.ok(cacheSteps[0].with.key.includes(path));
 assert.ok(step('Save public Android Gradle inputs and library tasks').if.includes('always()'));
 assert.ok(step('Save public Android Gradle inputs and library tasks').run.includes("state.phase==='metro'&&state.exitCode===0"));
-assert.ok(cacheSteps[3].if.includes("env.SUBTRACK_ANDROID_GRADLE_CACHE_READY == 'true'"));
-assert.ok(steps.indexOf(step('Installed workflow, API restart, same database row and logout'))<steps.indexOf(cacheSteps[3]));
+assert.ok(cacheSteps[1].if.includes("env.SUBTRACK_ANDROID_GRADLE_CACHE_READY == 'true'"));
+assert.ok(steps.indexOf(step('Installed workflow, API restart, same database row and logout'))<steps.indexOf(cacheSteps[1]));
 assert.equal(step('Sanitized native evidence only').if,'success()');
 const build=read('./private-runtime-build.sh');
 assert.ok(build.includes('./gradlew :app:assembleDebug --no-daemon'));

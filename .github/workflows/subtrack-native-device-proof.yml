@@ -101,35 +101,11 @@ jobs:
       - name: Android pinned emulator provisioning
         if: matrix.platform == 'android'
         run: bash apps/mobile/scripts/private-runtime-emulator.sh
-      - name: Verify Android cache root
-        if: matrix.platform == 'android'
-        run: test "$ANDROID_HOME" = /usr/local/lib/android/sdk
-      - name: Restore pinned Android packages
-        id: android_sdk_cache
-        if: matrix.platform == 'android'
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: |
-            /usr/local/lib/android/sdk/system-images/android-34/google_apis/x86_64
-            /usr/local/lib/android/sdk/platforms/android-36
-            /usr/local/lib/android/sdk/build-tools/36.0.0
-            /usr/local/lib/android/sdk/ndk/27.1.12297006
-          key: subtrack-android-sdk-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/apps/mobile/scripts/private-runtime-android.sh') }}
       - name: Android SDK package installation (bounded)
         id: android_sdk
         if: matrix.platform == 'android'
         run: |
           bash apps/mobile/scripts/private-runtime-android.sh sdk
-      - name: Save verified Android packages
-        if: matrix.platform == 'android' && steps.android_sdk.outcome == 'success' && steps.android_sdk_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: |
-            /usr/local/lib/android/sdk/system-images/android-34/google_apis/x86_64
-            /usr/local/lib/android/sdk/platforms/android-36
-            /usr/local/lib/android/sdk/build-tools/36.0.0
-            /usr/local/lib/android/sdk/ndk/27.1.12297006
-          key: ${{ steps.android_sdk_cache.outputs.cache-primary-key }}
       - name: Restore public Android Gradle inputs and library tasks
         id: android_gradle_cache
         if: matrix.platform == 'android'
