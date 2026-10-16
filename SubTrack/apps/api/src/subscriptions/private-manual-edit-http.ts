@@ -12,6 +12,7 @@ const {parsePrivateManualEdit,parsePrivateManualEdited} = createRequire(__filena
 }>;
 const KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const CADENCES = Object.freeze(['WEEKLY','MONTHLY','QUARTERLY','SEMIANNUAL','ANNUAL'] as const);
 const digest = (value:string):Buffer => createHash('sha256').update(value,'utf8').digest();
 function problem(response:ServerResponse,status:number,code?:string):void {
   const titles:Record<number,string>={400:'Bad Request',401:'Unauthorized',403:'Forbidden',404:'Not Found',409:'Conflict',500:'Internal Server Error'};
@@ -66,13 +67,13 @@ export function createPrivateManualEditHttp(authority:DurableCurrentWebAuthority
           if(value.id!==id) return {state:'key-conflict'};
           return timingSafeEqual(receipt.request_hash,requestHash)?{state:'ok',value}:{state:'key-conflict'};
         }
-        const target=select(await tx.execute<TargetRow>('manualEditTargetLock',[owner.identityId,id,'MANUAL','SEK']));
+        const target=select(await tx.execute<TargetRow>('manualEditTargetLock',[owner.identityId,id,'MANUAL','SEK',...CADENCES]));
         if(!target)return {state:'missing'};
         const current=parsePrivateManualEdited(target);
         if(current.id!==id)throw new Error('edit-target');
         if(current.revision!==body.expectedRevision)return {state:'stale'};
         const updated=await tx.execute<TargetRow>('manualEditCompareUpdate',[owner.identityId,id,body.expectedRevision,
-          body.customName,body.categoryCode,body.cadence,body.expectedAmountMinor,body.nextChargeDate,'MANUAL','SEK']);
+          body.customName,body.categoryCode,body.cadence,body.expectedAmountMinor,body.nextChargeDate,'MANUAL','SEK',...CADENCES]);
         if(updated.command!=='UPDATE'||updated.rowCount!==1||updated.rows.length!==1)throw new Error('edit-update');
         const value=parsePrivateManualEdited(updated.rows[0]);
         if(value.id!==id||BigInt(value.revision)!==BigInt(body.expectedRevision)+1n)throw new Error('edit-revision');

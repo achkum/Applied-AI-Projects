@@ -20,11 +20,11 @@ describe('public bank closed source SQL and owner parameter policy',()=>{
   for(const [name,values,id]of invalid)expect(()=>sandboxStatement(name as string,values as unknown[],id as string)).toThrow('Sandbox statement unavailable');expect(reads).toBe(0);
  });
  it('accepts the exact scalar manual-edit argument tuples produced by both consumers',()=>{
-  const target=[owner,connection,'MANUAL','SEK'],update=[owner,connection,'1','Example','VIDEO_STREAMING','MONTHLY','999',null,'MANUAL','SEK'];
+  const cadenceTuple=['WEEKLY','MONTHLY','QUARTERLY','SEMIANNUAL','ANNUAL'],target=[owner,connection,'MANUAL','SEK',...cadenceTuple],update=[owner,connection,'1','Example','VIDEO_STREAMING','MONTHLY','999',null,'MANUAL','SEK',...cadenceTuple];
   expect(sandboxStatement('manualEditTargetLock',target,owner).values).toEqual(target);expect(sandboxStatement('manualEditCompareUpdate',update,owner).values).toEqual(update);
-  for(const statement of [PRIVATE_MANUAL_EDIT_STATEMENTS.manualEditTargetLock,PRIVATE_MANUAL_EDIT_STATEMENTS.manualEditCompareUpdate]){
-   for(const cadence of ['WEEKLY','MONTHLY','QUARTERLY','SEMIANNUAL','ANNUAL'])expect(statement).toContain(`'${cadence}'`);
-   expect(statement).not.toContain('CUSTOM');expect(statement).not.toMatch(/ANY\s*\(/);
+  for(const [statement,first] of [[PRIVATE_MANUAL_EDIT_STATEMENTS.manualEditTargetLock,5],[PRIVATE_MANUAL_EDIT_STATEMENTS.manualEditCompareUpdate,11]] as const){
+   for(let index=first;index<first+5;index++)expect(statement).toContain(`$${index}::public.subscription_cadence`);
+   expect(statement).not.toContain('CUSTOM');expect(statement).not.toMatch(/ANY\s*\(/);expect(statement).not.toMatch(/["'`]/);
   }
   expect(()=>sandboxStatement('manualEditTargetLock',[...target,['MONTHLY']],owner)).toThrow('Sandbox statement unavailable');
  });

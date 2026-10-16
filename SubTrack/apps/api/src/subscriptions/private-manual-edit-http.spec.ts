@@ -37,8 +37,8 @@ describe('private manual Edit current-authority boundary',()=>{
   const h=harness();await h.run();expect(h.status).toBe(200);expect(h.payload).toEqual({id,revision:'2'});
   expect(h.headers['Cache-Control']).toBe('no-store');expect(h.headers.Pragma).toBe('no-cache');
   expect(h.calls.map(c=>c.name)).toEqual(Object.keys(good));
-  expect(h.calls[2]?.values).toEqual([owner,id,'MANUAL','SEK']);
-  expect(h.calls[3]?.values).toEqual([owner,id,'1','Example','OTHER_SUBSCRIPTION','MONTHLY','999',null,'MANUAL','SEK']);
+  expect(h.calls[2]?.values).toEqual([owner,id,'MANUAL','SEK','WEEKLY','MONTHLY','QUARTERLY','SEMIANNUAL','ANNUAL']);
+  expect(h.calls[3]?.values).toEqual([owner,id,'1','Example','OTHER_SUBSCRIPTION','MONTHLY','999',null,'MANUAL','SEK','WEEKLY','MONTHLY','QUARTERLY','SEMIANNUAL','ANNUAL']);
   expect(h.calls[4]?.values[2]).toEqual(expectedDigest);expect(h.calls[4]?.values.slice(3)).toEqual([id,'2']);
  });
  it.each([undefined,{profile_complete:false,onboarding_mode:'just-me'},{profile_complete:true,onboarding_mode:null}])('checks mode before replay %j',async row=>{
