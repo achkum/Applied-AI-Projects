@@ -10,12 +10,12 @@ delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
 android_fix_handoff:
   updated: "2026-10-16"
-  execution: "ACTIVE single-agent Android repair: Save, restart, Upcoming and Month confirmed; edit form viewport correction ready; no automation"
+  execution: "ACTIVE single-agent Android repair: Save, restart, Upcoming and Month confirmed; Edit/Save pass; status loading viewport correction ready; no automation"
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
-  tested_source_head: 1e286c57d5cccd541afe319f70aa002c63d86a6a
+  tested_source_head: e1afef8a6b12fdd7be32d2a8976c3849e57e9343
   issues:
-    - "P0 ST-253: Run38968817393/job117201857624 passes Save/exact value, API+app restart/logout/durable equality, Upcoming and Month. Edit opens; original failure is scroll/element-not-found/subscription-name. Opening Edit removes the long list; correct immediate name-field scroll UP to shorter form. Other assertions and single mutation counts retained."
+    - "P0 ST-253: Run38971066442 passes original Edit/Save and edited row after viewport fix; next failure waits for Resume after Pause. Shared screen removes all rows during status loading, collapsing the scroll position. Retain loaded rows with disabled controls and unchanged authority/readback/clearing;42 component tests/typecheck/lint pass. Actual paused backend state remains unproven until next installed acceptance."
     - "P0 ST-247/ST-253: Installed welcome/signup/profile/Manage/Billing Month and launcher must match the approved HTML design. New shared UI exists in source; installed successor visual and functional acceptance remains incomplete. Sandbox must use production screens."
     - "P0 ST-086/ST-253: Complete Android account/profile/Just me, add/read/edit/status, restart persistence and logout acceptance against isolated durable backend. Save/restart/Upcoming/Month pass; edit/status and bank downstream acceptance remains pending."
     - "P0 ST-252/ST-167: Build, retain-sign, publish and verify a corrected Android successor APK with existing backend data. Download still serves V2; do not resend it as fixed. Preserve applicable review/CI and delivery branch authority."

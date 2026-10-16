@@ -453,3 +453,21 @@ it('blur aborts a complete read and clears query/data while stale completion can
 it('uses Swedish search/category/subtotal labels and clears search immediately on logout',async()=>{
  mockLocale.value='sv';jest.mocked(api.readNativeProfile).mockResolvedValue({...profile,language:'sv'});jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,customName:'Fiktiv tjänst'}],nextCursor:null});jest.mocked(api.revokeNativeSession).mockResolvedValue(undefined);mount();const sv=catalogs.sv.onboarding;await waitFor(()=>expect(screen.getByRole('button',{name:sv.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:sv.nativePersonal.verify}));await screen.findByText('Fiktiv tjänst');fireEvent.changeText(screen.getByLabelText(sv.ownerSubscriptionList.search),sv.ownerSubscriptions.category.VIDEO_STREAMING);expect(screen.getByText('Fiktiv tjänst')).toBeTruthy();expect(screen.getByText(sv.ownerSubscriptionList.expectedSubtotal)).toBeTruthy();fireEvent.press(screen.getByRole('button',{name:sv.nativePersonal.logout}));expect(screen.queryByText('Fiktiv tjänst')).toBeNull();expect(screen.queryByLabelText(sv.ownerSubscriptionList.search)).toBeNull();
 });
+
+
+it.each([false,true])('retains disabled loaded rows during pending status and clears them on logout=%s',async logout=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:null}).mockResolvedValueOnce({items:[{...row,status:'PAUSED',revision:'2'}],nextCursor:null});
+ let finish: (value:{id:string;status:'PAUSED'})=>void=()=>undefined;
+ jest.mocked(api.updateNativeSubscriptionStatus).mockImplementationOnce(()=>new Promise(done=>{finish=done;}));
+ mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
+ fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await waitFor(()=>expect(api.updateNativeSubscriptionStatus).toHaveBeenCalledTimes(1));
+ expect(screen.getByText(row.customName)).toBeTruthy();
+ expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}).props.accessibilityState.disabled).toBe(true);
+ expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeNull();
+ expect(screen.queryByText(copy.nativeSubscriptionEdit.statusSaved)).toBeNull();
+ if(logout){fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.logout}));expect(screen.queryByText(row.customName)).toBeNull();}
+ await act(async()=>finish({id:row.id,status:'PAUSED'}));
+ if(logout){expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeNull();expect(screen.queryByText(copy.nativeSubscriptionEdit.statusSaved)).toBeNull();}
+ else {await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeTruthy();}
+});

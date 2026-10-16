@@ -216,7 +216,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
               accessibilityState={{disabled:loading}} onPress={()=>setQuery('')} style={styles.clearSearch}><BillingIcon name="close" color={color('action.accent')}/></Pressable> : null}</View>
         </View>
         {!loading && items.length>0 && projection.filteredCount===0 ? <Text accessibilityLiveRegion="polite" style={text}>{t('onboarding.ownerSubscriptionList.noMatch')}</Text> : null}
-        {!loading ? projection.groups.map(group=><View key={group.categoryCode??'fallback'} style={[styles.group,{backgroundColor:color('bg.surface'),borderColor:color('line.hairline'),borderRadius:theme.radius.card}]}>
+        {projection.groups.map(group=><View key={group.categoryCode??'fallback'} style={[styles.group,{backgroundColor:color('bg.surface'),borderColor:color('line.hairline'),borderRadius:theme.radius.card}]}>
           <Text accessibilityRole="header" style={[text,{fontFamily:theme.typography.fontFamily['ui.semibold']}]}>{group.label}</Text>
           {group.totals.length>0 ? <View style={styles.subtotals}><Text style={[text,{color:color('ink.secondary'),fontSize:theme.typography.fontSize.sm}]}>{t('onboarding.ownerSubscriptionList.expectedSubtotal')}</Text>
             {group.totals.map(total=><Text key={total.amount.currency+':'+total.cadence} style={[text,styles.amount]}>{t(`onboarding.ownerSubscriptions.cadence.${total.cadence}`)} · {formatMinorUnits(total.amount.minorUnits,total.amount.currency,{locale,display:'code'})}</Text>)}</View> : null}
@@ -244,7 +244,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
                 });
               }))}
           </> : null}</View>)}
-        </View>) : null}
+        </View>)}
         {button(t('onboarding.nativePersonal.reload'), () => { void load(); })}
         </NativeProductCard> : null}
         {adding ? <NativeProductCard>
