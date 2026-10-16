@@ -16,7 +16,7 @@ appId: se.subtrack.app
 - scrollUntilVisible:
     element:
       id: native-subscription-name
-    direction: DOWN
+    direction: UP
 - tapOn:
     id: native-subscription-name
 - eraseText

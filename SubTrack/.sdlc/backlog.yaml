@@ -10,14 +10,14 @@ delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
 android_fix_handoff:
   updated: "2026-10-16"
-  execution: "ACTIVE single-agent Android repair: Save UI/exact durable value confirmed; focused Welcome restart repair batched; automation paused"
+  execution: "ACTIVE single-agent Android repair: Save, restart, Upcoming and Month confirmed; edit form viewport correction ready; no automation"
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
-  tested_source_head: b1ce35f3f31cc853bda0ed4f1a35b0ff77bc2780
+  tested_source_head: 1e286c57d5cccd541afe319f70aa002c63d86a6a
   issues:
-    - "P0 ST-253: Run38965589315/job117191140698 atb1ce35f3 passes Save/exact value, API+app restart/logout and durable before-after equality, Upcoming and Billing Month. Restart30s; native build3m47s. New failure is flow-edit-status33s. Source wrong-direction Edit scroll corrected DOWN because Edit is below confirmed visible row name; canonical Maestro No visible element found and fixed edit/status diagnostic targets added. Exact failed Edit command remains unobserved until next run; no Save/restart probes repeated."
+    - "P0 ST-253: Run38968817393/job117201857624 passes Save/exact value, API+app restart/logout/durable equality, Upcoming and Month. Edit opens; original failure is scroll/element-not-found/subscription-name. Opening Edit removes the long list; correct immediate name-field scroll UP to shorter form. Other assertions and single mutation counts retained."
     - "P0 ST-247/ST-253: Installed welcome/signup/profile/Manage/Billing Month and launcher must match the approved HTML design. New shared UI exists in source; installed successor visual and functional acceptance remains incomplete. Sandbox must use production screens."
-    - "P0 ST-086/ST-253: Complete Android account/profile/Just me, add/read/edit/status, restart persistence and logout acceptance against isolated durable backend. Current run stops after first Save; downstream behavior is unverified."
+    - "P0 ST-086/ST-253: Complete Android account/profile/Just me, add/read/edit/status, restart persistence and logout acceptance against isolated durable backend. Save/restart/Upcoming/Month pass; edit/status and bank downstream acceptance remains pending."
     - "P0 ST-252/ST-167: Build, retain-sign, publish and verify a corrected Android successor APK with existing backend data. Download still serves V2; do not resend it as fixed. Preserve applicable review/CI and delivery branch authority."
   resolved_do_not_reopen: "AVD startup config custody; Android Skia PNG compatibility; first Manage navigation blocked by private RN warning overlay. Latest installed run passes first Manage entry after private-only notification UI fix."
 native_bundle_repair_slice: ST-254
