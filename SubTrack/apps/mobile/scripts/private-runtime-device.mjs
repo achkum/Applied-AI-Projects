@@ -37,6 +37,7 @@ import {
 } from './private-runtime-fatal-excerpt.mjs';
 import {
   identifierToolDiagnostic,
+  restartToolDiagnostic,
   enrollmentToolDiagnostic,
   createEnrollmentExecution,
   enrollmentExecutionDiagnostic,
@@ -457,6 +458,12 @@ async function main() {
         console.error(
           `ST244_NATIVE identifier_diagnostic=fixed source=legacy-text target_observation=unobserved commands=${diagnostic.commands.join(',') || 'none'} reasons=${diagnostic.reasons.join(',') || 'none'} legacy_targets=${diagnostic.targets.join(',') || 'none'} metro=${diagnostic.metro.join(',') || 'none'} modules=${diagnostic.modules.join(',') || 'none'}`,
         );
+    }
+    if(['flow-restart','flow-edit-status','flow-edit-status-api-restart'].includes(currentPhase)){
+      const readOwned=name=>{try{return readFileSync(join(privateDir,name),'utf8');}catch{return '';}};
+      const diagnostic=restartToolDiagnostic({phase:currentPhase,restart:readOwned(`${currentPhase.slice(5)}.log`),metro:readOwned('metro.log'),labels:{createAccount:labels.MAESTRO_CREATE_ACCOUNT,verifyBankId:labels.MAESTRO_VERIFY_BANKID,expectedAmount:labels.MAESTRO_EXPECTED_AMOUNT,logout:labels.MAESTRO_LOGOUT,logoutConfirmed:labels.MAESTRO_LOGOUT_CONFIRMED}});
+      if(diagnostic.withheld)console.error(`ST244_NATIVE restart_diagnostic=withheld reason=${diagnostic.withheld}`);
+      else console.error(`ST244_NATIVE restart_diagnostic=fixed commands=${diagnostic.commands.join(',')||'none'} reasons=${diagnostic.reasons.join(',')||'none'} targets=${diagnostic.targets.join(',')||'none'} metro=${diagnostic.metro.join(',')||'none'} modules=${diagnostic.modules.join(',')||'none'}`);
     }
     if (currentPhase === 'flow-enroll-add') {
       // Target and occurrence share this owned original-command bundle; legacy text never supplies either.

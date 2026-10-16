@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   identifierToolDiagnostic,
+  restartToolDiagnostic,
   enrollmentToolDiagnostic,
   createEnrollmentExecution,
   enrollmentExecutionDiagnostic,
@@ -311,4 +312,17 @@ test('C18 source-bound targets come only from failed lines, with private values 
  assert.deepEqual(enrollment({enrollment:'Scroll until Your subscriptions FAILED',labels:{...enrollmentLabels,add:'subscriptions'}}).targets,['personal-title']);
  for(const key of ['date','personalTitle','expectedAmount']){assert.equal(enrollment({labels:{...enrollmentLabels,[key]:''}}).withheld,'trusted-target-unavailable');}
  const result=enrollment({enrollment:lines.map(([,label])=>`Assertion is false: ${label} otp-123456-canary Bearer private-token-canary`).join('\n')});assert.deepEqual(result.targets,lines.map(([target])=>target));assert.equal(JSON.stringify(result).includes('canary'),false);assert.equal(JSON.stringify(result).includes('123456'),false);
+});
+
+test('restart-family original failure projection is phase-bound, fixed and private',()=>{
+ const trusted={createAccount:'Create account',verifyBankId:'Verify with BankID',expectedAmount:'Expected amount: 129,90[ \\u00a0\\u202f]+SEK',logout:'Log out',logoutConfirmed:'Logged out'};
+ const options={phase:'flow-restart',restart:'FAILED Assert that "Verify with BankID" is visible\nAssertion is false: private-canary',metro:'',labels:trusted};
+ for(const phase of ['flow-restart','flow-edit-status','flow-edit-status-api-restart']){
+  const result=restartToolDiagnostic({...options,phase});assert.deepEqual(result.targets,['bankid-verify']);assert.deepEqual(result.commands,['wait-visible']);assert.deepEqual(result.reasons,['assertion']);assert.equal(JSON.stringify(result).includes('private-canary'),false);
+ }
+ for(const phase of ['flow-enroll-add','flow-identifier','other',undefined])assert.deepEqual(restartToolDiagnostic({...options,phase}),{withheld:'outside-restart'});
+ for(const labels of [null,{},...Object.keys(trusted).map(key=>({...trusted,[key]:''})),{...trusted,logout:42}])assert.deepEqual(restartToolDiagnostic({...options,labels}),{withheld:'trusted-target-unavailable'});
+ for(const [text,target] of [['Native restart proof','saved-row'],['Native edited restart proof','edited-row'],...Object.entries(trusted).map(([key,value])=>[value,{createAccount:'welcome-create-account',verifyBankId:'bankid-verify',expectedAmount:'expected-amount',logout:'logout',logoutConfirmed:'logout-confirmed'}[key]])])assert.deepEqual(restartToolDiagnostic({...options,restart:`FAILED Assert visible ${text}`}).targets,[target]);
+ assert.equal(restartToolDiagnostic({...options,restart:'private-canary only'}).withheld,'unknown-tool-diagnostic');
+ for(const patch of [{restart:null},{restart:'x'.repeat(4_000_001)},{metro:null}])assert.equal(restartToolDiagnostic({...options,...patch}).withheld,'tool-input-unavailable');
 });

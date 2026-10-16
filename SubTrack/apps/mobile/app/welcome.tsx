@@ -1,8 +1,8 @@
-import React,{useEffect} from 'react';
+import React,{useCallback,useEffect} from 'react';
 import {observeStartupStage} from '@/utils/privateRuntimeEnrollmentDiagnostic';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useI18n } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getColorByTheme } from '@/utils/colors';
@@ -13,7 +13,7 @@ export default function WelcomeRoute() {
   const router = useRouter();
   useEffect(()=>{observeStartupStage('welcome-committed');},[]);
   const onboarding=useOnboarding();
-  useEffect(()=>{if(onboarding.sessionPhase==='active')router.replace({pathname:'/personal',params:{setup:'1'}});},[onboarding.sessionPhase,router]);
+  useFocusEffect(useCallback(()=>{if(onboarding.sessionPhase==='active')router.replace({pathname:'/personal',params:{setup:'1'}});},[onboarding.sessionPhase,router]));
   const { t } = useI18n();
   const { theme, isDark } = useTheme();
   const color = (key: string) => getColorByTheme(theme, isDark, key);

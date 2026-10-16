@@ -28,6 +28,7 @@ const registrationCopy = {
 };
 
 jest.mock('expo-router', () => ({
+  useFocusEffect: (effect: () => void) => jest.requireActual<typeof import('react')>('react').useEffect(effect, [effect]),
   useRouter: () => ({ back: mockBack, push: mockPush, replace: mockReplace }),
   useLocalSearchParams: () => mockRouteParams,
 }));

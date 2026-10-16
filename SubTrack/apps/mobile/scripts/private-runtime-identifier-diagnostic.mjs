@@ -108,6 +108,14 @@ export function enrollmentToolDiagnostic({ phase, enrollment, metro, labels }) {
   );
 }
 
+const restartRoster=[['welcome-create-account','createAccount'],['bankid-verify','verifyBankId'],['expected-amount','expectedAmount'],['logout','logout'],['logout-confirmed','logoutConfirmed']];
+/** Original restart-family child output only; no new tool invocation or UI capture. */
+export function restartToolDiagnostic({phase,restart,metro,labels}){
+ if(!['flow-restart','flow-edit-status','flow-edit-status-api-restart'].includes(phase))return {withheld:'outside-restart'};
+ if(!labels||!restartRoster.every(([,key])=>typeof labels[key]==='string'&&labels[key].length>0))return {withheld:'trusted-target-unavailable'};
+ return closedToolDiagnostic(restart,metro,[...restartRoster.map(([name,key])=>[name,labels[key]]),['edited-row','Native edited restart proof'],['saved-row','Native restart proof']]);
+}
+
 /** One exact enrollment invocation owns the event latch. No process values escape. */
 export function createEnrollmentExecution(label) {
   if (label !== 'enroll-add') return null;

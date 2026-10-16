@@ -10,12 +10,12 @@ delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
 android_fix_handoff:
   updated: "2026-10-16"
-  execution: "ACTIVE founder-resumed single-agent repair: Java regex NBSP incompatibility reproduced; exact selector and durable row check batched; automation paused"
+  execution: "ACTIVE single-agent Android repair: Save UI/exact durable value confirmed; focused Welcome restart repair batched; automation paused"
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
-  tested_source_head: d72a964dca4998071d3acab4b5c1f00bef3eefd7
+  tested_source_head: 27c4f932a44b8bf1472f8aabe2f57664e5b3082b
   issues:
-    - "P0 ST-253: Run38954103961/job117152510698 at d72a964d validates corrected SDK and saved SDK/Gradle caches, full source build/install succeeds8m38s; amount assertion still fails after centering. Save201/one durable row confirmed, rendered text and exact persisted amount unobserved. Third same failure: loop-breaker BLOCKED; no repeat pipeline/probes. Next approach needs direct fixture-bound UI/value evidence before another candidate. No app acceptance or successor delivery."
+    - "P0 ST-253: Run38958190974/job117166274936 at27c4f932 passes first Save amount UI and exact durable12990/SEK row predicate. SDK overlay removed; Gradle cache restores18s, build/install/startup5m18s versus8m38s cold. Current downstream failure is flow-restart after API+app restart, original failed command unobserved. Candidate constrains background Welcome redirect to focus and adds closed original-log restart diagnostics. No repeated amount diagnosis; downstream acceptance/screens/signing still pending."
     - "P0 ST-247/ST-253: Installed welcome/signup/profile/Manage/Billing Month and launcher must match the approved HTML design. New shared UI exists in source; installed successor visual and functional acceptance remains incomplete. Sandbox must use production screens."
     - "P0 ST-086/ST-253: Complete Android account/profile/Just me, add/read/edit/status, restart persistence and logout acceptance against isolated durable backend. Current run stops after first Save; downstream behavior is unverified."
     - "P0 ST-252/ST-167: Build, retain-sign, publish and verify a corrected Android successor APK with existing backend data. Download still serves V2; do not resend it as fixed. Preserve applicable review/CI and delivery branch authority."

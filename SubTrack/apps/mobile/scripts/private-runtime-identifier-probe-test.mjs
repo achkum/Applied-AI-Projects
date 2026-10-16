@@ -238,3 +238,10 @@ test('Android frame is separate exact PR293 authority, original terminal metadat
  assert.ok(driver.includes("['-s','emulator-5554','exec-out','screencap','-p']"));assert.ok(driver.includes("writeFileSync(file,png,{flag:'wx',mode:0o600})"));assert.ok(driver.includes('finally{png.fill(0);}'));
  const upload=workflow.slice(workflow.indexOf('- name: Validate separate sealed Android'),workflow.indexOf('- name: Owned fixture and debug server cleanup'));assert.ok(upload.includes('validatedAndroidArtifact'));assert.ok(upload.includes("steps.sealed_android.outputs.ready == 'true'"));assert.ok(upload.includes('path: ${{ runner.temp }}/subtrack-native-proof/sealed-android/entry-header.st253sealed'));assert.ok(upload.includes('retention-days: 1'));assert.equal(/path:.*(?:\*|\.png|private\/)/.test(upload),false);
 });
+
+test('restart diagnostic reads only the current original flow log and projects fixed categories',()=>{
+ const source=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');
+ assert.ok(source.includes("if(['flow-restart','flow-edit-status','flow-edit-status-api-restart'].includes(currentPhase))"));
+ assert.ok(source.includes("restart:readOwned(`${currentPhase.slice(5)}.log`),metro:readOwned('metro.log')"));
+ assert.ok(source.includes("restart_diagnostic=fixed commands=${diagnostic.commands.join(',')"));
+});
