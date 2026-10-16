@@ -1,5 +1,5 @@
 import {qualifyNativeBank,acceptedNativeBankScreenshot,ACCEPTED_NATIVE_BANK_SCREENSHOTS} from './private-runtime-bank.mjs';
-import {prepareEnrollmentMetadata,enrollmentMetadataLines,preparePreinputMetadata,preinputCaptureContext,captureSealedPreinput,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS} from './private-runtime-maestro-metadata.mjs';
+import {prepareEnrollmentMetadata,enrollmentMetadataLines,preparePreinputMetadata,preinputCaptureContext,captureSealedPreinput,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS,androidCaptureContext,prepareAndroidEntryMetadata,measureAndroidApp,recordAndroidApp,captureSealedAndroidEntry} from './private-runtime-maestro-metadata.mjs';
 import {enrollmentStageDiagnostic,startupStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
 import {fixtureMonthLabels,qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
 import {renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
@@ -120,13 +120,17 @@ async function main() {
   let enrollmentExecution = null;
   let enrollmentMetadata = null, preinputMetadata = null;
   const captureContext=platform==='ios'?preinputCaptureContext(process.env,head):null;
+  const androidContext=platform==='android'?androidCaptureContext(process.env,head):null;
+  let androidMetadata=null,androidAppCheckpoint=null;
+  const androidBuilt=join(app,'android/app/build/outputs/apk/debug/app-debug.apk');
+  const measureAndroid=()=>measureAndroidApp(privateDir,androidContext,process.env,androidBuilt);
   async function run(command, args, label, extraEnv = {}, cwd = app) {
     const execution = command === 'maestro' && label === 'enroll-add' && args.at(-1) === join(app, 'e2e/private-runtime-enroll-add.yaml')
       ? createEnrollmentExecution(label) : null;
     let preinput=null;
     if(captureContext&&command==='maestro'&&label==='identifier'&&args.at(-1)===join(app,'e2e/private-runtime-identifier.yaml'))try{preinput=preparePreinputMetadata(privateDir);}catch{/* Optional diagnostics never prevent the original flow. */}
     if(preinput)preinputMetadata=preinput;
-    if (execution) {enrollmentExecution = execution;enrollmentMetadata=prepareEnrollmentMetadata(privateDir,execution,platform);}
+    if (execution) {enrollmentExecution = execution;enrollmentMetadata=androidContext?(androidMetadata=prepareAndroidEntryMetadata(privateDir,execution)):prepareEnrollmentMetadata(privateDir,execution,platform);}
     const fd = openSync(join(privateDir, `${label}.log`), 'w', 0o600);
     try {
       await new Promise((accept, reject) => {
@@ -136,21 +140,21 @@ async function main() {
           env: { ...process.env, ...extraEnv },
           stdio: ['ignore', fd, fd],
         }); } catch {
-          execution?.record('error');preinput?.record('error');
+          execution?.record('error');preinput?.record('error');androidMetadata?.record('error');
           reject(new Error(`Private qualification ${label} could not start`));
           return;
         }
         child.on('error', () => {
-          execution?.record('error');preinput?.record('error');
+          execution?.record('error');preinput?.record('error');androidMetadata?.record('error');
           reject(new Error(`Private qualification ${label} could not start`));
         });
         child.on('exit', (code, signal) => {
-          execution?.record('exit', code, signal);preinput?.record('exit',code,signal);
-          if(preinput)return;
+          execution?.record('exit', code, signal);preinput?.record('exit',code,signal);if(execution)androidMetadata?.record('exit',code,signal);
+          if(preinput||execution&&androidMetadata)return;
           if (code === 0) accept();
           else reject(new Error(`Private qualification ${label} failed`));
         });
-        child.on('close', (code, signal) => {execution?.record('close',code,signal);if(preinput){preinput.record('close',code,signal);if(code===0)accept();else reject(new Error(`Private qualification ${label} failed`));}});
+        child.on('close', (code, signal) => {execution?.record('close',code,signal);preinput?.record('close',code,signal);if(execution)androidMetadata?.record('close',code,signal);if(preinput||execution&&androidMetadata){if(code===0)accept();else reject(new Error(`Private qualification ${label} failed`));}});
       });
     } finally {
       closeSync(fd);
@@ -239,6 +243,7 @@ async function main() {
         SUBTRACK_PRIVATE_CA_CERT: config.caPath,
       },
     );
+    if(androidContext)try{androidAppCheckpoint=recordAndroidApp(privateDir,androidContext,measureAndroid());}catch{/* Unavailable custody withholds diagnostics, never changes qualification. */}
     await flow('identifier');
     assert.ok(
       code,
@@ -452,6 +457,12 @@ async function main() {
       // Target and occurrence share this owned original-command bundle; legacy text never supplies either.
       const metadata=enrollmentMetadata?.read(currentPhase);
       if(metadata) for(const line of enrollmentMetadataLines(metadata))console.error(`ST244_NATIVE ${line}`);
+      if(androidContext&&androidMetadata){
+        let sealed=false;
+        try{sealed=await captureSealedAndroidEntry({privateRoot:privateDir,context:androidContext,reader:androidMetadata,metadata,measure:measureAndroid,checkpoint:androidAppCheckpoint,markerHash:createHash('sha256').update(config.marker).digest('hex'),observe:async()=>({receipt:await harness.readbackReceipt(),manual:harness.manualSaveObservation()}),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),
+          capture:async file=>{const png=execFileSync(join(process.env.ANDROID_HOME,'platform-tools/adb'),['-s','emulator-5554','exec-out','screencap','-p'],{timeout:10000,killSignal:'SIGKILL',maxBuffer:8388608,stdio:['ignore','pipe','pipe']});try{writeFileSync(file,png,{flag:'wx',mode:0o600});}finally{png.fill(0);}}});}catch{/* No values/errors or raw screenshot fallback. */}
+        console.error(`ST244_NATIVE android_entry_frame=${sealed?'sealed':'withheld'}`);
+      }
       let enrollmentLogSize = null;
       try { enrollmentLogSize = statSync(join(privateDir, 'enroll-add.log')).size; } catch { /* No paths or error details escape. */ }
       const executionDiagnostic = enrollmentExecutionDiagnostic({ phase: currentPhase, execution: enrollmentExecution?.snapshot(), logSize: enrollmentLogSize });

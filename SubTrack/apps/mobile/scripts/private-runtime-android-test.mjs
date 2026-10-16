@@ -107,6 +107,15 @@ try {
   });
   assert.equal(avd.status, 0);
   assert.match(avd.stdout, /event=avd-created/);
+  const repeatedAvd = spawnSync(bash,[normalized(script),'avd'],{env,encoding:'utf8',timeout:10000});
+  assert.equal(repeatedAvd.status,1);assert.match(repeatedAvd.stdout,/event=avd-already-present/);
+  const source=readFileSync(script,'utf8');
+  assert.ok(source.indexOf('android_custody begin')<source.indexOf('create avd --name'));
+  assert.ok(source.indexOf('android_custody created')>source.indexOf('avd-path-mismatch'));
+  assert.ok(source.includes('android_custody boot || diagnostic boot-custody-unavailable; diagnostic boot-completed; boot_success=true'));
+  assert.ok(source.includes("androidAvdStage(process.argv[4],context,process.argv[3],process.env)"));
+  assert.ok(source.includes('umask 077'));
+
   const ciRejected = spawnSync(bash, [normalized(script), 'clear-app'], {
     env: { ...env, CI: 'false', SUBTRACK_PRIVATE_DEVICE_PROOF: 'true' },
     encoding: 'utf8',

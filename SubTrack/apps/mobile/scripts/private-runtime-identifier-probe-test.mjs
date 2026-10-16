@@ -6,6 +6,7 @@ import childProcess, {spawn as realSpawn} from 'node:child_process';
 import {syncBuiltinESMExports} from 'node:module';
 import {EventEmitter} from 'node:events';
 import process from 'node:process';
+import {prepareAndroidEntryMetadata} from './private-runtime-maestro-metadata.mjs';
 import {setTimeout,clearTimeout} from 'node:timers';
 import { probeResult, identifierProbes, runIdentifierProbe } from './private-runtime-identifier-probe.mjs';
 test('identifier navigation waits for the actual input and requires enabled Continue before one tap',()=>{
@@ -211,4 +212,28 @@ test('header occurrence shares the owned original metadata formatter and never u
 
 test('runtime passes the already validated installed platform to enrollment metadata custody',()=>{
  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');assert.ok(driver.includes('prepareEnrollmentMetadata(privateDir,execution,platform)'));assert.ok(driver.indexOf("assert.ok(platform === 'android' || platform === 'ios')")<driver.indexOf('prepareEnrollmentMetadata(privateDir,execution,platform)'));
+});
+
+
+test('actual driver child lifecycle defers only owned authorized Android enrollment until close, records before fd cleanup',async()=>{
+ const source=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8'),start=source.indexOf('  async function run('),end=source.indexOf("\n  markPhase('fixture-bundle');",start),block=source.slice(start,end);
+ for(const scenario of ['failure','error','throw','ordinary','success','signal']){
+  const child=new EventEmitter(),records=[],events=[],owned={record:(...args)=>records.push(args)};
+  const ports={app:'/owned/app',privateDir:'/owned/private',platform:'android',androidContext:scenario==='ordinary'?null:{},captureContext:null,join:(...parts)=>parts.join('/'),process:{env:{}},createEnrollmentExecution:()=>({record:(...args)=>events.push(args)}),prepareAndroidEntryMetadata:()=>owned,prepareEnrollmentMetadata:()=>({}),preparePreinputMetadata:()=>null,openSync:()=>17,closeSync:fd=>events.push(['fd-close',fd]),spawn:()=>{if(scenario==='throw')throw Error('private tool');return child;}};
+  const make=new Function('ports',`const {app,privateDir,platform,androidContext,captureContext,join,process,createEnrollmentExecution,prepareAndroidEntryMetadata,prepareEnrollmentMetadata,preparePreinputMetadata,openSync,closeSync,spawn}=ports;let enrollmentExecution=null,enrollmentMetadata=null,androidMetadata=null,preinputMetadata=null;${block};return run;`),run=make(ports);
+  let settled=false;const pending=run('maestro',['test','/owned/app/e2e/private-runtime-enroll-add.yaml'],'enroll-add').then(()=>{settled=true;return 'ok';},()=>{settled=true;return 'failed';});
+  if(scenario==='throw'){assert.equal(await pending,'failed');assert.deepEqual(records,[['error']]);continue;}
+  if(scenario==='error'){child.emit('error',Error('private tool'));assert.equal(await pending,'failed');assert.deepEqual(records,[['error']]);child.emit('exit',1,null);child.emit('close',1,null);continue;}
+  const code=scenario==='success'?0:1,signal=scenario==='signal'?'SIGTERM':null;child.emit('exit',code,signal);await Promise.resolve();await Promise.resolve();assert.equal(settled,scenario==='ordinary');assert.equal(events.some(event=>event[0]==='fd-close'),scenario==='ordinary');
+  child.emit('close',code,signal);assert.equal(await pending,scenario==='success'?'ok':'failed');if(scenario!=='ordinary')assert.deepEqual(records,[['exit',code,signal],['close',code,signal]]);if(scenario!=='ordinary')assert.deepEqual(events.at(-1),['fd-close',17]);else assert.ok(events.some(event=>event[0]==='fd-close')); 
+ }
+ assert.equal(typeof prepareAndroidEntryMetadata,'function');
+});
+
+test('Android frame is separate exact PR293 authority, original terminal metadata and private sealed-only artifact',()=>{
+ const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8'),workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-native-device-proof.yml',import.meta.url),'utf8');
+ assert.ok(workflow.includes("ST253_ANDROID_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 293"));assert.ok(driver.includes("platform==='android'?androidCaptureContext(process.env,head):null"));
+ assert.ok(driver.indexOf('recordAndroidApp(privateDir,androidContext,measureAndroid())')<driver.indexOf("await flow('identifier')"));assert.ok(driver.includes('reader:androidMetadata,metadata,measure:measureAndroid'));assert.ok(driver.includes('receipt:await harness.readbackReceipt(),manual:harness.manualSaveObservation()'));assert.ok(driver.indexOf('await captureSealedAndroidEntry')<driver.indexOf('const manualBefore = harness.manualSaveObservation()'));
+ assert.ok(driver.includes("['-s','emulator-5554','exec-out','screencap','-p']"));assert.ok(driver.includes("writeFileSync(file,png,{flag:'wx',mode:0o600})"));assert.ok(driver.includes('finally{png.fill(0);}'));
+ const upload=workflow.slice(workflow.indexOf('- name: Validate separate sealed Android'),workflow.indexOf('- name: Owned fixture and debug server cleanup'));assert.ok(upload.includes('validatedAndroidArtifact'));assert.ok(upload.includes("steps.sealed_android.outputs.ready == 'true'"));assert.ok(upload.includes('path: ${{ runner.temp }}/subtrack-native-proof/sealed-android/entry-header.st253sealed'));assert.ok(upload.includes('retention-days: 1'));assert.equal(/path:.*(?:\*|\.png|private\/)/.test(upload),false);
 });
