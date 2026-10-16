@@ -18,6 +18,7 @@ it.each(['en', 'sv'] as const)('shows only real destinations with localized sele
   expect(screen.getByRole('tab', { name: copy.upcoming }).props.accessibilityState.selected).toBe(false);
   expect(screen.getByRole('tab', { name: copy.manage }).props.accessibilityState.selected).toBe(false);
   expect(screen.queryByText(/household|insights|subscriptions/i)).toBeNull();
-  fireEvent.press(screen.getByRole('tab', { name: copy.manage }));
+  expect(screen.getByTestId('native-nav-manage')).toBe(screen.getByRole('tab', { name: copy.manage }));
+  fireEvent.press(screen.getByTestId('native-nav-manage'));
   expect(onNavigate).toHaveBeenCalledWith('manage' satisfies NativeProductDestination);
 });

@@ -29,7 +29,8 @@ appId: se.subtrack.app
     timeout: 30000
 - assertNotVisible: Native edited restart proof
 - takeScreenshot: accepted-renewals-empty
-- tapOn: ${MAESTRO_MANAGE}
+- tapOn:
+    id: native-nav-manage
 - extendedWaitUntil:
     visible:
       id: native-personal-title

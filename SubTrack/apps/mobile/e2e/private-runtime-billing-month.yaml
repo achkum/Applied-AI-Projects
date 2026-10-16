@@ -46,7 +46,8 @@ appId: se.subtrack.app
     element: ${MAESTRO_MONTH_CLOSE}
     direction: DOWN
 - tapOn: ${MAESTRO_MONTH_CLOSE}
-- tapOn: ${MAESTRO_MANAGE}
+- tapOn:
+    id: native-nav-manage
 - extendedWaitUntil:
     visible:
       id: native-personal-title

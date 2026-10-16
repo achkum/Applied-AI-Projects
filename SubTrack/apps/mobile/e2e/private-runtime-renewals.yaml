@@ -31,7 +31,8 @@ appId: se.subtrack.app
 - assertVisible: ${MAESTRO_RENEWAL_DATE}
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-renewals
-- tapOn: ${MAESTRO_MANAGE}
+- tapOn:
+    id: native-nav-manage
 - extendedWaitUntil:
     visible:
       id: native-personal-title

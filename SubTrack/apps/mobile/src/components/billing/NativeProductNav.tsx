@@ -20,7 +20,7 @@ export function NativeProductNav({ active, onNavigate }: { active: NativeProduct
     {destinations.map(item => {
       const selected = active === item.key;
       const label = t(`onboarding.productNav.${item.label}`);
-      return <Pressable key={item.key} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected }} onPress={() => onNavigate(item.key)} style={styles.tab}>
+      return <Pressable key={item.key} testID={`native-nav-${item.key}`} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected }} onPress={() => onNavigate(item.key)} style={styles.tab}>
         <BillingIcon name={item.icon} color={color(selected ? 'action.accent' : 'ink.secondary')} size={22} />
         <Text style={{ color: color(selected ? 'action.accent' : 'ink.secondary'), fontFamily: theme.typography.fontFamily['ui.medium'], fontSize: theme.typography.fontSize.xs, textAlign: 'center' }}>{label}</Text>
       </Pressable>;

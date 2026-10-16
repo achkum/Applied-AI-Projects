@@ -31,7 +31,8 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_TITLE}
     timeout: 30000
-- tapOn: ${MAESTRO_MANAGE}
+- tapOn:
+    id: native-nav-manage
 - scrollUntilVisible:
     element:
       id: native-personal-title

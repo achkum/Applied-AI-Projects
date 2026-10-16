@@ -458,10 +458,10 @@ async function main() {
       const metadata=enrollmentMetadata?.read(currentPhase);
       if(metadata) for(const line of enrollmentMetadataLines(metadata))console.error(`ST244_NATIVE ${line}`);
       if(androidContext&&androidMetadata){
-        let sealed=false;
-        try{sealed=await captureSealedAndroidEntry({privateRoot:privateDir,context:androidContext,reader:androidMetadata,metadata,measure:measureAndroid,checkpoint:androidAppCheckpoint,markerHash:createHash('sha256').update(config.marker).digest('hex'),observe:async()=>({receipt:await harness.readbackReceipt(),manual:harness.manualSaveObservation()}),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),
+        let sealed=false,withheldStage='UNKNOWN';
+        try{sealed=await captureSealedAndroidEntry({privateRoot:privateDir,context:androidContext,reader:androidMetadata,metadata,measure:measureAndroid,onWithheld:value=>{if(PREINPUT_WITHHELD_STAGES.includes(value))withheldStage=value;},checkpoint:androidAppCheckpoint,markerHash:createHash('sha256').update(config.marker).digest('hex'),observe:async()=>({receipt:await harness.readbackReceipt(),manual:harness.manualSaveObservation()}),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),
           capture:async file=>{const png=execFileSync(join(process.env.ANDROID_HOME,'platform-tools/adb'),['-s','emulator-5554','exec-out','screencap','-p'],{timeout:10000,killSignal:'SIGKILL',maxBuffer:8388608,stdio:['ignore','pipe','pipe']});try{writeFileSync(file,png,{flag:'wx',mode:0o600});}finally{png.fill(0);}}});}catch{/* No values/errors or raw screenshot fallback. */}
-        console.error(`ST244_NATIVE android_entry_frame=${sealed?'sealed':'withheld'}`);
+        console.error(`ST244_NATIVE android_entry_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}`);
       }
       let enrollmentLogSize = null;
       try { enrollmentLogSize = statSync(join(privateDir, 'enroll-add.log')).size; } catch { /* No paths or error details escape. */ }
