@@ -44,9 +44,10 @@ export default function RootLayout() {
     if (ready) {
       // This records the existing ready-or-system-fallback gate, not custom font success.
       observeStartupStage('fonts-ready');
+      observeStartupStage(fontError != null ? 'fonts-fallback' : 'fonts-loaded');
       void SplashScreen.hideAsync().catch(() => undefined);
     }
-  }, [ready]);
+  }, [ready,fontError]);
 
   if (!ready) return null;
 

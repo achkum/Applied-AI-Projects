@@ -17,7 +17,7 @@ export function enrollmentStageDiagnostic({phase,log}){
  return Object.freeze(Object.fromEntries(STAGES.map(stage=>[stage,counts[stage]===0?'unobserved':counts[stage]===1?'one':'multiple'])));
 }
 
-const STARTUP_STAGES=Object.freeze(['root-entered','fonts-ready','welcome-committed']);
+const STARTUP_STAGES=Object.freeze(['root-entered','fonts-ready','fonts-loaded','fonts-fallback','welcome-committed']);
 /** Missing transport/root marker is unavailable; a commit marker is never a visibility assertion. */
 export function startupStageDiagnostic({phase,log}){
  if(phase!=='flow-identifier'||typeof log!=='string'||log.length>4_000_000)return null;

@@ -249,6 +249,10 @@ async function main() {
     );
     if(androidContext)try{androidAppCheckpoint=recordAndroidApp(privateDir,androidContext,measureAndroid());}catch{/* Unavailable custody withholds diagnostics, never changes qualification. */}
     await flow('identifier');
+    const fontStartup=startupStageDiagnostic({phase:'flow-identifier',log:readFileSync(join(privateDir,'metro.log'),'utf8')});
+    const loaded=fontStartup?.['fonts-loaded'],fallback=fontStartup?.['fonts-fallback'];
+    const installedFontState=loaded&&loaded!=='unobserved'&&fallback==='unobserved'?'custom':fallback&&fallback!=='unobserved'&&loaded==='unobserved'?'fallback':'unobserved';
+    if(platform==='android')console.log(`ST244_NATIVE installed_fonts=${installedFontState}`);
     assert.ok(
       code,
       'Synthetic OTP must have been issued to the private in-memory callback',
@@ -319,6 +323,7 @@ async function main() {
           expo: JSON.parse(readFileSync(join(app,'node_modules/expo/package.json'),'utf8')).version,
           reactNative: installedNativeVersion,
           developmentSimulatorOnly: true,
+          ...(platform==='android'?{installedFontState}:{}),
           freshLoginAfterStartup: true,
           appRestartReadback: true,
           apiRestartReadback: true,

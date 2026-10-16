@@ -121,3 +121,10 @@ test('private startup milestones preserve the font loading gate and explicitly i
  jest.mocked(observeStartupStage).mockClear();mockUseFonts.mockReturnValue([false,null]);const app=render(<RootLayout/>);expect(app.toJSON()).toBeNull();expect(observeStartupStage).toHaveBeenCalledWith('root-entered');expect(observeStartupStage).not.toHaveBeenCalledWith('fonts-ready');
  mockUseFonts.mockReturnValue([false,new Error('private-canary')]);await act(async()=>app.rerender(<RootLayout/>));expect(observeStartupStage).toHaveBeenCalledWith('fonts-ready');expect(await screen.findByTestId('router-stack')).toBeTruthy();expect(SplashScreen.hideAsync).toHaveBeenCalled();
 });
+
+
+test.each([[true,null,'fonts-loaded'],[false,new Error('private-canary'),'fonts-fallback']] as const)('reports fixed font provenance without changing ready fallback (%s)',async(loaded,error,stage)=>{
+ mockUseFonts.mockReturnValue([loaded,error]);jest.mocked(observeStartupStage).mockClear();render(<RootLayout/>);
+ await screen.findByTestId('router-stack');expect(observeStartupStage).toHaveBeenCalledWith('fonts-ready');expect(observeStartupStage).toHaveBeenCalledWith(stage);
+ expect(observeStartupStage).not.toHaveBeenCalledWith(stage==='fonts-loaded'?'fonts-fallback':'fonts-loaded');
+});

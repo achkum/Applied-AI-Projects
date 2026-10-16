@@ -2,7 +2,7 @@ import {LogBox,Platform} from 'react-native';
 
 declare const process:{env:Record<string,string|undefined>};
 export const ENROLLMENT_DIAGNOSTIC_STAGES=Object.freeze(['submit-valid','submit-invalid','start-accepted','start-ignored','config-accepted','config-rejected','entropy-accepted','entropy-rejected','fetch-entered','fetch-rejected','response-accepted','response-other','contract-accepted','contract-rejected','flow-committed','flow-obsolete'] as const);
-export const STARTUP_DIAGNOSTIC_STAGES=Object.freeze(['root-entered','fonts-ready','welcome-committed'] as const);
+export const STARTUP_DIAGNOSTIC_STAGES=Object.freeze(['root-entered','fonts-ready','fonts-loaded','fonts-fallback','welcome-committed'] as const);
 export type StartupDiagnosticStage=typeof STARTUP_DIAGNOSTIC_STAGES[number];
 export type EnrollmentDiagnosticStage=typeof ENROLLMENT_DIAGNOSTIC_STAGES[number];
 export type EnrollmentDiagnostic=Readonly<{stage:(stage:EnrollmentDiagnosticStage)=>void;retire:()=>void}>;
