@@ -224,7 +224,8 @@ const androidRead=(env,args)=>execFileSync(join(env.ANDROID_HOME,'platform-tools
 // Verified 2026-10-16: AOSP main-emulator.cpp selects -headless for -no-window, replaces argv[0], then safe_execv with the original options.
 // https://android.googlesource.com/platform/external/qemu/+/emu-master-dev/android/emulator/main-emulator.cpp
 function androidLive(root,env){const pid=privateBytes(join(root,'emulator.pid'),32).toString(),start=privateBytes(join(root,'emulator.start'),64).toString();androidRequire(/^[1-9][0-9]{0,9}$/.test(pid)&&Number(pid)>1&&/^[0-9]{1,24}$/.test(start));const stat=readFileSync(`/proc/${pid}/stat`,'utf8'),fields=stat.slice(stat.lastIndexOf(') ')+2).trim().split(/\s+/);androidRequire(fields[0]!=='Z'&&fields[19]===start);
- const exe=join(dirname(env.SUBTRACK_PRIVATE_EMULATOR_BIN),'qemu/linux-x86_64/qemu-system-x86_64-headless'),args=readFileSync(`/proc/${pid}/cmdline`).toString().split('\0');androidRequire(args.pop()==='');
+ const emulator=env.SUBTRACK_PRIVATE_EMULATOR_BIN||join(env.ANDROID_HOME,'emulator/emulator');
+ const exe=join(dirname(emulator),'qemu/linux-x86_64/qemu-system-x86_64-headless'),args=readFileSync(`/proc/${pid}/cmdline`).toString().split('\0');androidRequire(args.pop()==='');
  const expected=['-avd','subtrack-proof','-sysdir',join(env.ANDROID_HOME,'system-images/android-34/google_apis/x86_64'),'-port','5554','-no-window','-no-audio','-no-boot-anim','-no-snapshot','-gpu','swiftshader_indirect'];
  androidRequire(realpathSync(exe)===readlinkSync(`/proc/${pid}/exe`)&&args[0]===exe&&JSON.stringify(args.slice(1))===JSON.stringify(expected));
  androidRequire(androidRead(env,['get-state'])==='device'&&androidRead(env,['emu','avd','name'])==='subtrack-proof\nOK'&&androidRead(env,['shell','getprop','ro.kernel.qemu'])==='1'&&androidRead(env,['shell','getprop','sys.boot_completed'])==='1');return {pid,start,command:digest(Buffer.from(JSON.stringify(args)))};
