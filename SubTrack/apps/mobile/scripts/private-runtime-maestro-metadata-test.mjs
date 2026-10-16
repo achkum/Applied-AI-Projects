@@ -352,6 +352,10 @@ test('Android custody uses the launcher SDK default when no emulator override is
  await privateTemporary(async({root})=>{const d=androidDeviceFixture(root,true);assert.equal(Object.hasOwn(d.env,'SUBTRACK_PRIVATE_EMULATOR_BIN'),false);assert.deepEqual(measureAndroidApp(root,androidContext,d.env,d.built),d.measured);assert.match(verifyAndroidDevice(root,androidContext,{...d.env,SUBTRACK_PRIVATE_EMULATOR_BIN:''}),/^[a-f0-9]{64}$/);d.state.exe='/foreign/qemu-system-x86_64-headless';assert.throws(()=>verifyAndroidDevice(root,androidContext,d.env));});
 });
 
+test('boot preflight reports only fixed guard stages and keeps foreign arguments rejected',async()=>{
+ await privateTemporary(async({root})=>{const d=androidDeviceFixture(root,true),stages=[];fs.unlinkSync(join(root,'android-avd-boot.json'));androidAvdStage(root,androidContext,'boot',d.env,value=>stages.push(value));assert.deepEqual(stages,['CREATION','PROCESS','EXECUTABLE','ARGUMENTS','ADB','RECEIPT']);fs.unlinkSync(join(root,'android-avd-boot.json'));d.state.args.push('private-canary');stages.length=0;assert.throws(()=>androidAvdStage(root,androidContext,'boot',d.env,value=>stages.push(value)));assert.deepEqual(stages,['CREATION','PROCESS','EXECUTABLE','ARGUMENTS']);assert.equal(fs.existsSync(join(root,'android-avd-boot.json')),false);});
+});
+
 test('separate Android authority preserves exact PR/source guards and never accepts iOS/foreign contexts',()=>{assert.deepEqual(androidContext,{sourceHead:captureHead,runId:'1234',attempt:'1'});for(const key of Object.keys(androidEnv))if(!['ST253_CAPTURE_ENABLED','SUBTRACK_SIMULATOR_UDID'].includes(key))assert.equal(androidCaptureContext({...androidEnv,[key]:'private-canary'},captureHead),null);assert.equal(androidCaptureContext(androidEnv,'cd'.repeat(20)),null);assert.equal(androidCaptureContext(new Proxy({},{get(){throw Error('private');}}),captureHead),null);});
 
 test('actual source YAML producer prefix and owned lifecycle issue one Android ticket only after matching exit and close',async()=>{
