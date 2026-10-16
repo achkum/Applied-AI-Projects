@@ -74,6 +74,7 @@ export function flowEnvironment(locale = 'en') {
     MAESTRO_PERSONAL_TITLE: onboarding.productNav.manage,
     MAESTRO_LOGOUT: onboarding.nativePersonal.logout,
     MAESTRO_LOGOUT_CONFIRMED: onboarding.nativePersonal.logoutConfirmed,
+    MAESTRO_EXPECTED_AMOUNT_LABEL: onboarding.manualSubscription.expectedAmount,
     MAESTRO_EXPECTED_AMOUNT: `${onboarding.manualSubscription.expectedAmount}: 129,90\\s+SEK`,
   };
 }

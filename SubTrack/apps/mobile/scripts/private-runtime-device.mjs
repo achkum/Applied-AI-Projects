@@ -541,6 +541,8 @@ async function main() {
           else console.error(`ST244_NATIVE failed_save_manual stage=${stage} observation=withheld`);
         }
         console.error(`ST244_NATIVE failed_save_count=${saveObservations.count} header=${saveObservations.header}`);
+        for (const [variant, observation] of Object.entries(saveObservations.amount ?? {}))
+          console.error(`ST244_NATIVE failed_amount_variant=${variant} observation=${observation}`);
         for (const stage of ['before', 'after'])
           for (const [target, observation] of Object.entries(saveObservations[stage] ?? {}))
             console.error(`ST244_NATIVE failed_save_probe=${target} stage=${stage} observation=${observation}`);

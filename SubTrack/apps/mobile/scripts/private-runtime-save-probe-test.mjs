@@ -116,3 +116,26 @@ test('exact structured saved-header failure enables existing observations despit
   const driver = readFileSync(new URL('./private-runtime-device.mjs', import.meta.url), 'utf8');
   assert.match(driver, /metadata: platform === 'android' \? metadata : null, labels/);
 });
+
+
+test('exact installed amount assertion probes only fixed known display variants without scrolling or mutations',async()=>{
+ const metadata={metadata:'AVAILABLE',command:'ASSERT_CONDITION',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'};
+ const amountDiagnostic={...diagnostic,targets:['expected-amount']};
+ const amountLabels={...labels,MAESTRO_EXPECTED_AMOUNT_LABEL:'Expected amount'};
+ const base={...options,metadata,diagnostic:amountDiagnostic,labels:amountLabels,scroll:()=>{throw Error('Must not scroll');}};
+ const variants=['code-prefix-dot','code-suffix-dot','code-prefix-comma','code-suffix-comma','symbol-suffix-comma','symbol-suffix-dot'];
+ const examples=['Expected amount: SEK 129.90','Expected amount: 129.90 SEK','Expected amount: SEK 129,90','Expected amount: 129,90 SEK','Expected amount: 129,90 kr','Expected amount: 129.90 kr'];
+ for(const [index,target] of variants.entries()){
+  const calls=[];let observed=0;
+  const result=await failedSaveObservations({...base,observe:async()=>{observed++;return receipt(1);},run:async(stage,name,pattern)=>{calls.push(name);assert.equal(stage,'amount-display');assert.equal(new RegExp(`^(?:${pattern})$`).test(examples[variants.indexOf(name)]),true);return name===target?success:negative;}});
+  assert.deepEqual(calls,variants.slice(0,index+1));assert.equal(observed,1);assert.equal(result.count,'one');assert.equal(result.amount[target],'visible');assert.deepEqual(result.before,{});assert.equal(result.after,null);assert.equal(result.header,'unavailable');
+ }
+ for(const invalid of [null,{},...Object.keys(metadata).map(key=>({...metadata,[key]:'foreign'})),{...metadata,extra:'private-canary'}]){
+  let called=false;assert.equal(await failedSaveObservations({...base,metadata:invalid,observe:()=>{called=true;}}),null);assert.equal(called,false);
+ }
+ for(const label of [undefined,null,''])assert.equal(await failedSaveObservations({...base,labels:{...amountLabels,MAESTRO_EXPECTED_AMOUNT_LABEL:label}}),null);
+ const failures=await failedSaveObservations({...base,run:async()=>{throw Error('private-canary');}});assert.deepEqual(Object.values(failures.amount),Array(6).fill('launch-error'));assert.equal(JSON.stringify(failures).includes('private-canary'),false);
+ const inconclusive=await failedSaveObservations({...base,run:async()=>({...success,timedOut:true})});assert.deepEqual(Object.values(inconclusive.amount),Array(6).fill('timeout'));
+ await failedSaveObservations({...base,labels:{...amountLabels,MAESTRO_EXPECTED_AMOUNT_LABEL:'A+B'},run:async(stage,name,pattern)=>{assert.equal(new RegExp(pattern).test('A+B: SEK 129.90'),true);assert.equal(new RegExp(pattern).test('AB: SEK 129.90'),false);return success;}});
+ for(const locale of ['sv','en']){const catalog=JSON.parse(readFileSync(new URL(`../../../packages/i18n/catalogs/${locale}.json`,import.meta.url),'utf8'));assert.equal(flowEnvironment(locale).MAESTRO_EXPECTED_AMOUNT_LABEL,catalog.onboarding.manualSubscription.expectedAmount);}
+});
