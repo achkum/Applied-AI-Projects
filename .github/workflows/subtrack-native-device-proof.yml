@@ -255,8 +255,6 @@ jobs:
           const context=preinputCaptureContext(process.env,process.env.ST253_CAPTURE_SOURCE_HEAD);
           if(context){const root=join(process.env.RUNNER_TEMP,'subtrack-native-proof','private');mkdirSync(root,{recursive:true,mode:0o700});recordPreinputSimulator(root,context);}
           NODE
-          brew install postgresql@16
-          printf '%s\n' "$(brew --prefix postgresql@16)/bin" >> "$GITHUB_PATH"
       - name: Owned iOS driver readiness before native compilation
         id: ios_driver_preflight
         if: matrix.platform == 'ios'
@@ -267,6 +265,12 @@ jobs:
           node apps/mobile/scripts/private-runtime-ios-driver-preflight.mjs
       - name: Owned PostgreSQL16 and ephemeral TLS fixture
         run: |
+          if [ '${{ matrix.platform }}' = ios ]; then
+            brew install postgresql@16
+            postgres_bin="$(brew --prefix postgresql@16)/bin"
+            export PATH="$postgres_bin:$PATH"
+            printf '%s\n' "$postgres_bin" >> "$GITHUB_PATH"
+          fi
           fixture_ready="$(bash tools/database/private-mobile-proof.sh start --mode '${{ matrix.database_mode }}')"
           case "$fixture_ready" in ST244_FIXTURE_READY\ config=/*) ;; *) exit 1 ;; esac
           config_path="${fixture_ready#ST244_FIXTURE_READY config=}"

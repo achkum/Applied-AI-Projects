@@ -57,8 +57,9 @@ test('only bounded fixed-name owned Maestro and XCTest logs join the sealed payl
  fs.writeFileSync(join(stamp,'xctest_runner_2026-10-17_120001.log'),'ambiguous',{mode:384});const ambiguous=JSON.parse(collectIosDriverLogs(invocation));assert.equal(ambiguous.maestro,null);assert.equal(ambiguous.runner,null);assert.equal(Buffer.from(ambiguous.process,'base64').toString(),'process-private');
  fs.unlinkSync(join(stamp,'xctest_runner_2026-10-17_120001.log'));fs.writeFileSync(join(stamp,'maestro.log'),Buffer.alloc(262145));const oversized=JSON.parse(collectIosDriverLogs(invocation));assert.equal(oversized.maestro,null);assert.equal(oversized.runner,null);assert.equal(Buffer.from(oversized.process,'base64').toString(),'process-private');
 }));
-test('workflow runs driver preflight before fixture/compiler and uploads only the distinct sealed artifact',()=>{
+test('workflow runs driver preflight before database installation/fixture/compiler and uploads only the distinct sealed artifact',()=>{
  const workflow=fs.readFileSync(new URL('../../../../.github/workflows/subtrack-native-device-proof.yml',import.meta.url),'utf8');assert.ok(workflow.indexOf('id: ios_driver_preflight')<workflow.indexOf('- name: Owned PostgreSQL16'));assert.ok(workflow.includes('node apps/mobile/scripts/private-runtime-ios-driver-preflight.mjs'));assert.ok(workflow.includes('path: ${{ runner.temp }}/subtrack-native-proof/sealed/ios-driver-preflight.st253sealed'));assert.equal(/path:.*(?:process\.log|maestro\.log|xctest_runner)/.test(workflow),false);
+ const database=workflow.slice(workflow.indexOf('- name: Owned PostgreSQL16'),workflow.indexOf('- name: Installed workflow,'));assert.equal((workflow.match(/brew install postgresql@16/g)||[]).length,1);assert.ok(database.includes("if [ '${{ matrix.platform }}' = ios ]; then"));assert.ok(database.includes('export PATH="$postgres_bin:$PATH"'));assert.ok(database.indexOf('brew install postgresql@16')<database.indexOf('bash tools/database/private-mobile-proof.sh start'));
 });
 
 test('invalid optional logs retain the original bounded child log and still require successful raw cleanup before sealing',async()=>{
