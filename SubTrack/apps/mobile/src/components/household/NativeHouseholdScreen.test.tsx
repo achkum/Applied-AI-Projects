@@ -5,6 +5,8 @@ import {parseSandboxHouseholdView,type SandboxHouseholdView} from '@subtrack/con
 import type {NativeFeatureSession} from '../onboarding/NativePersonalScreen';
 import type {SandboxHouseholdApi} from '@/api/sandboxHouseholdApi';
 import {catalogs} from '@subtrack/i18n';
+import {SandboxSessionCore} from '@/state/SandboxSessionCore';
+jest.mock('expo-secure-store',()=>({WHEN_UNLOCKED_THIS_DEVICE_ONLY:6}));
 jest.mock('expo-crypto',()=>({getRandomBytesAsync:jest.fn(async()=>new Uint8Array(16))}));
 jest.mock('@/api/sandboxMobileApi',()=>({sandboxMobileApi:{householdBusiness:jest.fn(),readNativeSubscriptions:jest.fn()}}));
 jest.mock('react-native-safe-area-context',()=>jest.requireActual('react-native-safe-area-context/jest/mock').default);
@@ -13,6 +15,23 @@ jest.mock('@/context/ThemeContext',()=>({useTheme:()=>({...jest.requireActual('.
 jest.mock('@/context/I18nContext',()=>({useI18n:()=>jest.requireActual('../signature/testUtils/contextMocks').makeI18n('en')}));
 const admin='123e4567-e89b-42d3-a456-426614174000',child='123e4567-e89b-42d3-a456-426614174001';
 const copy=catalogs.en.onboarding.nativeHousehold;
+async function realSandboxSession(){
+ const credentials={transport:'sandbox-mobile' as const,sessionId:admin,accessToken:'header.payload.signature',refreshToken:`s250r.${'A'.repeat(43)}`,sessionExpiresAt:10000},capability=`s250c.${'A'.repeat(43)}`;
+ const store={read:jest.fn().mockResolvedValue(null),write:jest.fn().mockResolvedValue(undefined),clear:jest.fn().mockResolvedValue(undefined)},changed=jest.fn();
+ const core=new SandboxSessionCore(store,{bootstrap:jest.fn().mockResolvedValue({...credentials,installationCapability:capability}),resume:jest.fn(),refresh:jest.fn(),logout:jest.fn()},changed);await core.bootstrap('en');
+ const session:NativeFeatureSession={phase:'active',run:work=>core.run(work),login:jest.fn(),refresh:jest.fn(),logout:jest.fn()};return{core,session,store,changed,capability};
+}
+it('leaving Household during an in-flight read preserves real sandbox authority for the next page',async()=>{
+ const f=await realSandboxSession(),api:SandboxHouseholdApi={read:jest.fn((_token,signal)=>new Promise((_resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('Route read aborted')),{once:true}))),mutate:jest.fn()};
+ const subscriptions=jest.fn().mockResolvedValue({items:[],nextCursor:null}),view=render(<NativeHouseholdScreen useSession={()=>f.session} api={api} readSubscriptions={subscriptions}/>);
+ await waitFor(()=>expect(api.read).toHaveBeenCalledTimes(1));view.unmount();
+ await expect(f.core.run(async token=>token)).resolves.toBe('header.payload.signature');expect(f.changed).toHaveBeenLastCalledWith('active',true);expect(f.store.write).toHaveBeenCalledTimes(1);expect(api.mutate).not.toHaveBeenCalled();
+});
+it('a genuine focused Household read failure still retires real sandbox authority',async()=>{
+ const f=await realSandboxSession(),api:SandboxHouseholdApi={read:jest.fn().mockRejectedValue(new Error('Owner read denied')),mutate:jest.fn()},subscriptions=jest.fn().mockResolvedValue({items:[],nextCursor:null});
+ render(<NativeHouseholdScreen useSession={()=>f.session} api={api} readSubscriptions={subscriptions}/>);await waitFor(()=>expect(f.changed).toHaveBeenLastCalledWith('verification-required',true));
+ await expect(f.core.run(async()=>true)).rejects.toThrow('Sandbox session unavailable');expect(f.store.write).toHaveBeenLastCalledWith({version:1,installationCapability:f.capability,session:null});
+});
 function household(children=true):SandboxHouseholdView{return parseSandboxHouseholdView({household:{id:admin,name:'Example family',members:[{id:admin,displayName:'Example parent',role:'ADMIN'},...(children?[{id:child,displayName:'Example child',role:'DEPENDANT'}]:[])],assignments:[]}});}
 function fixture(initial:SandboxHouseholdView={household:null}){
  const api:SandboxHouseholdApi={read:jest.fn().mockResolvedValue(initial),mutate:jest.fn().mockResolvedValue({household:null})};

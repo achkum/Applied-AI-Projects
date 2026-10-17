@@ -39,9 +39,10 @@ export function NativeHouseholdScreen({useSession,api=sandboxHouseholdApi,readSu
    const result=await current.current.run(async(token,signal)=>{
     const abort=()=>controller.abort();if(signal.aborted)abort();signal.addEventListener('abort',abort,{once:true});
     try{if(intent)await apiRef.current.mutate(intent,token,controller.signal);const household=await apiRef.current.read(token,controller.signal);const subscriptions=await readAllOwnerSubscriptions(cursor=>readRef.current(token,controller.signal,cursor),controller.signal);return {household,subscriptions};}
+    catch(error){if(!intent&&controller.signal.aborted&&!signal.aborted&&ticket!==generation.current&&current.current.phase==='active')return null;throw error;}
     finally{signal.removeEventListener('abort',abort);}
    });
-   if(ticket!==generation.current||!focused.current||current.current.phase!=='active')return;
+   if(result===null||ticket!==generation.current||!focused.current||current.current.phase!=='active')return;
    setView(result.household);setItems(result.subscriptions.items);setHouseholdName(result.household.household?.name??'');
    if(intent){setEdit(null);setRemove(null);setMemberName('');setAssign(null);setUsers([]);setPayer(null);setRenaming(false);setMessage('saved');if(intent.operation==='dependant-remove')setSelected(null);}
   }catch{if(ticket===generation.current){setView(null);setItems([]);setMessage(intent?'uncertain':'unavailable');}}

@@ -19,9 +19,15 @@ export function useNativeAnalytics(session: NativeFeatureSession, reader: Native
         if (authoritySignal.aborted) controller.abort();
         authoritySignal.addEventListener('abort', abort, { once: true });
         try { return await live.current.reader(token, controller.signal, live.current.now()); }
+        catch (error) {
+          // A route blur/replaced read cancels presentation, not the authenticated session.
+          // Genuine transport/authority failures still escape to NativeSessionCore.run.
+          if (controller.signal.aborted && !authoritySignal.aborted && ticket !== generation.current && live.current.session.phase === 'active') return { kind: 'obsolete' } as const;
+          throw error;
+        }
         finally { authoritySignal.removeEventListener('abort', abort); }
       });
-      if (ticket !== generation.current || !focused.current || controller.signal.aborted) return;
+      if (ticket !== generation.current || !focused.current || controller.signal.aborted || result.kind === 'obsolete') return;
       if (result.kind === 'ready') { setValue(result.projection); setState('ready'); }
       else setState('setup-required');
     } catch { if (ticket === generation.current && focused.current && !controller.signal.aborted) { setValue(null); setState('error'); } }

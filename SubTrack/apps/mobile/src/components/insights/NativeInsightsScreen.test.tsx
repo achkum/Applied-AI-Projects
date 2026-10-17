@@ -10,6 +10,8 @@ import type { NativeFeatureSession } from '../onboarding/NativePersonalScreen';
 import { formatMinorUnits } from '@/api/privateMobileMoney';
 import { catalogs } from '@subtrack/i18n';
 import type { SandboxHouseholdView } from '@subtrack/contracts/sandbox-household';
+import { NativeSessionCore } from '@/state/NativeSessionCore';
+import type { NativeAnalyticsReader } from '@/api/nativeAnalyticsReader';
 const mockPush = jest.fn(), mockReplace = jest.fn();
 const mockFocus: { cleanup?: void | (() => void) } = {};
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: mockReplace }), useFocusEffect: (callback: () => void | (() => void)) => {
@@ -30,6 +32,31 @@ const formatted = (minor: bigint) => formatMinorUnits(minor, 'SEK', { locale: 'e
 const heroLabel = (minor: bigint) => formatMinorUnits(minor, 'SEK', { locale: 'en', display: 'code' });
 function expectHero(minor: bigint) { expect(screen.getByLabelText(heroLabel(minor))).toBeTruthy(); expect(screen.getByText(formatted(minor).replace('SEK', '').trim())).toBeTruthy(); }
 beforeEach(() => { jest.clearAllMocks(); mockFocus.cleanup = undefined; });
+async function realSession() {
+  const credentials = { transport: 'mobile' as const, sessionId: row.id, accessToken: 'header.payload.signature', refreshToken: 'v2r.' + 'a'.repeat(43) };
+  const store = { read: jest.fn().mockResolvedValue(null), write: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) }, changed = jest.fn();
+  const core = new NativeSessionCore(store, changed); await core.establish(async () => credentials);
+  const session: NativeFeatureSession = { ...facade(), run: work => core.run(work) };
+  return { core, session, changed, store };
+}
+it('keeps real native authority usable for Manage when leaving Home during an in-flight analytics read', async () => {
+  const { core, session, changed, store } = await realSession();
+  const reader: jest.MockedFunction<NativeAnalyticsReader> = jest.fn((_token: string, signal: AbortSignal) => new Promise<NativeAnalyticsRead>((_resolve, reject) => { signal.addEventListener('abort', () => reject(new Error('Local route read aborted')), { once: true }); }));
+  render(<NativeHomeOverview session={session} reader={reader} now={now} />);
+  await waitFor(() => expect(reader).toHaveBeenCalledTimes(1));
+  act(() => { mockFocus.cleanup?.(); });
+  await expect(core.run(async token => token)).resolves.toBe('header.payload.signature');
+  expect(changed).toHaveBeenLastCalledWith('active'); expect(store.clear).toHaveBeenCalledTimes(1);
+  expect(screen.queryByTestId('native-home-overview')).toBeNull();
+});
+it('still retires real native authority on a genuine analytics read failure while Home stays focused', async () => {
+  const { core, session, changed, store } = await realSession();
+  const reader = jest.fn().mockRejectedValue(new Error('Server denied owner read'));
+  render(<NativeHomeOverview session={session} reader={reader} now={now} />);
+  await waitFor(() => expect(changed).toHaveBeenLastCalledWith('verification-required'));
+  await expect(core.run(async () => true)).rejects.toThrow('Fresh verification required');
+  expect(store.clear).toHaveBeenCalledTimes(2); expect(screen.queryByTestId('native-home-overview')).toBeNull();
+});
 
 it('renders actual findings, expandable category contributions, exact trend alternatives and a real comparisons action', async () => {
   const reader = jest.fn().mockResolvedValue(ready()), session = facade();

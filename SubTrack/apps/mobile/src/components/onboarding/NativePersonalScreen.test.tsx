@@ -480,6 +480,23 @@ it('blur aborts a complete read and clears query/data while stale completion can
  const focusCalls=jest.mocked(useFocusEffect).mock.calls;const callback=focusCalls[focusCalls.length-1]![0];let cleanup:void|(()=>void);act(()=>{cleanup=callback();});act(()=>{if(cleanup)cleanup();});expect(screen.queryByText(row.customName)).toBeNull();const signal=jest.mocked(api.readNativeSubscriptions).mock.calls[1]![1];expect(signal.aborted).toBe(true);await act(async()=>{complete({items:[row],nextCursor:null});});expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText(copy.nativePersonal.unavailable)).toBeNull();act(()=>{callback();});await screen.findByText(row.customName);expect(screen.getByLabelText(copy.ownerSubscriptionList.search).props.value).toBe('');
 });
 
+async function realActivePersonalSession(){
+ const store:NativeBundleStore={read:jest.fn().mockResolvedValue(null),write:jest.fn().mockResolvedValue(undefined),clear:jest.fn().mockResolvedValue(undefined)},changed=jest.fn(),core=new NativeSessionCore(store,changed);await core.establish(async()=>credentials);
+ const session:import('./NativePersonalScreen').NativeFeatureSession={phase:'active',run:work=>core.run(work),login:jest.fn(),refresh:jest.fn(),logout:jest.fn()};return{core,session,store,changed};
+}
+it('real native authority survives an aborted read when leaving Manage',async()=>{
+ const f=await realActivePersonalSession();jest.mocked(api.readNativeSubscriptions).mockImplementation((_token,signal)=>new Promise((_resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('Route read aborted')),{once:true})));
+ const view=render(<NativePersonalScreen useSession={()=>f.session}/>);await waitFor(()=>expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(1));view.unmount();
+ await expect(f.core.run(async token=>token)).resolves.toBe(credentials.accessToken);expect(f.changed).toHaveBeenLastCalledWith('active');expect(f.store.clear).toHaveBeenCalledTimes(1);
+});
+it('real native authority retires an uncertain sent tracking mutation after leaving Manage without retrying',async()=>{
+ const f=await realActivePersonalSession();jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row],nextCursor:null});
+ jest.mocked(api.updateNativeSubscriptionStatus).mockImplementation((_body,_token,signal)=>new Promise((_resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('Sent mutation response unavailable')),{once:true})));
+ const view=render(<NativePersonalScreen useSession={()=>f.session}/>);await screen.findByText(row.customName);expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));
+ await waitFor(()=>expect(api.updateNativeSubscriptionStatus).toHaveBeenCalledTimes(1));view.unmount();
+ await expect(f.core.run(async()=>true)).rejects.toThrow('Fresh verification required');expect(f.changed).toHaveBeenLastCalledWith('verification-required');expect(f.store.clear).toHaveBeenCalledTimes(2);expect(api.updateNativeSubscriptionStatus).toHaveBeenCalledTimes(1);expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(1);
+});
+
 it('uses Swedish search/category/subtotal labels and clears search immediately on logout',async()=>{
  mockLocale.value='sv';jest.mocked(api.readNativeProfile).mockResolvedValue({...profile,language:'sv'});jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,customName:'Fiktiv tjänst'}],nextCursor:null});jest.mocked(api.revokeNativeSession).mockResolvedValue(undefined);mount();const sv=catalogs.sv.onboarding;await waitFor(()=>expect(screen.getByRole('button',{name:sv.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:sv.nativePersonal.verify}));await screen.findByText('Fiktiv tjänst');fireEvent.changeText(screen.getByLabelText(sv.ownerSubscriptionList.search),sv.ownerSubscriptions.category.VIDEO_STREAMING);expect(screen.getByText('Fiktiv tjänst')).toBeTruthy();expect(screen.getByText(new RegExp(`^${sv.ownerSubscriptions.cadence.MONTHLY} · `))).toBeTruthy();performLogout();expect(screen.queryByText('Fiktiv tjänst')).toBeNull();expect(screen.queryByLabelText(sv.ownerSubscriptionList.search)).toBeNull();
 });

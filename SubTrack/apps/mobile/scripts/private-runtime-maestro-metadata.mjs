@@ -10,7 +10,7 @@ import {TextDecoder} from 'node:util';
 const MAX_BYTES=4*1024*1024;
 const KINDS=Object.freeze({tapOnElement:'TAP',inputTextCommand:'INPUT',hideKeyboardCommand:'HIDE_KEYBOARD',assertConditionCommand:'ASSERT_CONDITION',scrollUntilVisible:'SCROLL_UNTIL_VISIBLE',takeScreenshotCommand:'SCREENSHOT',applyConfigurationCommand:'CONFIGURATION',runFlowCommand:'SUBFLOW'});
 const STATUSES=['PENDING','RUNNING','COMPLETED','FAILED','WARNED','SKIPPED'];
-const TARGETS=Object.freeze(['personal-title','profile-save','add-open','subscription-name','subscription-category','subscription-amount','date-field','subscription-save','saved-row','UNKNOWN']);
+const TARGETS=Object.freeze(['personal-title','profile-save','add-open','subscription-name','subscription-category','subscription-amount','date-field','subscription-save','saved-row','verification-entry','profile-name','profile-title','mode-choice','home-title','saved-ack','saved-amount','preferences-sv','preferences-en','UNKNOWN']);
 export const ENROLLMENT_HEADER_OCCURRENCES=Object.freeze(['ENTRY_HEADER','SAVED_HEADER','UNKNOWN']);
 const closed=(metadata,command='UNKNOWN',target='UNKNOWN',occurrence='UNKNOWN')=>Object.freeze({metadata,command,target,occurrence,errorClass:'UNKNOWN'});
 const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
@@ -47,6 +47,21 @@ function scrollTarget(command){
  const target=typeof id==='string'&&Object.hasOwn(ids,id)?ids[id]:typeof text==='string'&&Object.hasOwn(texts,text)?texts[text]:'UNKNOWN';
  return target!=='UNKNOWN'&&scroll.direction===(target==='personal-title'?'UP':'DOWN')?target:'UNKNOWN';
 }
+// Original producer selectors only. Fixed labels cannot disclose entered values or grant capture authority.
+const ASSERT_TARGETS=new Map([
+ [{textRegex:'${MAESTRO_VERIFY_BANKID}'},'verification-entry'],[{textRegex:'${MAESTRO_PROFILE_NAME}'},'profile-name'],[{idRegex:'native-profile-name'},'profile-name'],
+ [{idRegex:'native-personal-title',textRegex:'${MAESTRO_PROFILE_TITLE}'},'profile-title'],[{idRegex:'native-personal-title',textRegex:'${MAESTRO_PERSONAL_TITLE}'},'personal-title'],
+ [{textRegex:'${MAESTRO_JUST_ME}'},'mode-choice'],[{textRegex:'${MAESTRO_MONTH_TITLE}'},'home-title'],[{textRegex:'${MAESTRO_SV_MONTH_TITLE}'},'home-title'],
+ [{textRegex:'${MAESTRO_ADD}'},'add-open'],[{textRegex:'${MAESTRO_SAVE_SUBSCRIPTION}',enabled:true},'subscription-save'],
+ [{textRegex:'${MAESTRO_SAVED}'},'saved-ack'],[{textRegex:'Example streaming'},'saved-row'],[{textRegex:'${MAESTRO_EXPECTED_AMOUNT}'},'saved-amount'],
+ [{textRegex:'${MAESTRO_SV_SAVE_PREFERENCES}'},'preferences-sv'],[{textRegex:'${MAESTRO_SAVE_PREFERENCES}'},'preferences-en'],
+].map(([selector,target])=>[JSON.stringify(Object.entries(selector).sort(([a],[b])=>a.localeCompare(b))),target]));
+function assertionTarget(command){
+ const condition=command.assertConditionCommand.condition;
+ if(!plain(condition)||Object.keys(condition).some(key=>key!=='visible'&&condition[key]!==null)||!plain(condition.visible))return 'UNKNOWN';
+ const selector=Object.entries(condition.visible).filter(([key,value])=>value!==null&&!(key==='optional'&&value===false)).sort(([a],[b])=>a.localeCompare(b));
+ return ASSERT_TARGETS.get(JSON.stringify(selector))??'UNKNOWN';
+}
 function validateMetadata(metadata){
  if(!plain(metadata)||Object.keys(metadata).some(key=>!['status','sequenceNumber','depth','timestamp','duration','error','evaluatedCommand','artifacts'].includes(key))||!STATUSES.includes(metadata.status)||!integer(metadata.sequenceNumber)||!integer(metadata.depth)||metadata.depth>32)throw Error('invalid');
  for(const field of ['timestamp','duration'])if(Object.hasOwn(metadata,field)&&!integer(metadata[field]))throw Error('invalid');
@@ -71,8 +86,8 @@ export function projectEnrollmentMetadata(bytes){
  try{const rows=strictJson(bytes);if(!Array.isArray(rows)||rows.length===0||rows.length>128)throw Error('invalid');let last=-1;const failed=[];
   for(const [index,row] of rows.entries()){if(!plain(row)||Object.keys(row).sort().join(',')!=='command,metadata')throw Error('invalid');validateMetadata(row.metadata);if(row.metadata.sequenceNumber<=last)throw Error('invalid');last=row.metadata.sequenceNumber;
    if(index===0){if(!plain(row.command)||Object.keys(row.command).join(',')!=='defineVariablesCommand'||!plain(row.command.defineVariablesCommand)||row.metadata.status!=='COMPLETED'||row.metadata.depth!==0)throw Error('invalid');continue;}
-   const kind=commandKind(row.command);if(row.metadata.status==='FAILED'){if(row.metadata.depth!==0)throw Error('invalid');failed.push({kind,target:kind==='SCROLL_UNTIL_VISIBLE'?scrollTarget(row.command):'UNKNOWN'});}}
-  return failed.length===1?closed('AVAILABLE',failed[0].kind,failed[0].target,failed[0].target==='personal-title'?headerOccurrence(rows):'UNKNOWN'):closed('UNAVAILABLE');
+   const kind=commandKind(row.command);if(row.metadata.status==='FAILED'){if(row.metadata.depth!==0)throw Error('invalid');failed.push({kind,target:kind==='SCROLL_UNTIL_VISIBLE'?scrollTarget(row.command):kind==='ASSERT_CONDITION'?assertionTarget(row.command):'UNKNOWN'});}}
+  return failed.length===1?closed('AVAILABLE',failed[0].kind,failed[0].target,failed[0].kind==='SCROLL_UNTIL_VISIBLE'&&failed[0].target==='personal-title'?headerOccurrence(rows):'UNKNOWN'):closed('UNAVAILABLE');
  }catch{return closed('INVALID');}
 }
 function directory(path){const stat=lstatSync(path,{bigint:true});if(stat.isSymbolicLink()||!stat.isDirectory()||realpathSync(path)!==resolve(path))throw Error('unavailable');return stat;}
@@ -118,7 +133,7 @@ function prepareCommandMetadata(privateRoot,execution,flowName,phaseName,project
 export function prepareEnrollmentMetadata(privateRoot,execution,platform='android'){if(!['android','ios'].includes(platform))throw Error('Invalid metadata platform');return prepareCommandMetadata(privateRoot,execution,'enroll-add','flow-enroll-add',projectEnrollmentMetadata,platform);}
 /** Only this exact fixed grammar may leave the private invocation. */
 export function enrollmentMetadataLines(result){
- if(!plain(result)||Object.keys(result).sort().join(',')!=='command,errorClass,metadata,occurrence,target'||!['AVAILABLE','UNAVAILABLE','INVALID'].includes(result.metadata)||!['UNKNOWN',...Object.values(KINDS)].includes(result.command)||!TARGETS.includes(result.target)||!ENROLLMENT_HEADER_OCCURRENCES.includes(result.occurrence)||(result.occurrence!=='UNKNOWN'&&(result.metadata!=='AVAILABLE'||result.command!=='SCROLL_UNTIL_VISIBLE'||result.target!=='personal-title'))||(result.command!=='SCROLL_UNTIL_VISIBLE'&&result.target!=='UNKNOWN')||result.errorClass!=='UNKNOWN'||(result.metadata!=='AVAILABLE'&&result.command!=='UNKNOWN')||(result.metadata==='AVAILABLE'&&result.command==='UNKNOWN'))return null;
+ if(!plain(result)||Object.keys(result).sort().join(',')!=='command,errorClass,metadata,occurrence,target'||!['AVAILABLE','UNAVAILABLE','INVALID'].includes(result.metadata)||!['UNKNOWN',...Object.values(KINDS)].includes(result.command)||!TARGETS.includes(result.target)||!ENROLLMENT_HEADER_OCCURRENCES.includes(result.occurrence)||(result.occurrence!=='UNKNOWN'&&(result.metadata!=='AVAILABLE'||result.command!=='SCROLL_UNTIL_VISIBLE'||result.target!=='personal-title'))||(!['SCROLL_UNTIL_VISIBLE','ASSERT_CONDITION'].includes(result.command)&&result.target!=='UNKNOWN')||result.errorClass!=='UNKNOWN'||(result.metadata!=='AVAILABLE'&&result.command!=='UNKNOWN')||(result.metadata==='AVAILABLE'&&result.command==='UNKNOWN'))return null;
  return Object.freeze([`enrollment-structured-metadata=${result.metadata}`,`enrollment-failed-command=${result.command}`,`enrollment-failed-target=${result.target}`,`enrollment-failed-occurrence=${result.occurrence}`,'enrollment-error-class=UNKNOWN']);
 }
 

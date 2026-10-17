@@ -102,7 +102,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
         const profile = await readNativeProfile(token, signal); const mode = await readNativeMode(token, signal);
         const page = profile.profileComplete && mode.mode === 'just-me' ? await rereadLoaded(token, signal) : null;
         return { profile, mode: mode.mode, page };
-      });
+      }, true);
       if (ticket !== generation.current) return;
       await applyPreferences(result.profile, ticket);
       if (ticket !== generation.current) return;
@@ -130,20 +130,20 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
     if (currentPhase.current === 'active') void currentLoad.current();
     return () => focusCleanup.current();
   }, []));
-  async function action(operation: (token: string, signal: AbortSignal) => Promise<(ticket: number) => void | Promise<void>>) {
+  async function action(operation: (token: string, signal: AbortSignal) => Promise<(ticket: number) => void | Promise<void>>, readOnly = false) {
     if (pending.current || session.phase !== 'active') return;
     const ticket = ++generation.current; pending.current = true; setLoading(true); setMessage('');
-    try { const commit = await runOwned(operation); if (ticket !== generation.current) return; await commit(ticket); }
+    try { const commit = await runOwned(operation, readOnly); if (ticket !== generation.current) return; await commit(ticket); }
     catch { if (ticket === generation.current) { clear(); setMessage('unavailable'); } }
     finally { if (ticket === generation.current) { pending.current = false; setLoading(false); } }
   }
-  async function runOwned<T>(operation: (token: string, signal: AbortSignal) => Promise<T>): Promise<T> {
+  async function runOwned<T>(operation: (token: string, signal: AbortSignal) => Promise<T>, readOnly = false): Promise<T> {
     const controller = new AbortController(); request.current = controller;
     try { const result = await session.run(async (token, authoritySignal) => {
       const abort = () => controller.abort(); if (authoritySignal.aborted) abort();
       authoritySignal.addEventListener('abort', abort, { once: true });
       try { return {kind:'ready' as const,value:await operation(token, controller.signal)}; }
-      catch(error) { if(controller.signal.aborted && !authoritySignal.aborted)return {kind:'obsolete' as const};throw error; }
+      catch(error) { if(readOnly && controller.signal.aborted && !authoritySignal.aborted)return {kind:'obsolete' as const};throw error; }
       finally { authoritySignal.removeEventListener('abort', abort); }
     });if(result.kind==='obsolete')throw new Error('Abandoned view');return result.value;
     } finally { if (request.current === controller) request.current = null; }
@@ -273,7 +273,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
             {button(t('onboarding.nativeSubscriptionEdit.review'), () => { setEditing(review); setReview(null); setReviewBlocked(false); setMessage(''); })}</> : null}
           {reviewBlocked && editing ? button(t('onboarding.nativeSubscriptionEdit.review'), () => {
             const selected = editing; void action(async (token, signal) => { const page = await rereadLoaded(token, signal); const current = page.items.find(row => row.id === selected.id);
-              return () => { setItems(page.items);  setReview(current ?? null); setReviewBlocked(!current); setMessage(current ? 'edit.conflict' : 'readbackUnavailable'); }; });
+              return () => { setItems(page.items);  setReview(current ?? null); setReviewBlocked(!current); setMessage(current ? 'edit.conflict' : 'readbackUnavailable'); }; }, true);
           }) : null}
           {field(t('onboarding.manualSubscription.name'), draft.customName, value => setDraft(prior => ({ ...prior, customName: value })), false, 'native-subscription-name')}
           <NativeCategoryField value={draft.categoryCode} onChange={categoryCode=>setDraft(prior=>({...prior,categoryCode}))} disabled={loading}/>
