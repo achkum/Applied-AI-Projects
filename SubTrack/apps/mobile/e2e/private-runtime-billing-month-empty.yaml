@@ -39,10 +39,11 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_EMPTY}
     timeout: 30000
-- runFlow:
-    file: private-runtime-month-day.yaml
-    env:
-      MAESTRO_RIBBON_DIRECTION: DOWN
+- scrollUntilVisible:
+    element:
+      id: native-month-ribbon
+    direction: DOWN
+- runFlow: private-runtime-month-day.yaml
 - assertNotVisible: ${MAESTRO_MONTH_DAY_EMPTY}
 - assertNotVisible: Example streaming Plus
 - scrollUntilVisible:
@@ -55,6 +56,10 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_EMPTY}
     timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-month-ribbon
+    direction: DOWN
 - runFlow: private-runtime-month-day.yaml
 - assertNotVisible: ${MAESTRO_MONTH_DAY_EMPTY}
 - assertNotVisible: Example streaming Plus

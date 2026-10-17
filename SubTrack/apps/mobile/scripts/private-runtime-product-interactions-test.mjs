@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {createRequire} from 'node:module';
 import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
 import { flowEnvironment } from './private-runtime-flow-env.mjs';
@@ -65,17 +66,31 @@ test('Upcoming is reached through Home and empty-day selection is asserted witho
     assert.ok(read(name).includes('- tapOn:\n    id: native-nav-month\n- extendedWaitUntil:\n    visible: ${MAESTRO_MONTH_TITLE}\n    timeout: 30000\n- scrollUntilVisible:\n    element: ${MAESTRO_RENEWALS_OPEN}\n    direction: DOWN\n- tapOn: ${MAESTRO_RENEWALS_OPEN}'));
   }
   const day = read('month-day');
-  assert.ok(day.includes('env:\n  MAESTRO_RIBBON_DIRECTION: UP'));
-  assert.ok(day.includes('direction: ${MAESTRO_RIBBON_DIRECTION}'));
+  assert.ok(!day.includes('MAESTRO_RIBBON_DIRECTION'));
+  assert.ok(!day.includes('scrollUntilVisible:'));
+  assert.ok(day.includes('direction: LEFT'));
   assert.ok(day.endsWith('- assertVisible:\n    text: ${MAESTRO_MONTH_DAY}\n    selected: true\n'));
   for (const name of ['billing-month', 'billing-month-empty']) {
     const flow = read(name);
     assert.ok(flow.includes('- scrollUntilVisible:\n    element: ${MAESTRO_MONTH_NEXT}\n    direction: DOWN\n# Only an exact previous-month header'));
-    assert.equal(flow.split('MAESTRO_RIBBON_DIRECTION: DOWN').length - 1, 1);
-    assert.equal(flow.split('- runFlow: private-runtime-month-day.yaml').length - 1, 1);
+    assert.ok(!flow.includes('MAESTRO_RIBBON_DIRECTION'));
+    assert.equal(flow.split('- runFlow: private-runtime-month-day.yaml').length - 1, 2);
+    assert.ok(flow.includes('id: native-month-ribbon\n    direction: DOWN\n- runFlow: private-runtime-month-day.yaml'));
   }
   const empty = read('billing-month-empty');
   assert.equal(empty.split('- assertNotVisible: ${MAESTRO_MONTH_DAY_EMPTY}').length - 1, 2);
   assert.equal(empty.split('- assertNotVisible: Example streaming Plus').length - 1, 3);
   assert.ok(empty.includes('visible: ${MAESTRO_MONTH_EMPTY}'));
+});
+
+
+test('actual recursive YAML directions use pinned Maestro enum literals rather than unevaluated parameters',()=>{
+ // Pinned cli2.11 parses direction as ScrollDirection before command.evaluateScripts:
+ // https://github.com/mobile-dev-inc/Maestro/blob/cli-2.11.0/maestro-orchestra/src/main/java/maestro/orchestra/yaml/YamlScrollUntilVisible.kt
+ const mobileRequire=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobileRequire.resolve('expo/package.json'))('yaml');
+ const validate=value=>{if(!value||typeof value!=='object')return;for(const [key,child]of Object.entries(value)){if(key==='direction')assert.ok(['UP','DOWN','LEFT','RIGHT'].includes(child),'Maestro direction must deserialize as an enum literal');validate(child);}};
+ for(const name of ['billing-month','billing-month-empty','month-day','pick-renewal-date','enroll-add','edit-status'])for(const document of yaml.parseAllDocuments(read(name)))validate(document.toJSON());
+ for(const name of ['setup','bank','manage','pages','restart'])for(const document of yaml.parseAllDocuments(readFileSync(new URL(`../e2e/sandbox-product-${name}.yaml`,import.meta.url),'utf8')))validate(document.toJSON());
+ assert.throws(()=>validate({runFlow:{commands:[{scrollUntilVisible:{element:{id:'native-month-ribbon'},direction:'${MAESTRO_RIBBON_DIRECTION}'}}]}}),/enum literal/);
+ const positive=read('billing-month'),empty=read('billing-month-empty');assert.ok(positive.includes('id: native-month-ribbon\n    direction: UP\n- runFlow: private-runtime-month-day.yaml'));assert.equal(empty.split('id: native-month-ribbon\n    direction: DOWN\n- runFlow: private-runtime-month-day.yaml').length-1,2);
 });

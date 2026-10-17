@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {plan,sourceValidator,graphIdentity,networkIdentity,offlineBinding,recoveryPolicy,limits,envArgs,secretArgs,actualManifestBinding,backupArgs,captureBackup}=require('./upgrade-api.cjs');
+const {plan,sourceValidator,gatewayCustody,graphIdentity,networkIdentity,offlineBinding,recoveryPolicy,limits,envArgs,secretArgs,actualManifestBinding,backupArgs,captureBackup}=require('./upgrade-api.cjs');
 const digest=value=>value.repeat(64),id=value=>'sha256:'+digest(value),source=value=>value.repeat(40);
 function input(){return {schema:'st253-api-upgrade-plan-v1',host:'198.44.116.159',sourceHead:source('a'),runId:'123-1',toolSha256:digest('b'),bootstrapSha256:digest('c'),transferReceiptSha256:digest('d'),migrationSha256:['1','2','3','4'].map(digest),predecessor:{sourceHead:source('e'),imageId:id('f'),sourceCustodySha256:digest('1'),imageImportBindingSha256:digest('2'),deploymentReceiptSha256:digest('3'),androidDownloadBindingSha256:digest('4'),apiId:digest('5'),databaseId:digest('6'),gatewayId:digest('7')}};}
 test('exact operator-pinned successor plan rejects foreign namespaces, source/run drift and principal/container ambiguity',()=>{
@@ -25,12 +25,36 @@ test('original frozen live/volume validators are extracted exactly; missing/dupl
  assert.throws(()=>sourceValidator('', 'LIVE'));assert.throws(()=>sourceValidator(verify+'\n// BEGIN LIVE VALIDATOR','LIVE'));
  const generation='123e4567-e89b-42d3-a456-426614174000',head=source('e'),run='123-1',role='database-data',name='subtrack-sandbox-'+role;
  const record={Name:name,Driver:'local',Scope:'local',CreatedAt:'2026-10-17T12:00:00.000Z',Mountpoint:'/var/lib/docker/volumes/'+name+'/_data',Options:null,Labels:{'org.subtrack.sandbox.namespace':'st250-runtime-v1','com.docker.compose.project':'subtrack-sandbox','com.docker.compose.volume':role,'org.subtrack.sandbox.source':head,'org.subtrack.sandbox.run':run,'org.subtrack.sandbox.generation':generation}};
- assert.equal(volume(record,record,role,head,run,generation),record);assert.throws(()=>volume({...record,Mountpoint:'/foreign'},record,role,head,run,generation));
+ assert.deepEqual(volume(record,record,role,head,run,generation),record);assert.throws(()=>volume({...record,Mountpoint:'/foreign'},record,role,head,run,generation));
+});
+
+test('frozen live validator accepts real host-realm JSON Android binding through same-realm deserialization and rejects tampering',()=>{
+ const live=sourceValidator(fs.readFileSync(path.join(__dirname,'verify.sh'),'utf8'),'LIVE'),root='/home/openclaw/subtrack-sandbox',head=source('e'),image=id('f');
+ const base={Id:image,Config:{Env:[],Entrypoint:[],Cmd:['node','dist/sandbox/main.js']}},identity={inspectedImageId:image,containerImageId:image,requestedImage:image};
+ const overrides={NODE_ENV:'production',SUBTRACK_RUNTIME:'sandbox',SANDBOX_STARTUP_ENABLED:'true',SANDBOX_PUBLICATION_ENABLED:'true',SANDBOX_DATABASE_HOST:'database',SANDBOX_DATABASE_NAME:'subtrack_sandbox',SANDBOX_DATABASE_ROLE:'subtrack_sandbox_runtime',SANDBOX_POOL_MAX:'4',SANDBOX_DATABASE_CREDENTIAL_FILE:'/run/secrets/database_runtime',SANDBOX_AUTH_MATERIAL_FILE:'/run/secrets/api_auth_material',PORT:'4000'};
+ const container={Image:image,State:{Running:true},Config:{Image:image,User:'1000:1000',Labels:{'org.subtrack.sandbox.namespace':'st250-runtime-v1','org.subtrack.sandbox.source':head,'com.docker.compose.service':'api-live'},Env:Object.entries(overrides).map(([k,v])=>k+'='+v),Entrypoint:[],Cmd:base.Config.Cmd},HostConfig:{CapDrop:['ALL'],SecurityOpt:['no-new-privileges:true'],Memory:384*1048576,PidsLimit:64,NanoCpus:0.75e9,ReadonlyRootfs:true,IpcMode:'private',LogConfig:{Type:'json-file',Config:{'max-file':'2','max-size':'5m'}},Tmpfs:{'/tmp':'size=16m,uid=1000,gid=1000'}},NetworkSettings:{Networks:{'subtrack-sandbox-database':{},'subtrack-sandbox-ingress':{}}},Mounts:[{Type:'bind',Source:root+'/secrets/database-runtime',Destination:'/run/secrets/database_runtime',RW:false},{Type:'bind',Source:root+'/secrets/api-auth-material',Destination:'/run/secrets/api_auth_material',RW:false}]};
+ const android=JSON.parse(JSON.stringify({schema:'st250-android-download-binding-v1',artifactSourceHead:head,toolingSourceHead:head,apkRun:'123-1',toolsRun:'123-1',applicationId:'se.subtrack.app.sandbox',versionCode:2,signedSha256:digest('1'),bytes:123,signerCertificateSha256:digest('2'),embeddedConfigSha256:digest('3'),hermesSha256:digest('4'),signedReceiptSha256:digest('5')}));
+ const records=Object.fromEntries(['database-data','certificate-data','gateway-config'].map(role=>[role,{Mountpoint:'/var/lib/docker/volumes/subtrack-sandbox-'+role+'/_data'}]));
+ assert.equal(live(container,base,'api-live',root,records,head,identity,android),true);
+ for(const tampered of [{...android,applicationId:'se.subtrack.production'},{...android,versionCode:0},{...android,signedSha256:'invalid'},{...android,extra:true}])assert.throws(()=>live(container,base,'api-live',root,records,head,identity,tampered));
+ const timed=sourceValidator('// BEGIN LIVE VALIDATOR\nfunction validateLive(){while(true){}}\n// END LIVE VALIDATOR','LIVE');assert.throws(()=>timed(),/timed out/);
 });
 test('stable graph comparison excludes volatile process timing but detects replaced IDs, mounts and network attachment',()=>{
  const c={Id:digest('1'),Name:'api',Image:id('2'),Config:{Env:['NODE_ENV=production']},HostConfig:{PortBindings:{}},Mounts:[],State:{Running:true,StartedAt:'before'},NetworkSettings:{Networks:{'subtrack-sandbox-database':{NetworkID:digest('3'),Aliases:['api-live'],IPAddress:'172.18.0.4'}}}};
  assert.deepEqual(graphIdentity(c),graphIdentity({...c,State:{Running:true,StartedAt:'later'}}));assert.notDeepEqual(graphIdentity(c),graphIdentity({...c,Id:digest('4')}));assert.notDeepEqual(graphIdentity(c),graphIdentity({...c,Mounts:[{Source:'/foreign'}]}));
  const n={Id:digest('a'),Name:'subtrack-sandbox-ingress',Driver:'bridge',Internal:true,Labels:{'org.subtrack.sandbox.namespace':'st250-runtime-v1'},IPAM:{},Options:{}};assert.equal(networkIdentity(n,n.Name).Id,n.Id);assert.throws(()=>networkIdentity({...n,Internal:false},n.Name));assert.throws(()=>networkIdentity({...n,Name:'foreign'},n.Name));
+});
+
+test('gateway preflight invokes the authenticated frozen executable verifier and rejects capless binary tampering before STOP',()=>{
+ const frozen=require('./image-import-binding.cjs'),profile=frozen.gatewayExecutableProfile,binding={services:{gateway:{requestedImage:profile.imageReference}}},source={schema:'st250-source-custody-v4',gatewayExecutable:{...profile}},calls=[];
+ gatewayCustody({...frozen,verifyGatewayExecutable:(...args)=>calls.push(args)},source,binding);assert.deepEqual(calls,[['/home/openclaw/subtrack-sandbox',profile.imageReference]]);
+ assert.throws(()=>gatewayCustody(frozen,{...source,gatewayExecutable:{...profile,binarySha256:digest('f')}},binding));
+ const vm=require('node:vm'),file=path.join(__dirname,'image-import-binding.cjs'),module={exports:{}},fakeFs={...fs,lstatSync:()=>({isFile:()=>true,isSymbolicLink:()=>false,uid:996,gid:987,mode:0o100755,size:profile.binaryBytes}),realpathSync:value=>value,readFileSync:()=>Buffer.from('tampered capless executable')};let commands=0;
+ const customRequire=name=>name==='node:fs'?fakeFs:name==='node:child_process'?{execFileSync:()=>{commands++;throw Error('Unexpected executable inspection');}}:require(name);
+ vm.runInNewContext(fs.readFileSync(file,'utf8'),{module,exports:module.exports,require:customRequire,Buffer,process,__filename:file,__dirname},{timeout:1000});
+ // Run the exact frozen byte/metadata verifier. Tampered content must fail before getcap.
+ assert.throws(()=>module.exports.verifyGatewayExecutable('/home/openclaw/subtrack-sandbox',profile.imageReference));assert.equal(commands,0);
+ const actual=fs.readFileSync(path.join(__dirname,'upgrade-api.cjs'),'utf8'),check=actual.indexOf('\n gatewayCustody(helpers,source,binding);');assert.ok(check>actual.indexOf('helpers.sourceBinding(source,'));assert.ok(check<actual.indexOf("state='STOP_OLD_API'"));assert.match(actual,/function unchanged\(saved,includeApi=true\)\{gatewayCustody\(saved.helpers,saved.source,saved.binding\)/);
 });
 test('candidate argument builders provide exact least-privilege resources and only original read-only API secrets',()=>{
  const args=limits();for(const part of ['--read-only','1000:1000','--cap-drop','ALL','no-new-privileges','384m','0.75','64','/tmp:size=16m,uid=1000,gid=1000'])assert.ok(args.includes(part));for(const forbidden of ['--privileged','--publish','--volume','--cap-add','--pid'])assert.ok(!args.includes(forbidden));

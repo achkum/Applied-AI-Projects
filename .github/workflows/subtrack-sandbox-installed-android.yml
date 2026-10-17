@@ -1,5 +1,23 @@
 name: SubTrack final signed Android product qualification
 on:
+  workflow_call:
+    inputs:
+      source_head:
+        description: Frozen integrated source of the already signed successor APK
+        type: string
+        required: true
+      signed_release_id:
+        description: Private unpublished signed-return draft ID
+        type: string
+        required: true
+      signed_sha256:
+        description: Independently verified signed APK SHA256
+        type: string
+        required: true
+      verification_run:
+        description: Completed successful verify-signed workflow run at the same source
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       source_head:
@@ -95,3 +113,14 @@ jobs:
           path: ${{ runner.temp }}/subtrack-sandbox-installed/public/
           if-no-files-found: error
           retention-days: 7
+
+      - name: Guarded current sandbox failure screen only (diagnostic, not acceptance)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sandbox-product-diagnostic-${{ inputs.source_head }}
+          path: |
+            ${{ runner.temp }}/subtrack-sandbox-installed/diagnostic/failed-sandbox-product.png
+            ${{ runner.temp }}/subtrack-sandbox-installed/diagnostic/diagnostic-only-receipt.json
+          if-no-files-found: ignore
+          retention-days: 3

@@ -1,9 +1,10 @@
 import {Buffer} from 'node:buffer';
 import {URL} from 'node:url';
 import test from 'node:test';
+import {crc32,deflateSync} from 'node:zlib';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {dispatch,verifiedAuthority,signedDraft,bindPending,acceptedPng,productReceipt,PACKAGE,SIGNER,REPO,CHECKS,SCREENSHOTS} from './sandbox-installed-android-contract.mjs';
+import {dispatch,verifiedAuthority,signedDraft,bindPending,acceptedPng,productReceipt,PACKAGE,SIGNER,REPO,CHECKS,SCREENSHOTS,foregroundSandbox,diagnosticReceipt} from './sandbox-installed-android-contract.mjs';
 import {flowLabels,maestroArgs} from './sandbox-installed-android.mjs';
 const source='a'.repeat(40),signed='c'.repeat(64),unsigned='b'.repeat(64),defaultHead='9'.repeat(40);
 const expected={sourceHead:source,releaseId:20,verificationRun:30,signedSha256:signed};
@@ -36,10 +37,22 @@ test('accepted images and closed measured receipt reject missing flags, cleanup 
  for(const key of CHECKS)assert.throws(()=>productReceipt(expected,authority(),{...checks,[key]:false},images,true));assert.throws(()=>productReceipt(expected,authority(),checks,images,false));assert.throws(()=>productReceipt(expected,authority(),checks,images.slice(1),true));assert.throws(()=>productReceipt(expected,authority(),checks,[{...images[0],privateInput:'never'},...images.slice(1)],true));
 });
 test('actual flows use sandbox package, no authority extraction or rebuild, one cold restart and final owner revocation',()=>{
- const names=['setup','bank','manage','pages','restart'];const sources=names.map(name=>readFileSync(new URL(`../e2e/sandbox-product-${name}.yaml`,import.meta.url),'utf8'));
+ const names=['setup','bank','manage','pages','restart'];const sources=names.map(name=>readFileSync(new URL(`../e2e/sandbox-product-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n'));
  for(const source of sources){assert.ok(source.startsWith('appId: se.subtrack.app.sandbox\n'));assert.doesNotMatch(source,/runScript|evalScript|copyTextFrom|openLink|https:\/\/localhost|se\.subtrack\.app\n/);}
  const all=sources.join('\n'),captures=[...all.matchAll(/- takeScreenshot: ([a-z-]+)/g)].map(m=>`${m[1]}.png`);assert.deepEqual(captures.sort(),[...SCREENSHOTS].sort());
- assert.equal((all.match(/clearState: true/g)??[]).length,1);assert.equal((all.match(/- stopApp/g)??[]).length,1);assert.equal((all.match(/native-detection-confirm-aurora-video/g)??[]).length,2);assert.ok(all.includes('native-detection-confirm-cinema-plus'));assert.ok(all.includes('native-detection-reject-move-club'));assert.ok(all.includes('native-detection-undo'));assert.ok(all.includes('native-profile-theme-dark\n    selected: true'));
+ assert.equal((all.match(/clearState: true/g)??[]).length,0);const driver=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8');assert.equal((driver.match(/'shell','pm','clear',PACKAGE/g)??[]).length,1);assert.ok(driver.indexOf("'shell','pm','clear',PACKAGE")>driver.indexOf('checks.signedBytesInstalled=true'));assert.ok(driver.indexOf("'shell','pm','clear',PACKAGE")<driver.indexOf("if(name==='setup')freshWorkspaceStarted=true"));assert.equal((all.match(/- stopApp/g)??[]).length,1);assert.equal((all.match(/native-detection-confirm-aurora-video/g)??[]).length,2);assert.ok(all.includes('native-detection-confirm-cinema-plus'));assert.ok(all.includes('native-detection-reject-move-club'));assert.ok(all.includes('native-detection-undo'));assert.ok(all.includes('native-profile-theme-dark\n    selected: true'));
  const labels=flowLabels(new Date('2026-10-17T12:00:00Z'));assert.equal(labels.TODAY,'2026-10-17');const args=maestroArgs(labels,'/private/output','/flow.yaml');assert.equal(args.filter(value=>value==='-e').length,Object.keys(labels).length);assert.ok(args.includes('TODAY=2026-10-17'));assert.equal(args.at(-1),'/flow.yaml');for(const match of all.matchAll(/\$\{([A-Z_]+)\}/g))assert.equal(typeof labels[match[1]],'string');
  const workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-sandbox-installed-android.yml',import.meta.url),'utf8');assert.doesNotMatch(workflow,/pnpm install|gradlew|expo prebuild|assembleRelease|assembleDebug|eas build|push:|pull_request:/);assert.ok(workflow.includes('if: success()'));assert.ok(workflow.includes('subtrack-sandbox-installed/public/'));
+});
+
+test('failure screenshot is diagnostic-only and requires verified fresh sandbox foreground fences',()=>{
+ const chunk=(kind,data)=>{const type=Buffer.from(kind),size=Buffer.alloc(4),crc=Buffer.alloc(4);size.writeUInt32BE(data.length);crc.writeUInt32BE(crc32(Buffer.concat([type,data])));return Buffer.concat([size,type,data,crc]);};
+ const header=Buffer.alloc(13);header.writeUInt32BE(300);header.writeUInt32BE(600,4);header[8]=8;header[9]=6;
+ const png=Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',header),chunk('IDAT',deflateSync(Buffer.alloc((300*4+1)*600))),chunk('IEND',Buffer.alloc(0))]);
+ const guards={verifiedInstall:true,freshWorkspaceStarted:true,ownedDevice:true,foregroundBefore:true,foregroundAfter:true};
+ const result=diagnosticReceipt(expected,'BANK',png,guards);assert.deepEqual(Object.keys(result),['schema','status','phase','sourceHead','signedSha256','applicationId','filename','sha256','bytes']);assert.equal(result.status,'diagnostic-only');assert.equal(result.filename,'failed-sandbox-product.png');assert.equal(result.bytes,png.length);assert.ok(!Object.hasOwn(result,'checks'));assert.ok(!Object.hasOwn(result,'accepted'));
+ for(const key of Object.keys(guards))assert.throws(()=>diagnosticReceipt(expected,'BANK',png,{...guards,[key]:false}));for(const phase of ['AUTHORITY','INSTALL','ACCEPTED','private'])assert.throws(()=>diagnosticReceipt(expected,phase,png,guards));assert.throws(()=>diagnosticReceipt(expected,'BANK',Buffer.alloc(32),guards));assert.throws(()=>diagnosticReceipt(expected,'BANK',png,{...guards,token:'private'}));
+ const activity='  mResumedActivity: ActivityRecord{abc u0 se.subtrack.app.sandbox/.MainActivity t2}\r\n',windows='  mCurrentFocus=Window{def u0 se.subtrack.app.sandbox/se.subtrack.app.MainActivity}\r\n';assert.equal(foregroundSandbox(activity,windows),true);
+ for(const [a,w]of [[activity.replace(PACKAGE,'se.subtrack.app'),windows],[activity,windows.replace(PACKAGE,'com.android.systemui')],['',windows],[activity,''],[activity+activity,windows],[activity,windows+windows]])assert.throws(()=>foregroundSandbox(a,w));
+ const driver=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8'),workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-sandbox-installed-android.yml',import.meta.url),'utf8');assert.ok(driver.includes("foreground('before');const png="));assert.ok(driver.includes("foreground('after');"));assert.ok(driver.includes("diagnostic&&!existsSync(w.privateDir)"));assert.ok(workflow.includes('if: failure()'));assert.ok(workflow.includes('diagnostic/failed-sandbox-product.png'));assert.ok(!workflow.includes('diagnostic/*.log'));assert.ok(!workflow.includes('private/'));
 });

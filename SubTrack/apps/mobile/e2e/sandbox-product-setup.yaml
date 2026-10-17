@@ -1,7 +1,6 @@
 appId: se.subtrack.app.sandbox
 ---
-- launchApp:
-    clearState: true
+- launchApp
 - extendedWaitUntil:
     visible:
       id: native-welcome-createAccount

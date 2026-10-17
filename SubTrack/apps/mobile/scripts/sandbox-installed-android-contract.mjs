@@ -1,11 +1,12 @@
 import {Buffer} from 'node:buffer';
 import {createHash} from 'node:crypto';
+import {validAndroidPng} from './private-runtime-maestro-metadata.mjs';
 import {validateReceipt} from '../../../tools/sandbox/android-release-receipt.mjs';
 import {validateTransfer} from '../../../tools/sandbox/android-transfer-receipt.mjs';
 export const PACKAGE='se.subtrack.app.sandbox';
 export const SIGNER='10c659cae262ad807ae2da9a9c137b581c633ebef2ea3bce86bfe6c41052186c';
 export const REPO='achkum/Applied-AI-Projects';
-export const SCREENSHOTS=Object.freeze(['welcome','profile','household','bank','detections','reviewed','subscriptions','edit','calendar','home','insights','comparisons','preferences','restart-household','restart-subscriptions','logout'].map(name=>`accepted-sandbox-${name}.png`));
+export const SCREENSHOTS=Object.freeze(['welcome','profile','household','bank','detections','reviewed','subscriptions','edit','calendar','home-top','home','insights-top','insights','trend','comparisons','preferences','restart-household','restart-subscriptions','logout'].map(name=>`accepted-sandbox-${name}.png`));
 export const CHECKS=Object.freeze(['signedVerificationBound','signedBytesInstalled','sameSigner','isolatedEnrollment','householdCreated','dependantCreated','syntheticBankSynced','detectionConfirmedTwice','detectionRejectedAndUndone','confirmedPlanEdited','customCategorySaved','datePickerSaved','trackingReread','calendarOpened','homePopulated','insightsPopulated','comparisonOpened','preferencesPersisted','coldRestartHouseholdReadback','coldRestartSubscriptionReadback','logoutClearedPrivateUi']);
 const fail=()=>{throw Error('Sandbox installed Android unavailable');};
 const sha=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
@@ -46,4 +47,16 @@ export function acceptedPng(bytes){if(!Buffer.isBuffer(bytes)||bytes.length<24||
 export function productReceipt(expected,authority,checks,images,cleanup){
  if(cleanup!==true||!checks||Object.keys(checks).length!==CHECKS.length||CHECKS.some(key=>checks[key]!==true)||!Array.isArray(images)||images.length!==SCREENSHOTS.length||new Set(images.map(image=>image.name)).size!==images.length||images.some(image=>!image||Object.getPrototypeOf(image)!==Object.prototype||Object.keys(image).sort().join(',')!=='bytes,name,sha256'||!SCREENSHOTS.includes(image.name)||!sha(image.sha256)||!Number.isSafeInteger(image.bytes)||image.bytes<24))fail();
  return {schema:'st253-installed-sandbox-android-v1',sourceHead:expected.sourceHead,signedSha256:expected.signedSha256,signedReleaseId:expected.releaseId,verificationRun:expected.verificationRun,applicationId:PACKAGE,versionCode:authority.receipt.versionCode,signerCertificateSha256:SIGNER,origin:'https://198.44.116.159',readback:'authoritative-app-refresh-and-cold-restart',backendSqlProofClaimed:false,checks:Object.fromEntries(CHECKS.map(key=>[key,true])),screenshots:images,privateCleanupConfirmed:true};
+}
+
+export function foregroundSandbox(activity,windows){
+ if(typeof activity!=='string'||typeof windows!=='string'||Buffer.byteLength(activity)>1048576||Buffer.byteLength(windows)>1048576)fail();
+ activity=activity.replaceAll('\r','');windows=windows.replaceAll('\r','');
+ const resumed=[...activity.matchAll(/^\s*mResumedActivity: ActivityRecord\{[^\r\n]* u0 ([a-zA-Z0-9_.]+)\/[^\r\n]*\}$/gm)];
+ const focused=[...windows.matchAll(/^\s*mCurrentFocus=Window\{[^\r\n]* u0 ([a-zA-Z0-9_.]+)\/[^\r\n]*\}$/gm)];
+ if(resumed.length!==1||focused.length!==1||resumed[0][1]!==PACKAGE||focused[0][1]!==PACKAGE)fail();return true;
+}
+export function diagnosticReceipt(expected,phase,png,guards){
+ if(!head(expected?.sourceHead)||!sha(expected?.signedSha256)||!['SETUP','BANK','MANAGE','PAGES','RESTART'].includes(phase)||!guards||Object.keys(guards).sort().join(',')!=='foregroundAfter,foregroundBefore,freshWorkspaceStarted,ownedDevice,verifiedInstall'||Object.values(guards).some(value=>value!==true)||!validAndroidPng(png))fail();
+ return {schema:'st253-installed-sandbox-diagnostic-v1',status:'diagnostic-only',phase,sourceHead:expected.sourceHead,signedSha256:expected.signedSha256,applicationId:PACKAGE,filename:'failed-sandbox-product.png',sha256:digest(png),bytes:png.length};
 }

@@ -27,3 +27,30 @@ test('observer launcher and actual HTTP transport use inspected private addresse
 const {sandboxTransferCandidate}=require('./sandbox-qualification-receipt.cjs');
 const transferCandidate=()=>{const h=handoff(),v=imageReceipt();v.schema='st250-sandbox-transfer-candidate-v1';v.cleanupConfirmed=false;delete v.checks.imageCustodyRemoved;return {...v,runId:h.runId,imageLabel:h.imageLabel,parentMarker:h.parentMarker,nonImageCleanupConfirmed:true};};
 test('retained transfer candidate proves only measured non-image cleanup and cannot masquerade as closed v2',()=>{const v=transferCandidate();assert.deepEqual(sandboxTransferCandidate(v,handoff()),v);assert.throws(()=>sandboxImageReceipt(v,handoff()));assert.throws(()=>sandboxReceipt(v));for(const k of Object.keys(v)){const missing=transferCandidate();delete missing[k];assert.throws(()=>sandboxTransferCandidate(missing,handoff()));}for(const k of [...checks,...imageChecks.filter(k=>k!=='imageCustodyRemoved')]){const missing=transferCandidate();delete missing.checks[k];assert.throws(()=>sandboxTransferCandidate(missing,handoff()));const bad=transferCandidate();bad.checks[k]=false;assert.throws(()=>sandboxTransferCandidate(bad,handoff()));}for(const [k,value]of Object.entries({schema:'other',proof:'host',sourceHead:'b'.repeat(40),postgresMajor:15,ownerCount:2,manualCount:3,runtimeUid:0,runtimeGid:0,cleanupConfirmed:true,nonImageCleanupConfirmed:false,runId:'different',imageLabel:'wrong',parentMarker:'wrong',unknown:true}))assert.throws(()=>sandboxTransferCandidate({...v,[k]:value},handoff()));assert.throws(()=>sandboxTransferCandidate({...v,checks:{...v.checks,imageCustodyRemoved:true}},handoff()));});
+
+
+test('same-image extraction copies every immutable config migration and fails if the image is incomplete',()=>{
+ const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),{execFileSync}=require('node:child_process');
+ const root=path.resolve(__dirname,'../..'),launcher=fs.readFileSync(path.join(__dirname,'sandbox-qualify.sh'),'utf8');
+ const loop=launcher.split(/\r?\n/).map(line=>line.trim()).find(line=>line.startsWith('for name in 001-sandbox-foundation.sql'));
+ assert.ok(loop);const names=loop.match(/^for name in ([a-z0-9. -]+);do docker cp /)?.[1].split(' ');
+ const expected=['001-sandbox-foundation.sql','002-sandbox-mobile-business.sql','003-sandbox-bank-detection.sql','004-sandbox-household.sql'];assert.deepEqual(names,expected);
+ const loader=fs.readFileSync(path.join(root,'apps/api/src/sandbox/sandbox-config.ts'),'utf8'),dockerfile=fs.readFileSync(path.join(root,'infra/sandbox/Dockerfile.api'),'utf8');
+ assert.deepEqual([...loader.matchAll(/'(00[1-4]-[a-z-]+\.sql)'/g)].map(match=>match[1]),expected);
+ for(const name of expected)assert.ok(dockerfile.includes(`COPY --from=build --chown=node:node /workspace/apps/api/prisma/sandbox/${name} ./apps/api/prisma/sandbox/${name}`));
+ const base=fs.realpathSync(os.tmpdir()),work=fs.mkdtempSync(path.join(base,'st250-extract-')),out=path.join(work,'image/apps/api/prisma/sandbox');fs.mkdirSync(out,{recursive:true});
+ try{
+  const script=`set -euo pipefail
+work="$(cd "$1" && pwd -P)"
+root="$(cd "$2" && pwd -P)"
+missing=$3
+extract_id=fixture-owned-image
+docker(){ [[ "$#" == 3 && "$1" == cp && "$2" == "$extract_id:/workspace/apps/api/prisma/sandbox/$name" && "$3" == "$work/image/apps/api/prisma/sandbox/$name" ]] || return 1; [[ "$name" != "$missing" ]] || return 1; cp -- "$root/apps/api/prisma/sandbox/$name" "$3"; }
+${loop}
+`;
+  const bash=process.platform==='win32'?'C:/Program Files/Git/bin/bash.exe':'bash',run=missing=>execFileSync(bash,['-c',script,'st250-extraction-regression',work,root,missing],{stdio:['ignore','pipe','pipe'],timeout:5000});
+  run('none');assert.deepEqual(fs.readdirSync(out).sort(),expected);
+  const digest=file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');for(const name of expected)assert.equal(digest(path.join(out,name)),digest(path.join(root,'apps/api/prisma/sandbox',name)));
+  for(const missing of expected)assert.throws(()=>run(missing));
+ }finally{assert.equal(path.dirname(work),base);assert.match(path.basename(work),/^st250-extract-/);fs.rmSync(work,{recursive:true,force:true});}
+});

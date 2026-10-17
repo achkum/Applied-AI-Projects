@@ -9,6 +9,7 @@ import type { NativeAnalyticsRead } from '@/api/nativeAnalyticsReader';
 import type { NativeFeatureSession } from '../onboarding/NativePersonalScreen';
 import { formatMinorUnits } from '@/api/privateMobileMoney';
 import { catalogs } from '@subtrack/i18n';
+import type { SandboxHouseholdView } from '@subtrack/contracts/sandbox-household';
 const mockPush = jest.fn(), mockReplace = jest.fn();
 const mockFocus: { cleanup?: void | (() => void) } = {};
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: mockReplace }), useFocusEffect: (callback: () => void | (() => void)) => {
@@ -20,11 +21,14 @@ jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ ...jest.requireA
 jest.mock('@/context/I18nContext', () => ({ useI18n: () => jest.requireActual('../signature/testUtils/contextMocks').makeI18n('en') }));
 const row = { id: '123e4567-e89b-42d3-a456-426614174000', revision: '1', source: 'MANUAL' as const, visibility: 'owner' as const, customName: 'Example streaming', merchantId: null, merchantName: null, categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY' as const, status: 'ACTIVE' as const, expectedAmountMinor: '10000', currency: 'SEK', nextChargeDate: '2026-10-17', alwaysPrivate: true };
 const second = { ...row, id: '223e4567-e89b-42d3-a456-426614174000', customName: 'Other streaming', expectedAmountMinor: '7000' };
+const homeHousehold: NonNullable<SandboxHouseholdView['household']> = { id: '323e4567-e89b-42d3-a456-426614174000', name: 'Example household', members: [{ id: '423e4567-e89b-42d3-a456-426614174000', displayName: 'Example owner', role: 'ADMIN' }, { id: '523e4567-e89b-42d3-a456-426614174000', displayName: 'Example child', role: 'DEPENDANT' }], assignments: [{ subscriptionId: row.id, memberIds: [], payerMemberId: '423e4567-e89b-42d3-a456-426614174000' }] };
 const now = () => new Date(2026, 9, 17, 12), copy = catalogs.en.nativeAnalytics;
 const history: AnalyticsCharge[] = ['-10000', '-10000', '-10000', '-12000', '-12000'].map((amountMinor, index) => ({ id: `charge-${index}`, subscriptionId: row.id, displayName: row.customName, date: `2026-${String(6 + index).padStart(2, '0')}-03`, amountMinor, currency: 'SEK' }));
 function ready(): NativeAnalyticsRead { return { kind: 'ready', projection: projectNativeAnalytics([row, second], history, now()) }; }
 const facade = (phase: NativeFeatureSession['phase'] = 'active'): NativeFeatureSession => ({ phase, login: jest.fn(), refresh: jest.fn(), logout: jest.fn(), run: async work => work('isolated-token', new AbortController().signal) });
 const formatted = (minor: bigint) => formatMinorUnits(minor, 'SEK', { locale: 'en', display: 'code' }).replace(/[\u00a0\u202f]/g, ' ');
+const heroLabel = (minor: bigint) => formatMinorUnits(minor, 'SEK', { locale: 'en', display: 'code' });
+function expectHero(minor: bigint) { expect(screen.getByLabelText(heroLabel(minor))).toBeTruthy(); expect(screen.getByText(formatted(minor).replace('SEK', '').trim())).toBeTruthy(); }
 beforeEach(() => { jest.clearAllMocks(); mockFocus.cleanup = undefined; });
 
 it('renders actual findings, expandable category contributions, exact trend alternatives and a real comparisons action', async () => {
@@ -82,10 +86,10 @@ it('uses real price-rise evidence in Home preview and switches its exact hero to
   await screen.findByText(copy.previous);
   expect(screen.getByText(row.customName)).toBeTruthy();
   expect(screen.getByText(formatted(2000n))).toBeTruthy();
-  expect(screen.getByText(formatted(17000n))).toBeTruthy();
+  expectHero(17000n);
   expect(screen.queryByRole('button', { name: copy.monthly })).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: copy.annual }));
-  expect(screen.getByText(formatted(204000n))).toBeTruthy();
+  expectHero(204000n);
   expect(screen.getByRole('button', { name: copy.monthly })).toBeTruthy();
   expect(screen.queryByText(/score|possible savings|verified today/i)).toBeNull();
 });
@@ -98,6 +102,32 @@ it('places the parent timeline between the hero and Insights and uses only the a
   expect(text.indexOf('Actual calendar timeline')).toBeLessThan(text.indexOf(copy.insights));
   fireEvent.press(screen.getByRole('button', { name: catalogs.en.onboarding.productNav.profile }));
   expect(mockPush).toHaveBeenLastCalledWith('/personal-profile');
+});
+it('defaults Home to Everyone with the actual household heading and restores full totals when a member toggles off', async () => {
+  const session = facade(), base = ready();
+  if (base.kind !== 'ready') throw new Error('fixture');
+  const reader = jest.fn().mockResolvedValue({ kind: 'ready', projection: { ...base.projection, household: homeHousehold } });
+  const timeline = jest.fn((ids: ReadonlySet<string> | null) => <Text>{ids === null ? 'Everyone timeline' : Array.from(ids).join(',')}</Text>);
+  render(<NativeHomeOverview session={session} reader={reader} now={now}>{timeline}</NativeHomeOverview>);
+  await screen.findByRole('header', { name: homeHousehold.name });
+  expect(screen.getByTestId('native-home-scope-everyone').props.accessibilityState.selected).toBe(true);
+  expectHero(17000n); expect(screen.getByText('Everyone timeline')).toBeTruthy();
+  fireEvent.press(screen.getByTestId(`native-home-scope-${homeHousehold.members[0]!.id}`));
+  expect(screen.queryByLabelText(heroLabel(17000n))).toBeNull(); expect(screen.getByText(row.id)).toBeTruthy();
+  expect(timeline.mock.calls[timeline.mock.calls.length - 1]![0]).toEqual(new Set([row.id]));
+  fireEvent.press(screen.getByTestId(`native-home-scope-${homeHousehold.members[0]!.id}`));
+  expectHero(17000n); expect(timeline.mock.calls[timeline.mock.calls.length - 1]![0]).toBeNull();
+  expect(reader).toHaveBeenCalledTimes(1);
+});
+it('does not assume unknown payers belong to a selected member or leak unrelated insight evidence into that scope', async () => {
+  const session = facade(), base = ready(); if (base.kind !== 'ready') throw new Error('fixture');
+  const reader = jest.fn().mockResolvedValue({ kind: 'ready', projection: { ...base.projection, household: homeHousehold } });
+  render(<NativeHomeOverview session={session} reader={reader} now={now}>{ids => <Text>{ids === null ? 'All rows' : `Visible ${ids.size}`}</Text>}</NativeHomeOverview>);
+  await screen.findByText(homeHousehold.name);
+  fireEvent.press(screen.getByTestId(`native-home-scope-${homeHousehold.members[1]!.id}`));
+  expect(screen.getByText('Visible 0')).toBeTruthy(); expect(screen.queryByText(row.customName)).toBeNull(); expect(screen.queryByText(copy.priceRise)).toBeNull();
+  expect(screen.queryByLabelText(heroLabel(17000n))).toBeNull(); expect(screen.queryByRole('button', { name: copy.connectBank })).toBeNull();
+  fireEvent.press(screen.getByTestId('native-home-scope-everyone')); expectHero(17000n);
 });
 it('opens a comparison from its insight without using the route parameter as backend authority', async () => {
   const reader = jest.fn().mockResolvedValue(ready()), session = facade();

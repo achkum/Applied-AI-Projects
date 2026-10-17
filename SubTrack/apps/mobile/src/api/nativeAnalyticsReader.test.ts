@@ -47,5 +47,15 @@ it('aborts before access and rejects a response completed after authority cancel
 });
 it('keeps a production owner projection honest when no historical adapter is authorized', async () => {
   const result = await createNativeAnalyticsReader(fixture())('token', new AbortController().signal, now);
-  expect(result.kind).toBe('ready'); if (result.kind === 'ready') { expect(result.projection.historyAvailable).toBe(false); expect(result.projection.plans.every(plan => plan.source === 'saved')).toBe(true); }
+  expect(result.kind).toBe('ready'); if (result.kind === 'ready') { expect(result.projection.historyAvailable).toBe(false); expect(result.projection.plans.every(plan => plan.source === 'saved')).toBe(true); expect(result.projection.household).toBeUndefined(); }
+});
+it('reads only the injected current owner household with the same authority and refuses malformed or revoked metadata', async () => {
+  const householdView = { household: { id: '323e4567-e89b-42d3-a456-426614174000', name: 'Example household', members: [{ id: '423e4567-e89b-42d3-a456-426614174000', displayName: 'Example owner', role: 'ADMIN' as const }], assignments: [] } };
+  const controller = new AbortController(), household = jest.fn().mockResolvedValue(householdView);
+  const result = await createNativeAnalyticsReader(fixture(), { household })('owner-token', controller.signal, now);
+  expect(household).toHaveBeenCalledWith('owner-token', controller.signal); expect(result.kind === 'ready' && result.projection.household).toEqual(householdView.household);
+  household.mockResolvedValue({ household: { ...householdView.household, members: [] } });
+  await expect(createNativeAnalyticsReader(fixture(), { household })('owner-token', controller.signal, now)).rejects.toThrow();
+  const revoked = new AbortController();
+  await expect(createNativeAnalyticsReader(fixture(), { household: async () => { revoked.abort(); return householdView; } })('owner-token', revoked.signal, now)).rejects.toThrow();
 });

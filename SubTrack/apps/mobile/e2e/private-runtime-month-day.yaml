@@ -1,11 +1,5 @@
 appId: se.subtrack.app
-env:
-  MAESTRO_RIBBON_DIRECTION: UP
 ---
-- scrollUntilVisible:
-    element:
-      id: native-month-ribbon
-    direction: ${MAESTRO_RIBBON_DIRECTION}
 - repeat:
     times: 31
     while:

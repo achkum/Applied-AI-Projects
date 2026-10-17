@@ -28,13 +28,58 @@ on:
         type: choice
         options: [profile, full]
         default: profile
+      signed_product:
+        description: Install the exact verified signed successor, without rebuilding
+        type: boolean
+        default: false
+      source_head:
+        type: string
+        default: ""
+      signed_release_id:
+        type: string
+        default: ""
+      signed_sha256:
+        type: string
+        default: ""
+      verification_run:
+        type: string
+        default: ""
 permissions:
   contents: read
 concurrency:
   group: subtrack-native-device-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
+  final-signed-authority:
+    if: github.event_name == 'workflow_dispatch' && inputs.signed_product == true
+    runs-on: ubuntu-24.04
+    env:
+      ST_FINAL_SOURCE: ${{ inputs.source_head }}
+    steps:
+      - name: Bind explicit install-only source authority
+        shell: bash
+        run: |
+          test "$GITHUB_REPOSITORY" = achkum/Applied-AI-Projects
+          test "$GITHUB_REF" = refs/heads/st/native-synthetic-bank
+          [[ "$ST_FINAL_SOURCE" =~ ^[a-f0-9]{40}$ ]]
+          test "$ST_FINAL_SOURCE" = "$GITHUB_SHA"
+  final-signed-product:
+    needs: final-signed-authority
+    if: github.event_name == 'workflow_dispatch' && inputs.signed_product == true
+    permissions:
+      contents: write
+      actions: read
+    # Same-commit reuse permits this registered entry point to invoke the new
+    # install-only workflow without a main-branch publication or second APK build.
+    # https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows
+    uses: ./.github/workflows/subtrack-sandbox-installed-android.yml
+    with:
+      source_head: ${{ inputs.source_head }}
+      signed_release_id: ${{ inputs.signed_release_id }}
+      signed_sha256: ${{ inputs.signed_sha256 }}
+      verification_run: ${{ inputs.verification_run }}
   select-proof:
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.signed_product == true) }}
     name: Select affected native proof
     runs-on: ubuntu-24.04
     outputs:

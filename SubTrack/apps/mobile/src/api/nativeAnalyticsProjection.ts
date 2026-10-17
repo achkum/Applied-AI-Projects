@@ -82,3 +82,9 @@ export function compareNativePlans(left: ComparisonPlan, right: ComparisonPlan) 
   if (left.id === right.id || left.currency !== right.currency || left.categoryCode !== right.categoryCode) return null;
   return recurringCostDifference(money(BigInt(left.amountMinor), left.currency), left.cadence, money(BigInt(right.amountMinor), right.currency), right.cadence);
 }
+
+/** A display scope over this owner's already-authorized rows. It grants no member access. */
+export function scopeNativeAnalytics(value: NativeAnalytics, subscriptionIds: ReadonlySet<string>, now: Date): NativeAnalytics {
+  const scoped = projectNativeAnalytics(value.active.filter(row => subscriptionIds.has(row.id)), null, now);
+  return { ...scoped, priceIncreases: value.priceIncreases.filter(row => subscriptionIds.has(row.subscriptionId)) };
+}

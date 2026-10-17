@@ -21,3 +21,16 @@ test('API PR has one real image qualification, no duplicate preparation compile 
  const full=workflow('subtrack-sandbox-image-postgresql-qualification.yml');
  assert.ok(full.jobs['same-image-postgresql'].steps.some(step=>step.run?.includes('sandbox-qualify.sh')));
 });
+
+test('registered native entry point calls the exact signed install-only workflow without normal app build jobs',()=>{
+ const caller=workflow('subtrack-native-device-proof.yml'),child=workflow('subtrack-sandbox-installed-android.yml');
+ assert.equal(caller.on.workflow_dispatch.inputs.signed_product.default,false);
+ assert.equal(caller.jobs['select-proof'].if,"${{ !(github.event_name == 'workflow_dispatch' && inputs.signed_product == true) }}");
+ const target=caller.jobs['final-signed-product'];assert.equal(target.needs,'final-signed-authority');assert.equal(target.if,"github.event_name == 'workflow_dispatch' && inputs.signed_product == true");
+ assert.equal(target.uses,'./.github/workflows/subtrack-sandbox-installed-android.yml');assert.equal(target.permissions.contents,'write');
+ const guard=caller.jobs['final-signed-authority'].steps[0].run;
+ for(const value of ['achkum/Applied-AI-Projects','refs/heads/st/native-synthetic-bank','"$ST_FINAL_SOURCE" = "$GITHUB_SHA"'])assert.ok(guard.includes(value));
+ assert.deepEqual(Object.keys(target.with).sort(),Object.keys(child.on.workflow_call.inputs).sort());
+ for(const input of Object.values(child.on.workflow_call.inputs)){assert.equal(input.required,true);assert.equal(input.type,'string');}
+ assert.equal(caller.jobs['installed-native'].needs,'select-proof');
+});

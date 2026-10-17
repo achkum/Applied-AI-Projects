@@ -7,6 +7,7 @@ appId: se.subtrack.app.sandbox
       id: native-home-overview
     timeout: 30000
 - assertVisible: ${E_ACTIVE_TWO}
+- takeScreenshot: accepted-sandbox-home-top
 - tapOn:
     id: native-home-calendar
 - extendedWaitUntil:
@@ -16,10 +17,12 @@ appId: se.subtrack.app.sandbox
 - takeScreenshot: accepted-sandbox-calendar
 - tapOn:
     id: native-date-${TODAY}
+- assertVisible:
+    text: .*${TODAY}.*
+    selected: true
 - scrollUntilVisible:
     element: ${E_DETAIL_AURORA_PLUS}
     direction: DOWN
-- assertVisible: ${TODAY}
 - assertVisible: ${E_DETAIL_AURORA_PLUS}
 - takeScreenshot: accepted-sandbox-home
 - tapOn:
@@ -28,6 +31,7 @@ appId: se.subtrack.app.sandbox
     visible:
       id: native-insights-overview
     timeout: 30000
+- takeScreenshot: accepted-sandbox-insights-top
 - tapOn:
     id: native-insights-overview
 - assertVisible: ${E_ANALYTICS_SUMMARY}
@@ -36,6 +40,10 @@ appId: se.subtrack.app.sandbox
     direction: DOWN
 - assertVisible: Aurora Video Plus
 - takeScreenshot: accepted-sandbox-insights
+- scrollUntilVisible:
+    element: ${E_TREND_EVIDENCE}
+    direction: DOWN
+- takeScreenshot: accepted-sandbox-trend
 - tapOn:
     id: native-nav-month
 - extendedWaitUntil:
