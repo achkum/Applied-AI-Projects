@@ -54,10 +54,7 @@ export function IdentifierEntry({ onValidIdentifier }: IdentifierEntryProps) {
 
   return (
     <View style={styles.container}>
-      <Text accessibilityRole="text" style={[styles.label, { color: color('ink.primary'), fontSize: theme.typography.fontSize.md, fontFamily: theme.typography.fontFamily.ui }]}>
-        {t('onboarding.identifier.channelLabel')}
-      </Text>
-      <View accessibilityRole="radiogroup" style={styles.channels}>
+      <View accessibilityRole="radiogroup" accessibilityLabel={t('onboarding.identifier.channelLabel')} style={styles.channels}>
         {(['email', 'phone'] as const).map((option) => {
           const selected = channel === option;
           return (

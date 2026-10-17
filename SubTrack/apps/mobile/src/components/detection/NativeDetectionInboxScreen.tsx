@@ -1,3 +1,4 @@
+import {NativeSessionExit,sessionExitFeedback} from '../onboarding/NativeSessionExit';
 import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -56,8 +57,8 @@ export function NativeDetectionInboxScreen(){
  const button=(label:string,onPress:()=>void,disabled=busy)=><Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled}} disabled={disabled} onPress={onPress} style={[styles.control,{backgroundColor:color('bg.raised'),borderColor:color('line.hairline'),borderRadius:theme.radius.card,opacity:disabled?0.5:1}]}><Text style={strong}>{label}</Text></Pressable>;
  return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView contentContainerStyle={styles.content}>
   <View style={styles.header}><View style={styles.grow}><Text style={secondary}>{t('scope.personal')}</Text><Text accessibilityRole="header" style={{...strong,fontFamily:theme.typography.fontFamily.display,fontSize:theme.typography.fontSize['2xl']}}>{copy('title')}</Text></View><BillingIcon name="manage" color={color('action.accent')}/></View>
-  <Text style={secondary}>{copy('demo')}</Text>
-  {message?<Text accessibilityRole="alert" style={text}>{['logoutConfirmed','logoutLocal','storageError'].includes(message)?t(`onboarding.nativePersonal.${message}`):copy(message)}</Text>:null}
+  {session.phase==='active'?<Text style={secondary}>{copy('demo')}</Text>:null}
+  {message?<Text accessibilityRole="alert" style={text}>{['logoutConfirmed','logoutLocal','storageError','verificationCancelled','sessionCleared'].includes(message)?t(`onboarding.nativePersonal.${message}`):copy(message)}</Text>:null}
   {session.phase==='active'?<>
    {busy?<Text accessibilityLiveRegion="polite" style={text}>{copy('loading')}</Text>:null}
    {state==='setup-required'?<Text accessibilityRole="alert" style={text}>{copy('setup')}</Text>:null}
@@ -75,9 +76,9 @@ export function NativeDetectionInboxScreen(){
     {cursor?button(copy('more'),()=>{void execute(undefined,cursor);}):null}
    </>:null}
    {button(copy('refresh'),()=>{void execute();})}
-  </>:<><Text style={text}>{t('onboarding.nativePersonal.restart')}</Text>{button(t('onboarding.nativePersonal.verify'),()=>{const ticket=++feedback.current;setMessage('');void session.login().catch(()=>{if(ticket===feedback.current)setMessage('unavailable');});},session.phase==='busy')}</>}
-  {button(copy('manage'),()=>router.replace('/personal'))}{button(t('onboarding.billingMonth.open'),()=>router.replace('/personal-billing-month'))}
-  {button(t('onboarding.nativePersonal.logout'),()=>{const ticket=++feedback.current;invalidate();setState('idle');setMessage('');void session.logout().then(ack=>{if(ticket===feedback.current)setMessage(ack?'logoutConfirmed':'logoutLocal');}).catch(()=>{if(ticket===feedback.current)setMessage('storageError');});},false)}
+  </>:<>{button(t('onboarding.nativePersonal.verify'),()=>{const ticket=++feedback.current;setMessage('');void session.login().catch(()=>{if(ticket===feedback.current)setMessage('unavailable');});},session.phase!=='verification-required')}</>}
+  {session.phase==='active'?<>{button(copy('manage'),()=>router.replace('/personal'))}{button(t('onboarding.billingMonth.open'),()=>router.replace('/personal-billing-month'))}</>:null}
+  {<NativeSessionExit phase={session.phase} onExit={()=>{const exitPhase=session.phase;const ticket=++feedback.current;invalidate();setState('idle');setMessage('');void session.logout().then(ack=>{if(ticket===feedback.current)setMessage(sessionExitFeedback(exitPhase,ack));}).catch(()=>{if(ticket===feedback.current)setMessage('storageError');});}}/>}
  </ScrollView></SafeAreaView>;
 }
 const styles=StyleSheet.create({content:{padding:20,gap:16,paddingBottom:32},header:{flexDirection:'row',alignItems:'center',gap:12},grow:{flex:1,minWidth:0},card:{padding:16,gap:12,borderWidth:1},control:{minHeight:48,padding:12,borderWidth:1,justifyContent:'center'}});

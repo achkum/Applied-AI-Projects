@@ -1,3 +1,4 @@
+import {NativeSessionExit,sessionExitFeedback} from './NativeSessionExit';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -114,7 +115,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
     // Preserve owned lifecycle feedback; new user intents clear it synchronously.
     if (session.phase === 'active') setMessage('');
     else if (session.phase !== 'busy') setMessage(previous =>
-      ['unavailable', 'storageError', 'logoutConfirmed', 'logoutLocal'].includes(previous) ? previous : '');
+      ['unavailable', 'storageError', 'logoutConfirmed', 'logoutLocal', 'verificationCancelled', 'sessionCleared'].includes(previous) ? previous : '');
     if (session.phase === 'active') void load();
     return () => { generation.current++;pending.current=false;request.current?.abort();request.current=null; };
   }, [session.phase]);
@@ -148,7 +149,6 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
   const projection = projectOwnerSubscriptions(items, query, { categories: catalogs[locale].onboarding.ownerSubscriptions.category, categoryFallback: t('onboarding.ownerSubscriptions.categoryFallback'), unnamed: t('onboarding.ownerSubscriptions.categoryFallback') });
   const ready = profile?.profileComplete && mode === 'just-me';
   const setup = Boolean(profile && !profile.profileComplete);
-  const pageDescription = setup ? t('onboarding.nativePersonal.introduction') : ready ? t('onboarding.nativePersonal.manageDescription') : t('onboarding.nativePersonal.introduction');
   const text = { color: color('ink.primary'), fontFamily: theme.typography.fontFamily.ui, fontSize: theme.typography.fontSize.md };
   const input = [styles.input, text, { backgroundColor: color('bg.raised'), borderColor: color('line.hairline'), borderRadius: theme.radius.card }];
   const button = (label: string, onPress: () => void, disabled = loading, selected?: boolean, primary = false) => <NativeProductButton key={label} label={label}
@@ -161,16 +161,15 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
     else if (destination === 'upcoming') router.replace('/personal-home');
   };
   return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView style={{ backgroundColor: color('bg.canvas') }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-    <NativeProductHeading testID="native-personal-title" eyebrow={t('scope.personal')} title={setup ? t('onboarding.profile.title') : ready ? t('onboarding.productNav.manage') : t('onboarding.nativePersonal.title')} description={pageDescription} />
+    <NativeProductHeading testID="native-personal-title" eyebrow={t('scope.personal')} title={session.phase!=='active'?t('onboarding.nativePersonal.loginTitle'):setup?t('onboarding.profile.title'):ready?t('onboarding.productNav.manage'):t('onboarding.mode.title')} />
     {sandbox ? <NativeProductBadge label={t('onboarding.sandbox.noticeShort')} /> : null}
     {session.phase === 'storage-error' ? <Text accessibilityRole="alert" style={text}>{t('onboarding.nativePersonal.storageError')}</Text> : null}
-    {message ? <Text accessibilityRole="alert" style={text}>{t(message.startsWith('edit.') ? `onboarding.nativeSubscriptionEdit.${message.slice(5)}` : message.startsWith('manualSubscription.') ? `onboarding.${message}` : `onboarding.nativePersonal.${message}`)}</Text> : null}
+    {message && !(message==='storageError' && session.phase==='storage-error') ? <Text accessibilityRole="alert" style={text}>{t(message.startsWith('edit.') ? `onboarding.nativeSubscriptionEdit.${message.slice(5)}` : message.startsWith('manualSubscription.') ? `onboarding.${message}` : `onboarding.nativePersonal.${message}`)}</Text> : null}
     {session.phase !== 'active' ? sandbox ? inactiveContent : <>
-      <Text style={text}>{t('onboarding.nativePersonal.restart')}</Text>
       {button(t('onboarding.nativePersonal.verify'), () => { const ticket = ++feedbackGeneration.current; setMessage(''); void session.login().catch(() => {
         if (ticket === feedbackGeneration.current) setMessage('unavailable');
-      }); }, session.phase === 'busy')}
-      {button(t('onboarding.nativePersonal.register'), () => { feedbackGeneration.current++; router.replace('/register'); }, session.phase === 'busy')}
+      }); }, session.phase !== 'verification-required')}
+      {button(t('onboarding.nativePersonal.register'), () => { feedbackGeneration.current++; router.replace('/register'); }, session.phase !== 'verification-required')}
     </> : <>
       {loading ? <Text accessibilityLiveRegion="polite" style={text}>{t('onboarding.nativePersonal.loading')}</Text> : null}
       {profile && !profile.profileComplete ? <NativeProductCard>
@@ -231,7 +230,6 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
               setEditing(item); setReview(null); setReviewBlocked(false); setAdding(true); setMessage('');
               setDraft({ customName: item.customName ?? '', categoryCode: item.categoryCode, cadence: item.cadence, amount, date: item.nextChargeDate ?? '' });
             })}
-            <Text style={text}>{t('onboarding.nativeSubscriptionEdit.tracking')}</Text>
             {(['ACTIVE', 'PAUSED', 'CANCELLED', 'ARCHIVED'] as const).filter(target =>
               item.status === 'ACTIVE' ? target !== 'ACTIVE' : item.status === 'PAUSED' ? target !== 'PAUSED' : item.status === 'CANCELLED' ? target === 'ARCHIVED' : false).map(target =>
               button(t(`onboarding.nativeSubscriptionEdit.${target === 'ACTIVE' ? 'resume' : target === 'PAUSED' ? 'pause' : target === 'CANCELLED' ? 'cancelled' : 'archive'}`), () => {
@@ -288,9 +286,9 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
         </NativeProductCard> : null}
       </> : null}
     </>}
-    {button(t('onboarding.nativePersonal.logout'), () => { const ticket = ++feedbackGeneration.current; generation.current++; pending.current = false; setLoading(false); clear(); setMessage('');
-      void session.logout().then(ack => { if (ticket === feedbackGeneration.current) setMessage(ack ? 'logoutConfirmed' : 'logoutLocal'); })
-        .catch(() => { if (ticket === feedbackGeneration.current) setMessage('storageError'); }); }, false)}
+    {<NativeSessionExit phase={session.phase} onExit={() => { const exitPhase=session.phase; const ticket = ++feedbackGeneration.current; generation.current++; pending.current = false; setLoading(false); clear(); setMessage('');
+      void session.logout().then(ack => { if (ticket === feedbackGeneration.current) setMessage(sessionExitFeedback(exitPhase,ack)); })
+        .catch(() => { if (ticket === feedbackGeneration.current) setMessage('storageError'); }); }}/>}
   </ScrollView>{ready ? <NativeProductNav active="manage" onNavigate={navigate} /> : null}</SafeAreaView>;
 }
 const styles = StyleSheet.create({ content: { flexGrow: 1, padding: 20, gap: 16 }, field: { gap: 8 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

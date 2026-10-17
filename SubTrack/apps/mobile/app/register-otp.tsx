@@ -73,15 +73,6 @@ export default function RegisterOtpRoute() {
       >
         {t('onboarding.registration.otpTitle')}
       </Text>
-      <Text
-        style={{
-          color: color('ink.secondary'),
-          fontFamily: theme.typography.fontFamily.ui,
-          fontSize: theme.typography.fontSize.md,
-        }}
-      >
-        {t('onboarding.registration.otpIntroduction')}
-      </Text>
       {provider==='sandbox'?<Text accessibilityRole="text" style={{color:color('ink.secondary')}}>{t('onboarding.sandbox.simulatedOtp', {code:SANDBOX_TEST_CODE})}</Text>:null}
       <View
         style={[

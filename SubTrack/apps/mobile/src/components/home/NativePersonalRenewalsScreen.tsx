@@ -48,7 +48,7 @@ export function NativePersonalRenewalsScreen({now=()=>new Date(),useSession=useN
  const navigate=(destination:NativeProductDestination)=>{if(destination==='month')router.replace('/personal-billing-month');else if(destination==='manage')router.replace('/personal');};
  return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView style={{backgroundColor:color('bg.canvas')}} contentContainerStyle={styles.content}>
   <NativeProductHeading eyebrow={t('scope.personal')} title={t('onboarding.nativeRenewals.title')} />
-  <Text style={text}>{t('onboarding.nativeRenewals.expected')}</Text>
+  {session.phase==='active'?<Text style={text}>{t('onboarding.nativeRenewals.expected')}</Text>:null}
   {sandbox?<SandboxNotice/>:null}
   {message?<Text accessibilityRole="alert" style={text}>{t(`onboarding.nativePersonal.${message}`)}</Text>:null}
   {session.phase==='active'?<>
@@ -65,9 +65,8 @@ export function NativePersonalRenewalsScreen({now=()=>new Date(),useSession=useN
    </View>):null}
   {button(t('onboarding.nativeRenewals.refresh'),()=>{void load();},state==='loading')}
   </>:sandbox?inactiveContent:<>
-   <Text style={text}>{t('onboarding.nativePersonal.restart')}</Text>
-   {button(t('onboarding.nativePersonal.verify'),()=>{const ticket=++feedback.current;setMessage('');void session.login().catch(()=>{if(ticket===feedback.current)setMessage('unavailable');});},session.phase==='busy')}
+   {button(t('onboarding.nativePersonal.verify'),()=>{const ticket=++feedback.current;setMessage('');void session.login().catch(()=>{if(ticket===feedback.current)setMessage('unavailable');});},session.phase!=='verification-required')}
   </>}
- </ScrollView><NativeProductNav active="upcoming" onNavigate={navigate}/></SafeAreaView>;
+ </ScrollView>{session.phase==='active'?<NativeProductNav active="upcoming" onNavigate={navigate}/>:null}</SafeAreaView>;
 }
 const styles=StyleSheet.create({content:{flexGrow:1,padding:24,gap:16},group:{gap:12,padding:16,borderWidth:1},row:{gap:8},button:{borderWidth:1,padding:12,minHeight:48,justifyContent:'center'}});

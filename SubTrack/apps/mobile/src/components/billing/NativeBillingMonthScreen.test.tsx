@@ -104,7 +104,7 @@ it('incomplete authority shows setup before requesting subscriptions',async()=>{
 });
 
 it.each([[1,0,'previous'],[9999,11,'next']] as const)('disables impossible month navigation at year %s',async(year,month,direction)=>{
- const date=new Date(0);date.setFullYear(year,month,1);mount(()=>date);await waitFor(()=>expect(screen.getByRole('button',{name:copy.billingMonth[direction]}).props.accessibilityState.disabled).toBe(true));fireEvent.press(screen.getByRole('button',{name:copy.billingMonth[direction]}));expect(api.readNativeSubscriptions).not.toHaveBeenCalled();
+ const date=new Date(0);date.setFullYear(year,month,1);jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});mount(()=>date);expect(screen.queryByRole('button',{name:copy.billingMonth[direction]})).toBeNull();await login();await screen.findByText(copy.billingMonth.empty);const reads=jest.mocked(api.readNativeSubscriptions).mock.calls.length;await waitFor(()=>expect(screen.getByRole('button',{name:copy.billingMonth[direction]}).props.accessibilityState.disabled).toBe(true));fireEvent.press(screen.getByRole('button',{name:copy.billingMonth[direction]}));expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(reads);
 });
 
 it('synchronously hides an open private detail when external session authority retires before focus cleanup',async()=>{
@@ -113,7 +113,7 @@ it('synchronously hides an open private detail when external session authority r
  const store:NativeBundleStore={read:jest.fn().mockResolvedValue(null),write:jest.fn().mockResolvedValue(undefined),clear:jest.fn().mockResolvedValue(undefined)};
  render(<NativeSessionProvider store={store}><NativeBillingMonthScreen now={now}/><ExternalAuthority/></NativeSessionProvider>);await login();await screen.findByText(row.customName);fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.details.replace('%{name}',row.customName)}));expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(true);
  // Hold the effect cleanup to exercise the render where the old detail state still exists.
- mockFocus.hold=true;fireEvent.press(screen.getByRole('button',{name:'external rotation'}));await waitFor(()=>expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false));expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText(copy.billingMonth.private)).toBeNull();expect(screen.getByRole('button',{name:copy.billingMonth.next})).toBeTruthy();
+ mockFocus.hold=true;fireEvent.press(screen.getByRole('button',{name:'external rotation'}));await waitFor(()=>expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false));expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText(copy.billingMonth.private)).toBeNull();expect(screen.queryByRole('button',{name:copy.billingMonth.next})).toBeNull();expect(screen.queryByRole('tab',{name:copy.productNav.manage})).toBeNull();
  await act(async()=>{reject(new Error('retired rotation'));});expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false);expect(screen.queryByText(row.customName)).toBeNull();
 });
 

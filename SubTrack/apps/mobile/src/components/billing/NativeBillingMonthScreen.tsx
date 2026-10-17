@@ -63,8 +63,7 @@ export function NativeBillingMonthScreen({now=()=>new Date(),useSession=useNativ
   <View style={styles.full} accessibilityElementsHidden={detailVisible} importantForAccessibility={detailVisible?'no-hide-descendants':'auto'}>
   <ScrollView contentContainerStyle={styles.content}>
    <NativeProductHeading eyebrow={t('scope.personal')} title={t('onboarding.billingMonth.title')} trailing={<BillingIcon name="calendar" color={color('action.accent')}/>} />
-   <View style={styles.monthNav}>{button(t('onboarding.billingMonth.previous'),'previous',()=>navigate(-1),month.year===1&&month.month===1,true)}<Text accessibilityRole="header" style={{...display,fontSize:theme.typography.fontSize.lg,flexShrink:1,textAlign:'center'}}>{title}</Text>{button(t('onboarding.billingMonth.next'),'next',()=>navigate(1),month.year===9999&&month.month===12,true)}</View>
-   <Text style={{...text,color:color('ink.secondary')}}>{t('onboarding.billingMonth.expected')}</Text>
+   {session.phase==='active'?<View style={styles.monthNav}>{button(t('onboarding.billingMonth.previous'),'previous',()=>navigate(-1),month.year===1&&month.month===1,true)}<Text accessibilityRole="header" style={{...display,fontSize:theme.typography.fontSize.lg,flexShrink:1,textAlign:'center'}}>{title}</Text>{button(t('onboarding.billingMonth.next'),'next',()=>navigate(1),month.year===9999&&month.month===12,true)}</View>:null}
    {sandbox?<NativeProductBadge label={t('onboarding.sandbox.noticeShort')}/>:null}
    {message?<Text accessibilityRole="alert" style={text}>{t(`onboarding.nativePersonal.${message}`)}</Text>:null}
    {session.phase==='active'?<>
@@ -80,8 +79,8 @@ export function NativeBillingMonthScreen({now=()=>new Date(),useSession=useNativ
      {projection.undatedDetections?.length?<View style={[styles.card,{backgroundColor:color('bg.surface'),borderRadius:theme.radius.card}]}><Text accessibilityRole="header" style={strong}>{t('onboarding.nativeDetection.undatedTitle')}</Text><Text style={{...text,color:color('ink.secondary')}}>{t('onboarding.nativeDetection.undatedDescription')}</Text>{projection.undatedDetections.map(item=><View key={item.id}><Text style={strong}>{item.customName??item.merchantName??category(item.categoryCode)}</Text><Text style={text}>{formatted(BigInt(item.expectedAmountMinor),item.currency)}</Text></View>)}{button(t('onboarding.nativeDetection.open'),'manage',()=>router.push('/personal-detections'))}</View>:null}
     </>:null}
     {button(t('onboarding.billingMonth.refresh'),'refresh',()=>{void load();},state==='loading',true,true)}
-   </>:sandbox?inactiveContent:<><Text style={text}>{t('onboarding.nativePersonal.restart')}</Text>{button(t('onboarding.nativePersonal.verify'),'calendar',()=>{const ticket=++feedback.current;setMessage('');void session.login().catch(()=>{if(ticket===feedback.current)setMessage('unavailable');});},session.phase==='busy')}</>}
-  </ScrollView><NativeProductNav active="month" onNavigate={navigateTab}/></View>
+   </>:sandbox?inactiveContent:<>{button(t('onboarding.nativePersonal.verify'),'calendar',()=>{const ticket=++feedback.current;setMessage('');void session.login().catch(()=>{if(ticket===feedback.current)setMessage('unavailable');});},session.phase!=='verification-required')}</>}
+  </ScrollView>{session.phase==='active'?<NativeProductNav active="month" onNavigate={navigateTab}/>:null}</View>
   <Modal visible={detailVisible} transparent animationType="none" onRequestClose={closeDetail} onShow={()=>{const handle=heading.current&&findNodeHandle(heading.current);if(handle)AccessibilityInfo.setAccessibilityFocus(handle);}}>
    <View style={[styles.scrim,{backgroundColor:color('sheet.scrim')}]}><SafeAreaView accessibilityViewIsModal style={[styles.sheet,{backgroundColor:color('bg.surface'),borderTopLeftRadius:theme.radius.card,borderTopRightRadius:theme.radius.card}]}>
     <ScrollView contentContainerStyle={styles.content}>{session.phase==='active'&&detail?<>

@@ -140,8 +140,9 @@ describe('RegistrationScreen', () => {
       mockLocale = locale;
       render(<RegistrationScreen mode="login" />);
       expect(
-        screen.getAllByText(catalogs[locale].onboarding.registration.introduction)[0],
-      ).toBeTruthy();
+        screen.queryByText(catalogs[locale].onboarding.registration.introduction),
+      ).toBeNull();
+      expect(screen.getByRole('header', { name: catalogs[locale].onboarding.nativePersonal.loginTitle })).toBeTruthy();
       expect(
         screen.queryByLabelText(
           catalogs[locale].onboarding.identifier.emailLabel,
@@ -169,8 +170,9 @@ describe('RegistrationScreen', () => {
       };
       render(<RegisterRoute />);
       expect(
-        screen.getAllByText(catalogs[locale].onboarding.registration.introduction)[0],
-      ).toBeTruthy();
+        screen.queryByText(catalogs[locale].onboarding.registration.introduction),
+      ).toBeNull();
+      expect(screen.getByRole('header', { name: catalogs[locale].onboarding.nativePersonal.loginTitle })).toBeTruthy();
       expect(
         screen.queryByLabelText(
           catalogs[locale].onboarding.identifier.emailLabel,

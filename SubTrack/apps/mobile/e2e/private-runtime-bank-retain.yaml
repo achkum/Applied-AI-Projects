@@ -107,6 +107,7 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_LOGOUT_CONFIRMED}
     timeout: 30000
+- assertNotVisible: ${MAESTRO_LOGOUT}
 - assertNotVisible: ${MAESTRO_BANK_ACTIVE}
 - assertNotVisible: ${MAESTRO_BANK_REVOKED}
 - assertNotVisible: ${MAESTRO_BANK_TRANSACTIONS}

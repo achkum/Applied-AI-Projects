@@ -60,5 +60,6 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_LOGOUT_CONFIRMED}
     timeout: 30000
+- assertNotVisible: ${MAESTRO_LOGOUT}
 - assertNotVisible: Native restart proof
 - assertNotVisible: ${MAESTRO_MONTH_SAVED_DATE}

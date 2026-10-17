@@ -62,12 +62,11 @@ export function RegistrationScreen({
           {t('onboarding.registration.backLabel')}
         </Text>
       </Pressable>
-      <NativeProductHeading title={t('onboarding.registration.title')} description={t('onboarding.registration.introduction')} />
+      <NativeProductHeading title={t(mode==='login'?'onboarding.nativePersonal.loginTitle':'onboarding.registration.title')} />
       {provider === 'sandbox' ? <NativeProductBadge label={t('onboarding.sandbox.noticeShort')} /> : null}
 
       {mode === 'login' ? (
         <NativeProductCard>
-          <Text style={{ color: color('ink.primary'), fontFamily: theme.typography.fontFamily.ui }}>{t('onboarding.registration.introduction')}</Text>
           {loginError ? <Text accessibilityRole="alert" style={{ color: color('ink.primary') }}>{t('onboarding.nativePersonal.unavailable')}</Text> : null}
           <NativeProductButton label={t('onboarding.nativePersonal.verify')} variant="primary" disabled={onboarding.sessionPhase === 'busy' || pending.current}
             onPress={async () => {

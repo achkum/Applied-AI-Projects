@@ -64,7 +64,7 @@ it.each(['en','sv'] as const)('uses the localized single profile heading during 
  expect(await screen.findByRole('header',{name:localized.profile.title})).toBeTruthy();
  expect(screen.getByTestId('native-personal-title')).toBe(screen.getByRole('header',{name:localized.profile.title}));
  expect(screen.getAllByTestId('native-personal-title')).toHaveLength(1);
- expect(screen.getAllByText(localized.nativePersonal.introduction)).toHaveLength(1);
+ expect(screen.queryByText(localized.nativePersonal.introduction)).toBeNull();
 });
 function mount() { const store: NativeBundleStore = { read: jest.fn().mockResolvedValue(null), write: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) };
   return render(<NativeSessionProvider store={store}><NativePersonalScreen /></NativeSessionProvider>); }
@@ -78,6 +78,8 @@ it('reads current private rows only after fresh verification and clears them imm
   fireEvent.press(screen.getByRole('button', { name: copy.nativePersonal.logout })); expect(screen.queryByText(row.customName)).toBeNull();
   expect(screen.queryByRole('button', { name: copy.nativeBank.open })).toBeNull();
   await screen.findByText(copy.nativePersonal.logoutLocal);
+  expect(screen.queryByRole('button', { name: copy.nativePersonal.logout })).toBeNull();
+  expect(screen.queryByText(copy.nativePersonal.restart)).toBeNull();
 });
 it('uses exact localized Money input and displays authoritative reread rather than the submitted draft', async () => {
   jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({ items: [], nextCursor: null }).mockResolvedValueOnce({ items: [row], nextCursor: null });
@@ -292,13 +294,16 @@ it('shows genuine current verification failure after its own busy phase', async 
 it('ignores a late login rejection after logout and a newer verification', async () => {
   let reject: (error: Error) => void = () => undefined;
   // Isolate the screen callback boundary: Core cleanup races are covered separately.
+  const originalEstablish=NativeSessionCore.prototype.establish;
   const establish = jest.spyOn(NativeSessionCore.prototype, 'establish')
-    .mockImplementationOnce(() => new Promise<void>((_, fail) => { reject = fail; }));
+    .mockImplementationOnce(function(this:NativeSessionCore,verify) { return originalEstablish.call(this,verify).then(()=>new Promise<void>((_,fail)=>{reject=fail;})); });
   jest.mocked(api.readNativeSubscriptions).mockResolvedValue({ items: [row], nextCursor: null });
   try {
     mount(); await waitFor(() => expect(screen.getByRole('button', { name: copy.nativePersonal.verify }).props.accessibilityState.disabled).toBe(false));
     fireEvent.press(screen.getByRole('button', { name: copy.nativePersonal.verify }));
+    await screen.findByText(row.customName);
     fireEvent.press(screen.getByRole('button', { name: copy.nativePersonal.logout }));
+    await screen.findByText(copy.nativePersonal.logoutConfirmed);
     fireEvent.press(screen.getByRole('button', { name: copy.nativePersonal.verify }));
     await screen.findByText(row.customName);
     await act(async () => reject(new Error('old login failure')));
@@ -470,4 +475,13 @@ it.each([false,true])('retains disabled loaded rows during pending status and cl
  await act(async()=>finish({id:row.id,status:'PAUSED'}));
  if(logout){expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeNull();expect(screen.queryByText(copy.nativeSubscriptionEdit.statusSaved)).toBeNull();}
  else {await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeTruthy();}
+});
+
+it.each(['en','sv'] as const)('shows a concise signed-out screen without premature feedback in %s',async locale=>{
+ mockLocale.value=locale;mount();const personal=catalogs[locale].onboarding.nativePersonal;
+ await screen.findByRole('header',{name:personal.loginTitle});
+ expect(screen.queryByText(personal.introduction)).toBeNull();expect(screen.queryByText(personal.restart)).toBeNull();
+ expect(screen.queryByText(personal.logoutConfirmed)).toBeNull();expect(screen.queryByText(personal.saved)).toBeNull();
+ expect(screen.queryByRole('button',{name:personal.logout})).toBeNull();
+ expect(screen.queryByRole('tab',{name:catalogs[locale].onboarding.productNav.manage})).toBeNull();
 });
