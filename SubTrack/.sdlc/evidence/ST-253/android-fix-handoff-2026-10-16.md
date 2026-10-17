@@ -2,6 +2,31 @@
 
 Development stopped for transfer to a new session. One agent only; no subagents or orchestration. Hourly automation `subtrack-hourly-development-progress` is paused. The issue list is recorded in `.sdlc/backlog.yaml` under `android_fix_handoff`, linked to existing tasks rather than duplicate tickets.
 
+## Current disposition — 2026-10-17
+
+
+
+This section supersedes the historical open-failure/resume instructions below. Do not restart SAVED_HEADER diagnostics or repeat unchanged suites.
+
+
+
+- PR293 merged on the founder's explicit instruction: “just merge it. ill do check the actual app this time and provide feedback.” No independent human review is claimed. Merge/app source c975449a5875436fd5108d9c4fcb62c264f3f180 has the identical Git tree to installed tested d816fb19100607cb200dd1ee85d07534b087f9f9.
+
+- Installed Android run39014849663/job117344738132 PASS: original full signup/profile/Just me/Add/Edit/status/revision6, app/API restarts, exact durable readbacks, Month/Upcoming, seven synthetic-bank flows and logout. Custom fonts measured; all18 original accepted PNGs inspected. Feedback1–3 concise copy, state-dependent exit controls, direct isolated sandbox signup/login and stable actionable Login target included.
+
+- Runtime V3 unsigned build39016353986/job117349162985 PASS; retained original tools/key/DPAPI backup, signer certificate and backend data. Desktop execution cadd913f0c4cbadc2fcdc3c91d46b63ad6f4d320 repairs VoidTaskResult byte-array contamination without rebuilding APK. Sign and authenticated signed-return complete; private draft415677914 retains exactly two verified assets.
+
+- Final signed verification39017822447/job117353435017 PASS: package se.subtrack.app.sandbox, versionCode3, runtimeEnabled true, release/nondebuggable, no private CA, original certificate, signature/zip alignment, embedded config and exact signed/unsigned Hermes match; temporary verifier custody removed.
+
+- Signed APK: 65508849 bytes, SHA2564438be15b3f0bad696118a5185cf48484fd6451366be7f7d65b597544c04d293. Retained user file: C:/Users/achku/Documents/Applied AI/SubTrack/.codex-local-task-setup/deliverables/SubTrack-Android-v3-20261017.apk; sibling verification JSON. Private draft remains unpublished. Existing public gateway still serves V2 and is not the corrected artifact.
+
+- Ready for the founder's requested actual-app test. Phone/signed-app acceptance and broader visual/accessibility matrix remain pending. No data reset, new signer, production/store release, iOS work or automation.
+
+
+
+
+## Historical handoff (superseded)
+
 ## Resume here
 
 - Outer checkout: `C:/Users/achku/.codex/worktrees/native-owner-search/SubTrack`; app root is its nested `SubTrack/` directory. Do not start in an unrelated checkout or pull/reset away this work.
