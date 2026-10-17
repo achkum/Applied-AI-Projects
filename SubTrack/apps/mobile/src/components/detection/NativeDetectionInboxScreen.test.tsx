@@ -1,5 +1,5 @@
 import React from 'react';
-import {Pressable,ScrollView,Text} from 'react-native';
+import {AccessibilityInfo,Platform,Pressable,ScrollView,Text} from 'react-native';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
 import {NativeDetectionInboxScreen} from './NativeDetectionInboxScreen';
 import {NativeSessionProvider,useNativeSession} from '@/state/NativeSession';
@@ -149,4 +149,48 @@ it.each(['reject','undo'] as const)('withholds %s acknowledgement for missing, f
   await screen.findByText(copy.readback);expect(screen.queryByRole('button',{name:copy.undo})).toBeNull();expect(screen.queryByText(copy.undone)).toBeNull();
   expect(api.mutateNativeDetection).toHaveBeenCalledTimes(operation==='undo'?2:1);view.unmount();
  }
+});
+
+
+function announcementPorts(platform:'ios'|'android'){
+ const descriptor=Object.getOwnPropertyDescriptor(Platform,'OS');Object.defineProperty(Platform,'OS',{configurable:true,value:platform});
+ const frames:{id:number;callback:Parameters<typeof requestAnimationFrame>[0]}[]=[];
+ const raf=jest.spyOn(globalThis,'requestAnimationFrame').mockImplementation(callback=>{const id=frames.length+1;frames.push({id,callback});return id;});
+ const cancel=jest.spyOn(globalThis,'cancelAnimationFrame').mockImplementation(()=>undefined);
+ const announce=jest.spyOn(AccessibilityInfo,'announceForAccessibility').mockImplementation(()=>undefined);
+ return {frames,cancel,announce,restore:()=>{raf.mockRestore();cancel.mockRestore();announce.mockRestore();if(descriptor)Object.defineProperty(Platform,'OS',descriptor);}};
+}
+it('announces acknowledged iOS review and available Undo once after layout, then announces acknowledged Undo without changing its deadline',async()=>{
+ const ports=announcementPorts('ios');let view:ReturnType<typeof mount>|undefined;
+ try{
+  jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[{...candidate,revision:'3'}],nextCursor:null});
+  jest.mocked(api.readDetectionOwnerRows).mockResolvedValueOnce([owner]).mockResolvedValueOnce([{...owner,status:'DETECTED',revision:'3'}]);
+  jest.mocked(api.mutateNativeDetection).mockResolvedValueOnce(reviewed).mockResolvedValueOnce({...reviewed,status:'DETECTED',revision:'3',undoUntil:null});
+  view=mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.reviewed);
+  expect(ports.announce).not.toHaveBeenCalled();expect(ports.frames).toHaveLength(1);
+  expect(screen.getByText(copy.deadline.replace('%{date}',reviewed.undoUntil))).toBeTruthy();
+  act(()=>ports.frames[0]!.callback(0));expect(ports.announce).toHaveBeenCalledTimes(1);expect(ports.announce).toHaveBeenCalledWith(`${copy.reviewed} ${copy.undo}`);act(()=>ports.frames[0]!.callback(0));expect(ports.announce).toHaveBeenCalledTimes(1);
+  await press(copy.undo);await screen.findByText(copy.undone);expect(ports.frames).toHaveLength(2);act(()=>ports.frames[1]!.callback(0));
+  expect(ports.announce.mock.calls).toEqual([[`${copy.reviewed} ${copy.undo}`],[copy.undone]]);
+  expect(jest.mocked(api.mutateNativeDetection).mock.calls[1]![0]).toEqual({operation:'undo',receiptId:key,candidateId:id});
+ }finally{view?.unmount();ports.restore();}
+});
+it.each(['blur','unmount','new-read'] as const)('cancels pending iOS acknowledgement speech after %s and fences even an already queued callback',async transition=>{
+ const ports=announcementPorts('ios');let view:ReturnType<typeof mount>|undefined;
+ try{
+  jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValue({kind:'ready',items:[],nextCursor:null});jest.mocked(api.readDetectionOwnerRows).mockResolvedValue([owner]);jest.mocked(api.mutateNativeDetection).mockResolvedValue(reviewed);
+  view=mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.reviewed);const frame=ports.frames[0]!;expect(frame).toBeDefined();
+  if(transition==='blur')act(()=>{mockFocus.enabled=false;mockFocus.cleanup?.();});else if(transition==='unmount'){view.unmount();view=undefined;}else await press(copy.refresh);
+  expect(ports.cancel).toHaveBeenCalledWith(frame.id);act(()=>frame.callback(0));expect(ports.announce).not.toHaveBeenCalled();
+ }finally{view?.unmount();ports.restore();}
+});
+it('never announces speculative iOS review success when durable owner readback disagrees',async()=>{
+ const ports=announcementPorts('ios');let view:ReturnType<typeof mount>|undefined;
+ try{jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValue({kind:'ready',items:[],nextCursor:null});jest.mocked(api.mutateNativeDetection).mockResolvedValue(reviewed);view=mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.readback);expect(ports.frames).toHaveLength(0);expect(ports.announce).not.toHaveBeenCalled();}
+ finally{view?.unmount();ports.restore();}
+});
+it('keeps Android review accessibility behavior unchanged',async()=>{
+ const ports=announcementPorts('android');let view:ReturnType<typeof mount>|undefined;
+ try{jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValue({kind:'ready',items:[],nextCursor:null});jest.mocked(api.readDetectionOwnerRows).mockResolvedValue([owner]);jest.mocked(api.mutateNativeDetection).mockResolvedValue(reviewed);view=mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.reviewed);expect(ports.frames).toHaveLength(0);expect(ports.announce).not.toHaveBeenCalled();}
+ finally{view?.unmount();ports.restore();}
 });

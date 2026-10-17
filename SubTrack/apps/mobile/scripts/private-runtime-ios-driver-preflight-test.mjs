@@ -54,8 +54,20 @@ test('timeout or oversized original child never grants a natural-failure capture
 test('only bounded fixed-name owned Maestro and XCTest logs join the sealed payload',()=>fixture(async({root})=>{
  const invocation=join(root,'ios-driver-preflight'),stamp=join(invocation,'state','maestro','tests','2026-10-17_120000');fs.mkdirSync(stamp,{recursive:true,mode:448});fs.writeFileSync(join(invocation,'process.log'),'process-private',{mode:384});fs.writeFileSync(join(stamp,'maestro.log'),'maestro-private',{mode:384});fs.writeFileSync(join(stamp,'xctest_runner_2026-10-17_120000.log'),'runner-private',{mode:384});fs.writeFileSync(join(stamp,'unrelated.log'),'excluded-private',{mode:384});
  const payload=JSON.parse(collectIosDriverLogs(invocation));assert.equal(Buffer.from(payload.runner,'base64').toString(),'runner-private');assert.equal(JSON.stringify(payload).includes('excluded-private'),false);
- fs.writeFileSync(join(stamp,'xctest_runner_2026-10-17_120001.log'),'ambiguous',{mode:384});assert.throws(()=>collectIosDriverLogs(invocation));
+ fs.writeFileSync(join(stamp,'xctest_runner_2026-10-17_120001.log'),'ambiguous',{mode:384});const ambiguous=JSON.parse(collectIosDriverLogs(invocation));assert.equal(ambiguous.maestro,null);assert.equal(ambiguous.runner,null);assert.equal(Buffer.from(ambiguous.process,'base64').toString(),'process-private');
+ fs.unlinkSync(join(stamp,'xctest_runner_2026-10-17_120001.log'));fs.writeFileSync(join(stamp,'maestro.log'),Buffer.alloc(262145));const oversized=JSON.parse(collectIosDriverLogs(invocation));assert.equal(oversized.maestro,null);assert.equal(oversized.runner,null);assert.equal(Buffer.from(oversized.process,'base64').toString(),'process-private');
 }));
 test('workflow runs driver preflight before fixture/compiler and uploads only the distinct sealed artifact',()=>{
  const workflow=fs.readFileSync(new URL('../../../../.github/workflows/subtrack-native-device-proof.yml',import.meta.url),'utf8');assert.ok(workflow.indexOf('id: ios_driver_preflight')<workflow.indexOf('- name: Owned PostgreSQL16'));assert.ok(workflow.includes('node apps/mobile/scripts/private-runtime-ios-driver-preflight.mjs'));assert.ok(workflow.includes('path: ${{ runner.temp }}/subtrack-native-proof/sealed/ios-driver-preflight.st253sealed'));assert.equal(/path:.*(?:process\.log|maestro\.log|xctest_runner)/.test(workflow),false);
+});
+
+test('invalid optional logs retain the original bounded child log and still require successful raw cleanup before sealing',async()=>{
+ for(const variant of ['empty','oversized','ambiguous'])await fixture(async({root})=>{
+  const runChild=async(file,args,env)=>{const result=await child(1)(file,args,env),stamp=join(env.XDG_STATE_HOME,'maestro','tests','2026-10-17_120000');fs.mkdirSync(stamp,{recursive:true,mode:448});fs.writeFileSync(join(stamp,'maestro.log'),variant==='oversized'?Buffer.alloc(262145):variant==='empty'?'':'tool-private',{mode:384});if(variant==='ambiguous')for(const suffix of ['000000','000001'])fs.writeFileSync(join(stamp,`xctest_runner_2026-10-17_${suffix}.log`),'ambiguous',{mode:384});return result;};
+  assert.deepEqual(await runOwnedIosDriverPreflight({environment,root,head,measureDevice:measured,runChild}),{success:false,sealed:true});assert.equal(fs.existsSync(join(root,'ios-driver-preflight')),false);assert.equal(validatedIosDriverArtifact(root,context),true);
+ });
+ for(const variant of ['empty-process','unsafe-depth'])await fixture(async({root})=>{
+  const runChild=async(file)=>{fs.writeFileSync(file,variant==='empty-process'?'':'process-private',{mode:384});if(variant==='unsafe-depth')fs.mkdirSync(join(root,'ios-driver-preflight',...Array(10).fill('nested')),{recursive:true,mode:448});return {complete:true,exitCode:1,timedOut:false};};
+  await assert.rejects(runOwnedIosDriverPreflight({environment,root,head,measureDevice:measured,runChild}));assert.equal(fs.existsSync(join(root,'ios-driver-failure.json')),false);assert.equal(fs.existsSync(join(root,'..','sealed','ios-driver-preflight.st253sealed')),false);
+ });
 });

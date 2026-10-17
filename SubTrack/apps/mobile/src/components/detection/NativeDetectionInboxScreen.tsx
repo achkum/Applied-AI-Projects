@@ -1,6 +1,6 @@
 import {NativeSessionExit,sessionExitFeedback} from '../onboarding/NativeSessionExit';
 import React,{useCallback,useEffect,useRef,useState} from 'react';
-import {Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {AccessibilityInfo,Platform,Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useFocusEffect,useRouter} from 'expo-router';
 import {useNativeSession} from '@/state/NativeSession';
@@ -58,6 +58,19 @@ export function NativeDetectionInboxScreen({useSession=useNativeSession,api=priv
  useFocusEffect(useCallback(()=>{focused.current=true;invalidate();setState('idle');if(session.phase==='active'){feedback.current++;void executeRef.current();}return()=>{if(current.current.phase==='active')feedback.current++;focused.current=false;invalidate();setState('idle');};},[session.phase,invalidate]));
  const color=(key:string)=>getColorByTheme(theme,isDark,key),text={color:color('ink.primary'),fontFamily:theme.typography.fontFamily.ui,fontSize:theme.typography.fontSize.md},strong={...text,fontFamily:theme.typography.fontFamily['ui.semibold']},secondary={...text,color:color('ink.secondary')};
  const copy=(key:string,values?:Record<string,string|number>)=>t(`onboarding.nativeDetection.${key}`,values),busy=state==='loading';
+ const announced=useRef<number|null>(null);
+ const announcement=message==='reviewed'?`${copy('reviewed')}${receipt?` ${copy('undo')}`:''}`:message==='undone'?copy('undone'):null;
+ useEffect(()=>{
+  if(Platform.OS!=='ios'||state!=='ready'||!announcement)return;
+  const ticket=generation.current,notice=feedback.current;
+  if(announced.current===ticket)return;
+  const frame=requestAnimationFrame(()=>{
+   if(ticket!==generation.current||notice!==feedback.current||!focused.current||current.current.phase!=='active'||announced.current===ticket)return;
+   announced.current=ticket;AccessibilityInfo.announceForAccessibility(announcement);
+  });
+  return()=>cancelAnimationFrame(frame);
+ },[announcement,state]);
+
  const button=(label:string,onPress:()=>void,disabled=busy,testID?:string,expanded?:boolean)=><Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled,...(expanded===undefined?{}:{expanded})}} disabled={disabled} onPress={onPress} style={[styles.control,{backgroundColor:color('bg.raised'),borderColor:color('line.hairline'),borderRadius:theme.radius.card,opacity:disabled?0.5:1}]}><Text style={strong}>{label}</Text></Pressable>;
  return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView ref={scroll} contentContainerStyle={styles.content}>
   <View style={styles.header}><View style={styles.grow}><Text testID="native-detection-title" accessibilityRole="header" style={{...strong,fontFamily:theme.typography.fontFamily.display,fontSize:theme.typography.fontSize['2xl']}}>{copy('title')}</Text></View><BillingIcon name="manage" color={color('action.accent')}/></View>

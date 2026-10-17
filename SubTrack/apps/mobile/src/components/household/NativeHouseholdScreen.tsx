@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
-import {Keyboard,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
+import {Keyboard,Platform,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useFocusEffect} from 'expo-router';
 import {memberAccentForId} from '@subtrack/ui-tokens/member-accent';
@@ -63,7 +63,8 @@ export function NativeHouseholdScreen({useSession,api=sandboxHouseholdApi,readSu
  const input=(label:string,value:string,set:(value:string)=>void,testID:string)=><View style={styles.field}><NativeProductLabel>{label}</NativeProductLabel><TextInput testID={testID} accessibilityLabel={label} value={value} editable={!busy} onChangeText={set} maxLength={160} style={[styles.input,text,{backgroundColor:color('bg.raised'),borderColor:color('line.hairline'),borderRadius:theme.radius.card}]}/></View>;
  const btn=(key:string,action:()=>void,primary=false,id?:string)=><NativeProductButton testID={id??`native-household-${key==='add'?'member-add':key}`} label={copy(key)} onPress={action} disabled={busy} variant={primary?'primary':'secondary'}/>;
  return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}>
-  <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+  <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}
+   {...(Platform.OS==='ios'?{automaticallyAdjustKeyboardInsets:true,keyboardDismissMode:'interactive' as const}:{})}>
    <NativeProductHeading title={copy('title')} {...(session.phase==='active'&&household?{description:household.name}:{})} testID="native-household-title"/>
    {message?<Text accessibilityRole="alert" style={text}>{copy(message)}</Text>:null}
    {session.phase!=='active'?(inactiveContent??btn('login',()=>{void session.login().catch(()=>setMessage('unavailable'));})):busy&&!view?<Text accessibilityLiveRegion="polite" style={text}>{copy('loading')}</Text>:household&&projection?<>

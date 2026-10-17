@@ -42,6 +42,9 @@ export async function runIosDriverChild(file,args,environment,timeoutMs=180000,p
 export function collectIosDriverLogs(invocation){
  const processLog=privateBytes(join(invocation,'process.log'));let count=processLog.length;
  const payload={version:1,process:processLog.toString('base64'),maestro:null,runner:null};
+ // These are optional tool logs, never authority for the original child.
+ // Refuse ambiguous/oversized additions while retaining its bounded process log.
+ try{
  const tests=join(invocation,'state','maestro','tests');let entries;try{owned(tests,true);entries=readdirSync(tests,{withFileTypes:true});}catch{return Buffer.from(JSON.stringify(payload));}
  assert.equal(entries.length,1);assert.ok(entries[0].isDirectory()&&!entries[0].isSymbolicLink()&&/^\d{4}-\d{2}-\d{2}_\d{6}$/.test(entries[0].name));const stamp=join(tests,entries[0].name);owned(stamp,true);
  const files=readdirSync(stamp,{withFileTypes:true});assert.ok(files.length<=32);
@@ -49,6 +52,7 @@ export function collectIosDriverLogs(invocation){
   const matches=files.filter(file=>predicate(file.name));assert.ok(matches.length<=1);if(!matches.length)continue;const file=join(stamp,matches[0].name),s=owned(file,false);assert.ok(matches[0].isFile()&&!matches[0].isSymbolicLink());const fd=openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW);try{const current=fstatSync(fd);for(const key of ['ino','dev','size','mtimeMs','ctimeMs'])assert.equal(current[key],s[key]);const bytes=readFileSync(fd),openedAfter=fstatSync(fd),after=owned(file,false);for(const key of ['ino','dev','size','mtimeMs','ctimeMs']){assert.equal(openedAfter[key],current[key]);assert.equal(after[key],current[key]);}assert.equal(bytes.length,s.size);count+=bytes.length;assert.ok(count<=LIMIT);payload[kind]=bytes.toString('base64');}finally{closeSync(fd);}
  }
  assert.deepEqual(readdirSync(stamp).sort(),files.map(file=>file.name).sort());assert.deepEqual(readdirSync(tests).sort(),entries.map(entry=>entry.name).sort());return Buffer.from(JSON.stringify(payload));
+ }catch{return Buffer.from(JSON.stringify({...payload,maestro:null,runner:null}));}
 }
 function removeOwned(directory,parent){assert.equal(dirname(resolve(directory)),resolve(parent));owned(directory,true);const walk=(path,depth=0)=>{assert.ok(depth<=8);const entries=readdirSync(path,{withFileTypes:true});assert.ok(entries.length<=128);for(const entry of entries){const file=join(path,entry.name),s=lstatSync(file);if(typeof process.getuid==='function')assert.equal(s.uid,process.getuid());assert.equal(s.isSymbolicLink(),false);assert.equal(realpathSync(file),resolve(file));if(s.isDirectory())walk(file,depth+1);else assert.ok(s.isFile());}};walk(directory);rmSync(directory,{recursive:true});}
 export function validatedIosDriverArtifact(root,context){try{if(!context)return false;const binding=JSON.parse(privateBytes(join(root,'ios-driver-failure.json'),4096));for(const name of ['sourceHead','runId','attempt','udid'])assert.equal(binding[name],context[name]);assert.equal(binding.commandSha256,sha(JSON.stringify(['maestro',...maestroDevicePrefix('ios',{SUBTRACK_SIMULATOR_UDID:context.udid}),'--verbose','hierarchy'])));assert.equal(binding.simulatorCustodySha256,custody(root,context));try{lstatSync(join(root,'ios-driver-preflight'));return false;}catch(error){assert.equal(error.code,'ENOENT');}return validSealedIosDriverLog(privateBytes(join(dirname(root),'sealed','ios-driver-preflight.st253sealed'),397312),binding);}catch{return false;}}
@@ -59,18 +63,21 @@ export async function runOwnedIosDriverPreflight({environment,root,head,measureD
  mkdirSync(root,{recursive:true,mode:448});assert.equal(owned(root,true).mode&511,448);
  const before=measureDevice(udid),custodyHash=context?custody(root,context):null;
  const invocation=join(root,'ios-driver-preflight');mkdirSync(invocation,{mode:448});const state=join(invocation,'state');mkdirSync(state,{mode:448});
- let success=false,sealed=false,failure=null;
+ let success=false,sealed=false,failure=null,stage='child';
  try{
   const result=await runChild(join(invocation,'process.log'),args,{...environment,XDG_STATE_HOME:state});
-  assert.deepEqual(measureDevice(udid),before);if(context)assert.equal(custody(root,context),custodyHash);
+  console.log(`ST253_IOS_DRIVER child_complete=${result.complete===true} child_exit=${Number.isInteger(result.exitCode)&&result.exitCode>=0&&result.exitCode<=255?result.exitCode:'unavailable'} child_timeout=${result.timedOut===true}`);
+  stage='after-device';assert.deepEqual(measureDevice(udid),before);stage='after-custody';if(context)assert.equal(custody(root,context),custodyHash);
+  stage='child-result';
   if(result.complete&&result.exitCode===0){success=true;writeFileSync(join(root,'ios-driver-ready.json'),JSON.stringify({sourceHead:head,udid,commandSha256:sha(JSON.stringify(['maestro',...args]))}),{flag:'wx',mode:384});}
   else if(context&&environment.GITHUB_EVENT_NAME==='workflow_dispatch'&&result.complete&&Number.isInteger(result.exitCode)&&result.exitCode>0&&result.exitCode<=255){
    const binding={version:1,purpose:'ios-driver-preflight',sourceHead:head,runId:context.runId,attempt:context.attempt,udid,simulatorCustodySha256:custodyHash,commandSha256:sha(JSON.stringify(['maestro',...args])),exitCode:result.exitCode,recipient:PREINPUT_RECIPIENT_SHA256};
-   const bytes=sealIosDriverLog(collectIosDriverLogs(invocation),binding,readFileSync(new URL('../../../.sdlc/evidence/ST-253/native-diagnostic-recipient.pem',import.meta.url)));
-   removeOwned(invocation,root);const destination=join(dirname(root),'sealed');mkdirSync(destination,{recursive:true,mode:448});assert.equal(owned(destination,true).mode&511,448);writeFileSync(join(root,'ios-driver-failure.json'),JSON.stringify(binding),{flag:'wx',mode:384});writeFileSync(join(destination,'ios-driver-preflight.st253sealed'),bytes,{flag:'wx',mode:384});assert.equal(validatedIosDriverArtifact(root,context),true);sealed=true;
+   stage='logs';const payload=collectIosDriverLogs(invocation);stage='seal';const bytes=sealIosDriverLog(payload,binding,readFileSync(new URL('../../../.sdlc/evidence/ST-253/native-diagnostic-recipient.pem',import.meta.url)));
+   stage='raw-cleanup';removeOwned(invocation,root);stage='publication';const destination=join(dirname(root),'sealed');mkdirSync(destination,{recursive:true,mode:448});assert.equal(owned(destination,true).mode&511,448);writeFileSync(join(root,'ios-driver-failure.json'),JSON.stringify(binding),{flag:'wx',mode:384});writeFileSync(join(destination,'ios-driver-preflight.st253sealed'),bytes,{flag:'wx',mode:384});stage='validation';assert.equal(validatedIosDriverArtifact(root,context),true);sealed=true;
   }
  }catch(error){failure=error;}finally{
   try{owned(invocation,true);removeOwned(invocation,root);}catch(error){if(error.code!=='ENOENT')failure??=error;}
+  if(failure)console.error(`ST253_IOS_DRIVER failure_stage=${stage}`);
   console.log(`ST253_IOS_DRIVER readiness=${success?'ready':'failed'} diagnostic=${sealed?'sealed':'withheld'}`);
  }
  if(failure)throw failure;return {success,sealed};

@@ -1,5 +1,5 @@
 import React from 'react';
-import {Keyboard} from 'react-native';
+import {Keyboard,Platform,ScrollView} from 'react-native';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
 import {NativeHouseholdScreen} from './NativeHouseholdScreen';
 import {parseSandboxHouseholdView,type SandboxHouseholdView} from '@subtrack/contracts/sandbox-household';
@@ -45,10 +45,17 @@ it('creates a durable household and uses independent authoritative readback inst
  expect(screen.getByTestId('native-household-create').props.accessibilityLabel).toBe(copy.create);fireEvent.changeText(screen.getByTestId('native-household-name'),'Example family');fireEvent.press(screen.getByTestId('native-household-create'));
  await screen.findAllByText('Example parent');expect(f.api.mutate).toHaveBeenCalledWith({operation:'household-create',name:'Example family'},'access',expect.any(AbortSignal));expect(f.api.read).toHaveBeenCalledTimes(2);expect(screen.queryByRole('button',{name:copy.create})).toBeNull();
 });
-it('dismisses the member input keyboard before sending Add and retains authoritative member readback',async()=>{
+it.each(['ios','android'] as const)('configures household keyboard scrolling on %s, dismisses before sending and retains authoritative readback',async platform=>{
+ const os=jest.replaceProperty(Platform,'OS',platform);
+ try{
  const f=fixture(household(false));await waitFor(()=>expect(screen.getByTestId('native-household-member-add').props.accessibilityState.disabled).toBe(false));const dismiss=jest.spyOn(Keyboard,'dismiss').mockImplementation(()=>{});
+ const scroll=screen.UNSAFE_getAllByType(ScrollView)[0]!;
+ expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
+ expect(scroll.props.automaticallyAdjustKeyboardInsets).toBe(platform==='ios'?true:undefined);
+ expect(scroll.props.keyboardDismissMode).toBe(platform==='ios'?'interactive':undefined);
  try{jest.mocked(f.api.mutate).mockImplementation(async()=>{expect(dismiss).toHaveBeenCalledTimes(1);return household();});jest.mocked(f.api.read).mockResolvedValue(household());
  fireEvent.changeText(screen.getByTestId('native-household-member-name'),'Example child');fireEvent.press(screen.getByTestId('native-household-member-add'));await screen.findByRole('button',{name:copy.remove});expect(f.api.mutate).toHaveBeenCalledTimes(1);expect(screen.getByTestId('native-household-member-name').props.value).toBe('');}finally{dismiss.mockRestore();}
+ }finally{os.restore();}
 });
 it('adds profile-only members, confirms removal and never offers removal of the admin',async()=>{
  const f=fixture(household(false));await screen.findAllByText('Example parent');jest.mocked(f.api.read).mockResolvedValue(household());
