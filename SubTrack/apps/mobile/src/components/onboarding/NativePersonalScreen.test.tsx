@@ -1,5 +1,5 @@
 import React from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, Text, TextInput } from 'react-native';
+import { AccessibilityInfo, Keyboard, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import {useFocusEffect} from 'expo-router';
 import { NativePersonalScreen, validateManualDraft } from './NativePersonalScreen';
@@ -27,9 +27,22 @@ const row = { id: credentials.sessionId, revision: '1', source: 'MANUAL' as cons
   categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY' as const, status: 'ACTIVE' as const, expectedAmountMinor: '9007199254740993', currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
 const copy = catalogs.en.onboarding;
 function chooseCategory(label:string){fireEvent.changeText(screen.getByTestId('native-subscription-category'),label);fireEvent.press(screen.getByRole('button',{name:label}));}
-function expandCurrentRow(id=row.id){const current=screen.getByTestId(`native-subscription-row-${id}`);if(!current.props.accessibilityState.expanded)fireEvent.press(current);}
-function openProfile(){const tab=screen.queryByTestId('native-nav-profile');if(tab)fireEvent.press(tab);}
+function closeCurrentDetail(){const close=screen.queryByTestId('native-subscription-detail-close');if(close)fireEvent.press(close);}
+function expandCurrentRow(id=row.id){closeCurrentDetail();const current=screen.getByTestId(`native-subscription-row-${id}`);if(!current.props.accessibilityState.expanded)fireEvent.press(current);}
+function openProfile(){closeCurrentDetail();const tab=screen.queryByTestId('native-nav-profile');if(tab)fireEvent.press(tab);}
 function performLogout(){openProfile();fireEvent.press(screen.getByRole('button',{name:catalogs[mockLocale.value].onboarding.nativePersonal.logout}));}
+
+it('opens a focused reduced-motion detail surface from a compact row, closes via the scrim and refreshes without a normal Reload button',async()=>{
+ jest.mocked(AccessibilityInfo.isReduceMotionEnabled).mockResolvedValue(true);
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row],nextCursor:null});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
+ expect(screen.queryByRole('button',{name:copy.nativePersonal.reload})).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.edit})).toBeNull();
+ fireEvent.press(screen.getByTestId(`native-subscription-row-${row.id}`));expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(true);expect(screen.UNSAFE_getByType(Modal).props.animationType).toBe('none');expect(screen.getByRole('header',{name:row.customName})).toBeTruthy();
+ expect(screen.queryByTestId('native-nav-profile')).toBeNull();expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit})).toBeTruthy();
+ fireEvent.press(screen.getByTestId('native-subscription-detail-scrim',{includeHiddenElements:true}));expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false);expect(screen.getByTestId('native-nav-profile')).toBeTruthy();
+ const reads=jest.mocked(api.readNativeSubscriptions).mock.calls.length;
+ await act(async()=>{screen.getByTestId('native-personal-scroll').props.refreshControl.props.onRefresh();});expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(reads+1);expect(api.createNativeSubscription).not.toHaveBeenCalled();
+});
 
 // Cold native host/Babel initialization took 4429 ms in the first workflow.
 // Prepare only generic hosts; every behavioral test retains its 5000 ms deadline.
@@ -38,7 +51,7 @@ beforeAll(() => {
   expect(fixture.getByText('host ready')).toBeTruthy();
   fixture.unmount();
 }, 60_000);
-beforeEach(() => {mockLocale.value='en'; jest.resetAllMocks(); jest.mocked(useFocusEffect).mockImplementation(effect => { React.useEffect(effect, [effect]); }); mockSetLocale.mockResolvedValue(undefined); mockSetMode.mockResolvedValue(undefined); jest.mocked(api.verifiedNativeLogin).mockResolvedValue(credentials);
+beforeEach(() => {mockLocale.value='en'; jest.resetAllMocks(); jest.spyOn(AccessibilityInfo,'isReduceMotionEnabled').mockResolvedValue(false);jest.spyOn(AccessibilityInfo,'addEventListener').mockReturnValue({remove:jest.fn()} as unknown as ReturnType<typeof AccessibilityInfo.addEventListener>);jest.mocked(useFocusEffect).mockImplementation(effect => { React.useEffect(effect, [effect]); }); mockSetLocale.mockResolvedValue(undefined); mockSetMode.mockResolvedValue(undefined); jest.mocked(api.verifiedNativeLogin).mockResolvedValue(credentials);
   jest.mocked(api.readNativeProfile).mockResolvedValue(profile); jest.mocked(api.readNativeMode).mockResolvedValue({ mode: 'just-me' }); });
 it('sandbox entry completes profile/Just Me/Add/Edit/status/readback/logout through separate injected authority',async()=>{
   let currentProfile={...profile,displayName:null as string|null,profileComplete:false};let mode:'just-me'|null=null;let rows:typeof row[]=[];
@@ -54,11 +67,11 @@ it('sandbox entry completes profile/Just Me/Add/Edit/status/readback/logout thro
   expect(screen.queryByRole('button',{name:copy.nativePersonal.verify})).toBeNull();fireEvent.press(screen.getByRole('button',{name:copy.sandbox.enter}));
   await screen.findByLabelText(copy.nativePersonal.name);fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.name),'Fiction');fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.saveProfile}));
   await screen.findByText(copy.nativePersonal.profileSaved);fireEvent.press(screen.getByRole('button',{name:copy.mode.choose}));await screen.findByRole('tab',{name:copy.productNav.manage});expect(onSetupComplete).toHaveBeenCalledWith('mutation');
-  expect(screen.getByRole('button',{name:copy.nativeBank.open}).props.accessibilityState.disabled).toBe(false);expect(screen.getByRole('button',{name:copy.nativeDetection.open}).props.accessibilityState.disabled).toBe(false);expect(screen.queryByText(copy.sandbox.manageUnavailable)).toBeNull();fireEvent.press(screen.getByRole('button',{name:copy.nativeBank.open}));expect(mockPush).toHaveBeenCalledWith('/personal-bank');fireEvent.press(screen.getByRole('button',{name:copy.nativeDetection.open}));expect(mockPush).toHaveBeenCalledWith('/personal-detections');
+  expect(screen.queryByText(copy.sandbox.manageUnavailable)).toBeNull();openProfile();expect(screen.getByRole('button',{name:copy.nativeBank.open}).props.accessibilityState.disabled).toBe(false);fireEvent.press(screen.getByRole('button',{name:copy.nativeBank.open}));expect(mockPush).toHaveBeenCalledWith('/personal-bank');fireEvent.press(screen.getByTestId('native-nav-manage'));
   fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.title}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Fiction');chooseCategory(copy.ownerSubscriptions.category.VIDEO_STREAMING);
   fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.amount),'12.00');fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.save}));await screen.findByText('Persisted sandbox service');
   expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Changed draft');fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText('Persisted edited service');
-  expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await waitFor(()=>expect(sandboxApi.updateNativeSubscriptionStatus).toHaveBeenCalledTimes(1));await screen.findByText(`${copy.ownerSubscriptions.cadence.MONTHLY} · ${copy.ownerSubscriptions.status.PAUSED}`);
+  expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await waitFor(()=>expect(sandboxApi.updateNativeSubscriptionStatus).toHaveBeenCalledTimes(1));await screen.findByText(copy.ownerSubscriptions.status.PAUSED);
   performLogout();await screen.findByText(copy.nativePersonal.logoutConfirmed);expect(screen.queryByText('Persisted edited service')).toBeNull();expect(api.verifiedNativeLogin).not.toHaveBeenCalled();
 });
 it.each(['en','sv'] as const)('uses the localized single profile heading during setup in %s',async locale=>{
@@ -91,7 +104,7 @@ it('reads current private rows only after fresh verification and clears them imm
   await waitFor(() => expect(screen.getByRole('button', { name: copy.nativePersonal.verify }).props.accessibilityState.disabled).toBe(false));
   expect(screen.queryByText(row.customName)).toBeNull(); fireEvent.press(screen.getByRole('button', { name: copy.nativePersonal.verify }));
   await screen.findByText(row.customName); expect(api.readNativeProfile).toHaveBeenCalledWith(credentials.accessToken, expect.any(AbortSignal));
-  fireEvent.press(screen.getByRole('button', { name: copy.nativeBank.open })); expect(mockPush).toHaveBeenCalledWith('/personal-bank');
+  openProfile();fireEvent.press(screen.getByRole('button', { name: copy.nativeBank.open })); expect(mockPush).toHaveBeenCalledWith('/personal-bank');
   performLogout(); expect(screen.queryByText(row.customName)).toBeNull();
   expect(screen.queryByRole('button', { name: copy.nativeBank.open })).toBeNull();
   await screen.findByText(copy.nativePersonal.logoutLocal);
@@ -447,7 +460,7 @@ it('personal list focus after the agenda rereads changed saved rows',async()=>{
 });
 
 it('production confirmed detected rows retain owner display without sandbox editing controls',async()=>{
- jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,source:'DETECTED'}],nextCursor:null});mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);expect(screen.queryByText(copy.nativeDetection.detected)).toBeNull();expandCurrentRow();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.edit})).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.pause})).toBeNull();fireEvent.press(screen.getAllByRole('button',{name:copy.nativeDetection.open})[0]!);expect(mockPush).toHaveBeenCalledWith('/personal-detections');
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,source:'DETECTED'}],nextCursor:null});mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);expect(screen.queryByText(copy.nativeDetection.detected)).toBeNull();expandCurrentRow();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.edit})).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.pause})).toBeNull();expect(screen.getByText(copy.ownerSubscriptions.status.ACTIVE)).toBeTruthy();expect(screen.queryByRole('button',{name:copy.nativeDetection.open})).toBeNull();
 });
 
 
@@ -488,7 +501,7 @@ it('renders active per-cadence currency totals and recomputes category groups af
 });
 
 it('blur aborts a complete read and clears query/data while stale completion cannot revive the view',async()=>{
- let complete:(page:{items:typeof row[];nextCursor:null})=>void=()=>{throw Error('not started')};jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:null}).mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve;})).mockResolvedValue({items:[row],nextCursor:null});mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);fireEvent.changeText(screen.getByLabelText(copy.ownerSubscriptionList.search),'database');fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.reload}));await waitFor(()=>expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(2));
+ let complete:(page:{items:typeof row[];nextCursor:null})=>void=()=>{throw Error('not started')};jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:null}).mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve;})).mockResolvedValue({items:[row],nextCursor:null});mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);fireEvent.changeText(screen.getByLabelText(copy.ownerSubscriptionList.search),'database');fireEvent(screen.UNSAFE_getByType(RefreshControl),'refresh');await waitFor(()=>expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(2));
  const focusCalls=jest.mocked(useFocusEffect).mock.calls;const callback=focusCalls[focusCalls.length-1]![0];let cleanup:void|(()=>void);act(()=>{cleanup=callback();});act(()=>{if(cleanup)cleanup();});expect(screen.queryByText(row.customName)).toBeNull();const signal=jest.mocked(api.readNativeSubscriptions).mock.calls[1]![1];expect(signal.aborted).toBe(true);await act(async()=>{complete({items:[row],nextCursor:null});});expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText(copy.nativePersonal.unavailable)).toBeNull();act(()=>{callback();});await screen.findByText(row.customName);expect(screen.getByLabelText(copy.ownerSubscriptionList.search).props.value).toBe('');
 });
 
@@ -577,11 +590,48 @@ it('sandbox confirmed detected plans support correction and acknowledged trackin
   updateNativeSubscriptionStatus:jest.fn(async()=>{persisted={...persisted,status:'PAUSED' as never,revision:'3'};return{id:persisted.id,status:'PAUSED' as const};})};
  const session={phase:'active' as const,login:async()=>{},refresh:async()=>{},logout:async()=>true,run:async<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>work('sandbox-current',new AbortController().signal)};
  render(<NativePersonalScreen useSession={()=>session} api={injected} sandbox/>);await screen.findByText(persisted.customName);
- expandCurrentRow(pending.id);expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.edit})).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.pause})).toBeNull();expect(screen.getAllByRole('button',{name:copy.nativeDetection.open}).length).toBe(2);
+ expandCurrentRow(pending.id);expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.edit})).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.pause})).toBeNull();expect(screen.getAllByRole('button',{name:copy.nativeDetection.open}).length).toBe(1);
  expandCurrentRow(persisted.id);fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));
  expect(screen.getByLabelText(copy.nativePersonal.amount).props.value).toBe('90071992547409.93');fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'User correction');
  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativeSubscriptionEdit.saved);expect(screen.getByText('Backend confirmed correction')).toBeTruthy();expect(screen.queryByText('User correction')).toBeNull();
  expect(injected.editNativeSubscription).toHaveBeenCalledWith(expect.objectContaining({id:row.id,expectedRevision:'1',customName:'User correction',expectedAmountMinor:row.expectedAmountMinor,nextChargeDate:'2026-11-17'}),'sandbox-current',expect.any(AbortSignal));
  expandCurrentRow(persisted.id);fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeTruthy();
  expect(injected.updateNativeSubscriptionStatus).toHaveBeenCalledWith({id:row.id,status:'PAUSED'},'sandbox-current',expect.any(AbortSignal));expect(api.readNativeProfile).not.toHaveBeenCalled();expect(api.editNativeSubscription).not.toHaveBeenCalled();expect(api.updateNativeSubscriptionStatus).not.toHaveBeenCalled();
+});
+
+it('persists each Profile segment immediately and applies only authoritative reread values without a Save control',async()=>{
+ let finish:(value:Awaited<ReturnType<typeof api.readNativeProfile>>)=>void=()=>undefined;
+ jest.mocked(api.readNativeProfile).mockResolvedValueOnce(profile).mockImplementationOnce(()=>new Promise(done=>{finish=done;})).mockResolvedValue({...profile,language:'sv',theme:'dark'});
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row],nextCursor:null});jest.mocked(api.saveNativeProfile).mockResolvedValue({...profile,language:'en',theme:'system'});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);openProfile();
+ expect(screen.queryByRole('button',{name:copy.nativePersonal.savePreferences})).toBeNull();fireEvent.press(screen.getByTestId('native-profile-language-sv'));
+ await waitFor(()=>expect(api.saveNativeProfile).toHaveBeenCalledWith({language:'sv'},credentials.accessToken,expect.any(AbortSignal)));expect(mockSetLocale).not.toHaveBeenCalledWith('sv');expect(screen.getByTestId('native-profile-language-en').props.accessibilityState.selected).toBe(true);expect(screen.getByTestId('native-profile-theme-dark').props.accessibilityState.disabled).toBe(true);
+ await act(async()=>finish({...profile,language:'sv',theme:'light'}));await screen.findByText(copy.nativePersonal.profileSaved);expect(mockSetLocale).toHaveBeenLastCalledWith('sv');expect(mockSetMode).toHaveBeenLastCalledWith('light');expect(screen.getByTestId('native-profile-language-sv').props.accessibilityState.selected).toBe(true);expect(screen.getByTestId('native-profile-theme-light').props.accessibilityState.selected).toBe(true);
+ fireEvent.press(screen.getByTestId('native-profile-theme-dark'));await waitFor(()=>expect(api.saveNativeProfile).toHaveBeenCalledTimes(2));await waitFor(()=>expect(screen.getByTestId('native-profile-theme-dark').props.accessibilityState.selected).toBe(true));expect(api.saveNativeProfile).toHaveBeenLastCalledWith({theme:'dark'},credentials.accessToken,expect.any(AbortSignal));expect(mockSetMode).toHaveBeenLastCalledWith('dark');
+});
+
+it('does not announce a preference as saved when its authoritative reread did not retain the selection',async()=>{
+ jest.mocked(api.readNativeProfile).mockResolvedValue(profile);jest.mocked(api.saveNativeProfile).mockResolvedValue({...profile,theme:'dark'});jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row],nextCursor:null});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);openProfile();fireEvent.press(screen.getByTestId('native-profile-theme-dark'));
+ await screen.findByText(copy.nativePersonal.preferenceReadbackUnavailable);expect(screen.queryByText(copy.nativePersonal.profileSaved)).toBeNull();expect(screen.getByTestId('native-profile-theme-system').props.accessibilityState.selected).toBe(true);expect(mockSetMode).toHaveBeenLastCalledWith('system');expect(api.saveNativeProfile).toHaveBeenCalledTimes(1);
+});
+
+it('starts the authorized detail reader only when an actual subscription sheet is opened',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row],nextCursor:null});
+ const {projectNativeAnalytics}=jest.requireActual('@/api/nativeAnalyticsProjection');
+ const reader=jest.fn().mockResolvedValue({kind:'ready',projection:projectNativeAnalytics([row],null,new Date(2026,9,17,12))});
+ const active={phase:'active' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:async<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>work(credentials.accessToken,new AbortController().signal)};
+ render(<NativePersonalScreen useSession={()=>active} detailReader={reader}/>);await screen.findByText(row.customName);expect(reader).not.toHaveBeenCalled();
+ fireEvent.press(screen.getByTestId(`native-subscription-row-${row.id}`));await waitFor(()=>expect(reader).toHaveBeenCalledTimes(1));closeCurrentDetail();expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false);
+ fireEvent.press(screen.getByTestId(`native-subscription-row-${row.id}`));await waitFor(()=>expect(reader).toHaveBeenCalledTimes(2));
+});
+
+it('restores row focus only after iOS dismissal and suppresses restoration after logout',async()=>{
+ const os=jest.replaceProperty(Platform,'OS','ios'),native=jest.requireActual<typeof import('react-native')>('react-native');
+ const node=jest.spyOn(native,'findNodeHandle').mockReturnValue(42),focus=jest.spyOn(AccessibilityInfo,'setAccessibilityFocus').mockImplementation(()=>undefined);
+ try{
+  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row],nextCursor:null});jest.mocked(api.revokeNativeSession).mockResolvedValue(undefined);mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);expandCurrentRow();
+  closeCurrentDetail();expect(focus).not.toHaveBeenCalled();act(()=>screen.UNSAFE_getByType(Modal).props.onDismiss());expect(focus).toHaveBeenCalledWith(42);
+  expandCurrentRow();closeCurrentDetail();focus.mockClear();performLogout();act(()=>screen.UNSAFE_getByType(Modal).props.onDismiss());expect(focus).not.toHaveBeenCalled();
+ }finally{os.restore();node.mockRestore();focus.mockRestore();}
 });

@@ -8,7 +8,8 @@
   },
   "actions": {
     "add": "Lägg till",
-    "close": "Stäng"
+    "close": "Stäng",
+    "retry": "Försök igen"
   },
   "scope": {
     "personal": "Jag",
@@ -330,6 +331,7 @@
       "invalidProfileEmoji": "Välj en avatar bland alternativen.",
       "saveProfile": "Spara och fortsätt",
       "savePreferences": "Spara inställningar",
+      "preferenceReadbackUnavailable": "Kunde inte bekräfta inställningen.",
       "profileSaved": "Profilen har sparats.",
       "name": "Visningsnamn",
       "emoji": "Avatar-emoji",
@@ -340,7 +342,7 @@
       "reload": "Läs aktuella abonnemang",
       "register": "Skapa konto",
       "invalid": "Granska fälten och ange giltiga värden.",
-      "amount": "Förväntat belopp i SEK",
+      "amount": "Belopp (SEK)",
       "date": "Förnyelsedatum (valfritt)",
       "loginTitle": "Logga in",
       "cancelVerification": "Avbryt verifiering",
@@ -390,7 +392,9 @@
       "uncertain": "Resultatet är obekräftat. Logga in igen innan du försöker på nytt.",
       "conflict": "Bankuppgifterna har ändrats. Granska de uppdaterade uppgifterna.",
       "updated": "Banken uppdaterades.",
-      "purged": "Bankdata togs bort."
+      "purged": "Bankdata togs bort.",
+      "options": "Alternativ",
+      "reviewShort": "Granska prenumerationer"
     },
     "nativeDetection": {
       "title": "Granska abonnemang",
@@ -427,7 +431,10 @@
         "AMOUNT_WITHIN_BAND": "Liknande betalningsbelopp",
         "SUBSCRIPTION_CATEGORY_PRIOR": "Matchande abonnemangskategori"
       },
-      "why": "Varför?"
+      "why": "Varför?",
+      "confirmShort": "Bekräfta",
+      "rejectShort": "Inte en prenumeration",
+      "scanShort": "Sök"
     },
     "nativeHousehold": {
       "title": "Hushåll",
@@ -472,7 +479,9 @@
       "payerUnknown": "Betalare inte vald",
       "plannedPayer": "Planerad betalare: %{name}",
       "payerLabel": "Planerad betalare",
-      "usersLabel": "Används av"
+      "usersLabel": "Används av",
+      "perPerson": "%{amount} per person",
+      "perPersonRange": "%{minimum}–%{maximum} per person"
     },
     "datePicker": {
       "choose": "Välj datum",
@@ -584,14 +593,19 @@
     "less": "mindre · %{period}",
     "more": "mer · %{period}",
     "sameCost": "samma kostnad · %{period}",
-    "fixtureSource": "Syntetisk bankpersonakatalog · obekräftat exempelpris, inget aktuellt erbjudande.",
+    "fixtureSource": "Exempelpriser, inte aktuella erbjudanden.",
     "noAlternatives": "Inga jämförbara abonnemang i kategorin ännu.",
     "openSubscriptions": "Prenumerationer",
     "unnamed": "Prenumeration",
     "seeInsights": "Visa insikter",
     "household": "Hushåll",
     "connectBank": "Anslut bank",
-    "addManually": "Lägg till manuellt"
+    "addManually": "Lägg till manuellt",
+    "summaryMonthly": "%{amount} per månad för %{count} aktiva abonnemang.",
+    "summaryOverlap": "%{count} kategorier innehåller fler än ett aktivt abonnemang.",
+    "availableHistory": "Tillgänglig bankhistorik",
+    "openPlan": "Öppna %{name}",
+    "comparisonTitle": "%{name} · %{alternative}"
   },
   "nativeProductDetails": {
     "allCategories": "Alla",
@@ -600,6 +614,11 @@
     "annualCost": "Årskostnad",
     "category": "Kategori",
     "schedule": "Faktureringsperiod",
-    "status": "Status"
+    "status": "Status",
+    "settings": "Inställningar",
+    "shownTotal": "Visad total",
+    "chargeHistory": "Debiteringshistorik",
+    "perPerson": "Per person",
+    "auto": "Auto"
   }
 }

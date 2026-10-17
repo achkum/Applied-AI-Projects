@@ -1,5 +1,5 @@
 import React from 'react';
-import {Pressable,ScrollView,Text} from 'react-native';
+import {Pressable,RefreshControl,ScrollView,Text} from 'react-native';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
 import {NativePersonalRenewalsScreen} from './NativePersonalRenewalsScreen';
 import {NativeSessionProvider} from '@/state/NativeSession';
@@ -49,10 +49,19 @@ it('shows empty and setup-required distinctly, without using missing dates or in
 it('current API failure retires authority and shows unavailable without private row content',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockRejectedValue(new Error('private storage value'));mount();await login();await screen.findByText(copy.nativePersonal.unavailable);expect(screen.queryByText(row.customName)).toBeNull();expect(screen.getByRole('button',{name:copy.nativePersonal.verify})).toBeTruthy();
 });
-it('focus return and explicit refresh read changed saved status rather than retaining a paused renewal',async()=>{
+it('focus return and native pull-to-refresh read changed saved status rather than retaining a paused renewal',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:null}).mockResolvedValueOnce({items:[{...row,status:'PAUSED'}],nextCursor:null}).mockResolvedValueOnce({items:[{...row,customName:'Fresh edited renewal'}],nextCursor:null});mount();await login();await screen.findByText(row.customName);
  act(()=>{mockFocus.enabled=false;mockFocus.cleanup?.();});expect(screen.queryByText(row.customName)).toBeNull();act(()=>{mockFocus.enabled=true;mockFocus.cleanup=mockFocus.start?.();});await screen.findByText(copy.nativeRenewals.empty);
- fireEvent.press(screen.getByRole('button',{name:copy.nativeRenewals.refresh}));await screen.findByText('Fresh edited renewal');expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(3);
+ expect(screen.queryByRole('button',{name:copy.nativeRenewals.refresh})).toBeNull();fireEvent(screen.UNSAFE_getByType(RefreshControl),'refresh');await screen.findByText('Fresh edited renewal');expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(3);
+});
+it('uses one contextual Home action and enables pull-to-refresh only for current authority',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row],nextCursor:null});mount();expect(screen.getByTestId('native-renewals-scroll')).toBeTruthy();expect(screen.UNSAFE_getByType(RefreshControl).props.enabled).toBe(false);await login();await screen.findByText(row.customName);
+ expect(screen.UNSAFE_getByType(RefreshControl).props.enabled).toBe(true);expect(screen.queryByRole('button',{name:copy.nativeRenewals.refresh})).toBeNull();fireEvent.press(screen.getByRole('button',{name:copy.productNav.home}));expect(mockReplace).toHaveBeenCalledWith('/personal-billing-month');
+});
+it('shows a compact retry only after a current read failure, preserving exact readback on recovery',async()=>{
+ const session={phase:'active' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:async<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>work('active-owner',new AbortController().signal)};
+ const reader=jest.fn().mockRejectedValueOnce(new Error('Read unavailable')).mockResolvedValueOnce({kind:'ready',groups:[{date:row.nextChargeDate,items:[row]}]});render(<NativePersonalRenewalsScreen useSession={()=>session} readProjection={reader} now={now}/>);
+ await screen.findByText(copy.nativePersonal.unavailable);fireEvent.press(screen.getByRole('button',{name:catalogs.en.actions.retry}));await screen.findByText(row.customName);expect(screen.getByText(formatMinorUnits(BigInt(row.expectedAmountMinor),'SEK',{locale:'en',display:'code'}))).toBeTruthy();expect(screen.queryByRole('button',{name:catalogs.en.actions.retry})).toBeNull();expect(reader).toHaveBeenCalledTimes(2);
 });
 it('blur aborts an obsolete read without logout, and a late result cannot replace a fresh focused agenda',async()=>{
  let finish!:(value:{items:typeof row[];nextCursor:null})=>void;const pending=new Promise<{items:typeof row[];nextCursor:null}>(ok=>{finish=ok;});

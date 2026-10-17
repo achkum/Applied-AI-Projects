@@ -34,6 +34,8 @@ appId: se.subtrack.app
 - assertNotVisible: ${MAESTRO_MARK_CANCELLED}
 - assertNotVisible: ${MAESTRO_ARCHIVE}
 - takeScreenshot: accepted-edited-api-restart
+- tapOn:
+    id: native-subscription-detail-close
 - runFlow: private-runtime-open-profile.yaml
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}

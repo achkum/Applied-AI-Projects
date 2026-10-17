@@ -37,9 +37,14 @@ appId: se.subtrack.app
     timeout: 30000
 - assertNotVisible: Example streaming Plus
 - scrollUntilVisible:
-    element: ${MAESTRO_RENEWALS_REFRESH}
+    element: ${MAESTRO_RENEWALS_TITLE}
+    direction: UP
+    centerElement: true
+- swipe:
+    from:
+      id: native-renewals-scroll
     direction: DOWN
-- tapOn: ${MAESTRO_RENEWALS_REFRESH}
+    duration: 700
 - extendedWaitUntil:
     visible: ${MAESTRO_RENEWALS_EMPTY}
     timeout: 30000

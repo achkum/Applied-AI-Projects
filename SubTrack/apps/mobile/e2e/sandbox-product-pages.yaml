@@ -6,7 +6,7 @@ appId: se.subtrack.app.sandbox
     visible:
       id: native-home-overview
     timeout: 30000
-- assertVisible: ${E_ACTIVE_TWO}
+- assertVisible: ${E_ACTIVE_TEN}
 - takeScreenshot: accepted-sandbox-home-top
 - tapOn:
     id: native-home-calendar
@@ -21,9 +21,9 @@ appId: se.subtrack.app.sandbox
     id: native-month-selected-date
     text: ${TODAY}
 - scrollUntilVisible:
-    element: ${E_DETAIL_AURORA_PLUS}
+    element: ${E_DETAIL_CEDAR_PLUS}
     direction: DOWN
-- assertVisible: ${E_DETAIL_AURORA_PLUS}
+- assertVisible: ${E_DETAIL_CEDAR_PLUS}
 - takeScreenshot: accepted-sandbox-home
 - tapOn:
     id: native-nav-insights
@@ -38,17 +38,17 @@ appId: se.subtrack.app.sandbox
 - scrollUntilVisible:
     element: ${E_PRICE_RISE}
     direction: DOWN
-- assertVisible: Aurora Video Plus
+- assertVisible: Cedar Video Plus
 - takeScreenshot: accepted-sandbox-insights
 - scrollUntilVisible:
     element: ${E_TREND_EVIDENCE}
     direction: DOWN
 - takeScreenshot: accepted-sandbox-trend
 - tapOn:
-    id: native-nav-month
+    id: native-nav-insights
 - extendedWaitUntil:
     visible:
-      id: native-home-overview
+      id: native-insights-overview
     timeout: 30000
 - scrollUntilVisible:
     element: ${E_COMPARE}
@@ -57,7 +57,7 @@ appId: se.subtrack.app.sandbox
 - extendedWaitUntil:
     visible: ${E_YOUR_PLANS}
     timeout: 30000
-- tapOn: Cinema Plus
+- tapOn: Birch Cinema
 - tapOn: ${E_ANNUAL}
 - scrollUntilVisible:
     element: ${E_SAMPLE_PRICE}

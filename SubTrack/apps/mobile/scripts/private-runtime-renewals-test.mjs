@@ -34,7 +34,7 @@ test('final empty agenda is same original row and exact archived tracking digest
 test('installed flows validate candidate date using actual UI/refresh and retain parent Add/Edit semantics',()=>{
  for(const locale of ['sv','en']){const env=flowEnvironment(locale);const c=JSON.parse(readFileSync(new URL(`../../../packages/i18n/catalogs/${locale}.json`,import.meta.url),'utf8')).onboarding;assert.equal(env.MAESTRO_DATE,c.nativePersonal.date);assert.equal(env.MAESTRO_RENEWALS_OPEN,c.productNav.upcoming);assert.equal(env.MAESTRO_RENEWALS_REFRESH,c.nativeRenewals.refresh);assert.equal(env.MAESTRO_RENEWALS_EMPTY,c.nativeRenewals.empty);assert.equal(env.MAESTRO_RENEWALS_TITLE,c.nativeRenewals.title);}
  const load=name=>readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8');const positive=load('renewals'),empty=load('renewals-empty');
- assert.equal((positive.match(/assertVisible: \$\{MAESTRO_RENEWAL_DATE\}/g)??[]).length,2);assert.match(positive,/MAESTRO_RENEWALS_REFRESH/);assert.match(positive,/MAESTRO_LOGOUT_CONFIRMED/);assert.match(empty,/MAESTRO_RENEWALS_EMPTY/);assert.match(empty,/MAESTRO_LOGOUT_CONFIRMED/);
+ assert.equal((positive.match(/assertVisible: \$\{MAESTRO_RENEWAL_DATE\}/g)??[]).length,2);for(const flow of [positive,empty]){assert.match(flow,/- swipe:\r?\n {4}from:\r?\n {6}id: native-renewals-scroll\r?\n {4}direction: DOWN\r?\n {4}duration: 700/);assert.doesNotMatch(flow,/MAESTRO_RENEWALS_REFRESH/);}assert.match(positive,/MAESTRO_LOGOUT_CONFIRMED/);assert.match(empty,/MAESTRO_RENEWALS_EMPTY/);assert.match(empty,/MAESTRO_LOGOUT_CONFIRMED/);
  assert.match(load('enroll-add'),/runFlow: private-runtime-pick-renewal-date.yaml/);assert.match(load('edit-status'),/- scrollUntilVisible:\r?\n {4}element:\r?\n {6}id: native-subscription-date\r?\n {4}direction: DOWN\r?\n- tapOn:\r?\n {4}id: native-subscription-date\r?\n- extendedWaitUntil:\r?\n {4}visible: \$\{MAESTRO_DATE_CLEAR\}\r?\n {4}timeout: 30000\r?\n- tapOn: \$\{MAESTRO_DATE_CLEAR\}\r?\n- extendedWaitUntil:\r?\n {4}notVisible: \$\{MAESTRO_DATE_CLEAR\}\r?\n {4}timeout: 30000\r?\n- scrollUntilVisible:\r?\n {4}element: \$\{MAESTRO_SAVE_EDIT\}\r?\n {4}direction: DOWN\r?\n- tapOn: \$\{MAESTRO_SAVE_EDIT\}/);
 });
 
@@ -48,4 +48,12 @@ test('agenda row waits stay on Upcoming and never wait for a Manage-only heading
  const agenda=flow.slice(flow.indexOf('- tapOn: ${MAESTRO_RENEWALS_OPEN}'),flow.lastIndexOf('- tapOn:\n    id: native-nav-manage'));
  assert.ok(agenda.includes('${MAESTRO_RENEWALS_TITLE}'));assert.ok(!agenda.includes('native-personal-title'));assert.ok(!agenda.includes('${MAESTRO_PERSONAL_TITLE}'));
  assert.equal(agenda.split('- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}').length-1,2);
+});
+
+test('native Upcoming pull refresh remains a real owner read without a normal refresh button',()=>{
+ const source=readFileSync(new URL('../src/components/home/NativePersonalRenewalsScreen.tsx',import.meta.url),'utf8');
+ assert.ok(source.includes('testID="native-renewals-scroll"'));assert.ok(source.includes('refreshControl={<RefreshControl'));
+ assert.ok(source.includes("enabled={session.phase==='active'}"));assert.ok(source.includes('onRefresh={()=>{void load();}}'));
+ assert.ok(source.includes("state==='error'?button(t('actions.retry')"));assert.ok(!source.includes("button(t('onboarding.nativeRenewals.refresh')"));
+ for(const name of ['renewals','renewals-empty']){const flow=readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8');assert.ok(flow.indexOf('element: ${MAESTRO_RENEWALS_TITLE}')<flow.indexOf('id: native-renewals-scroll'));assert.ok(flow.indexOf('id: native-renewals-scroll')<flow.indexOf('- takeScreenshot: accepted-renewals'));}
 });

@@ -20,11 +20,12 @@ export function flowEnvironment(locale = 'en') {
     ...bankLabels,
     MAESTRO_SWEDISH: catalog.preferences.languageName.sv,
     MAESTRO_DARK: catalog.preferences.themes.dark,
-    MAESTRO_SAVE_PREFERENCES: onboarding.nativePersonal.savePreferences,
-    MAESTRO_SV_SAVE_PREFERENCES: swedish.onboarding.nativePersonal.savePreferences,
+    MAESTRO_PROFILE_SAVED: onboarding.nativePersonal.profileSaved,
+    MAESTRO_SV_PROFILE_SAVED: swedish.onboarding.nativePersonal.profileSaved,
     MAESTRO_SV_ENGLISH: swedish.preferences.languageName.en,
     MAESTRO_SV_MONTH_TITLE: swedish.onboarding.productNav.home,
-    MAESTRO_PROFILE_PAGE_TITLE: onboarding.productNav.profile,
+    // Exact profile name entered by the owned enrollment fixture, not a generic page label.
+    MAESTRO_PROFILE_PAGE_TITLE: 'Synthetic Native Proof',
     MAESTRO_DATE_CLEAR: onboarding.datePicker.clear,
     MAESTRO_DATE_TODAY: onboarding.datePicker.today,
 

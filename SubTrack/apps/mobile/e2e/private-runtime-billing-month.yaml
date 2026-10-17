@@ -39,10 +39,16 @@ appId: se.subtrack.app
 - runFlow: private-runtime-month-day.yaml
 - assertVisible: Example streaming
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}
+# Real Home pull-to-refresh; no mutation or replacement projection.
 - scrollUntilVisible:
-    element: ${MAESTRO_MONTH_REFRESH}
+    element: ${MAESTRO_MONTH_TITLE}
+    direction: UP
+    centerElement: true
+- swipe:
+    from:
+      id: native-month-scroll
     direction: DOWN
-- tapOn: ${MAESTRO_MONTH_REFRESH}
+    duration: 700
 - runFlow: private-runtime-month-day.yaml
 - assertVisible: Example streaming
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}

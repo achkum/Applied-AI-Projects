@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import {URL} from 'node:url';
+import {createRequire} from 'node:module';
 import {assertBankReceipt,acceptedNativeBankScreenshot,ACCEPTED_NATIVE_BANK_SCREENSHOTS,qualifyNativeBank} from './private-runtime-bank.mjs';
 import {flowEnvironment} from './private-runtime-flow-env.mjs';
 const zero=()=>({version:1,connections:0,accounts:0,transactions:0,generations:0,purged:0,receipts:0,transactionDigest:'a'.repeat(64)});
@@ -38,4 +39,29 @@ test('real UI flow labels, status/lastsync/count assertions, cancel and exact pa
  for(const [flow,name] of [['repeat','active'],['retain','retained'],['purge','purged']])assert.match(load(flow),new RegExp(`takeScreenshot: accepted-bank-${name}`));
  for(const name of ['retain','cancel','final'])assert.match(load(name),/stopApp\r?\n- launchApp/);
  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');assert.match(driver,/ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS,\.\.\.ACCEPTED_NATIVE_MONTH_SCREENSHOTS,\.\.\.ACCEPTED_NATIVE_BANK_SCREENSHOTS/);assert.match(driver,/readback:\(\)=>harness.readbackBankReceipt\(\)/);assert.doesNotMatch(driver,/mutateNativeBank|secondOwnerSession|banks\/synthetic\//);assert.ok(driver.indexOf('const bank=await qualifyNativeBank')>driver.indexOf('const billingMonth=await qualifyNativeMonthAfterEdit'));
+});
+
+test('actual bank source flows use one pull gesture, contextual Options and Profile logout without changing mutation/assertion counts',()=>{
+ const mobile=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobile.resolve('expo/package.json'))('yaml');
+ const source=name=>readFileSync(new URL(`../e2e/private-runtime-bank-${name}.yaml`,import.meta.url),'utf8'),steps=name=>yaml.parseAllDocuments(source(name)).map(document=>document.toJSON())[1];
+ const tap=(rows,label)=>rows.flatMap((row,index)=>row.tapOn===label?[index]:[]),byId=(rows,id)=>rows.flatMap((row,index)=>row.tapOn?.id===id?[index]:[]);
+ for(const name of ['repeat','retain','cancel','purge','final']){
+  const rows=steps(name),logout=tap(rows,'${MAESTRO_LOGOUT}'),back=tap(rows,'${MAESTRO_BANK_MANAGE}'),profile=byId(rows,'native-nav-profile');
+  assert.equal(logout.length,1,name);assert.equal(back.length,1,name);assert.equal(profile.length,1,name);assert.ok(back[0]<profile[0]&&profile[0]<logout[0],name);
+  assert.deepEqual(rows[profile[0]-1],{extendedWaitUntil:{visible:{id:'native-nav-profile'},timeout:30000}},name);
+  assert.deepEqual(rows[profile[0]+1],{extendedWaitUntil:{visible:{id:'native-personal-title'},timeout:30000}},name);
+  assert.deepEqual(rows[logout[0]+1],{extendedWaitUntil:{visible:'${MAESTRO_LOGOUT_CONFIRMED}',timeout:30000}},name);
+  for(const target of ['MAESTRO_LOGOUT','MAESTRO_BANK_ACTIVE','MAESTRO_BANK_REVOKED','MAESTRO_BANK_TRANSACTIONS','MAESTRO_BANK_LAST_SYNC_PRESENT'])assert.ok(rows.slice(logout[0]+1).some(row=>row.assertNotVisible==='${'+target+'}'),name+target);
+  const swipes=rows.filter(row=>row.swipe);assert.equal(swipes.length,['repeat','retain','purge'].includes(name)?1:0,name);
+  if(swipes.length){assert.deepEqual(swipes[0],{swipe:{from:{id:'native-bank-scroll'},direction:'DOWN',duration:700}});const at=rows.indexOf(swipes[0]);assert.deepEqual(rows[at-1],{scrollUntilVisible:{element:{id:'native-bank-title'},direction:'UP',centerElement:true}});assert.ok(at<back[0]);}
+  assert.equal(tap(rows,'${MAESTRO_BANK_REFRESH}').length,0,name);
+  assert.equal(byId(rows,'native-bank-options-0').length,['retain','cancel','purge'].includes(name)?1:0,name);
+ }
+ for(const [name,label]of [['retain','MAESTRO_BANK_DISCONNECT'],['cancel','MAESTRO_BANK_PURGE'],['purge','MAESTRO_BANK_PURGE']]){const rows=steps(name);assert.equal(tap(rows,'${'+label+'}').length,1);assert.ok(byId(rows,'native-bank-options-0')[0]<tap(rows,'${'+label+'}')[0]);}
+ for(const name of ['connect','sync','repeat','retain','cancel','purge','final']){
+  const rows=steps(name);for(const [label,count]of [['MAESTRO_BANK_CONNECT',name==='connect'?1:0],['MAESTRO_BANK_SYNC',['sync','repeat'].includes(name)?1:0],['MAESTRO_BANK_DISCONNECT',name==='retain'?1:0],['MAESTRO_BANK_CANCEL_PURGE',name==='cancel'?1:0],['MAESTRO_BANK_CONFIRM_PURGE',name==='purge'?1:0]])assert.equal(tap(rows,'${'+label+'}').length,count,name+label);
+ }
+ const sandbox=yaml.parseAllDocuments(readFileSync(new URL('../e2e/sandbox-product-bank.yaml',import.meta.url),'utf8')).map(document=>document.toJSON())[1];
+ const at=sandbox.findIndex(row=>row.tapOn==='${E_MANAGE}');assert.ok(at>0);assert.deepEqual(sandbox[at-1],{scrollUntilVisible:{element:'${E_MANAGE}',direction:'UP'}});
+ for(const id of ['native-detection-confirm-atlas-ai','native-detection-confirm-evergreen-mobile','native-detection-reject-motion-club','native-detection-undo'])assert.equal(byId(sandbox,id).length,1,id);
 });

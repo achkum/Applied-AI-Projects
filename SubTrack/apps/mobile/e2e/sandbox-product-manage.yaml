@@ -1,11 +1,15 @@
 appId: se.subtrack.app.sandbox
 ---
 - scrollUntilVisible:
-    element: Aurora Video
+    element: Birch Cinema
     direction: DOWN
-- assertVisible: Cinema Plus
+- assertVisible: Birch Cinema
+- scrollUntilVisible:
+    element: Cedar Video
+    direction: DOWN
+- assertVisible: Cedar Video
 - takeScreenshot: accepted-sandbox-subscriptions
-- tapOn: Aurora Video
+- tapOn: Cedar Video
 - scrollUntilVisible:
     element: ${E_EDIT}
     direction: DOWN
@@ -17,7 +21,7 @@ appId: se.subtrack.app.sandbox
 - tapOn:
     id: native-subscription-name
 - eraseText
-- inputText: Aurora Video Plus
+- inputText: Cedar Video Plus
 - hideKeyboard
 - tapOn:
     id: native-subscription-category
@@ -45,10 +49,11 @@ appId: se.subtrack.app.sandbox
     visible: ${E_EDIT_SAVED}
     timeout: 30000
 - scrollUntilVisible:
-    element: Aurora Video Plus
+    element: Cedar Video Plus
     direction: DOWN
 - assertVisible: Streaming extras
-# Saving preserves this row's expanded controls.
+# Saving returns to the list; open the acknowledged saved row once.
+- tapOn: Cedar Video Plus
 - scrollUntilVisible:
     element: ${E_PAUSE}
     direction: DOWN
@@ -61,3 +66,5 @@ appId: se.subtrack.app.sandbox
     visible: ${E_PAUSE}
     timeout: 30000
 - assertNotVisible: ${E_RESUME}
+- tapOn:
+    id: native-subscription-detail-close

@@ -40,17 +40,17 @@ test('actual flows use sandbox package, no authority extraction or rebuild, one 
  const names=['setup','bank','manage','pages','restart'];const sources=names.map(name=>readFileSync(new URL(`../e2e/sandbox-product-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n'));
  for(const source of sources){assert.ok(source.startsWith('appId: se.subtrack.app.sandbox\n'));assert.doesNotMatch(source,/runScript|evalScript|copyTextFrom|openLink|https:\/\/localhost|se\.subtrack\.app\n/);}
  const all=sources.join('\n'),captures=[...all.matchAll(/- takeScreenshot: ([a-z-]+)/g)].map(m=>`${m[1]}.png`);assert.deepEqual(captures.sort(),[...SCREENSHOTS].sort());
- assert.equal((all.match(/clearState: true/g)??[]).length,0);const driver=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8');assert.equal((driver.match(/'shell','pm','clear',PACKAGE/g)??[]).length,1);assert.ok(driver.indexOf("'shell','pm','clear',PACKAGE")>driver.indexOf('checks.signedBytesInstalled=true'));assert.ok(driver.indexOf("'shell','pm','clear',PACKAGE")<driver.indexOf("if(name==='setup')freshWorkspaceStarted=true"));assert.equal((all.match(/- stopApp/g)??[]).length,1);assert.equal((all.match(/native-detection-confirm-aurora-video/g)??[]).length,2);assert.ok(all.includes('native-detection-confirm-cinema-plus'));assert.ok(all.includes('native-detection-reject-move-club'));assert.ok(all.includes('native-detection-undo'));assert.ok(all.includes('native-profile-theme-dark\n    selected: true'));
+ assert.equal((all.match(/clearState: true/g)??[]).length,0);const driver=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8');assert.equal((driver.match(/'shell','pm','clear',PACKAGE/g)??[]).length,1);assert.ok(driver.indexOf("'shell','pm','clear',PACKAGE")>driver.indexOf('checks.signedBytesInstalled=true'));assert.ok(driver.indexOf("'shell','pm','clear',PACKAGE")<driver.indexOf("if(name==='setup')freshWorkspaceStarted=true"));assert.equal((all.match(/- stopApp/g)??[]).length,1);assert.equal((all.match(/native-detection-confirm-atlas-ai/g)??[]).length,2);assert.ok(all.includes('native-detection-confirm-evergreen-mobile'));assert.ok(all.includes('native-detection-reject-motion-club'));assert.ok(all.includes('native-detection-undo'));assert.ok(all.includes('native-profile-theme-dark\n    selected: true'));
  const labels=flowLabels(new Date('2026-10-17T12:00:00Z'));assert.equal(labels.TODAY,'2026-10-17');const args=maestroArgs(labels,'/private/output','/flow.yaml');assert.equal(args.filter(value=>value==='-e').length,Object.keys(labels).length);assert.ok(args.includes('TODAY=2026-10-17'));assert.equal(args.at(-1),'/flow.yaml');for(const match of all.matchAll(/\$\{([A-Z_]+)\}/g))assert.equal(typeof labels[match[1]],'string');
  const workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-sandbox-installed-android.yml',import.meta.url),'utf8');assert.doesNotMatch(workflow,/pnpm install|gradlew|expo prebuild|assembleRelease|assembleDebug|eas build|push:|pull_request:/);assert.ok(workflow.includes('if: success()'));assert.ok(workflow.includes('subtrack-sandbox-installed/public/'));
 });
 
-test('signed edit reaches preserved expanded actions without collapsing the saved row',()=>{
+test('signed edit opens the acknowledged saved detail once before status actions',()=>{
  const flow=readFileSync(new URL('../e2e/sandbox-product-manage.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
- assert.equal((flow.match(/- tapOn: Aurora Video\n/g)??[]).length,1);
+ assert.equal((flow.match(/- tapOn: Cedar Video\n/g)??[]).length,1);
  const saved=flow.slice(flow.indexOf('visible: ${E_EDIT_SAVED}'));
- assert.ok(saved.includes('element: Aurora Video Plus'));assert.ok(saved.includes('- assertVisible: Streaming extras'));
- assert.ok(!saved.includes('- tapOn: Aurora Video Plus'));
+ assert.ok(saved.includes('element: Cedar Video Plus'));assert.ok(saved.includes('- assertVisible: Streaming extras'));
+ assert.equal((saved.match(/- tapOn: Cedar Video Plus\n/g)??[]).length,1);assert.ok(saved.indexOf('- tapOn: Cedar Video Plus')<saved.indexOf('- tapOn: ${E_PAUSE}'));assert.ok(saved.endsWith('- tapOn:\n    id: native-subscription-detail-close\n'));
  assert.ok(saved.includes('- tapOn: ${E_PAUSE}'));assert.ok(saved.includes('- tapOn: ${E_RESUME}'));assert.ok(saved.includes('- assertNotVisible: ${E_RESUME}'));
 });
 
@@ -58,8 +58,8 @@ test('signed cold restart verifies the resumed same-owner household and saved va
  const flow=readFileSync(new URL('../e2e/sandbox-product-restart.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
  assert.ok(flow.includes('- stopApp\n- launchApp\n- extendedWaitUntil:\n    visible:\n      id: native-nav-household\n    timeout: 120000'));
  assert.ok(!flow.includes('native-welcome-logIn'));assert.ok(!flow.includes('clearState:'));
- for(const readback of ['visible: QA Family','- assertVisible: QA Member','element: Aurora Video Plus','- assertVisible: Streaming extras','- assertVisible: ${TODAY}','id: native-profile-language-sv\n    selected: true','id: native-profile-theme-dark\n    selected: true'])assert.ok(flow.includes(readback),readback);
- for(const denied of ['- assertNotVisible: Aurora Video Plus','- assertNotVisible: QA Family','- assertNotVisible:\n    id: native-product-navigation'])assert.ok(flow.includes(denied),denied);
+ for(const readback of ['visible: QA Family','- assertVisible: QA Member','element: Cedar Video Plus','- assertVisible: Streaming extras','- assertVisible: ${TODAY}','id: native-profile-language-sv\n    selected: true','id: native-profile-theme-dark\n    selected: true'])assert.ok(flow.includes(readback),readback);
+ for(const denied of ['- assertNotVisible: Cedar Video Plus','- assertNotVisible: QA Family','- assertNotVisible:\n    id: native-product-navigation'])assert.ok(flow.includes(denied),denied);
  assert.ok(flow.includes('visible: ${S_LOGOUT_CONFIRMED}'));
 });
 
@@ -73,4 +73,13 @@ test('failure screenshot is diagnostic-only and requires verified fresh sandbox 
  const activity='  mResumedActivity: ActivityRecord{abc u0 se.subtrack.app.sandbox/.MainActivity t2}\r\n',windows='  mCurrentFocus=Window{def u0 se.subtrack.app.sandbox/se.subtrack.app.MainActivity}\r\n';assert.equal(foregroundSandbox(activity,windows),true);
  for(const [a,w]of [[activity.replace(PACKAGE,'se.subtrack.app'),windows],[activity,windows.replace(PACKAGE,'com.android.systemui')],['',windows],[activity,''],[activity+activity,windows],[activity,windows+windows]])assert.throws(()=>foregroundSandbox(a,w));
  const driver=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8'),workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-sandbox-installed-android.yml',import.meta.url),'utf8');assert.ok(driver.includes("foreground('before');const png="));assert.ok(driver.includes("foreground('after');"));assert.ok(driver.includes("diagnostic&&!existsSync(w.privateDir)"));assert.ok(workflow.includes('if: failure()'));assert.ok(workflow.includes('diagnostic/failed-sandbox-product.png'));assert.ok(!workflow.includes('diagnostic/*.log'));assert.ok(!workflow.includes('private/'));
+});
+
+
+test('seeded product flow proves additive review, real household rename and exact ten active plans',()=>{
+ const setup=readFileSync(new URL('../e2e/sandbox-product-setup.yaml',import.meta.url),'utf8'),bank=readFileSync(new URL('../e2e/sandbox-product-bank.yaml',import.meta.url),'utf8'),pages=readFileSync(new URL('../e2e/sandbox-product-pages.yaml',import.meta.url),'utf8'),restart=readFileSync(new URL('../e2e/sandbox-product-restart.yaml',import.meta.url),'utf8');
+ assert.ok(setup.includes('- assertVisible: Demo family'));assert.ok(setup.includes('id: native-household-rename'));assert.ok(setup.includes('id: native-household-save'));assert.ok(!setup.includes('id: native-household-create'));assert.ok(setup.indexOf('id: native-household-member-add-open')<setup.indexOf('id: native-household-member-name'));
+ assert.ok(bank.includes('- assertVisible: ${E_BANK_ACTIVE}'));assert.equal((bank.match(/- tapOn:\s+id: native-bank-sync-0/g)??[]).length,1);assert.ok(!bank.includes('native-bank-connect'));
+ const labels=flowLabels(new Date('2026-10-17T12:00:00Z'));assert.equal(labels.E_ACTIVE_TEN,'10 active plans');assert.ok(pages.includes('- assertVisible: ${E_ACTIVE_TEN}'));assert.equal(CHECKS.includes('seededHouseholdReadAndRenamed'),true);assert.equal(CHECKS.includes('householdCreated'),false);
+ assert.ok(!restart.includes('native-profile-save-preferences'));const language=restart.indexOf('id: native-profile-language-sv'),theme=restart.indexOf('- tapOn:\n    id: native-profile-theme-dark');assert.ok(language<theme);assert.ok(restart.slice(language,theme).includes('visible: ${S_PROFILE_SAVED}'));assert.ok(restart.slice(language,theme).includes('selected: true'));
 });

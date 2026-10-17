@@ -54,7 +54,7 @@ const ASSERT_TARGETS=new Map([
  [{textRegex:'${MAESTRO_JUST_ME}'},'mode-choice'],[{textRegex:'${MAESTRO_MONTH_TITLE}'},'home-en'],[{textRegex:'${MAESTRO_SV_MONTH_TITLE}'},'home-sv'],
  [{textRegex:'${MAESTRO_ADD}'},'add-open'],[{textRegex:'${MAESTRO_SAVE_SUBSCRIPTION}',enabled:true},'subscription-save'],
  [{textRegex:'${MAESTRO_SAVED}'},'saved-ack'],[{textRegex:'Example streaming'},'saved-row'],[{textRegex:'${MAESTRO_EXPECTED_AMOUNT}'},'saved-amount'],
- [{textRegex:'${MAESTRO_SV_SAVE_PREFERENCES}'},'preferences-sv'],[{textRegex:'${MAESTRO_SAVE_PREFERENCES}'},'preferences-en'],
+ [{textRegex:'${MAESTRO_SV_PROFILE_SAVED}'},'preferences-sv'],[{textRegex:'${MAESTRO_PROFILE_SAVED}'},'preferences-en'],
 ].map(([selector,target])=>[JSON.stringify(Object.entries(selector).sort(([a],[b])=>a.localeCompare(b))),target]));
 function assertionTarget(command){
  const condition=command.assertConditionCommand.condition;

@@ -37,6 +37,22 @@ appId: se.subtrack.app
     timeout: 30000
 - assertNotVisible: ${MAESTRO_BANK_REVOKED}
 - assertNotVisible: ${MAESTRO_BANK_TRANSACTIONS}
+# Leave the contextual bank page; logout lives on Profile.
+- scrollUntilVisible:
+    element:
+      id: native-bank-title
+    direction: UP
+- tapOn: ${MAESTRO_BANK_MANAGE}
+- extendedWaitUntil:
+    visible:
+      id: native-nav-profile
+    timeout: 30000
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+    timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}
     direction: DOWN

@@ -6,10 +6,14 @@ appId: se.subtrack.app.sandbox
     timeout: 30000
 - tapOn:
     id: native-profile-language-sv
+- extendedWaitUntil:
+    visible: ${S_PROFILE_SAVED}
+    timeout: 30000
+- assertVisible:
+    id: native-profile-language-sv
+    selected: true
 - tapOn:
     id: native-profile-theme-dark
-- tapOn:
-    id: native-profile-save-preferences
 - extendedWaitUntil:
     visible: ${S_PROFILE_SAVED}
     timeout: 30000
@@ -32,16 +36,23 @@ appId: se.subtrack.app.sandbox
 - extendedWaitUntil:
     visible: QA Family
     timeout: 30000
+- scrollUntilVisible:
+    element: QA Member
+    direction: DOWN
 - assertVisible: QA Member
+- scrollUntilVisible:
+    element:
+      id: native-household-title
+    direction: UP
 - takeScreenshot: accepted-sandbox-restart-household
 - tapOn:
     id: native-nav-manage
 - scrollUntilVisible:
-    element: Aurora Video Plus
+    element: Cedar Video Plus
     direction: DOWN
 - assertVisible: Streaming extras
 - takeScreenshot: accepted-sandbox-restart-subscriptions
-- tapOn: Aurora Video Plus
+- tapOn: Cedar Video Plus
 - scrollUntilVisible:
     element: ${S_EDIT}
     direction: DOWN
@@ -76,7 +87,7 @@ appId: se.subtrack.app.sandbox
     visible: ${S_LOGOUT_CONFIRMED}
     timeout: 30000
 - assertNotVisible: ${S_LOGOUT}
-- assertNotVisible: Aurora Video Plus
+- assertNotVisible: Cedar Video Plus
 - assertNotVisible: QA Family
 - assertNotVisible:
     id: native-product-navigation

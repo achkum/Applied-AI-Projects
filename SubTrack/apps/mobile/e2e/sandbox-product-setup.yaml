@@ -38,6 +38,13 @@ appId: se.subtrack.app.sandbox
 - tapOn: ${E_MY_HOUSEHOLD}
 - extendedWaitUntil:
     visible:
+      id: native-household-rename
+    timeout: 30000
+- assertVisible: Demo family
+- tapOn:
+    id: native-household-rename
+- extendedWaitUntil:
+    visible:
       id: native-household-name
     timeout: 30000
 - tapOn:
@@ -46,10 +53,16 @@ appId: se.subtrack.app.sandbox
 - inputText: QA Family
 - hideKeyboard
 - tapOn:
-    id: native-household-create
+    id: native-household-save
 - extendedWaitUntil:
     visible: QA Family
     timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-household-member-add-open
+    direction: DOWN
+- tapOn:
+    id: native-household-member-add-open
 - scrollUntilVisible:
     element:
       id: native-household-member-name
@@ -67,5 +80,12 @@ appId: se.subtrack.app.sandbox
 - extendedWaitUntil:
     visible: ${E_HOUSEHOLD_SAVED}
     timeout: 30000
+- scrollUntilVisible:
+    element: QA Member
+    direction: DOWN
 - assertVisible: QA Member
+- scrollUntilVisible:
+    element:
+      id: native-household-title
+    direction: UP
 - takeScreenshot: accepted-sandbox-household

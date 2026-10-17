@@ -10,7 +10,7 @@ delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
 android_fix_handoff:
   updated: "2026-10-17"
-  execution: "V5 UNVALIDATED PRIVATE TEST APK delivered to Downloads under explicit founder validation waiver. Combined product/audit source381a19b, original signer and data retained; API additive upgrade and same-image container recovery complete. TLS API reachability verified only. Actual V5 installed behavior and founder acceptance remain pending; no completed-product claim."
+  execution: "V5 UNVALIDATED private APK retains original signer/data, but founder phone acceptance is FAILED: app-wide HTML layout mismatch/clutter and insufficient test data. Shared native HTML correction and per-test-user persistent sample data are implemented; all55 local tasks and715 mobile tests pass. Durable PostgreSQL, installed visual/accessibility qualification and corrected signed delivery remain pending. iOS test infrastructure is independently blocked by CoreSimulator DEVICES_TIMEOUT; no further runner attempts during this product batch. No completed-product claim."
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
   tested_source_head: ccac41571127ef97acb46728a57c67da691bd120

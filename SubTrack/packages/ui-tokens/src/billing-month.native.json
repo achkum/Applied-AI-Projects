@@ -76,14 +76,16 @@
       "3xl": 36,
       "4xl": 48,
       "hero": 64,
-      "total": 48,
-      "detail": 36
+      "total": 64,
+      "detail": 46,
+      "nav": 10.5,
+      "control": 14
     },
     "fontVariantNumeric": "tabular-nums"
   },
   "radius": {
     "card": 18,
-    "sheet": 28,
+    "sheet": 26,
     "pill": 9999
   },
   "motion": {

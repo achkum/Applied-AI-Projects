@@ -7,7 +7,7 @@ export const PACKAGE='se.subtrack.app.sandbox';
 export const SIGNER='10c659cae262ad807ae2da9a9c137b581c633ebef2ea3bce86bfe6c41052186c';
 export const REPO='achkum/Applied-AI-Projects';
 export const SCREENSHOTS=Object.freeze(['welcome','profile','household','bank','detections','reviewed','subscriptions','edit','calendar','home-top','home','insights-top','insights','trend','comparisons','preferences','restart-household','restart-subscriptions','logout'].map(name=>`accepted-sandbox-${name}.png`));
-export const CHECKS=Object.freeze(['signedVerificationBound','signedBytesInstalled','sameSigner','isolatedEnrollment','householdCreated','dependantCreated','syntheticBankSynced','detectionConfirmedTwice','detectionRejectedAndUndone','confirmedPlanEdited','customCategorySaved','datePickerSaved','trackingReread','calendarOpened','homePopulated','insightsPopulated','comparisonOpened','preferencesPersisted','coldRestartHouseholdReadback','coldRestartSubscriptionReadback','logoutClearedPrivateUi']);
+export const CHECKS=Object.freeze(['signedVerificationBound','signedBytesInstalled','sameSigner','isolatedEnrollment','seededHouseholdReadAndRenamed','dependantCreated','syntheticBankSynced','detectionConfirmedTwice','detectionRejectedAndUndone','confirmedPlanEdited','customCategorySaved','datePickerSaved','trackingReread','calendarOpened','homePopulated','insightsPopulated','comparisonOpened','preferencesPersisted','coldRestartHouseholdReadback','coldRestartSubscriptionReadback','logoutClearedPrivateUi']);
 const fail=()=>{throw Error('Sandbox installed Android unavailable');};
 const sha=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
 const head=value=>typeof value==='string'&&/^[a-f0-9]{40}$/.test(value);

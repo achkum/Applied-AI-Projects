@@ -1,6 +1,5 @@
-import {NativeSessionExit,sessionExitFeedback} from '../onboarding/NativeSessionExit';
 import React,{useCallback,useEffect,useRef,useState} from 'react';
-import {AccessibilityInfo,Platform,Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {AccessibilityInfo,Platform,Pressable,RefreshControl,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useFocusEffect,useRouter} from 'expo-router';
 import {useNativeSession} from '@/state/NativeSession';
@@ -13,6 +12,7 @@ import {useTheme} from '@/context/ThemeContext';
 import {getColorByTheme} from '@/utils/colors';
 import {catalogs} from '@subtrack/i18n';
 import {BillingIcon} from '../billing/BillingIcon';
+import {NativeProductHeading,NativeProductCard} from '../billing/NativeProductUI';
 
 export function NativeDetectionInboxScreen({useSession=useNativeSession,api=privateDetection}:{useSession?:()=>NativeFeatureSession;api?:Pick<typeof privateDetection,'readNativeDetections'|'readDetectionOwnerRows'|'mutateNativeDetection'|'detectionRequestKey'>}={}){
  const {readNativeDetections,readDetectionOwnerRows,mutateNativeDetection,detectionRequestKey}=api;
@@ -21,7 +21,8 @@ export function NativeDetectionInboxScreen({useSession=useNativeSession,api=priv
  const [why,setWhy]=useState<string|null>(null);const scroll=useRef<ScrollView>(null);
  const [items,setItems]=useState<readonly PrivateMobileDetectionCandidate[]>([]),[cursor,setCursor]=useState<string|null>(null),[receipt,setReceipt]=useState<PrivateMobileDetectionReviewResult|null>(null),[state,setState]=useState<'idle'|'loading'|'ready'|'setup-required'|'error'>('idle'),[message,setMessage]=useState('');
  const invalidate=useCallback(()=>{generation.current++;request.current?.abort();request.current=null;setItems([]);setCursor(null);setReceipt(null);setWhy(null);pages.current=1;cursorHistory.current.clear();},[]);
- useEffect(()=>()=>{feedback.current++;},[]);
+ const verification=useRef<symbol|null>(null);
+ useEffect(()=>()=>{feedback.current++;verification.current=null;},[]);
  const execute=useCallback(async(intent?:DetectionIntent,more?:string)=>{
   if(!focused.current||current.current.phase!=='active'||request.current)return;
   const ticket=++generation.current,notice=++feedback.current,controller=new AbortController();request.current=controller;setState('loading');setMessage('');
@@ -55,8 +56,8 @@ export function NativeDetectionInboxScreen({useSession=useNativeSession,api=priv
  },[items,readNativeDetections,readDetectionOwnerRows,mutateNativeDetection,detectionRequestKey]);
  // The callback uses refs for authority; changing page contents must not trigger a focus reload.
  const executeRef=useRef(execute);executeRef.current=execute;
- useFocusEffect(useCallback(()=>{focused.current=true;invalidate();setState('idle');if(session.phase==='active'){feedback.current++;void executeRef.current();}return()=>{if(current.current.phase==='active')feedback.current++;focused.current=false;invalidate();setState('idle');};},[session.phase,invalidate]));
- const color=(key:string)=>getColorByTheme(theme,isDark,key),text={color:color('ink.primary'),fontFamily:theme.typography.fontFamily.ui,fontSize:theme.typography.fontSize.md},strong={...text,fontFamily:theme.typography.fontFamily['ui.semibold']},secondary={...text,color:color('ink.secondary')};
+ useFocusEffect(useCallback(()=>{focused.current=true;invalidate();setState('idle');if(session.phase==='active'){feedback.current++;void executeRef.current();}return()=>{if(current.current.phase===session.phase)verification.current=null;feedback.current++;focused.current=false;invalidate();setState('idle');};},[session.phase,invalidate]));
+ const color=(key:string)=>getColorByTheme(theme,isDark,key),text={color:color('ink.primary'),fontFamily:theme.typography.fontFamily.ui,fontSize:theme.typography.fontSize.md},strong={...text,fontFamily:theme.typography.fontFamily['ui.semibold']},secondary={...text,fontSize:theme.typography.fontSize.sm,color:color('ink.secondary')};
  const copy=(key:string,values?:Record<string,string|number>)=>t(`onboarding.nativeDetection.${key}`,values),busy=state==='loading';
  const announced=useRef<number|null>(null);
  const announcement=message==='reviewed'?`${copy('reviewed')}${receipt?` ${copy('undo')}`:''}`:message==='undone'?copy('undone'):null;
@@ -71,31 +72,26 @@ export function NativeDetectionInboxScreen({useSession=useNativeSession,api=priv
   return()=>cancelAnimationFrame(frame);
  },[announcement,state]);
 
- const button=(label:string,onPress:()=>void,disabled=busy,testID?:string,expanded?:boolean)=><Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled,...(expanded===undefined?{}:{expanded})}} disabled={disabled} onPress={onPress} style={[styles.control,{backgroundColor:color('bg.raised'),borderColor:color('line.hairline'),borderRadius:theme.radius.card,opacity:disabled?0.5:1}]}><Text style={strong}>{label}</Text></Pressable>;
- return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView ref={scroll} contentContainerStyle={styles.content}>
-  <View style={styles.header}><View style={styles.grow}><Text testID="native-detection-title" accessibilityRole="header" style={{...strong,fontFamily:theme.typography.fontFamily.display,fontSize:theme.typography.fontSize['2xl']}}>{copy('title')}</Text></View><BillingIcon name="manage" color={color('action.accent')}/></View>
-  {session.phase==='active'?<Text style={secondary}>{copy('demo')}</Text>:null}
-  {message?<Text accessibilityRole="alert" style={text}>{['logoutConfirmed','logoutLocal','storageError','verificationCancelled','sessionCleared'].includes(message)?t(`onboarding.nativePersonal.${message}`):copy(message)}</Text>:null}
+ const button=(label:string,onPress:()=>void,disabled=busy,testID?:string,expanded?:boolean,visible=label,primary=false)=><Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled,...(expanded===undefined?{}:{expanded})}} disabled={disabled} onPress={onPress} style={[styles.control,{backgroundColor:primary?color('action.accent'):'transparent',borderRadius:12,opacity:disabled?0.5:1}]}><Text style={{...strong,fontSize:theme.typography.fontSize.sm,color:color(primary?'ink.on-accent':'action.accent'),flexShrink:1}}>{visible}</Text></Pressable>;
+ return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView testID="native-detection-scroll" ref={scroll} contentContainerStyle={styles.content} refreshControl={session.phase==='active'?<RefreshControl refreshing={busy} onRefresh={()=>{void execute();}} tintColor={color('action.accent')}/>:undefined}>
+  <View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel={copy('manage')} onPress={()=>router.replace('/personal')} style={styles.back}><BillingIcon name="previous" color={color('action.accent')} size={20}/><Text style={{...text,fontSize:theme.typography.fontSize.sm}}>{t('onboarding.nativeBank.manage')}</Text></Pressable>{session.phase==='active'?<Text style={secondary}>{copy('demo')}</Text>:null}</View>
+  <NativeProductHeading title={copy('title')} testID="native-detection-title" level="section" trailing={session.phase==='active'&&state==='ready'?button(copy('scan'),()=>{void execute({operation:'scan'});},busy,'native-detection-scan',undefined,copy('scanShort')):undefined}/>
+  {message?<Text accessibilityRole="alert" style={text}>{copy(message)}</Text>:null}
   {session.phase==='active'?<>
-   {busy?<Text accessibilityLiveRegion="polite" style={text}>{copy('loading')}</Text>:null}
    {state==='setup-required'?<Text accessibilityRole="alert" style={text}>{copy('setup')}</Text>:null}
    {state==='ready'?<>
-    {button(copy('scan'),()=>{void execute({operation:'scan'});})}
-    {receipt?<View style={[styles.card,{backgroundColor:color('bg.surface'),borderColor:color('line.hairline'),borderRadius:theme.radius.card}]}><Text style={secondary}>{copy('deadline',{date:receipt.undoUntil!})}</Text>{button(copy('undo'),()=>{void execute({operation:'undo',receiptId:receipt.receiptId,candidateId:receipt.candidateId});},busy,'native-detection-undo')}</View>:null}
-    {items.length===0?<View style={styles.card}><Text style={secondary}>{copy('empty')}</Text>{button(t('onboarding.nativeBank.open'),()=>router.push('/personal-bank'))}</View>:null}
-    {items.map(item=><View key={item.id} style={[styles.card,{backgroundColor:color('bg.surface'),borderColor:color('line.hairline'),borderRadius:theme.radius.card}]}>
-     <Text accessibilityRole="header" style={strong}>{item.displayName}</Text><Text style={{...strong,fontVariant:['tabular-nums']}}>{formatMinorUnits(BigInt(item.expectedAmountMinor),item.currency,{locale,display:'code'})}</Text>
-     <Text style={secondary}>{Object.prototype.hasOwnProperty.call(catalogs[locale].onboarding.ownerSubscriptions.category,item.categoryCode)?t(`onboarding.ownerSubscriptions.category.${item.categoryCode}`):t('onboarding.ownerSubscriptions.categoryFallback')} · {t(`onboarding.ownerSubscriptions.cadence.${item.cadence}`)}</Text>
-     <Text style={secondary}>{copy('confidence',{percent:Math.round(item.confidence*100)})}</Text>{button(copy('why'),()=>setWhy(prior=>prior===item.id?null:item.id),busy,`native-detection-why-${item.displayName.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`,why===item.id)}{why===item.id?item.reasons.map(reason=><Text key={reason} style={secondary}>{copy(`reasons.${reason}`)}</Text>):null}
-     {button(copy('confirm',{name:item.displayName}),()=>{void execute({operation:'confirm',candidateId:item.id,expectedRevision:item.revision});},busy,`native-detection-confirm-${item.displayName.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`)}
-     {button(copy('reject',{name:item.displayName}),()=>{void execute({operation:'reject',candidateId:item.id,expectedRevision:item.revision});},busy,`native-detection-reject-${item.displayName.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`)}
-    </View>)}
+    {receipt?<View style={[styles.undo,{backgroundColor:color('bg.raised'),borderRadius:12}]}><Text style={[secondary,styles.grow]}>{copy('deadline',{date:receipt.undoUntil!})}</Text>{button(copy('undo'),()=>{void execute({operation:'undo',receiptId:receipt.receiptId,candidateId:receipt.candidateId});},busy,'native-detection-undo')}</View>:null}
+    {items.length===0?<NativeProductCard><Text style={secondary}>{copy('empty')}</Text>{button(t('onboarding.nativeBank.open'),()=>router.push('/personal-bank'))}</NativeProductCard>:null}
+    {items.length>0?<NativeProductCard style={styles.list}>{items.map((item,index)=><View key={item.id} style={[styles.candidate,{borderTopColor:color('line.hairline'),borderTopWidth:index===0?0:1}]}>
+     <View style={styles.row}><View style={[styles.avatar,{backgroundColor:color('bg.raised'),borderRadius:theme.radius.pill}]}><Text style={strong}>{item.displayName.slice(0,1)}</Text></View><View style={styles.grow}><Text accessibilityRole="header" style={strong}>{item.displayName}</Text><Text style={secondary}>{Object.prototype.hasOwnProperty.call(catalogs[locale].onboarding.ownerSubscriptions.category,item.categoryCode)?t(`onboarding.ownerSubscriptions.category.${item.categoryCode}`):t('onboarding.ownerSubscriptions.categoryFallback')} · {t(`onboarding.ownerSubscriptions.cadence.${item.cadence}`)}</Text></View><Text style={{...strong,fontVariant:['tabular-nums'],textAlign:'right',flexShrink:1}}>{formatMinorUnits(BigInt(item.expectedAmountMinor),item.currency,{locale,display:'code'})}</Text></View>
+     <View style={styles.reviewMeta}><Text style={secondary}>{copy('confidence',{percent:Math.round(item.confidence*100)})}</Text>{button(copy('why'),()=>setWhy(prior=>prior===item.id?null:item.id),busy,`native-detection-why-${item.displayName.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`,why===item.id)}</View>
+     {why===item.id?<View style={styles.reasons}>{item.reasons.map(reason=><Text key={reason} style={secondary}>{copy(`reasons.${reason}`)}</Text>)}</View>:null}
+     <View style={styles.actions}>{button(copy('confirm',{name:item.displayName}),()=>{void execute({operation:'confirm',candidateId:item.id,expectedRevision:item.revision});},busy,`native-detection-confirm-${item.displayName.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`,undefined,copy('confirmShort'),true)}{button(copy('reject',{name:item.displayName}),()=>{void execute({operation:'reject',candidateId:item.id,expectedRevision:item.revision});},busy,`native-detection-reject-${item.displayName.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`,undefined,copy('rejectShort'))}</View>
+    </View>)}</NativeProductCard>:null}
     {cursor?button(copy('more'),()=>{void execute(undefined,cursor);}):null}
    </>:null}
-   {button(copy('refresh'),()=>{void execute();})}
-  </>:<>{button(t('onboarding.nativePersonal.verify'),()=>{const ticket=++feedback.current;setMessage('');void session.login().catch(()=>{if(ticket===feedback.current)setMessage('unavailable');});},session.phase!=='verification-required')}</>}
-  {session.phase==='active'?<>{button(copy('manage'),()=>router.replace('/personal'))}{button(t('onboarding.billingMonth.open'),()=>router.replace('/personal-billing-month'))}</>:null}
-  {<NativeSessionExit phase={session.phase} onExit={()=>{const exitPhase=session.phase;const ticket=++feedback.current;invalidate();setState('idle');setMessage('');void session.logout().then(ack=>{if(ticket===feedback.current)setMessage(sessionExitFeedback(exitPhase,ack));}).catch(()=>{if(ticket===feedback.current)setMessage('storageError');});}}/>}
+   {state==='error'?button(copy('refresh'),()=>{void execute();}):null}
+  </>:<>{button(t('onboarding.nativePersonal.verify'),()=>{const attempt=Symbol('verification');verification.current=attempt;setMessage('');void session.login().catch(()=>{if(verification.current===attempt&&focused.current&&(current.current.phase==='verification-required'||current.current.phase==='busy'))setMessage('unavailable');}).finally(()=>{if(verification.current===attempt)verification.current=null;});},session.phase!=='verification-required')}</>}
  </ScrollView></SafeAreaView>;
 }
-const styles=StyleSheet.create({content:{padding:20,gap:16,paddingBottom:32},header:{flexDirection:'row',alignItems:'center',gap:12},grow:{flex:1,minWidth:0},card:{padding:16,gap:12,borderWidth:1},control:{minHeight:48,padding:12,borderWidth:1,justifyContent:'center'}});
+const styles=StyleSheet.create({content:{padding:20,gap:16,paddingBottom:32},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12},back:{flexDirection:'row',alignItems:'center',minHeight:44,gap:4,alignSelf:'flex-start'},grow:{flex:1,minWidth:0},list:{paddingVertical:0,gap:0},candidate:{paddingVertical:12,gap:4},row:{flexDirection:'row',alignItems:'center',gap:10},avatar:{width:38,height:38,alignItems:'center',justifyContent:'center'},control:{minHeight:44,paddingHorizontal:12,paddingVertical:8,justifyContent:'center',alignSelf:'flex-start'},actions:{flexDirection:'row',flexWrap:'wrap',gap:8,paddingLeft:48},reviewMeta:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingLeft:48},reasons:{paddingLeft:48,gap:4},undo:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:8,padding:12}});
