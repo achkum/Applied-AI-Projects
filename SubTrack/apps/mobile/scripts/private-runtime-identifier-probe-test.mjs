@@ -114,7 +114,7 @@ test('runtime integration uses only bounded read-only probe and retains failure 
 test('authoritative setup hands off through Month and real Manage before the unchanged mandatory Add',()=>{
  const read=name=>readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n');const add=read('enroll-add');
  assert.ok(add.includes('- tapOn: ${MAESTRO_JUST_ME}\n- extendedWaitUntil:\n    visible: ${MAESTRO_MONTH_TITLE}\n    timeout: 30000\n- tapOn:\n    id: native-nav-manage\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- extendedWaitUntil:\n    visible:\n      id: native-personal-title\n      text: ${MAESTRO_PERSONAL_TITLE}\n    timeout: 30000\n- scrollUntilVisible:\n    element: ${MAESTRO_ADD}\n    direction: DOWN\n- extendedWaitUntil:\n    visible: ${MAESTRO_ADD}\n    timeout: 30000\n- tapOn: ${MAESTRO_ADD}'));
- assert.equal(add.split('- tapOn:\n    id: native-nav-manage').length-1,1);assert.ok(add.includes('id: native-personal-title\n    text: ${MAESTRO_PROFILE_TITLE}'));
+ const originalAdd=add.slice(0,add.indexOf('- takeScreenshot: accepted-add'));assert.equal(originalAdd.split('- tapOn:\n    id: native-nav-manage').length-1,1);assert.equal(add.slice(originalAdd.length).split('- tapOn:\n    id: native-nav-manage').length-1,1);assert.ok(add.includes('id: native-personal-title\n    text: ${MAESTRO_PROFILE_TITLE}'));
  assert.equal(read('save-header'),'appId: se.subtrack.app\n---\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- assertVisible:\n    id: native-personal-title\n    text: ${MAESTRO_PERSONAL_TITLE}\n');
 });
 
