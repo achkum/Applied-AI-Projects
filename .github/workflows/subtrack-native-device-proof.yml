@@ -24,9 +24,9 @@ on:
         options: [android, ios, all]
         default: android
       proof_scope:
-        description: Profile feedback or complete release qualification
+        description: Profile feedback, complete qualification, or isolated iOS driver diagnostic
         type: choice
-        options: [profile, full]
+        options: [profile, full, ios-driver]
         default: profile
       signed_product:
         description: Install the exact verified signed successor, without rebuilding
@@ -55,11 +55,13 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       ST_FINAL_SOURCE: ${{ inputs.source_head }}
+      ST_FINAL_SCOPE: ${{ inputs.proof_scope }}
     steps:
       - name: Bind explicit install-only source authority
         shell: bash
         run: |
           test "$GITHUB_REPOSITORY" = achkum/Applied-AI-Projects
+          test "$ST_FINAL_SCOPE" != ios-driver
           test "$GITHUB_REF" = refs/heads/st/native-synthetic-bank
           [[ "$ST_FINAL_SOURCE" =~ ^[a-f0-9]{40}$ ]]
           test "$ST_FINAL_SOURCE" = "$GITHUB_SHA"
@@ -106,9 +108,13 @@ jobs:
             git fetch --no-tags --depth=1 origin "$ST_PROOF_BASE"
             node SubTrack/apps/mobile/scripts/private-runtime-change-scope.mjs
           else
-            case "$ST_PROOF_REQUESTED" in profile|full) ;; *) exit 1;; esac
+            case "$ST_PROOF_REQUESTED" in profile|full|ios-driver) ;; *) exit 1;; esac
+            if [ "$ST_PROOF_REQUESTED" = ios-driver ]; then
+              test "$ST_PROOF_EVENT" = workflow_dispatch
+              test "$ST_PROOF_PLATFORM" = ios
+            fi
             if [ "$ST_PROOF_PLATFORM" = ios ]; then
-              test "$ST_PROOF_REQUESTED" = full
+              [[ "$ST_PROOF_REQUESTED" == full || "$ST_PROOF_REQUESTED" == ios-driver ]]
               test "$GITHUB_REPOSITORY" = achkum/Applied-AI-Projects
               test "$GITHUB_REF" = refs/heads/codex/ios-startup-fixes
               test "$ST_PROOF_SOURCE" = "$GITHUB_SHA"
@@ -118,7 +124,7 @@ jobs:
           fi
   installed-native:
     needs: select-proof
-    name: ${{ needs.select-proof.outputs.scope == 'profile' && 'Android profile and restart (scoped)' || format('Installed {0} restart readback', matrix.platform) }}
+    name: ${{ needs.select-proof.outputs.scope == 'ios-driver' && 'iOS driver diagnostic (no app build)' || needs.select-proof.outputs.scope == 'profile' && 'Android profile and restart (scoped)' || format('Installed {0} restart readback', matrix.platform) }}
     strategy:
       fail-fast: false
       max-parallel: 2
@@ -139,7 +145,7 @@ jobs:
       EXPO_NO_TELEMETRY: "1"
       MAESTRO_CLI_NO_ANALYTICS: "true"
       SUBTRACK_PRIVATE_DEVICE_PROOF: "true"
-      ST253_CAPTURE_ENABLED: ${{ matrix.platform == 'ios' && github.repository == 'achkum/Applied-AI-Projects' && (github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/ios-startup-fixes' && inputs.platform == 'ios' && inputs.proof_scope == 'full' && inputs.source_head == github.sha) && 'true' || 'false' }}
+      ST253_CAPTURE_ENABLED: ${{ matrix.platform == 'ios' && github.repository == 'achkum/Applied-AI-Projects' && (github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/ios-startup-fixes' && inputs.platform == 'ios' && (inputs.proof_scope == 'full' || inputs.proof_scope == 'ios-driver') && inputs.source_head == github.sha) && 'true' || 'false' }}
       ST253_ANDROID_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' && 'true' || 'false' }}
       ST253_ANDROID_HOME_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 297 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank' && 'true' || 'false' }}
       ST253_ANDROID_EDIT_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 297 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank' && 'true' || 'false' }}
@@ -176,10 +182,12 @@ jobs:
           node --test apps/mobile/scripts/private-runtime-android-home-diagnostic-test.mjs apps/mobile/scripts/private-runtime-android-edit-diagnostic-test.mjs
           node --test apps/mobile/scripts/native-text-host-test.mjs
           node --test apps/mobile/scripts/private-runtime-platform-scope-test.mjs
+          node --test apps/mobile/scripts/private-runtime-ios-driver-only-test.mjs
           node apps/mobile/scripts/private-runtime-amount-selector-test.mjs
           node apps/mobile/scripts/private-runtime-pipeline-test.mjs
           node --test apps/mobile/scripts/private-runtime-font-bundle-test.mjs apps/mobile/scripts/private-runtime-ios-font-bundle-test.mjs
           node --test apps/mobile/scripts/private-runtime-maestro-device-test.mjs apps/mobile/scripts/private-runtime-ios-driver-seal-test.mjs apps/mobile/scripts/private-runtime-ios-driver-preflight-test.mjs
+          node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-ios-simulator-measurement.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-ios-simulator-measurement-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-ios-app-custody.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-ios-app-custody-test.mjs
           node apps/mobile/scripts/private-runtime-ca-test.mjs
           node apps/mobile/scripts/private-runtime-loader-diagnostics-test.mjs
@@ -265,6 +273,7 @@ jobs:
           umask 077
           node apps/mobile/scripts/private-runtime-ios-driver-preflight.mjs
       - name: Owned PostgreSQL16 and ephemeral TLS fixture
+        if: needs.select-proof.outputs.scope != 'ios-driver'
         run: |
           if [ '${{ matrix.platform }}' = ios ]; then
             brew install postgresql@16
@@ -278,6 +287,7 @@ jobs:
           printf 'SUBTRACK_PRIVATE_FIXTURE_CONFIG=%s\n' "$config_path" >> "$GITHUB_ENV"
       - name: Installed workflow, API restart, same database row and logout
         id: installed_proof
+        if: needs.select-proof.outputs.scope != 'ios-driver'
         env:
           NODE_ENV: development
         run: |
@@ -307,7 +317,7 @@ jobs:
             ~/.gradle/wrapper
           key: ${{ steps.android_gradle_cache.outputs.cache-primary-key }}
       - name: Sanitized native evidence only
-        if: success()
+        if: success() && needs.select-proof.outputs.scope != 'ios-driver'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: st244-installed-${{ matrix.platform }}-${{ github.event.pull_request.head.sha || github.sha }}

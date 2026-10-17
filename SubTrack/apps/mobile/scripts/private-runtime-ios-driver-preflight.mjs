@@ -11,21 +11,14 @@ import console from 'node:console';
 import {maestroDevicePrefix} from './private-runtime-maestro-device.mjs';
 import {preinputCaptureContext,PREINPUT_RECIPIENT_SHA256} from './private-runtime-maestro-metadata.mjs';
 import {sealIosDriverLog,validSealedIosDriverLog} from './private-runtime-ios-driver-seal.mjs';
+import {measureIosSimulator,iosMeasurementStep,iosMeasurementCategory} from './private-runtime-ios-simulator-measurement.mjs';
+export {measuredIosSimulator} from './private-runtime-ios-simulator-measurement.mjs';
 
 const LIMIT=262144,sha=value=>createHash('sha256').update(value).digest('hex');
 const keys=(value,list)=>assert.deepEqual(Object.keys(value).sort(),[...list].sort());
-export function measuredIosSimulator(devices,apps,udid){
- const runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-2',rows=Object.entries(devices.devices).flatMap(([version,items])=>items.filter(device=>device.state==='Booted').map(device=>({version,...device})));
- assert.equal(rows.length,1);const device=rows[0];assert.equal(device.version,runtime);assert.equal(device.udid,udid);assert.equal(device.name,'SubTrack-proof');assert.equal(device.isAvailable,true);assert.equal(device.deviceTypeIdentifier,'com.apple.CoreSimulator.SimDeviceType.iPhone-17');
- assert.ok(apps&&typeof apps==='object'&&!Array.isArray(apps));for(const name of ['se.subtrack.app','se.subtrack.app.sandbox'])assert.equal(Object.hasOwn(apps,name),false);
- return {runtime,udid,name:device.name,deviceType:device.deviceTypeIdentifier};
-}
 function owned(file,directory=false,maximum=LIMIT){const s=lstatSync(file);assert.equal(s.isSymbolicLink(),false);assert.equal(realpathSync(file),resolve(file));if(typeof process.getuid==='function')assert.equal(s.uid,process.getuid());assert.ok(directory?s.isDirectory():s.isFile()&&s.size>0&&s.size<=maximum);return s;}
 function privateBytes(file,maximum=LIMIT){const before=owned(file,false,maximum);assert.equal(before.mode&511,384);const fd=openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW);try{const opened=fstatSync(fd);assert.equal(opened.ino,before.ino);assert.equal(opened.dev,before.dev);const bytes=readFileSync(fd),after=owned(file,false,maximum);assert.equal(bytes.length,before.size);assert.equal(after.ino,before.ino);assert.equal(after.size,before.size);return bytes;}finally{closeSync(fd);}}
 function custody(root,context){const file=join(root,'preinput-ios-custody.json'),bytes=privateBytes(file,4096),value=JSON.parse(bytes);assert.equal(JSON.stringify(value),bytes.toString('utf8'));keys(value,['version','sourceHead','runId','attempt','udid','device','runtime','fresh']);assert.equal(value.version,1);for(const key of ['sourceHead','runId','attempt','udid'])assert.equal(value[key],context[key]);assert.equal(value.device,'iPhone-17');assert.equal(value.runtime,'iOS-26-2');assert.equal(value.fresh,true);return sha(bytes);}
-function native(command){return JSON.parse(execFileSync('xcrun',['simctl',...command],{encoding:'utf8',timeout:15000,maxBuffer:4194304,stdio:['ignore','pipe','pipe']}));}
-function appInventory(udid){const plist=execFileSync('xcrun',['simctl','listapps',udid],{timeout:15000,maxBuffer:4194304,stdio:['ignore','pipe','pipe']});return JSON.parse(execFileSync('/usr/bin/plutil',['-convert','json','-o','-','-'],{input:plist,encoding:'utf8',timeout:15000,maxBuffer:4194304,stdio:['pipe','pipe','pipe']}));}
-const measure=udid=>measuredIosSimulator(native(['list','devices','booted','--json']),appInventory(udid),udid);
 
 /** Original child only; log bytes stay in the owned private directory. */
 export async function runIosDriverChild(file,args,environment,timeoutMs=180000,program='maestro'){
@@ -57,17 +50,18 @@ export function collectIosDriverLogs(invocation){
 function removeOwned(directory,parent){assert.equal(dirname(resolve(directory)),resolve(parent));owned(directory,true);const walk=(path,depth=0)=>{assert.ok(depth<=8);const entries=readdirSync(path,{withFileTypes:true});assert.ok(entries.length<=128);for(const entry of entries){const file=join(path,entry.name),s=lstatSync(file);if(typeof process.getuid==='function')assert.equal(s.uid,process.getuid());assert.equal(s.isSymbolicLink(),false);assert.equal(realpathSync(file),resolve(file));if(s.isDirectory())walk(file,depth+1);else assert.ok(s.isFile());}};walk(directory);rmSync(directory,{recursive:true});}
 export function validatedIosDriverArtifact(root,context){try{if(!context)return false;const binding=JSON.parse(privateBytes(join(root,'ios-driver-failure.json'),4096));for(const name of ['sourceHead','runId','attempt','udid'])assert.equal(binding[name],context[name]);assert.equal(binding.commandSha256,sha(JSON.stringify(['maestro',...maestroDevicePrefix('ios',{SUBTRACK_SIMULATOR_UDID:context.udid}),'--verbose','hierarchy'])));assert.equal(binding.simulatorCustodySha256,custody(root,context));try{lstatSync(join(root,'ios-driver-preflight'));return false;}catch(error){assert.equal(error.code,'ENOENT');}return validSealedIosDriverLog(privateBytes(join(dirname(root),'sealed','ios-driver-preflight.st253sealed'),397312),binding);}catch{return false;}}
 
-export async function runOwnedIosDriverPreflight({environment,root,head,measureDevice=measure,runChild=runIosDriverChild}){
+export async function runOwnedIosDriverPreflight({environment,root,head,measureDevice=measureIosSimulator,runChild=runIosDriverChild}){
  assert.equal(environment.CI,'true');assert.equal(environment.SUBTRACK_PRIVATE_DEVICE_PROOF,'true');assert.equal(Object.hasOwn(environment,'SUBTRACK_PRIVATE_FIXTURE_CONFIG'),false);
  const args=[...maestroDevicePrefix('ios',environment),'--verbose','hierarchy'],udid=environment.SUBTRACK_SIMULATOR_UDID,context=preinputCaptureContext(environment,head);
  mkdirSync(root,{recursive:true,mode:448});assert.equal(owned(root,true).mode&511,448);
- const before=measureDevice(udid),custodyHash=context?custody(root,context):null;
+ const measureAt=(phase,previous)=>{try{const value=measureDevice(udid);if(previous)iosMeasurementStep('SNAPSHOT_MATCH',()=>assert.deepEqual(value,previous));return value;}catch(error){console.error(`ST253_IOS_DRIVER measurement_phase=${phase} measurement_check=${iosMeasurementCategory(error)}`);throw error;}};
+ const before=measureAt('before'),custodyHash=context?custody(root,context):null;
  const invocation=join(root,'ios-driver-preflight');mkdirSync(invocation,{mode:448});const state=join(invocation,'state');mkdirSync(state,{mode:448});
  let success=false,sealed=false,failure=null,stage='child';
  try{
   const result=await runChild(join(invocation,'process.log'),args,{...environment,XDG_STATE_HOME:state});
   console.log(`ST253_IOS_DRIVER child_complete=${result.complete===true} child_exit=${Number.isInteger(result.exitCode)&&result.exitCode>=0&&result.exitCode<=255?result.exitCode:'unavailable'} child_timeout=${result.timedOut===true}`);
-  stage='after-device';assert.deepEqual(measureDevice(udid),before);stage='after-custody';if(context)assert.equal(custody(root,context),custodyHash);
+  stage='after-device';measureAt('after',before);stage='after-custody';if(context)assert.equal(custody(root,context),custodyHash);
   stage='child-result';
   if(result.complete&&result.exitCode===0){success=true;writeFileSync(join(root,'ios-driver-ready.json'),JSON.stringify({sourceHead:head,udid,commandSha256:sha(JSON.stringify(['maestro',...args]))}),{flag:'wx',mode:384});}
   else if(context&&environment.GITHUB_EVENT_NAME==='workflow_dispatch'&&result.complete&&Number.isInteger(result.exitCode)&&result.exitCode>0&&result.exitCode<=255){

@@ -9,6 +9,8 @@ import {Buffer} from 'node:buffer';
 import {URL} from 'node:url';
 import {measuredIosSimulator,runIosDriverChild,runOwnedIosDriverPreflight,collectIosDriverLogs,validatedIosDriverArtifact} from './private-runtime-ios-driver-preflight.mjs';
 import {preinputCaptureContext,recordPreinputSimulator} from './private-runtime-maestro-metadata.mjs';
+import {iosMeasurementStep} from './private-runtime-ios-simulator-measurement.mjs';
+import console from 'node:console';
 
 const head='ab'.repeat(20),udid='123E4567-E89B-42D3-A456-426614174000';
 const environment={...process.env,CI:'true',NODE_ENV:'development',SUBTRACK_PRIVATE_DEVICE_PROOF:'true',ST253_CAPTURE_ENABLED:'true',ST253_CAPTURE_PLATFORM:'ios',ST253_CAPTURE_HEAD_REPOSITORY:'achkum/Applied-AI-Projects',EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL:'https://localhost:3443',GITHUB_REPOSITORY:'achkum/Applied-AI-Projects',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/codex/ios-startup-fixes',GITHUB_HEAD_REF:'',GITHUB_SHA:head,ST253_CAPTURE_SOURCE_HEAD:head,ST253_CAPTURE_DISPATCH_SOURCE:head,GITHUB_RUN_ID:'1234',GITHUB_RUN_ATTEMPT:'1',SUBTRACK_SIMULATOR_UDID:udid};
@@ -51,6 +53,16 @@ test('timeout or oversized original child never grants a natural-failure capture
   const file=join(root,name+'.log'),result=await runIosDriverChild(file,['-e',script],environment,time,process.execPath);assert.equal(result.complete,false);assert.equal(result.timedOut,true);assert.ok(fs.statSync(file).size<=262144);
  }
 }));
+test('before/after measurement failure emits only closed categories and never grants capture or readiness',async()=>{
+ for(const phase of ['before','after'])await fixture(async({root})=>{
+  const output=[];mock.method(console,'error',value=>output.push(value));let count=0;
+  const measureDevice=()=>{if(++count===(phase==='before'?1:2))return iosMeasurementStep('APPS_QUERY',()=>{throw Object.assign(new Error('private measurement canary'),{code:'ETIMEDOUT',stderr:'private output canary'});});return measured();};
+  await assert.rejects(runOwnedIosDriverPreflight({environment,root,head,measureDevice,runChild:phase==='before'?()=>assert.fail('No child before valid custody'):child(1)}));
+  assert.ok(output.includes(`ST253_IOS_DRIVER measurement_phase=${phase} measurement_check=APPS_TIMEOUT`));assert.equal(output.some(line=>line.includes('canary')),false);
+  for(const name of ['ios-driver-preflight','ios-driver-ready.json','ios-driver-failure.json'])assert.equal(fs.existsSync(join(root,name)),false);
+  assert.equal(fs.existsSync(join(root,'..','sealed','ios-driver-preflight.st253sealed')),false);
+ });
+});
 test('only bounded fixed-name owned Maestro and XCTest logs join the sealed payload',()=>fixture(async({root})=>{
  const invocation=join(root,'ios-driver-preflight'),stamp=join(invocation,'state','maestro','tests','2026-10-17_120000');fs.mkdirSync(stamp,{recursive:true,mode:448});fs.writeFileSync(join(invocation,'process.log'),'process-private',{mode:384});fs.writeFileSync(join(stamp,'maestro.log'),'maestro-private',{mode:384});fs.writeFileSync(join(stamp,'xctest_runner_2026-10-17_120000.log'),'runner-private',{mode:384});fs.writeFileSync(join(stamp,'unrelated.log'),'excluded-private',{mode:384});
  const payload=JSON.parse(collectIosDriverLogs(invocation));assert.equal(Buffer.from(payload.runner,'base64').toString(),'runner-private');assert.equal(JSON.stringify(payload).includes('excluded-private'),false);
