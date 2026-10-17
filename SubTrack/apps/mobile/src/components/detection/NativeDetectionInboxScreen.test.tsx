@@ -41,10 +41,10 @@ it('scans explicitly and renders actual current inbox readback with translated r
  jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null});mount();await login();await press(copy.scan);await screen.findByText('Netflix');expect(api.mutateNativeDetection).toHaveBeenCalledWith({operation:'scan'},key,credentials.accessToken,expect.any(AbortSignal));expect(api.readDetectionOwnerRows).toHaveBeenCalledTimes(1);expect(screen.queryByText(copy.reasons.CADENCE_MATCHED)).toBeNull();await press(copy.why);expect(screen.getByRole('button',{name:copy.why}).props.accessibilityState.expanded).toBe(true);expect(screen.getByText(copy.reasons.CADENCE_MATCHED)).toBeTruthy();await press(copy.why);expect(screen.queryByText(copy.reasons.CADENCE_MATCHED)).toBeNull();expect(screen.getByRole('button',{name:copy.why}).props.accessibilityState.expanded).toBe(false);
 });
 it('confirms from server revision, verifies owner readback and asks server for Undo even after local deadline',async()=>{
- jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[{...candidate,revision:'3'}],nextCursor:null});jest.mocked(api.readDetectionOwnerRows).mockResolvedValueOnce([owner]).mockResolvedValueOnce([]);jest.mocked(api.mutateNativeDetection).mockResolvedValueOnce(reviewed).mockResolvedValueOnce({...reviewed,status:'DETECTED',revision:'3',undoUntil:null});mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.reviewed);await press(copy.undo);await screen.findByText(copy.undone);expect(screen.getByText('Netflix')).toBeTruthy();expect(jest.mocked(api.mutateNativeDetection).mock.calls[1]![0]).toEqual({operation:'undo',receiptId:key,candidateId:id});
+ jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[{...candidate,revision:'3'}],nextCursor:null});jest.mocked(api.readDetectionOwnerRows).mockResolvedValueOnce([owner]).mockResolvedValueOnce([{...owner,status:'DETECTED',revision:'3'}]);jest.mocked(api.mutateNativeDetection).mockResolvedValueOnce(reviewed).mockResolvedValueOnce({...reviewed,status:'DETECTED',revision:'3',undoUntil:null});mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.reviewed);await press(copy.undo);await screen.findByText(copy.undone);expect(screen.getByText('Netflix')).toBeTruthy();expect(jest.mocked(api.mutateNativeDetection).mock.calls[1]![0]).toEqual({operation:'undo',receiptId:key,candidateId:id});
 });
 it('rejects with actual readback and renders server expiry without automatic retries',async()=>{
- jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValue({kind:'ready',items:[],nextCursor:null});jest.mocked(api.mutateNativeDetection).mockResolvedValueOnce({...reviewed,status:'REJECTED'}).mockResolvedValueOnce({conflict:'UNDO_EXPIRED'});mount();await login();await press(copy.reject.replace('%{name}','Netflix'));await screen.findByText(copy.reviewed);await press(copy.undo);await screen.findByText(copy.expired);expect(screen.queryByRole('button',{name:copy.undo})).toBeNull();expect(api.mutateNativeDetection).toHaveBeenCalledTimes(2);expect(api.readDetectionOwnerRows).toHaveBeenCalledTimes(2);
+ jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValue({kind:'ready',items:[],nextCursor:null});jest.mocked(api.readDetectionOwnerRows).mockResolvedValue([{...owner,status:'REJECTED'}]);jest.mocked(api.mutateNativeDetection).mockResolvedValueOnce({...reviewed,status:'REJECTED'}).mockResolvedValueOnce({conflict:'UNDO_EXPIRED'});mount();await login();await press(copy.reject.replace('%{name}','Netflix'));await screen.findByText(copy.reviewed);await press(copy.undo);await screen.findByText(copy.expired);expect(screen.queryByRole('button',{name:copy.undo})).toBeNull();expect(api.mutateNativeDetection).toHaveBeenCalledTimes(2);expect(api.readDetectionOwnerRows).toHaveBeenCalledTimes(2);
 });
 it('does not advertise receipt-only success when owner state disagrees',async()=>{
  jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValue({kind:'ready',items:[],nextCursor:null});jest.mocked(api.mutateNativeDetection).mockResolvedValue(reviewed);mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.readback);expect(screen.queryByRole('button',{name:copy.undo})).toBeNull();
@@ -126,4 +126,27 @@ it('ignores failed verification feedback after leaving the screen while Core rem
 });
 it('ignores failed storage feedback after leaving the inbox with disposal still pending',async()=>{
  let reject!:(error:Error)=>void;const pending=new Promise<void>((_done,fail)=>{reject=fail;});const clear=jest.fn().mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockReturnValueOnce(pending);mount({clear});await login();await screen.findByRole('button',{name:copy.scan});await press(personal.logout);await waitFor(()=>expect(clear).toHaveBeenCalledTimes(3));await press('Leave test inbox');await act(async()=>reject(new Error('late failed disposal')));expect(screen.queryByText(personal.storageError)).toBeNull();
+});
+
+
+it.each(['reject','undo'] as const)('withholds %s acknowledgement for missing, foreign-source, stale or different-status owner rows',async operation=>{
+ for(const defect of ['missing','source','revision','status'] as const){
+  const targetStatus=operation==='reject'?'REJECTED':'DETECTED',targetRevision=operation==='reject'?'2':'3';
+  const expected={...owner,status:targetStatus,revision:targetRevision} as Awaited<ReturnType<typeof api.readDetectionOwnerRows>>[number];
+  const incorrect=defect==='missing'?[]:[{...expected,...(defect==='source'?{source:'MANUAL' as const}:defect==='revision'?{revision:'99'}:{status:'CANCELLED' as const})}];
+  jest.mocked(api.readNativeDetections).mockReset();jest.mocked(api.mutateNativeDetection).mockReset();jest.mocked(api.readDetectionOwnerRows).mockReset();
+  jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[],nextCursor:null});
+  if(operation==='undo'){
+   jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[{...candidate,revision:'3'}],nextCursor:null});
+   jest.mocked(api.mutateNativeDetection).mockResolvedValueOnce(reviewed).mockResolvedValueOnce({...reviewed,status:'DETECTED',revision:'3',undoUntil:null});
+   jest.mocked(api.readDetectionOwnerRows).mockResolvedValueOnce([owner]).mockResolvedValueOnce(incorrect);
+  }else{
+   jest.mocked(api.mutateNativeDetection).mockResolvedValueOnce({...reviewed,status:'REJECTED'});
+   jest.mocked(api.readDetectionOwnerRows).mockResolvedValueOnce(incorrect);
+  }
+  const view=mount();await login();await press(operation==='undo'?copy.confirm.replace('%{name}','Netflix'):copy.reject.replace('%{name}','Netflix'));
+  if(operation==='undo'){await screen.findByText(copy.reviewed);await press(copy.undo);}
+  await screen.findByText(copy.readback);expect(screen.queryByRole('button',{name:copy.undo})).toBeNull();expect(screen.queryByText(copy.undone)).toBeNull();
+  expect(api.mutateNativeDetection).toHaveBeenCalledTimes(operation==='undo'?2:1);view.unmount();
+ }
 });

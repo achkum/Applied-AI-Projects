@@ -1,6 +1,6 @@
 import {NativeSessionExit,sessionExitFeedback} from './NativeSessionExit';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import type { ProfileView, PrivateOwnerSubscriptionView } from '../../../../../packages/contracts/generated/types.gen';
@@ -132,6 +132,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
   }, []));
   async function action(operation: (token: string, signal: AbortSignal) => Promise<(ticket: number) => void | Promise<void>>, readOnly = false) {
     if (pending.current || session.phase !== 'active') return;
+    if (!readOnly) Keyboard.dismiss();
     const ticket = ++generation.current; pending.current = true; setLoading(true); setMessage('');
     try { const commit = await runOwned(operation, readOnly); if (ticket !== generation.current) return; await commit(ticket); }
     catch { if (ticket === generation.current) { clear(); setMessage('unavailable'); } }

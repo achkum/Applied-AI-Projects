@@ -55,7 +55,7 @@ export function NativeComparisonsScreen({ useSession = useNativeSession, reader 
             const delta = difference?.[period];
             return <NativeProductCard key={plan.id}><View style={styles.header}><AnalyticsText kind="title">{plan.name}</AnalyticsText><NativeProductBadge label={t(plan.source === 'saved' ? 'nativeAnalytics.savedPlan' : 'nativeAnalytics.samplePrice')} /></View>
               {currentCost && alternativeCost && maximum ? <View style={styles.pair}>
-                <AnalyticsPriceBox><AnalyticsText kind="muted">{t('nativeAnalytics.youPay')}</AnalyticsText><AnalyticsMoney value={currentCost[period]} /><AnalyticsBar value={currentCost[period]} maximum={maximum} /></AnalyticsPriceBox>
+                <AnalyticsPriceBox><AnalyticsText kind="muted">{t('nativeAnalytics.currentPlan')}</AnalyticsText><AnalyticsMoney value={currentCost[period]} /><AnalyticsBar value={currentCost[period]} maximum={maximum} /></AnalyticsPriceBox>
                 <AnalyticsPriceBox><AnalyticsText kind="muted">{t('nativeAnalytics.alternative')}</AnalyticsText><AnalyticsMoney value={alternativeCost[period]} /><AnalyticsBar value={alternativeCost[period]} maximum={maximum} /></AnalyticsPriceBox>
               </View> : <AnalyticsText kind="muted">{t('nativeAnalytics.customCycle')}</AnalyticsText>}
               {delta ? <View style={styles.delta}><AnalyticsMoney value={delta.minorUnits < 0n ? multiply(delta, -1n) : delta} /><AnalyticsText kind="muted">{t(delta.minorUnits > 0n ? 'nativeAnalytics.less' : delta.minorUnits < 0n ? 'nativeAnalytics.more' : 'nativeAnalytics.sameCost', { period: t(`nativeAnalytics.${period}`) })}</AnalyticsText></View> : null}

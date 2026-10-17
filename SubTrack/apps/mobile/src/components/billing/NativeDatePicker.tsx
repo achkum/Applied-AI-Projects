@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Modal, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useI18n} from '@/context/I18nContext';
 import {useTheme} from '@/context/ThemeContext';
@@ -24,6 +24,7 @@ export function NativeDatePicker({value, onChange, label, disabled = false, opti
   const choose = (date: string) => {onChange(date); setOpen(false);};
   function show() {
     if (disabled) return;
+    Keyboard.dismiss();
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) setMonth({year:parseInt(value.slice(0,4),10),month:parseInt(value.slice(5,7),10)});
     else setMonth(currentBillingMonth(new Date()));
     setOpen(true);
