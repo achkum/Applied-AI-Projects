@@ -50,6 +50,7 @@ import {
 import { initialIdentifierFlow } from './private-runtime-flow-policy.mjs';
 import { graphStatus } from './private-runtime-bundle-policy.mjs';
 import { failedSaveObservations } from './private-runtime-save-probe.mjs';
+import { maestroDevicePrefix } from './private-runtime-maestro-device.mjs';
 
 let currentPhase = 'runtime-preconditions';
 const driverPhases = new Set([
@@ -99,6 +100,7 @@ async function main() {
   assert.equal(process.env.NODE_ENV, 'development');
   const platform = process.argv[2];
   assert.ok(platform === 'android' || platform === 'ios');
+  const maestroPrefix = maestroDevicePrefix(platform, process.env);
   const app = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   const mobileRequire = createRequire(join(app, 'package.json'));
   const installedNativeVersion = mobileRequire(
@@ -211,6 +213,7 @@ async function main() {
     await run(
       'maestro',
       [
+        ...maestroPrefix,
         'test',
         '--test-output-dir',
         join(privateDir, name),
@@ -582,7 +585,7 @@ async function main() {
           await new Promise((accept) => {
             const child = spawn('timeout', [
               '--signal=TERM', '--kill-after=5s', '20s',
-              'maestro', 'test', '--test-output-dir', join(privateDir, fileName),
+              'maestro', ...maestroPrefix, 'test', '--test-output-dir', join(privateDir, fileName),
               join(app, header ? 'e2e/private-runtime-save-header.yaml' : 'e2e/private-runtime-save-probe.yaml'),
             ], { cwd: app, env: { ...process.env, MAESTRO_SAVE_PROBE_LABEL: label, MAESTRO_PERSONAL_TITLE: labels.MAESTRO_PERSONAL_TITLE }, stdio: ['ignore', fd, fd] });
             child.on('error', () => accept());

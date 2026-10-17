@@ -179,6 +179,7 @@ jobs:
           node apps/mobile/scripts/private-runtime-amount-selector-test.mjs
           node apps/mobile/scripts/private-runtime-pipeline-test.mjs
           node --test apps/mobile/scripts/private-runtime-font-bundle-test.mjs apps/mobile/scripts/private-runtime-ios-font-bundle-test.mjs
+          node --test apps/mobile/scripts/private-runtime-maestro-device-test.mjs apps/mobile/scripts/private-runtime-ios-driver-seal-test.mjs apps/mobile/scripts/private-runtime-ios-driver-preflight-test.mjs
           node apps/mobile/scripts/private-runtime-ca-test.mjs
           node apps/mobile/scripts/private-runtime-loader-diagnostics-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-flow-policy.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-flow-policy-test.mjs
@@ -256,6 +257,14 @@ jobs:
           NODE
           brew install postgresql@16
           printf '%s\n' "$(brew --prefix postgresql@16)/bin" >> "$GITHUB_PATH"
+      - name: Owned iOS driver readiness before native compilation
+        id: ios_driver_preflight
+        if: matrix.platform == 'ios'
+        env:
+          NODE_ENV: development
+        run: |
+          umask 077
+          node apps/mobile/scripts/private-runtime-ios-driver-preflight.mjs
       - name: Owned PostgreSQL16 and ephemeral TLS fixture
         run: |
           fixture_ready="$(bash tools/database/private-mobile-proof.sh start --mode '${{ matrix.database_mode }}')"
@@ -300,6 +309,30 @@ jobs:
           path: ${{ runner.temp }}/subtrack-native-proof/public/
           if-no-files-found: error
           retention-days: 7
+      - name: Validate separate encrypted pre-app iOS tool diagnostic
+        id: sealed_ios_driver
+        if: failure() && steps.ios_driver_preflight.outcome == 'failure' && env.ST253_CAPTURE_ENABLED == 'true' && github.event_name == 'workflow_dispatch'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {execFileSync} from 'node:child_process';
+          import {preinputCaptureContext} from './apps/mobile/scripts/private-runtime-maestro-metadata.mjs';
+          import {validatedIosDriverArtifact} from './apps/mobile/scripts/private-runtime-ios-driver-preflight.mjs';
+          const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),context=preinputCaptureContext(process.env,head);
+          const ready=validatedIosDriverArtifact(join(process.env.RUNNER_TEMP,'subtrack-native-proof','private'),context);
+          appendFileSync(process.env.GITHUB_OUTPUT,`ready=${ready?'true':'false'}\n`);
+          NODE
+      - name: Recipient-encrypted pre-app iOS tool failure only
+        if: failure() && steps.sealed_ios_driver.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sealed-ios-driver-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/subtrack-native-proof/sealed/ios-driver-preflight.st253sealed
+          if-no-files-found: error
+          retention-days: 1
       - name: Validate sealed pre-input diagnostic only
         id: sealed_preinput
         if: failure() && matrix.platform == 'ios' && env.ST253_CAPTURE_ENABLED == 'true'

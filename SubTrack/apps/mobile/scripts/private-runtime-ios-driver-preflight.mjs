@@ -1,0 +1,79 @@
+import assert from 'node:assert/strict';
+import {Buffer} from 'node:buffer';
+import {createHash} from 'node:crypto';
+import {spawn,execFileSync} from 'node:child_process';
+import {constants,openSync,closeSync,writeSync,fstatSync,lstatSync,readFileSync,writeFileSync,readdirSync,realpathSync,mkdirSync,rmSync} from 'node:fs';
+import {join,resolve,dirname} from 'node:path';
+import {URL,pathToFileURL} from 'node:url';
+import {setTimeout,clearTimeout} from 'node:timers';
+import process from 'node:process';
+import console from 'node:console';
+import {maestroDevicePrefix} from './private-runtime-maestro-device.mjs';
+import {preinputCaptureContext,PREINPUT_RECIPIENT_SHA256} from './private-runtime-maestro-metadata.mjs';
+import {sealIosDriverLog,validSealedIosDriverLog} from './private-runtime-ios-driver-seal.mjs';
+
+const LIMIT=262144,sha=value=>createHash('sha256').update(value).digest('hex');
+const keys=(value,list)=>assert.deepEqual(Object.keys(value).sort(),[...list].sort());
+export function measuredIosSimulator(devices,apps,udid){
+ const runtime='com.apple.CoreSimulator.SimRuntime.iOS-26-2',rows=Object.entries(devices.devices).flatMap(([version,items])=>items.filter(device=>device.state==='Booted').map(device=>({version,...device})));
+ assert.equal(rows.length,1);const device=rows[0];assert.equal(device.version,runtime);assert.equal(device.udid,udid);assert.equal(device.name,'SubTrack-proof');assert.equal(device.isAvailable,true);assert.equal(device.deviceTypeIdentifier,'com.apple.CoreSimulator.SimDeviceType.iPhone-17');
+ assert.ok(apps&&typeof apps==='object'&&!Array.isArray(apps));for(const name of ['se.subtrack.app','se.subtrack.app.sandbox'])assert.equal(Object.hasOwn(apps,name),false);
+ return {runtime,udid,name:device.name,deviceType:device.deviceTypeIdentifier};
+}
+function owned(file,directory=false,maximum=LIMIT){const s=lstatSync(file);assert.equal(s.isSymbolicLink(),false);assert.equal(realpathSync(file),resolve(file));if(typeof process.getuid==='function')assert.equal(s.uid,process.getuid());assert.ok(directory?s.isDirectory():s.isFile()&&s.size>0&&s.size<=maximum);return s;}
+function privateBytes(file,maximum=LIMIT){const before=owned(file,false,maximum);assert.equal(before.mode&511,384);const fd=openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW);try{const opened=fstatSync(fd);assert.equal(opened.ino,before.ino);assert.equal(opened.dev,before.dev);const bytes=readFileSync(fd),after=owned(file,false,maximum);assert.equal(bytes.length,before.size);assert.equal(after.ino,before.ino);assert.equal(after.size,before.size);return bytes;}finally{closeSync(fd);}}
+function custody(root,context){const file=join(root,'preinput-ios-custody.json'),bytes=privateBytes(file,4096),value=JSON.parse(bytes);assert.equal(JSON.stringify(value),bytes.toString('utf8'));keys(value,['version','sourceHead','runId','attempt','udid','device','runtime','fresh']);assert.equal(value.version,1);for(const key of ['sourceHead','runId','attempt','udid'])assert.equal(value[key],context[key]);assert.equal(value.device,'iPhone-17');assert.equal(value.runtime,'iOS-26-2');assert.equal(value.fresh,true);return sha(bytes);}
+function native(command){return JSON.parse(execFileSync('xcrun',['simctl',...command],{encoding:'utf8',timeout:15000,maxBuffer:4194304,stdio:['ignore','pipe','pipe']}));}
+function appInventory(udid){const plist=execFileSync('xcrun',['simctl','listapps',udid],{timeout:15000,maxBuffer:4194304,stdio:['ignore','pipe','pipe']});return JSON.parse(execFileSync('/usr/bin/plutil',['-convert','json','-o','-','-'],{input:plist,encoding:'utf8',timeout:15000,maxBuffer:4194304,stdio:['pipe','pipe','pipe']}));}
+const measure=udid=>measuredIosSimulator(native(['list','devices','booted','--json']),appInventory(udid),udid);
+
+/** Original child only; log bytes stay in the owned private directory. */
+export async function runIosDriverChild(file,args,environment,timeoutMs=180000,program='maestro'){
+ const fd=openSync(file,'wx',384);let timeout=false,timer;
+ try{return await new Promise((resolveChild,reject)=>{
+  let child;try{child=spawn(program,args,{env:environment,stdio:['ignore','pipe','pipe']});}catch{reject(Error('iOS driver spawn unavailable'));return;}
+  let exited=null,invalid=false;
+  const stop=()=>{timeout=true;child.kill('SIGKILL');};timer=setTimeout(stop,timeoutMs);let size=0;
+  const consume=chunk=>{if(timeout)return;size+=chunk.length;if(size>LIMIT){stop();return;}try{let offset=0;while(offset<chunk.length){const wrote=writeSync(fd,chunk,offset,chunk.length-offset);if(wrote<1)throw Error();offset+=wrote;}}catch{stop();}};child.stdout.on('data',consume);child.stderr.on('data',consume);
+  child.on('error',()=>{invalid=true;});child.on('exit',(code,signal)=>{if(exited!==null)invalid=true;exited={code,signal};});
+  child.on('close',(code,signal)=>{clearTimeout(timer);resolveChild({exitCode:code,complete:!invalid&&exited!==null&&exited.code===code&&exited.signal===null&&signal===null&&!timeout,timedOut:timeout});});
+ });}finally{clearTimeout(timer);closeSync(fd);}
+}
+export function collectIosDriverLogs(invocation){
+ const processLog=privateBytes(join(invocation,'process.log'));let count=processLog.length;
+ const payload={version:1,process:processLog.toString('base64'),maestro:null,runner:null};
+ const tests=join(invocation,'state','maestro','tests');let entries;try{owned(tests,true);entries=readdirSync(tests,{withFileTypes:true});}catch{return Buffer.from(JSON.stringify(payload));}
+ assert.equal(entries.length,1);assert.ok(entries[0].isDirectory()&&!entries[0].isSymbolicLink()&&/^\d{4}-\d{2}-\d{2}_\d{6}$/.test(entries[0].name));const stamp=join(tests,entries[0].name);owned(stamp,true);
+ const files=readdirSync(stamp,{withFileTypes:true});assert.ok(files.length<=32);
+ for(const [kind,predicate]of [['maestro',name=>name==='maestro.log'],['runner',name=>/^xctest_runner_\d{4}-\d{2}-\d{2}_\d{6}\.log$/.test(name)]]){
+  const matches=files.filter(file=>predicate(file.name));assert.ok(matches.length<=1);if(!matches.length)continue;const file=join(stamp,matches[0].name),s=owned(file,false);assert.ok(matches[0].isFile()&&!matches[0].isSymbolicLink());const fd=openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW);try{const current=fstatSync(fd);for(const key of ['ino','dev','size','mtimeMs','ctimeMs'])assert.equal(current[key],s[key]);const bytes=readFileSync(fd),openedAfter=fstatSync(fd),after=owned(file,false);for(const key of ['ino','dev','size','mtimeMs','ctimeMs']){assert.equal(openedAfter[key],current[key]);assert.equal(after[key],current[key]);}assert.equal(bytes.length,s.size);count+=bytes.length;assert.ok(count<=LIMIT);payload[kind]=bytes.toString('base64');}finally{closeSync(fd);}
+ }
+ assert.deepEqual(readdirSync(stamp).sort(),files.map(file=>file.name).sort());assert.deepEqual(readdirSync(tests).sort(),entries.map(entry=>entry.name).sort());return Buffer.from(JSON.stringify(payload));
+}
+function removeOwned(directory,parent){assert.equal(dirname(resolve(directory)),resolve(parent));owned(directory,true);const walk=(path,depth=0)=>{assert.ok(depth<=8);const entries=readdirSync(path,{withFileTypes:true});assert.ok(entries.length<=128);for(const entry of entries){const file=join(path,entry.name),s=lstatSync(file);if(typeof process.getuid==='function')assert.equal(s.uid,process.getuid());assert.equal(s.isSymbolicLink(),false);assert.equal(realpathSync(file),resolve(file));if(s.isDirectory())walk(file,depth+1);else assert.ok(s.isFile());}};walk(directory);rmSync(directory,{recursive:true});}
+export function validatedIosDriverArtifact(root,context){try{if(!context)return false;const binding=JSON.parse(privateBytes(join(root,'ios-driver-failure.json'),4096));for(const name of ['sourceHead','runId','attempt','udid'])assert.equal(binding[name],context[name]);assert.equal(binding.commandSha256,sha(JSON.stringify(['maestro',...maestroDevicePrefix('ios',{SUBTRACK_SIMULATOR_UDID:context.udid}),'--verbose','hierarchy'])));assert.equal(binding.simulatorCustodySha256,custody(root,context));try{lstatSync(join(root,'ios-driver-preflight'));return false;}catch(error){assert.equal(error.code,'ENOENT');}return validSealedIosDriverLog(privateBytes(join(dirname(root),'sealed','ios-driver-preflight.st253sealed'),397312),binding);}catch{return false;}}
+
+export async function runOwnedIosDriverPreflight({environment,root,head,measureDevice=measure,runChild=runIosDriverChild}){
+ assert.equal(environment.CI,'true');assert.equal(environment.SUBTRACK_PRIVATE_DEVICE_PROOF,'true');assert.equal(Object.hasOwn(environment,'SUBTRACK_PRIVATE_FIXTURE_CONFIG'),false);
+ const args=[...maestroDevicePrefix('ios',environment),'--verbose','hierarchy'],udid=environment.SUBTRACK_SIMULATOR_UDID,context=preinputCaptureContext(environment,head);
+ mkdirSync(root,{recursive:true,mode:448});assert.equal(owned(root,true).mode&511,448);
+ const before=measureDevice(udid),custodyHash=context?custody(root,context):null;
+ const invocation=join(root,'ios-driver-preflight');mkdirSync(invocation,{mode:448});const state=join(invocation,'state');mkdirSync(state,{mode:448});
+ let success=false,sealed=false,failure=null;
+ try{
+  const result=await runChild(join(invocation,'process.log'),args,{...environment,XDG_STATE_HOME:state});
+  assert.deepEqual(measureDevice(udid),before);if(context)assert.equal(custody(root,context),custodyHash);
+  if(result.complete&&result.exitCode===0){success=true;writeFileSync(join(root,'ios-driver-ready.json'),JSON.stringify({sourceHead:head,udid,commandSha256:sha(JSON.stringify(['maestro',...args]))}),{flag:'wx',mode:384});}
+  else if(context&&environment.GITHUB_EVENT_NAME==='workflow_dispatch'&&result.complete&&Number.isInteger(result.exitCode)&&result.exitCode>0&&result.exitCode<=255){
+   const binding={version:1,purpose:'ios-driver-preflight',sourceHead:head,runId:context.runId,attempt:context.attempt,udid,simulatorCustodySha256:custodyHash,commandSha256:sha(JSON.stringify(['maestro',...args])),exitCode:result.exitCode,recipient:PREINPUT_RECIPIENT_SHA256};
+   const bytes=sealIosDriverLog(collectIosDriverLogs(invocation),binding,readFileSync(new URL('../../../.sdlc/evidence/ST-253/native-diagnostic-recipient.pem',import.meta.url)));
+   removeOwned(invocation,root);const destination=join(dirname(root),'sealed');mkdirSync(destination,{recursive:true,mode:448});assert.equal(owned(destination,true).mode&511,448);writeFileSync(join(root,'ios-driver-failure.json'),JSON.stringify(binding),{flag:'wx',mode:384});writeFileSync(join(destination,'ios-driver-preflight.st253sealed'),bytes,{flag:'wx',mode:384});assert.equal(validatedIosDriverArtifact(root,context),true);sealed=true;
+  }
+ }catch(error){failure=error;}finally{
+  try{owned(invocation,true);removeOwned(invocation,root);}catch(error){if(error.code!=='ENOENT')failure??=error;}
+  console.log(`ST253_IOS_DRIVER readiness=${success?'ready':'failed'} diagnostic=${sealed?'sealed':'withheld'}`);
+ }
+ if(failure)throw failure;return {success,sealed};
+}
+async function main(){assert.equal(process.platform,'darwin');assert.equal(process.argv.length,2);const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),result=await runOwnedIosDriverPreflight({environment:process.env,root:join(process.env.RUNNER_TEMP,'subtrack-native-proof','private'),head});if(!result.success)process.exitCode=1;}
+if(process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.url)void main().catch(()=>{console.error('ST253_IOS_DRIVER readiness=unavailable diagnostic=withheld');process.exitCode=1;});
