@@ -10,8 +10,8 @@ test('sandbox namespaces and exact public five-route input boundary',()=>{
  for(const [value,kind] of [[1,'capability'],['v2r.'+'a'.repeat(43),'refresh'],[cap,'refresh'],[refresh,'capability'],['s250c.'+'a'.repeat(43),'capability'],[cap,'unknown']])assert.throws(()=>parseSandboxSecret(value,kind));
  for(const value of [{transport:'mobile',locale:'en'},{transport:'sandbox-mobile',locale:'fr'},{transport:'sandbox-mobile',locale:'en',ownerId:id}])assert.throws(()=>parseSandboxBootstrap(value));assert.throws(()=>parseSandboxTransport({transport:'mobile'}));
 });
-test('all eight business operations retain strict reviewed source parsers and no owner selector',()=>{
- const bodies={'profile-read':{},profile:{displayName:'Fictional tester'},'mode-read':{},mode:{mode:'just-me'},'owner-read':{},manual:{customName:'Fictional subscription',categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',expectedAmountMinor:'12990',nextChargeDate:null},'manual-edit':{id,customName:'Fictional subscription',categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',expectedAmountMinor:'12990',nextChargeDate:null,expectedRevision:'1'},status:{id,status:'PAUSED'}};
+test('all twelve business operations retain strict reviewed source parsers and no owner selector',()=>{
+ const bodies={'profile-read':{},profile:{displayName:'Fictional tester'},'mode-read':{},mode:{mode:'just-me'},'owner-read':{},manual:{customName:'Fictional subscription',categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',expectedAmountMinor:'12990',nextChargeDate:null},'manual-edit':{id,customName:'Fictional subscription',categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',expectedAmountMinor:'12990',nextChargeDate:null,expectedRevision:'1'},status:{id,status:'PAUSED'},'bank-read':{},'bank-connect':{institutionId:'synthetic-demo-v1'},'bank-sync':{connectionId:id},'bank-disconnect':{connectionId:id,purge:true}};
  for(const operation of SANDBOX_BUSINESS_OPERATIONS){const parsed=parseSandboxBusiness({operation,body:bodies[operation]});assert.equal(parsed.operation,operation);assert.ok(Object.isFrozen(parsed));assert.ok(Object.isFrozen(parsed.body));assert.throws(()=>parseSandboxBusiness({operation,body:{...bodies[operation],ownerId:id}}));}
  assert.throws(()=>parseSandboxBusiness({operation:'bank',body:{}}));assert.throws(()=>parseSandboxBusiness({operation:'manual',body:{...bodies.manual,expectedAmountMinor:12990}}));
 });
@@ -28,4 +28,10 @@ test('hostile properties fail before accessors or prototype selectors execute',(
  for(const input of [null,undefined,[],true,Object.create(null),Object.assign(Object.create({transport:'sandbox-mobile'}),{})])assert.throws(()=>sandboxObject(input,[]));
  let read=false;const getter={};Object.defineProperty(getter,'transport',{enumerable:true,get(){read=true;return 'sandbox-mobile';}});assert.throws(()=>parseSandboxTransport(getter));assert.equal(read,false);
  const hidden={};Object.defineProperty(hidden,'transport',{value:'sandbox-mobile',enumerable:false});assert.throws(()=>parseSandboxTransport(hidden));assert.throws(()=>parseSandboxTransport({unknown:'sandbox-mobile'}));assert.throws(()=>parseSandboxTransport({[Symbol('private')]:'sandbox-mobile'}));assert.throws(()=>parseSandboxTransport({}));
+});
+
+test('public bank variants reuse exact institution/UUID/purge schemas without owner or provider selectors',()=>{
+ for(const [operation,body] of [['bank-connect',{institutionId:'TINK'}],['bank-sync',{connectionId:'invalid'}],['bank-disconnect',{connectionId:id,purge:'true'}],['bank-read',{connectionId:id}],['bank-connect',{institutionId:'synthetic-demo-v1',persona:'foreign'}],['bank-sync',{connectionId:id,ownerId:id}]])assert.throws(()=>parseSandboxBusiness({operation,body}));
+ for(const purge of [false,true])assert.deepEqual(parseSandboxBusiness({operation:'bank-disconnect',body:{connectionId:id,purge}}).body,{connectionId:id,purge});
+ for(const code of ['BANK_STATE_CONFLICT','BANK_IDEMPOTENCY_CONFLICT'])assert.equal(parseSandboxProblem({type:'about:blank',title:'Sandbox request unavailable',status:409,code}).code,code);
 });

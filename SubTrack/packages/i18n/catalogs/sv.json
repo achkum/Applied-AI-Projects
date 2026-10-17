@@ -52,7 +52,7 @@
       "noticeShort": "Sandlåda · simulerad verifiering",
       "simulatedOtp": "Endast sandlåda: ange testkoden %{code}. Inget meddelande har skickats och ingen kontaktmetod har verifierats.",
       "simulatedBankId": "Endast sandlåda: detta är en simulerad bekräftelse. Ingen riktig BankID-kontroll eller identitetsverifiering används.",
-      "manageUnavailable": "Bank- och identifieringsfunktioner är inte tillgängliga i den här isolerade testmiljön.",
+      "manageUnavailable": "Detektering är inte tillgänglig i denna sandlåda ännu.",
       "enter": "Skapa en testyta",
       "resume": "Återuppta den här testytan",
       "unavailable": "Sandlådan är för närvarande otillgänglig. Din begäran har inte upprepats.",

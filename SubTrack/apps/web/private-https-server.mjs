@@ -475,7 +475,7 @@ async function assertSubscriptionCatalog(client) {
 
 async function assertManualReceiptCatalog(client, editing = false) {
   if (digest(JSON.stringify(PRIVATE_MANUAL_CREATE_STATEMENTS)) !== '5acb0cd9119af260e82f88b4c0ff03a0c4bc089b22246e796cd80bac388b75de') fail();
-  if (editing && digest(JSON.stringify(PRIVATE_MANUAL_EDIT_STATEMENTS)) !== '66338cf97fd6bd49bc9ab4fc8eac5bc59faca8eff5c330a99c3612728df1fc99') fail();
+  if (editing && digest(JSON.stringify(PRIVATE_MANUAL_EDIT_STATEMENTS)) !== '75439022801fd93441cb2543bdb5dbf32070bd95b8a8c3128a9a59b73ebf6970') fail();
   gate('MANUAL_RECEIPT');
   const table = editing ? 'public.manual_subscription_edit_receipt' : 'public.manual_subscription_create_receipt';
   const receiptName = editing ? 'manual_subscription_edit_receipt' : 'manual_subscription_create_receipt';
@@ -562,7 +562,7 @@ async function assertRevisionCatalog(client) {
   gate('MANUAL_EDIT_REVISION');
   if (digest(JSON.stringify({ ...PRIVATE_PROFILE_STATEMENTS, ...PRIVATE_ONBOARDING_STATEMENTS,
     ...PRIVATE_MANUAL_CREATE_STATEMENTS, ...PRIVATE_MANUAL_EDIT_STATEMENTS })) !==
-      'e5232ce459a24f691218a36240d2f3e70af3b2abbd0544ad7ccbeb8ab70c4986') fail();
+      '0720d52c278e81b12895c28f4221e4079995a24909770b7b35e1feb60a18a711') fail();
   const source = fs.readFileSync(path.resolve(apiDir, 'prisma/development-auth/014-manual-owner-edit.sql'), 'utf8');
   const body = /AS \$revision\$([\s\S]*?)\$revision\$;/.exec(source)?.[1];
   const privacySql = fs.readFileSync(path.resolve(apiDir, 'prisma/migrations/0002_privacy_constraints/migration.sql'), 'utf8');

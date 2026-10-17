@@ -52,7 +52,7 @@
       "noticeShort": "Sandbox · simulated verification",
       "simulatedOtp": "Sandbox only: enter test code %{code}. No message was sent and no contact method was verified.",
       "simulatedBankId": "Sandbox only: this is a simulated confirmation. No real BankID check or identity proof is used.",
-      "manageUnavailable": "Bank and detection tools are unavailable in this isolated test workspace.",
+      "manageUnavailable": "Detection is not available in this sandbox yet.",
       "enter": "Create a test workspace",
       "resume": "Resume this test workspace",
       "unavailable": "Sandbox access is currently unavailable. Your request has not been retried.",

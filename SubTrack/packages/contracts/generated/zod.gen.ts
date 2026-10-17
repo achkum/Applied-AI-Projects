@@ -23,6 +23,8 @@ export const zSandboxProblem = z.object({
         'MANUAL_EDIT_IDEMPOTENCY_CONFLICT',
         'MANUAL_EDIT_CONFLICT',
         'LIFECYCLE_CONFLICT',
+        'BANK_STATE_CONFLICT',
+        'BANK_IDEMPOTENCY_CONFLICT',
         'SANDBOX_CAPACITY_EXHAUSTED',
         'SANDBOX_UNAVAILABLE'
     ])
@@ -604,6 +606,22 @@ export const zSandboxBusinessBody = z.union([
     z.object({
         operation: z.literal('status'),
         body: zPrivateMobileStatusRequest
+    }).strict(),
+    z.object({
+        operation: z.literal('bank-read'),
+        body: zPrivateMobileBankRead
+    }).strict(),
+    z.object({
+        operation: z.literal('bank-connect'),
+        body: zPrivateMobileBankConnect
+    }).strict(),
+    z.object({
+        operation: z.literal('bank-sync'),
+        body: zPrivateMobileBankSync
+    }).strict(),
+    z.object({
+        operation: z.literal('bank-disconnect'),
+        body: zPrivateMobileBankDisconnect
     }).strict()
 ]);
 
@@ -1515,7 +1533,9 @@ export const zExecuteSandboxMobileBusinessResponse = z.union([
         zModeView,
         zPrivateOwnerPage,
         zPrivateManualEdited,
-        zSubscriptionLifecycleResult
+        zSubscriptionLifecycleResult,
+        zPrivateMobileBankReadResult,
+        zPrivateMobileBankMutationResult
     ]),
     zPrivateManualCreated
 ]);

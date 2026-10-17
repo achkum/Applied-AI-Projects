@@ -97,3 +97,59 @@ it.each(['ios','android'] as const)('default exported API consumes actual %s mar
   for(const config of [{extra:{}},{extra:{subtrackSandbox:undefined}},{extra:{subtrackSandbox:{variant:'sandbox',apiBaseUrl:'https://198.44.116.159',runtimeEnabled:false,publicationEnabled:false,privateDiagnosticsEnabled:false}}},{extra:{subtrackSandbox:{variant:'sandbox',apiBaseUrl:'https://api.subtrack.app',runtimeEnabled:true,publicationEnabled:false,privateDiagnosticsEnabled:false}}},{extra:Object.defineProperty({},'subtrackSandbox',{get(){throw Error('must not read');}})}]){constants.expoConfig=config;await expect(sandboxMobileApi.bootstrap('en',signal())).rejects.toThrow('Sandbox request unavailable');}expect(fetch).toHaveBeenCalledTimes(1);
  }finally{constants.expoConfig=before;globalThis.fetch=fetchBefore;if(descriptor)Object.defineProperty(Platform,'OS',descriptor);}
 });
+
+const bankKey = '123e4567-e89b-42d3-a456-426614174001';
+const bankSummary = {connectionId:id,provider:'SYNTHETIC',institutionId:'synthetic-demo-v1',status:'ACTIVE',disposition:'retained',accountCount:1,transactionCount:77,lastSyncAt:'2026-10-15T12:00:00.000Z'};
+const bankProfile = {displayName:'Fiction',avatarColourToken:null,avatarEmoji:null,language:'en',theme:'system',defaultCurrency:'SEK',profileComplete:true};
+function bankReadFixture() {
+ const f=fixture(); f.fetch.mockResolvedValueOnce(response(200,bankProfile)).mockResolvedValueOnce(response(200,{mode:'just-me'})).mockResolvedValueOnce(response(200,{connections:[bankSummary]}));return f;
+}
+it('Bank read gates through public profile/mode and sends no mutation key or private request',async()=>{
+ const f=bankReadFixture();expect(await f.api.readNativeBank(token,signal())).toEqual({kind:'ready',connections:[bankSummary]});
+ expect(f.fetch.mock.calls.map(([,options])=>JSON.parse(options!.body as string))).toEqual([{operation:'profile-read',body:{}},{operation:'mode-read',body:{}},{operation:'bank-read',body:{}}]);
+ expect(f.fetch.mock.calls.every(([url,options])=>url.toString().endsWith('/v2/sandbox/mobile/business')&&!Object.prototype.hasOwnProperty.call(options!.headers!,'Idempotency-Key'))).toBe(true);expect(f.entropy).not.toHaveBeenCalled();
+});
+it.each([false,true])('Bank setup gate blocks incomplete profile or unchosen Just me (%s)',async profileComplete=>{
+ const f=fixture();f.fetch.mockResolvedValueOnce(response(200,{...bankProfile,profileComplete})).mockResolvedValueOnce(response(200,{mode:null}));expect(await f.api.readNativeBank(token,signal())).toEqual({kind:'setup-required'});expect(f.fetch).toHaveBeenCalledTimes(2);
+});
+it.each([
+ {operation:'connect',institutionId:'synthetic-demo-v1'},
+ {operation:'sync',connectionId:id},
+ {operation:'disconnect',connectionId:id,purge:false},
+ {operation:'disconnect',connectionId:id,purge:true},
+] as const)('Bank $operation uses exact caller intent key unchanged on repeated calls',async intent=>{
+ const f=fixture(),connection=intent.operation==='disconnect'?{...bankSummary,status:'REVOKED',...(intent.purge?{disposition:'purged',accountCount:0,transactionCount:0}:{})}:bankSummary;
+ f.fetch.mockResolvedValue(response(200,{operation:intent.operation,connection}));await f.api.mutateNativeBank(intent,bankKey,token,signal());await f.api.mutateNativeBank(intent,bankKey,token,signal());
+ const {operation,...body}=intent;for(const [url,options] of f.fetch.mock.calls){expect(url).toBe('https://198.44.116.159/v2/sandbox/mobile/business');expect(JSON.parse(options!.body as string)).toEqual({operation:`bank-${operation}`,body});expect(options!.headers).toEqual({'Content-Type':'application/json',Authorization:`Bearer ${token}`,'Idempotency-Key':bankKey});}expect(f.entropy).not.toHaveBeenCalled();
+});
+it.each(['MODE_CONFLICT','BANK_STATE_CONFLICT','BANK_IDEMPOTENCY_CONFLICT'])('Bank admits only closed public conflict %s',async code=>{
+ const f=fixture();f.fetch.mockResolvedValue(response(409,{type:'about:blank',title:'Sandbox request unavailable',status:409,code},'application/problem+json'));
+ expect(await f.api.mutateNativeBank({operation:'sync',connectionId:id},bankKey,token,signal())).toEqual({conflict:code});expect(f.fetch).toHaveBeenCalledTimes(1);
+});
+it.each([
+ response(200,{operation:'connect',connection:bankSummary}),
+ response(200,{operation:'sync',connection:{...bankSummary,connectionId:bankKey}}),
+ response(200,{operation:'sync',connection:{...bankSummary,rawTransactions:[]}}),
+ response(200,{operation:'sync',connection:{...bankSummary,transactionCount:1.5}}),
+ response(200,{operation:'sync',connection:bankSummary},'application/json','public'),
+ response(201,{operation:'sync',connection:bankSummary}),
+ response(200,{operation:'sync',connection:bankSummary},'application/problem+json'),
+ response(409,{type:'about:blank',title:'Conflict',status:409,code:'BANK_STATE_CONFLICT'},'application/problem+json'),
+ response(409,{type:'about:blank',title:'Sandbox request unavailable',status:409,code:'MANUAL_EDIT_CONFLICT'},'application/problem+json'),
+ response(401,{type:'about:blank',title:'Sandbox request unavailable',status:401,code:'SANDBOX_AUTHENTICATION_REQUIRED'},'application/problem+json'),
+ response(429,{type:'about:blank',title:'Sandbox request unavailable',status:429,code:'SANDBOX_CAPACITY_EXHAUSTED'},'application/problem+json'),
+])('Bank rejects mismatched status/header/result/problem without remint or retry',async result=>{
+ const f=fixture();f.fetch.mockResolvedValue(result);await expect(f.api.mutateNativeBank({operation:'sync',connectionId:id},bankKey,token,signal())).rejects.toThrow();expect(f.fetch).toHaveBeenCalledTimes(1);expect(f.entropy).not.toHaveBeenCalled();
+});
+it('Bank refuses missing/invalid keys and owner/body fields before transport',async()=>{
+ const f=fixture();for(const key of [undefined,'invalid','123e4567-e89b-72d3-a456-426614174001'])await expect(f.api.mutateNativeBank({operation:'sync',connectionId:id},key as string,token,signal())).rejects.toThrow();
+ await expect(f.api.mutateNativeBank({operation:'connect',institutionId:'synthetic-demo-v1',owner:id} as never,bankKey,token,signal())).rejects.toThrow();expect(f.fetch).not.toHaveBeenCalled();expect(f.entropy).not.toHaveBeenCalled();
+});
+it('Bank rejects aborted delivery and false purge acknowledgements',async()=>{
+ const f=fixture(),controller=new AbortController();f.fetch.mockImplementation(async()=>{controller.abort();return response(200,{operation:'sync',connection:bankSummary});});await expect(f.api.mutateNativeBank({operation:'sync',connectionId:id},bankKey,token,controller.signal)).rejects.toThrow();
+ const g=fixture();g.fetch.mockResolvedValue(response(200,{operation:'disconnect',connection:{...bankSummary,status:'REVOKED'}}));await expect(g.api.mutateNativeBank({operation:'disconnect',connectionId:id,purge:true},bankKey,token,signal())).rejects.toThrow();expect(g.fetch).toHaveBeenCalledTimes(1);
+});
+it('Bank read maps only mode conflict to setup and rejects purged or duplicate generation rows',async()=>{
+ for(const code of ['MODE_CONFLICT','BANK_STATE_CONFLICT']){const f=fixture();f.fetch.mockResolvedValueOnce(response(200,bankProfile)).mockResolvedValueOnce(response(200,{mode:'just-me'})).mockResolvedValueOnce(response(409,{type:'about:blank',title:'Sandbox request unavailable',status:409,code},'application/problem+json'));if(code==='MODE_CONFLICT')expect(await f.api.readNativeBank(token,signal())).toEqual({kind:'setup-required'});else await expect(f.api.readNativeBank(token,signal())).rejects.toThrow();}
+ for(const connections of [[bankSummary,bankSummary],[{...bankSummary,status:'REVOKED',disposition:'purged',accountCount:0,transactionCount:0}]]){const f=fixture();f.fetch.mockResolvedValueOnce(response(200,bankProfile)).mockResolvedValueOnce(response(200,{mode:'just-me'})).mockResolvedValueOnce(response(200,{connections}));await expect(f.api.readNativeBank(token,signal())).rejects.toThrow();}
+});

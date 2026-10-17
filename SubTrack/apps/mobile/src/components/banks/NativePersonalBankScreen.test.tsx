@@ -1,6 +1,8 @@
 import React from 'react';
 import {Pressable,ScrollView,Text} from 'react-native';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
+import {SandboxSessionProvider,useSandboxSession} from '@/state/SandboxSession';
+import type {SandboxMobileApi} from '@/api/sandboxMobileApi';
 import {NativePersonalBankScreen} from './NativePersonalBankScreen';
 import {NativeSessionProvider,useNativeSession} from '@/state/NativeSession';
 import type {NativeBundleStore} from '@/utils/secureSessionBundle';
@@ -8,6 +10,8 @@ import * as api from '@/api/privateMobileBank';
 import * as sessionApi from '@/api/privateMobileApi';
 import {catalogs} from '@subtrack/i18n';
 const mockReplace=jest.fn(),mockFocus:{enabled:boolean;hold?:boolean;start?: (()=>void|(()=>void)) | undefined;cleanup?:void|(()=>void)}={enabled:true};
+jest.mock('expo-crypto',()=>({getRandomBytesAsync:jest.fn(async()=>new Uint8Array(16).fill(7))}));
+jest.mock('expo-constants',()=>({__esModule:true,default:{expoConfig:{extra:{}}}}));
 jest.mock('expo-secure-store',()=>({WHEN_UNLOCKED_THIS_DEVICE_ONLY:6}));
 jest.mock('expo-router',()=>({useRouter:()=>({replace:mockReplace}),useFocusEffect:(callback:()=>void|(()=>void))=>{
  const React=jest.requireActual('react');React.useEffect(()=>{mockFocus.start=callback;if(mockFocus.enabled&&!mockFocus.hold)mockFocus.cleanup=callback();return()=>{if(!mockFocus.hold)mockFocus.cleanup?.();mockFocus.cleanup=undefined;};},[callback]);
@@ -82,4 +86,27 @@ it('external retirement hides data and purge confirmation before focus cleanup',
  let reject!:(error:Error)=>void;const waiting=new Promise<never>((_,fail)=>{reject=fail;});jest.mocked(sessionApi.rotateNativeSession).mockImplementation(()=>waiting);jest.mocked(api.readNativeBank).mockResolvedValue({kind:'ready',connections:[retained]});
  function External(){const session=useNativeSession();return <Pressable accessibilityRole="button" accessibilityLabel="external retirement" onPress={()=>{void session.refresh().catch(()=>undefined);}}><Text>External</Text></Pressable>;}
  const store:NativeBundleStore={read:jest.fn().mockResolvedValue(null),write:jest.fn().mockResolvedValue(undefined),clear:jest.fn().mockResolvedValue(undefined)};render(<NativeSessionProvider store={store}><NativePersonalBankScreen/><External/></NativeSessionProvider>);await login();await press(copy.purge);await screen.findByText(copy.purgeWarning);mockFocus.hold=true;await act(async()=>{fireEvent.press(screen.getByRole('button',{name:'external retirement'}));});await waitFor(()=>expect(screen.queryByText(copy.purgeWarning)).toBeNull());expect(screen.queryByText('77')).toBeNull();await act(async()=>reject(new Error('retired')));expect(screen.queryByText('77')).toBeNull();
+});
+
+it('shared sandbox Bank uses protected installation session ports and inactive handoff without private login/bootstrap',async()=>{
+ const sandboxCredentials={...credentials,transport:'sandbox-mobile',refreshToken:'s250r.'+'A'.repeat(43),sessionExpiresAt:10000};
+ const bank={readNativeBank:jest.fn().mockResolvedValue({kind:'ready',connections:[active]}),mutateNativeBank:jest.fn().mockResolvedValue({operation:'sync',connection:active})},requestKey=jest.fn().mockResolvedValue(key);
+ const transport={bootstrap:jest.fn().mockResolvedValue({...sandboxCredentials,installationCapability:'s250c.'+'A'.repeat(43)}),resume:jest.fn(),refresh:jest.fn(),logout:jest.fn().mockResolvedValue(undefined)};
+ const store={read:jest.fn().mockResolvedValue(null),write:jest.fn().mockResolvedValue(undefined),clear:jest.fn().mockResolvedValue(undefined)};
+ function Entry(){const session=useSandboxSession();return <Pressable accessibilityRole="button" accessibilityLabel="installation entry" onPress={()=>{void session.bootstrap('en');}}><Text>Shared welcome handoff</Text></Pressable>;}
+ const view=render(<SandboxSessionProvider available store={store} api={transport as unknown as SandboxMobileApi}><NativePersonalBankScreen useSession={useSandboxSession} api={bank} requestKey={requestKey} sandbox inactiveContent={<Entry/>}/></SandboxSessionProvider>);
+ await screen.findByText('Shared welcome handoff');expect(bank.readNativeBank).not.toHaveBeenCalled();expect(transport.bootstrap).not.toHaveBeenCalled();expect(screen.queryByRole('button',{name:personal.verify})).toBeNull();
+ await press('installation entry');await screen.findByText(copy.active);expect(store.write).toHaveBeenCalledTimes(1);await press(copy.sync);await screen.findByText(copy.updated);expect(bank.mutateNativeBank).toHaveBeenCalledWith({operation:'sync',connectionId:id},key,sandboxCredentials.accessToken,expect.any(AbortSignal));expect(requestKey).toHaveBeenCalledTimes(1);
+ await press(personal.logout);await screen.findByText(personal.logoutConfirmed);expect(screen.queryByText('77')).toBeNull();expect(api.readNativeBank).not.toHaveBeenCalled();expect(api.mutateNativeBank).not.toHaveBeenCalled();expect(sessionApi.verifiedNativeLogin).not.toHaveBeenCalled();view.unmount();
+});
+it('one caller intent UUID survives a replayed session callback and busy controls prevent duplicate intent',async()=>{
+ const bank={readNativeBank:jest.fn().mockResolvedValue({kind:'ready',connections:[active]}),mutateNativeBank:jest.fn().mockResolvedValue({operation:'sync',connection:active})},requestKey=jest.fn().mockResolvedValue(key);
+ const session={phase:'active' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:async<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>{await work(credentials.accessToken,new AbortController().signal);return work(credentials.accessToken,new AbortController().signal);}};
+ render(<NativePersonalBankScreen useSession={()=>session} api={bank} requestKey={requestKey}/>);await screen.findByText(copy.active);await press(copy.sync);await screen.findByText(copy.updated);expect(requestKey).toHaveBeenCalledTimes(1);expect(bank.mutateNativeBank).toHaveBeenCalledTimes(2);expect(bank.mutateNativeBank.mock.calls.every(call=>call[1]===key)).toBe(true);
+});
+it('busy injected Bank blocks duplicate sync and aborts late sandbox state after logout',async()=>{
+ let complete!:(value:{operation:'sync';connection:typeof active})=>void;const waiting=new Promise<{operation:'sync';connection:typeof active}>(resolve=>{complete=resolve;});
+ const bank={readNativeBank:jest.fn().mockResolvedValue({kind:'ready',connections:[active]}),mutateNativeBank:jest.fn().mockImplementation(()=>waiting)},requestKey=jest.fn().mockResolvedValue(key);
+ let live=true;const session={phase:'active' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(async()=>{live=false;return true;}),run:async<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>{if(!live)throw Error('retired');return work(credentials.accessToken,new AbortController().signal);}};
+ render(<NativePersonalBankScreen useSession={()=>session} api={bank} requestKey={requestKey}/>);await screen.findByText(copy.active);await press(copy.sync);await waitFor(()=>expect(bank.mutateNativeBank).toHaveBeenCalledTimes(1));expect(screen.getByRole('button',{name:copy.refresh}).props.accessibilityState.disabled).toBe(true);await press(copy.refresh);expect(bank.mutateNativeBank).toHaveBeenCalledTimes(1);await press(personal.logout);await screen.findByText(personal.logoutConfirmed);await act(async()=>complete({operation:'sync',connection:active}));expect(screen.queryByText('77')).toBeNull();expect(screen.queryByText(copy.updated)).toBeNull();expect(bank.mutateNativeBank.mock.calls[0]![3].aborted).toBe(true);
 });

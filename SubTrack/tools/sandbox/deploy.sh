@@ -2,7 +2,7 @@
 # Exact owned namespace only; no import, SSH, account, image build or destructive recovery.
 set -euo pipefail
 umask 077
-[[ $# == 1 && "$1" =~ ^(validate|preflight|initialize|bootstrap|activate|resume)$ ]] || exit 2
+[[ $# == 1 && "$1" =~ ^(validate|preflight|initialize|bootstrap|upgrade|activate|resume)$ ]] || exit 2
 mode="$1";root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 namespace=/home/openclaw/subtrack-sandbox;runtime="$namespace/runtime"
 compose=(docker compose --project-name subtrack-sandbox --file "$root/infra/sandbox/compose.yaml")
@@ -47,6 +47,17 @@ owned_container() {
   expected="$(ST250_IDENTITY_SERVICE="$service" node "$root/tools/sandbox/image-import-binding.cjs" container-id "$root" "$namespace/staging/$ST250_TRANSFER_RUN")" || return 1
   [[ "$expected" =~ ^sha256:[a-f0-9]{64}$ && "$image" == "$expected" && "$(docker inspect --format '{{.Config.Image}}' "$cid")" == "$reference" ]] || return 1
 }
+owned_upgrade_database() {
+ local cid="$1" old_head old_image old_reference
+ [[ "$cid" =~ ^[a-f0-9]{64}$ ]] || return 1
+ old_head="$(cat "$runtime/source-head")"
+ old_image="$(node -e 'const v=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"));process.stdout.write(v.services.database.containerImageId)' "$runtime/image-import-binding.json")"
+ old_reference="$(node -e 'const v=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"));process.stdout.write(v.services.database.requestedImage)' "$runtime/image-import-binding.json")"
+ [[ "$(docker inspect --format '{{index .Config.Labels "org.subtrack.sandbox.namespace"}}' "$cid")" == st250-runtime-v1 ]]
+ [[ "$(docker inspect --format '{{index .Config.Labels "org.subtrack.sandbox.source"}}' "$cid")" == "$old_head" ]]
+ [[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$cid")" == database ]]
+ [[ "$(docker inspect --format '{{.Image}}' "$cid")" == "$old_image" && "$(docker inspect --format '{{.Config.Image}}' "$cid")" == "$old_reference" ]]
+}
 capture_new() {
   local ids cid
   ids="$(docker ps --all --no-trunc --filter label=org.subtrack.sandbox.namespace=st250-runtime-v1 --filter "label=org.subtrack.sandbox.source=$ST250_SOURCE_HEAD" --format '{{.ID}}')" || return 1
@@ -74,6 +85,53 @@ if [[ "$mode" == validate || "$mode" == preflight ]];then bash "$root/tools/sand
 bash "$root/tools/sandbox/verify.sh" staging
 configure_android_download
 [[ ! -e "$runtime/operation.cid" && ! -L "$runtime/operation.cid" ]]
+if [[ "$mode" == upgrade ]];then
+ stage=UPGRADE_PREFLIGHT
+ if [[ -e "$runtime/upgrade-receipt.json" || -L "$runtime/upgrade-receipt.json" ]];then
+  node "$root/tools/sandbox/image-import-binding.cjs" recover-upgrade "$root" "$namespace/staging/$ST250_TRANSFER_RUN" >/dev/null
+  bash "$root/tools/sandbox/verify.sh" runtime
+  printf 'ST250_DATABASE_UPGRADE_RECOVERED data=preserved endpoint=not-qualified\n';exit 0
+ fi
+ bash "$root/tools/sandbox/verify.sh" upgrade-preflight
+ upgrade_intent_sha="$(node "$root/tools/sandbox/image-import-binding.cjs" prepare-upgrade "$root" "$namespace/staging/$ST250_TRANSFER_RUN")"
+ [[ "$upgrade_intent_sha" =~ ^[a-f0-9]{64}$ ]]
+ [[ -f "$runtime/bootstrap-complete" && ! -L "$runtime/bootstrap-complete" && "$(stat -c %u "$runtime/bootstrap-complete")" == 996 && "$(stat -c %a "$runtime/bootstrap-complete")" == 600 && "$(stat -c %s "$runtime/bootstrap-complete")" -le 256 ]]
+ [[ "$(cat "$runtime/bootstrap-complete")" == "$(cat "$runtime/source-head")" ]]
+ [[ ! -e "$runtime/upgrade-receipt.json" && ! -L "$runtime/upgrade-receipt.json" && ! -e "$runtime/upgrade-receipt.json.next" && ! -L "$runtime/upgrade-receipt.json.next" ]]
+ if [[ -e "$runtime/upgrade-private.log" || -L "$runtime/upgrade-private.log" ]];then [[ -f "$runtime/upgrade-private.log" && ! -L "$runtime/upgrade-private.log" && "$(realpath -e "$runtime/upgrade-private.log")" == "$runtime/upgrade-private.log" && "$(stat -c %u "$runtime/upgrade-private.log")" == 996 && "$(stat -c %a "$runtime/upgrade-private.log")" == 600 ]];fi
+ running_services="$(docker ps --filter label=org.subtrack.sandbox.namespace=st250-runtime-v1 --format '{{.Label "com.docker.compose.service"}}')"
+ while IFS= read -r service;do [[ -z "$service" || "$service" == database ]];done <<< "$running_services"
+ live="$("${compose[@]}" --profile sandbox-live ps --status running --quiet api-live gateway-live)"
+ [[ -z "$live" ]]
+ database_was_running="$("${compose[@]}" --profile sandbox-bootstrap ps --status running --quiet database)"
+ [[ -z "$database_was_running" || "$database_was_running" =~ ^[a-f0-9]{64}$ ]]
+ if [[ -n "$database_was_running" ]];then owned_upgrade_database "$database_was_running";stop_database=false;else stop_database=true;fi
+ docker ps --all --no-trunc --filter label=org.subtrack.sandbox.namespace=st250-runtime-v1 --format '{{.ID}}' > "$runtime/before.ids"
+ : > "$runtime/new.ids";started=true
+ if [[ "$stop_database" == true ]];then
+  stage=UPGRADE_DATABASE_START
+  "${compose[@]}" --profile sandbox-bootstrap up --detach --no-build --wait --wait-timeout 90 database > "$runtime/upgrade-private.log" 2>&1
+  capture_new
+  database_was_running="$("${compose[@]}" --profile sandbox-bootstrap ps --status running --quiet database)"
+  [[ "$database_was_running" =~ ^[a-f0-9]{64}$ ]];owned_container "$database_was_running"
+ fi
+ stage=UPGRADE_APPLY
+ docker create --cidfile "$runtime/operation.cid" --network subtrack-sandbox-database --user 1000:1000 --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 384m --cpus 0.75 --tmpfs /tmp:size=16m,uid=1000,gid=1000 \
+  --label org.subtrack.sandbox.namespace=st250-runtime-v1 --label "org.subtrack.sandbox.source=$ST250_SOURCE_HEAD" --label org.subtrack.sandbox.service=api --label com.docker.compose.project=subtrack-sandbox --label com.docker.compose.service=bootstrap \
+  --mount "type=bind,src=$namespace/secrets/database-runtime,dst=/run/secrets/database_runtime,readonly" --mount "type=bind,src=$namespace/secrets/api-auth-material,dst=/run/secrets/api_auth_material,readonly" --mount "type=bind,src=$namespace/secrets/database-bootstrap-loader,dst=/run/secrets/database_bootstrap_loader,readonly" \
+  --mount "type=bind,src=$root/tools/sandbox/bootstrap.cjs,dst=/opt/subtrack/bootstrap.cjs,readonly" \
+  --env NODE_ENV=production --env SUBTRACK_RUNTIME=sandbox --env SANDBOX_STARTUP_ENABLED=true --env SANDBOX_PUBLICATION_ENABLED=true --env SANDBOX_DATABASE_HOST=database --env SANDBOX_DATABASE_NAME=subtrack_sandbox --env SANDBOX_DATABASE_ROLE=subtrack_sandbox_runtime --env SANDBOX_POOL_MAX=4 --env SANDBOX_DATABASE_CREDENTIAL_FILE=/run/secrets/database_runtime --env SANDBOX_AUTH_MATERIAL_FILE=/run/secrets/api_auth_material --env PORT=4000 \
+  --entrypoint node "$SANDBOX_API_IMAGE" /opt/subtrack/bootstrap.cjs upgrade >/dev/null
+ cid="$(cat "$runtime/operation.cid")";owned_container "$cid";capture_new
+ timeout --kill-after=10s 120s docker start --attach "$cid" > "$runtime/upgrade-private.log" 2>&1
+ [[ "$(docker inspect --format '{{.State.ExitCode}}' "$cid")" == 0 && "$(docker inspect --format '{{.State.Running}}' "$cid")" == false ]]
+ docker rm "$cid" >/dev/null;rm -- "$runtime/operation.cid"
+ stage=UPGRADE_RECEIPT
+ node "$root/tools/sandbox/image-import-binding.cjs" seal-upgrade "$root" "$namespace/staging/$ST250_TRANSFER_RUN" >/dev/null
+ bash "$root/tools/sandbox/verify.sh" runtime
+ if [[ "$stop_database" == true ]];then docker stop --time 30 "$database_was_running" >/dev/null;[[ "$(docker inspect --format '{{.State.Running}}' "$database_was_running")" == false ]];fi
+ printf 'ST250_DATABASE_UPGRADE_QUALIFIED source=%s apiImage=%s sessions=preserved\n' "$ST250_SOURCE_HEAD" "$SANDBOX_API_IMAGE";exit 0
+fi
 if [[ "$mode" == initialize ]];then
  stage=INITIALIZE;empty_runtime
  [[ -z "$(docker ps --all --quiet --filter label=com.docker.compose.project=subtrack-sandbox)" ]]

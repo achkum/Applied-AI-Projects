@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 umask 077
-[[ $# == 1 && "$1" =~ ^(validate|staging|preflight|runtime|live)$ ]] || exit 2
+[[ $# == 1 && "$1" =~ ^(validate|staging|preflight|upgrade-preflight|runtime|live)$ ]] || exit 2
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 namespace=/home/openclaw/subtrack-sandbox
 runtime="$namespace/runtime"
@@ -109,8 +109,15 @@ trap fail ERR;trap - INT TERM
 if [[ "$1" == staging || "$1" == preflight ]];then printf 'ST250_STAGING_VERIFIED runtime=not-started\n';exit 0;fi
 owned_directory "$runtime";owned_directory "$namespace/secrets"
 for name in source-head image-id;do [[ -f "$runtime/$name" && ! -L "$runtime/$name" && "$(realpath -e "$runtime/$name")" == "$runtime/$name" && "$(stat -c %u "$runtime/$name")" == 996 && "$(stat -c %a "$runtime/$name")" == 600 && "$(stat -c %s "$runtime/$name")" -le 256 ]];done
-[[ "$(cat "$runtime/source-head")" == "$ST250_SOURCE_HEAD" && "$(cat "$runtime/image-id")" == "$SANDBOX_API_IMAGE" ]]
-node "$root/tools/sandbox/image-import-binding.cjs" runtime "$root" "$staging"
+if [[ "$1" != upgrade-preflight ]];then [[ "$(cat "$runtime/source-head")" == "$ST250_SOURCE_HEAD" && "$(cat "$runtime/image-id")" == "$SANDBOX_API_IMAGE" ]];fi
+volume_source_head="$ST250_SOURCE_HEAD";volume_transfer_run="$ST250_TRANSFER_RUN";volume_generation=""
+if [[ "$1" != upgrade-preflight && ( -e "$runtime/upgrade-intent.json" || -L "$runtime/upgrade-intent.json" || -e "$runtime/upgrade-receipt.json" || -L "$runtime/upgrade-receipt.json" ) ]];then
+ for name in upgrade-intent.json upgrade-receipt.json;do [[ -f "$runtime/$name" && ! -L "$runtime/$name" && "$(realpath -e "$runtime/$name")" == "$runtime/$name" && "$(stat -c %u "$runtime/$name")" == 996 && "$(stat -c %a "$runtime/$name")" == 600 && "$(stat -c %s "$runtime/$name")" -le 65536 ]];done
+ mapfile -t transition_fields < <(node "$root/tools/sandbox/image-import-binding.cjs" upgrade-runtime "$root" "$namespace/staging/$ST250_TRANSFER_RUN")
+ [[ ${#transition_fields[@]} == 3 && "${transition_fields[0]}" =~ ^[a-f0-9]{40}$ && "${transition_fields[1]}" =~ ^[0-9]+-[0-9]+$ && "${transition_fields[2]}" =~ ^[a-f0-9-]{36}$ ]]
+ volume_source_head="${transition_fields[0]}";volume_transfer_run="${transition_fields[1]}";volume_generation="${transition_fields[2]}"
+fi
+if [[ "$1" != upgrade-preflight ]];then node "$root/tools/sandbox/image-import-binding.cjs" runtime "$root" "$staging";fi
 for pair in database-bootstrap:999 database-bootstrap-loader:1000 database-runtime:1000 api-auth-material:1000 gateway-key:1000;do
  name="${pair%:*}";uid="${pair#*:}";file="$namespace/secrets/$name"
  [[ -f "$file" && ! -L "$file" && "$(realpath -e "$file")" == "$file" ]]
@@ -120,8 +127,10 @@ done
 for name in volume-generation volume-database-data.json volume-certificate-data.json volume-gateway-config.json;do
  [[ -f "$runtime/$name" && ! -L "$runtime/$name" && "$(realpath -e "$runtime/$name")" == "$runtime/$name" && "$(stat -c %u "$runtime/$name")" == 996 && "$(stat -c %a "$runtime/$name")" == 600 && "$(stat -c %s "$runtime/$name")" -le 16384 ]]
 done
+if [[ -z "$volume_generation" ]];then volume_generation="$(cat "$runtime/volume-generation")";fi
+if [[ "$1" != upgrade-preflight ]];then
 for suffix in database-data certificate-data gateway-config;do
- node - "$runtime" "$suffix" "$ST250_SOURCE_HEAD" "$ST250_TRANSFER_RUN" 3< <(docker volume inspect "subtrack-sandbox-$suffix") <<'NODE'
+ node - "$runtime" "$suffix" "$volume_source_head" "$volume_transfer_run" 3< <(docker volume inspect "subtrack-sandbox-$suffix") <<'NODE'
 const fs=require('node:fs');
 // BEGIN VOLUME VALIDATOR
 function validateVolume(actual,record,role,head,run,generation){
@@ -134,6 +143,7 @@ function validateVolume(actual,record,role,head,run,generation){
 try{const[r,role,head,run]=process.argv.slice(2),g=fs.readFileSync(r+'/volume-generation','utf8').trim();if(!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(g))throw Error();const record=JSON.parse(fs.readFileSync(r+'/volume-'+role+'.json','utf8'));if(record.length!==1)throw Error();const actual=JSON.parse(fs.readFileSync(3,'utf8'));if(actual.length!==1)throw Error();validateVolume(actual[0],record[0],role,head,run,g);}catch{process.exit(1);}
 NODE
 done
+fi
 # Verify real UID1000 readability/config shape through the same immutable image,
 # without networking, starting main or querying a database.
 [[ ! -e "$probe_cid" && ! -L "$probe_cid" ]]
@@ -145,10 +155,14 @@ docker create --cidfile "$probe_cid" --network none --read-only --user 1000:1000
  --env NODE_ENV=production --env SUBTRACK_RUNTIME=sandbox --env SANDBOX_STARTUP_ENABLED=true --env SANDBOX_PUBLICATION_ENABLED=true \
  --env SANDBOX_DATABASE_HOST=database --env SANDBOX_DATABASE_NAME=subtrack_sandbox --env SANDBOX_DATABASE_ROLE=subtrack_sandbox_runtime --env SANDBOX_POOL_MAX=4 --env PORT=4000 \
  --env SANDBOX_DATABASE_CREDENTIAL_FILE=/run/secrets/database_runtime --env SANDBOX_AUTH_MATERIAL_FILE=/run/secrets/api_auth_material \
- --entrypoint node "$SANDBOX_API_IMAGE" -e 'const fs=require("node:fs");for(const p of["/run/secrets/database_runtime","/run/secrets/api_auth_material"]){const s=fs.lstatSync(p);if(!s.isFile()||s.uid!==1000||s.gid!==1000||(s.mode&0o777)!==0o600||fs.realpathSync(p)!==p)process.exit(1);}require("/workspace/apps/api/dist/sandbox/sandbox-config.js").loadSandboxConfig(process.env).then(()=>process.stdout.write("ST250_MOUNT_READABLE\n")).catch(()=>process.exit(1));' >/dev/null
+ --entrypoint node "$SANDBOX_API_IMAGE" -e 'const fs=require("node:fs");for(const p of["/run/secrets/database_runtime","/run/secrets/api_auth_material"]){const s=fs.lstatSync(p);if(!s.isFile()||s.uid!==1000||s.gid!==1000||(s.mode&0o777)!==0o600||fs.realpathSync(p)!==p)process.exit(1);}require("/workspace/apps/api/dist/sandbox/sandbox-config.js").loadSandboxConfig(process.env).then(c=>process.stdout.write(JSON.stringify({manifest:c.manifest,legacyManifest:c.legacyManifest,migrationHashes:c.migrationHashes})+"\n")).catch(()=>process.exit(1));' >/dev/null
 timeout --kill-after=5s 30s docker start --attach "$(cat "$probe_cid")" > "$staging/mount-readable.txt" 2>> "$staging/verification-private.log"
-[[ "$(docker inspect --format '{{.State.ExitCode}}' "$(cat "$probe_cid")")" == 0 && "$(cat "$staging/mount-readable.txt")" == ST250_MOUNT_READABLE ]]
+[[ "$(docker inspect --format '{{.State.ExitCode}}' "$(cat "$probe_cid")")" == 0 ]]
+node - "$staging/mount-readable.txt" <<'NODE'
+const fs=require('node:fs');try{const f=process.argv[2],b=fs.readFileSync(f),v=JSON.parse(b.toString('utf8'));if(b.length>1024||JSON.stringify(v)+'\n'!==b.toString('utf8')||Object.keys(v).sort().join(',')!=='legacyManifest,manifest,migrationHashes'||! /^[a-f0-9]{64}$/.test(v.manifest)||! /^[a-f0-9]{64}$/.test(v.legacyManifest)||!Array.isArray(v.migrationHashes)||v.migrationHashes.length!==3||v.migrationHashes.some(x=>! /^[a-f0-9]{64}$/.test(x)))throw Error();}catch{process.exit(1);}
+NODE
 probe_cleanup;trap fail ERR;trap - INT TERM
+if [[ "$1" == upgrade-preflight ]];then printf 'ST250_UPGRADE_PREFLIGHT_VERIFIED runtime=not-started\n';exit 0;fi
 if [[ "$1" == live ]];then
  [[ -f "$runtime/bootstrap-complete" && ! -L "$runtime/bootstrap-complete" ]]
  for service in database api-live gateway-live;do

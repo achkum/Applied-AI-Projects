@@ -32,6 +32,7 @@ ENV NODE_ENV=production SUBTRACK_RUNTIME=sandbox SANDBOX_STARTUP_ENABLED=false S
 COPY --from=build --chown=node:node /workspace/apps/api/dist ./apps/api/dist
 COPY --from=build --chown=node:node /workspace/apps/api/prisma/sandbox/001-sandbox-foundation.sql ./apps/api/prisma/sandbox/001-sandbox-foundation.sql
 COPY --from=build --chown=node:node /workspace/apps/api/prisma/sandbox/002-sandbox-mobile-business.sql ./apps/api/prisma/sandbox/002-sandbox-mobile-business.sql
+COPY --from=build --chown=node:node /workspace/apps/api/prisma/sandbox/003-sandbox-synthetic-bank.sql ./apps/api/prisma/sandbox/003-sandbox-synthetic-bank.sql
 COPY --from=build --chown=node:node /workspace/packages/domain/dist ./packages/domain/dist
 COPY --from=build --chown=node:node /workspace/packages/synthetic/dist ./packages/synthetic/dist
 USER 1000:1000
