@@ -1,16 +1,18 @@
+import {Buffer} from 'node:buffer';
+import {observeRestartUi} from './private-runtime-restart-ui.mjs';
 import {qualifyNativeBank,acceptedNativeBankScreenshot,ACCEPTED_NATIVE_BANK_SCREENSHOTS} from './private-runtime-bank.mjs';
-import {prepareEnrollmentMetadata,enrollmentMetadataLines} from './private-runtime-maestro-metadata.mjs';
-import {enrollmentStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
-import {qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
-import {renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
-import {qualifyNativeEditStatus,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS} from './private-runtime-edit-status.mjs';
+import {prepareEnrollmentMetadata,enrollmentMetadataLines,preparePreinputMetadata,preinputCaptureContext,captureSealedPreinput,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS,androidCaptureContext,prepareAndroidEntryMetadata,measureAndroidApp,recordAndroidApp,captureSealedAndroidEntry} from './private-runtime-maestro-metadata.mjs';
+import {enrollmentStageDiagnostic,startupStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
+import {fixtureMonthLabels,qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
+import {assertRenewalsReceipt,renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
+import {qualifyNativeEditStatus,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS,ACCEPTED_ANDROID_SETUP_SCREENSHOTS} from './private-runtime-edit-status.mjs';
 // Local installed-device qualification only. No EAS, cloud Maestro or store upload.
 import assert from 'node:assert/strict';
 import process from 'node:process';
 import console from 'node:console';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, execFileSync, execFile } from 'node:child_process';
 import {
   openSync,
   closeSync,
@@ -20,6 +22,7 @@ import {
   readdirSync,
   copyFileSync,
   statSync,
+  lstatSync,
 } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,13 +39,13 @@ import {
 } from './private-runtime-fatal-excerpt.mjs';
 import {
   identifierToolDiagnostic,
+  restartToolDiagnostic,
   enrollmentToolDiagnostic,
   createEnrollmentExecution,
   enrollmentExecutionDiagnostic,
 } from './private-runtime-identifier-diagnostic.mjs';
 import { initialIdentifierFlow } from './private-runtime-flow-policy.mjs';
 import { graphStatus } from './private-runtime-bundle-policy.mjs';
-import { identifierProbes } from './private-runtime-identifier-probe.mjs';
 import { failedSaveObservations } from './private-runtime-save-probe.mjs';
 
 let currentPhase = 'runtime-preconditions';
@@ -98,7 +101,7 @@ async function main() {
   const installedNativeVersion = mobileRequire(
     'react-native/package.json',
   ).version;
-  assert.equal(installedNativeVersion, '0.74.5');
+  assert.equal(installedNativeVersion, '0.81.5');
   const repo = resolve(app, '../..');
   const root = join(process.env.RUNNER_TEMP, 'subtrack-native-proof');
   const privateDir = join(root, 'private');
@@ -118,11 +121,19 @@ async function main() {
   assert.equal(config.database, 'st237_private_https_profile');
 
   let enrollmentExecution = null;
-  let enrollmentMetadata = null;
+  let enrollmentMetadata = null, preinputMetadata = null;
+  const captureContext=platform==='ios'?preinputCaptureContext(process.env,head):null;
+  const androidContext=platform==='android'?androidCaptureContext(process.env,head):null;
+  let androidMetadata=null,androidAppCheckpoint=null;
+  const androidBuilt=join(app,'android/app/build/outputs/apk/debug/app-debug.apk');
+  const measureAndroid=()=>measureAndroidApp(privateDir,androidContext,process.env,androidBuilt);
   async function run(command, args, label, extraEnv = {}, cwd = app) {
     const execution = command === 'maestro' && label === 'enroll-add' && args.at(-1) === join(app, 'e2e/private-runtime-enroll-add.yaml')
       ? createEnrollmentExecution(label) : null;
-    if (execution) {enrollmentExecution = execution;enrollmentMetadata=prepareEnrollmentMetadata(privateDir,execution);}
+    let preinput=null;
+    if(captureContext&&command==='maestro'&&label==='identifier'&&args.at(-1)===join(app,'e2e/private-runtime-identifier.yaml'))try{preinput=preparePreinputMetadata(privateDir);}catch{/* Optional diagnostics never prevent the original flow. */}
+    if(preinput)preinputMetadata=preinput;
+    if (execution) {enrollmentExecution = execution;enrollmentMetadata=androidContext?(androidMetadata=prepareAndroidEntryMetadata(privateDir,execution)):prepareEnrollmentMetadata(privateDir,execution,platform);}
     const fd = openSync(join(privateDir, `${label}.log`), 'w', 0o600);
     try {
       await new Promise((accept, reject) => {
@@ -132,20 +143,21 @@ async function main() {
           env: { ...process.env, ...extraEnv },
           stdio: ['ignore', fd, fd],
         }); } catch {
-          execution?.record('error');
+          execution?.record('error');preinput?.record('error');androidMetadata?.record('error');
           reject(new Error(`Private qualification ${label} could not start`));
           return;
         }
         child.on('error', () => {
-          execution?.record('error');
+          execution?.record('error');preinput?.record('error');androidMetadata?.record('error');
           reject(new Error(`Private qualification ${label} could not start`));
         });
         child.on('exit', (code, signal) => {
-          execution?.record('exit', code, signal);
+          execution?.record('exit', code, signal);preinput?.record('exit',code,signal);if(execution)androidMetadata?.record('exit',code,signal);
+          if(preinput||execution&&androidMetadata)return;
           if (code === 0) accept();
           else reject(new Error(`Private qualification ${label} failed`));
         });
-        child.on('close', (code, signal) => execution?.record('close', code, signal));
+        child.on('close', (code, signal) => {execution?.record('close',code,signal);preinput?.record('close',code,signal);if(execution)androidMetadata?.record('close',code,signal);if(preinput||execution&&androidMetadata){if(code===0)accept();else reject(new Error(`Private qualification ${label} failed`));}});
       });
     } finally {
       closeSync(fd);
@@ -185,6 +197,7 @@ async function main() {
   labels.MAESTRO_MONTH_DAY=labels.MAESTRO_MONTH_DAY_TEMPLATE.replace('%{date}',renewalDate);
   labels.MAESTRO_MONTH_SAVED_DATE=labels.MAESTRO_MONTH_SAVED_DATE_TEMPLATE.replace('%{date}',renewalDate);
   async function flow(name, extraEnv = {}) {
+    const calendarEnv=(name==='billing-month'||name==='billing-month-empty')?fixtureMonthLabels(renewalDate):{};
     markPhase(`flow-${name}`);
     await run(
       'maestro',
@@ -201,18 +214,19 @@ async function main() {
         ),
       ],
       name,
-      { ...labels, ...extraEnv },
+      { ...labels, ...calendarEnv, ...extraEnv },
     );
   }
   function copyAcceptedScreenshots(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const file = join(directory, entry.name);
       if (entry.isDirectory()) copyAcceptedScreenshots(file);
-      else if (acceptedNativeScreenshot(entry.name)||acceptedNativeRenewalsScreenshot(entry.name)||acceptedNativeMonthScreenshot(entry.name)||acceptedNativeBankScreenshot(entry.name))
+      else if (acceptedNativeScreenshot(entry.name,platform)||acceptedNativeRenewalsScreenshot(entry.name)||acceptedNativeMonthScreenshot(entry.name)||acceptedNativeBankScreenshot(entry.name))
         copyFileSync(file, join(publicDir, entry.name));
     }
   }
 
+  let acceptedCreatedReceipt=null;
   try {
     markPhase('https-start');
     await harness.start();
@@ -233,7 +247,13 @@ async function main() {
         SUBTRACK_PRIVATE_CA_CERT: config.caPath,
       },
     );
+    if(androidContext)try{androidAppCheckpoint=recordAndroidApp(privateDir,androidContext,measureAndroid());}catch{/* Unavailable custody withholds diagnostics, never changes qualification. */}
     await flow('identifier');
+    const fontStartup=startupStageDiagnostic({phase:'flow-identifier',log:readFileSync(join(privateDir,'metro.log'),'utf8')});
+    const loaded=fontStartup?.['fonts-loaded'],fallback=fontStartup?.['fonts-fallback'];
+    const installedFontState=loaded&&loaded!=='unobserved'&&fallback==='unobserved'?'custom':fallback&&fallback!=='unobserved'&&loaded==='unobserved'?'fallback':'unobserved';
+    if(platform==='android')console.log(`ST244_NATIVE installed_fonts=${installedFontState}`);
+    if(platform==='android')assert.equal(installedFontState,'custom','Approved Android custom fonts must be loaded');
     assert.ok(
       code,
       'Synthetic OTP must have been issued to the private in-memory callback',
@@ -242,6 +262,12 @@ async function main() {
     code = null;
     markPhase('readback-before');
     const before = await harness.readbackReceipt();
+    const created = await harness.readbackRenewalsReceipt(renewalDate);
+    assertRenewalsReceipt(created);
+    assert.equal(created.activeSavedDateReadback,true);
+    assert.equal(created.archivedEmptyReadback,false);
+    acceptedCreatedReceipt=before;
+    console.log('ST244_NATIVE created_row_expected_value=confirmed');
     markPhase('api-restart');
     await harness.restart();
     await flow('restart');
@@ -269,7 +295,7 @@ async function main() {
     const bank=await qualifyNativeBank({flow,restart:()=>harness.restart(),readback:()=>harness.readbackBankReceipt(),tracking:()=>harness.readbackTrackingReceipt(),phase:markPhase});
     markPhase('accepted-evidence');
     copyAcceptedScreenshots(privateDir);
-    for (const name of [...ACCEPTED_NATIVE_SCREENSHOTS,...ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS,...ACCEPTED_NATIVE_MONTH_SCREENSHOTS,...ACCEPTED_NATIVE_BANK_SCREENSHOTS]) {
+    for (const name of [...(platform==='android'?ACCEPTED_ANDROID_SETUP_SCREENSHOTS:[]),...ACCEPTED_NATIVE_SCREENSHOTS,...ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS,...ACCEPTED_NATIVE_MONTH_SCREENSHOTS,...ACCEPTED_NATIVE_BANK_SCREENSHOTS]) {
       assert.ok(statSync(join(publicDir, name)).size > 0);
     }
     const apk = join(app, 'android/app/build/outputs/apk/debug/app-debug.apk');
@@ -295,9 +321,10 @@ async function main() {
           platform,
           bundleId: 'se.subtrack.app',
           binaryIdentity,
-          expo: '51',
+          expo: JSON.parse(readFileSync(join(app,'node_modules/expo/package.json'),'utf8')).version,
           reactNative: installedNativeVersion,
           developmentSimulatorOnly: true,
+          ...(platform==='android'?{installedFontState}:{}),
           freshLoginAfterStartup: true,
           appRestartReadback: true,
           apiRestartReadback: true,
@@ -379,48 +406,35 @@ async function main() {
         `ST244_NATIVE phase=startup-graph result=${status?.result ?? 'metadata-withheld'} category=${status?.category ?? 'withheld'}`,
       );
     }
+    if (currentPhase === 'flow-identifier' && captureContext && preinputMetadata) {
+      const nativeRead=(args)=>new Promise((ok,no)=>execFile('xcrun',args,{timeout:10000,killSignal:'SIGKILL',maxBuffer:65536,encoding:'utf8'},(error,stdout)=>error?no(new Error('Private diagnostic unavailable')):ok(stdout)));
+      let sealed=false,withheldStage='CUSTODY';
+      const captureStage=value=>{if(PREINPUT_WITHHELD_STAGES.includes(value))withheldStage=value;};
+      try{sealed=await captureSealedPreinput({onStage:captureStage,privateRoot:privateDir,reader:preinputMetadata,context:captureContext,observe:()=>harness.allApiObservation(),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),
+        capture:async(file,udid)=>{
+          assert.equal(udid,process.env.SUBTRACK_SIMULATOR_UDID);
+          const booted=JSON.parse(await nativeRead(['simctl','list','devices','booted','--json']));
+          const devices=booted.devices?.['com.apple.CoreSimulator.SimRuntime.iOS-26-2'];
+          assert.ok(Array.isArray(devices)&&devices.filter(device=>device.udid===udid&&device.state==='Booted'&&device.isAvailable===true&&device.name==='SubTrack-proof').length===1);
+          const installed=(await nativeRead(['simctl','get_app_container',udid,'se.subtrack.app','app'])).trim();
+          assert.ok(installed.startsWith('/')&&installed.includes(`/CoreSimulator/Devices/${udid}/data/Containers/Bundle/Application/`)&&installed.endsWith('/SubTrack.app')&&!/[\r\n\0]/.test(installed));
+          const built=join(privateDir,'derived/Build/Products/Debug-iphonesimulator/SubTrack.app');
+          for(const name of ['Info.plist','SubTrack']){const installedFile=join(installed,name),builtFile=join(built,name),oneStat=lstatSync(installedFile),twoStat=lstatSync(builtFile);assert.ok(oneStat.isFile()&&!oneStat.isSymbolicLink()&&twoStat.isFile()&&!twoStat.isSymbolicLink()&&oneStat.size>0&&oneStat.size<=67108864&&twoStat.size===oneStat.size);const one=readFileSync(installedFile),two=readFileSync(builtFile);assert.ok(one.length===oneStat.size&&two.length===twoStat.size);assert.equal(createHash('sha256').update(one).digest('hex'),createHash('sha256').update(two).digest('hex'));}
+          captureStage('CAPTURE');await nativeRead(['simctl','io',udid,'screenshot',file]);
+        }});}catch{/* Preserve the original failed qualification and private error. */}
+      let metadataCheck='UNKNOWN';
+      if(!sealed&&withheldStage==='METADATA_OWNERSHIP')try{const check=preinputMetadata.ownershipCheck();if(PREINPUT_METADATA_CHECKS.includes(check))metadataCheck=check;}catch{/* Unknown stays fixed; no private exception escapes. */}
+      console.error(`ST244_NATIVE preinput_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}${!sealed&&withheldStage==='METADATA_OWNERSHIP'?` metadata_check=${metadataCheck}`:''}`);
+    }
     if (currentPhase === 'flow-identifier') {
       const syntheticOtpIssued = code !== null;
       const requestObservation = harness.otpStartObservation();
       console.error(`ST244_NATIVE identifier_request_arrivals=${requestObservation.arrivals} accepted202=${requestObservation.accepted202} rejected4xx=${requestObservation.rejected4xx} failed5xx=${requestObservation.failed5xx} other=${requestObservation.other} incomplete=${requestObservation.incomplete}`);
+      const otpResponse = harness.otpStartResponseObservation();
+      if (otpResponse && ['unavailable', 'incomplete', 'complete'].includes(otpResponse.state) && ['400', '409', '429', 'OTHER'].includes(otpResponse.status) && ['INVALID_MOBILE_REQUEST', 'AUTH_RESTART_REQUIRED', 'OTHER'].includes(otpResponse.code))
+        console.error(`ST244_NATIVE identifier_response=${otpResponse.state} status=${otpResponse.status} code=${otpResponse.code}`);
+      else console.error('ST244_NATIVE identifier_response=withheld');
       console.error(`ST244_NATIVE identifier_otp_issued=${syntheticOtpIssued}`);
-      const observations = await identifierProbes({
-        phase: currentPhase,
-        issued: syntheticOtpIssued,
-        labels,
-        run: async (name, label) => {
-          const logPath = join(privateDir, `identifier-probe-${name}.log`);
-          const fd = openSync(logPath, 'w', 0o600);
-          let exitCode = null;
-          let timedOut = false;
-          try {
-            await new Promise((accept) => {
-              const child = spawn('timeout', [
-                '--signal=TERM', '--kill-after=5s', '20s',
-                'maestro', 'test', '--test-output-dir',
-                join(privateDir, `identifier-probe-${name}`),
-                join(app, 'e2e/private-runtime-identifier-probe.yaml'),
-              ], {
-                cwd: app,
-                env: { ...process.env, MAESTRO_IDENTIFIER_PROBE_LABEL: label },
-                stdio: ['ignore', fd, fd],
-              });
-              child.on('error', () => accept());
-              child.on('close', (status) => {
-                exitCode = status;
-                timedOut = status === 124 || status === 137;
-                accept();
-              });
-            });
-          } finally {
-            closeSync(fd);
-          }
-          return { exitCode, timedOut, log: readFileSync(logPath, 'utf8') };
-        },
-      });
-      if (observations)
-        for (const [target, result] of Object.entries(observations))
-          console.error(`ST244_NATIVE identifier_probe=${target} observation=${result}`);
       const readTool = (name) => {
         try {
           return readFileSync(join(privateDir, name), 'utf8');
@@ -428,6 +442,9 @@ async function main() {
           return '';
         }
       };
+      const startup=startupStageDiagnostic({phase:currentPhase,log:readTool('metro.log')});
+      if(startup) for(const [stage,count] of Object.entries(startup)) console.error(`ST244_NATIVE startup_stage=${stage} count=${count}`);
+      else console.error('ST244_NATIVE startup_stage_diagnostic=unavailable');
       const stageDiagnostic=enrollmentStageDiagnostic({phase:currentPhase,log:readTool('metro.log')});
       if(stageDiagnostic) for(const [stage,count] of Object.entries(stageDiagnostic)) console.error(`ST244_NATIVE enrollment_stage=${stage} count=${count}`);
       else console.error('ST244_NATIVE enrollment_stage_diagnostic=unavailable');
@@ -439,6 +456,7 @@ async function main() {
         metro: readTool('metro.log'),
         labels: {
           createAccount: labels.MAESTRO_CREATE_ACCOUNT,
+          email: labels.MAESTRO_EMAIL_LABEL,
           otp: labels.MAESTRO_OTP_LABEL,
         },
       });
@@ -448,12 +466,37 @@ async function main() {
         );
       else
         console.error(
-          `ST244_NATIVE identifier_diagnostic=fixed commands=${diagnostic.commands.join(',') || 'none'} reasons=${diagnostic.reasons.join(',') || 'none'} targets=${diagnostic.targets.join(',') || 'none'} metro=${diagnostic.metro.join(',') || 'none'} modules=${diagnostic.modules.join(',') || 'none'}`,
+          `ST244_NATIVE identifier_diagnostic=fixed source=legacy-text target_observation=unobserved commands=${diagnostic.commands.join(',') || 'none'} reasons=${diagnostic.reasons.join(',') || 'none'} legacy_targets=${diagnostic.targets.join(',') || 'none'} metro=${diagnostic.metro.join(',') || 'none'} modules=${diagnostic.modules.join(',') || 'none'}`,
         );
     }
+    if(['flow-restart','flow-edit-status','flow-edit-status-api-restart'].includes(currentPhase)){
+      const readOwned=name=>{try{return readFileSync(join(privateDir,name),'utf8');}catch{return '';}};
+      const diagnostic=restartToolDiagnostic({phase:currentPhase,restart:readOwned(`${currentPhase.slice(5)}.log`),metro:readOwned('metro.log'),labels:{createAccount:labels.MAESTRO_CREATE_ACCOUNT,verifyBankId:labels.MAESTRO_VERIFY_BANKID,expectedAmount:labels.MAESTRO_EXPECTED_AMOUNT,logout:labels.MAESTRO_LOGOUT,logoutConfirmed:labels.MAESTRO_LOGOUT_CONFIRMED,edit:labels.MAESTRO_EDIT,saveEdit:labels.MAESTRO_SAVE_EDIT,editSaved:labels.MAESTRO_EDIT_SAVED,pause:labels.MAESTRO_PAUSE,resume:labels.MAESTRO_RESUME,cancelled:labels.MAESTRO_MARK_CANCELLED,archive:labels.MAESTRO_ARCHIVE}});
+      if(diagnostic.withheld)console.error(`ST244_NATIVE restart_diagnostic=withheld reason=${diagnostic.withheld}`);
+      else console.error(`ST244_NATIVE restart_diagnostic=fixed commands=${diagnostic.commands.join(',')||'none'} reasons=${diagnostic.reasons.join(',')||'none'} targets=${diagnostic.targets.join(',')||'none'} metro=${diagnostic.metro.join(',')||'none'} modules=${diagnostic.modules.join(',')||'none'}`);
+      if(platform==='android'&&currentPhase==='flow-restart'){
+        const adb=join(process.env.ANDROID_HOME??'','platform-tools/adb');
+        const deviceDirectory='/data/local/tmp/subtrack-restart-'+randomUUID(),deviceFile=deviceDirectory+'/ui.xml';
+        let deviceCreated=false,deviceAttempted=false;
+        const quiet=args=>execFileSync(adb,['-s','emulator-5554',...args],{timeout:20000,killSignal:'SIGKILL',stdio:'ignore'});
+        const ui=await observeRestartUi({platform,phase:currentPhase,diagnostic,expected:acceptedCreatedReceipt,markerHash:createHash('sha256').update(config.marker).digest('hex'),labels:{welcome:labels.MAESTRO_CREATE_ACCOUNT,verify:labels.MAESTRO_VERIFY_BANKID,manage:labels.MAESTRO_PERSONAL_TITLE,month:labels.MAESTRO_MONTH_TITLE},observe:()=>harness.readbackReceipt(),
+          owned:()=>{execFileSync('bash',['scripts/private-runtime-android.sh','owned-device'],{cwd:app,timeout:15000,stdio:'ignore'});return true;},
+          capture:()=>{deviceAttempted=true;quiet(['shell','mkdir','-m','700',deviceDirectory]);deviceCreated=true;quiet(['shell','uiautomator','dump','--compressed',deviceFile]);try{return execFileSync(adb,['-s','emulator-5554','exec-out','cat',deviceFile],{timeout:10000,killSignal:'SIGKILL',maxBuffer:1048576,stdio:['ignore','pipe','ignore']});}catch(error){if(Buffer.isBuffer(error.stdout))error.stdout.fill(0);throw Error('Restart UI unavailable');}},
+          cleanup:()=>{if(deviceAttempted&&!deviceCreated)return false;if(deviceCreated){quiet(['shell','rm','-f',deviceFile]);quiet(['shell','rmdir',deviceDirectory]);}return true;}});
+        if(ui)console.error(`ST244_NATIVE restart_ui welcome=${ui.welcome} verify=${ui.verify} manage=${ui.manage} month=${ui.month} developer=${ui.developer} route_error=${ui.routeError} link_chooser=${ui.linkChooser}`);
+        else console.error('ST244_NATIVE restart_ui=withheld');
+      }
+    }
     if (currentPhase === 'flow-enroll-add') {
+      // Target and occurrence share this owned original-command bundle; legacy text never supplies either.
       const metadata=enrollmentMetadata?.read(currentPhase);
       if(metadata) for(const line of enrollmentMetadataLines(metadata))console.error(`ST244_NATIVE ${line}`);
+      if(androidContext&&androidMetadata){
+        let sealed=false,withheldStage='UNKNOWN';
+        try{sealed=await captureSealedAndroidEntry({privateRoot:privateDir,context:androidContext,reader:androidMetadata,metadata,measure:measureAndroid,onWithheld:value=>{if(PREINPUT_WITHHELD_STAGES.includes(value))withheldStage=value;},checkpoint:androidAppCheckpoint,markerHash:createHash('sha256').update(config.marker).digest('hex'),observe:async()=>({receipt:await harness.readbackReceipt(),manual:harness.manualSaveObservation()}),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),
+          capture:async file=>{const png=execFileSync(join(process.env.ANDROID_HOME,'platform-tools/adb'),['-s','emulator-5554','exec-out','screencap','-p'],{timeout:10000,killSignal:'SIGKILL',maxBuffer:8388608,stdio:['ignore','pipe','pipe']});try{writeFileSync(file,png,{flag:'wx',mode:0o600});}finally{png.fill(0);}}});}catch{/* No values/errors or raw screenshot fallback. */}
+        console.error(`ST244_NATIVE android_entry_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}`);
+      }
       let enrollmentLogSize = null;
       try { enrollmentLogSize = statSync(join(privateDir, 'enroll-add.log')).size; } catch { /* No paths or error details escape. */ }
       const executionDiagnostic = enrollmentExecutionDiagnostic({ phase: currentPhase, execution: enrollmentExecution?.snapshot(), logSize: enrollmentLogSize });
@@ -516,14 +559,24 @@ async function main() {
         } finally { closeSync(fd); }
         return { exitCode, timedOut, log: readFileSync(logPath, 'utf8') };
       };
+      const manualBefore = harness.manualSaveObservation();
       const saveObservations = await failedSaveObservations({
-        phase: currentPhase, diagnostic, labels,
+        phase: currentPhase, diagnostic, metadata: platform === 'android' ? metadata : null, labels,
         observe: () => harness.readbackReceipt(),
         run: (stage, name, label) => saveProbe(label, false, `save-probe-${stage}-${name}`),
         scroll: label => saveProbe(label, true, 'save-probe-header'),
       });
       if (saveObservations) {
+        const manualAfter = harness.manualSaveObservation();
+        const manualFields = ['arrivals', 'finished201', 'rejected4xx', 'failed5xx', 'other', 'incomplete'];
+        for (const [stage, observation] of [['before', manualBefore], ['after', manualAfter]]) {
+          if (observation && Object.keys(observation).length === manualFields.length && manualFields.every(field => Object.hasOwn(observation, field) && ['zero', 'one', 'multiple'].includes(observation[field])))
+            console.error(`ST244_NATIVE failed_save_manual stage=${stage} ${manualFields.map(field => `${field}=${observation[field]}`).join(' ')}`);
+          else console.error(`ST244_NATIVE failed_save_manual stage=${stage} observation=withheld`);
+        }
         console.error(`ST244_NATIVE failed_save_count=${saveObservations.count} header=${saveObservations.header}`);
+        for (const [variant, observation] of Object.entries(saveObservations.amount ?? {}))
+          console.error(`ST244_NATIVE failed_amount_variant=${variant} observation=${observation}`);
         for (const stage of ['before', 'after'])
           for (const [target, observation] of Object.entries(saveObservations[stage] ?? {}))
             console.error(`ST244_NATIVE failed_save_probe=${target} stage=${stage} observation=${observation}`);

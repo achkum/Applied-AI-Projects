@@ -20,7 +20,7 @@ const row={id:credentials.sessionId,revision:'1',source:'MANUAL' as const,visibi
 const copy=catalogs.en.onboarding;const now=()=>new Date(2026,2,28,12);
 it('sandbox renewals show canonical saved rows and use entry instead of private verification',async()=>{
  const facade={phase:'verification-required' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:jest.fn()};
- const view=render(<NativePersonalRenewalsScreen now={now} sandbox useSession={()=>facade} inactiveContent={<Text>Sandbox entry control</Text>}/>);expect(screen.getByText(copy.sandbox.notice)).toBeTruthy();expect(screen.getByText('Sandbox entry control')).toBeTruthy();expect(screen.queryByRole('button',{name:copy.nativePersonal.verify})).toBeNull();view.unmount();
+ const view=render(<NativePersonalRenewalsScreen now={now} sandbox useSession={()=>facade} inactiveContent={<Text>Sandbox entry control</Text>}/>);expect(screen.getByText(copy.sandbox.noticeShort)).toBeTruthy();expect(screen.getByText('Sandbox entry control')).toBeTruthy();expect(screen.queryByRole('button',{name:copy.nativePersonal.verify})).toBeNull();view.unmount();
  const {selectNativeRenewals}=jest.requireActual('@/api/privateMobileRenewals');const readProjection=jest.fn().mockResolvedValue({kind:'ready',groups:selectNativeRenewals([row],now())});const active={...facade,phase:'active' as const,run:async<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>work('sandbox-only',new AbortController().signal)};
  render(<NativePersonalRenewalsScreen now={now} sandbox useSession={()=>active} readProjection={readProjection}/>);await screen.findByText(row.customName);expect(api.readNativeSubscriptions).not.toHaveBeenCalled();expect(readProjection).toHaveBeenCalledWith('sandbox-only',expect.anything(),expect.any(Date));
 });
@@ -33,8 +33,9 @@ function mount(){const store:NativeBundleStore={read:jest.fn().mockResolvedValue
 async function login(){await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));}
 it('requires fresh verification, then shows only expected saved dates with exact Money and return-to-list',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row],nextCursor:null});mount();expect(screen.queryByText(row.customName)).toBeNull();expect(api.readNativeSubscriptions).not.toHaveBeenCalled();await login();
- await screen.findByText(row.customName);expect(screen.getByText('2026-03-28')).toBeTruthy();expect(screen.getByText(`${copy.manualSubscription.expectedAmount}: ${formatMinorUnits(BigInt(row.expectedAmountMinor),'SEK',{locale:'en',display:'code'})}`)).toBeTruthy();
- fireEvent.press(screen.getByRole('button',{name:copy.nativeRenewals.list}));expect(mockReplace).toHaveBeenCalledWith('/personal');
+ await screen.findByText(row.customName);expect(screen.getByText('2026-03-28')).toBeTruthy();expect(screen.getByText(`${formatMinorUnits(BigInt(row.expectedAmountMinor),'SEK',{locale:'en',display:'code'})}`)).toBeTruthy();
+ expect(screen.queryByRole('button',{name:copy.nativePersonal.logout})).toBeNull();
+ fireEvent.press(screen.getByRole('tab',{name:copy.productNav.manage}));expect(mockReplace).toHaveBeenCalledWith('/personal');
 });
 it('keeps partial first-page private rows hidden until terminal cursor has been read',async()=>{
  let finish!:(value:{items:typeof row[];nextCursor:null})=>void;const pending=new Promise<{items:typeof row[];nextCursor:null}>(ok=>{finish=ok;});
@@ -57,11 +58,6 @@ it('blur aborts an obsolete read without logout, and a late result cannot replac
  let finish!:(value:{items:typeof row[];nextCursor:null})=>void;const pending=new Promise<{items:typeof row[];nextCursor:null}>(ok=>{finish=ok;});
  jest.mocked(api.readNativeSubscriptions).mockImplementationOnce(()=>pending).mockResolvedValueOnce({items:[{...row,customName:'Fresh focused renewal'}],nextCursor:null});mount();await login();await waitFor(()=>expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(1));const signal=jest.mocked(api.readNativeSubscriptions).mock.calls[0]![1];
  act(()=>{mockFocus.enabled=false;mockFocus.cleanup?.();});expect(signal.aborted).toBe(true);act(()=>{mockFocus.enabled=true;mockFocus.cleanup=mockFocus.start?.();});await act(async()=>{finish({items:[row],nextCursor:null});});await screen.findByText('Fresh focused renewal');expect(screen.queryByText(row.customName)).toBeNull();expect(api.revokeNativeSession).not.toHaveBeenCalled();
-});
-it('logout clears agenda immediately and suppresses a late old-owner traversal',async()=>{
- let finish!:(value:{items:typeof row[];nextCursor:null})=>void;const pending=new Promise<{items:typeof row[];nextCursor:null}>(ok=>{finish=ok;});
- jest.mocked(api.readNativeSubscriptions).mockImplementationOnce(()=>pending);mount();await login();await waitFor(()=>expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(1));
- fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.logout}));expect(screen.queryByText(row.customName)).toBeNull();await act(async()=>{finish({items:[row],nextCursor:null});});await screen.findByText(copy.nativePersonal.logoutConfirmed);expect(screen.queryByText(row.customName)).toBeNull();
 });
 it.each(['duplicate','cursor'])('bad multi-page %s data never displays a successful agenda',async defect=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:'cursorA'}).mockResolvedValueOnce({items:defect==='duplicate'?[row]:[],nextCursor:defect==='cursor'?'cursorA':null});mount();await login();await screen.findByText(copy.nativePersonal.unavailable);expect(screen.queryByText(row.customName)).toBeNull();

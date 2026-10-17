@@ -8,6 +8,6 @@ export function privateMobileTrackingReceipt(marker:string,rows:readonly Record<
  if(typeof row.id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(row.id))throw new Error('Fixture tracking readback rejected');
  const projection={id:row.id,customName:row.custom_name,categoryCode:row.category_code,cadence:row.cadence,expectedAmountMinor:row.expected_amount_minor,currency:row.currency,status:row.status,source:row.source,nextChargeDate:row.next_charge_date,alwaysPrivate:row.always_private,revision:row.revision};
  return Object.freeze({version:1,markerHash:hash(marker),subscriptionCount:1,subscriptionIdentityHash:hash(row.id),subscriptionDigest:hash(JSON.stringify(projection)),
-  manualEditReadback:row.custom_name==='Native edited restart proof'&&row.source==='MANUAL'&&row.currency==='SEK'&&row.category_code==='VIDEO_STREAMING'&&row.cadence==='MONTHLY'&&row.expected_amount_minor==='12990'&&row.next_charge_date===null&&row.always_private===true,
+  manualEditReadback:row.custom_name==='Example streaming Plus'&&row.source==='MANUAL'&&row.currency==='SEK'&&row.category_code==='VIDEO_STREAMING'&&row.cadence==='MONTHLY'&&row.expected_amount_minor==='12990'&&row.next_charge_date===null&&row.always_private===true,
   archivedReadback:row.status==='ARCHIVED',revisionSixReadback:row.revision==='6'});
 }

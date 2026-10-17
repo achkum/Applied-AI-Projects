@@ -1,8 +1,8 @@
 export function staticBundleArguments(platform, versions, outputDir) {
   if (
     !['android', 'ios'].includes(platform) ||
-    versions?.native !== '0.74.5' ||
-    versions?.babel !== '11.0.15' ||
+    versions?.native !== '0.81.5' ||
+    versions?.babel !== '54.0.12' ||
     typeof outputDir !== 'string' ||
     !outputDir
   )

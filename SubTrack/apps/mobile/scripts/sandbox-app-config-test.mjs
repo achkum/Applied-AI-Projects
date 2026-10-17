@@ -43,7 +43,7 @@ test('actual sandbox variant separates identifiers and excludes private plugin',
   assert.equal(config.scheme, 'subtrack-sandbox');
   assert.equal(config.ios.bundleIdentifier, 'se.subtrack.app.sandbox');
   assert.equal(config.android.package, 'se.subtrack.app.sandbox');
-  assert.deepEqual(config.plugins, ['expo-router', 'expo-secure-store']);
+  assert.deepEqual(config.plugins, ['expo-router', 'expo-secure-store', staticConfig.plugins.find(plugin=>Array.isArray(plugin)&&plugin[0]==='expo-font')]);
   assert.deepEqual(config.extra.subtrackSandbox, { variant: 'sandbox', apiBaseUrl: sandbox.SUBTRACK_SANDBOX_HTTPS_ORIGIN,
     runtimeEnabled: false, publicationEnabled: false, privateDiagnosticsEnabled: false });
   for (const key of ['version', 'orientation', 'icon', 'splash', 'assetBundlePatterns', 'web']) assert.deepEqual(config[key], staticConfig[key]);

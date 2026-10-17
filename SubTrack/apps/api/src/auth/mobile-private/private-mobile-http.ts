@@ -19,12 +19,13 @@ const {PRIVATE_MOBILE_PATHS:PATHS,parsePrivateMobileEnrollmentComplete,parsePriv
 };
 const {PRIVATE_MOBILE_BANK_PATHS:BANK_PATHS}=createRequire(__filename)('@subtrack/contracts/private-mobile-bank') as typeof import('@subtrack/contracts/private-mobile-bank');
 const {PRIVATE_MOBILE_DETECTION_PATHS:DETECTION_PATHS}=createRequire(__filename)('@subtrack/contracts/private-mobile-detection') as typeof import('@subtrack/contracts/private-mobile-detection');
-const HEADERS=new Set(['host','connection','accept','accept-encoding','user-agent','content-type','content-length','authorization','idempotency-key']);
+const HEADERS=new Set(['host','connection','accept','accept-language','accept-encoding','user-agent','content-type','content-length','authorization','idempotency-key']);
 export function privateMobileWire(request:IncomingMessage):void{
  if(process.env.NODE_ENV!=='development'||!(request.socket instanceof TLSSocket)||request.socket.encrypted!==true||request.socket.remoteAddress!=='127.0.0.1'||request.method!=='POST'||request.url?.includes('?')||rawHeader(request,'host')!=='localhost:3443'||request.rawHeaders.length%2!==0)throw new Error('wire');
  const seen=new Set<string>();for(let i=0;i<request.rawHeaders.length;i+=2){const name=request.rawHeaders[i]?.toLowerCase(),value=request.rawHeaders[i+1];
   // eslint-disable-next-line no-control-regex -- Header framing excludes controls; ordinary Accept lists may contain commas.
   if(!name||!HEADERS.has(name)||seen.has(name)||typeof value!=='string'||/[\x00-\x1f\x7f]/.test(value))throw new Error('wire');seen.add(name);}
+ rawHeader(request,'accept-language');
  const length=rawHeader(request,'content-length');
  if(request.url===PATHS.refresh){if(!(length===null||length==='0')||rawHeader(request,'content-type')!==null)throw new Error('wire');}
  else if(!length||!/^[1-9][0-9]{0,3}$/.test(length)||Number(length)>8192||rawHeader(request,'content-type')!=='application/json')throw new Error('wire');

@@ -1,6 +1,4 @@
+import React from 'react';
 import { Redirect } from 'expo-router';
-import {sandboxBuildSelected} from '@/state/SandboxSession';
-
-export default function IndexRoute() {
-  return <Redirect href={sandboxBuildSelected()?'/personal':'/welcome'} />;
-}
+import {useOnboarding} from '@/state/OnboardingAdapter';
+export default function IndexRoute(){const session=useOnboarding();return <Redirect href={session.sessionPhase==='active'?{pathname:'/personal',params:{setup:'1'}}:'/welcome'}/>;}

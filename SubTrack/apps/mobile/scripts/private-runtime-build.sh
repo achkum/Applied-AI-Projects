@@ -21,6 +21,7 @@ if [[ "$platform" == android ]]; then
   # C9 JetifyTransform exhausted the template's 2GiB heap. Bound concurrency
   # while allocating 4GiB for this hosted debug compile; transforms/ABIs intact.
   (cd android && ./gradlew :app:assembleDebug --no-daemon --stacktrace --max-workers=2 \
+    --build-cache --init-script ../scripts/private-runtime-gradle-cache.init.gradle \
     '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m') > "$proof_root/private/build.log" 2>&1
   set_build_phase android-install
   bash scripts/private-runtime-android.sh owned-device > "$proof_root/private/owned-device.log" 2>&1

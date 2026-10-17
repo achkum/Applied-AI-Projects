@@ -69,3 +69,4 @@ effe056ccce9eb5bbaee8fd4cbd04b51af92df34:SubTrack/apps/api/src/subscriptions/pri
 # ST250 audited fixed source SHA256 annotations; exact historical findings only.
 f3f9b72c8a4a40f03a40ab3b19722b9ea0b7c124:SubTrack/.sdlc/evidence/ST-250/sandbox-native-activation-source-handoff.md:generic-api-key:17
 f3f9b72c8a4a40f03a40ab3b19722b9ea0b7c124:SubTrack/.sdlc/evidence/ST-250/sandbox-native-activation-source-handoff.md:generic-api-key:18
+fdba661775038e7428255941d8709bafbd723658:SubTrack/.sdlc/evidence/ST-252/linux-publication-execution.md:generic-api-key:3

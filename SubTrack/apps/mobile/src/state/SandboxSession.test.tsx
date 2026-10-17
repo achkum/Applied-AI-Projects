@@ -15,8 +15,8 @@ const mockReplace=jest.fn();let mockPath='/';let mockShowMockConsumer=false;
 jest.mock('expo-router',()=>({Stack:Object.assign(()=>mockShowMockConsumer?<MockConsumer/>:null,{Screen:()=>null}),usePathname:()=>mockPath,useRouter:()=>({replace:mockReplace})}));
 jest.mock('expo-font',()=>({useFonts:()=>[true,null]}));
 jest.mock('@/providers/RootProvider',()=>({RootProvider:({children}:{children:React.ReactNode})=>children}));
-jest.mock('@/state/NativeSession',()=>({NativeSessionProvider:jest.fn(({children}:{children:React.ReactNode})=>children)}));
-jest.mock('@/state/EnrollmentFlow',()=>({EnrollmentProvider:jest.fn(({children}:{children:React.ReactNode})=>children)}));
+jest.mock('@/state/NativeSession',()=>({NativeSessionProvider:jest.fn(({children}:{children:React.ReactNode})=>children),useNativeSession:()=>({phase:'verification-required'})}));
+jest.mock('@/state/EnrollmentFlow',()=>({EnrollmentProvider:jest.fn(({children}:{children:React.ReactNode})=>children),useEnrollment:()=>({flow:{phase:'identifier'}})}));
 jest.mock('@/context/ThemeContext',()=>({useTheme:()=>jest.requireActual('../components/signature/testUtils/contextMocks').makeTheme(false)}));
 jest.mock('@/context/I18nContext',()=>({useI18n:()=>jest.requireActual('../components/signature/testUtils/contextMocks').makeI18n('en')}));
 jest.mock('@/utils/secureSandboxBundle',()=>({...jest.requireActual('@/utils/secureSandboxBundle'),secureSandboxBundle:{read:jest.fn().mockResolvedValue(null),write:jest.fn().mockResolvedValue(undefined),clear:jest.fn().mockResolvedValue(undefined)}}));
@@ -35,9 +35,9 @@ it('injected qualified transport activates only after actual core persistence', 
 });
 it('unsupported initial and later deep links never mount a private subtree before repair',()=>{
  const mounted=jest.fn();function Child(){mounted();return<Text>Allowed subtree</Text>;}
- for(const path of ['/register','/register-otp','/register-bankid','/personal-bank','/personal-detections','/(tabs)']){
-  mockPath=path;const view=render(<SandboxSessionProvider><SandboxRouteBoundary><Child/></SandboxRouteBoundary></SandboxSessionProvider>);expect(screen.queryByText('Allowed subtree')).toBeNull();expect(mockReplace).toHaveBeenCalledWith('/personal');view.unmount();
- }expect(mounted).not.toHaveBeenCalled();mockPath='/personal';const view=render(<SandboxSessionProvider><SandboxRouteBoundary><Child/></SandboxRouteBoundary></SandboxSessionProvider>);expect(screen.getByText('Allowed subtree')).toBeTruthy();const before=mounted.mock.calls.length;mockPath='/register';view.rerender(<SandboxSessionProvider><SandboxRouteBoundary><Child/></SandboxRouteBoundary></SandboxSessionProvider>);expect(screen.queryByText('Allowed subtree')).toBeNull();expect(mounted).toHaveBeenCalledTimes(before);
+ for(const path of ['/personal-bank','/personal-detections','/(tabs)','/en/demo']){
+  mockPath=path;const view=render(<SandboxSessionProvider><SandboxRouteBoundary><Child/></SandboxRouteBoundary></SandboxSessionProvider>);expect(screen.queryByText('Allowed subtree')).toBeNull();expect(mockReplace).toHaveBeenCalledWith('/welcome');view.unmount();
+ }expect(mounted).not.toHaveBeenCalled();mockPath='/personal';const view=render(<SandboxSessionProvider><SandboxRouteBoundary><Child/></SandboxRouteBoundary></SandboxSessionProvider>);expect(screen.getByText('Allowed subtree')).toBeTruthy();const before=mounted.mock.calls.length;mockPath='/personal-bank';view.rerender(<SandboxSessionProvider><SandboxRouteBoundary><Child/></SandboxRouteBoundary></SandboxSessionProvider>);expect(screen.queryByText('Allowed subtree')).toBeNull();expect(mounted).toHaveBeenCalledTimes(before);
 });
 it('malformed sandbox marker remains isolated instead of falling back to private providers',()=>{
  for(const marker of [null,{variant:'unknown'},{variant:'sandbox',apiBaseUrl:'http://unapproved'}])expect(sandboxBuildSelected({extra:{subtrackSandbox:marker}})).toBe(true);

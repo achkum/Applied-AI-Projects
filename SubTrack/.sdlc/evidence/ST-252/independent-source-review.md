@@ -1,0 +1,9 @@
+# Consolidated independent delivery source review
+
+Disposition: SOURCE GO across ST252 six paths and ST253 five paths. Separate platform/security reviewer independently matched frozen hashes; no tests or remote operations repeated. Earlier shallow-history HOLD is resolved by self-contained current-HEAD regression fixtures; production old/new raw Git verification remains intact. Test source normalization corrects Windows CRLF extraction without relaxing Bash guards.
+
+Strict closed11-field reuse proof binds distinct artifact, execution and retained import authorities to genuine unchanged archive/image/config/tool versions and pinned raw Dockerfile. Initial same-head Stage/import stays strict. Current publication must have an exact immutable history snapshot before latest signing history advances; new run history is exclusive and latest remains monotonic. Successor qualification retains exact predecessor source/index/bytes, validates same certificate/new version, and uses guarded atomic read-only file replacement. Known partial rollback and failure restoration preserve metadata and do not reset signer history, API or database. Root Linux execution qualifies snapshot and publication mutation mechanisms using synthetic filesystem fixtures; no live signing is claimed.
+
+The API build closure, two depth2 checkouts, exact accepted RN0.81.5 precondition and detection fixture build repair are scoped to measured failures. Repository/branch/head/free-draft/privacy/environment/nonroot runtime guards and dependency pins remain intact.
+
+Required before actual update: exact reviewed integration source/tool execution ledger; final build/signature/custody checks; copy exact tools-reuse proof bytes into hosting; separately review gateway-only operation; trusted HTTPS APK/readback and unchanged API/database IDs; installed Android/iOS acceptance. Source GO is not deployment or native completion.

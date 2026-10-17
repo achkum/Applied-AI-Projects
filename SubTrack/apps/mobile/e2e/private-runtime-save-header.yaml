@@ -1,6 +1,9 @@
 appId: se.subtrack.app
 ---
 - scrollUntilVisible:
-    element: ${MAESTRO_PERSONAL_TITLE}
+    element:
+      id: native-personal-title
     direction: UP
-- assertVisible: ${MAESTRO_PERSONAL_TITLE}
+- assertVisible:
+    id: native-personal-title
+    text: ${MAESTRO_PERSONAL_TITLE}

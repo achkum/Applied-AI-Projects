@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 export const JDK_IMAGE = 'eclipse-temurin@sha256:8d242405506ad1085e39f1ca80ec76f0812f61073efe76129607e39f043ccbb9';
 export const SDK_URL = 'https://dl.google.com/android/repository/build-tools_r36_linux.zip';
 export const SDK_SHA256 = '5d9ac77fb6ff43d9da518a337b4fcf8f9097113df531d99ccefe80ef7ce8250b';
+export const TOOLS_DOCKERFILE_SHA256 = 'd2867b142a15cb44ce58361baa188e93da1c8c95fda7f7f5c41c6a00f0813e31';
 const unavailable = () => { throw Error('ST250_ANDROID_TRANSFER_UNAVAILABLE'); };
 const sha = x => typeof x === 'string' && /^[a-f0-9]{64}$/.test(x);
 const head = x => typeof x === 'string' && /^[a-f0-9]{40}$/.test(x);
@@ -84,6 +85,12 @@ export function assertSignedUpdate(manifest,certificate,history) {
   if(manifest.runtimeEnabled===true&&manifest.versionCode<=history.versionCode)unavailable();
   if(manifest.versionCode<history.versionCode||(manifest.versionCode===history.versionCode&&(manifest.sourceHead!==history.sourceHead||manifest.unsignedSha256!==history.unsignedSha256)))unavailable();
   return true;
+}
+/** Exact immutable run facts, distinct from the monotonic latest signer history. */
+export function validateRunSignedHistory(value,manifest,certificate,signedSha256,apkRun){
+ validateManifest(manifest,'apk');if(!sha(certificate)||!sha(signedSha256)||apkRun!==manifest.runId)unavailable();
+ const active=manifest.runtimeEnabled===true,expected={schema:active?'st250-android-signed-history-v2':'st250-android-signed-history-v1',signerCertificateSha256:certificate,versionCode:manifest.versionCode,sourceHead:manifest.sourceHead,unsignedSha256:manifest.unsignedSha256,signedSha256,apkRun,runtimeEnabled:active,...(active?{embeddedConfigSha256:manifest.embeddedConfigSha256,hermesSha256:manifest.hermesSha256}:{})};
+ closed(value,Object.keys(expected));for(const key of Object.keys(expected))if(value[key]!==expected[key])unavailable();return Object.freeze({...value});
 }
 export function names(kind, sourceHead) {
   if (!head(sourceHead) || !['apk','tools','signed'].includes(kind)) unavailable();
@@ -200,6 +207,22 @@ function importInspection(value){const data=v=>{if(!v||Object.getPrototypeOf(v)!
 export function toolsImportBinding(configBytes,inspected,manifest,receiptBytes,manifestBytes,loadLog,toolingHead){validateManifest(manifest,'tools');bindMeasured(manifest,canonical(receiptBytes,v=>validateTransfer(v,'tools')),manifest.archiveSha256,manifest.archiveBytes,manifestBytes,'tools');if(!head(toolingHead))unavailable();importInspection(inspected);const imported=importTools.loadIdentity(loadLog);if(inspected.Id!==imported||inspected.Config?.User!=='996:996'||inspected.Config?.Labels?.['se.subtrack.android.source']!==manifest.sourceHead||inspected.Config?.Labels?.['se.subtrack.android.run']!==manifest.runId)unavailable();const config=JSON.parse(configBytes),binding=importTools.configBinding(configBytes,inspected,manifest.imageId,config.rootfs.diff_ids);return {schema:'st250-android-tools-import-binding-v1',artifactSourceHead:manifest.sourceHead,toolingSourceHead:toolingHead,toolsRun:manifest.runId,transferReceiptSha256:digest(receiptBytes),transferManifestSha256:digest(manifestBytes),archiveSha256:manifest.archiveSha256,rawTarSha256:manifest.rawTarSha256,exportedConfigId:manifest.imageId,importedImageId:imported,configPortfolioSha256:binding.runtimeConfigSha256,rootfsSha256:binding.rootfsSha256};}
 function toolsImportCandidate(value,custody,toolingHead){closed(value,toolsImportFields);const {manifest,receiptBytes,manifestBytes}=custody;if(!head(toolingHead)||value.schema!=='st250-android-tools-import-binding-v1'||value.artifactSourceHead!==manifest.sourceHead||value.toolingSourceHead!==toolingHead||value.toolsRun!==manifest.runId||value.transferReceiptSha256!==digest(receiptBytes)||value.transferManifestSha256!==digest(manifestBytes)||value.archiveSha256!==manifest.archiveSha256||value.rawTarSha256!==manifest.rawTarSha256||value.exportedConfigId!==manifest.imageId||typeof value.importedImageId!=='string'||! /^sha256:[a-f0-9]{64}$/.test(value.importedImageId)||!sha(value.configPortfolioSha256)||!sha(value.rootfsSha256))unavailable();return value.importedImageId;}
 export function validateToolsImport(value,custody,toolingHead,inspected){const imported=toolsImportCandidate(value,custody,toolingHead),{manifest}=custody;importInspection(inspected);if(inspected.Os!=='linux'||inspected.Architecture!=='amd64'||inspected.RootFS?.Type!=='layers'||inspected.Id!==imported||inspected.Config?.User!=='996:996'||inspected.Config?.Labels?.['se.subtrack.android.source']!==manifest.sourceHead||inspected.Config?.Labels?.['se.subtrack.android.run']!==manifest.runId||digest(JSON.stringify(importTools.imageConfigPortfolio(inspected.Config)))!==value.configPortfolioSha256||digest(JSON.stringify(inspected.RootFS?.Layers))!==value.rootfsSha256)unavailable();return imported;}
+const toolsReuseFields=['schema','apkSourceHead','toolsSourceHead','signerExecutionHead','signingToolingHead','toolsRun','dockerfileSha256','toolsImportBindingSha256','toolsManifestSha256','toolsReceiptSha256','importedImageId'];
+function toolsReuseExpected(custody,importBytes,apkSourceHead,signerExecutionHead,signingToolingHead){
+ if(!head(apkSourceHead)||!head(signerExecutionHead)||!head(signingToolingHead))unavailable();
+ const manifest=canonical(custody.manifestBytes,v=>validateManifest(v,'tools')),receipt=canonical(custody.receiptBytes,v=>validateTransfer(v,'tools'));
+ bindMeasured(manifest,receipt,manifest.archiveSha256,manifest.archiveBytes,custody.manifestBytes,'tools');
+ if(JSON.stringify(manifest)!==JSON.stringify(custody.manifest)||manifest.dockerfileSha256!==TOOLS_DOCKERFILE_SHA256)unavailable();
+ const imported=canonical(importBytes,v=>{toolsImportCandidate(v,custody,signingToolingHead);return v;});
+ return {schema:'st252-android-tool-reuse-v1',apkSourceHead,toolsSourceHead:manifest.sourceHead,signerExecutionHead,signingToolingHead,toolsRun:manifest.runId,dockerfileSha256:TOOLS_DOCKERFILE_SHA256,toolsImportBindingSha256:digest(importBytes),toolsManifestSha256:digest(custody.manifestBytes),toolsReceiptSha256:digest(custody.receiptBytes),importedImageId:imported.importedImageId};
+}
+export function toolsReuseBinding(custody,importBytes,apkSourceHead,signerExecutionHead,signingToolingHead,apkDockerfileBytes,toolsDockerfileBytes){
+ for(const bytes of [apkDockerfileBytes,toolsDockerfileBytes])if(!Buffer.isBuffer(bytes)||bytes.length<1||bytes.length>65536||digest(bytes)!==TOOLS_DOCKERFILE_SHA256)unavailable();
+ return Object.freeze(toolsReuseExpected(custody,importBytes,apkSourceHead,signerExecutionHead,signingToolingHead));
+}
+export function validateToolsReuse(value,custody,importBytes,apkSourceHead,signerExecutionHead,signingToolingHead){
+ closed(value,toolsReuseFields);const expected=toolsReuseExpected(custody,importBytes,apkSourceHead,signerExecutionHead,signingToolingHead);for(const key of toolsReuseFields)if(value[key]!==expected[key])unavailable();return Object.freeze({...value});
+}
 
 const toolFailures=new WeakMap();
 export function toolsArchiveDiagnostic(error){return toolFailures.get(error)??null;}
@@ -506,6 +529,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href) {
     else if(mode==='receive-signed'&&args.length===4)receiveSigned(args[0],args[1],args[2],args[3]);
     else if(mode==='inspect-tools-tar'&&args.length===2)inspectToolTarFiles(args[0],args[1]);
     else if(mode==='tools-custody'&&args.length===1)await toolsCustody(args[0]);
+    else if(mode==='tools-reuse'&&args.length===8){const [directory,importFile,apkHead,executionHead,importHead,apkDockerfile,toolsDockerfile,output]=args,value=toolsReuseBinding(await toolsCustody(directory),readRegular(importFile,16384),apkHead,executionHead,importHead,readRegular(apkDockerfile,65536),readRegular(toolsDockerfile,65536));writeFileSync(output,JSON.stringify(value),{flag:'wx',mode:0o600});}
     else if(mode==='tools-stage-archive'&&args.length===2){const {manifest}=await toolsCustody(args[0]);const measured=await importTools.streamArchive(path.join(args[0],'tools-image.tar.gz'),1073741824,2147483648,args[1]);for(const key of ['archiveSha256','archiveBytes','rawTarSha256','rawTarBytes'])if(measured[key]!==manifest[key])unavailable();await inspectToolTarFile(args[1],manifest);}
     else if(mode==='tools-import-bind'&&args.length===6){const [directory,raw,load,inspection,toolingHead,output]=args,custody=await toolsCustody(directory),facts=await inspectToolTarFile(raw,custody.manifest),value=toolsImportBinding(facts.configBytes,JSON.parse(readRegular(inspection,1048576)),custody.manifest,custody.receiptBytes,custody.manifestBytes,readRegular(load,16384).toString('utf8'),toolingHead);writeFileSync(output,JSON.stringify(value),{flag:'wx',mode:0o600});}
     else if(mode==='tools-import-reference'&&args.length===4){const [directory,toolingHead,inspection,record]=args,custody=await toolsCustody(directory);process.stdout.write(validateToolsImport(canonical(readRegular(record,16384),v=>v),custody,toolingHead,JSON.parse(readRegular(inspection,1048576))));}

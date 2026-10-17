@@ -2,6 +2,7 @@ let mockDiagnosticChannel:ReturnType<typeof import('@/utils/privateRuntimeEnroll
 jest.mock('@/utils/privateRuntimeEnrollmentDiagnostic',()=>{const actual=jest.requireActual<typeof import('@/utils/privateRuntimeEnrollmentDiagnostic')>('@/utils/privateRuntimeEnrollmentDiagnostic');return {...actual,calibrateEnrollmentDiagnostic:()=>mockDiagnosticChannel?.calibrate()??(()=>{}),observeEnrollmentStage:(stage:import('@/utils/privateRuntimeEnrollmentDiagnostic').EnrollmentDiagnosticStage)=>mockDiagnosticChannel?.observe(stage),beginEnrollmentDiagnostic:()=>mockDiagnosticChannel?.begin()};});
 import {beginEnrollmentDiagnostic,createEnrollmentDiagnosticChannel} from '@/utils/privateRuntimeEnrollmentDiagnostic';
 import React from 'react';
+import { ScrollView } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { catalogs } from '@subtrack/i18n';
 import WelcomeRoute from '../../../app/welcome';
@@ -14,11 +15,12 @@ let mockRouteParams: Record<string, string | string[] | undefined> = {};
 const mockBack = jest.fn();
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
-const mockStart = jest.fn();
+const mockStart = jest.fn().mockResolvedValue(undefined);
 const mockReset = jest.fn();
 const mockNativeLogin = jest.fn().mockResolvedValue(undefined);
 const mockNativeLogout = jest.fn().mockResolvedValue(false);
 const mockNativeComplete = jest.fn().mockResolvedValue(undefined);
+let mockProvider: 'production' | 'sandbox' = 'production';
 let mockFlow: { phase: string; error?: string; proof?: string } = { phase: 'identifier' };
 const registrationCopy = {
   en: catalogs.en.onboarding.registration,
@@ -26,6 +28,7 @@ const registrationCopy = {
 };
 
 jest.mock('expo-router', () => ({
+  useFocusEffect: (effect: () => void) => jest.requireActual<typeof import('react')>('react').useEffect(effect, [effect]),
   useRouter: () => ({ back: mockBack, push: mockPush, replace: mockReplace }),
   useLocalSearchParams: () => mockRouteParams,
 }));
@@ -33,6 +36,7 @@ jest.mock('@/state/EnrollmentFlow', () => ({
   useEnrollment: () => ({ flow: mockFlow, start: mockStart, reset: mockReset }),
 }));
 jest.mock('@/state/NativeSession', () => ({ useNativeSession: () => ({ phase: 'verification-required', login: mockNativeLogin, logout: mockNativeLogout, complete: mockNativeComplete }) }));
+jest.mock('@/state/OnboardingAdapter', () => ({ useOnboarding: () => ({ provider: mockProvider, flow: mockFlow, sessionPhase: 'verification-required', start: mockStart, verify: jest.fn(), resend: jest.fn(), reset: mockReset, complete: mockNativeComplete, login: mockNativeLogin, logout: mockNativeLogout }) }));
 jest.mock('@/context/ThemeContext', () => ({
   useTheme: () =>
     jest
@@ -56,6 +60,7 @@ describe('RegistrationScreen', () => {
     mockLocale = 'en';
     mockRouteParams = {};
     mockFlow = { phase: 'identifier' };
+    mockProvider = 'production';
     jest.clearAllMocks();
   });
 
@@ -75,8 +80,30 @@ describe('RegistrationScreen', () => {
     },
   );
 
+  it('uses the shared login view and opens the sandbox session directly', async () => {
+    mockProvider = 'sandbox';
+    mockNativeLogin.mockResolvedValueOnce('sandbox-session-ready');
+    render(<RegistrationScreen mode="login" />);
+    fireEvent.press(screen.getByRole('button', { name: catalogs.en.onboarding.nativePersonal.verify }));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/personal'));
+    expect(screen.getByText(catalogs.en.onboarding.sandbox.noticeShort)).toBeTruthy();
+  });
+
+  it('does not clear sandbox installation credentials when a pending login view unmounts', async () => {
+    mockProvider = 'sandbox';
+    let resolveLogin: (value: 'sandbox-session-ready') => void = () => undefined;
+    mockNativeLogin.mockImplementationOnce(() => new Promise(resolve => { resolveLogin = resolve; }));
+    const view = render(<RegistrationScreen mode="login" />);
+    fireEvent.press(screen.getByRole('button', { name: catalogs.en.onboarding.nativePersonal.verify }));
+    view.unmount();
+    expect(mockNativeLogout).not.toHaveBeenCalled();
+    resolveLogin('sandbox-session-ready');
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+
   it('starts the OTP request only after valid input without displaying the identifier', () => {
     render(<RegistrationScreen />);
+    expect(screen.UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe('handled');
     const input = screen.getByLabelText(
       catalogs.en.onboarding.identifier.emailLabel,
     );
@@ -113,9 +140,9 @@ describe('RegistrationScreen', () => {
       mockLocale = locale;
       render(<RegistrationScreen mode="login" />);
       expect(
-        screen.getByText(catalogs[locale].onboarding.nativePersonal.demo),
-      ).toBeTruthy();
-      expect(screen.getByRole('alert')).toBeTruthy();
+        screen.queryByText(catalogs[locale].onboarding.registration.introduction),
+      ).toBeNull();
+      expect(screen.getByRole('header', { name: catalogs[locale].onboarding.nativePersonal.loginTitle })).toBeTruthy();
       expect(
         screen.queryByLabelText(
           catalogs[locale].onboarding.identifier.emailLabel,
@@ -143,9 +170,9 @@ describe('RegistrationScreen', () => {
       };
       render(<RegisterRoute />);
       expect(
-        screen.getByText(catalogs[locale].onboarding.nativePersonal.demo),
-      ).toBeTruthy();
-      expect(screen.getByRole('alert')).toBeTruthy();
+        screen.queryByText(catalogs[locale].onboarding.registration.introduction),
+      ).toBeNull();
+      expect(screen.getByRole('header', { name: catalogs[locale].onboarding.nativePersonal.loginTitle })).toBeTruthy();
       expect(
         screen.queryByLabelText(
           catalogs[locale].onboarding.identifier.emailLabel,
@@ -200,12 +227,7 @@ describe('RegistrationScreen', () => {
         pathname: '/register',
         params: { mode: 'login' },
       });
-      fireEvent.press(
-        screen.getByRole('button', {
-          name: catalogs[locale].onboarding.welcome.exploreDemo,
-        }),
-      );
-      expect(mockPush).toHaveBeenNthCalledWith(3, `/${locale}/demo`);
+      expect(screen.queryByRole('button', { name: catalogs[locale].onboarding.welcome.exploreDemo })).toBeNull();
     },
   );
 });
@@ -217,7 +239,7 @@ describe('mandatory private native completion',()=>{
     expect(screen.getByText(catalogs.en.onboarding.nativePersonal.demo)).toBeTruthy();
     fireEvent.press(screen.getByRole('button',{name:catalogs.en.onboarding.nativePersonal.verify}));
     await new Promise(resolve=>setTimeout(resolve,0));
-    expect(mockNativeComplete).toHaveBeenCalledWith(mockFlow.proof,'en');expect(mockReplace).toHaveBeenCalledWith('/personal');
+    expect(mockNativeComplete).toHaveBeenCalledWith('en');expect(mockReplace).toHaveBeenCalledWith('/personal');
   });
   it('ignores a completion response after unmount and locally invalidates its pending session',async()=>{
     let resolve:()=>void=()=>undefined;mockNativeComplete.mockImplementationOnce(()=>new Promise<void>(done=>{resolve=done;}));
@@ -242,4 +264,9 @@ test('owned mounted register calibration is fixed and survives starting, retires
  const log=jest.spyOn(console,'info').mockImplementation(()=>{});mockDiagnosticChannel=createEnrollmentDiagnosticChannel(()=>({development:true,platform:'ios',proof:'true',enabled:'true',url:'https://localhost:3443'}),fixed=>console.info(fixed));
  try{mockFlow={phase:'identifier'};const view=render(<RegistrationScreen/>);expect(log.mock.calls.map(([line])=>line)).toEqual(['ST244_ENROLLMENT calibration=mounted']);const observer=beginEnrollmentDiagnostic();mockFlow={phase:'starting'};view.rerender(<RegistrationScreen/>);observer?.stage('fetch-entered');expect(log).toHaveBeenLastCalledWith('ST244_ENROLLMENT stage=fetch-entered');view.unmount();observer?.stage('flow-committed');expect(log).toHaveBeenCalledTimes(2);render(<RegistrationScreen mode="login"/>);expect(log).toHaveBeenCalledTimes(2);}
  finally{mockDiagnosticChannel=undefined;log.mockRestore();}
+});
+
+it.each(['en','sv'] as const)('sandbox signup opens the shared profile directly without verification screens in %s',async locale=>{
+ jest.clearAllMocks();mockFlow={phase:'identifier'};mockLocale=locale;mockProvider='sandbox';render(<RegistrationScreen/>);fireEvent.changeText(screen.getByLabelText(catalogs[locale].onboarding.identifier.emailLabel),'sample@example.test');fireEvent.press(screen.getByRole('button',{name:catalogs[locale].onboarding.identifier.continueLabel}));
+ await waitFor(()=>expect(mockReplace).toHaveBeenCalledWith('/personal'));expect(mockReplace).not.toHaveBeenCalledWith('/register-otp');expect(mockReplace).not.toHaveBeenCalledWith('/register-bankid');expect(mockStart).toHaveBeenCalledWith({valid:true,channel:'email',identifier:'sample@example.test'},locale);
 });

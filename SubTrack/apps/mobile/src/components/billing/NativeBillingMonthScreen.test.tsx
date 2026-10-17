@@ -22,7 +22,7 @@ const copy=catalogs.en.onboarding;const now=()=>new Date(2026,2,28,12);
 it('sandbox dependency port reuses Month totals and replaces private inactive controls',async()=>{
  const facade={phase:'verification-required' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:jest.fn()};
  const view=render(<NativeBillingMonthScreen now={now} sandbox useSession={()=>facade} inactiveContent={<Text>Sandbox entry control</Text>}/>);
- expect(screen.getByText(copy.sandbox.notice)).toBeTruthy();expect(screen.getByText('Sandbox entry control')).toBeTruthy();expect(screen.queryByRole('button',{name:copy.nativePersonal.verify})).toBeNull();view.unmount();
+ expect(screen.getByText(copy.sandbox.noticeShort)).toBeTruthy();expect(screen.getByText('Sandbox entry control')).toBeTruthy();expect(screen.queryByRole('button',{name:copy.nativePersonal.verify})).toBeNull();view.unmount();
  const {selectBillingMonth}=jest.requireActual('@/api/privateMobileBillingMonth');const readProjection=jest.fn().mockResolvedValue({kind:'ready',projection:selectBillingMonth([row],{year:2026,month:3})});
  const active={...facade,phase:'active' as const,run:async<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>work('sandbox-only',new AbortController().signal)};
  render(<NativeBillingMonthScreen now={now} sandbox useSession={()=>active} readProjection={readProjection}/>);await screen.findByText(row.customName);expect(readProjection).toHaveBeenCalledWith('sandbox-only',expect.anything(),{year:2026,month:3});expect(api.readNativeSubscriptions).not.toHaveBeenCalled();expect(screen.queryByRole('button',{name:copy.nativeDetection.open})).toBeNull();
@@ -38,13 +38,57 @@ it('shows both same-day entries, exact saved totals, detail isolation and manage
  const second={...row,id:'223e4567-e89b-42d3-a456-426614174000',customName:'Second saved service',expectedAmountMinor:'7'};
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row,second],nextCursor:null});mount();expect(api.readNativeSubscriptions).not.toHaveBeenCalled();await login();await screen.findByText(row.customName);
  expect(screen.getByText(second.customName)).toBeTruthy();expect(screen.getByText(formatMinorUnits(BigInt(row.expectedAmountMinor)+7n,'SEK',{locale:'en',display:'code'}).replace(/[\u00a0\u202f]/g,' '))).toBeTruthy();
- fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.details.replace('%{name}',row.customName)}));expect(screen.getByText(copy.billingMonth.manual)).toBeTruthy();expect(screen.getByText(copy.billingMonth.private)).toBeTruthy();expect(screen.queryByRole('button',{name:copy.billingMonth.next})).toBeNull();
+ fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.details.replace('%{name}',row.customName)}));expect(screen.getByText(copy.billingMonth.manual)).toBeTruthy();expect(screen.queryByText(copy.billingMonth.private)).toBeNull();expect(screen.queryByRole('button',{name:copy.billingMonth.next})).toBeNull();
  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.manage}));expect(mockReplace).toHaveBeenCalledWith('/personal');
+});
+it('keeps account controls in Manage and exposes only real Month, Upcoming and Manage destinations',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});mount();await login();await screen.findByText(copy.billingMonth.empty);
+ expect(screen.queryByRole('button',{name:copy.nativePersonal.logout})).toBeNull();for(const theme of Object.values(catalogs.en.preferences.themes))expect(screen.queryByRole('button',{name:theme})).toBeNull();
+ fireEvent.press(screen.getByRole('tab',{name:copy.productNav.upcoming}));expect(mockReplace).toHaveBeenCalledWith('/personal-home');
+ fireEvent.press(screen.getByRole('tab',{name:copy.productNav.manage}));expect(mockReplace).toHaveBeenLastCalledWith('/personal');
+});
+it('renders every selectable month date and shows a date-scoped empty state without hiding other saved dates',async()=>{
+ const second={...row,id:'223e4567-e89b-42d3-a456-426614174000',customName:'Second same-day service',expectedAmountMinor:'7'};
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row,second],nextCursor:null});mount();await login();await screen.findByText(row.customName);
+ const day28=copy.billingMonth.day.replace('%{date}','2026-03-28'),day29=copy.billingMonth.day.replace('%{date}','2026-03-29'),day31=copy.billingMonth.day.replace('%{date}','2026-03-31');
+ expect(screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-03-01')})).toBeTruthy();expect(screen.getByRole('button',{name:day31})).toBeTruthy();
+ expect(screen.getByRole('button',{name:day28}).props.accessibilityState.selected).toBe(true);
+ fireEvent.press(screen.getByRole('button',{name:day29}));expect(screen.getByText('2026-03-29')).toBeTruthy();expect(screen.getByText(copy.billingMonth.dayEmpty)).toBeTruthy();
+ expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText(second.customName)).toBeNull();expect(screen.queryByText(copy.billingMonth.empty)).toBeNull();
+ fireEvent.press(screen.getByRole('button',{name:day28}));await screen.findByText(row.customName);expect(screen.getByText(second.customName)).toBeTruthy();expect(screen.queryByText(copy.billingMonth.dayEmpty)).toBeNull();
 });
 it('reads new calendar month and date selection without expanding the original saved dates',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row,{...row,id:'223e4567-e89b-42d3-a456-426614174000',nextChargeDate:'2026-03-30',customName:'Later day'}],nextCursor:null});mount();await login();await screen.findByText(row.customName);
  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-03-30')}));await screen.findByText('Later day');expect(screen.queryByText(row.customName)).toBeNull();
  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.next}));await screen.findByText(copy.billingMonth.empty);expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(2);
+});
+it('reveals the selected saved day using measured ribbon geometry without snapping during browsing',async()=>{
+ const selectedRow={...row,nextChargeDate:'2026-03-17'};jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[selectedRow],nextCursor:null});
+ const scrollTo=jest.spyOn(ScrollView.prototype,'scrollTo').mockImplementation(()=>{});
+ try{
+  mount();await login();await screen.findByText(selectedRow.customName);
+  const ribbon=screen.UNSAFE_getAllByType(ScrollView).find(node=>node.props.horizontal);expect(ribbon).toBeTruthy();expect(screen.getByTestId('native-month-ribbon').props.horizontal).toBe(true);expect(screen.UNSAFE_getAllByType(ScrollView).filter(node=>node.props.testID==='native-month-ribbon')).toHaveLength(1);
+  const day=screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-03-17')});
+  fireEvent(ribbon!,'layout',{nativeEvent:{layout:{x:0,y:0,width:240,height:64}}});
+  fireEvent(ribbon!,'contentSizeChange',1800,64);
+  fireEvent(day,'layout',{nativeEvent:{layout:{x:100,y:0,width:52,height:64}}});expect(scrollTo).not.toHaveBeenCalled();
+  fireEvent(day,'layout',{nativeEvent:{layout:{x:920,y:0,width:52,height:64}}});
+  expect(scrollTo).toHaveBeenCalledWith({x:732,y:0,animated:false});
+  scrollTo.mockClear();fireEvent(ribbon!,'scroll',{nativeEvent:{contentOffset:{x:732,y:0},layoutMeasurement:{width:240,height:64},contentSize:{width:1800,height:64}}});
+  expect(scrollTo).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-03-18')}));expect(scrollTo).not.toHaveBeenCalled();
+ }finally{scrollTo.mockRestore();}
+});
+it('ignores old month day geometry after navigation invalidates the ribbon',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row],nextCursor:null});
+ const scrollTo=jest.spyOn(ScrollView.prototype,'scrollTo').mockImplementation(()=>{});
+ try{
+  mount();await login();await screen.findByText(row.customName);const staleDay=screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-03-28')}),lateLayout=staleDay.props.onLayout,staleRibbon=screen.UNSAFE_getAllByType(ScrollView).find(node=>node.props.horizontal)!,lateScroll=staleRibbon.props.onScroll;
+  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.next}));await screen.findByText(copy.billingMonth.empty);expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(2);
+  scrollTo.mockClear();lateLayout({nativeEvent:{layout:{x:1600,y:0,width:52,height:64}}});lateScroll({nativeEvent:{contentOffset:{x:700,y:0},layoutMeasurement:{width:240,height:64},contentSize:{width:1800,height:64}}});expect(scrollTo).not.toHaveBeenCalled();
+  const ribbon=screen.UNSAFE_getAllByType(ScrollView).find(node=>node.props.horizontal)!;fireEvent(ribbon,'layout',{nativeEvent:{layout:{x:0,y:0,width:240,height:64}}});fireEvent(ribbon,'contentSizeChange',1800,64);
+  fireEvent(screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-04-01')}),'layout',{nativeEvent:{layout:{x:0,y:0,width:52,height:64}}});expect(scrollTo).not.toHaveBeenCalled();
+ }finally{scrollTo.mockRestore();}
 });
 it('refresh and return from focus reread owner state; current errors retire authority',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:null}).mockResolvedValueOnce({items:[{...row,status:'PAUSED'}],nextCursor:null}).mockRejectedValueOnce(new Error('private failure'));mount();await login();await screen.findByText(row.customName);
@@ -55,15 +99,12 @@ it('late rejected reads after blur cannot replace a fresh month or retire its se
  let reject!:(e:Error)=>void;const pending=new Promise<never>((_,fail)=>{reject=fail;});jest.mocked(api.readNativeSubscriptions).mockImplementationOnce(()=>pending).mockResolvedValueOnce({items:[row],nextCursor:null});mount();await login();await waitFor(()=>expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(1));
  act(()=>{mockFocus.enabled=false;mockFocus.cleanup?.();});expect(jest.mocked(api.readNativeSubscriptions).mock.calls[0]![1].aborted).toBe(true);act(()=>{mockFocus.enabled=true;mockFocus.cleanup=mockFocus.start?.();});await act(async()=>{reject(new Error('obsolete private failure'));});await screen.findByText(row.customName);expect(screen.queryByText(copy.nativePersonal.unavailable)).toBeNull();expect(api.revokeNativeSession).not.toHaveBeenCalled();
 });
-it('logout hides detail and owner projection, retaining acknowledgement against late rejection',async()=>{
- let reject!:(e:Error)=>void;const pending=new Promise<never>((_,fail)=>{reject=fail;});jest.mocked(api.readNativeSubscriptions).mockImplementationOnce(()=>pending);mount();await login();await waitFor(()=>expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(1));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.logout}));await act(async()=>{reject(new Error('old-owner error'));});await screen.findByText(copy.nativePersonal.logoutConfirmed);expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText(copy.nativePersonal.unavailable)).toBeNull();expect(screen.getByText(copy.nativePersonal.logoutConfirmed)).toBeTruthy();
-});
 it('incomplete authority shows setup before requesting subscriptions',async()=>{
  jest.mocked(api.readNativeMode).mockResolvedValue({mode:null});mount();await login();await screen.findByText(copy.nativeRenewals.setup);expect(api.readNativeSubscriptions).not.toHaveBeenCalled();
 });
 
 it.each([[1,0,'previous'],[9999,11,'next']] as const)('disables impossible month navigation at year %s',async(year,month,direction)=>{
- const date=new Date(0);date.setFullYear(year,month,1);mount(()=>date);await waitFor(()=>expect(screen.getByRole('button',{name:copy.billingMonth[direction]}).props.accessibilityState.disabled).toBe(true));fireEvent.press(screen.getByRole('button',{name:copy.billingMonth[direction]}));expect(api.readNativeSubscriptions).not.toHaveBeenCalled();
+ const date=new Date(0);date.setFullYear(year,month,1);jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});mount(()=>date);expect(screen.queryByRole('button',{name:copy.billingMonth[direction]})).toBeNull();await login();await screen.findByText(copy.billingMonth.empty);const reads=jest.mocked(api.readNativeSubscriptions).mock.calls.length;await waitFor(()=>expect(screen.getByRole('button',{name:copy.billingMonth[direction]}).props.accessibilityState.disabled).toBe(true));fireEvent.press(screen.getByRole('button',{name:copy.billingMonth[direction]}));expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(reads);
 });
 
 it('synchronously hides an open private detail when external session authority retires before focus cleanup',async()=>{
@@ -72,7 +113,7 @@ it('synchronously hides an open private detail when external session authority r
  const store:NativeBundleStore={read:jest.fn().mockResolvedValue(null),write:jest.fn().mockResolvedValue(undefined),clear:jest.fn().mockResolvedValue(undefined)};
  render(<NativeSessionProvider store={store}><NativeBillingMonthScreen now={now}/><ExternalAuthority/></NativeSessionProvider>);await login();await screen.findByText(row.customName);fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.details.replace('%{name}',row.customName)}));expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(true);
  // Hold the effect cleanup to exercise the render where the old detail state still exists.
- mockFocus.hold=true;fireEvent.press(screen.getByRole('button',{name:'external rotation'}));await waitFor(()=>expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false));expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText(copy.billingMonth.private)).toBeNull();expect(screen.getByRole('button',{name:copy.billingMonth.next})).toBeTruthy();
+ mockFocus.hold=true;fireEvent.press(screen.getByRole('button',{name:'external rotation'}));await waitFor(()=>expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false));expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText(copy.billingMonth.private)).toBeNull();expect(screen.queryByRole('button',{name:copy.billingMonth.next})).toBeNull();expect(screen.queryByRole('tab',{name:copy.productNav.manage})).toBeNull();
  await act(async()=>{reject(new Error('retired rotation'));});expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false);expect(screen.queryByText(row.customName)).toBeNull();
 });
 

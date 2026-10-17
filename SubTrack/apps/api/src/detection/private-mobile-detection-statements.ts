@@ -33,8 +33,10 @@ WHERE c.identity_id=$1::uuid AND s.identity_id=$1::uuid AND c.connection_id=$2::
  detectionSubscriptionInsert: `INSERT INTO public.subscription(id,identity_id,merchant_id,paying_account_id,custom_name,category_code,
 cadence,expected_amount_minor,currency,status,source,confidence,detection_reasons,next_charge_date,always_private,updated_at)
 VALUES($2::uuid,$1::uuid,$3::uuid,$4::uuid,$5::varchar(120),$6::varchar(50),$7::public.subscription_cadence,
-$8::bigint,$9::char(3),$10::public.subscription_status,$11::public.subscription_source,$12::numeric(5,4),$13::jsonb,NULL,true,$14::timestamptz)
-RETURNING id::text AS id,revision::text AS revision`,
+$8::bigint,$9::char(3),$10::public.subscription_status,$11::public.subscription_source,$12::numeric(5,4),$13::jsonb,NULL,true,$14::timestamptz)`,
+ detectionSubscriptionReadback: `SELECT id::text AS id,revision::text AS revision FROM public.subscription
+WHERE identity_id=$1::uuid AND id=$2::uuid AND source=$3::public.subscription_source
+AND status=$4::public.subscription_status AND always_private=true`,
  detectionCandidateInsert: `INSERT INTO st081_detection.candidate(identity_id,subscription_id,connection_id,account_id,merchant_key,currency,cadence,algorithm_version,candidate_h)
 SELECT $1::uuid,$2::uuid,bc.id,ba.id,$5::varchar(160),ba.currency,$7::public.subscription_cadence,$8::text,$9::bytea
 FROM public.bank_account ba JOIN public.bank_connection bc ON bc.id=ba.connection_id AND bc.identity_id=ba.identity_id

@@ -2,8 +2,8 @@ import {describe,it,expect} from 'vitest';
 import {privateMobileRenewalsReceipt} from './private-mobile-renewals-receipt.js';
 import {privateMobileTrackingReceipt} from './private-mobile-tracking-receipt.js';
 const marker='a'.repeat(32),candidate='2026-10-16';
-const row={id:'123e4567-e89b-42d3-a456-426614174000',custom_name:'Native restart proof',category_code:'VIDEO_STREAMING',cadence:'MONTHLY',expected_amount_minor:'12990',currency:'SEK',source:'MANUAL',status:'ACTIVE',revision:'1',next_charge_date:candidate,always_private:true};
-const archived={...row,custom_name:'Native edited restart proof',status:'ARCHIVED',revision:'6',next_charge_date:null};
+const row={id:'123e4567-e89b-42d3-a456-426614174000',custom_name:'Example streaming',category_code:'VIDEO_STREAMING',cadence:'MONTHLY',expected_amount_minor:'12990',currency:'SEK',source:'MANUAL',status:'ACTIVE',revision:'1',next_charge_date:candidate,always_private:true};
+const archived={...row,custom_name:'Example streaming Plus',status:'ARCHIVED',revision:'6',next_charge_date:null};
 describe('closed same-row native renewal observer',()=>{
  it('binds original saved date/state and archived empty state without emitting row values or claiming device membership',()=>{
   const active=privateMobileRenewalsReceipt(marker,[row],candidate),empty=privateMobileRenewalsReceipt(marker,[archived],candidate);

@@ -9,6 +9,12 @@ on:
       - "SubTrack/tools/database/private-mobile*"
       - ".github/workflows/subtrack-native-device-proof.yml"
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Installed proof platform (PR gates retain both platforms)
+        type: choice
+        options: [android, all]
+        default: android
 permissions:
   contents: read
 concurrency:
@@ -21,13 +27,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        include:
-          - platform: android
-            runner: ubuntu-24.04
-            database_mode: docker
-          - platform: ios
-            runner: macos-15
-            database_mode: local
+        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.platform == 'android' && '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"}]' || '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"},{"platform":"ios","runner":"macos-15","database_mode":"local"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     defaults:
@@ -39,6 +39,11 @@ jobs:
       EXPO_NO_TELEMETRY: "1"
       MAESTRO_CLI_NO_ANALYTICS: "true"
       SUBTRACK_PRIVATE_DEVICE_PROOF: "true"
+      ST253_CAPTURE_ENABLED: ${{ matrix.platform == 'ios' && github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' && 'true' || 'false' }}
+      ST253_ANDROID_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' && 'true' || 'false' }}
+      ST253_CAPTURE_PLATFORM: ${{ matrix.platform }}
+      ST253_CAPTURE_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+      ST253_CAPTURE_SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
       EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC: "true"
       EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED: "true"
       EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL: https://localhost:3443
@@ -60,8 +65,14 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --filter @subtrack/domain build:lifecycle
           pnpm --filter @subtrack/domain build:bank
+          pnpm --filter @subtrack/domain build:detection
           pnpm --filter @subtrack/synthetic build:bank
+          node --test apps/mobile/scripts/private-runtime-preconditions.test.mjs
           bash apps/mobile/scripts/private-runtime-tools.sh
+          node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-restart-ui.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-restart-ui-test.mjs
+          node apps/mobile/scripts/private-runtime-amount-selector-test.mjs
+          node apps/mobile/scripts/private-runtime-pipeline-test.mjs
+          if [ "${{ matrix.platform }}" = android ]; then node --test apps/mobile/scripts/private-runtime-font-bundle-test.mjs; fi
           node apps/mobile/scripts/private-runtime-ca-test.mjs
           node apps/mobile/scripts/private-runtime-loader-diagnostics-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-flow-policy.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-flow-policy-test.mjs
@@ -93,9 +104,22 @@ jobs:
         if: matrix.platform == 'android'
         run: bash apps/mobile/scripts/private-runtime-emulator.sh
       - name: Android SDK package installation (bounded)
+        id: android_sdk
         if: matrix.platform == 'android'
         run: |
           bash apps/mobile/scripts/private-runtime-android.sh sdk
+      - name: Restore public Android Gradle inputs and library tasks
+        id: android_gradle_cache
+        if: matrix.platform == 'android'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/*/transforms
+            ~/.gradle/caches/transforms-*
+            ~/.gradle/caches/build-cache-*
+            ~/.gradle/wrapper
+          key: subtrack-android-gradle-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/apps/mobile/scripts/private-runtime-build.sh', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}
       - name: Android startup orchestration checks
         if: matrix.platform == 'android'
         run: node apps/mobile/scripts/private-runtime-android-test.mjs
@@ -117,6 +141,13 @@ jobs:
           xcrun simctl boot "$proof_udid"
           xcrun simctl bootstatus "$proof_udid" -b
           printf 'SUBTRACK_SIMULATOR_UDID=%s\n' "$proof_udid" >> "$GITHUB_ENV"
+          SUBTRACK_SIMULATOR_UDID="$proof_udid" NODE_ENV=development node --input-type=module <<'NODE'
+          import {mkdirSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {preinputCaptureContext,recordPreinputSimulator} from './apps/mobile/scripts/private-runtime-maestro-metadata.mjs';
+          const context=preinputCaptureContext(process.env,process.env.ST253_CAPTURE_SOURCE_HEAD);
+          if(context){const root=join(process.env.RUNNER_TEMP,'subtrack-native-proof','private');mkdirSync(root,{recursive:true,mode:0o700});recordPreinputSimulator(root,context);}
+          NODE
           brew install postgresql@16
           printf '%s\n' "$(brew --prefix postgresql@16)/bin" >> "$GITHUB_PATH"
       - name: Owned PostgreSQL16 and ephemeral TLS fixture
@@ -126,9 +157,35 @@ jobs:
           config_path="${fixture_ready#ST244_FIXTURE_READY config=}"
           printf 'SUBTRACK_PRIVATE_FIXTURE_CONFIG=%s\n' "$config_path" >> "$GITHUB_ENV"
       - name: Installed workflow, API restart, same database row and logout
+        id: installed_proof
         env:
           NODE_ENV: development
-        run: node apps/mobile/scripts/private-runtime-device.mjs '${{ matrix.platform }}'
+        run: |
+          umask 077
+          node apps/mobile/scripts/private-runtime-device.mjs '${{ matrix.platform }}'
+      - name: Save public Android Gradle inputs and library tasks
+        if: always() && matrix.platform == 'android' && steps.installed_proof.outcome != 'skipped' && steps.android_gradle_cache.outcome == 'success' && steps.android_gradle_cache.outputs.cache-hit != 'true'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          let ready=false;
+          try {const state=JSON.parse(readFileSync(join(process.env.RUNNER_TEMP,'subtrack-native-proof/private/build-phase.json'),'utf8'));ready=state.phase==='metro'&&state.exitCode===0;}catch{}
+          if(ready)appendFileSync(process.env.GITHUB_ENV,'SUBTRACK_ANDROID_GRADLE_CACHE_READY=true\n');
+          NODE
+      - name: Persist verified public Android Gradle cache
+        if: always() && matrix.platform == 'android' && env.SUBTRACK_ANDROID_GRADLE_CACHE_READY == 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/*/transforms
+            ~/.gradle/caches/transforms-*
+            ~/.gradle/caches/build-cache-*
+            ~/.gradle/wrapper
+          key: ${{ steps.android_gradle_cache.outputs.cache-primary-key }}
       - name: Sanitized native evidence only
         if: success()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -137,6 +194,52 @@ jobs:
           path: ${{ runner.temp }}/subtrack-native-proof/public/
           if-no-files-found: error
           retention-days: 7
+      - name: Validate sealed pre-input diagnostic only
+        id: sealed_preinput
+        if: failure() && matrix.platform == 'ios' && env.ST253_CAPTURE_ENABLED == 'true'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {execFileSync} from 'node:child_process';
+          import {preinputCaptureContext,validatedPreinputArtifact} from './apps/mobile/scripts/private-runtime-maestro-metadata.mjs';
+          const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),context=preinputCaptureContext(process.env,head);
+          const ready=context&&validatedPreinputArtifact(join(process.env.RUNNER_TEMP,'subtrack-native-proof','private'),context);
+          appendFileSync(process.env.GITHUB_OUTPUT,`ready=${ready===true?'true':'false'}\n`);
+          NODE
+      - name: Recipient-encrypted pre-input diagnostic
+        if: failure() && steps.sealed_preinput.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sealed-ios-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/subtrack-native-proof/sealed/preinput-ios.st253sealed
+          if-no-files-found: error
+          retention-days: 1
+      - name: Validate separate sealed Android entry diagnostic only
+        id: sealed_android
+        if: failure() && matrix.platform == 'android' && env.ST253_ANDROID_CAPTURE_ENABLED == 'true'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {execFileSync} from 'node:child_process';
+          import {androidCaptureContext,validatedAndroidArtifact} from './apps/mobile/scripts/private-runtime-maestro-metadata.mjs';
+          const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),context=androidCaptureContext(process.env,head);
+          const ready=context&&validatedAndroidArtifact(join(process.env.RUNNER_TEMP,'subtrack-native-proof','private'),context);
+          appendFileSync(process.env.GITHUB_OUTPUT,`ready=${ready===true?'true':'false'}\n`);
+          NODE
+      - name: Recipient-encrypted synthetic Android entry diagnostic
+        if: failure() && steps.sealed_android.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sealed-android-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/subtrack-native-proof/sealed-android/entry-header.st253sealed
+          if-no-files-found: error
+          retention-days: 1
       - name: Owned fixture and debug server cleanup
         if: always()
         run: |

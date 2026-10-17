@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import {URL} from 'node:url';
-import {qualifyNativeEditStatus,assertTrackingReceipt,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS} from './private-runtime-edit-status.mjs';
+import {qualifyNativeEditStatus,assertTrackingReceipt,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS,ACCEPTED_ANDROID_SETUP_SCREENSHOTS} from './private-runtime-edit-status.mjs';
 import {flowEnvironment} from './private-runtime-flow-env.mjs';
 const receipt=(patch={})=>({version:1,markerHash:'a'.repeat(64),subscriptionCount:1,subscriptionIdentityHash:'b'.repeat(64),subscriptionDigest:'c'.repeat(64),manualEditReadback:true,archivedReadback:true,revisionSixReadback:true,...patch});
 test('preserves parent shots and excludes every unreviewed screenshot/log',()=>{
@@ -32,6 +32,48 @@ test('Maestro uses bilingual catalog labels and starts from parent logout withou
  for(const locale of ['sv','en']){const environment=flowEnvironment(locale);const catalog=JSON.parse(readFileSync(new URL(`../../../packages/i18n/catalogs/${locale}.json`,import.meta.url),'utf8')).onboarding;
   assert.equal(environment.MAESTRO_EDIT,catalog.nativeSubscriptionEdit.edit);assert.equal(environment.MAESTRO_SAVE_EDIT,catalog.nativeSubscriptionEdit.save);assert.equal(environment.MAESTRO_EDIT_SAVED,catalog.nativeSubscriptionEdit.saved);assert.equal(environment.MAESTRO_PAUSE,catalog.nativeSubscriptionEdit.pause);assert.equal(environment.MAESTRO_RESUME,catalog.nativeSubscriptionEdit.resume);assert.equal(environment.MAESTRO_MARK_CANCELLED,catalog.nativeSubscriptionEdit.cancelled);assert.equal(environment.MAESTRO_ARCHIVE,catalog.nativeSubscriptionEdit.archive);assert.equal(environment.MAESTRO_STATUS_SAVED,catalog.nativeSubscriptionEdit.statusSaved);
  }
- const flow=readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8');assert.ok(flow.indexOf('${MAESTRO_VERIFY_BANKID}')<flow.indexOf('${MAESTRO_EDIT}'));assert.match(flow,/accepted-edited-restart/);
+ const flow=readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8');assert.ok(flow.indexOf('id: native-personal-login')<flow.indexOf('${MAESTRO_EDIT}'));assert.match(flow,/accepted-edited-restart/);
  const restart=readFileSync(new URL('../e2e/private-runtime-edit-status-api-restart.yaml',import.meta.url),'utf8');assert.match(restart,/accepted-edited-api-restart/);assert.match(restart,/MAESTRO_LOGOUT_CONFIRMED/);
 });
+
+test('single edit save returns to exact Manage header feedback then searches persisted edited row DOWN',()=>{
+ const flow=readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');assert.ok(flow.includes('- tapOn: ${MAESTRO_SAVE_EDIT}\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- assertVisible:\n    id: native-personal-title\n    text: ${MAESTRO_PERSONAL_TITLE}\n- extendedWaitUntil:\n    visible: ${MAESTRO_EDIT_SAVED}\n    timeout: 30000\n- scrollUntilVisible:\n    element: Example streaming Plus\n    direction: DOWN\n    centerElement: true\n- assertVisible: Example streaming Plus\n- takeScreenshot: accepted-edit'));assert.equal(flow.split('- tapOn: ${MAESTRO_SAVE_EDIT}').length-1,1);assert.match(flow,/assertNotVisible: \$\{MAESTRO_ARCHIVE\}/);
+});
+
+
+test('setup pixels are Android-only accepted names from established pre-input checkpoints',()=>{
+ assert.deepEqual(ACCEPTED_ANDROID_SETUP_SCREENSHOTS,['accepted-welcome.png','accepted-signup.png','accepted-profile.png']);
+ for(const name of ACCEPTED_ANDROID_SETUP_SCREENSHOTS){assert.equal(acceptedNativeScreenshot(name,'android'),true);for(const platform of [undefined,'ios','other'])assert.equal(acceptedNativeScreenshot(name,platform),false);}
+ for(const name of ['accepted-error.png','accepted-profile.png.log','../accepted-profile.png',null])assert.equal(acceptedNativeScreenshot(name,'android'),false);
+ const identifier=readFileSync(new URL('../e2e/private-runtime-identifier-android.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
+ assert.ok(identifier.includes('timeout: 120000\n- takeScreenshot: accepted-welcome\n- tapOn: ${MAESTRO_CREATE_ACCOUNT}'));
+ assert.ok(identifier.includes('timeout: 30000\n- takeScreenshot: accepted-signup\n- tapOn:\n    id: native-identifier-input'));
+ const enrollment=readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
+ assert.ok(enrollment.includes('text: ${MAESTRO_PROFILE_TITLE}\n- takeScreenshot: accepted-profile\n- tapOn:\n    id: native-profile-name'));
+ const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');
+ assert.match(driver,/acceptedNativeScreenshot\(entry.name,platform\)/);
+ assert.ok(driver.includes("platform==='android'?ACCEPTED_ANDROID_SETUP_SCREENSHOTS:[]"));
+ assert.ok(driver.indexOf("markPhase('accepted-evidence')")<driver.indexOf('copyAcceptedScreenshots(privateDir)'));
+});
+
+
+test('saved and restarted row checkpoints center the name before retaining exact amount assertions',()=>{
+ for(const [file,row] of [['enroll-add','Example streaming'],['restart','Example streaming'],['edit-status','Example streaming Plus'],['edit-status-api-restart','Example streaming Plus'],['renewals','Example streaming']]){
+  const flow=readFileSync(new URL(`../e2e/private-runtime-${file}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n');
+  const center=`- scrollUntilVisible:\n    element: ${row}\n    direction: DOWN\n    centerElement: true`;
+  const positions=[...flow.matchAll(/- assertVisible: \$\{MAESTRO_EXPECTED_AMOUNT\}/g)].map(match=>match.index);
+  assert.ok(positions.length>0);for(const index of positions)assert.ok(flow.lastIndexOf(center,index)>=0);
+  for(const key of ['MAESTRO_SAVE_SUBSCRIPTION','MAESTRO_SAVE_EDIT'])assert.ok(flow.split('- tapOn: ${'+key+'}').length-1<=1);
+ }
+});
+
+test('Edit below a visible saved row is reached downwards without repeating Edit or Save',()=>{
+ const flow=readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
+ assert.ok(flow.includes('visible: Example streaming\n    timeout: 30000\n- scrollUntilVisible:\n    element: ${MAESTRO_EDIT}\n    direction: DOWN\n- tapOn: ${MAESTRO_EDIT}'));
+ assert.equal(flow.split('- tapOn: ${MAESTRO_EDIT}').length-1,1);assert.equal(flow.split('- tapOn: ${MAESTRO_SAVE_EDIT}').length-1,1);
+});
+
+ test('opening Edit replaces the long list so the name field is reached upwards',()=>{
+ const flow=readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
+ assert.ok(flow.includes('- tapOn: ${MAESTRO_EDIT}\n- scrollUntilVisible:\n    element:\n      id: native-subscription-name\n    direction: UP\n- tapOn:\n    id: native-subscription-name'));
+ });
