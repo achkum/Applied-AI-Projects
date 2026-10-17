@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       platform:
-        description: Installed proof platform (PR gates retain both platforms)
+        description: Installed proof platform (PRs retain both except approved PR297 Android acceptance)
         type: choice
         options: [android, all]
         default: android
@@ -114,7 +114,9 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        include: ${{ fromJSON((needs.select-proof.outputs.scope == 'profile' || github.event_name == 'workflow_dispatch' && inputs.platform == 'android') && '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"}]' || '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"},{"platform":"ios","runner":"macos-15","database_mode":"local"}]') }}
+        # Founder-approved Android-only acceptance for this exact same-repository PR.
+        # iOS remains unqualified; all other full PRs retain both installed targets.
+        include: ${{ fromJSON((needs.select-proof.outputs.scope == 'profile' || github.event_name == 'workflow_dispatch' && inputs.platform == 'android' || github.event_name == 'pull_request' && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.number == 297 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank') && '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"}]' || '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"},{"platform":"ios","runner":"macos-15","database_mode":"local"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     defaults:
@@ -162,6 +164,7 @@ jobs:
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-restart-ui.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-restart-ui-test.mjs
           node --test apps/mobile/scripts/private-runtime-android-home-diagnostic-test.mjs
           node --test apps/mobile/scripts/native-text-host-test.mjs
+          node --test apps/mobile/scripts/private-runtime-platform-scope-test.mjs
           node apps/mobile/scripts/private-runtime-amount-selector-test.mjs
           node apps/mobile/scripts/private-runtime-pipeline-test.mjs
           if [ "${{ matrix.platform }}" = android ]; then node --test apps/mobile/scripts/private-runtime-font-bundle-test.mjs; fi
