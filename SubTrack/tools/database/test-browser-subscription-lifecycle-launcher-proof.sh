@@ -117,7 +117,7 @@ for browser_case in integration_failure missing_browser_gate missing_authority_g
       printf '%s|/%s|%s|%s|mirror.gcr.io/library/postgres:16-alpine|1|tmpfs:/var/lib/postgresql/data|1|1|127.0.0.1|1|1|127.0.0.1|35001|true\n' "$cid" "$name" "$label" "$created"
     elif [[ "$1" != rm && "$1" != ps ]]; then return 1; fi
   }
-  corepack() {
+  pnpm() {
     case "$browser_case" in
       classified_failure) printf 'Error: ST-227a browser proof failed: fixture; cleanup: child_exit\n' ;;
       malicious_failure) printf 'Error: ST-227a browser proof failed: fixture; cleanup: none credentialURL\n' ;;

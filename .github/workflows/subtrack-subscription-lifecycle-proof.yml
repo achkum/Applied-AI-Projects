@@ -24,8 +24,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: corepack enable && corepack prepare pnpm@12.6.0 --activate
-      - run: corepack pnpm install --frozen-lockfile
+      - run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = '12.6.0'
+      - run: pnpm install --frozen-lockfile
       - name: Owned PostgreSQL 16 lifecycle storage proof
         run: bash tools/database/subscription-lifecycle-proof.sh
       - name: Cleanup only recorded ST-081c container

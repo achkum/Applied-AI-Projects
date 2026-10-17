@@ -1,0 +1,7 @@
+# ST249 native client platform plan review
+
+2026-10-14. Conditional PLAN GO for the owner-only native detection client. Root must freeze the two existing `privateMobileBillingMonth` API/test paths named in `native-client-implementation-plan.md` before edits. No native source or installed journey was reviewed by this note.
+
+The proposed transport keeps existing private HTTPS/Bearer, profile-complete and persisted Just me gates. A fresh key is generated per explicit mutation intent and never persisted or retried. Each scan/review/Undo runs through existing `NativeSessionCore.run`; a successful response is confirmed by fresh authorized inbox and complete owner reads. Only exact known 409 conflict/expiry is handled inside the Core callback. Unknown, malformed, 401/500, network, abort after send and obsolete ignored-abort success must throw there and retire authority. Screen generation/signal checks must fence the mutation response and every subsequent readback. Blur/logout/rotation clears private state; no historic receipt or optimistic card establishes success.
+
+The proposed ACTIVE DETECTED null-date section reuses the complete owner pagination and existing Money display. It stays outside Billing Month days and currency totals; manual controls remain. Source review must confirm synchronous active-phase gating of private rendered content and modal state. PostgreSQL and installed Android/iOS qualification remain separate gates.

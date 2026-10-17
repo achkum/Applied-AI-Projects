@@ -2,6 +2,8 @@
 
 Founder-approved design reference2026-10-13, exact SHA in DESIGN_DIRECTION. This specification extracts the selected template without treating fictional data, inline comments or JS implementation as authoritative backend/security rules. Existing native enrollment, BankID, profile, Add/Edit/status, detection and Ask requirements survive omissions in the template. Adopt appearance into existing delivery groups; do not make individual cards/icons/helpers separate backlog tickets.
 
+Founder correction 2026-10-15: production and sandbox share the same product screens, design and navigation. Sandbox configuration selects isolated storage/session and simulated external-provider adapters, with concise truthful test disclosure inside those shared screens. Do not add sandbox-only signup, landing, profile or home pages. Production contact/BankID proofs remain exclusively in the production adapter; sandbox simulation cannot create those proofs or call private production enrollment endpoints. Successful profile and Just me setup opens Billing Month only after authoritative durable readback. Technical fixture forms and source-only token adoption do not satisfy the approved design.
+
 | Delivery group | Added/clarified template acceptance |
 |---|---|
 | ST086 Personal subscriptions | Apply actual fonts/palette/icons to account/profile/Just me/list/Add/Edit/status. Search and category groups/subtotals; usable no-match/loading/error states; preserve storage/revocation/restart behavior. |

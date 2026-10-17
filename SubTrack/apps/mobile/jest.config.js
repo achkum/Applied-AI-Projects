@@ -2,6 +2,8 @@ module.exports = {
   preset: 'jest-expo',
   resolver: '<rootDir>/scripts/billing-month-jest-resolver.cjs',
   testEnvironment: 'node',
+  // Shared workspace TS is transformed with this app's Babel runtime under isolated pnpm.
+  modulePaths: ['<rootDir>/node_modules'],
   setupFilesAfterEnv: ['./jest.setup.js'],
   // jest-expo's default transformIgnorePatterns anchors on the segment right
   // after "node_modules/", which breaks under pnpm's nested

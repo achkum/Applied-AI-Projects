@@ -14,17 +14,62 @@ on:
       - "SubTrack/tools/containers/smoke-images.sh"
       - ".github/workflows/subtrack-container-proof.yml"
   workflow_dispatch:
+    inputs:
+      sandbox_transfer:
+        description: Stage the independently reviewed qualified sandbox image as a private draft
+        required: false
+        type: boolean
+        default: false
+      source_head:
+        description: Exact reviewed feature source SHA for explicit backend or Android delivery
+        required: false
+        type: string
+        default: ""
+      runtime_enabled:
+        type: boolean
+        default: false
+      version_code:
+        type: string
+        default: ""
+      delivery_mode:
+        description: Explicit Android preparation delivery through the same-commit reusable workflow
+        required: false
+        type: choice
+        options: [none, unsigned-apk, signing-tools, verify-signed]
+        default: none
+      free_draft_confirmed:
+        required: false
+        type: boolean
+        default: false
+      unsigned_transfer_receipt:
+        required: false
+        type: string
+        default: ""
+      signed_return_release_id:
+        required: false
+        type: string
+        default: ""
+      signer_certificate_sha256:
+        required: false
+        type: string
+        default: ""
+      verification_tooling_head:
+        description: Exact reviewed current head required for signed-return verification
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
 concurrency:
-  group: subtrack-container-proof-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.event_name == 'workflow_dispatch' && (inputs.sandbox_transfer == true || inputs.delivery_mode == 'unsigned-apk' || inputs.delivery_mode == 'signing-tools' || inputs.delivery_mode == 'verify-signed' || inputs.runtime_enabled == true || inputs.version_code != '') && format('subtrack-container-proof-custody-{0}-{1}', github.run_id, github.run_attempt) || format('subtrack-container-proof-{0}', github.event.pull_request.number || github.ref) }}
+  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && (inputs.sandbox_transfer == true || inputs.delivery_mode == 'unsigned-apk' || inputs.delivery_mode == 'signing-tools' || inputs.delivery_mode == 'verify-signed' || inputs.runtime_enabled == true || inputs.version_code != '')) }}
 
 jobs:
   container-proof:
     name: Build and smoke API and web images
+    if: ${{ !(github.event_name == 'workflow_dispatch' && (inputs.sandbox_transfer == true || inputs.delivery_mode == 'unsigned-apk' || inputs.delivery_mode == 'signing-tools' || inputs.delivery_mode == 'verify-signed' || inputs.runtime_enabled == true || inputs.version_code != '')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -56,3 +101,103 @@ jobs:
           path: ${{ runner.temp }}/st206-container-smoke.json
           if-no-files-found: ignore
           retention-days: 7
+
+  sandbox-draft-transfer:
+    name: Qualify and stage the same sandbox image in a private draft
+    if: github.event_name == 'workflow_dispatch' && inputs.sandbox_transfer == true && inputs.delivery_mode == 'none' && inputs.runtime_enabled == false && inputs.version_code == '' && github.repository == 'achkum/Applied-AI-Projects' && github.ref == 'refs/heads/st/native-synthetic-bank' && inputs.source_head == github.sha
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout exact reviewed manual head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Assert exact trusted source before execution
+        shell: bash
+        env:
+          ST250_SOURCE_HEAD: ${{ inputs.source_head }}
+        run: |
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REPOSITORY" = achkum/Applied-AI-Projects
+          test "$GITHUB_REF" = refs/heads/st/native-synthetic-bank
+          [[ "$ST250_SOURCE_HEAD" =~ ^[a-f0-9]{40}$ ]]
+          test "$ST250_SOURCE_HEAD" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$ST250_SOURCE_HEAD"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.18.0'
+      - name: Prepare pinned qualification observer dependencies
+        working-directory: SubTrack
+        shell: bash
+        run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = 12.6.0
+          pnpm install --frozen-lockfile
+      - name: Qualify, export, upload exact draft assets and remove local custody
+        working-directory: SubTrack
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ST250_TRANSFER_APPROVED: 'true'
+          ST250_SOURCE_HEAD: ${{ inputs.source_head }}
+          ST250_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: bash tools/sandbox/draft-transfer.sh
+
+  android-delivery-authority:
+    name: Assert unambiguous exact reviewed Android delivery authority
+    if: github.event_name == 'workflow_dispatch' && (inputs.delivery_mode != 'none' || inputs.runtime_enabled == true || inputs.version_code != '')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Reject mixed or untrusted manual delivery
+        shell: bash
+        env:
+          ST250_SOURCE_HEAD: ${{ inputs.source_head }}
+          ST250_ANDROID_MODE: ${{ inputs.delivery_mode }}
+          ST250_BACKEND_TRANSFER: ${{ inputs.sandbox_transfer }}
+          ST250_ANDROID_RUNTIME_ENABLED: ${{ inputs.runtime_enabled }}
+          ST250_ANDROID_VERSION_CODE: ${{ inputs.version_code }}
+        run: |
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REPOSITORY" = achkum/Applied-AI-Projects
+          test "$GITHUB_REF" = refs/heads/st/native-synthetic-bank
+          test "$ST250_BACKEND_TRANSFER" = false
+          case "$ST250_ANDROID_RUNTIME_ENABLED" in
+            false) test -z "$ST250_ANDROID_VERSION_CODE";;
+            true) [[ "$ST250_ANDROID_MODE" == unsigned-apk || "$ST250_ANDROID_MODE" == verify-signed ]]; [[ "$ST250_ANDROID_VERSION_CODE" =~ ^[1-9][0-9]{0,9}$ ]]; (( ST250_ANDROID_VERSION_CODE <= 2147483647 ));;
+            *) exit 2;;
+          esac
+          case "$ST250_ANDROID_MODE" in
+            unsigned-apk|signing-tools|verify-signed) ;;
+            *) exit 2;;
+          esac
+          [[ "$ST250_SOURCE_HEAD" =~ ^[a-f0-9]{40}$ ]]
+          test "$ST250_SOURCE_HEAD" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$ST250_SOURCE_HEAD"
+
+  android-delivery:
+    name: Same-commit Android preparation delivery
+    needs: android-delivery-authority
+    if: needs.android-delivery-authority.result == 'success' && github.event_name == 'workflow_dispatch' && inputs.sandbox_transfer == false && (inputs.delivery_mode == 'unsigned-apk' || inputs.delivery_mode == 'signing-tools' || inputs.delivery_mode == 'verify-signed') && github.repository == 'achkum/Applied-AI-Projects' && github.ref == 'refs/heads/st/native-synthetic-bank' && inputs.source_head == github.sha
+    permissions:
+      contents: write
+    uses: ./.github/workflows/subtrack-sandbox-android-build.yml
+    with:
+      runtime_enabled: ${{ inputs.runtime_enabled }}
+      version_code: ${{ inputs.version_code }}
+      delivery_mode: ${{ inputs.delivery_mode }}
+      source_head: ${{ inputs.source_head }}
+      free_draft_confirmed: ${{ inputs.free_draft_confirmed }}
+      unsigned_transfer_receipt: ${{ inputs.unsigned_transfer_receipt }}
+      signed_return_release_id: ${{ inputs.signed_return_release_id }}
+      signer_certificate_sha256: ${{ inputs.signer_certificate_sha256 }}
+      verification_tooling_head: ${{ inputs.verification_tooling_head }}

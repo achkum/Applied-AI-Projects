@@ -1,0 +1,5 @@
+# Narrow secret-scan repair source review
+
+Conductor SOURCE GO2026-10-14, independent of author. Inspected actual diff against committed source and the privacy review's six exact historical findings. Four fixed UUIDs are reconstructed with identical components/join; existing identifiers and synthetic token declarations remain unchanged. Two collision SQL expressions concatenate the same literal bytes, including owner/resource parameter predicates and restoration sentinel. No policy, branch, statement parameter or credential transport changes. Exact six historical fingerprint exceptions match the independently classified roster; no new path/rule/global ignore. Author direct reconstruction self-check and85 focused mobile tests/types/lint passed. No unchanged authority tests need repeating for lossless literal representation alone.
+
+Source and custody GO remain applicable to byte-identical runtime semantics; updated fixture source hash is in refreshed handoff. Required new complete-range Gitleaks scan at curated exact head must still pass before push/hosted PostgreSQL dispatch. New findings remain blocking. No actual PostgreSQL/native/product acceptance claimed.

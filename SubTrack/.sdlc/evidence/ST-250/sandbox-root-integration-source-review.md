@@ -1,0 +1,24 @@
+# ST250 root integration source review
+
+2026-10-14. Reviewed stable six-path same-image handoff and actual source against ST250 allowed paths and accepted sandbox authority. Root platform integration GO: one retained immutable image, image-derived SQL/config/main binding, actual container CMD/nonroot/resources/private mount checks, literal database network alias, one unchanged ordered twenty-assertion journey, and separate strict v2 receipt. Exact creation-time CID files/direct parent IID and full successful Docker image enumeration resolve earlier holds. Success is withheld until resource/private-file cleanup. Independent platform/privacy reviews remain required; actual Docker/PG CI remains required, no deployment or native acceptance inferred.
+
+Root additionally reviewed SDK54 Jest repair: diff deletes only redundant global module comment; ESLint already defines module, actual scoped lint passed. Runtime configuration, coverage thresholds, resolver and test roster unchanged. Curate the one-line repair; no repeated unchanged tests.
+
+Actual e3 iPhone workflow 38536219212 completed successfully: unsigned Release compiled on Xcode26.2. No signing, archive publication, phone installation or TestFlight submission. Android source pending narrow non-enumerable descriptor rejection fix and independent final review before dispatch.
+
+Actual e3 private PostgreSQL run38536219151 passed install, compile, API source and readiness checks, then failed ST249_DETECTION_PROOF_FAILURE phase=SETUP step=VERIFY_LOGIN expected=200 actual=500. Only closed diagnostic extracted; no raw credential-bearing log displayed. Author investigating causal source; no unchanged rerun.
+
+## Android SDK executable causal correction
+Actual first Android run38541006279 stopped before compilation at SDK tools: sdkmanager: command not found. Narrow workflow correction selects and tests the actual documented ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager; requested build-tools36/platform36/NDK27.1 and every other gate unchanged. Root source review GO, workflow SHA30b4fa8cf4b2871f4e0328c6be3977e42a02f88aad740e88fc806b3317496a85 verified; independent privacy rereview required before causal new-head run. No unchanged tests repeated or Android compile success inferred.
+
+## Same-image first actual outcome
+Actual integrated run38541006366 failed phaseLOAD after dependency setup; host-v1 run38541006559 likewise LOAD. Shared config/load/DDL/connect stage must be diagnosed; do not classify this as image-specific or successful persistence. No closed receipt, public runtime or installed acceptance. Review is source evidence only. Independent causal source investigation underway, no blind rerun.
+
+## Closed LOAD diagnostic root source review
+Root SOURCE GO after reading actual four-file amendment: only existing LOAD operation markers, fixed own-data error-code classifier and anchored launcher grammar are added. Twenty real journey assertions, SQL/config/roles, v1/v2 product receipts and cleanup behavior remain intact. Error message/stack/query/detail/body are neither read nor displayed. Ten light tests enforce actual classifier+receipt coverage, including hostile descriptors and actual grep grammar; no new product acceptance flag. Independent privacy final source review required, then one causal new-head run.
+
+## Shared contract classifier root source review
+Root PLATFORM SOURCE GO: exhaustive POST roster now explicitly names exactly five detection and five sandbox routes. Original authentication classification returns eleven operations unchanged; no paths are excluded. Actual bundled OpenAPI assertions distinguish keyed mutations, unkeyed read/logout, three keyed sandbox issuance calls and conditional manual/manual-edit business keys, eight closed body operation variants and namespace security. New manual date-required assumption was corrected against unchanged existing OpenAPI; eighteen focused contract tests passed. This is test applicability repair, not acceptance by fixture or security gate relaxation. Independent privacy review before next coherent shared CI.
+
+## Internal observer root platform source GO
+Root reviewed exact four-path repair/hash roster: PG admin and unchanged ordinary observer hostname bind only inspected captured pinned PG container address after readiness. Image API generations use newly inspected captured internal address with exact marker/network/endpoint membership; no internal host port or egress network is introduced. IPv4 inputs are derived from Docker custody, not caller/environment destinations; host-v1 API stays loopback. SQL/config/clocks/twenty journey assertions remain unchanged, and thirteen focused module tests pass100%. Independent privacy final review precedes actual causal execution. Current network fix is source qualification, not proof of durable restart or public endpoint.

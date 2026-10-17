@@ -3,40 +3,69 @@ appId: se.subtrack.app
 # Parent acceptance ends with acknowledged logout. Start with fresh verification.
 - openLink: subtrack:///personal
 - extendedWaitUntil:
-    visible: ${MAESTRO_VERIFY_BANKID}
+    visible:
+      id: native-personal-login
     timeout: 30000
-- tapOn: ${MAESTRO_VERIFY_BANKID}
+- tapOn:
+    id: native-personal-login
 - extendedWaitUntil:
-    visible: Native restart proof
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
     timeout: 30000
+- scrollUntilVisible:
+    element: Example streaming
+    direction: DOWN
+    centerElement: true
+- extendedWaitUntil:
+    visible: Example streaming
+    timeout: 30000
+- tapOn: Example streaming
 - scrollUntilVisible:
     element: ${MAESTRO_EDIT}
-    direction: UP
+    direction: DOWN
 - tapOn: ${MAESTRO_EDIT}
 - scrollUntilVisible:
-    element: ${MAESTRO_SUBSCRIPTION_NAME}
-    direction: DOWN
-- tapOn: ${MAESTRO_SUBSCRIPTION_NAME}
+    element:
+      id: native-subscription-name
+    direction: UP
+- tapOn:
+    id: native-subscription-name
 - eraseText
-- inputText: Native edited restart proof
+- inputText: Example streaming Plus
 - hideKeyboard
 - scrollUntilVisible:
-    element: ${MAESTRO_DATE}
+    element:
+      id: native-subscription-date
     direction: DOWN
-- tapOn: ${MAESTRO_DATE}
-- eraseText
-- hideKeyboard
+- tapOn:
+    id: native-subscription-date
+- extendedWaitUntil:
+    visible: ${MAESTRO_DATE_CLEAR}
+    timeout: 30000
+- tapOn: ${MAESTRO_DATE_CLEAR}
+- extendedWaitUntil:
+    notVisible: ${MAESTRO_DATE_CLEAR}
+    timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_SAVE_EDIT}
     direction: DOWN
 - tapOn: ${MAESTRO_SAVE_EDIT}
+- scrollUntilVisible:
+    element:
+      id: native-personal-title
+    direction: UP
+- assertVisible:
+    id: native-personal-title
+    text: ${MAESTRO_PERSONAL_TITLE}
 - extendedWaitUntil:
     visible: ${MAESTRO_EDIT_SAVED}
     timeout: 30000
 - scrollUntilVisible:
-    element: Native edited restart proof
-    direction: UP
-- assertVisible: Native edited restart proof
+    element: Example streaming Plus
+    direction: DOWN
+    centerElement: true
+- assertVisible: Example streaming Plus
 - takeScreenshot: accepted-edit
 - scrollUntilVisible:
     element: ${MAESTRO_PAUSE}
@@ -69,15 +98,35 @@ appId: se.subtrack.app
 - takeScreenshot: accepted-archived
 - stopApp
 - launchApp
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible: ${MAESTRO_CREATE_ACCOUNT}
+          timeout: 120000
 - openLink: subtrack:///personal
 - extendedWaitUntil:
-    visible: ${MAESTRO_VERIFY_BANKID}
+    visible:
+      id: native-personal-login
     timeout: 30000
-- assertNotVisible: Native edited restart proof
-- tapOn: ${MAESTRO_VERIFY_BANKID}
+- assertNotVisible: Example streaming Plus
+- tapOn:
+    id: native-personal-login
 - extendedWaitUntil:
-    visible: Native edited restart proof
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
     timeout: 30000
+- scrollUntilVisible:
+    element: Example streaming Plus
+    direction: DOWN
+    centerElement: true
+- extendedWaitUntil:
+    visible: Example streaming Plus
+    timeout: 30000
+- tapOn: Example streaming Plus
+- assertVisible: ${MAESTRO_EDIT}
 - assertNotVisible: ${MAESTRO_ARCHIVE}
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-edited-restart

@@ -1,5 +1,8 @@
 # Mobile delivery plan
 
+## Immediate delivery priority — founder update 2026-10-14
+ST-250 delivers a public tester sandbox on the existing VPS at zero additional cost, before real integrations and production store release. Anyone holding its test link may test. Keep Android/iOS as the product and preserve deferred web source; web serves verified download/test links only. Use independent SubTrack runtime/data/keys and never OpenClaw software, agents, services or directories. The saved SSH configuration identifies the host only. Existing synthetic development auth shares Alice and is loopback-only: it cannot be exposed unchanged. Isolated tester identity, trusted HTTPS, persistent readback, reviewed abuse controls and actual installable builds are prerequisites. Historical no-public-exposure language below continues to apply to production, and is superseded only for this explicitly authorized sandbox. Track real device/backend acceptance separately from source and fixture qualification.
+
 The user's 2026-10-13 instruction puts Android and iOS first. Web application features are deferred; the eventual website is a download gateway to verified App Store and Google Play links. Existing accepted and unfinished web source is preserved. No public release, real delivery, spending or new third-party account is authorized.
 
 The active board now has fourteen native deliverable groups instead of a mixed 273-record execution list. The exact old board is archived. Every one of its 55 unfinished IDs is mapped once: 45 into native groups, seven into deferred web work and three into obsolete tracking. This reduces scheduling clutter; it does not reduce the remaining product requirements by the same proportion.

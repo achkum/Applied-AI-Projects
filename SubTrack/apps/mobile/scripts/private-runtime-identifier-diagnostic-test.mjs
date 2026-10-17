@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   identifierToolDiagnostic,
+  restartToolDiagnostic,
   enrollmentToolDiagnostic,
   createEnrollmentExecution,
   enrollmentExecutionDiagnostic,
 } from './private-runtime-identifier-diagnostic.mjs';
-const labels = { createAccount: 'Create account', otp: 'Verification code' };
+const labels = { createAccount: 'Create account', email: 'Email address', otp: 'Verification code' };
 function classify(overrides = {}) {
   return identifierToolDiagnostic({
     phase: 'flow-identifier',
@@ -42,6 +43,31 @@ function enrollment(overrides = {}) {
     ...overrides,
   });
 }
+test('identifier email target accepts only the fixed input ID or literal trusted display label',()=>{
+  for(const label of ['Email address','E-postadress','Email address (work)']){
+    for(const text of [label,'native-identifier-input']){const result=classify({labels:{...labels,email:label},identifier:`Tap on "${text}" FAILED private-canary`});assert.deepEqual(result.targets,['email-field']);assert.equal(JSON.stringify(result).includes('private-canary'),false);assert.equal(JSON.stringify(result).includes('native-identifier-input'),false);}
+    for(const text of [`${label}-private`,`private-${label}`,`${label}_private`])assert.deepEqual(classify({labels:{...labels,email:label},identifier:`Tap on "${text}" FAILED`}).targets,[]);
+  }
+  for(const text of ['native-identifier-input-private','private-native-identifier-input','native-identifier-input_private','native-unknown-input','Email addressPrivate'])assert.deepEqual(classify({identifier:`Tap on "${text}" FAILED`}).targets,[]);
+  assert.deepEqual(classify({identifier:'Tap on native-identifier-input COMPLETED\nTap on unknown FAILED'}).targets,[]);
+  assert.equal(classify({phase:'flow-enroll-add',identifier:'Tap on native-identifier-input FAILED'}).withheld,'outside-identifier');
+  assert.equal(classify({identifier:'x'.repeat(4_000_001)+' native-identifier-input FAILED'}).withheld,'tool-input-unavailable');
+});
+test('fixed public editable IDs are aliases of existing targets only and reject token lookalikes',()=>{
+  const aliases=[['native-registration-otp','otp-field'],['native-profile-name','profile-name'],['native-subscription-name','subscription-name'],['native-subscription-amount','subscription-amount'],['native-subscription-date','date-field']];
+  for(const [id,target] of aliases){
+    assert.deepEqual(enrollment({enrollment:`Tap on id: ${id} FAILED`}).targets,[target]);
+    assert.deepEqual(enrollment({enrollment:`Scroll until id: "${id}" visible FAILED`}).targets,[target]);
+    assert.deepEqual(enrollment({enrollment:`Tap on id: ${id} COMPLETED\nTap on unknown FAILED`}).targets,[]);
+    for(const unknown of [`${id}-private`,`private-${id}`,`${id}_private`])assert.deepEqual(enrollment({enrollment:`Tap on id: ${unknown} FAILED`}).targets,[]);
+  }
+  assert.deepEqual(classify({identifier:'Tap on id: native-registration-otp FAILED'}).targets,['otp-field']);
+  assert.deepEqual(classify({identifier:'Tap on id: native-identifier-input FAILED'}).targets,['email-field']);
+  assert.equal(enrollment({phase:'flow-identifier',enrollment:'Tap on id: native-profile-name FAILED'}).withheld,'outside-enrollment');
+  assert.equal(enrollment({labels:{},enrollment:'Tap on id: native-profile-name FAILED'}).withheld,'trusted-target-unavailable');
+  assert.equal(enrollment({enrollment:'x'.repeat(4_000_001)+' native-profile-name'}).withheld,'tool-input-unavailable');
+  assert.equal(JSON.stringify(enrollment({enrollment:'Tap on id: native-subscription-name FAILED private-canary 123456'})).includes('private-canary'),false);
+});
 test('only first-flow fixed child-tool inputs and valid trusted target inputs are accepted', () => {
   assert.equal(
     classify({ phase: 'flow-enroll-add' }).withheld,
@@ -61,6 +87,7 @@ test('only first-flow fixed child-tool inputs and valid trusted target inputs ar
     { createAccount: '', otp: 'code' },
     { createAccount: 'account', otp: 1 },
     { createAccount: 'account', otp: '' },
+    { ...labels, email: 1 }, { ...labels, email: '' }, { ...labels, email: undefined },
   ])
     assert.equal(
       classify({ labels: value }).withheld,
@@ -244,7 +271,7 @@ test('enrollment actual typed secrets and arbitrary module/context values never 
     '123456',
     'native-proof@example.test',
     'Synthetic Native Proof',
-    'Native restart proof',
+    'Example streaming',
     '129.90',
     'owner-password-canary',
     'Bearer access-canary',
@@ -280,9 +307,25 @@ test('only exact failed enrollment emits bounded log presence and no fabricated 
  for(const [logSize,log] of [[0,'empty'],[1,'nonempty'],[4000000,'nonempty'],[4000001,'unavailable'],[-1,'unavailable'],[null,'unavailable'],[1.5,'unavailable'],['private-canary','unavailable']]){const result=project({logSize});assert.deepEqual(result,{...execution,log});assert.ok(Object.isFrozen(result));assert.equal(JSON.stringify(result).includes('canary'),false);assert.equal(result.timeout,'not-applicable');}
 });
 test('C18 source-bound targets come only from failed lines, with private values suppressed',()=>{
- const lines=[['date-field',enrollmentLabels.date],['personal-title',enrollmentLabels.personalTitle],['saved-row','Native restart proof'],['expected-amount',enrollmentLabels.expectedAmount]];
+ const lines=[['date-field',enrollmentLabels.date],['personal-title',enrollmentLabels.personalTitle],['saved-row','Example streaming'],['expected-amount',enrollmentLabels.expectedAmount]];
  for(const [target,label] of lines){assert.deepEqual(enrollment({enrollment:`Scroll until ${label} FAILED private-canary`}).targets,[target]);assert.equal(enrollment({enrollment:`Scroll until ${label} COMPLETED`}).withheld,'unknown-tool-diagnostic');}
  assert.deepEqual(enrollment({enrollment:'Scroll until Your subscriptions FAILED',labels:{...enrollmentLabels,add:'subscriptions'}}).targets,['personal-title']);
  for(const key of ['date','personalTitle','expectedAmount']){assert.equal(enrollment({labels:{...enrollmentLabels,[key]:''}}).withheld,'trusted-target-unavailable');}
  const result=enrollment({enrollment:lines.map(([,label])=>`Assertion is false: ${label} otp-123456-canary Bearer private-token-canary`).join('\n')});assert.deepEqual(result.targets,lines.map(([target])=>target));assert.equal(JSON.stringify(result).includes('canary'),false);assert.equal(JSON.stringify(result).includes('123456'),false);
+});
+
+test('restart-family original failure projection is phase-bound, fixed and private',()=>{
+ const trusted={createAccount:'Create account',verifyBankId:'Verify with BankID',expectedAmount:'Expected amount: 129,90[ \\u00a0\\u202f]+SEK',logout:'Log out',logoutConfirmed:'Logged out',edit:'Edit',saveEdit:'Save changes',editSaved:'Saved changes',pause:'Pause tracking',resume:'Resume tracking',cancelled:'Mark cancelled',archive:'Archive'};
+ const options={phase:'flow-restart',restart:'FAILED Assert that "Verify with BankID" is visible\nAssertion is false: private-canary',metro:'',labels:trusted};
+ for(const phase of ['flow-restart','flow-edit-status','flow-edit-status-api-restart']){
+  const result=restartToolDiagnostic({...options,phase});assert.deepEqual(result.targets,['bankid-verify']);assert.deepEqual(result.commands,['wait-visible']);assert.deepEqual(result.reasons,['assertion']);assert.equal(JSON.stringify(result).includes('private-canary'),false);
+ }
+ for(const phase of ['flow-enroll-add','flow-identifier','other',undefined])assert.deepEqual(restartToolDiagnostic({...options,phase}),{withheld:'outside-restart'});
+ for(const labels of [null,{},...Object.keys(trusted).map(key=>({...trusted,[key]:''})),{...trusted,logout:42}])assert.deepEqual(restartToolDiagnostic({...options,labels}),{withheld:'trusted-target-unavailable'});
+ for(const [text,target] of [['Example streaming','saved-row'],['Example streaming Plus','edited-row'],...Object.entries(trusted).map(([key,value])=>[value,{createAccount:'welcome-create-account',verifyBankId:'bankid-verify',expectedAmount:'expected-amount',logout:'logout',logoutConfirmed:'logout-confirmed',edit:'edit',saveEdit:'save-edit',editSaved:'edit-saved',pause:'pause',resume:'resume',cancelled:'cancelled',archive:'archive'}[key]])])assert.deepEqual(restartToolDiagnostic({...options,restart:`FAILED Assert visible ${text}`}).targets,[target]);
+ const canonical=restartToolDiagnostic({...options,restart:'No visible element found: Text matching regex: Edit\nprivate-canary'});
+ assert.deepEqual(canonical.commands,['scroll']);assert.deepEqual(canonical.reasons,['element-not-found']);assert.deepEqual(canonical.targets,['edit']);assert.equal(JSON.stringify(canonical).includes('private-canary'),false);
+ for(const [id,target] of [['native-subscription-name','subscription-name'],['native-subscription-date','date-field']]){assert.deepEqual(restartToolDiagnostic({...options,restart:`No visible element found: ${id}`}).targets,[target]);assert.deepEqual(restartToolDiagnostic({...options,restart:`No visible element found: ${id}-foreign`}).targets,[]);}
+ assert.equal(restartToolDiagnostic({...options,restart:'private-canary only'}).withheld,'unknown-tool-diagnostic');
+ for(const patch of [{restart:null},{restart:'x'.repeat(4_000_001)},{metro:null}])assert.equal(restartToolDiagnostic({...options,...patch}).withheld,'tool-input-unavailable');
 });

@@ -31,6 +31,25 @@ describe('formatMinorUnits', () => {
       .toBe('123 456 789 012 345,678 KWD');
   });
 
+  it('keeps exact amounts when Android Hermes Intl rejects BigInt arguments', () => {
+    const nativeParts = Intl.NumberFormat.prototype.formatToParts;
+    vi.spyOn(Intl.NumberFormat.prototype, 'formatToParts').mockImplementation(function (value) {
+      if (typeof value === 'bigint') throw new TypeError('Hermes Intl requires Number');
+      return nativeParts.call(this, value);
+    });
+    for (const locale of ['sv', 'en'] as const) {
+      const minus = locale === 'sv' ? '−' : '-';
+      expect(formatMinorUnits(12990n, 'SEK', { locale, display: 'code' })).toBe('129,90 SEK');
+      expect(formatMinorUnits(-123456789012345678901n, 'SEK', { locale, display: 'code' }))
+        .toBe(`${minus}1 234 567 890 123 456 789,01 SEK`);
+      expect(formatMinorUnits(0n, 'SEK', { locale })).toBe('0,00 kr');
+      expect(formatMinorUnits(-1n, 'SEK', { locale })).toBe(`${minus}0,01 kr`);
+      expect(formatMinorUnits(123456789012345678901n, 'JPY', { locale, display: 'code' }))
+        .toBe('123 456 789 012 345 678 901 JPY');
+      expect(formatMinorUnits(-1n, 'KWD', { locale })).toBe(`${minus}0,001 KWD`);
+    }
+  });
+
   it('preserves native invalid currency errors', () => {
     expect(() => formatMinorUnits(1n, 'INVALID')).toThrow(RangeError);
   });

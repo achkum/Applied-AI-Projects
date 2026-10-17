@@ -1,6 +1,7 @@
 appId: se.subtrack.app
 ---
-- tapOn: ${MAESTRO_OTP_LABEL}
+- tapOn:
+    id: native-registration-otp
 - inputText: ${MAESTRO_PRIVATE_OTP}
 - hideKeyboard
 - tapOn: ${MAESTRO_VERIFY_OTP}
@@ -11,10 +12,16 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_PROFILE_NAME}
     timeout: 30000
-- tapOn: ${MAESTRO_PROFILE_NAME}
+- assertVisible:
+    id: native-personal-title
+    text: ${MAESTRO_PROFILE_TITLE}
+- takeScreenshot: accepted-profile
+- tapOn:
+    id: native-profile-name
 - inputText: Synthetic Native Proof
 - hideKeyboard
-- tapOn: ${MAESTRO_ENGLISH}
+- tapOn:
+    id: native-profile-avatar-smile
 - scrollUntilVisible:
     element: ${MAESTRO_SAVE_PROFILE}
     direction: DOWN
@@ -24,44 +31,116 @@ appId: se.subtrack.app
     timeout: 30000
 - tapOn: ${MAESTRO_JUST_ME}
 - extendedWaitUntil:
+    visible: ${MAESTRO_MONTH_TITLE}
+    timeout: 30000
+- tapOn:
+    id: native-nav-manage
+- scrollUntilVisible:
+    element:
+      id: native-personal-title
+    direction: UP
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_ADD}
+    direction: DOWN
+- extendedWaitUntil:
     visible: ${MAESTRO_ADD}
     timeout: 30000
 - tapOn: ${MAESTRO_ADD}
 - scrollUntilVisible:
-    element: ${MAESTRO_SUBSCRIPTION_NAME}
+    element:
+      id: native-subscription-name
     direction: DOWN
-- tapOn: ${MAESTRO_SUBSCRIPTION_NAME}
-- inputText: Native restart proof
+- tapOn:
+    id: native-subscription-name
+- inputText: Example streaming
 - hideKeyboard
 - scrollUntilVisible:
-    element: ${MAESTRO_CATEGORY}
+    element:
+      id: native-subscription-category
     direction: DOWN
-- tapOn: ${MAESTRO_CATEGORY}
+- tapOn:
+    id: native-subscription-category
+- inputText: ${MAESTRO_CATEGORY}
+- hideKeyboard
+- tapOn:
+    text: ${MAESTRO_CATEGORY}
+    below:
+      id: native-subscription-category
 - scrollUntilVisible:
-    element: ${MAESTRO_AMOUNT}
+    element:
+      id: native-subscription-amount
     direction: DOWN
-- tapOn: ${MAESTRO_AMOUNT}
+- tapOn:
+    id: native-subscription-amount
 - inputText: '129.90'
 - hideKeyboard
 - scrollUntilVisible:
-    element: ${MAESTRO_DATE}
+    element:
+      id: native-subscription-date
     direction: DOWN
-- tapOn: ${MAESTRO_DATE}
-- inputText: ${MAESTRO_RENEWAL_DATE}
-- hideKeyboard
+- tapOn:
+    id: native-subscription-date
+- runFlow: private-runtime-pick-renewal-date.yaml
 - scrollUntilVisible:
     element: ${MAESTRO_SAVE_SUBSCRIPTION}
     direction: DOWN
+- assertVisible:
+    text: ${MAESTRO_SAVE_SUBSCRIPTION}
+    enabled: true
 - tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}
 - scrollUntilVisible:
-    element: ${MAESTRO_PERSONAL_TITLE}
+    element:
+      id: native-personal-title
     direction: UP
+- assertVisible:
+    id: native-personal-title
+    text: ${MAESTRO_PERSONAL_TITLE}
 - extendedWaitUntil:
     visible: ${MAESTRO_SAVED}
     timeout: 30000
 - scrollUntilVisible:
-    element: Native restart proof
-    direction: UP
-- assertVisible: Native restart proof
+    element: Example streaming
+    direction: DOWN
+    centerElement: true
+- assertVisible: Example streaming
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-add
+- runFlow: private-runtime-open-profile.yaml
+- scrollUntilVisible:
+    element: ${MAESTRO_SWEDISH}
+    direction: UP
+- tapOn: ${MAESTRO_SWEDISH}
+- tapOn: ${MAESTRO_DARK}
+- scrollUntilVisible:
+    element: ${MAESTRO_SAVE_PREFERENCES}
+    direction: DOWN
+- tapOn: ${MAESTRO_SAVE_PREFERENCES}
+- extendedWaitUntil:
+    visible: ${MAESTRO_SV_SAVE_PREFERENCES}
+    timeout: 30000
+- tapOn:
+    id: native-nav-month
+- extendedWaitUntil:
+    visible: ${MAESTRO_SV_MONTH_TITLE}
+    timeout: 30000
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible: ${MAESTRO_SV_SAVE_PREFERENCES}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_SV_ENGLISH}
+    direction: UP
+- tapOn: ${MAESTRO_SV_ENGLISH}
+- scrollUntilVisible:
+    element: ${MAESTRO_SV_SAVE_PREFERENCES}
+    direction: DOWN
+- tapOn: ${MAESTRO_SV_SAVE_PREFERENCES}
+- extendedWaitUntil:
+    visible: ${MAESTRO_SAVE_PREFERENCES}
+    timeout: 30000

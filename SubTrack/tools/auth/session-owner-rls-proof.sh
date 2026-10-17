@@ -88,9 +88,9 @@ export SEC_FU1D_OWNER_URL="postgresql://fixture_owner:$owner_password@127.0.0.1:
 export SEC_FU1D_READER_URL="postgresql://proof_reader:$reader_password@127.0.0.1:$SEC_FU1D_PORT/session_owner_proof?connection_limit=1"
 export DATABASE_URL="$SEC_FU1D_OWNER_URL"
 cd apps/api
-if ! corepack pnpm exec prisma generate --schema=prisma/schema.prisma > "$task_tmp/generate.log" 2>&1; then
+if ! pnpm exec prisma generate --schema=prisma/schema.prisma > "$task_tmp/generate.log" 2>&1; then
   echo 'Disposable Prisma generation failed' >&2; exit 1
 fi
-corepack pnpm exec vitest run --config vitest.session-owner.config.ts
+pnpm exec vitest run --config vitest.session-owner.config.ts
 printf 'Actual Prisma, authenticated nonowner RLS, current JWT owner state and same-backend local-GUC cleanup: PASS\n' >> "$RUNNER_TEMP/sec-fu1d-fixture-evidence.txt"
 printf 'Test-only HTTP guard -> current resolver -> actual Prisma reader: generic401, zero-read transport/JWT rejection, verified context, same-backend cleanup and committed revocation/deletion: PASS\n' >> "$RUNNER_TEMP/sec-fu1d-fixture-evidence.txt"

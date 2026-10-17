@@ -4,11 +4,33 @@
 board_kind: mobile_delivery_queue
 milestone_current: M1
 current_delivery: ST-086
-current_slice: ST-247
-execution_phase: combined_native_runtime_qualification
-source_pipeline_slice: ST-248
-source_pipeline_slices: [ST-245, ST-246, ST-247, ST-248]
+current_slice: ST-250
+independent_native_slice: ST-251
+delivery_update_slice: ST-252
+pipeline_repair_slice: ST-253
+android_fix_handoff:
+  updated: "2026-10-17"
+  execution: "V4 PHONE PRODUCT ACCEPTANCE FAILED. Consolidated Android product successor implemented: Synthetic bank/detection, family profiles, Insights/comparison, category search/custom labels, date picker and prototype navigation/layout. Local focused checks pass; hosted database/image/Android gates, retained API upgrade and signed successor installation remain pending. Do not resend V4."
+  task: ST-253
+  handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
+  tested_source_head: 86a9035b6e7b3ebcaa84ee3c990cc613199540c4
+  delivery_source_head: d2709cedb6d7d5cf8ddc05775ea321ceb47be7f1
+  version_code: 4
+  issues:
+    - "Phone V3 acceptance FAILED: unsupported avatar input blocked profile, preferences not applied before rejected save, redundant login/badges/Welcome alignment. Source corrected; scoped profile/avatar/preferences/Add/app/API restart/logout and real dark restart PNG PASS. Actual signed V4 phone acceptance still pending."
+    - "ST-252/ST-167: Real Release build39022765026 and independent signed verification39023804762/job117370716252 PASS at d2709ced; same-signer V4 delivered in Downloads,65512945 bytes, SHA2561af7ab91f190d526341ea52756b433bc16d045893869ba3f6c183809896ca4fd. Original backend data retained; V3 is not the correction. Public gateway still V2."
+    - "CI scoped feedback path is explicit/manual with separate receipt; full remains available/default for PR and release qualification. Full source443d7774 run39022386716 stops in renewals: test incorrectly waits for Manage while on Upcoming. Test-only route correction and negative source guard prepared; no APK/runtime changes. Full qualification is not claimed by scoped receipt. Broader dark/scaling/accessibility/launcher matrix and founder phone acceptance remain open."
+  resolved_do_not_reopen: "Original SAVED_HEADER/Hermes money display, first Manage, startup/Skia, custom font bundling; historical full suite d816fb19 PASS. Current profile Save accepted and exact durable row/readback+logout PASS scoped run39021165682/job117363095493. All6 actual PNGs inspected, including persistent dark theme. Native concurrency fixed; duplicate PR Release compile removed; public library Release cache enabled without app/private outputs."
+native_bundle_repair_slice: ST-254
+detection_persistence_repair_slice: ST-255
+execution_phase: isolated_public_sandbox_delivery
+source_pipeline_slice: ST-249
+source_pipeline_slices: [ST-245, ST-246, ST-247, ST-248, ST-249, ST-250]
+immediate_delivery_task: .sdlc/tasks/ST-250.md
+sandbox_authority: "Founder2026-10-14: zero additional cost existing VPS, anyone with test link, synthetic-only beta before production; do not use OpenClaw"
 approved_native_design: docs/product/BILLING_MONTH_ADOPTION.md
+shared_product_ui_authority: "Founder 2026-10-15: sandbox uses the same production pages and navigation; environment changes adapters, never adds sandbox-only pages"
+immediate_ux_correction: "ST-247 shared welcome/signup/profile/Billing Month and launcher correction; actual installed screenshots expose incomplete design adoption. Preserve existing identity isolation and production BankID gates. Source review and actual device acceptance remain pending."
 approved_template: docs/product/references/subtrack-billing-month.html
 approved_template_sha256: 4b2de0a2c4a1ce22a05cea087a8db5f0a561dd14a13c0829acd99afe676859c5
 history_archive: .sdlc/archive/backlog-2026-10-13.yaml
@@ -17,8 +39,8 @@ delivery_plan: .sdlc/delivery-plan.md
 items:
   - {id: ST-086, title: "Native personal subscriptions: account, profile, Just me and persisted management", milestone: "M1/M3", owner: conductor, size: delivery_group, status: IN_PROGRESS, scope_ids: [ST-086, ST-051, ST-170b, ST-170c, ST-052, ST-085], outcome: "First slice: verified development login/enrollment, profile, list/Add and restart readback on Android/iOS. Then Edit/status and full native core parity. Reuse accepted storage; implement durable mobile bearer authority, not browser cookies."}
   - {id: ST-082, title: "Native Billing Month, renewals, subscription detail and history", milestone: "M3", owner: conductor, size: delivery_group, status: IN_PROGRESS, scope_ids: [ST-082, ST-083], outcome: "Scope-aware exact totals and upcoming renewals from persisted subscriptions, charges/history and deterministic price events. ST-085 native screen criteria apply here too."}
-  - {id: ST-069, title: "Synthetic bank connection, sync and later Tink sandbox", milestone: "M2", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-061, ST-066, ST-069], outcome: "Deliver Synthetic connect/sync/disconnect/purge first; real Tink discovery/provider remains separate credential-dependent acceptance. No account creation or real bank calls authorized."}
-  - {id: ST-081, title: "Native detection inbox, review and feedback", milestone: "M3", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-081, ST-087], outcome: "Persist detections from the Synthetic flow; confirm/reject/edit/merge, explicit undo and minimal feedback, with real end-to-end detection quality evidence. Existing accepted cores are reused."}
+  - {id: ST-069, title: "Synthetic bank connection, sync and later Tink sandbox", milestone: "M2", owner: conductor, size: delivery_group, status: IN_PROGRESS, scope_ids: [ST-061, ST-066, ST-069], outcome: "Deliver Synthetic connect/sync/disconnect/purge first; real Tink discovery/provider remains separate credential-dependent acceptance. No account creation or real bank calls authorized."}
+  - {id: ST-081, title: "Native detection inbox, review and feedback", milestone: "M3", owner: conductor, size: delivery_group, status: IN_PROGRESS, scope_ids: [ST-081, ST-087], outcome: "Persist detections from the Synthetic flow; confirm/reject/edit/merge, explicit undo and minimal feedback, with real end-to-end detection quality evidence. Existing accepted cores are reused."}
   - {id: ST-055, title: "Native household, invitations and privacy", milestone: "M1", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-055, ST-140], outcome: "Create/join household, membership/dependants, invite return links and privacy controls. Retain household criteria from ST-051/ST-052; validate together, not as separate proof-only tickets."}
   - {id: ST-043, title: "BankID test-provider integration and auth security sign-off", milestone: "M1", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-043, ST-045], outcome: "Documented test adapter, QR/autostart/return and mandatory identity verification. Simulator remains explicitly development-only; provider credentials/accounts and actual provider qualification are not presumed."}
   - {id: ST-104, title: "Native sharing, split preview and settlement history", milestone: "M4", owner: conductor, size: delivery_group, status: BACKLOG, scope_ids: [ST-102, ST-103, ST-104, ST-105], outcome: "Effective-dated sharing/splits, deterministic itemised calculation and settle/history UI. Independent Money/security review stays part of feature acceptance; original web counterpart deferred."}

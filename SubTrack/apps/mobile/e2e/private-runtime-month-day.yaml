@@ -1,0 +1,22 @@
+appId: se.subtrack.app
+---
+- scrollUntilVisible:
+    element:
+      id: native-home-calendar
+    direction: UP
+- tapOn:
+    id: native-home-calendar
+- extendedWaitUntil:
+    visible:
+      id: native-date-${MAESTRO_MONTH_ISO}
+    timeout: 30000
+- tapOn:
+    id: native-date-${MAESTRO_MONTH_ISO}
+- extendedWaitUntil:
+    visible:
+      id: native-month-selected-date
+      text: ${MAESTRO_MONTH_ISO}
+    timeout: 30000
+- assertVisible:
+    id: native-month-selected-date
+    text: ${MAESTRO_MONTH_ISO}

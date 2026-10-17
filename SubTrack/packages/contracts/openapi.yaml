@@ -4,6 +4,113 @@ info:
   version: 1.1.1
   description: Contract metadata and approved operational endpoints.
 paths:
+  /v2/sandbox/mobile/bootstrap:
+    post:
+      operationId: bootstrapSandboxMobile
+      summary: Create a separate fictional sandbox workspace
+      description: Simulated per-installation sandbox only. Duplicate or uncertain issuance never replays credentials.
+      security: []
+      parameters: [{ $ref: '#/components/parameters/SandboxRequestKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/SandboxBootstrapBody' } }
+      responses:
+        '201':
+          description: Known committed workspace and credentials, with one-time installation capability.
+          headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/SandboxBootstrapCredentials' } } }
+        default: { $ref: '#/components/responses/SandboxProblem' }
+  /v2/sandbox/mobile/resume:
+    post:
+      operationId: resumeSandboxMobile
+      summary: Resume this installation's unrevoked sandbox workspace
+      security: [{ SandboxCapability: [] }]
+      parameters: [{ $ref: '#/components/parameters/SandboxRequestKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/SandboxTransportBody' } }
+      responses:
+        '201':
+          description: Known committed new session, without redisclosing installation capability.
+          headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/SandboxCredentials' } } }
+        default: { $ref: '#/components/responses/SandboxProblem' }
+  /v2/sandbox/mobile/refresh:
+    post:
+      operationId: refreshSandboxMobile
+      summary: Rotate a sandbox session refresh credential once
+      description: Bodyless. Unknown rotation withholds credentials; no automatic retry or credential replay.
+      security: [{ SandboxRefresh: [] }]
+      parameters: [{ $ref: '#/components/parameters/SandboxRequestKey' }]
+      responses:
+        '200':
+          description: Known committed rotated sandbox credentials.
+          headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/SandboxCredentials' } } }
+        default: { $ref: '#/components/responses/SandboxProblem' }
+  /v2/sandbox/mobile/logout:
+    post:
+      operationId: logoutSandboxMobile
+      summary: Revoke this sandbox capability and every workspace session
+      description: Data remains. Unknown outcome must not be acknowledged as durable logout.
+      security: [{ SandboxAccess: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/SandboxTransportBody' } }
+      responses:
+        '204':
+          description: Known committed workspace-wide revocation.
+          headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+        default: { $ref: '#/components/responses/SandboxProblem' }
+  /v2/sandbox/mobile/business:
+    post:
+      operationId: executeSandboxMobileBusiness
+      summary: Isolated current-owner profile, subscriptions, Synthetic bank, detections and family workspace
+      description: >
+        Finite closed operations use the current sandbox installation authority only.
+        Owner identifiers cannot be supplied. Manual create/edit, subscription-edit,
+        bank mutations and detection mutations require Idempotency-Key. Read operations,
+        profile/mode/status and household operations reject that header. Household add
+        uses its own requestId. Synthetic provider only; no real bank or external delivery.
+      security: [{ SandboxAccess: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/SandboxBusinessBody' } }
+      responses:
+        '200':
+          description: Known committed current owner business result.
+          headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/ProfileView' }
+                  - { $ref: '#/components/schemas/ModeView' }
+                  - { $ref: '#/components/schemas/PrivateOwnerPage' }
+                  - { $ref: '#/components/schemas/PrivateManualEdited' }
+                  - { $ref: '#/components/schemas/SubscriptionLifecycleResult' }
+                  - { $ref: '#/components/schemas/PrivateMobileBankReadResult' }
+                  - { $ref: '#/components/schemas/PrivateMobileBankMutationResult' }
+                  - { $ref: '#/components/schemas/PrivateMobileDetectionReadResult' }
+                  - { $ref: '#/components/schemas/PrivateMobileDetectionScanResult' }
+                  - { $ref: '#/components/schemas/PrivateMobileDetectionReviewResult' }
+                  - { $ref: '#/components/schemas/SandboxBankHistory' }
+                  - { $ref: '#/components/schemas/SandboxHouseholdView' }
+        '201':
+          description: Known committed manual subscription.
+          headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/PrivateManualCreated' } } }
+        default: { $ref: '#/components/responses/SandboxProblem' }
+
   /healthz:
     get:
       operationId: getHealthz
@@ -1840,8 +1947,826 @@ paths:
         '409': { $ref: '#/components/responses/PrivateMobileProblem' }
         '429': { $ref: '#/components/responses/PrivateMobileProblem' }
         '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/banks/synthetic/read:
+    post:
+      operationId: readPrivateMobileSyntheticBank
+      x-runtime-availability: unavailable-default
+      summary: Private development owner Synthetic bank read
+      description: >
+        Direct TLS and explicit development opt-in only. Current verified session, complete
+        profile and Just me precede current-owner authority and immutable receipt lookup.
+        Reject Cookie, Origin, CSRF, forwarded/mixed credentials, query, duplicate headers,
+        client owner, persona, account identifiers and time ranges. All responses no-store.
+        Idempotency-Key is forbidden. Read all retained generations (up to 50). Purged tombstones remain stored but are excluded.
+        Connect is refused at 50 retained generations; purge older retained generations first.
+        Synthetic demo only; no real bank connection, tokens, raw transactions or auto-created
+        subscriptions. Sync cannot revive revoked or purged generations. Disconnect with purge
+        removes only current owned Synthetic transaction/account rows in one fenced transaction;
+        retains connection tombstone/receipts and refuses subscription dependencies atomically.
+      security:
+        - V2AccessBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileBankRead' }
+      responses:
+        '200':
+          description: Known current read or immutable committed mutation result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileBankReadResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/banks/synthetic/connect:
+    post:
+      operationId: connectPrivateMobileSyntheticBank
+      x-runtime-availability: unavailable-default
+      summary: Private development owner Synthetic bank connect
+      description: >
+        Direct TLS and explicit development opt-in only. Current verified session, complete
+        profile and Just me precede current-owner authority and immutable receipt lookup.
+        Reject Cookie, Origin, CSRF, forwarded/mixed credentials, query, duplicate headers,
+        client owner, persona, account identifiers and time ranges. All responses no-store.
+        UUID-v4 Idempotency-Key is mandatory. Canonical body/operation/current owner bind an immutable result snapshot; replay returns that snapshot. Fresh authenticated read is current truth. Unknown commit requires re-verification, never automatic retry.
+        Connect is refused at 50 retained generations; purge older retained generations first.
+        Synthetic demo only; no real bank connection, tokens, raw transactions or auto-created
+        subscriptions. Sync cannot revive revoked or purged generations. Disconnect with purge
+        removes only current owned Synthetic transaction/account rows in one fenced transaction;
+        retains connection tombstone/receipts and refuses subscription dependencies atomically.
+      security:
+        - V2AccessBearer: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileBankConnect' }
+      responses:
+        '200':
+          description: Known current read or immutable committed mutation result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileBankMutationResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/banks/synthetic/sync:
+    post:
+      operationId: syncPrivateMobileSyntheticBank
+      x-runtime-availability: unavailable-default
+      summary: Private development owner Synthetic bank sync
+      description: >
+        Direct TLS and explicit development opt-in only. Current verified session, complete
+        profile and Just me precede current-owner authority and immutable receipt lookup.
+        Reject Cookie, Origin, CSRF, forwarded/mixed credentials, query, duplicate headers,
+        client owner, persona, account identifiers and time ranges. All responses no-store.
+        UUID-v4 Idempotency-Key is mandatory. Canonical body/operation/current owner bind an immutable result snapshot; replay returns that snapshot. Fresh authenticated read is current truth. Unknown commit requires re-verification, never automatic retry.
+        Connect is refused at 50 retained generations; purge older retained generations first.
+        Synthetic demo only; no real bank connection, tokens, raw transactions or auto-created
+        subscriptions. Sync cannot revive revoked or purged generations. Disconnect with purge
+        removes only current owned Synthetic transaction/account rows in one fenced transaction;
+        retains connection tombstone/receipts and refuses subscription dependencies atomically.
+      security:
+        - V2AccessBearer: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileBankSync' }
+      responses:
+        '200':
+          description: Known current read or immutable committed mutation result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileBankMutationResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/banks/synthetic/disconnect:
+    post:
+      operationId: disconnectPrivateMobileSyntheticBank
+      x-runtime-availability: unavailable-default
+      summary: Private development owner Synthetic bank disconnect
+      description: >
+        Direct TLS and explicit development opt-in only. Current verified session, complete
+        profile and Just me precede current-owner authority and immutable receipt lookup.
+        Reject Cookie, Origin, CSRF, forwarded/mixed credentials, query, duplicate headers,
+        client owner, persona, account identifiers and time ranges. All responses no-store.
+        UUID-v4 Idempotency-Key is mandatory. Canonical body/operation/current owner bind an immutable result snapshot; replay returns that snapshot. Fresh authenticated read is current truth. Unknown commit requires re-verification, never automatic retry.
+        Connect is refused at 50 retained generations; purge older retained generations first.
+        Synthetic demo only; no real bank connection, tokens, raw transactions or auto-created
+        subscriptions. Sync cannot revive revoked or purged generations. Disconnect with purge
+        removes only current owned Synthetic transaction/account rows in one fenced transaction;
+        retains connection tombstone/receipts and refuses subscription dependencies atomically.
+      security:
+        - V2AccessBearer: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileBankDisconnect' }
+      responses:
+        '200':
+          description: Known current read or immutable committed mutation result.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileBankMutationResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/detections/scan:
+    post:
+      operationId: scanPrivateMobileDetection
+      x-runtime-availability: unavailable-default
+      summary: Private development owner Synthetic detection scan
+      description: >
+        Explicit local fixture TLS only; current verified Bearer, complete profile and Just me.
+        Closed body and owner-only scope; no raw descriptors, transaction/account/owner selectors.
+        No Cookie, Origin, forwarded credentials, query or duplicate headers. All responses no-store.
+        Idempotency-Key required; immutable receipt replay after fresh current authority.
+        Undo requires strict server deadline and final precommit fence; unknown commit requires readback.
+        Linked source blocks bank purge atomically. No production training, export or retention policy.
+      security:
+        - V2AccessBearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 16, maxLength: 255, pattern: '^[!-~]{16,255}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileDetectionScan' }
+      responses:
+        '200':
+          description: Current bounded owner projection or immutable committed receipt.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileDetectionScanResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/detections/read:
+    post:
+      operationId: readPrivateMobileDetection
+      x-runtime-availability: unavailable-default
+      summary: Private development owner Synthetic detection read
+      description: >
+        Explicit local fixture TLS only; current verified Bearer, complete profile and Just me.
+        Closed body and owner-only scope; no raw descriptors, transaction/account/owner selectors.
+        No Cookie, Origin, forwarded credentials, query or duplicate headers. All responses no-store.
+        Idempotency-Key forbidden; canonical opaque cursor, bounded terminal page.
+        Undo requires strict server deadline and final precommit fence; unknown commit requires readback.
+        Linked source blocks bank purge atomically. No production training, export or retention policy.
+      security:
+        - V2AccessBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileDetectionRead' }
+      responses:
+        '200':
+          description: Current bounded owner projection or immutable committed receipt.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileDetectionReadResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/detections/confirm:
+    post:
+      operationId: confirmPrivateMobileDetection
+      x-runtime-availability: unavailable-default
+      summary: Private development owner Synthetic detection confirm
+      description: >
+        Explicit local fixture TLS only; current verified Bearer, complete profile and Just me.
+        Closed body and owner-only scope; no raw descriptors, transaction/account/owner selectors.
+        No Cookie, Origin, forwarded credentials, query or duplicate headers. All responses no-store.
+        Idempotency-Key required; immutable receipt replay after fresh current authority.
+        Undo requires strict server deadline and final precommit fence; unknown commit requires readback.
+        Linked source blocks bank purge atomically. No production training, export or retention policy.
+      security:
+        - V2AccessBearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 16, maxLength: 255, pattern: '^[!-~]{16,255}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileDetectionReview' }
+      responses:
+        '200':
+          description: Current bounded owner projection or immutable committed receipt.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileDetectionReviewResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/detections/reject:
+    post:
+      operationId: rejectPrivateMobileDetection
+      x-runtime-availability: unavailable-default
+      summary: Private development owner Synthetic detection reject
+      description: >
+        Explicit local fixture TLS only; current verified Bearer, complete profile and Just me.
+        Closed body and owner-only scope; no raw descriptors, transaction/account/owner selectors.
+        No Cookie, Origin, forwarded credentials, query or duplicate headers. All responses no-store.
+        Idempotency-Key required; immutable receipt replay after fresh current authority.
+        Undo requires strict server deadline and final precommit fence; unknown commit requires readback.
+        Linked source blocks bank purge atomically. No production training, export or retention policy.
+      security:
+        - V2AccessBearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 16, maxLength: 255, pattern: '^[!-~]{16,255}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileDetectionReview' }
+      responses:
+        '200':
+          description: Current bounded owner projection or immutable committed receipt.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileDetectionReviewResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
+  /v2/private/mobile/detections/undo:
+    post:
+      operationId: undoPrivateMobileDetection
+      x-runtime-availability: unavailable-default
+      summary: Private development owner Synthetic detection undo
+      description: >
+        Explicit local fixture TLS only; current verified Bearer, complete profile and Just me.
+        Closed body and owner-only scope; no raw descriptors, transaction/account/owner selectors.
+        No Cookie, Origin, forwarded credentials, query or duplicate headers. All responses no-store.
+        Idempotency-Key required; immutable receipt replay after fresh current authority.
+        Undo requires strict server deadline and final precommit fence; unknown commit requires readback.
+        Linked source blocks bank purge atomically. No production training, export or retention policy.
+      security:
+        - V2AccessBearer: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 16, maxLength: 255, pattern: '^[!-~]{16,255}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrivateMobileDetectionUndo' }
+      responses:
+        '200':
+          description: Current bounded owner projection or immutable committed receipt.
+          headers:
+            Cache-Control: { required: true, schema: { type: string, const: no-store } }
+            Pragma: { required: true, schema: { type: string, const: no-cache } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateMobileDetectionReviewResult' }
+        '400': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '401': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '403': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '404': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '409': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '429': { $ref: '#/components/responses/PrivateMobileProblem' }
+        '500': { $ref: '#/components/responses/PrivateMobileProblem' }
 components:
   schemas:
+    SandboxProblem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, const: 'about:blank' }
+        title: { type: string, const: Sandbox request unavailable }
+        status: { type: integer, enum: [400, 401, 404, 409, 429, 500] }
+        code: { type: string, enum: [INVALID_SANDBOX_REQUEST, SANDBOX_AUTHENTICATION_REQUIRED, SUBSCRIPTION_NOT_FOUND, SANDBOX_RESTART_REQUIRED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_CONFLICT, LIFECYCLE_CONFLICT, SANDBOX_CAPACITY_EXHAUSTED, SANDBOX_UNAVAILABLE] }
+    SandboxBootstrapBody:
+      type: object
+      additionalProperties: false
+      required: [transport, locale]
+      properties:
+        transport: { type: string, const: sandbox-mobile }
+        locale: { type: string, enum: [sv, en] }
+    SandboxTransportBody:
+      type: object
+      additionalProperties: false
+      required: [transport]
+      properties:
+        transport: { type: string, const: sandbox-mobile }
+    SandboxCredentials:
+      type: object
+      additionalProperties: false
+      required: [transport, sessionId, accessToken, refreshToken, sessionExpiresAt]
+      properties:
+        transport: { type: string, const: sandbox-mobile }
+        sessionId: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+        accessToken: { type: string, maxLength: 4096, pattern: '^[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+$' }
+        refreshToken: { type: string, pattern: '^s250r\.[-_A-Za-z0-9]{42}[AEIMQUYcgkosw048]$' }
+        sessionExpiresAt: { type: integer, minimum: 1, maximum: 9007199254740991 }
+    SandboxBootstrapCredentials:
+      type: object
+      additionalProperties: false
+      required: [transport, sessionId, accessToken, refreshToken, sessionExpiresAt, installationCapability]
+      properties:
+        transport: { type: string, const: sandbox-mobile }
+        sessionId: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+        accessToken: { type: string, maxLength: 4096, pattern: '^[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+\.[-_A-Za-z0-9]+$' }
+        refreshToken: { type: string, pattern: '^s250r\.[-_A-Za-z0-9]{42}[AEIMQUYcgkosw048]$' }
+        sessionExpiresAt: { type: integer, minimum: 1, maximum: 9007199254740991 }
+        installationCapability: { type: string, pattern: '^s250c\.[-_A-Za-z0-9]{42}[AEIMQUYcgkosw048]$' }
+    SandboxBusinessBody:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: profile-read }
+            body: { $ref: '#/components/schemas/SandboxEmptyBody' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: profile }
+            body: { $ref: '#/components/schemas/ProfilePatch' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: mode-read }
+            body: { $ref: '#/components/schemas/SandboxEmptyBody' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: mode }
+            body: { $ref: '#/components/schemas/JustMeChoice' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: owner-read }
+            body: { $ref: '#/components/schemas/PrivateOwnerPageRequest' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: manual }
+            body: { $ref: '#/components/schemas/PrivateManualCreate' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: manual-edit }
+            body: { $ref: '#/components/schemas/PrivateMobileManualEdit' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: status }
+            body: { $ref: '#/components/schemas/PrivateMobileStatusRequest' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-read }
+            body: { $ref: '#/components/schemas/PrivateMobileBankRead' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-connect }
+            body: { $ref: '#/components/schemas/PrivateMobileBankConnect' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-sync }
+            body: { $ref: '#/components/schemas/PrivateMobileBankSync' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-disconnect }
+            body: { $ref: '#/components/schemas/PrivateMobileBankDisconnect' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: detection-read }
+            body: { $ref: '#/components/schemas/PrivateMobileDetectionRead' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: detection-scan }
+            body: { $ref: '#/components/schemas/PrivateMobileDetectionScan' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: detection-confirm }
+            body: { $ref: '#/components/schemas/PrivateMobileDetectionReview' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: detection-reject }
+            body: { $ref: '#/components/schemas/PrivateMobileDetectionReview' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: detection-undo }
+            body: { $ref: '#/components/schemas/PrivateMobileDetectionUndo' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: household-read }
+            body: { $ref: '#/components/schemas/SandboxEmptyBody' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: household-create }
+            body: { $ref: '#/components/schemas/SandboxHouseholdName' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: household-rename }
+            body: { $ref: '#/components/schemas/SandboxHouseholdName' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: dependant-add }
+            body: { $ref: '#/components/schemas/SandboxDependantAdd' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: dependant-edit }
+            body: { $ref: '#/components/schemas/SandboxDependantEdit' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: dependant-remove }
+            body: { $ref: '#/components/schemas/SandboxDependantRemove' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-history }
+            body: { $ref: '#/components/schemas/SandboxEmptyBody' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: household-assign }
+            body: { $ref: '#/components/schemas/SandboxHouseholdAssign' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: subscription-edit }
+            body: { $ref: '#/components/schemas/PrivateMobileManualEdit' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: subscription-status }
+            body: { $ref: '#/components/schemas/PrivateMobileStatusRequest' }
+    SandboxHouseholdAssign:
+      type: object
+      additionalProperties: false
+      required: [subscriptionId, memberIds, payerMemberId]
+      properties:
+        subscriptionId: { type: string, format: uuid }
+        payerMemberId: { type: [string, 'null'], format: uuid, description: 'User-entered planned payer; null means unknown. Never confirmed payment evidence.' }
+        memberIds: { type: array, uniqueItems: true, maxItems: 20, items: { type: string, format: uuid } }
+    SandboxBankHistory:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        nextCursor: { type: 'null' }
+        items:
+          type: array
+          maxItems: 400
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, subscriptionId, displayName, date, amountMinor, currency]
+            properties:
+              id: { type: string, format: uuid }
+              subscriptionId: { type: [string, 'null'], format: uuid }
+              displayName: { type: string, minLength: 1, maxLength: 500 }
+              date: { type: string, format: date }
+              amountMinor: { $ref: '#/components/schemas/CanonicalMinorUnits' }
+              currency: { type: string, const: SEK }
+    SandboxHouseholdView:
+      type: object
+      additionalProperties: false
+      required: [household]
+      properties:
+        household:
+          oneOf:
+            - { type: 'null' }
+            - type: object
+              additionalProperties: false
+              required: [id, name, members, assignments]
+              properties:
+                id: { type: string, format: uuid }
+                name: { type: string, minLength: 1, maxLength: 80 }
+                members:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [id, displayName, role]
+                    properties:
+                      id: { type: string, format: uuid }
+                      displayName: { type: string, minLength: 1, maxLength: 80 }
+                      role: { type: string, enum: [ADMIN, DEPENDANT] }
+                assignments:
+                  type: array
+                  maxItems: 100
+                  items: { $ref: '#/components/schemas/SandboxHouseholdAssign' }
+    SandboxHouseholdName:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+    SandboxDependantAdd:
+      type: object
+      additionalProperties: false
+      required: [requestId, displayName]
+      properties:
+        requestId: { type: string, format: uuid }
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+    SandboxDependantEdit:
+      type: object
+      additionalProperties: false
+      required: [memberId, displayName]
+      properties:
+        memberId: { type: string, format: uuid }
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+    SandboxDependantRemove:
+      type: object
+      additionalProperties: false
+      required: [memberId]
+      properties:
+        memberId: { type: string, format: uuid }
+    SandboxEmptyBody:
+      type: object
+      additionalProperties: false
+
+    PrivateMobileDetectionScan:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+    PrivateMobileDetectionRead:
+      type: object
+      additionalProperties: false
+      properties:
+        cursor: { type: string, minLength: 1, maxLength: 512, pattern: '^[A-Za-z0-9_-]+$' }
+    PrivateMobileDetectionReview:
+      type: object
+      additionalProperties: false
+      required: [candidateId, expectedRevision]
+      properties:
+        candidateId: { type: string, format: uuid }
+        expectedRevision: { type: string, pattern: '^[1-9][0-9]{0,18}$', description: Canonical positive signed-int64 revision. }
+    PrivateMobileDetectionUndo:
+      type: object
+      additionalProperties: false
+      required: [receiptId]
+      properties:
+        receiptId: { type: string, format: uuid }
+    PrivateMobileDetectionScanResult:
+      type: object
+      additionalProperties: false
+      required: [scan]
+      properties:
+        scan: { type: string, const: complete }
+    PrivateMobileDetectionCandidate:
+      type: object
+      additionalProperties: false
+      required: [id, revision, displayName, categoryCode, cadence, expectedAmountMinor, currency, confidence, reasons, status]
+      properties:
+        id: { type: string, format: uuid }
+        revision: { type: string, pattern: '^[1-9][0-9]{0,18}$' }
+        displayName: { type: string, minLength: 1, maxLength: 120, description: Unambiguous trusted canonical merchant name only. }
+        categoryCode: { type: string, minLength: 1, maxLength: 50 }
+        cadence: { type: string, enum: [WEEKLY, MONTHLY, QUARTERLY, SEMIANNUAL, ANNUAL] }
+        expectedAmountMinor: { type: string, pattern: '^[1-9][0-9]{0,18}$', description: Positive canonical base10 minor units at most signed-int64 max. }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        reasons:
+          type: array
+          minItems: 1
+          maxItems: 6
+          uniqueItems: true
+          items: { type: string, enum: [MERCHANT_RESOLVED, CADENCE_MATCHED, MIN_OCCURRENCES_MET, DATE_PATTERN_STABLE, AMOUNT_WITHIN_BAND, SUBSCRIPTION_CATEGORY_PRIOR] }
+        status: { type: string, const: DETECTED }
+    PrivateMobileDetectionReadResult:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/PrivateMobileDetectionCandidate' }
+        nextCursor: { type: [string, 'null'], minLength: 1, maxLength: 512, pattern: '^[A-Za-z0-9_-]+$' }
+    PrivateMobileDetectionReviewResult:
+      type: object
+      additionalProperties: false
+      required: [candidateId, status, revision, receiptId, undoUntil]
+      properties:
+        candidateId: { type: string, format: uuid }
+        status: { type: string, enum: [ACTIVE, REJECTED, DETECTED] }
+        revision: { type: string, pattern: '^[1-9][0-9]{0,18}$' }
+        receiptId: { type: string, format: uuid }
+        undoUntil: { type: [string, 'null'], format: date-time, description: Canonical millisecond UTC original deadline; null for Undo. }
+    PrivateMobileBankRead:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+    PrivateMobileBankConnect:
+      type: object
+      additionalProperties: false
+      required: [institutionId]
+      properties:
+        institutionId: { type: string, const: synthetic-demo-v1 }
+    PrivateMobileBankSync:
+      type: object
+      additionalProperties: false
+      required: [connectionId]
+      properties:
+        connectionId: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+    PrivateMobileBankDisconnect:
+      type: object
+      additionalProperties: false
+      required: [connectionId, purge]
+      properties:
+        connectionId: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+        purge: { type: boolean }
+    PrivateMobileBankSummary:
+      type: object
+      additionalProperties: false
+      required: [connectionId, provider, institutionId, status, disposition, accountCount, transactionCount, lastSyncAt]
+      description: >
+        Counts are nonnegative safe integers capped at 1000000. A purged generation must
+        be REVOKED with both counts zero. No money values or private banking rows.
+      properties:
+        connectionId: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
+        provider: { type: string, const: SYNTHETIC }
+        institutionId: { type: string, const: synthetic-demo-v1 }
+        status: { type: string, enum: [ACTIVE, REVOKED] }
+        disposition: { type: string, enum: [retained, purged] }
+        accountCount: { type: integer, minimum: 0, maximum: 1000000 }
+        transactionCount: { type: integer, minimum: 0, maximum: 1000000 }
+        lastSyncAt:
+          type: [string, 'null']
+          format: date-time
+          pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$'
+          description: Nullable canonical real UTC instant, millisecond precision, years 0001-9999.
+      allOf:
+        - if:
+            properties:
+              disposition: { const: purged }
+          then:
+            properties:
+              status: { const: REVOKED }
+              accountCount: { const: 0 }
+              transactionCount: { const: 0 }
+    PrivateMobileBankReadResult:
+      type: object
+      additionalProperties: false
+      required: [connections]
+      description: All retained generations, at most one ACTIVE, unique connection UUIDs. Purged generations excluded; empty is truthful.
+      properties:
+        connections:
+          type: array
+          maxItems: 50
+          items:
+            allOf:
+              - { $ref: '#/components/schemas/PrivateMobileBankSummary' }
+              - type: object
+                properties:
+                  disposition: { const: retained }
+    PrivateMobileBankMutationResult:
+      type: object
+      additionalProperties: false
+      required: [operation, connection]
+      description: Immutable receipt snapshot. Connect/sync require ACTIVE; disconnect requires REVOKED. Fresh read gives current truth after replay.
+      properties:
+        operation: { type: string, enum: [connect, sync, disconnect] }
+        connection: { $ref: '#/components/schemas/PrivateMobileBankSummary' }
+      allOf:
+        - if:
+            properties:
+              operation: { const: disconnect }
+          then:
+            properties:
+              connection:
+                properties:
+                  status: { const: REVOKED }
+          else:
+            properties:
+              connection:
+                properties:
+                  status: { const: ACTIVE }
     PrivateMobileManualEdit:
       type: object
       additionalProperties: false
@@ -1898,7 +2823,7 @@ components:
         type: { type: string, const: 'about:blank' }
         title: { type: string, enum: [Bad Request, Unauthorized, Forbidden, Not Found, Conflict, Too Many Requests, Internal Server Error] }
         status: { type: integer, enum: [400, 401, 403, 404, 409, 429, 500] }
-        code: { type: string, enum: [INVALID_MOBILE_REQUEST, AUTHENTICATION_REQUIRED, MOBILE_REQUEST_REJECTED, MOBILE_UNAVAILABLE, AUTH_RESTART_REQUIRED, ENROLLMENT_LOGIN_REQUIRED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, SUBSCRIPTION_NOT_FOUND, MANUAL_EDIT_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_CONFLICT, LIFECYCLE_CONFLICT, INTERNAL_ERROR] }
+        code: { type: string, enum: [INVALID_MOBILE_REQUEST, AUTHENTICATION_REQUIRED, MOBILE_REQUEST_REJECTED, MOBILE_UNAVAILABLE, AUTH_RESTART_REQUIRED, ENROLLMENT_LOGIN_REQUIRED, MODE_CONFLICT, MANUAL_IDEMPOTENCY_CONFLICT, SUBSCRIPTION_NOT_FOUND, MANUAL_EDIT_IDEMPOTENCY_CONFLICT, MANUAL_EDIT_CONFLICT, LIFECYCLE_CONFLICT, BANK_STATE_CONFLICT, BANK_IDEMPOTENCY_CONFLICT, DETECTION_UNAVAILABLE, DETECTION_STATE_CONFLICT, DETECTION_IDEMPOTENCY_CONFLICT, UNDO_EXPIRED, INTERNAL_ERROR] }
     ProfileReadRequest:
       type: object
       additionalProperties: false
@@ -1966,7 +2891,10 @@ components:
       required: [customName, categoryCode, cadence, expectedAmountMinor]
       properties:
         customName: { type: string, description: 'After trimming 1-120 UTF16 units; valid Unicode without Cc/Cf/unpaired surrogates. Canonical trimmed name stored and hashed.' }
-        categoryCode: { type: string, enum: [VIDEO_STREAMING, MUSIC_AUDIO, AUDIOBOOKS_EBOOKS, NEWS_MAGAZINES, GAMING, SOFTWARE_PRODUCTIVITY, CLOUD_STORAGE, AI_TOOLS, MOBILE_PLAN, BROADBAND_TV, FITNESS_WELLNESS, FOOD_MEALKITS, TRANSPORT_MOBILITY, HOME_SECURITY, EDUCATION_KIDS, PETS, SHOPPING_MEMBERSHIPS, VPN_SECURITY, DONATIONS, DATING_SOCIAL, APP_STORE_BILLING, OTHER_SUBSCRIPTION] }
+        categoryCode:
+          oneOf:
+            - { type: string, enum: [VIDEO_STREAMING, MUSIC_AUDIO, AUDIOBOOKS_EBOOKS, NEWS_MAGAZINES, GAMING, SOFTWARE_PRODUCTIVITY, CLOUD_STORAGE, AI_TOOLS, MOBILE_PLAN, BROADBAND_TV, FITNESS_WELLNESS, FOOD_MEALKITS, TRANSPORT_MOBILITY, HOME_SECURITY, EDUCATION_KIDS, PETS, SHOPPING_MEMBERSHIPS, VPN_SECURITY, DONATIONS, DATING_SOCIAL, APP_STORE_BILLING, OTHER_SUBSCRIPTION] }
+            - { type: string, pattern: '^CUSTOM:.+$', minLength: 8, maxLength: 47, description: 'CUSTOM: followed by a canonical NFC trimmed label of 1-40 Unicode scalars, no control/format/surrogate characters. Stored in the existing varchar(50) category_code; owner scope unchanged.' }
         cadence: { type: string, enum: [WEEKLY, MONTHLY, QUARTERLY, SEMIANNUAL, ANNUAL] }
         expectedAmountMinor: { type: string, pattern: '^[1-9][0-9]{0,18}$', description: 'Positive canonical minor-unit text, maximum 9223372036854775807; BigInt only.' }
         nextChargeDate: { type: [string, 'null'], format: date, description: 'Real YYYY-MM-DD year 0001-9999; omitted becomes null.' }
@@ -2936,6 +3864,11 @@ components:
 
 
   parameters:
+    SandboxRequestKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' }
     SubscriptionScope:
       name: scope
       in: query
@@ -3045,6 +3978,20 @@ components:
       schema: { type: string, minLength: 1 }
       description: Required current session CSRF for the verified browser identity and session; separate from browser nonce.
   securitySchemes:
+    SandboxAccess:
+      type: http
+      scheme: bearer
+      bearerFormat: sandbox JWT
+    SandboxCapability:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Exact SandboxCapability scheme with s250c-prefixed installation material.
+    SandboxRefresh:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Exact SandboxRefresh scheme with s250r-prefixed session material.
     V1AccessBearer:
       type: http
       scheme: bearer
@@ -3071,6 +4018,11 @@ components:
       name: Authorization
       description: Mobile only, exact form `Refresh <opaque-secret>`; custom auth scheme, never body/query.
   responses:
+    SandboxProblem:
+      description: Closed sandbox-only error without credentials or private input.
+      headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
+      content:
+        application/problem+json: { schema: { $ref: '#/components/schemas/SandboxProblem' } }
     PrivateMobileProblem:
       description: Closed private mobile problem; no credentials, subject, SQL or provider detail.
       headers:

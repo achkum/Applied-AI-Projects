@@ -1,0 +1,24 @@
+# ST249 backend source handoff
+
+2026-10-14, child checkout `st/native-synthetic-bank`, starting committed head b289f8c. Source/testing handoff only; independent platform/privacy source approval, genuine PostgreSQL and installed Android/iOS qualification remain required. No SQL, fixture, native workflow, provider execution, Git mutation or push performed by this author.
+
+Implemented contract-first five POST detection operations (scan/read/confirm/reject/undo), strict owner-free bodies and wire projections, eighteen frozen named statements, separate disposable-only 017 schema, same-owner RLS/inverse FKs and source-link RESTRICT. Existing bigint domain runtime and trusted canonical Synthetic merchant matcher are reused. All positive candidate representatives are validated before any candidate write; signed-int64-min absolute overflow rejects the whole scan. Current owner/session/mode gates precede replay. Feedback inverse uses exact event UUID, revision updates use existing trigger, and confirmed unknown-date rows remain outside Month totals. Bank/manual SQL and purge privileges are unchanged.
+
+Caught and corrected a substantive deadline bug despite initially green 100% branch coverage: `await beforeCommit?.()` yielded after the business guard before COMMIT dispatch. Preserve that awaited callback for existing transaction callers; add a distinct synchronous optional transaction finalGuard immediately before commitAttempted/COMMIT and move the trusted business guard there. A new microtask-order regression proves COMMIT is dispatched before a microtask scheduled by that guard. Invalid/async guard results fail closed; opaque known expiry only escapes after successful pre-COMMIT rollback, while rollback/commit uncertainty remains unavailable. No await follows finalGuard before COMMIT dispatch.
+
+Final checks on actual source:
+
+- Four API files / 106 tests PASS: detection store/body, durable mobile authority and private HTTP routing. V8 coverage JSON records 382/382 statements, 327/327 branches, 46/46 functions, 145/145 lines. Per-file branch arms: store191, body11, authority125; no missed arms.
+- Strict detection wire contract: three substantive Node tests PASS with enforced100% line/branch/function coverage, including hostile shape/accessor/prototype inputs, private-field exclusion, canonical bigint/revision bounds and closed immutable results.
+- Ten changed backend TypeScript files ESLint PASS; repaired authority lint PASS; direct API TypeScript noEmit PASS after correction.
+- Installed 017 text matches reviewed evidence DDL byte-for-byte except first explanatory comment; not executed. Focused scoped diff whitespace check PASS after API package EOF cleanup.
+- Prior author's generator/Redocly/API type results were already PASS; not repeated without input change. Generated substantive roster is only `generated/index.ts`, `generated/sdk.gen.ts`, `generated/types.gen.ts`, `generated/zod.gen.ts`: five detection operation sets plus strict detection schemas and four added detection error codes. Other generated client/core files and fixture generated zod are preexisting EOL-only noise and must be excluded from curated staging.
+
+Changed backend roster: apps/api package build prerequisites; durable-mobile-authority.ts/spec; private-mobile-http.ts/spec; private-mobile-server.ts registry; detection store/spec/statements/body/spec; private disposable017; contracts OpenAPI/package export/private-mobile-detection.ts/test and contracts operation roster test; four generated substantive files above. Native/client/i18n dirty files belong to the separate client author. API/domain coverage folders are generated local evidence only, never source staging.
+
+No task completion or installed/native acceptance claimed. Exact final source independent review precedes any fixture custody/qualifier execution.
+
+## Final independent-review corrections
+Privacy caught an additional token microtask gap: the old awaited callback verified the token, then yielded before the business guard. Root now synchronously re-verifies the same immutable token subject/session FIRST in finalGuard, then evaluates the business deadline without yielding before COMMIT dispatch. Meaningful token-expiry queued during the earlier callback, foreign subject/session, and final rejection regressions verify DENIED/known ROLLBACK before business guard. Both platform/privacy rechecked final source GO with new hash pins.
+
+Final affected four-suite API run110tests PASS; store/body/authority actual coverage331/331branches,387/387statements,46/46functions,146/146lines all100. Changed authority lint PASS. Root also replaced Object.hasOwn with prototype.hasOwnProperty.call in strict shared contract for mobile ES compatibility without widening compiler libraries; three strict contracts tests coverage100 PASS. Native mobile typecheck passes that portable contract. Genuine PostgreSQL/newhead/native/CI acceptance still pending.

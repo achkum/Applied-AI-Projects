@@ -1,4 +1,4 @@
-import {calibrateEnrollmentDiagnostic,beginEnrollmentDiagnostic,createEnrollmentDiagnosticChannel,emitEnrollmentDiagnostic,type EnrollmentDiagnosticStage} from './privateRuntimeEnrollmentDiagnostic';
+import {calibrateEnrollmentDiagnostic,beginEnrollmentDiagnostic,createEnrollmentDiagnosticChannel,emitEnrollmentDiagnostic,type EnrollmentDiagnosticStage,type StartupDiagnosticStage,observeStartupStage} from './privateRuntimeEnrollmentDiagnostic';
 const valid={development:true,platform:'ios',proof:'true',enabled:'true',url:'https://localhost:3443'};
 test('explicit native development/proof/enabled/exact-local gates and nonthrowing unavailable context',()=>{
  for(const patch of [{development:false},{platform:'web'},{proof:undefined},{proof:'false'},{enabled:'false'},{url:'https://private-canary.invalid'}]){const sink=jest.fn(),channel=createEnrollmentDiagnosticChannel(()=>({...valid,...patch}),sink);channel.calibrate()();expect(channel.begin()).toBeUndefined();channel.observe('submit-valid');expect(sink).not.toHaveBeenCalled();}
@@ -17,4 +17,16 @@ test('Android channel, runtime gate retirement, sink failures and throwing obser
 
 test('pure owned channel exercises the same default console sink used by runtime',()=>{
  const output=jest.spyOn(console,'info').mockImplementation(()=>{});try{const channel=createEnrollmentDiagnosticChannel(()=>valid),close=channel.calibrate(),observer=channel.begin();observer?.stage('config-accepted');close();expect(output.mock.calls.map(([line])=>line)).toEqual(['ST244_ENROLLMENT calibration=mounted','ST244_ENROLLMENT stage=config-accepted']);}finally{output.mockRestore();}
+});
+
+test('startup milestones use all existing gates without enrollment calibration or private values',()=>{
+ for(const patch of [{development:false},{platform:'web'},{proof:undefined},{proof:'false'},{enabled:'false'},{url:'https://private-canary.invalid'}]){const sink=jest.fn(),channel=createEnrollmentDiagnosticChannel(()=>({...valid,...patch}),sink);channel.startup('root-entered');expect(sink).not.toHaveBeenCalled();}
+ const sink=jest.fn(),channel=createEnrollmentDiagnosticChannel(()=>valid,sink);for(const stage of ['root-entered','fonts-ready','welcome-committed'] as const)channel.startup(stage);channel.startup('private-canary' as StartupDiagnosticStage);expect(sink.mock.calls.map(([line])=>line)).toEqual(['ST244_STARTUP stage=root-entered','ST244_STARTUP stage=fonts-ready','ST244_STARTUP stage=welcome-committed']);
+ expect(()=>createEnrollmentDiagnosticChannel(()=>valid,()=>{throw Error('private-canary');}).startup('root-entered')).not.toThrow();expect(()=>createEnrollmentDiagnosticChannel(()=>{throw Error('private-canary');},sink).startup('root-entered')).not.toThrow();observeStartupStage('root-entered');
+});
+
+test('private startup hides only developer notification UI once after all exact gates pass',()=>{
+ for(const patch of [{development:false},{platform:'web'},{proof:undefined},{proof:'false'},{enabled:'false'},{url:'https://private-canary.invalid'}]){const prepareUi=jest.fn(),channel=createEnrollmentDiagnosticChannel(()=>({...valid,...patch}),jest.fn(),prepareUi);channel.startup('root-entered');expect(prepareUi).not.toHaveBeenCalled();}
+ for(const platform of ['android','ios']){const events:string[]=[],prepareUi=jest.fn(()=>{events.push('ui');}),channel=createEnrollmentDiagnosticChannel(()=>({...valid,platform}),fixed=>events.push(fixed),prepareUi);channel.startup('private-canary' as StartupDiagnosticStage);expect(prepareUi).not.toHaveBeenCalled();channel.startup('root-entered');channel.startup('fonts-ready');expect(prepareUi).toHaveBeenCalledTimes(1);expect(events).toEqual(['ui','ST244_STARTUP stage=root-entered','ST244_STARTUP stage=fonts-ready']);}
+ const sink=jest.fn(),channel=createEnrollmentDiagnosticChannel(()=>valid,sink,()=>{throw Error('private-canary');});expect(()=>channel.startup('root-entered')).not.toThrow();expect(sink).toHaveBeenCalledWith('ST244_STARTUP stage=root-entered');
 });

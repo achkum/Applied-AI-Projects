@@ -1,0 +1,3 @@
+# PostgreSQL network name correction platform source review
+
+2026-10-14 root independent PLATFORM SOURCE GO for exactlauncher b00d12c40943c1bf75aa490856d5760f0f7bbfc8c1784a59c0841761a7252792 and receipt.test d5ba536ecff2ef1d0afc36bd8fea61eddcbe1879c66fab8f1c15768f0b809594. Actuale3 head passedinstall/compile thenfailedwithoutSQLacceptance; originalnetworkcreate lacked mandatoryNAME. Fixedfiniteeightchar mktemp-derived namespace supplies finalrequiredargument, preservescapturedID/label/verifiedabsencecleanup. Actualsource-extractedDockerstub checks exactsixargvwords and fourfocusedNode/Bashcasespass. IndependentprivacyGO agrees, no furtherguards/assertions/roles weakened. Onlynewheadcausal/integratedruntime canprove subsequentactualSQL, no unchangedrerun.

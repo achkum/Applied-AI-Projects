@@ -5,10 +5,13 @@ import {
   lessThan,
   money,
   multiply,
+  MoneyError,
   type Money,
 } from '@subtrack/money';
 import type {
   AmountBand,
+  BigintDetectionTransaction,
+  BigintTransactionSeries,
   BillingCadence,
   DetectionReason,
   DetectionTransaction,
@@ -43,7 +46,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const DATE_TOLERANCE_DAYS = 3;
 
 interface Occurrence {
-  transaction: DetectionTransaction;
+  transaction: DetectionTransaction | BigintDetectionTransaction;
   day: number;
   amount: Money;
 }
@@ -260,7 +263,7 @@ function amountBand(occurrences: readonly Occurrence[]): AmountBand | null {
 }
 
 function makeCandidate(
-  series: TransactionSeries,
+  series: TransactionSeries | BigintTransactionSeries,
   categoryCode: string | null,
   match: ScheduleMatch,
 ): RecurringCandidate | null {
@@ -303,6 +306,22 @@ function makeCandidate(
 
 /** Detect exact, deterministic recurring patterns from one pre-grouped series. */
 export function detectRecurring(series: TransactionSeries): RecurringCandidate[] {
+  return detectRecurringCore(series, (value) => assertSafeMinorUnits(value as number));
+}
+
+/** Detect the same patterns directly from persistable signed bigint minor units. */
+export function detectRecurringBigint(series: BigintTransactionSeries): RecurringCandidate[] {
+  return detectRecurringCore(series, (value) => {
+    if (typeof value !== 'bigint' || value < -9223372036854775808n || value > 9223372036854775807n) {
+      throw new MoneyError('Detection minor units must be a signed int64 bigint');
+    }
+  });
+}
+
+function detectRecurringCore(
+  series: TransactionSeries | BigintTransactionSeries,
+  validateMinor: (value: number | bigint) => void,
+): RecurringCandidate[] {
   if (!series.ownerId || !series.accountId || !series.merchantKey?.trim()) return [];
   const currency = series.currency.toUpperCase();
   assertValidCurrencyCode(currency);
@@ -315,7 +334,7 @@ export function detectRecurring(series: TransactionSeries): RecurringCandidate[]
     if (transaction.currency.toUpperCase() !== currency) return [];
     assertValidCurrencyCode(transaction.currency.toUpperCase());
     if (!Number.isFinite(transaction.date.getTime())) return [];
-    assertSafeMinorUnits(transaction.amountMinor);
+    validateMinor(transaction.amountMinor);
     if (transaction.pending || transaction.direction !== 'DEBIT') continue;
 
     const signedAmount = money(transaction.amountMinor, currency);

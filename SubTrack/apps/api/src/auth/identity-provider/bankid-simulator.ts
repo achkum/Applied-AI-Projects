@@ -25,7 +25,9 @@ const DEMO_IDENTITIES: Record<string, { name: string; personnummer: string }> = 
 };
 
 export class BankIdSimulator implements IdentityProvider {
-  constructor(private readonly hmacSecret: string) {}
+  constructor(private readonly hmacSecret: string, private readonly clock: () => number = () => Date.now()) {
+    if (typeof clock !== 'function') throw new Error('BankID simulator clock unavailable');
+  }
 
   async verify(token: string): Promise<IdentityResult> {
     const demo = DEMO_IDENTITIES[token.toLowerCase()];
@@ -43,7 +45,7 @@ export class BankIdSimulator implements IdentityProvider {
     return {
       method:           'BANKID',
       name:             demo.name,
-      verifiedAt:       new Date().toISOString(),
+      verifiedAt:       new Date(this.clock()).toISOString(),
       personnummerHmac,
     };
   }

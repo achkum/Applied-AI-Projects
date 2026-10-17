@@ -1,0 +1,32 @@
+# ST250 same-image integration PLATFORM source review
+
+2026-10-14 reviewer sandbox_delivery_audit. **Final SOURCE GO for the exact six-file hashes in sandbox-image-postgresql-source-handoff.md**, independently recalculated and matched after author froze source. Read actual integration diff/source only; no application source edits/tests/Docker/SQL/Git/remote actions. Earlier interim HOLD is superseded by the verified finite corrections below. SOURCE GO permits reviewed actual same-image qualification; it grants no runtime/public acceptance or VPS action.
+
+1. New subtrack-sandbox-image-postgresql-qualification.yml still invokes obsolete corepack enable/prepare/pnpm12.6.0. Use the independently reviewed pinned npm-global pnpm12.6.0/exact-version/direct-frozen-install substrate. Otherwise the newly authored qualification repeats the already proven pre-install failure.
+2. Container creation custody is recorded only after stdout capture: extraction shell assigns extract_id after docker create; API harness assigns then appends api-containers.ids. Parent timeout can SIGKILL a30s synchronous Docker call after10s grace, before recording. Supply --cidfile into the exact parent work for every API/extraction creation and consume those files during parent cleanup, still verifying exact marker/image before removal. This avoids unrecorded owned containers; no global name/label removal substitute is needed. Existing marker/label/image ownership checks remain required.
+3. API image absence check uses docker image ls --no-trunc --quiet "$api_image". Docker positional selector is repository[:tag], not image ID; empty matching result can skip removal and falsely confirm custody. Use successful unfiltered full-ID enumeration then exact ID membership, as existing build-api.sh does, plus exact label/image inspection before removal and re-enumeration afterward. Official reference: https://docs.docker.com/reference/cli/docker/image/ls/ . --cidfile support is documented at https://docs.docker.com/reference/cli/docker/container/create/ . No actual Docker execution is claimed by this static finding.
+
+Positive source observations: v2 uses parent-owned retained image with finite private handoff, byte hashes for main/migrations/Dockerfile and immutable image/source/run tuple. Literal internal database alias, actual image default CMD, UID1000 readonly file mounts/root/capabilities/resource limits and ordinary-role network witness are present. Real restart recreates same image against same database; no host-main fallback occurs in run-image. Original ordered20 measured business/PG assertions remain, with strict separate v2 additional checks and cleanup-first receipt construction. These observations do not waive the custody blockers or imply runtime qualification.
+
+## Final verified disposition
+
+All three findings resolved in actual source: new workflow uses explicit npm-global12.6.0/exact version/direct frozen install; extraction writes parent-owned extract.cid and real API generations exactly api-1.cid/api-2.cid before create, parent consumes those fixed files even after interrupted continuation; cleanup uses successful unfiltered full image-ID lists/exact grep plus actual .Id/run-label before removal/re-enumeration. Builder also writes immutable image iidfile directly into verified0700 parent and mirrors for its own cleanup, closing interrupted build-to-parent record transfer. No global sweep/ambiguous selector or early cleanup receipt replaces these checks.
+
+Actual source enforces private twelve-field0600 retained-image handoff expected parent/run/head, inspected image ID/run-label, pinned base and embedded main/twoSQL/Dockerfile bytes. The derived config is read from the actual image extraction at its real compiler/prisma layout; migration byte equality is checked against unchanged source before loading. Run-image starts and restarts actual dedicated image CMD without host-main import/spawn fallback. UID1000/GID1000, readonly root and exact readonly0600 secret copies, internal captured network/literal database alias, loopback-only API binding, actual user/capabilities/memory/CPU/PID/mount/network checks and ordinary-role DB client-address witness are present.
+
+Original twenty measured behavior checks remain the common ordered real journey, including two-owner isolation, version fences, six-table RLS/GUC denials, refresh-reuse family revocation, unrelated owner, logout retained data/fresh workspace and restart resume readback. Added image checks are bound to actual metadata/calls; strict v2 fifteen scalar fields and twenty+eight true-only flags match validated handoff and measured3owner/2manual counts. V1 projector/default packaging remain separate and cannot imply same-image acceptance.
+
+Parent cleanup reads fixed captured API/extraction IDs, verifies marker/image and removes only captured owned resources; successful container/network/image enumeration proves absence. Pool/real API close precedes candidate; retained image/private parent/secret copies/hostname custody cleanup precedes public receipt. Cancellation/unknown state withholds receipt rather than asserting success. Existing builder default mode's owned probe cleanup remains; retained mode produces no misleading v1 removal receipt. Final workflow exact-head/pinned actions/contents-read/no persisted credentials/publication-only tiny sanitized receipt maintain custody; no bulky image/runtime secrets are uploaded.
+
+Reviewed final custody hashes (Git-root paths):
+
+| Path | SHA256 |
+|---|---|
+| .github/workflows/subtrack-sandbox-image-postgresql-qualification.yml | 9968d5bc778c937a1114d6ad6a39212c572490cb49b17a3db32b7f8febc48d45 |
+| SubTrack/tools/sandbox/build-api.sh | 6948bb7485d8ad10f856cb9a33815f82210c019f5f18c6c41f5962f5ef3c467d |
+| SubTrack/tools/database/sandbox-qualify.sh | 4f0a5aa05931198072da3bf94771aaaec584e6c7cd4411432ad1efa0a602be92 |
+| SubTrack/tools/database/sandbox-qualification.cjs | 59ec7f01ea8e661b293cf4dc0aa1dfaac947e4b8ff348d4f1666a0458f495456 |
+| SubTrack/tools/database/sandbox-qualification-receipt.cjs | b74b3273bf0151568fc05e464eab6cdd66ee3310050619a337f2abb49adc6e20 |
+| SubTrack/tools/database/sandbox-qualification-receipt.test.cjs | 4d655006793c140b142a357fa69f8ecdebc43f42f0167ec2d8533b13c83b72d1 |
+
+Actual coherent Docker/image/PG run remains necessary; passing source/schema tests do not establish that run, public trusted TLS, deployed sandbox or installed Android/iOS behavior. No remaining platform SOURCE finding in this bounded roster.

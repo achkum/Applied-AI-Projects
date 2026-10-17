@@ -1,0 +1,9 @@
+# ST-248 installed bank wiring source review
+
+Independent platform source verdict: **GO** for the current installed bank qualification wiring. This is a source review only; Android, iOS, and PostgreSQL execution have not been established by this review.
+
+The driver appends the bank sequence after the original Add, restart, Edit/status revision-six, renewals, and Billing Month phases. The twelve parent screenshots, parent receipt fields, C16 diagnostics, and accepted-evidence gate remain. Bank-specific domain and Synthetic runtime builds precede the owned fixture/native run. The helper validates the exact closed bank receipt shape and zero/connect/sync/repeat/retain/cancel/purge/restart transitions. It compares the archived manual tracking receipt on each readback, including after both API restarts. A bank mutation is issued only by an installed UI flow, with no preseed, driver-side API mutation, or retry of an uncertain outcome.
+
+Seven Maestro flows exercise fresh verification and the existing gated bank link, explicit Synthetic copy, connect, sync, repeat/refresh, actual restart, retained disconnect, cancellation with no database change, confirmed purge, and final empty read after restart. They assert connected versus disconnected state, positive saved transaction count, and a populated last-sync value after sync; the closed PG receipt proves count/digest persistence and deletion. Exactly three bank screenshots are staged privately and admitted only after the full journey succeeds. The final public receipt adds fixed bank success booleans without exposing owner IDs, transaction data, or digests.
+
+No source blocker found. The author's focused helper coverage, lint, syntax, and YAML checks were not rerun here. Actual owned PG and installed Android/iOS qualification remain required for ST-248 acceptance.

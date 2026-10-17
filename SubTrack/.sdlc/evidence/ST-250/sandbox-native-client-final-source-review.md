@@ -1,0 +1,7 @@
+# ST250 native sandbox source final integration review
+
+2026-10-14. Root independent privacy review SOURCE GO for exact25-file current handoff roster. Independently read storage/session/API/router/entry/projection source and existing-screen dependency diffs; prior independent platform review approved23 files and final Core repair. Strict separate SecureStore key/service, THIS_DEVICE_ONLY, whole-item validation; capabilities process-private, no private-provider credential injection. Router rejects unsupported routes before subtree mount. Projections reject nonmanual/nonSEK/nonprivate rows and bound pagination50; approved Money/selectors retained. Sandbox notice/recovery bilingual; no invented provider/destination. Source composition remains unavailable/publication disabled.
+
+Final two API hashes206af5072bafd7b10af876669cb5dcce58d429c4e0c373bf655f0f65e58397fe and e402dacfc53d292ff043964edf606cdce077f382f8b05955b349183c92272e23 receive independent root PLATFORM GO for cross-boundary correction: actual strict parseSandboxProblem, status409 and exactlythree existing lifecycle codes. Real server-shaped tests pass; private-title/mismatchedstatus/extra-field problems rejected. Backend's canonical title unchanged. Focused22tests enforced100%, mobiletypes/scopedlint pass. Core privacy and separateplatform GO documented; no unchanged suite repeated.
+
+Source acceptance does not establish deployed backend, image, publicTLS or installedAndroid/iOS behavior. Those remain ST250 acceptance prerequisites. No production behavior/auth changed.

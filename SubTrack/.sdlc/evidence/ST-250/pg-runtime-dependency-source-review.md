@@ -1,0 +1,3 @@
+# PostgreSQL runtime dependency source review
+
+Conductor SOURCE GO2026-10-14, independent of author. Actual API manifest diff moves existing pg8.23.1 from devDependencies to dependencies; lockfile diff only moves its exact importer specifier/version without package-resolution or version changes. Frozen lock/supply-chain verification and API typecheck passed in author handoff. The seven infrastructure source hashes remain unchanged. This enables future production dependency packaging; it does not qualify an absent sandbox entrypoint or built image. No new dependency, spend, account, identity policy or deployment change.

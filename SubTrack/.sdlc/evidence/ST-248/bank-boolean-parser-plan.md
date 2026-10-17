@@ -1,0 +1,11 @@
+# ST248 bank boolean wire parser repair plan
+
+Cause-backed actual result: reviewed3d069d9eef9f4d9371c18798923df71c5da512ea/run38488546994/job115608009358 failed with TWO_OWNER/B_TO_A_RETAIN/ASSERTION; cleanupremoved. Earlier foreign sync and its state-preservation snapshot passed. Current private mobile HTTP unconditionally uses shared enrollment privateBody, which admits only strings/null. The reviewed bank disconnect contract requires literal boolean purge, so retain/purge requests are rejected before owner business gating. No SQL/auth/grant/model repair is indicated.
+
+Owned minimal paths: new apps/api/src/banks/private-mobile-bank-body.ts and adjacent.spec.ts; existing apps/api/src/auth/mobile-private/private-mobile-http.ts and new private-mobile-http-bank-body.spec.ts. Existing task banks/** and private-mobile-http* cover them. Shared enrollment parser is unchanged.
+
+After original privateMobileWire and exact closed path admission, only exact BANK_PATHS select the dedicated parser. Bodyless refresh and every other private mobile/enrollment/OTP path retain their existing parsers and authority rules.
+
+Parser preserves8192-byte maximum, exact declared content length, fatal UTF8, strict flat JSON object, ordered duplicate decoded-key detection (including escaped aliases), string escape validity, no trailing bytes, no numbers/nested objects/arrays, and no prototype keys (__proto__/constructor/prototype). Strings/null retain flat-value parsing and strict bank schemas reject invalid fields; literal true/false are accepted solely for decoded purge. Boolean connectionId/institutionId/unknown fields are rejected. Invalid framing/body maps generic wire400, no raw values/messages exposed. Bearer/current profile/mode/key/ownership/finalfence/SQL remain unchanged.
+
+Meaningful focused tests: literal false/true reach real HTTP bank owner business gates, unchanged shared parser still rejects booleans, read/connect/sync cannot acquire Boolean allowance via extra fields, strings masquerading as booleans rejected, escaped duplicate/prototype keys, malformed UTF8/strings/object/trailing/nested/numeric/header bytes/length/oversize, no bearer/mixed headers/nonbank path isolation. API type/lint and focused parser coverage100; no unchanged full implementation/native rerun. Final independent source GO before changed PostgreSQL dispatch.

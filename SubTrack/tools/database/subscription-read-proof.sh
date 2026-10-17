@@ -126,7 +126,7 @@ fail() {
   printf 'ST-212 disposable proof: FAIL phase=%s code=%s\n' "$phase" "${code:-unavailable}" | tee "$receipt" >&2
   exit 1
 }
-if ! (cd apps/api && corepack pnpm exec prisma migrate deploy --schema=prisma/schema.prisma) >"$tmp/migrate.log" 2>&1; then fail "$tmp/migrate.log"; fi
+if ! (cd apps/api && pnpm exec prisma migrate deploy --schema=prisma/schema.prisma) >"$tmp/migrate.log" 2>&1; then fail "$tmp/migrate.log"; fi
 phase=reader-role
 printf "CREATE ROLE st212_runtime LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_runtime TO st212_runtime WITH INHERIT TRUE, SET FALSE;\n" \
   "$reader_pass" > "$tmp/reader.sql"
@@ -136,10 +136,10 @@ if ! docker exec "$cid" psql --username fixture_owner --dbname subscription_read
   --set ON_ERROR_STOP=1 --tuples-only --no-align --command \
   "SELECT CASE WHEN r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolbypassrls AND pg_has_role(r.oid, 'subtrack_runtime', 'MEMBER') AND (SELECT count(*) FROM pg_auth_members WHERE member=r.oid)=1 THEN 'ok' ELSE 'bad' END FROM pg_roles r WHERE r.rolname='st212_runtime'" | grep -qx ok; then fail; fi
 phase=generate
-if ! (cd apps/api && corepack pnpm exec prisma generate --schema=prisma/schema.prisma) >"$tmp/generate.log" 2>&1; then fail "$tmp/generate.log"; fi
+if ! (cd apps/api && pnpm exec prisma generate --schema=prisma/schema.prisma) >"$tmp/generate.log" 2>&1; then fail "$tmp/generate.log"; fi
 if [[ "$mode" == serve ]]; then
   phase=compile
-  if ! (cd apps/api && corepack pnpm build) >"$tmp/compile.log" 2>&1; then fail "$tmp/compile.log"; fi
+  if ! (cd apps/api && pnpm build) >"$tmp/compile.log" 2>&1; then fail "$tmp/compile.log"; fi
   phase=local-listener
   export ST213_READER_URL="$ST212_READER_URL" ST213_BIND_PORT="$listen_port" ST213_TRUSTED_PUBLIC_KEY_FILE="$key_file"
   export ST213_PROVENANCE_FILE="$tmp/provenance.json"
@@ -162,7 +162,7 @@ if [[ "$mode" == serve ]]; then
   exit 0
 fi
 phase=http-integration
-if ! (cd apps/api && corepack pnpm exec vitest run --config vitest.subscription-read.config.ts) >"$tmp/test.log" 2>&1; then
+if ! (cd apps/api && pnpm exec vitest run --config vitest.subscription-read.config.ts) >"$tmp/test.log" 2>&1; then
   code=$(grep -Eo 'P[0-9]{4}|SQLSTATE[ =:]+[A-Z0-9]{5}|ERROR:[[:space:]]*[A-Z0-9]{5}' "$tmp/test.log" | head -1 || true)
   detail=$(grep -Eo 'Disposable subscription read proof failed: [A-Za-z -]+' "$tmp/test.log" | head -1 | sed 's/.*: //' | tr ' ' '-' || true)
   printf 'ST-212 disposable proof: FAIL phase=http-integration detail=%s code=%s\n' \

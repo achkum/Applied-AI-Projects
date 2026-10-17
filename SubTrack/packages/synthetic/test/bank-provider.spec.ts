@@ -266,3 +266,43 @@ describe('custom persona instantiation', () => {
     expect(adobeTxns.length).toBeGreaterThanOrEqual(10);
   });
 });
+
+describe('persisted window identity', () => {
+  it('preserves IDs and payloads across overlapping windows', async () => {
+    const [account] = await provider.getAccounts(PERSONA_SOLBERG.id);
+    const from = new Date('2025-01-01T00:00:00.000Z');
+    const to = new Date('2025-12-31T23:59:59.999Z');
+    const all = await provider.getTransactions(account!.id, from, to);
+    const start = new Date('2025-06-01T00:00:00.000Z');
+    const partial = await provider.getTransactions(account!.id, start, to);
+    expect(partial).toEqual(all.filter(item => item.date >= start));
+    expect(new Set(all.map(item => item.externalId)).size).toBe(all.length);
+  });
+
+  it('filters after weekend/holiday shifts and is independent of host timezone', async () => {
+    const [account] = await provider.getAccounts(PERSONA_SOLBERG.id);
+    const from = new Date('2025-01-01T00:00:00.000Z');
+    const to = new Date('2025-12-31T23:59:59.999Z');
+    const original = process.env.TZ;
+    try {
+      process.env.TZ = 'Pacific/Honolulu';
+      const west = await provider.getTransactions(account!.id, from, to);
+      process.env.TZ = 'Asia/Tokyo';
+      expect(await provider.getTransactions(account!.id, from, to)).toEqual(west);
+      for (const item of west) {
+        expect(item.date >= from && item.date <= to).toBe(true);
+        const single = await provider.getTransactions(account!.id, item.date, item.date);
+        expect(single).toContainEqual(item);
+      }
+    } finally {
+      if (original === undefined) delete process.env.TZ;
+      else process.env.TZ = original;
+    }
+  });
+
+  it('rejects invalid and reversed windows rather than returning misleading results', async () => {
+    const [account] = await provider.getAccounts(PERSONA_SOLBERG.id);
+    await expect(provider.getTransactions(account!.id, new Date(NaN), new Date())).rejects.toThrow();
+    await expect(provider.getTransactions(account!.id, new Date('2025-02-01'), new Date('2025-01-01'))).rejects.toThrow();
+  });
+});

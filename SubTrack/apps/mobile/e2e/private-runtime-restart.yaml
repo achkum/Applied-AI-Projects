@@ -2,17 +2,36 @@ appId: se.subtrack.app
 ---
 - stopApp
 - launchApp
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible: ${MAESTRO_CREATE_ACCOUNT}
+          timeout: 120000
 - openLink: subtrack:///personal
 - extendedWaitUntil:
-    visible: ${MAESTRO_VERIFY_BANKID}
+    visible:
+      id: native-personal-login
     timeout: 30000
-- assertNotVisible: Native restart proof
-- tapOn: ${MAESTRO_VERIFY_BANKID}
+- assertNotVisible: Example streaming
+- tapOn:
+    id: native-personal-login
 - extendedWaitUntil:
-    visible: Native restart proof
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
+- scrollUntilVisible:
+    element: Example streaming
+    direction: DOWN
+    centerElement: true
+- extendedWaitUntil:
+    visible: Example streaming
     timeout: 30000
 - takeScreenshot: accepted-restart
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
+- runFlow: private-runtime-open-profile.yaml
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}
     direction: DOWN
@@ -20,5 +39,6 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_LOGOUT_CONFIRMED}
     timeout: 30000
-- assertNotVisible: Native restart proof
+- assertNotVisible: ${MAESTRO_LOGOUT}
+- assertNotVisible: Example streaming
 - takeScreenshot: accepted-logout

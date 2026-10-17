@@ -1,0 +1,3 @@
+# ST250 narrow SDK54 Jest lint repair
+
+2026-10-14. Root's actual e3be79a quality job identified no-redeclare on the new redundant global module comment. Removed only that first comment in apps/mobile/jest.config.js; existing mobile eslint.config.mjs already declares module for this file. Module export, modulePaths, resolver/transforms/coverage defaults and all runtime code remain identical. Actual installed mobile node_modules/.bin/eslint.cmd jest.config.js from the mobile package cwd PASS. No Jest/application suite/new test or raw private-log output. Root independent source review and new-head quality CI remain required; no other failure inferred.

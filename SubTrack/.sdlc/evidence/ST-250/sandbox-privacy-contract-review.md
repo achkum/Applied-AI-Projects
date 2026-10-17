@@ -1,0 +1,41 @@
+# ST-250 — Independent backend privacy/security plan review
+
+2026-10-14. Reviewer independently inspected `sandbox-backend-contract.md`, accepted ADR0035, the adopted identity proposal, current business dispatch/SQL authority interface and the redacted secret-scan metadata plus exact historical public source line. Read-only review and this evidence edit only; no tests, source changes, Git mutation, SQL, credentials or VPS execution.
+
+**PRIVACY/SECURITY PLAN GO for the bounded first-beta backend source freeze**, with the implementation requirements below. Founder A is recorded in accepted ADR0035: no further identity adoption question is needed. The author may implement the strict contracts and separate persistent sandbox graph now after the conductor amends the exact paths. This is not implementation, migration, ingress or deployment sign-off.
+
+## Accepted authority and data boundary
+
+The five-route bootstrap/resume/refresh/logout/business roster implements the adopted per-installation model without shared Alice, supplied owner selectors, contact verification or BankID claims. A server-created owner and one-time disclosed 32-byte capability bind a durable private workspace; returning resume resolves only its stored digest. Bootstrap/resume admission reservations burn globally before issuance, duplicate/uncertain issuance never replays credentials and no uncertain compensation deletes data. Access15-minute/session24-hour bounds are capped by fixed30-day capability expiry. Distinct token issuer/audience/kid/material and capability/refresh prefixes keep private-proof and production credentials out. Workspace logout revokes capability and every session atomically; resume after uncertain refresh is the explicitly approved sandbox exception.
+
+The immutable production-mode sandbox tuple, dedicated low-privilege role graph/epoch/manifest, no bootstrap credential in API, strict finite named business port and structural type-only adaptation preserve the private graph's current development/loopback gates. Existing manual Money/lifecycle/wire behavior stays canonical. Business authorization locks live owner/capability/session, scopes BOTH owner GUCs and checks current authority before replay. Final durable fence plus synchronous credential/time guard has no yield before actual COMMIT dispatch; unknown commit/rollback withholds results and discards the connection. No bank/detection/household/raw-transaction/export/deletion/debug routes or default Nest registration are added.
+
+Initial workspaces are empty and fictional-input/simulation labels must remain visible in the later native adapter. Treat any entered display names and subscription labels as private data even if the tester disregards the request to use fictional inputs. No names, amounts, capabilities, raw source addresses or request bodies enter logs/telemetry/feedback links. No person-number/contact/authentication-success claim is derived from the MOCK identity row.
+
+The plan's finite total/per-owner retained-row ceilings, locked capacity enforcement, bounded RAM source-rate state/concurrency/query/transaction/response framing and fail-closed overload behavior are appropriate for a public discoverable link. Expired rows count toward retained capacity; no deletion/expiry cleanup is inferred. Capacity exhaustion can stop this beta before30days and must be presented as temporary admission unavailability, not silent data loss or a false durability promise. Source rate keys and global storage limits are complementary; a source address never supplies principal authority.
+
+## Binding implementation requirements
+
+1. Owner/subscription composite FKs for both manual receipt tables are **required**, not merely preferred, because the contract relies on owner-scoped replay and has no deletion compatibility reason to omit them. Required ownership/revision columns are immutable through least-privilege column grants and database constraints/triggers; runtime cannot reassign identity, choose revision, insert identity, delete rows or update receipts.
+2. Capacity checks and inserts must be enforced under the same canonical global-then-owner lock sequence, including all credential/reservation/receipt growth and uncertain-orphan rows. SECURITY DEFINER capacity/provisioning functions, if used, require a fixed safe search_path, non-login/non-BYPASS owner and revoked PUBLIC execution; use only narrowly granted typed functions, never caller-selected SQL/role/config/owner authority. Source tests cannot stand in for actual ordinary-role/concurrency PG proof.
+3. Strict raw JSON parsing must reject duplicate property names and trailing/non-JSON material before parsed-body dispatch, in addition to the frozen extra/accessor/prototype/symbol rejection. Distinct credential branches are mutually exclusive. Header framing/proxy metadata/HTTP content-length checks must remain coherent across the actual gateway and API; do not loosen them into generic Express defaults to accommodate development tools.
+4. Authenticated gateway provenance must be separately mounted server material or equivalently verified transport, with trusted source metadata derived only by that gateway after stripping incoming forwarding headers. Network membership/canonical Host alone is insufficient. No startup/publication until this exact adapter and deployment route roster have independent review; prepared infrastructure remains disabled meanwhile. Rate/hash state never consumes untrusted forwarded addresses.
+5. Final guard ordering, wallclock/DB fencing, current owner/session/capability validation and no credential replay require tests against the actual implementation, including equality/expiry during awaited work and unknown commit/rollback. Keep capability digest/resume secrets distinct from ordinary access/refresh branches and verify constant-time comparisons where application-held secrets are compared. Every response disclosure follows known COMMIT and clean/reset connection verification.
+
+These tighten already stated ownership/framing/enforcement requirements within the adopted scope; they do not add a new security-model decision. If source cannot meet them, report that concrete issue before exposure rather than altering the model or inventing evidence.
+
+## Independent single secret-scan finding classification
+
+The redacted report contains exactly one finding: rule `generic-api-key`, historical commit `2d1c844715a3402897b398c9696e85664f6e0b53`, file `SubTrack/.sdlc/evidence/ST-250/sandbox-backend-contract.md`, line74. Independent inspection confirms ordinary required-test topics in that exact historical line; the entire paragraph describes implementation tests. The conductor removes the repeated quoted excerpt here to avoid reproducing the same lexical false positive. There is no credential assignment or generated/random credential material in that line. The apparent value is ordinary test-topic prose. **Classified false positive**, bounded to this one historical fingerprint:
+
+```text
+2d1c844715a3402897b398c9696e85664f6e0b53:SubTrack/.sdlc/evidence/ST-250/sandbox-backend-contract.md:generic-api-key:74
+```
+
+Recommend splitting/rewording the current prose sentence to avoid the misleading scanner pattern, plus recording only this exact reviewed historical fingerprint through the repository's existing audited exclusion process. Do not add a path/rule/regex-wide exclusion or suppress future findings. The conductor retains scan/exclusion ownership and must rerun the complete required history scan after curation; no private scan artifact is curated. This classification is not a secret-scan pass claim.
+
+## Reviewed contract digest
+
+`sandbox-backend-contract.md` SHA256: `9f2b113336c3198b9ba19940b06b7cf7474bdcd104642302574871a3131668d5`. A prose-only scanner-pattern correction does not change this plan's authority, route or DDL requirements; record the replacement hash during source curation. Any semantic model/route/grant change requires bounded re-review.
+
+Next deliverable: strict contracts plus reviewed persistent backend source for actual qualification. Continue native client, packaging and ingress readiness independently. Public backend/device acceptance and TestFlight availability remain separate measured delivery states.

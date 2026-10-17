@@ -3,15 +3,31 @@ appId: se.subtrack.app
 # Previous parent flow ends logged out. Verify fresh authority, then open agenda.
 - openLink: subtrack:///personal
 - extendedWaitUntil:
-    visible: ${MAESTRO_VERIFY_BANKID}
+    visible:
+      id: native-personal-login
     timeout: 30000
-- tapOn: ${MAESTRO_VERIFY_BANKID}
+- tapOn:
+    id: native-personal-login
 - extendedWaitUntil:
-    visible: Native edited restart proof
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
+- scrollUntilVisible:
+    element: Example streaming Plus
+    direction: DOWN
+    centerElement: true
+- extendedWaitUntil:
+    visible: Example streaming Plus
+    timeout: 30000
+- tapOn:
+    id: native-nav-month
+- extendedWaitUntil:
+    visible: ${MAESTRO_MONTH_TITLE}
     timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_RENEWALS_OPEN}
-    direction: UP
+    direction: DOWN
 - tapOn: ${MAESTRO_RENEWALS_OPEN}
 - extendedWaitUntil:
     visible: ${MAESTRO_RENEWALS_TITLE}
@@ -19,7 +35,7 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_RENEWALS_EMPTY}
     timeout: 30000
-- assertNotVisible: Native edited restart proof
+- assertNotVisible: Example streaming Plus
 - scrollUntilVisible:
     element: ${MAESTRO_RENEWALS_REFRESH}
     direction: DOWN
@@ -27,8 +43,16 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_RENEWALS_EMPTY}
     timeout: 30000
-- assertNotVisible: Native edited restart proof
+- assertNotVisible: Example streaming Plus
 - takeScreenshot: accepted-renewals-empty
+- tapOn:
+    id: native-nav-manage
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
+- runFlow: private-runtime-open-profile.yaml
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}
     direction: DOWN
@@ -36,4 +60,5 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_LOGOUT_CONFIRMED}
     timeout: 30000
-- assertNotVisible: Native edited restart proof
+- assertNotVisible: ${MAESTRO_LOGOUT}
+- assertNotVisible: Example streaming Plus

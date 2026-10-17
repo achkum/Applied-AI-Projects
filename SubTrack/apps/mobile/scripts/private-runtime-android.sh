@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 phase="${1:?sdk, avd, boot, owned-device, clear-app or cleanup}"
 proof_private="${RUNNER_TEMP:?}/subtrack-native-proof/private"
 mkdir -p "$proof_private"
@@ -60,7 +61,35 @@ stop_owned_emulator() {
   else diagnostic no-live-owned-emulator; fi
 }
 
+# Diagnostic custody is produced around successful creation/boot, never inferred from a flag.
+android_custody() {
+  [[ "${ST253_ANDROID_CAPTURE_ENABLED:-}" == true || "${ST253_ANDROID_HOME_CAPTURE_ENABLED:-}" == true || "${ST253_ANDROID_EDIT_CAPTURE_ENABLED:-}" == true ]] || return 0
+  local helper
+  helper="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/private-runtime-maestro-metadata.mjs"
+  NODE_ENV=development node --input-type=module - "$helper" "$1" "$proof_private" 2> "$proof_private/android-custody-$1.log" <<'NODE'
+import {pathToFileURL} from 'node:url';
+import {execFileSync} from 'node:child_process';
+const {androidCaptureContext,androidAvdStage}=await import(pathToFileURL(process.argv[2]).href);
+const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+const {homeCaptureContext}=await import(new URL('./private-runtime-android-home-diagnostic.mjs',pathToFileURL(process.argv[2])).href);
+const {editCaptureContext}=await import(new URL('./private-runtime-android-edit-diagnostic.mjs',pathToFileURL(process.argv[2])).href);
+const context=androidCaptureContext(process.env,head)??homeCaptureContext(process.env,head)??editCaptureContext(process.env,head);
+let stage='CONTEXT';
+try{if(!context)throw Error();androidAvdStage(process.argv[4],context,process.argv[3],process.env,value=>{stage=value;});}
+catch{if(['CONTEXT','CREATION','AVD_HOME','AVD_RECEIPTS','AVD_INTENT','AVD_DATA','AVD_INDEX','AVD_CONFIG','AVD_SCHEMA','AVD_INTENT_BINDING','AVD_DATA_BINDING','AVD_INDEX_BINDING','AVD_CONFIG_BINDING','AVD_PATH','PROCESS','EXECUTABLE','ARGUMENTS','ADB','RECEIPT'].includes(stage))console.log(`ST244_ANDROID custody_check=${stage}`);process.exitCode=1;}
+NODE
+}
 diagnostic started
+# Cache hits are only a hint: validate each pinned package before reuse.
+sdk_packages_ready() {
+  [[ -f "$system_images/source.properties" && -f "$ANDROID_HOME/platforms/android-36/source.properties" && -f "$ANDROID_HOME/build-tools/36.0.0/source.properties" && -f "$ANDROID_HOME/ndk/27.1.12297006/source.properties" ]] || return 1
+  grep -Eq '^AndroidVersion\.ApiLevel[[:space:]]*=[[:space:]]*34[[:space:]]*$' "$system_images/source.properties" || return 1
+  grep -Eq '^AndroidVersion\.ApiLevel[[:space:]]*=[[:space:]]*36[[:space:]]*$' "$ANDROID_HOME/platforms/android-36/source.properties" || return 1
+  grep -Eq '^Pkg\.Revision[[:space:]]*=[[:space:]]*36\.0\.0[[:space:]]*$' "$ANDROID_HOME/build-tools/36.0.0/source.properties" || return 1
+  grep -Eq '^Pkg\.Revision[[:space:]]*=[[:space:]]*27\.1\.12297006[[:space:]]*$' "$ANDROID_HOME/ndk/27.1.12297006/source.properties" || return 1
+  [[ -f "$system_images/system.img" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt2" && -x "$ANDROID_HOME/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" ]]
+}
+
 case "$phase" in
   sdk)
     [[ -x "$sdk_bin/sdkmanager" ]] || fail sdkmanager-unavailable
@@ -69,11 +98,14 @@ case "$phase" in
     [[ -x "$emulator_bin" ]] || fail emulator-unavailable
     printf '%s\n' "$ANDROID_HOME/platform-tools" >> "${GITHUB_PATH:?}"
     printf 'ANDROID_SDK_ROOT=%s\nANDROID_AVD_HOME=%s\nANDROID_EMULATOR_HOME=%s\n' "$ANDROID_SDK_ROOT" "$ANDROID_AVD_HOME" "$ANDROID_EMULATOR_HOME" >> "${GITHUB_ENV:?}"
-    if timeout --signal=TERM --kill-after=15s 600s "$sdk_bin/sdkmanager" \
-      'system-images;android-34;google_apis;x86_64' 'platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125' \
+    if sdk_packages_ready; then
+      diagnostic sdk-reused
+    elif timeout --signal=TERM --kill-after=15s 600s "$sdk_bin/sdkmanager" \
+      'system-images;android-34;google_apis;x86_64' 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.1.12297006' \
       </dev/null > "$proof_private/sdk-install.log" 2>&1; then
-      [[ -f "$ANDROID_HOME/ndk/26.1.10909125/source.properties" ]] || fail sdk-ndk-revision-missing
-      grep -Eq '^Pkg\.Revision[[:space:]]*=[[:space:]]*26\.1\.10909125[[:space:]]*$' "$ANDROID_HOME/ndk/26.1.10909125/source.properties" || fail sdk-ndk-revision-mismatch
+      [[ -f "$ANDROID_HOME/ndk/27.1.12297006/source.properties" ]] || fail sdk-ndk-revision-missing
+      grep -Eq '^Pkg\.Revision[[:space:]]*=[[:space:]]*27\.1\.12297006[[:space:]]*$' "$ANDROID_HOME/ndk/27.1.12297006/source.properties" || fail sdk-ndk-revision-mismatch
+      sdk_packages_ready || fail sdk-package-incomplete
       diagnostic sdk-installed
     else
       code=$?
@@ -84,12 +116,15 @@ case "$phase" in
     ;;
   avd)
     [[ -x "$sdk_bin/avdmanager" ]] || fail avd-tool-unavailable
+    [[ ! -e "$avd_data" && ! -L "$avd_data" && ! -e "$ANDROID_AVD_HOME/subtrack-proof.ini" && ! -L "$ANDROID_AVD_HOME/subtrack-proof.ini" ]] || fail avd-already-present
+    android_custody begin || diagnostic avd-custody-unavailable
     if printf 'no\n' | timeout --signal=TERM --kill-after=10s 60s "$sdk_bin/avdmanager" \
       create avd --name subtrack-proof --path "$avd_data" --package 'system-images;android-34;google_apis;x86_64' --device pixel_6 \
       > "$proof_private/avd-create.log" 2>&1; then diagnostic avd-created;
     else fail avd-create-failed-or-deadline; fi
     [[ -f "$ANDROID_AVD_HOME/subtrack-proof.ini" && -f "$avd_data/config.ini" ]] || fail avd-index-or-config-missing
     grep -Fqx "path=$avd_data" "$ANDROID_AVD_HOME/subtrack-proof.ini" || fail avd-path-mismatch
+    android_custody created || diagnostic avd-custody-unavailable
     ;;
   boot)
     [[ -x "$adb_bin" && -x "$emulator_bin" ]] || fail boot-tool-unavailable
@@ -119,7 +154,7 @@ case "$phase" in
     while ((SECONDS-boot_start < 240)); do
       owned_emulator_alive || fail emulator-exited-before-boot
       completed="$(timeout --signal=TERM --kill-after=2s 5s "$adb_bin" -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
-      if [[ "$completed" == 1 ]]; then diagnostic boot-completed; boot_success=true; exit 0; fi
+      if [[ "$completed" == 1 ]]; then android_custody boot || fail boot-custody-unavailable; diagnostic boot-completed; boot_success=true; exit 0; fi
       diagnostic waiting-for-boot
       sleep 5
     done

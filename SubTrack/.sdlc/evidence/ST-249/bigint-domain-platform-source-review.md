@@ -1,0 +1,7 @@
+# ST249 independent bigint domain source review
+
+2026-10-14. Source GO for the frozen pure-domain slice. The additive bigint front door calls the same recurring detector core as the legacy number front door. Legacy `assertSafeMinorUnits` remains at its former validation point; the new path validates runtime bigint type and signed int64 bounds at that point, before pending/credit filtering. Schedule, amount-band, Money, reason and tie-breaker implementations are shared. No Money algorithm or old package export changed.
+
+The additive runtime export declares the detector types and bundles the exact detector entry with the canonical Money source through the installed esbuild 0.28.2 graph. The source verifies the canonical Money input, absence of external output imports and a clean Node self-package import. Author reports build, declaration, typecheck, scoped lint and 20 focused tests passing. Five cadence parity cases, beyond-safe-integer exactness, legacy safe-number rejection and all new bigint guard outcomes are covered. The disclosed 82.96% whole-detector branch coverage exceeds the unchanged 80% threshold; this review does not claim whole-file 100% or later feature completion.
+
+For later storage composition, the signed minimum debit can yield positive magnitude 2^63 in Money. The SQL `bigint` persistence boundary must reject that candidate with rollback, preserving exact arithmetic; it must never convert or truncate through `number`. No API, storage, current-authority or native proof is established by this domain review.

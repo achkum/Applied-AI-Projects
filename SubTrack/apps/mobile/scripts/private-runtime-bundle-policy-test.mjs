@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { EventEmitter } from 'node:events';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   staticBundleArguments,
   staticBundleEnvironment,
@@ -9,7 +12,14 @@ import {
   ownedGraphCertificateContext,
   boundedBundleChild,
 } from './private-runtime-bundle-policy.mjs';
-const versions = { native: '0.74.5', babel: '11.0.15' };
+const require = createRequire(
+  join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'),
+);
+const versions = { native: '0.81.5', babel: '54.0.12' };
+const resolvedVersions = {
+  native: require('react-native/package.json').version,
+  babel: require('babel-preset-expo/package.json').version,
+};
 test('graph child preserves existing fixture proof and real CA context', () => {
   const original = {
     CI: 'true',
@@ -109,9 +119,10 @@ test('compiler/receipt diagnostics emit only fixed enums; malformed/injected/dup
     assert.equal(graphStatus(text, platform), null);
 });
 test('static dev graph plan preserves exact platforms/SDK pins/options', () => {
+  assert.deepEqual(resolvedVersions, versions);
   for (const platform of ['ios', 'android'])
     assert.deepEqual(
-      staticBundleArguments(platform, versions, '/private/export'),
+      staticBundleArguments(platform, resolvedVersions, '/private/export'),
       [
         'export',
         '--platform',
@@ -128,8 +139,9 @@ test('static dev graph plan preserves exact platforms/SDK pins/options', () => {
   for (const args of [
     ['web', versions, 'out'],
     ['ios', null, 'out'],
-    ['ios', { native: '0.74.0', babel: '11.0.15' }, 'out'],
-    ['ios', { native: '0.74.5', babel: '10.0.2' }, 'out'],
+    ['ios', { native: '0.74.5', babel: '11.0.15' }, 'out'],
+    ['ios', { native: '0.81.5', babel: '54.0.11' }, 'out'],
+    ['ios', { native: '0.81.6', babel: '54.0.12' }, 'out'],
     ['ios', versions, null],
     ['ios', versions, ''],
   ])

@@ -31,19 +31,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: corepack enable && corepack prepare pnpm@12.6.0 --activate
-      - run: corepack pnpm install --frozen-lockfile
+      - run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = '12.6.0'
+      - run: pnpm install --frozen-lockfile
       - name: Install task Firefox and NSS tooling
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends libnss3-tools
-          corepack pnpm --filter @subtrack/web exec playwright install firefox --with-deps
-          test "$(corepack pnpm --filter @subtrack/web exec node -p "require('playwright/package.json').version")" = 1.63.0
+          pnpm --filter @subtrack/web exec playwright install firefox --with-deps
+          test "$(pnpm --filter @subtrack/web exec node -p "require('playwright/package.json').version")" = 1.63.0
           command -v certutil >/dev/null
       - name: Build real Next register page
         env:
           NEXT_TELEMETRY_DISABLED: '1'
-        run: corepack pnpm --filter @subtrack/web build
+        run: pnpm --filter @subtrack/web build
       - name: Direct TLS, Firefox trust and negative browser proof
         env:
           ST237_EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -78,20 +80,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: corepack enable && corepack prepare pnpm@12.6.0 --activate
-      - run: corepack pnpm install --frozen-lockfile
+      - run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = '12.6.0'
+      - run: pnpm install --frozen-lockfile
       - name: Install confined Firefox trust tooling
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends libnss3-tools
-          corepack pnpm --filter @subtrack/web exec playwright install firefox --with-deps
+          pnpm --filter @subtrack/web exec playwright install firefox --with-deps
       - name: Build private API and validate web assets
         env:
           DATABASE_URL: postgresql://unused:unused@127.0.0.1:5432/unused
           NEXT_TELEMETRY_DISABLED: '1'
         run: |
-          corepack pnpm --filter @subtrack/api build
-          corepack pnpm --filter @subtrack/web build
+          pnpm --filter @subtrack/api build
+          pnpm --filter @subtrack/web build
           node apps/web/test/private-https-preflight.mjs revision-catalog
       - name: Actual separate ordinary schema and owner policy
         env:

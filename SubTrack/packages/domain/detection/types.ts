@@ -29,6 +29,15 @@ export interface TransactionSeries {
   transactions: readonly DetectionTransaction[];
 }
 
+/** Durable bank amounts never pass through JavaScript number. */
+export interface BigintDetectionTransaction extends Omit<DetectionTransaction, 'amountMinor'> {
+  amountMinor: bigint;
+}
+
+export interface BigintTransactionSeries extends Omit<TransactionSeries, 'transactions'> {
+  transactions: readonly BigintDetectionTransaction[];
+}
+
 export type DetectionReasonCode =
   | 'MERCHANT_RESOLVED'
   | 'CADENCE_MATCHED'

@@ -3,10 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "corepack pnpm --filter @subtrack/domain build:lifecycle && prisma generate --schema=prisma/schema.prisma && tsc -p tsconfig.build.json",
+    "build": "pnpm --filter @subtrack/domain build:lifecycle && pnpm --filter @subtrack/domain build:bank && pnpm --filter @subtrack/domain build:detection && pnpm --filter @subtrack/synthetic build:bank && prisma generate --schema=prisma/schema.prisma && tsc -p tsconfig.build.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-    "typecheck": "corepack pnpm --filter @subtrack/domain build:lifecycle && prisma generate --schema=prisma/schema.prisma && tsc --noEmit -p tsconfig.json",
-    "test": "corepack pnpm --filter @subtrack/domain build:lifecycle && prisma generate --schema=prisma/schema.prisma && vitest run"
+    "typecheck": "pnpm --filter @subtrack/domain build:lifecycle && pnpm --filter @subtrack/domain build:bank && pnpm --filter @subtrack/domain build:detection && pnpm --filter @subtrack/synthetic build:bank && prisma generate --schema=prisma/schema.prisma && tsc --noEmit -p tsconfig.json",
+    "test": "pnpm --filter @subtrack/domain build:lifecycle && pnpm --filter @subtrack/domain build:bank && pnpm --filter @subtrack/domain build:detection && pnpm --filter @subtrack/synthetic build:bank && prisma generate --schema=prisma/schema.prisma && vitest run"
   },
   "devDependencies": {
     "@subtrack/config": "workspace:*",
@@ -15,7 +15,6 @@
     "@types/pg": "8.23.1",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "4.1.11",
-    "pg": "8.23.1",
     "prisma": "6.19.2",
     "vite": "7.3.6",
     "vitest": "4.1.11"
@@ -26,6 +25,7 @@
     "@nestjs/platform-express": "^12.1.0",
     "@nestjs/testing": "^12.1.0",
     "@prisma/client": "6.19.2",
+    "pg": "8.23.1",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",
@@ -33,6 +33,7 @@
     "supertest": "^7.3.0",
     "zod": "^4.6.5",
     "@subtrack/contracts": "workspace:*",
-    "@subtrack/domain": "workspace:*"
+    "@subtrack/domain": "workspace:*",
+    "@subtrack/synthetic": "workspace:*"
   }
 }

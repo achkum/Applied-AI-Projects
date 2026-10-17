@@ -20,7 +20,8 @@ describe('IdentifierEntry', () => {
   it('normalizes a valid email and calls the callback once when continued', () => {
     const onValidIdentifier = jest.fn();
     render(<IdentifierEntry onValidIdentifier={onValidIdentifier} />);
-    fireEvent.changeText(screen.getByLabelText('Email address'), ' User@EXAMPLE.com ');
+    const input=screen.getByTestId('native-identifier-input');expect(input).toBe(screen.getByLabelText('Email address'));
+    fireEvent.changeText(input, ' User@EXAMPLE.com ');
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(onValidIdentifier).toHaveBeenCalledTimes(1);
     expect(onValidIdentifier).toHaveBeenCalledWith({ valid: true, channel: 'email', identifier: 'User@example.com' });
@@ -61,7 +62,8 @@ describe('IdentifierEntry', () => {
     render(<IdentifierEntry onValidIdentifier={jest.fn()} />);
     const radio = screen.getByRole('radio', { name: locale === 'sv' ? 'E-post' : 'Email' });
     expect(radio.props.accessibilityState).toEqual({ selected: true });
-    expect(screen.getByLabelText(fieldLabel).props.style).toEqual(expect.arrayContaining([expect.objectContaining({ backgroundColor: background })]));
+    const input=screen.getByTestId('native-identifier-input');expect(input).toBe(screen.getByLabelText(fieldLabel));
+    expect(input.props.style).toEqual(expect.arrayContaining([expect.objectContaining({ backgroundColor: background })]));
     expect(screen.getByRole('button', { name: locale === 'sv' ? 'Fortsätt' : 'Continue' })).toBeTruthy();
   });
 
@@ -69,7 +71,7 @@ describe('IdentifierEntry', () => {
     const onValidIdentifier = jest.fn();
     render(<IdentifierEntry onValidIdentifier={onValidIdentifier} />);
     fireEvent.press(screen.getByRole('radio', { name: 'Mobile number' }));
-    const input = screen.getAllByLabelText('Mobile number')[1];
+    const input = screen.getByTestId('native-identifier-input');expect(input.props.accessibilityLabel).toBe('Mobile number');
     fireEvent.changeText(input, '070 123 45 67');
     fireEvent(input, 'submitEditing');
     expect(onValidIdentifier).toHaveBeenCalledWith({ valid: true, channel: 'phone', identifier: '+46701234567' });

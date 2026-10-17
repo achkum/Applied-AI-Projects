@@ -1,0 +1,20 @@
+# ST250 registered Android workflow bridge source freeze
+
+2026-10-14. Root architecture/source PLAN GO implemented in exactly two already-allowed workflow paths. Root independently observed that the standalone Android workflow file is absent from default-branch contents; this bridge uses the existing registered container-proof carrier rather than requiring standalone manual registration. Source and this evidence are ready for independent peer review before push or actual dispatch. Task metadata was not changed.
+
+| Source path | SHA256 |
+| --- | --- |
+| `.github/workflows/subtrack-container-proof.yml` | `597cc3c5229f93fdd0867fc67dadcafeba6341893013c4ae58c34ec3a2abb925` |
+| `.github/workflows/subtrack-sandbox-android-build.yml` | `47b6b1bee2f59f58d1802e0b2462896eb658cd79a85f21f0f9c7e777d5932536` |
+
+Carrier manual delivery_mode is none/unsigned-apk/signing-tools/verify-signed. It forwards exactly six typed Android inputs, including the existing shared source_head, to `./.github/workflows/subtrack-sandbox-android-build.yml`. Child workflow_call inputs are five strings and one boolean; its existing jobs, direct workflow_dispatch/PR definitions, permissions and concurrency remain identical to the parsed pre-change baseline. A same-repository local reusable reference resolves the child at the caller's exact commit; no mutable external ref or expression is used.
+
+An explicit manual Android request first runs a contents-read authority job with immutable checkout, persist-credentials:false, exact repository/feature branch/dispatch, backend=false, supported mode, forty-hex input/event/actual-checkout head equality. Only its successful dependent trusted Android call job grants contents-write. Child private publisher maintains that ceiling; default and signed-return verifier jobs reduce to contents-read. No secrets declaration/inheritance, environment secret, SSH or signer credential is added. Backend transfer requires delivery_mode=none and preserves its original job body. Mixed modes fail the read-only guard and cannot enter either publisher. Ordinary legacy image job steps remain identical and skip only explicit backend transfer or one of the three explicit manual Android delivery modes; PR/default none/manual false behavior remains.
+
+Explicit backend/Android custody receives a unique runID/attempt group with cancellation false at carrier workflow level. Carrier `subtrack-container-proof-custody-*` and child `subtrack-sandbox-android-custody-*` groups differ, avoiding reusable caller/child cancellation collisions. Ordinary grouping/cancellation behavior remains.
+
+Observed checks: both actual YAML files parse; parsed child job/direct/PR/default-permission/concurrency preservation and both existing carrier job-body preservation pass. Six-input type/forwarding, exact local reference, authority dependency/read guard/write call/read verifier/no-secret boundaries pass. Evaluated parsed job/concurrency expressions cover PR, default manual, backend-only, each three Android modes, mixed modes, unsupported mode and wrong repository/ref/event/head. Mixed/untrusted calls deny; custody cancellation is false and caller/child groups differ. Actual extracted authority shell parses with Bash `-n`; it was not executed. No application/unit/integration tests were run or added.
+
+Official primary reference checked2026-10-14: [GitHub reusable workflows](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows), documenting same-commit local workflow resolution, typed inputs, job-level calls and permission non-elevation. Built-in github.token remains the existing ephemeral credential for publisher/read-only asset access.
+
+No other implementation files, Android false-only artifact contracts, backend helpers, task metadata or active-artifact/native activation plan were changed. No CI, Git, SSH, Docker, runtime, key, Release/asset or other external action occurred. This freezes an executable access route for current runtime-disabled preparation modes; it does not claim registration acceptance, successful dispatch, signed install or public eligibility.

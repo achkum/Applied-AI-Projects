@@ -1,0 +1,9 @@
+# ST249 actual qualification with closed diagnostic correction
+
+2026-10-14. Newly inspected [run38526981274](https://github.com/achkum/Applied-AI-Projects/actions/runs/38526981274), job115729547496, exact pushed head `8a2e5860ca8c551c6fe8a03830ad30ca2e115588`. Actual owned PG16/TLS behavior step **FAILURE**, job completed07:15:03UTC. No code/Git/SQL dispatch/native rerun/VPS operation by independent observer.
+
+Fixed sanitized failure now emitted: `ST249_DETECTION_PROOF_FAILURE phase=UNKNOWN`. Owned cleanup emitted `ST244_FIXTURE_CLEANUP removed`. Artifacts API returns an empty list; no accepted receipt exists, so nine scalar/52gate validation and detection/native acceptance cannot be claimed. Raw job log remains only in the ignored private helper; no raw messages/paths/financial data/screenshots printed.
+
+This is new bounded evidence: synchronous bundle/module/config setup reached the asynchronous integration path, whose rejection did not match the original ST244/ST248/ST249 closed roster. The implemented fallback therefore masked an unrecognized asynchronous error as designed. The fixed label alone does not identify which baseline or assertion failed. Possible unwrapped source boundaries visible on inspection include parent harness/CA setup before try, bank harness/CA setup before try, detection setup before its phase try, and teardown errors overriding a phase error. These are inspection findings, not observed cause attribution.
+
+Before any further dispatch, the conductor should freeze a narrow stage-local integration wrapper that preserves known labels and classifies only the failing actual parent/bank/detection stage plus closed error category; no raw Error.message/SQL/credentials/stack. Do not repeat old inventories or claim that a mocked unit failure is the live cause. Continue independent sandbox author streams. Current status remains backend source reviewed, genuine ST249 runtime unqualified.

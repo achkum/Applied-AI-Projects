@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react-native';
+import { act, render, screen, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import IndexRoute from '../../app/index';
 import { RootProvider } from './RootProvider';
@@ -23,11 +23,16 @@ jest.mock(
 jest.mock('expo-router', () => {
   const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
   return {
-    Redirect: ({ href }: { href: string }) => (
-      <Text testID="redirect-target">{href}</Text>
+    Redirect: ({ href }: { href: string | { pathname: string; params: Record<string, string> } }) => (
+      <Text testID="redirect-target">{typeof href === 'string' ? href : JSON.stringify(href)}</Text>
     ),
   };
 });
+
+let mockSessionPhase: 'active' | 'busy' | 'verification-required' = 'verification-required';
+jest.mock('@/state/OnboardingAdapter', () => ({
+  useOnboarding: () => ({ sessionPhase: mockSessionPhase }),
+}));
 
 const mockStorage = jest.mocked(AsyncStorage);
 
@@ -35,6 +40,7 @@ describe('root onboarding landing route', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockStorage.getItem.mockResolvedValue(null);
+    mockSessionPhase = 'verification-required';
   });
 
   // The first cold native/Babel provider mount measured 4.1–4.9s, so only this test gets headroom.
@@ -81,4 +87,14 @@ describe('root onboarding landing route', () => {
     },
     15_000,
   );
+
+  it.each([
+    ['active', JSON.stringify({ pathname: '/personal', params: { setup: '1' } })],
+    ['busy', '/welcome'],
+    ['verification-required', '/welcome'],
+  ] as const)('routes onboarding session phase %s to the intended destination', async (phase, expected) => {
+    mockSessionPhase = phase;
+    render(<RootProvider><IndexRoute /></RootProvider>);
+    await waitFor(() => expect(screen.getByTestId('redirect-target').props.children).toBe(expected));
+  });
 });
