@@ -8,7 +8,7 @@ import {inflateSync,crc32} from 'node:zlib';
 import {setImmediate} from 'node:timers/promises';
 import {TextDecoder} from 'node:util';
 const MAX_BYTES=4*1024*1024;
-const KINDS=Object.freeze({tapOnElement:'TAP',inputTextCommand:'INPUT',hideKeyboardCommand:'HIDE_KEYBOARD',assertConditionCommand:'ASSERT_CONDITION',scrollUntilVisible:'SCROLL_UNTIL_VISIBLE',takeScreenshotCommand:'SCREENSHOT',applyConfigurationCommand:'CONFIGURATION'});
+const KINDS=Object.freeze({tapOnElement:'TAP',inputTextCommand:'INPUT',hideKeyboardCommand:'HIDE_KEYBOARD',assertConditionCommand:'ASSERT_CONDITION',scrollUntilVisible:'SCROLL_UNTIL_VISIBLE',takeScreenshotCommand:'SCREENSHOT',applyConfigurationCommand:'CONFIGURATION',runFlowCommand:'SUBFLOW'});
 const STATUSES=['PENDING','RUNNING','COMPLETED','FAILED','WARNED','SKIPPED'];
 const TARGETS=Object.freeze(['personal-title','profile-save','add-open','subscription-name','subscription-category','subscription-amount','date-field','subscription-save','saved-row','UNKNOWN']);
 export const ENROLLMENT_HEADER_OCCURRENCES=Object.freeze(['ENTRY_HEADER','SAVED_HEADER','UNKNOWN']);
@@ -42,7 +42,7 @@ function scrollTarget(command){
  if(keys.some(key=>!['idRegex','textRegex','optional','size','below','above','leftOf','rightOf','containsChild','containsDescendants','traits','index','enabled','selected','checked','focused','childOf','css'].includes(key)||(!['idRegex','textRegex'].includes(key)&&selector[key]!==null&&!(key==='optional'&&selector[key]===false))))return 'UNKNOWN';
  const id=selector.idRegex??null,text=selector.textRegex??null;
  if(id!==null&&text!==null)return 'UNKNOWN';
- const ids=Object.freeze({'native-personal-title':'personal-title','native-subscription-name':'subscription-name','native-subscription-amount':'subscription-amount','native-subscription-date':'date-field'});
+ const ids=Object.freeze({'native-personal-title':'personal-title','native-subscription-name':'subscription-name','native-subscription-category':'subscription-category','native-subscription-amount':'subscription-amount','native-subscription-date':'date-field'});
  const texts=Object.freeze({'${MAESTRO_SAVE_PROFILE}':'profile-save','${MAESTRO_ADD}':'add-open','${MAESTRO_CATEGORY}':'subscription-category','${MAESTRO_SAVE_SUBSCRIPTION}':'subscription-save','Example streaming':'saved-row'});
  const target=typeof id==='string'&&Object.hasOwn(ids,id)?ids[id]:typeof text==='string'&&Object.hasOwn(texts,text)?texts[text]:'UNKNOWN';
  return target!=='UNKNOWN'&&scroll.direction===(target==='personal-title'?'UP':'DOWN')?target:'UNKNOWN';
@@ -61,7 +61,7 @@ function headerOccurrence(rows){
  if(!plain(config)||config.appId!=='se.subtrack.app'||config.onFlowStart!=null||config.onFlowComplete!=null)return 'UNKNOWN';
  let headers=0;
  for(let index=1;index<rows.length-1;index++){
-  const kind=commandKind(rows[index].command);if(kind==='CONFIGURATION'&&index!==1)return 'UNKNOWN';
+  const kind=commandKind(rows[index].command);if(kind==='SUBFLOW')return 'UNKNOWN';if(kind==='CONFIGURATION'&&index!==1)return 'UNKNOWN';
   if(kind==='SCROLL_UNTIL_VISIBLE'){const target=scrollTarget(rows[index].command);if(target==='UNKNOWN')return 'UNKNOWN';if(target==='personal-title')headers++;}
  }
  return headers===0?'ENTRY_HEADER':headers===1?'SAVED_HEADER':'UNKNOWN';

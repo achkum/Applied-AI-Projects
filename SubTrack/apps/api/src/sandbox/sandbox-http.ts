@@ -4,11 +4,15 @@ import {isIP} from 'node:net';
 import {createRequire} from 'node:module';
 import {createSandboxBankBusiness} from './sandbox-bank-business.js';
 import {createSandboxHouseholdBusiness} from './sandbox-household.js';
-import type {SandboxBusinessBody} from '../../../../packages/contracts/generated/types.gen.js';
 import {createPrivateMobileBusiness,type PrivateMobileBusinessOperation} from '../profile/private-mobile-business.js';
 import {SandboxAuthority,SandboxError} from './sandbox-authority.js';
 import {SandboxSession} from './sandbox-session.js';
-type SandboxBusinessOperation=SandboxBusinessBody['operation'];
+// The strict runtime decoder validates the complete envelope. A local structural
+// port preserves the emitting API build's inferred source root and entrypoints.
+type SandboxBusinessOperation=PrivateMobileBusinessOperation|SandboxHouseholdOperation
+ |'subscription-edit'|'subscription-status'
+ |'bank-read'|'bank-connect'|'bank-sync'|'bank-disconnect'|'bank-history'
+ |'detection-read'|'detection-scan'|'detection-confirm'|'detection-reject'|'detection-undo';
 type SandboxHouseholdOperation=Parameters<ReturnType<typeof createSandboxHouseholdBusiness>['execute']>[1];
 const wire=createRequire(__filename)('@subtrack/contracts/sandbox-mobile') as {
  SANDBOX_MOBILE_PATHS:Readonly<Record<'bootstrap'|'resume'|'refresh'|'logout'|'business',string>>;

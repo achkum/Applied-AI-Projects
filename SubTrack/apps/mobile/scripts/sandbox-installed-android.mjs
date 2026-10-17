@@ -1,6 +1,9 @@
+import {Buffer} from 'node:buffer';
+import process from 'node:process';
+import console from 'node:console';
 import {readFileSync,writeFileSync,mkdirSync,lstatSync,realpathSync,existsSync,readdirSync,copyFileSync,rmSync,openSync,closeSync} from 'node:fs';
 import path from 'node:path';
-import {fileURLToPath,pathToFileURL} from 'node:url';
+import {URL,fileURLToPath,pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {dispatch,verifiedAuthority,signedDraft,bindPending,acceptedPng,productReceipt,digest,PACKAGE,SIGNER,SCREENSHOTS,REPO} from './sandbox-installed-android-contract.mjs';
 import {inspectActiveApk} from '../../../tools/sandbox/android-transfer-receipt.mjs';
@@ -23,8 +26,8 @@ function command(command,args,privateDir,label,timeout=30000){
 async function bounded(response,max){if(!response.ok||response.status!==200)fail();const chunks=[];let size=0;for await(const chunk of response.body??[]){size+=chunk.length;if(size>max)fail();chunks.push(Buffer.from(chunk));}return Buffer.concat(chunks);}
 async function github(endpoint,max=1048576,binary=false){
  if(typeof process.env.GITHUB_TOKEN!=='string'||process.env.GITHUB_TOKEN.length<1||!endpoint.startsWith(`/repos/${REPO}/`)||endpoint.includes('..'))fail();
- const response=await fetch(`https://api.github.com${endpoint}`,{method:'GET',redirect:'manual',signal:AbortSignal.timeout(30000),headers:{Authorization:`Bearer ${process.env.GITHUB_TOKEN}`,Accept:binary?'application/octet-stream':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
- if(response.status===302){const location=new URL(response.headers.get('location')??'');if(location.protocol!=='https:'||!(['release-assets.githubusercontent.com','objects.githubusercontent.com'].includes(location.hostname)||/^[a-z0-9-]+\.blob\.core\.windows\.net$/.test(location.hostname)))fail();return bounded(await fetch(location,{method:'GET',redirect:'error',signal:AbortSignal.timeout(60000)}),max);}
+ const response=await globalThis.fetch(`https://api.github.com${endpoint}`,{method:'GET',redirect:'manual',signal:globalThis.AbortSignal.timeout(30000),headers:{Authorization:`Bearer ${process.env.GITHUB_TOKEN}`,Accept:binary?'application/octet-stream':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
+ if(response.status===302){const location=new URL(response.headers.get('location')??'');if(location.protocol!=='https:'||!(['release-assets.githubusercontent.com','objects.githubusercontent.com'].includes(location.hostname)||/^[a-z0-9-]+\.blob\.core\.windows\.net$/.test(location.hostname)))fail();return bounded(await globalThis.fetch(location,{method:'GET',redirect:'error',signal:globalThis.AbortSignal.timeout(60000)}),max);}
  return bounded(response,max);
 }
 const json=async endpoint=>JSON.parse((await github(endpoint)).toString('utf8'));

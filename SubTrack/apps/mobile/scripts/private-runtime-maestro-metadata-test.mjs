@@ -262,11 +262,14 @@ test('a non-directory private root remains ineligible before consuming the diagn
 });
 
 
-function sourceEnrollmentRecords(){
+function sourceEnrollmentRecords(override){
  const mobileRequire=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobileRequire.resolve('expo/package.json'))('yaml');
  const [config,flow]=yaml.parseAllDocuments(fs.readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml',import.meta.url),'utf8')).map(document=>document.toJSON());assert.equal(config.appId,'se.subtrack.app');
  const selector=value=>typeof value==='string'?{textRegex:value}:{...(value.id?{idRegex:value.id}:{}),...(value.text?{textRegex:value.text}:{}),...(value.enabled===undefined?{}:{enabled:value.enabled})};
- const commands=flow.map(step=>{const object=typeof step==='string'?{[step]:null}:step;const [kind,value]=Object.entries(object)[0];assert.equal(Object.keys(object).length,1);switch(kind){
+  // Pinned cli2.11 RunFlowCommand is a composite, not a flattened top-level prefix.
+ // https://github.com/mobile-dev-inc/Maestro/blob/cli-2.11.0/maestro-orchestra-models/src/main/java/maestro/orchestra/Commands.kt
+ const helpers=new Set(['private-runtime-pick-renewal-date.yaml','private-runtime-open-profile.yaml']);
+ const convert=(step,depth=0)=>{assert.ok(depth<=2);const object=typeof step==='string'?{[step]:null}:step;const [kind,value]=Object.entries(object)[0];assert.equal(Object.keys(object).length,1);switch(kind){
   case 'tapOn':return {tapOnElement:{selector:selector(value)}};
   case 'inputText':return {inputTextCommand:{text:String(value)}};
   case 'hideKeyboard':return {hideKeyboardCommand:{}};
@@ -274,18 +277,38 @@ function sourceEnrollmentRecords(){
   case 'assertVisible':return {assertConditionCommand:{condition:{visible:selector(value)}}};
   case 'scrollUntilVisible':return {scrollUntilVisible:{selector:selector(value.element),direction:value.direction}};
   case 'takeScreenshot':return {takeScreenshotCommand:{path:value}};
+  case 'runFlow':{
+   if(typeof value==='string'){
+    assert.ok(helpers.has(value),'Unexpected helper file');const [subconfig,subflow]=yaml.parseAllDocuments(fs.readFileSync(new URL(`../e2e/${value}`,import.meta.url),'utf8')).map(document=>document.toJSON());assert.deepEqual(subconfig,{appId:'se.subtrack.app'});
+    return {runFlowCommand:{commands:subflow.map(child=>convert(child,depth+1)),config:subconfig,condition:null,sourceDescription:value,optional:false}};
+   }
+   assert.deepEqual(Object.keys(value).sort(),['commands','when']);assert.deepEqual(value.when,{notVisible:{id:'native-date-${MAESTRO_RENEWAL_DATE}'}});assert.deepEqual(value.commands,[{tapOn:'${MAESTRO_MONTH_NEXT}'}]);
+   return {runFlowCommand:{commands:value.commands.map(child=>convert(child,depth+1)),condition:{notVisible:selector(value.when.notVisible)},config:null,optional:false}};
+  }
   default:throw Error('Unexpected source flow command');
- }});
+ }};
+ const commands=(override??flow).map(step=>convert(step));
  return [prefix(),{command:{applyConfigurationCommand:{config}},metadata:{}},...commands.map(command=>({command,metadata:{}}))].map((record,index)=>({...record,metadata:{...record.metadata,status:'COMPLETED',sequenceNumber:index,depth:0}}));
 }
 function sourceHeaderFailure(which){const records=sourceEnrollmentRecords(),headers=records.flatMap((record,index)=>record.command.scrollUntilVisible?.selector.idRegex==='native-personal-title'?[index]:[]);assert.equal(headers.length,2);const at=headers[which];assert.deepEqual(records[at-1].command.tapOnElement.selector,which===0?{idRegex:'native-nav-manage'}:{textRegex:'${MAESTRO_SAVE_SUBSCRIPTION}'});const result=records.slice(0,at+1);result.at(-1).metadata.status='FAILED';result.at(-1).metadata.evaluatedCommand={scrollUntilVisible:{selector:{idRegex:'private-canary'},direction:'DOWN'}};result.at(-1).metadata.error={message:'private-canary SAVED_HEADER ENTRY_HEADER'};return result;}
 
-test('actual enroll-add source converted to pinned original producer records distinguishes identical entry and saved header executions',async()=>{
+test('actual source keeps entry header exact and post-datepicker subflow occurrence conservative',async()=>{
  assert.deepEqual(ENROLLMENT_HEADER_OCCURRENCES,['ENTRY_HEADER','SAVED_HEADER','UNKNOWN']);assert.ok(Object.isFrozen(ENROLLMENT_HEADER_OCCURRENCES));
- for(const [index,occurrence]of ['ENTRY_HEADER','SAVED_HEADER'].entries()){
+ for(const [index,occurrence]of ['ENTRY_HEADER','UNKNOWN'].entries()){
   const records=sourceHeaderFailure(index),result=projectEnrollmentMetadata(bytes(records));assert.equal(result.metadata,'AVAILABLE');assert.equal(result.command,'SCROLL_UNTIL_VISIBLE');assert.equal(result.target,'personal-title');assert.equal(result.occurrence,occurrence);assert.ok(enrollmentMetadataLines(result).includes(`enrollment-failed-occurrence=${occurrence}`));assert.equal(JSON.stringify(result).includes('private-canary'),false);
   await privateTemporary(async({root})=>{const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution),flow=join(root,'enroll-add','2026-10-16_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});fs.writeFileSync(join(flow,'commands.json'),bytes(records));execution.record('exit',1,null);assert.equal(reader.read('flow-enroll-add').occurrence,occurrence);});
  }
+});
+
+test('known subflows never authorize capture or guess saved occurrence; legacy flat prefixes remain distinguishable',()=>{
+ const records=sourceHeaderFailure(1);assert.ok(records.some(record=>record.command.runFlowCommand));assert.equal(projectEnrollmentMetadata(bytes(records)).occurrence,'UNKNOWN');
+ const flat=records.filter(record=>!record.command.runFlowCommand).map((record,index)=>({...record,metadata:{...record.metadata,sequenceNumber:index}}));assert.equal(projectEnrollmentMetadata(bytes(flat)).occurrence,'SAVED_HEADER');
+ const repeated=[...flat.slice(0,-1),flat.find(record=>record.command.scrollUntilVisible?.selector.idRegex==='native-personal-title'),flat.at(-1)].map((record,index)=>({...record,metadata:{...record.metadata,sequenceNumber:index}}));assert.equal(projectEnrollmentMetadata(bytes(repeated)).occurrence,'UNKNOWN');
+ const failed=flowBytes([row('runFlowCommand')]);assert.equal(projectEnrollmentMetadata(failed).command,'SUBFLOW');assert.equal(projectEnrollmentMetadata(failed).target,'UNKNOWN');
+ assert.throws(()=>sourceEnrollmentRecords([{runFlow:'../private.yaml'}]),/Unexpected helper file/);
+ assert.throws(()=>sourceEnrollmentRecords([{runFlow:{commands:[],when:{visible:'private'}}}]));
+ assert.throws(()=>sourceEnrollmentRecords([{runFlow:{commands:[{tapOn:'private'}],when:{notVisible:{id:'native-date-${MAESTRO_RENEWAL_DATE}'}}}}]));
+ assert.throws(()=>sourceEnrollmentRecords([{unknown:'private'}]),/Unexpected source flow command/);
 });
 
 test('unknown, mixed, skipped, gapped, nested, repeated or continued original portfolios never guess a header occurrence',()=>{
@@ -314,7 +337,7 @@ function addRunnerLog(root,flow='identifier',name=runnerName){const stamp=join(r
 test('pinned iOS timestamp runner logs coexist with one exact flow, grow without content reads and preserve occurrence',async()=>{
  // MaestroSessionManager419 -> LocalXCTestInstaller -> XCRunnerCLIUtils.xctestLogFile13-15.
  await privateTemporary(async({root})=>{const reader=initialReader(root),{stamp,file}=addRunnerLog(root);fs.writeFileSync(join(stamp,'xctest_runner_2026-10-16_120001.log'),'private second log');const actual=fs.readFileSync;let grew=false;replace('readFileSync',(...args)=>{assert.equal(typeof args[0]==='string'&&args[0].endsWith('.log'),false);const value=actual(...args);if(!grew){fs.appendFileSync(file,' private append');grew=true;}return value;});assert.equal(await captureSealedPreinput(captureOptions(root,{reader})),true);assert.equal(reader.ownershipCheck(),'UNKNOWN');assert.equal(grew,true);});
- await privateTemporary(async({root})=>{const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution,'ios'),flow=join(root,'enroll-add','2026-10-15_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});fs.writeFileSync(join(flow,'commands.json'),bytes(sourceHeaderFailure(1)));addRunnerLog(root,'enroll-add');execution.record('exit',1,null);const result=reader.read('flow-enroll-add');assert.equal(result.metadata,'AVAILABLE');assert.equal(result.occurrence,'SAVED_HEADER');});
+ await privateTemporary(async({root})=>{const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution,'ios'),flow=join(root,'enroll-add','2026-10-15_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});fs.writeFileSync(join(flow,'commands.json'),bytes(sourceHeaderFailure(1)));addRunnerLog(root,'enroll-add');execution.record('exit',1,null);const result=reader.read('flow-enroll-add');assert.equal(result.metadata,'AVAILABLE');assert.equal(result.occurrence,'UNKNOWN');});
  for(const platform of [undefined,'android'])await privateTemporary(async({root})=>{const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution,platform),flow=join(root,'enroll-add','2026-10-15_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});fs.writeFileSync(join(flow,'commands.json'),flowBytes([row()]));addRunnerLog(root,'enroll-add');execution.record('exit',1,null);assert.equal(reader.read('flow-enroll-add').metadata,'UNAVAILABLE');assert.equal(reader.metadataCheck(),'FLOW_COUNT');});
  for(const platform of [null,'web',true,{},['ios']])temporary(root=>assert.throws(()=>prepareEnrollmentMetadata(root,{},platform),/Invalid metadata platform/));
 });

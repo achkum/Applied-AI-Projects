@@ -1,3 +1,4 @@
+import {Buffer} from 'node:buffer';
 import {createHash} from 'node:crypto';
 import {validateReceipt} from '../../../tools/sandbox/android-release-receipt.mjs';
 import {validateTransfer} from '../../../tools/sandbox/android-transfer-receipt.mjs';
