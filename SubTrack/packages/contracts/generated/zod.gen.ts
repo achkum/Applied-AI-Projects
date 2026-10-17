@@ -54,6 +54,43 @@ export const zSandboxBootstrapCredentials = z.object({
     installationCapability: z.string().regex(/^s250c\.[-_A-Za-z0-9]{42}[AEIMQUYcgkosw048]$/)
 }).strict();
 
+export const zSandboxHouseholdAssign = z.object({
+    subscriptionId: z.uuid(),
+    payerMemberId: z.uuid().nullable(),
+    memberIds: z.array(z.uuid()).max(20)
+}).strict();
+
+export const zSandboxHouseholdView = z.object({
+    household: z.object({
+        id: z.uuid(),
+        name: z.string().min(1).max(80),
+        members: z.array(z.object({
+            id: z.uuid(),
+            displayName: z.string().min(1).max(80),
+            role: z.enum(['ADMIN', 'DEPENDANT'])
+        }).strict()).min(1).max(20),
+        assignments: z.array(zSandboxHouseholdAssign).max(100)
+    }).strict().nullable()
+}).strict();
+
+export const zSandboxHouseholdName = z.object({
+    name: z.string().min(1).max(80)
+}).strict();
+
+export const zSandboxDependantAdd = z.object({
+    requestId: z.uuid(),
+    displayName: z.string().min(1).max(80)
+}).strict();
+
+export const zSandboxDependantEdit = z.object({
+    memberId: z.uuid(),
+    displayName: z.string().min(1).max(80)
+}).strict();
+
+export const zSandboxDependantRemove = z.object({
+    memberId: z.uuid()
+}).strict();
+
 export const zSandboxEmptyBody = z.record(z.string(), z.never());
 
 export const zPrivateMobileDetectionScan = z.record(z.string(), z.never());
@@ -382,29 +419,30 @@ export const zBrowserModeError = z.object({
 
 export const zPrivateManualCreate = z.object({
     customName: z.string(),
-    categoryCode: z.enum([
-        'VIDEO_STREAMING',
-        'MUSIC_AUDIO',
-        'AUDIOBOOKS_EBOOKS',
-        'NEWS_MAGAZINES',
-        'GAMING',
-        'SOFTWARE_PRODUCTIVITY',
-        'CLOUD_STORAGE',
-        'AI_TOOLS',
-        'MOBILE_PLAN',
-        'BROADBAND_TV',
-        'FITNESS_WELLNESS',
-        'FOOD_MEALKITS',
-        'TRANSPORT_MOBILITY',
-        'HOME_SECURITY',
-        'EDUCATION_KIDS',
-        'PETS',
-        'SHOPPING_MEMBERSHIPS',
-        'VPN_SECURITY',
-        'DONATIONS',
-        'DATING_SOCIAL',
-        'APP_STORE_BILLING',
-        'OTHER_SUBSCRIPTION'
+    categoryCode: z.union([
+        z.literal('VIDEO_STREAMING'),
+        z.literal('MUSIC_AUDIO'),
+        z.literal('AUDIOBOOKS_EBOOKS'),
+        z.literal('NEWS_MAGAZINES'),
+        z.literal('GAMING'),
+        z.literal('SOFTWARE_PRODUCTIVITY'),
+        z.literal('CLOUD_STORAGE'),
+        z.literal('AI_TOOLS'),
+        z.literal('MOBILE_PLAN'),
+        z.literal('BROADBAND_TV'),
+        z.literal('FITNESS_WELLNESS'),
+        z.literal('FOOD_MEALKITS'),
+        z.literal('TRANSPORT_MOBILITY'),
+        z.literal('HOME_SECURITY'),
+        z.literal('EDUCATION_KIDS'),
+        z.literal('PETS'),
+        z.literal('SHOPPING_MEMBERSHIPS'),
+        z.literal('VPN_SECURITY'),
+        z.literal('DONATIONS'),
+        z.literal('DATING_SOCIAL'),
+        z.literal('APP_STORE_BILLING'),
+        z.literal('OTHER_SUBSCRIPTION'),
+        z.string().min(8).max(47).regex(/^CUSTOM:.+$/)
     ]),
     cadence: z.enum([
         'WEEKLY',
@@ -425,29 +463,30 @@ export const zPositiveSubscriptionRevision = z.string().regex(/^[1-9][0-9]{0,18}
 export const zPrivateMobileManualEdit = z.object({
     id: z.uuid().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
     customName: z.string(),
-    categoryCode: z.enum([
-        'VIDEO_STREAMING',
-        'MUSIC_AUDIO',
-        'AUDIOBOOKS_EBOOKS',
-        'NEWS_MAGAZINES',
-        'GAMING',
-        'SOFTWARE_PRODUCTIVITY',
-        'CLOUD_STORAGE',
-        'AI_TOOLS',
-        'MOBILE_PLAN',
-        'BROADBAND_TV',
-        'FITNESS_WELLNESS',
-        'FOOD_MEALKITS',
-        'TRANSPORT_MOBILITY',
-        'HOME_SECURITY',
-        'EDUCATION_KIDS',
-        'PETS',
-        'SHOPPING_MEMBERSHIPS',
-        'VPN_SECURITY',
-        'DONATIONS',
-        'DATING_SOCIAL',
-        'APP_STORE_BILLING',
-        'OTHER_SUBSCRIPTION'
+    categoryCode: z.union([
+        z.literal('VIDEO_STREAMING'),
+        z.literal('MUSIC_AUDIO'),
+        z.literal('AUDIOBOOKS_EBOOKS'),
+        z.literal('NEWS_MAGAZINES'),
+        z.literal('GAMING'),
+        z.literal('SOFTWARE_PRODUCTIVITY'),
+        z.literal('CLOUD_STORAGE'),
+        z.literal('AI_TOOLS'),
+        z.literal('MOBILE_PLAN'),
+        z.literal('BROADBAND_TV'),
+        z.literal('FITNESS_WELLNESS'),
+        z.literal('FOOD_MEALKITS'),
+        z.literal('TRANSPORT_MOBILITY'),
+        z.literal('HOME_SECURITY'),
+        z.literal('EDUCATION_KIDS'),
+        z.literal('PETS'),
+        z.literal('SHOPPING_MEMBERSHIPS'),
+        z.literal('VPN_SECURITY'),
+        z.literal('DONATIONS'),
+        z.literal('DATING_SOCIAL'),
+        z.literal('APP_STORE_BILLING'),
+        z.literal('OTHER_SUBSCRIPTION'),
+        z.string().min(8).max(47).regex(/^CUSTOM:.+$/)
     ]),
     cadence: z.enum([
         'WEEKLY',
@@ -463,29 +502,30 @@ export const zPrivateMobileManualEdit = z.object({
 
 export const zPrivateManualEdit = z.object({
     customName: z.string(),
-    categoryCode: z.enum([
-        'VIDEO_STREAMING',
-        'MUSIC_AUDIO',
-        'AUDIOBOOKS_EBOOKS',
-        'NEWS_MAGAZINES',
-        'GAMING',
-        'SOFTWARE_PRODUCTIVITY',
-        'CLOUD_STORAGE',
-        'AI_TOOLS',
-        'MOBILE_PLAN',
-        'BROADBAND_TV',
-        'FITNESS_WELLNESS',
-        'FOOD_MEALKITS',
-        'TRANSPORT_MOBILITY',
-        'HOME_SECURITY',
-        'EDUCATION_KIDS',
-        'PETS',
-        'SHOPPING_MEMBERSHIPS',
-        'VPN_SECURITY',
-        'DONATIONS',
-        'DATING_SOCIAL',
-        'APP_STORE_BILLING',
-        'OTHER_SUBSCRIPTION'
+    categoryCode: z.union([
+        z.literal('VIDEO_STREAMING'),
+        z.literal('MUSIC_AUDIO'),
+        z.literal('AUDIOBOOKS_EBOOKS'),
+        z.literal('NEWS_MAGAZINES'),
+        z.literal('GAMING'),
+        z.literal('SOFTWARE_PRODUCTIVITY'),
+        z.literal('CLOUD_STORAGE'),
+        z.literal('AI_TOOLS'),
+        z.literal('MOBILE_PLAN'),
+        z.literal('BROADBAND_TV'),
+        z.literal('FITNESS_WELLNESS'),
+        z.literal('FOOD_MEALKITS'),
+        z.literal('TRANSPORT_MOBILITY'),
+        z.literal('HOME_SECURITY'),
+        z.literal('EDUCATION_KIDS'),
+        z.literal('PETS'),
+        z.literal('SHOPPING_MEMBERSHIPS'),
+        z.literal('VPN_SECURITY'),
+        z.literal('DONATIONS'),
+        z.literal('DATING_SOCIAL'),
+        z.literal('APP_STORE_BILLING'),
+        z.literal('OTHER_SUBSCRIPTION'),
+        z.string().min(8).max(47).regex(/^CUSTOM:.+$/)
     ]),
     cadence: z.enum([
         'WEEKLY',
@@ -603,6 +643,82 @@ export const zSandboxBusinessBody = z.union([
     }).strict(),
     z.object({
         operation: z.literal('status'),
+        body: zPrivateMobileStatusRequest
+    }).strict(),
+    z.object({
+        operation: z.literal('bank-read'),
+        body: zPrivateMobileBankRead
+    }).strict(),
+    z.object({
+        operation: z.literal('bank-connect'),
+        body: zPrivateMobileBankConnect
+    }).strict(),
+    z.object({
+        operation: z.literal('bank-sync'),
+        body: zPrivateMobileBankSync
+    }).strict(),
+    z.object({
+        operation: z.literal('bank-disconnect'),
+        body: zPrivateMobileBankDisconnect
+    }).strict(),
+    z.object({
+        operation: z.literal('detection-read'),
+        body: zPrivateMobileDetectionRead
+    }).strict(),
+    z.object({
+        operation: z.literal('detection-scan'),
+        body: zPrivateMobileDetectionScan
+    }).strict(),
+    z.object({
+        operation: z.literal('detection-confirm'),
+        body: zPrivateMobileDetectionReview
+    }).strict(),
+    z.object({
+        operation: z.literal('detection-reject'),
+        body: zPrivateMobileDetectionReview
+    }).strict(),
+    z.object({
+        operation: z.literal('detection-undo'),
+        body: zPrivateMobileDetectionUndo
+    }).strict(),
+    z.object({
+        operation: z.literal('household-read'),
+        body: zSandboxEmptyBody
+    }).strict(),
+    z.object({
+        operation: z.literal('household-create'),
+        body: zSandboxHouseholdName
+    }).strict(),
+    z.object({
+        operation: z.literal('household-rename'),
+        body: zSandboxHouseholdName
+    }).strict(),
+    z.object({
+        operation: z.literal('dependant-add'),
+        body: zSandboxDependantAdd
+    }).strict(),
+    z.object({
+        operation: z.literal('dependant-edit'),
+        body: zSandboxDependantEdit
+    }).strict(),
+    z.object({
+        operation: z.literal('dependant-remove'),
+        body: zSandboxDependantRemove
+    }).strict(),
+    z.object({
+        operation: z.literal('bank-history'),
+        body: zSandboxEmptyBody
+    }).strict(),
+    z.object({
+        operation: z.literal('household-assign'),
+        body: zSandboxHouseholdAssign
+    }).strict(),
+    z.object({
+        operation: z.literal('subscription-edit'),
+        body: zPrivateMobileManualEdit
+    }).strict(),
+    z.object({
+        operation: z.literal('subscription-status'),
         body: zPrivateMobileStatusRequest
     }).strict()
 ]);
@@ -778,6 +894,18 @@ export const zSubscriptionReadCadence = z.enum([
  *
  */
 export const zCanonicalMinorUnits = z.string().regex(/^(0|-?[1-9][0-9]*)$/);
+
+export const zSandboxBankHistory = z.object({
+    nextCursor: z.null(),
+    items: z.array(z.object({
+        id: z.uuid(),
+        subscriptionId: z.uuid().nullable(),
+        displayName: z.string().min(1).max(500),
+        date: z.iso.date(),
+        amountMinor: zCanonicalMinorUnits,
+        currency: z.literal('SEK')
+    }).strict()).max(400)
+}).strict();
 
 export const zPrivateOwnerSubscriptionView = z.object({
     revision: zPositiveSubscriptionRevision,
@@ -1515,7 +1643,14 @@ export const zExecuteSandboxMobileBusinessResponse = z.union([
         zModeView,
         zPrivateOwnerPage,
         zPrivateManualEdited,
-        zSubscriptionLifecycleResult
+        zSubscriptionLifecycleResult,
+        zPrivateMobileBankReadResult,
+        zPrivateMobileBankMutationResult,
+        zPrivateMobileDetectionReadResult,
+        zPrivateMobileDetectionScanResult,
+        zPrivateMobileDetectionReviewResult,
+        zSandboxBankHistory,
+        zSandboxHouseholdView
     ]),
     zPrivateManualCreated
 ]);

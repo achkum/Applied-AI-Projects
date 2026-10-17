@@ -19,9 +19,10 @@ if [[ "$platform" == android ]]; then
   node --input-type=module -e "import {readFileSync,writeFileSync} from 'node:fs'; import {scopeGradlePluginResolution} from './scripts/private-runtime-native-resolve.mjs'; const file='android/settings.gradle'; writeFileSync(file,scopeGradlePluginResolution(readFileSync(file,'utf8')));"
   set_build_phase android-compile
   # C9 JetifyTransform exhausted the template's 2GiB heap. Bound concurrency
-  # while allocating 4GiB for this hosted debug compile; transforms/ABIs intact.
+  # while allocating 4GiB for this hosted debug compile. Only the owned x86_64
+  # emulator ABI is compiled here; signed handset Release builds are separate.
   (cd android && ./gradlew :app:assembleDebug --no-daemon --stacktrace --max-workers=2 \
-    --build-cache --init-script ../scripts/private-runtime-gradle-cache.init.gradle \
+    --build-cache --init-script ../scripts/private-runtime-gradle-cache.init.gradle -PreactNativeArchitectures=x86_64 \
     '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m') > "$proof_root/private/build.log" 2>&1
   set_build_phase android-install
   bash scripts/private-runtime-android.sh owned-device > "$proof_root/private/owned-device.log" 2>&1

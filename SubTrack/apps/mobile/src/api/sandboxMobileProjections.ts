@@ -16,7 +16,7 @@ export function createSandboxProjections(api: Pick<SandboxMobileApi, 'readNative
       const page = await api.readNativeSubscriptions(token, signal, cursor);
       if (signal.aborted) throw new Error('Sandbox projection unavailable');
       for (const row of page.items) {
-        if (ids.has(row.id) || row.source !== 'MANUAL' || row.currency !== 'SEK' || !row.alwaysPrivate || collected.length >= 50) throw new Error('Sandbox projection unavailable');
+        if (ids.has(row.id) || row.currency !== 'SEK' || !row.alwaysPrivate || collected.length >= 50) throw new Error('Sandbox projection unavailable');
         ids.add(row.id); collected.push(row);
       }
       if (page.nextCursor === null) return collected;

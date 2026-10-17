@@ -2,21 +2,21 @@ appId: se.subtrack.app
 ---
 - scrollUntilVisible:
     element:
-      id: native-month-ribbon
+      id: native-home-calendar
     direction: UP
-- repeat:
-    times: 31
-    while:
-      notVisible: ${MAESTRO_MONTH_DAY}
-    commands:
-      - swipe:
-          from:
-            id: native-month-ribbon
-          direction: LEFT
-          duration: 400
-          waitToSettleTimeoutMs: 500
+- tapOn:
+    id: native-home-calendar
 - extendedWaitUntil:
-    visible: ${MAESTRO_MONTH_DAY}
+    visible:
+      id: native-date-${MAESTRO_MONTH_ISO}
     timeout: 30000
-- tapOn: ${MAESTRO_MONTH_DAY}
-- assertVisible: ${MAESTRO_RENEWAL_DATE}
+- tapOn:
+    id: native-date-${MAESTRO_MONTH_ISO}
+- extendedWaitUntil:
+    visible:
+      id: native-month-selected-date
+      text: ${MAESTRO_MONTH_ISO}
+    timeout: 30000
+- assertVisible:
+    id: native-month-selected-date
+    text: ${MAESTRO_MONTH_ISO}

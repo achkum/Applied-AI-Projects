@@ -10,17 +10,17 @@ delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
 android_fix_handoff:
   updated: "2026-10-17"
-  execution: "SIGNED V3 READY FOR FOUNDER TEST; PR293 merged at founder instruction; one agent, no automation"
+  execution: "V4 PHONE PRODUCT ACCEPTANCE FAILED. Consolidated Android product successor implemented: Synthetic bank/detection, family profiles, Insights/comparison, category search/custom labels, date picker and prototype navigation/layout. Local focused checks pass; hosted database/image/Android gates, retained API upgrade and signed successor installation remain pending. Do not resend V4."
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
-  tested_source_head: d816fb19100607cb200dd1ee85d07534b087f9f9
-  delivery_source_head: c975449a5875436fd5108d9c4fcb62c264f3f180
-  version_code: 3
-  signed_sha256: 4438be15b3f0bad696118a5185cf48484fd6451366be7f7d65b597544c04d293
+  tested_source_head: 86a9035b6e7b3ebcaa84ee3c990cc613199540c4
+  delivery_source_head: d2709cedb6d7d5cf8ddc05775ea321ceb47be7f1
+  version_code: 4
   issues:
-    - "ST-252/ST-167: Corrected same-signer V3 APK verified by run39017822447/job117353435017 and retained for founder testing. Public download still V2; never identify that URL as the fix. No production/store release."
-    - "ST-145/ST-174: Founder signed-app/device acceptance and broader dark/scaling/accessibility/launcher matrix remain open; emulator proof does not establish them."
-  resolved_do_not_reopen: "SAVED_HEADER/Hermes money display, first Manage, startup/Skia; custom fonts and full original installed/durable suite PASS run39014849663/job117344738132. Feedback1-3 concise copy/auth-state controls/direct sandbox entry and login target fixed;18 accepted PNGs inspected. Desktop VoidTaskResult transfer repaired without rebuilding app."
+    - "Phone V3 acceptance FAILED: unsupported avatar input blocked profile, preferences not applied before rejected save, redundant login/badges/Welcome alignment. Source corrected; scoped profile/avatar/preferences/Add/app/API restart/logout and real dark restart PNG PASS. Actual signed V4 phone acceptance still pending."
+    - "ST-252/ST-167: Real Release build39022765026 and independent signed verification39023804762/job117370716252 PASS at d2709ced; same-signer V4 delivered in Downloads,65512945 bytes, SHA2561af7ab91f190d526341ea52756b433bc16d045893869ba3f6c183809896ca4fd. Original backend data retained; V3 is not the correction. Public gateway still V2."
+    - "CI scoped feedback path is explicit/manual with separate receipt; full remains available/default for PR and release qualification. Full source443d7774 run39022386716 stops in renewals: test incorrectly waits for Manage while on Upcoming. Test-only route correction and negative source guard prepared; no APK/runtime changes. Full qualification is not claimed by scoped receipt. Broader dark/scaling/accessibility/launcher matrix and founder phone acceptance remain open."
+  resolved_do_not_reopen: "Original SAVED_HEADER/Hermes money display, first Manage, startup/Skia, custom font bundling; historical full suite d816fb19 PASS. Current profile Save accepted and exact durable row/readback+logout PASS scoped run39021165682/job117363095493. All6 actual PNGs inspected, including persistent dark theme. Native concurrency fixed; duplicate PR Release compile removed; public library Release cache enabled without app/private outputs."
 native_bundle_repair_slice: ST-254
 detection_persistence_repair_slice: ST-255
 execution_phase: isolated_public_sandbox_delivery

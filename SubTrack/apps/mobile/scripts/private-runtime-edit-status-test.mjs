@@ -2,9 +2,23 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import {URL} from 'node:url';
+import {createRequire} from 'node:module';
 import {qualifyNativeEditStatus,assertTrackingReceipt,acceptedNativeScreenshot,ACCEPTED_NATIVE_SCREENSHOTS,ACCEPTED_ANDROID_SETUP_SCREENSHOTS} from './private-runtime-edit-status.mjs';
 import {flowEnvironment} from './private-runtime-flow-env.mjs';
 const receipt=(patch={})=>({version:1,markerHash:'a'.repeat(64),subscriptionCount:1,subscriptionIdentityHash:'b'.repeat(64),subscriptionDigest:'c'.repeat(64),manualEditReadback:true,archivedReadback:true,revisionSixReadback:true,...patch});
+
+test('Edit waits for picker dismissal between its single Clear tap and original Save search',()=>{
+ const mobile=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobile.resolve('expo/package.json'))('yaml');
+ const [config,flow]=yaml.parseAllDocuments(readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8')).map(doc=>doc.toJSON());assert.equal(config.appId,'se.subtrack.app');
+ const at=flow.findIndex(step=>step.tapOn==='${MAESTRO_DATE_CLEAR}');assert.ok(at>0);assert.deepEqual(flow.slice(at-1,at+4),[
+  {extendedWaitUntil:{visible:'${MAESTRO_DATE_CLEAR}',timeout:30000}},
+  {tapOn:'${MAESTRO_DATE_CLEAR}'},
+  {extendedWaitUntil:{notVisible:'${MAESTRO_DATE_CLEAR}',timeout:30000}},
+  {scrollUntilVisible:{element:'${MAESTRO_SAVE_EDIT}',direction:'DOWN'}},
+  {tapOn:'${MAESTRO_SAVE_EDIT}'},
+ ]);
+ for(const token of ['${MAESTRO_DATE_CLEAR}','${MAESTRO_SAVE_EDIT}'])assert.equal(flow.filter(step=>step.tapOn===token).length,1);
+});
 test('preserves parent shots and excludes every unreviewed screenshot/log',()=>{
  assert.deepEqual(ACCEPTED_NATIVE_SCREENSHOTS,['accepted-add.png','accepted-restart.png','accepted-logout.png','accepted-edit.png','accepted-paused.png','accepted-archived.png','accepted-edited-restart.png','accepted-edited-api-restart.png']);
  for(const name of ACCEPTED_NATIVE_SCREENSHOTS)assert.equal(acceptedNativeScreenshot(name),true);
@@ -69,7 +83,7 @@ test('saved and restarted row checkpoints center the name before retaining exact
 
 test('Edit below a visible saved row is reached downwards without repeating Edit or Save',()=>{
  const flow=readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
- assert.ok(flow.includes('visible: Example streaming\n    timeout: 30000\n- scrollUntilVisible:\n    element: ${MAESTRO_EDIT}\n    direction: DOWN\n- tapOn: ${MAESTRO_EDIT}'));
+ assert.ok(flow.includes('visible: Example streaming\n    timeout: 30000\n- tapOn: Example streaming\n- scrollUntilVisible:\n    element: ${MAESTRO_EDIT}\n    direction: DOWN\n- tapOn: ${MAESTRO_EDIT}'));
  assert.equal(flow.split('- tapOn: ${MAESTRO_EDIT}').length-1,1);assert.equal(flow.split('- tapOn: ${MAESTRO_SAVE_EDIT}').length-1,1);
 });
 

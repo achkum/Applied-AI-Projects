@@ -60,9 +60,17 @@ appId: se.subtrack.app
 - inputText: Example streaming
 - hideKeyboard
 - scrollUntilVisible:
-    element: ${MAESTRO_CATEGORY}
+    element:
+      id: native-subscription-category
     direction: DOWN
-- tapOn: ${MAESTRO_CATEGORY}
+- tapOn:
+    id: native-subscription-category
+- inputText: ${MAESTRO_CATEGORY}
+- hideKeyboard
+- tapOn:
+    text: ${MAESTRO_CATEGORY}
+    below:
+      id: native-subscription-category
 - scrollUntilVisible:
     element:
       id: native-subscription-amount
@@ -77,8 +85,7 @@ appId: se.subtrack.app
     direction: DOWN
 - tapOn:
     id: native-subscription-date
-- inputText: ${MAESTRO_RENEWAL_DATE}
-- hideKeyboard
+- runFlow: private-runtime-pick-renewal-date.yaml
 - scrollUntilVisible:
     element: ${MAESTRO_SAVE_SUBSCRIPTION}
     direction: DOWN
@@ -103,6 +110,7 @@ appId: se.subtrack.app
 - assertVisible: Example streaming
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-add
+- runFlow: private-runtime-open-profile.yaml
 - scrollUntilVisible:
     element: ${MAESTRO_SWEDISH}
     direction: UP
@@ -121,7 +129,7 @@ appId: se.subtrack.app
     visible: ${MAESTRO_SV_MONTH_TITLE}
     timeout: 30000
 - tapOn:
-    id: native-nav-manage
+    id: native-nav-profile
 - extendedWaitUntil:
     visible: ${MAESTRO_SV_SAVE_PREFERENCES}
     timeout: 30000

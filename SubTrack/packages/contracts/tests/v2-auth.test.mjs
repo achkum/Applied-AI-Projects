@@ -98,9 +98,10 @@ test('detection and sandbox POSTs have explicit distinct key and closed business
     assert.deepEqual(document.paths[sandboxIssuancePaths[2]].post.security, [{ SandboxRefresh: [] }]);
     for (const path of [...sandboxLogoutPaths, ...sandboxBusinessPaths]) assert.deepEqual(document.paths[path].post.security, [{ SandboxAccess: [] }]);
     const business = document.paths[sandboxBusinessPaths[0]].post;
-    assert.match(business.description, /Idempotency-Key is required only for manual\/manual-edit and forbidden for the others/);
+    assert.match(business.description, /bank mutations and detection mutations require Idempotency-Key/);
+    assert.match(business.description, /Owner identifiers cannot be supplied/);
     const choices = business.requestBody.content['application/json'].schema.oneOf;
-    assert.deepEqual(choices.map(choice => choice.properties.operation.const), ['profile-read', 'profile', 'mode-read', 'mode', 'owner-read', 'manual', 'manual-edit', 'status']);
+    assert.deepEqual(choices.map(choice => choice.properties.operation.const), ['profile-read', 'profile', 'mode-read', 'mode', 'owner-read', 'manual', 'manual-edit', 'status', 'bank-read', 'bank-connect', 'bank-sync', 'bank-disconnect', 'detection-read', 'detection-scan', 'detection-confirm', 'detection-reject', 'detection-undo', 'household-read', 'household-create', 'household-rename', 'dependant-add', 'dependant-edit', 'dependant-remove', 'bank-history', 'household-assign', 'subscription-edit', 'subscription-status']);
     for (const choice of choices) {
       assert.equal(choice.additionalProperties, false); assert.deepEqual(choice.required, ['operation', 'body']);
       assert.deepEqual(Object.keys(choice.properties).sort(), ['body', 'operation']);

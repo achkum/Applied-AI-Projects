@@ -30,12 +30,15 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: Example streaming Plus
     timeout: 30000
+- tapOn: Example streaming Plus
+- assertVisible: ${MAESTRO_EDIT}
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - assertNotVisible: ${MAESTRO_PAUSE}
 - assertNotVisible: ${MAESTRO_RESUME}
 - assertNotVisible: ${MAESTRO_MARK_CANCELLED}
 - assertNotVisible: ${MAESTRO_ARCHIVE}
 - takeScreenshot: accepted-edited-api-restart
+- runFlow: private-runtime-open-profile.yaml
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}
     direction: DOWN

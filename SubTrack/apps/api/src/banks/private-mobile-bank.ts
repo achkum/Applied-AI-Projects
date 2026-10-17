@@ -9,6 +9,7 @@ import type {PrivateMobileBankOperation,PrivateMobileBankSummary} from '@subtrac
 const runtime=createRequire(__filename);
 const wire=runtime('@subtrack/contracts/private-mobile-bank') as typeof import('@subtrack/contracts/private-mobile-bank');
 const PROVIDER='SYNTHETIC',INSTITUTION='synthetic-demo-v1',VERSION='solberg-v1';
+export type SyntheticBankOptions=Readonly<{allowMixedRecords?:boolean;fixtureVersion?:string;persona?:import('@subtrack/synthetic/personas-runtime').PersonaHousehold;transform?:(items:import('@subtrack/domain/bank').BankTransaction[],now:number)=>import('@subtrack/domain/bank').BankTransaction[]}>;
 type Row=Record<string,unknown>;
 type Result=Readonly<{status:200;value:object}|{status:409;code:'MODE_CONFLICT'|'BANK_STATE_CONFLICT'|'BANK_IDEMPOTENCY_CONFLICT'}>;
 function unavailable():never{throw new Error('Bank workflow unavailable');}
@@ -26,8 +27,8 @@ async function changed(tx:OwnerTx,name:string,values:readonly unknown[],command:
 function timestamp(value:unknown):string|null{
  if(value===null)return null;if(!(value instanceof Date)||!Number.isFinite(value.getTime()))return unavailable();return value.toISOString();
 }
-function summary(row:Row,identity:string):PrivateMobileBankSummary{
- if(row.identity_id!==identity||row.fixture_version!==VERSION)return unavailable();
+function summary(row:Row,identity:string,version=VERSION):PrivateMobileBankSummary{
+ if(row.identity_id!==identity||row.fixture_version!==version)return unavailable();
  return wire.parsePrivateMobileBankSummary({connectionId:row.connection_id,provider:PROVIDER,institutionId:INSTITUTION,status:row.status,
  disposition:row.purged_at===null?'retained':'purged',accountCount:row.account_count,transactionCount:row.transaction_count,lastSyncAt:timestamp(row.last_synced_at)});
 }
@@ -40,48 +41,49 @@ function minor(value:number):string{
 }
 /** Named owner store: no arbitrary SQL, raw provider payload, token, or fixture-persona persistence. */
 export class DurableSyntheticIngestionStore{
- constructor(private readonly tx:OwnerTx,private readonly owner:string,private readonly account:BankAccount){}
+ constructor(private readonly tx:OwnerTx,private readonly owner:string,private readonly account:BankAccount,private readonly allowMixedRecords=false){}
  async getRecords(accountId:string):Promise<Map<string,IngestionRecord>>{
   if(accountId!==this.account.id)return unavailable();const result=new Map<string,IngestionRecord>();
   for(const row of await rows(this.tx,'bankTransactions',[this.owner,accountId])){
    if(typeof row.amount_minor!=='string'||! /^-?[0-9]+$/.test(row.amount_minor))return unavailable();
    const amount=BigInt(row.amount_minor);if(amount>BigInt(Number.MAX_SAFE_INTEGER)||amount<BigInt(Number.MIN_SAFE_INTEGER))return unavailable();
-   if(typeof row.provider_transaction_id!=='string'||typeof row.transaction_date!=='string'||typeof row.raw_description!=='string'||row.currency!=='SEK'||row.status!=='BOOKED')return unavailable();
+   if(typeof row.provider_transaction_id!=='string'||typeof row.transaction_date!=='string'||typeof row.raw_description!=='string'||row.currency!=='SEK'||!(this.allowMixedRecords?['BOOKED','PENDING']:['BOOKED']).includes(row.status as string))return unavailable();
    const key=`${accountId}:${row.provider_transaction_id}`;
    // Checked representation bridge into the legacy IngestionRecord number field; no Money arithmetic.
-   result.set(key,{dedupKey:key,accountId,externalId:row.provider_transaction_id,date:new Date(`${row.transaction_date}T00:00:00.000Z`),description:row.raw_description,amountMinor:Number(amount),currency:'SEK',direction:'DEBIT',pending:false,rawPayload:''});
+   result.set(key,{dedupKey:key,accountId,externalId:row.provider_transaction_id,date:new Date(`${row.transaction_date}T00:00:00.000Z`),description:row.raw_description,amountMinor:Number(amount),currency:'SEK',direction:this.allowMixedRecords&&amount>0n?'CREDIT':'DEBIT',pending:this.allowMixedRecords&&row.status==='PENDING',rawPayload:''});
   }
   return result;
  }
  async upsertRecords(records:IngestionRecord[]):Promise<void>{
   for(const record of records){
-   if(record.accountId!==this.account.id||record.dedupKey!==`${record.accountId}:${record.externalId}`||record.externalId.length>255||record.currency!=='SEK'||record.pending||record.direction!=='DEBIT'||record.description.length>500||!Number.isFinite(record.date.getTime()))return unavailable();
+   if(record.accountId!==this.account.id||record.dedupKey!==`${record.accountId}:${record.externalId}`||record.externalId.length>255||record.currency!=='SEK'||(!this.allowMixedRecords&&(record.pending||record.direction!=='DEBIT'))||!['CREDIT','DEBIT'].includes(record.direction)||record.description.length>500||!Number.isFinite(record.date.getTime()))return unavailable();
    const amount=minor(record.amountMinor);const date=record.date.toISOString().slice(0,10);
    const digest=createHash('sha256').update(JSON.stringify([record.externalId,date,amount,record.currency,record.description])).digest('hex');
-   const saved=await single(this.tx,'bankTransactionUpsert',[this.owner,record.accountId,record.externalId,amount,'SEK',date,'BOOKED',record.description,false,digest],'INSERT');
+   const saved=await single(this.tx,'bankTransactionUpsert',[this.owner,record.accountId,record.externalId,amount,'SEK',date,record.pending?'PENDING':'BOOKED',record.description,record.direction==='CREDIT',digest],'INSERT');
    if(typeof saved?.id!=='string')return unavailable();
   }
  }
 }
-async function sync(tx:OwnerTx,owner:string,connectionId:string,now:number):Promise<void>{
+async function sync(tx:OwnerTx,owner:string,connectionId:string,now:number,options:SyntheticBankOptions):Promise<void>{
  const [{SyntheticBankProvider},{PERSONA_SOLBERG},{IngestionWorker}]=await Promise.all([
   loadBank(),loadPersona(),loadIngestion(),
  ]);
  // Client has no persona/owner selector. Copy server fixture metadata and bind its stream only to this current authority.
- const persona=boundPersona(PERSONA_SOLBERG,owner,connectionId);
+ const persona=boundPersona(options.persona??PERSONA_SOLBERG,owner,connectionId,options.fixtureVersion??VERSION);
  const provider=new SyntheticBankProvider([persona]);const fixtures=await provider.getAccounts(owner);
  const accounts=await rows(tx,'bankAccounts',[owner,connectionId]);if(fixtures.length!==1||accounts.length!==1)return unavailable();
  const fixture=fixtures[0]!,stored=accounts[0]!;
  if(stored.provider_account_id!==fixture.externalId||typeof stored.id!=='string')return unavailable();
  const account:BankAccount={...fixture,id:stored.id};
  const bound={getAccounts:async()=>[account],getTransactions:async(id:string,from:Date,to:Date)=>{
-  if(id!==account.id)return unavailable();return (await provider.getTransactions(fixture.id,from,to)).map(item=>({...item,accountId:account.id}));
+  if(id!==account.id)return unavailable();const items=await provider.getTransactions(fixture.id,from,to);return (options.transform?options.transform(items,now):items).map(item=>({...item,accountId:account.id}));
  }};
  const until=new Date(now),from=new Date(Date.UTC(until.getUTCFullYear(),until.getUTCMonth()-24,until.getUTCDate()));
- await new IngestionWorker(bound,new DurableSyntheticIngestionStore(tx,owner,account)).syncUser(owner,{from,until});
+ await new IngestionWorker(bound,new DurableSyntheticIngestionStore(tx,owner,account,options.allowMixedRecords===true)).syncUser(owner,{from,until});
  await changed(tx,'bankSynced',[owner,connectionId,until.toISOString(),'ACTIVE'],'UPDATE',connectionId);
 }
-export function createPrivateMobileBank(authority:DurablePrivateMobileAuthority){
+export function createPrivateMobileBank(authority:Pick<DurablePrivateMobileAuthority,'withCurrentMobileAuthority'|'now'>,options:SyntheticBankOptions={}){
+ const version=options.fixtureVersion??VERSION;
  return Object.freeze({async execute(accessToken:string,operation:PrivateMobileBankOperation,body:unknown,key?:string):Promise<Result>{
   let parsed:Readonly<{connectionId?:string;purge?:boolean;institutionId?:string}>;
   try{
@@ -92,9 +94,9 @@ export function createPrivateMobileBank(authority:DurablePrivateMobileAuthority)
    const identity=owner.identityId,mode=await single(tx,'modeRead',[identity]);
    if(mode?.profile_complete!==true||mode.onboarding_mode!=='just-me')return {status:409,code:'MODE_CONFLICT'};
    if(operation==='read'){
-    const found=await rows(tx,'bankRead',[identity,PROVIDER,INSTITUTION]);if(found.length>50)return unavailable();return {status:200,value:wire.parsePrivateMobileBankReadResult({connections:found.map(row=>summary(row,identity))})};
+    const found=await rows(tx,'bankRead',[identity,PROVIDER,INSTITUTION]);if(found.length>50)return unavailable();return {status:200,value:wire.parsePrivateMobileBankReadResult({connections:found.map(row=>summary(row,identity,version))})};
    }
-   const keyHash=createHash('sha256').update(key!).digest(),hash=createHash('sha256').update(JSON.stringify({version:VERSION,operation,body:parsed})).digest();
+   const keyHash=createHash('sha256').update(key!).digest(),hash=createHash('sha256').update(JSON.stringify({version,operation,body:parsed})).digest();
    const receipt=await single(tx,'bankReceiptRead',[identity,keyHash]);
    if(receipt){
     if(!Buffer.isBuffer(receipt.request_h)||receipt.request_h.length!==32)return unavailable();
@@ -109,17 +111,17 @@ export function createPrivateMobileBank(authority:DurablePrivateMobileAuthority)
     else{
      if((await rows(tx,'bankRead',[identity,PROVIDER,INSTITUTION])).length>=50)return {status:409,code:'BANK_STATE_CONFLICT'};
      connectionId=randomUUID();await changed(tx,'bankConnect',[identity,connectionId,PROVIDER,INSTITUTION,'Synthetic Demo Bank','ACTIVE'],'INSERT',connectionId);
-     await changed(tx,'bankGeneration',[identity,connectionId,VERSION],'INSERT',connectionId);
+     await changed(tx,'bankGeneration',[identity,connectionId,version],'INSERT',connectionId);
      const {PERSONA_SOLBERG}=await loadPersona(),{SyntheticBankProvider}=await loadBank();
-     const fixture=(await new SyntheticBankProvider([boundPersona(PERSONA_SOLBERG,identity,connectionId)]).getAccounts(identity))[0];if(!fixture)return unavailable();
+     const fixture=(await new SyntheticBankProvider([boundPersona(options.persona??PERSONA_SOLBERG,identity,connectionId,version)]).getAccounts(identity))[0];if(!fixture)return unavailable();
      const id=randomUUID();await changed(tx,'bankAccountInsert',[identity,connectionId,id,fixture.externalId,'Synthetic account','CHECKING','SEK'],'INSERT',id);
     }
    }
    let row=await single(tx,'bankLock',[identity,connectionId,PROVIDER,INSTITUTION]);if(!row)return {status:409,code:'BANK_STATE_CONFLICT'};
-   let current=summary(row,identity);
+   let current=summary(row,identity,version);
    if(operation==='sync'){
     if(current.status!=='ACTIVE'||current.disposition!=='retained')return {status:409,code:'BANK_STATE_CONFLICT'};
-    await sync(tx,identity,connectionId,authority.now());
+    await sync(tx,identity,connectionId,authority.now(),options);
    }else if(operation==='disconnect'){
     await changed(tx,'bankRevoke',[identity,connectionId,'REVOKED'],'UPDATE',connectionId);
     if(parsed.purge&&current.disposition==='retained'){
@@ -130,7 +132,7 @@ export function createPrivateMobileBank(authority:DurablePrivateMobileAuthority)
      await changed(tx,'bankPurged',[identity,connectionId],'UPDATE',connectionId);
     }
    }
-   row=await single(tx,'bankLock',[identity,connectionId,PROVIDER,INSTITUTION]);if(!row)return unavailable();current=summary(row,identity);
+   row=await single(tx,'bankLock',[identity,connectionId,PROVIDER,INSTITUTION]);if(!row)return unavailable();current=summary(row,identity,version);
    await changed(tx,'bankReceiptInsert',[identity,keyHash,hash,operation,connectionId,current.status,current.disposition,current.accountCount,current.transactionCount,current.lastSyncAt],'INSERT',connectionId);
    return {status:200,value:wire.parsePrivateMobileBankMutationResult({operation,connection:current})};
   });
@@ -143,7 +145,7 @@ function loadPersona():Promise<typeof import('@subtrack/synthetic/personas-runti
 
 function loadIngestion():Promise<typeof import('@subtrack/domain/ingestion-runtime')>{return import(pathToFileURL(runtime.resolve('@subtrack/domain/ingestion-runtime')).href) as Promise<typeof import('@subtrack/domain/ingestion-runtime')>;}
 
-function boundPersona(fixture:import('@subtrack/synthetic/personas-runtime').PersonaHousehold,owner:string,connectionId:string){
- const seed=createHash('sha256').update(JSON.stringify([VERSION,owner,connectionId])).digest('hex');
+function boundPersona(fixture:import('@subtrack/synthetic/personas-runtime').PersonaHousehold,owner:string,connectionId:string,version=VERSION){
+ const seed=createHash('sha256').update(JSON.stringify([version,owner,connectionId])).digest('hex');
  return {...fixture,id:owner,displayName:'Synthetic fixture',seed,members:[],subscriptions:fixture.subscriptions.map((sub,index)=>({...sub,id:`fixture-${index}`,descriptorVariants:[...sub.descriptorVariants] as typeof sub.descriptorVariants}))};
 }

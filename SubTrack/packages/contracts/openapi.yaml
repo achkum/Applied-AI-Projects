@@ -68,8 +68,13 @@ paths:
   /v2/sandbox/mobile/business:
     post:
       operationId: executeSandboxMobileBusiness
-      summary: Current owner profile, Just Me and manual subscription operations
-      description: Eight finite operations. Idempotency-Key is required only for manual/manual-edit and forbidden for the others. No bank, detection or household operations.
+      summary: Isolated current-owner profile, subscriptions, Synthetic bank, detections and family workspace
+      description: >
+        Finite closed operations use the current sandbox installation authority only.
+        Owner identifiers cannot be supplied. Manual create/edit, subscription-edit,
+        bank mutations and detection mutations require Idempotency-Key. Read operations,
+        profile/mode/status and household operations reject that header. Household add
+        uses its own requestId. Synthetic provider only; no real bank or external delivery.
       security: [{ SandboxAccess: [] }]
       parameters:
         - name: Idempotency-Key
@@ -93,6 +98,13 @@ paths:
                   - { $ref: '#/components/schemas/PrivateOwnerPage' }
                   - { $ref: '#/components/schemas/PrivateManualEdited' }
                   - { $ref: '#/components/schemas/SubscriptionLifecycleResult' }
+                  - { $ref: '#/components/schemas/PrivateMobileBankReadResult' }
+                  - { $ref: '#/components/schemas/PrivateMobileBankMutationResult' }
+                  - { $ref: '#/components/schemas/PrivateMobileDetectionReadResult' }
+                  - { $ref: '#/components/schemas/PrivateMobileDetectionScanResult' }
+                  - { $ref: '#/components/schemas/PrivateMobileDetectionReviewResult' }
+                  - { $ref: '#/components/schemas/SandboxBankHistory' }
+                  - { $ref: '#/components/schemas/SandboxHouseholdView' }
         '201':
           description: Known committed manual subscription.
           headers: { Cache-Control: { required: true, schema: { type: string, const: no-store } } }
@@ -2396,6 +2408,204 @@ components:
           properties:
             operation: { type: string, const: status }
             body: { $ref: '#/components/schemas/PrivateMobileStatusRequest' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-read }
+            body: { $ref: '#/components/schemas/PrivateMobileBankRead' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-connect }
+            body: { $ref: '#/components/schemas/PrivateMobileBankConnect' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-sync }
+            body: { $ref: '#/components/schemas/PrivateMobileBankSync' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-disconnect }
+            body: { $ref: '#/components/schemas/PrivateMobileBankDisconnect' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: detection-read }
+            body: { $ref: '#/components/schemas/PrivateMobileDetectionRead' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: detection-scan }
+            body: { $ref: '#/components/schemas/PrivateMobileDetectionScan' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: detection-confirm }
+            body: { $ref: '#/components/schemas/PrivateMobileDetectionReview' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: detection-reject }
+            body: { $ref: '#/components/schemas/PrivateMobileDetectionReview' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: detection-undo }
+            body: { $ref: '#/components/schemas/PrivateMobileDetectionUndo' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: household-read }
+            body: { $ref: '#/components/schemas/SandboxEmptyBody' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: household-create }
+            body: { $ref: '#/components/schemas/SandboxHouseholdName' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: household-rename }
+            body: { $ref: '#/components/schemas/SandboxHouseholdName' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: dependant-add }
+            body: { $ref: '#/components/schemas/SandboxDependantAdd' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: dependant-edit }
+            body: { $ref: '#/components/schemas/SandboxDependantEdit' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: dependant-remove }
+            body: { $ref: '#/components/schemas/SandboxDependantRemove' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: bank-history }
+            body: { $ref: '#/components/schemas/SandboxEmptyBody' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: household-assign }
+            body: { $ref: '#/components/schemas/SandboxHouseholdAssign' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: subscription-edit }
+            body: { $ref: '#/components/schemas/PrivateMobileManualEdit' }
+        - type: object
+          additionalProperties: false
+          required: [operation, body]
+          properties:
+            operation: { type: string, const: subscription-status }
+            body: { $ref: '#/components/schemas/PrivateMobileStatusRequest' }
+    SandboxHouseholdAssign:
+      type: object
+      additionalProperties: false
+      required: [subscriptionId, memberIds, payerMemberId]
+      properties:
+        subscriptionId: { type: string, format: uuid }
+        payerMemberId: { type: [string, 'null'], format: uuid, description: 'User-entered planned payer; null means unknown. Never confirmed payment evidence.' }
+        memberIds: { type: array, uniqueItems: true, maxItems: 20, items: { type: string, format: uuid } }
+    SandboxBankHistory:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        nextCursor: { type: 'null' }
+        items:
+          type: array
+          maxItems: 400
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, subscriptionId, displayName, date, amountMinor, currency]
+            properties:
+              id: { type: string, format: uuid }
+              subscriptionId: { type: [string, 'null'], format: uuid }
+              displayName: { type: string, minLength: 1, maxLength: 500 }
+              date: { type: string, format: date }
+              amountMinor: { $ref: '#/components/schemas/CanonicalMinorUnits' }
+              currency: { type: string, const: SEK }
+    SandboxHouseholdView:
+      type: object
+      additionalProperties: false
+      required: [household]
+      properties:
+        household:
+          oneOf:
+            - { type: 'null' }
+            - type: object
+              additionalProperties: false
+              required: [id, name, members, assignments]
+              properties:
+                id: { type: string, format: uuid }
+                name: { type: string, minLength: 1, maxLength: 80 }
+                members:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [id, displayName, role]
+                    properties:
+                      id: { type: string, format: uuid }
+                      displayName: { type: string, minLength: 1, maxLength: 80 }
+                      role: { type: string, enum: [ADMIN, DEPENDANT] }
+                assignments:
+                  type: array
+                  maxItems: 100
+                  items: { $ref: '#/components/schemas/SandboxHouseholdAssign' }
+    SandboxHouseholdName:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+    SandboxDependantAdd:
+      type: object
+      additionalProperties: false
+      required: [requestId, displayName]
+      properties:
+        requestId: { type: string, format: uuid }
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+    SandboxDependantEdit:
+      type: object
+      additionalProperties: false
+      required: [memberId, displayName]
+      properties:
+        memberId: { type: string, format: uuid }
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+    SandboxDependantRemove:
+      type: object
+      additionalProperties: false
+      required: [memberId]
+      properties:
+        memberId: { type: string, format: uuid }
     SandboxEmptyBody:
       type: object
       additionalProperties: false
@@ -2681,7 +2891,10 @@ components:
       required: [customName, categoryCode, cadence, expectedAmountMinor]
       properties:
         customName: { type: string, description: 'After trimming 1-120 UTF16 units; valid Unicode without Cc/Cf/unpaired surrogates. Canonical trimmed name stored and hashed.' }
-        categoryCode: { type: string, enum: [VIDEO_STREAMING, MUSIC_AUDIO, AUDIOBOOKS_EBOOKS, NEWS_MAGAZINES, GAMING, SOFTWARE_PRODUCTIVITY, CLOUD_STORAGE, AI_TOOLS, MOBILE_PLAN, BROADBAND_TV, FITNESS_WELLNESS, FOOD_MEALKITS, TRANSPORT_MOBILITY, HOME_SECURITY, EDUCATION_KIDS, PETS, SHOPPING_MEMBERSHIPS, VPN_SECURITY, DONATIONS, DATING_SOCIAL, APP_STORE_BILLING, OTHER_SUBSCRIPTION] }
+        categoryCode:
+          oneOf:
+            - { type: string, enum: [VIDEO_STREAMING, MUSIC_AUDIO, AUDIOBOOKS_EBOOKS, NEWS_MAGAZINES, GAMING, SOFTWARE_PRODUCTIVITY, CLOUD_STORAGE, AI_TOOLS, MOBILE_PLAN, BROADBAND_TV, FITNESS_WELLNESS, FOOD_MEALKITS, TRANSPORT_MOBILITY, HOME_SECURITY, EDUCATION_KIDS, PETS, SHOPPING_MEMBERSHIPS, VPN_SECURITY, DONATIONS, DATING_SOCIAL, APP_STORE_BILLING, OTHER_SUBSCRIPTION] }
+            - { type: string, pattern: '^CUSTOM:.+$', minLength: 8, maxLength: 47, description: 'CUSTOM: followed by a canonical NFC trimmed label of 1-40 Unicode scalars, no control/format/surrogate characters. Stored in the existing varchar(50) category_code; owner scope unchanged.' }
         cadence: { type: string, enum: [WEEKLY, MONTHLY, QUARTERLY, SEMIANNUAL, ANNUAL] }
         expectedAmountMinor: { type: string, pattern: '^[1-9][0-9]{0,18}$', description: 'Positive canonical minor-unit text, maximum 9223372036854775807; BigInt only.' }
         nextChargeDate: { type: [string, 'null'], format: date, description: 'Real YYYY-MM-DD year 0001-9999; omitted becomes null.' }

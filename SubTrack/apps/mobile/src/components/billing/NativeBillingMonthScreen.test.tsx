@@ -9,7 +9,7 @@ import {catalogs} from '@subtrack/i18n';
 import {formatMinorUnits} from '@/api/privateMobileMoney';
 const mockReplace=jest.fn();const mockFocus:{enabled:boolean;hold?:boolean;start?: (()=>void|(()=>void)) | undefined;cleanup?:void|(()=>void)}={enabled:true};
 jest.mock('expo-secure-store',()=>({WHEN_UNLOCKED_THIS_DEVICE_ONLY:6}));
-jest.mock('expo-router',()=>({useRouter:()=>({replace:mockReplace}),useFocusEffect:(callback:()=>void|(()=>void))=>{
+jest.mock('expo-router',()=>({useRouter:()=>({replace:mockReplace,push:mockReplace}),useFocusEffect:(callback:()=>void|(()=>void))=>{
  const React=jest.requireActual('react');React.useEffect(()=>{mockFocus.start=callback;if(mockFocus.enabled&&!mockFocus.hold)mockFocus.cleanup=callback();return ()=>{if(!mockFocus.hold)mockFocus.cleanup?.();mockFocus.cleanup=undefined;};},[callback]);
 }}));
 jest.mock('@/api/privateMobileApi',()=>({verifiedNativeLogin:jest.fn(),completeNativeEnrollment:jest.fn(),rotateNativeSession:jest.fn(),revokeNativeSession:jest.fn(),readNativeProfile:jest.fn(),readNativeMode:jest.fn(),readNativeSubscriptions:jest.fn()}));
@@ -44,7 +44,7 @@ it('shows both same-day entries, exact saved totals, detail isolation and manage
 it('keeps account controls in Manage and exposes only real Month, Upcoming and Manage destinations',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});mount();await login();await screen.findByText(copy.billingMonth.empty);
  expect(screen.queryByRole('button',{name:copy.nativePersonal.logout})).toBeNull();for(const theme of Object.values(catalogs.en.preferences.themes))expect(screen.queryByRole('button',{name:theme})).toBeNull();
- fireEvent.press(screen.getByRole('tab',{name:copy.productNav.upcoming}));expect(mockReplace).toHaveBeenCalledWith('/personal-home');
+ fireEvent.press(screen.getByRole('button',{name:copy.productNav.upcoming}));expect(mockReplace).toHaveBeenCalledWith('/personal-home');
  fireEvent.press(screen.getByRole('tab',{name:copy.productNav.manage}));expect(mockReplace).toHaveBeenLastCalledWith('/personal');
 });
 it('renders every selectable month date and shows a date-scoped empty state without hiding other saved dates',async()=>{
@@ -53,7 +53,7 @@ it('renders every selectable month date and shows a date-scoped empty state with
  const day28=copy.billingMonth.day.replace('%{date}','2026-03-28'),day29=copy.billingMonth.day.replace('%{date}','2026-03-29'),day31=copy.billingMonth.day.replace('%{date}','2026-03-31');
  expect(screen.getByRole('button',{name:copy.billingMonth.day.replace('%{date}','2026-03-01')})).toBeTruthy();expect(screen.getByRole('button',{name:day31})).toBeTruthy();
  expect(screen.getByRole('button',{name:day28}).props.accessibilityState.selected).toBe(true);
- fireEvent.press(screen.getByRole('button',{name:day29}));expect(screen.getByText('2026-03-29')).toBeTruthy();expect(screen.getByText(copy.billingMonth.dayEmpty)).toBeTruthy();
+ fireEvent.press(screen.getByRole('button',{name:day29}));expect(screen.queryByText('2026-03-29')).toBeNull();expect(screen.queryByText(copy.billingMonth.dayEmpty)).toBeNull();
  expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByText(second.customName)).toBeNull();expect(screen.queryByText(copy.billingMonth.empty)).toBeNull();
  fireEvent.press(screen.getByRole('button',{name:day28}));await screen.findByText(row.customName);expect(screen.getByText(second.customName)).toBeTruthy();expect(screen.queryByText(copy.billingMonth.dayEmpty)).toBeNull();
 });
@@ -119,4 +119,32 @@ it('synchronously hides an open private detail when external session authority r
 
 it('renders confirmed undated detection outside totals/day ribbon and hides it after authoritative Undo refresh',async()=>{
  const undated={...row,source:'DETECTED' as const,nextChargeDate:null};jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[undated],nextCursor:null}).mockResolvedValueOnce({items:[{...undated,status:'DETECTED'}],nextCursor:null});mount();await login();await screen.findByText(copy.nativeDetection.undatedTitle);expect(screen.getByText(row.customName)).toBeTruthy();expect(screen.getByText(copy.billingMonth.empty)).toBeTruthy();expect(screen.queryByText(copy.billingMonth.subtotal)).toBeNull();fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.refresh}));await waitFor(()=>expect(screen.queryByText(copy.nativeDetection.undatedTitle)).toBeNull());expect(screen.queryByText(row.customName)).toBeNull();
+});
+
+it('keeps the Home household scope, calendar rows and exact totals consistent without new owner reads',async()=>{
+ const first={...row,expectedAmountMinor:'10000'},second={...row,id:'223e4567-e89b-42d3-a456-426614174000',customName:'Second family plan',expectedAmountMinor:'7000',nextChargeDate:'2026-03-30'};
+ const {selectBillingMonth}=jest.requireActual('@/api/privateMobileBillingMonth'),{projectNativeAnalytics}=jest.requireActual('@/api/nativeAnalyticsProjection');
+ const memberId='323e4567-e89b-42d3-a456-426614174000';
+ const household={id:'423e4567-e89b-42d3-a456-426614174000',name:'Example family',members:[{id:credentials.sessionId,displayName:'Example parent',role:'ADMIN'},{id:memberId,displayName:'Example child',role:'DEPENDANT'}],assignments:[{subscriptionId:first.id,memberIds:[credentials.sessionId],payerMemberId:credentials.sessionId},{subscriptionId:second.id,memberIds:[memberId],payerMemberId:memberId}]};
+ const reader=jest.fn().mockResolvedValue({kind:'ready',projection:{...projectNativeAnalytics([first,second],null,now()),household}});
+ const readProjection=jest.fn().mockResolvedValue({kind:'ready',projection:selectBillingMonth([first,second],{year:2026,month:3})});
+ const active={phase:'active' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:async<T,>(operation:(token:string,signal:AbortSignal)=>Promise<T>)=>operation('scoped-owner',new AbortController().signal)};
+ render(<NativeBillingMonthScreen now={now} useSession={()=>active} readProjection={readProjection} overviewReader={reader}/>);
+ await screen.findByRole('header',{name:household.name});
+ const detail=(name:string)=>copy.billingMonth.details.replace('%{name}',name);
+ expect(screen.getByRole('button',{name:detail(first.customName)})).toBeTruthy();expect(screen.getByRole('button',{name:detail(second.customName)})).toBeTruthy();
+ fireEvent.press(screen.getByTestId(`native-home-scope-${memberId}`));
+ expect(screen.queryByRole('button',{name:detail(first.customName)})).toBeNull();expect(screen.getByRole('button',{name:detail(second.customName)})).toBeTruthy();
+ fireEvent.press(screen.getByTestId('native-home-scope-everyone'));
+ expect(screen.getByRole('button',{name:detail(first.customName)})).toBeTruthy();expect(reader).toHaveBeenCalledTimes(1);expect(readProjection).toHaveBeenCalledTimes(1);
+ expect(screen.getByTestId('native-home-calendar')).toBeTruthy();
+ // The reference overview fits the whole month; precise accessible selection uses the real picker.
+ const chart=screen.getByTestId('native-month-ribbon');
+ fireEvent(chart,'layout',{nativeEvent:{layout:{width:310}}});
+ fireEvent.press(chart,{nativeEvent:{locationX:295}});
+ expect(screen.getByTestId('native-month-selected-date').props.children).toBe('2026-03-30');
+ fireEvent.press(screen.getByTestId('native-home-calendar'));
+ fireEvent.press(screen.getByTestId('native-date-2026-03-05'));
+ expect(screen.getByTestId('native-month-selected-date').props.children).toBe('2026-03-05');
+ expect(screen.queryByTestId('native-date-2026-03-05')).toBeNull();
 });

@@ -61,6 +61,115 @@ export type SandboxBusinessBody = {
 } | {
     operation: 'status';
     body: PrivateMobileStatusRequest;
+} | {
+    operation: 'bank-read';
+    body: PrivateMobileBankRead;
+} | {
+    operation: 'bank-connect';
+    body: PrivateMobileBankConnect;
+} | {
+    operation: 'bank-sync';
+    body: PrivateMobileBankSync;
+} | {
+    operation: 'bank-disconnect';
+    body: PrivateMobileBankDisconnect;
+} | {
+    operation: 'detection-read';
+    body: PrivateMobileDetectionRead;
+} | {
+    operation: 'detection-scan';
+    body: PrivateMobileDetectionScan;
+} | {
+    operation: 'detection-confirm';
+    body: PrivateMobileDetectionReview;
+} | {
+    operation: 'detection-reject';
+    body: PrivateMobileDetectionReview;
+} | {
+    operation: 'detection-undo';
+    body: PrivateMobileDetectionUndo;
+} | {
+    operation: 'household-read';
+    body: SandboxEmptyBody;
+} | {
+    operation: 'household-create';
+    body: SandboxHouseholdName;
+} | {
+    operation: 'household-rename';
+    body: SandboxHouseholdName;
+} | {
+    operation: 'dependant-add';
+    body: SandboxDependantAdd;
+} | {
+    operation: 'dependant-edit';
+    body: SandboxDependantEdit;
+} | {
+    operation: 'dependant-remove';
+    body: SandboxDependantRemove;
+} | {
+    operation: 'bank-history';
+    body: SandboxEmptyBody;
+} | {
+    operation: 'household-assign';
+    body: SandboxHouseholdAssign;
+} | {
+    operation: 'subscription-edit';
+    body: PrivateMobileManualEdit;
+} | {
+    operation: 'subscription-status';
+    body: PrivateMobileStatusRequest;
+};
+
+export type SandboxHouseholdAssign = {
+    subscriptionId: string;
+    /**
+     * User-entered planned payer; null means unknown. Never confirmed payment evidence.
+     */
+    payerMemberId: string | null;
+    memberIds: Array<string>;
+};
+
+export type SandboxBankHistory = {
+    nextCursor: null;
+    items: Array<{
+        id: string;
+        subscriptionId: string | null;
+        displayName: string;
+        date: string;
+        amountMinor: CanonicalMinorUnits;
+        currency: 'SEK';
+    }>;
+};
+
+export type SandboxHouseholdView = {
+    household: null | {
+        id: string;
+        name: string;
+        members: Array<{
+            id: string;
+            displayName: string;
+            role: 'ADMIN' | 'DEPENDANT';
+        }>;
+        assignments: Array<SandboxHouseholdAssign>;
+    };
+};
+
+export type SandboxHouseholdName = {
+    name: string;
+};
+
+export type SandboxDependantAdd = {
+    requestId: string;
+    displayName: string;
+};
+
+export type SandboxDependantEdit = {
+    memberId: string;
+    displayName: string;
+};
+
+export type SandboxDependantRemove = {
+    memberId: string;
 };
 
 export type SandboxEmptyBody = {
@@ -184,7 +293,7 @@ export type PrivateMobileManualEdit = {
      * After trimming 1-120 UTF16 units; valid Unicode without Cc/Cf/unpaired surrogates. Canonical trimmed name stored and hashed.
      */
     customName: string;
-    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION';
+    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION' | string;
     cadence: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
     /**
      * Positive canonical minor-unit text, maximum 9223372036854775807; BigInt only.
@@ -300,7 +409,7 @@ export type PrivateManualCreate = {
      * After trimming 1-120 UTF16 units; valid Unicode without Cc/Cf/unpaired surrogates. Canonical trimmed name stored and hashed.
      */
     customName: string;
-    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION';
+    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION' | string;
     cadence: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
     /**
      * Positive canonical minor-unit text, maximum 9223372036854775807; BigInt only.
@@ -322,7 +431,7 @@ export type PrivateManualEdit = {
      * After trimming 1-120 UTF16 units; valid Unicode without Cc/Cf/unpaired surrogates. Canonical trimmed name stored and hashed.
      */
     customName: string;
-    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION';
+    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION' | string;
     cadence: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
     /**
      * Positive canonical minor-unit text, maximum 9223372036854775807; BigInt only.
@@ -1297,7 +1406,7 @@ export type ExecuteSandboxMobileBusinessResponses = {
     /**
      * Known committed current owner business result.
      */
-    200: ProfileView | ModeView | PrivateOwnerPage | PrivateManualEdited | SubscriptionLifecycleResult;
+    200: ProfileView | ModeView | PrivateOwnerPage | PrivateManualEdited | SubscriptionLifecycleResult | PrivateMobileBankReadResult | PrivateMobileBankMutationResult | PrivateMobileDetectionReadResult | PrivateMobileDetectionScanResult | PrivateMobileDetectionReviewResult | SandboxBankHistory | SandboxHouseholdView;
     /**
      * Known committed manual subscription.
      */

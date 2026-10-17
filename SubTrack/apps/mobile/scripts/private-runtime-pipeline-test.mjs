@@ -3,6 +3,8 @@ import console from 'node:console';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {URL} from 'node:url';
+import {dirname,join} from 'node:path';
+import {execFileSync} from 'node:child_process';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const mobileRequire = createRequire(new URL('../package.json', import.meta.url));
@@ -34,6 +36,21 @@ assert.equal(step('Sanitized native evidence only').if,'success()');
 const build=read('./private-runtime-build.sh');
 assert.ok(build.includes('./gradlew :app:assembleDebug --no-daemon'));
 assert.ok(build.includes('--build-cache --init-script ../scripts/private-runtime-gradle-cache.init.gradle'));
+// Inspect the actual pinned Expo template and exact invoked command, not a mocked builder.
+const expoTemplate=execFileSync('tar',['-xOf',join(dirname(mobileRequire.resolve('expo/package.json')),'template.tgz'),'package/android/gradle.properties'],{encoding:'utf8',maxBuffer:65536});
+assert.equal(mobileRequire('expo/package.json').version,'54.0.37');
+assert.match(expoTemplate,/^reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64$/m);
+assert.ok(expoTemplate.includes('./gradlew <task> -PreactNativeArchitectures=x86_64'));
+const nativeCommand=build.slice(build.indexOf('(cd android && ./gradlew '),build.indexOf(') > "$proof_root/private/build.log"')).replace(/\\\r?\n\s*/g,' ').replace(/\s+/g,' ').trim();
+assert.equal(nativeCommand,"(cd android && ./gradlew :app:assembleDebug --no-daemon --stacktrace --max-workers=2 --build-cache --init-script ../scripts/private-runtime-gradle-cache.init.gradle -PreactNativeArchitectures=x86_64 '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m'");
+assert.equal((build.match(/-PreactNativeArchitectures=/g)??[]).length,1);
+const device=read('./private-runtime-android.sh');
+assert.ok(device.includes("create avd --name subtrack-proof --path \"$avd_data\" --package 'system-images;android-34;google_apis;x86_64' --device pixel_6"));
+// A command-line debug override must never narrow the separate signed handset release.
+const release=read('../../../tools/sandbox/build-android.sh');
+assert.ok(release.includes("./gradlew :app:assembleRelease --no-daemon --build-cache --init-script ../scripts/private-runtime-gradle-cache.init.gradle --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m'"));
+assert.doesNotMatch(release,/reactNativeArchitectures|abiFilters/);
+
 assert.ok(build.indexOf(':app:assembleDebug')<build.indexOf('adb -s emulator-5554 install -r'));
 assert.ok(build.indexOf('install -r')<build.indexOf('clear-app'));
 const policy=read('./private-runtime-gradle-cache.init.gradle');

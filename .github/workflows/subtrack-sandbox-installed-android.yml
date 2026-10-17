@@ -1,0 +1,126 @@
+name: SubTrack final signed Android product qualification
+on:
+  workflow_call:
+    inputs:
+      source_head:
+        description: Frozen integrated source of the already signed successor APK
+        type: string
+        required: true
+      signed_release_id:
+        description: Private unpublished signed-return draft ID
+        type: string
+        required: true
+      signed_sha256:
+        description: Independently verified signed APK SHA256
+        type: string
+        required: true
+      verification_run:
+        description: Completed successful verify-signed workflow run at the same source
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      source_head:
+        description: Frozen integrated source of the already signed successor APK
+        type: string
+        required: true
+      signed_release_id:
+        description: Private unpublished signed-return draft ID
+        type: string
+        required: true
+      signed_sha256:
+        description: Independently verified signed APK SHA256
+        type: string
+        required: true
+      verification_run:
+        description: Completed successful verify-signed workflow run at the same source
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: subtrack-final-installed-sandbox-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  installed-signed-product:
+    if: github.repository == 'achkum/Applied-AI-Projects' && github.ref == 'refs/heads/st/native-synthetic-bank'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      # Draft visibility requires push scope. This job performs authenticated GETs only.
+      # https://docs.github.com/en/rest/releases/releases#list-releases
+      contents: write
+      actions: read
+    defaults:
+      run:
+        shell: bash
+        working-directory: SubTrack
+    env:
+      CI: "true"
+      MAESTRO_CLI_NO_ANALYTICS: "true"
+      # Reuses only the existing disposable-emulator ownership guard, never private API/CA configuration.
+      SUBTRACK_PRIVATE_DEVICE_PROOF: "true"
+      ST_PRODUCT_SOURCE: ${{ inputs.source_head }}
+      ST_PRODUCT_RELEASE: ${{ inputs.signed_release_id }}
+      ST_PRODUCT_SIGNED_SHA256: ${{ inputs.signed_sha256 }}
+      ST_PRODUCT_VERIFICATION_RUN: ${{ inputs.verification_run }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.14.0"
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Check final installed qualification contracts
+        run: node --test apps/mobile/scripts/sandbox-installed-android-test.mjs
+      - name: Bind successful independent verification and authenticated exact signed bytes
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node apps/mobile/scripts/sandbox-installed-android.mjs prepare
+      - name: Locate reviewed runner SDK
+        id: sdk
+        run: |
+          test -x "${ANDROID_HOME:?}/cmdline-tools/latest/bin/sdkmanager"
+          printf 'home=%s\n' "$ANDROID_HOME" >> "$GITHUB_OUTPUT"
+      - name: Reuse public emulator system image and inspection tools
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ${{ steps.sdk.outputs.home }}/system-images/android-34/google_apis/x86_64
+            ${{ steps.sdk.outputs.home }}/build-tools/36.0.0
+          key: subtrack-final-installed-sdk-${{ runner.os }}-${{ runner.arch }}-api34-build36-v1
+      - name: Pinned install-only SDK emulator and Maestro
+        run: bash apps/mobile/scripts/sandbox-installed-android.sh setup
+      - name: Boot one owned disposable Android device
+        run: bash apps/mobile/scripts/sandbox-installed-android.sh boot
+      - name: Install exact signed APK and qualify the combined sandbox product
+        run: node apps/mobile/scripts/sandbox-installed-android.mjs run
+      - name: Remove private APK UI logs workspace and emulator
+        if: always()
+        run: bash apps/mobile/scripts/sandbox-installed-android.sh cleanup
+      - name: Accepted synthetic PNGs and closed installed receipt only
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-installed-sandbox-android-${{ inputs.source_head }}
+          path: ${{ runner.temp }}/subtrack-sandbox-installed/public/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Guarded current sandbox failure screen only (diagnostic, not acceptance)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sandbox-product-diagnostic-${{ inputs.source_head }}
+          path: |
+            ${{ runner.temp }}/subtrack-sandbox-installed/diagnostic/failed-sandbox-product.png
+            ${{ runner.temp }}/subtrack-sandbox-installed/diagnostic/diagnostic-only-receipt.json
+          if-no-files-found: ignore
+          retention-days: 3

@@ -2,14 +2,23 @@ import type {IncomingMessage,ServerResponse} from 'node:http';
 import {createHmac,timingSafeEqual} from 'node:crypto';
 import {isIP} from 'node:net';
 import {createRequire} from 'node:module';
+import {createSandboxBankBusiness} from './sandbox-bank-business.js';
+import {createSandboxHouseholdBusiness} from './sandbox-household.js';
 import {createPrivateMobileBusiness,type PrivateMobileBusinessOperation} from '../profile/private-mobile-business.js';
 import {SandboxAuthority,SandboxError} from './sandbox-authority.js';
 import {SandboxSession} from './sandbox-session.js';
+// The strict runtime decoder validates the complete envelope. A local structural
+// port preserves the emitting API build's inferred source root and entrypoints.
+type SandboxBusinessOperation=PrivateMobileBusinessOperation|SandboxHouseholdOperation
+ |'subscription-edit'|'subscription-status'
+ |'bank-read'|'bank-connect'|'bank-sync'|'bank-disconnect'|'bank-history'
+ |'detection-read'|'detection-scan'|'detection-confirm'|'detection-reject'|'detection-undo';
+type SandboxHouseholdOperation=Parameters<ReturnType<typeof createSandboxHouseholdBusiness>['execute']>[1];
 const wire=createRequire(__filename)('@subtrack/contracts/sandbox-mobile') as {
  SANDBOX_MOBILE_PATHS:Readonly<Record<'bootstrap'|'resume'|'refresh'|'logout'|'business',string>>;
  parseSandboxRequestKey(value:unknown):string;parseSandboxSecret(value:unknown,kind:'capability'|'refresh'):string;
  parseSandboxBootstrap(value:unknown):object;parseSandboxTransport(value:unknown):object;
- parseSandboxBusiness(value:unknown):Readonly<{operation:PrivateMobileBusinessOperation;body:object}>;
+ parseSandboxBusiness(value:unknown):Readonly<{operation:SandboxBusinessOperation;body:object}>;
 };
 const invalid=():never=>{throw new Error('Sandbox wire rejected');};
 /** Bounded raw JSON parser: duplicate decoded keys and trailing material never reach dispatch. */
@@ -44,7 +53,7 @@ export function sandboxHeaders(request:IncomingMessage,gate:Buffer){const header
  if(request.rawHeaders.length>32)return invalid();for(let i=0;i<request.rawHeaders.length;i+=2){const name=request.rawHeaders[i]!.toLowerCase(),value=request.rawHeaders[i+1];if(!HEADERS.has(name)||Object.hasOwn(headers,name)||typeof value!=='string'||value.length>4096||/[\p{Cc}]/u.test(value))return invalid();headers[name]=value;}
  const gateway=headers['x-subtrack-sandbox-gateway'];if(headers.host!=='198.44.116.159'||typeof gateway!=='string'||!/^[a-f0-9]{64}$/.test(gateway)||gate.length!==32||!timingSafeEqual(Buffer.from(gateway,'hex'),gate)||!isIP(headers['x-subtrack-sandbox-source']??''))return invalid();return headers;
 }
-export function createSandboxHttp(authority:SandboxAuthority,sessions:SandboxSession){const business=createPrivateMobileBusiness(authority),rates=new SandboxAdmissionRate(authority.config.rateKey);let active=0;
+export function createSandboxHttp(authority:SandboxAuthority,sessions:SandboxSession){const business=createPrivateMobileBusiness(authority),bank=createSandboxBankBusiness(authority),household=createSandboxHouseholdBusiness(authority),rates=new SandboxAdmissionRate(authority.config.rateKey);let active=0;
  function json(response:ServerResponse,status:number,value?:object){if(response.destroyed)return;response.setHeader('Cache-Control','no-store');response.setHeader('X-Content-Type-Options','nosniff');if(value===undefined){response.writeHead(status);response.end();return;}const raw=JSON.stringify(value);if(Buffer.byteLength(raw)>131072)throw new SandboxError('unavailable');response.setHeader('Content-Type',status>=400?'application/problem+json':'application/json');response.writeHead(status);response.end(raw);}
  function problem(response:ServerResponse,status:number,code:string){json(response,status,{type:'about:blank',title:'Sandbox request unavailable',status,code});}
  return Object.freeze({async handle(request:IncomingMessage,response:ServerResponse){let entered=false;let deadline:NodeJS.Timeout|undefined;
@@ -57,7 +66,7 @@ export function createSandboxHttp(authority:SandboxAuthority,sessions:SandboxSes
    else if(path===wire.SANDBOX_MOBILE_PATHS.refresh){wire.parseSandboxRequestKey(key);if(!authorization?.startsWith('SandboxRefresh '))throw new Error('wire');value=await sessions.refresh(wire.parseSandboxSecret(authorization.slice(15),'refresh'),key!);status=200;}
    else{if(!authorization?.startsWith('Bearer ')||authorization.length>4103)throw new Error('wire');const token=authorization.slice(7);
     if(path===wire.SANDBOX_MOBILE_PATHS.logout){wire.parseSandboxTransport(body);if(key!==undefined)throw new Error('wire');await sessions.logout(token);status=204;}
-    else{const parsed=wire.parseSandboxBusiness(body),requiresKey=parsed.operation==='manual'||parsed.operation==='manual-edit';if(requiresKey)wire.parseSandboxRequestKey(key);else if(key!==undefined)throw new Error('wire');const result=await business.execute(token,parsed.operation,parsed.body,key);if('code'in result){problem(response,result.status,result.code);return;}value=result.value;status=result.status;}
+    else{const parsed=wire.parseSandboxBusiness(body),requiresKey=parsed.operation==='manual'||parsed.operation==='manual-edit'||parsed.operation==='subscription-edit'||['bank-connect','bank-sync','bank-disconnect','detection-scan','detection-confirm','detection-reject','detection-undo'].includes(parsed.operation);if(requiresKey)wire.parseSandboxRequestKey(key);else if(key!==undefined)throw new Error('wire');const result=await (parsed.operation.startsWith('bank-')||parsed.operation.startsWith('detection-')?bank.execute(token,parsed.operation,parsed.body,key):parsed.operation.startsWith('household-')||parsed.operation.startsWith('dependant-')?household.execute(token,parsed.operation as SandboxHouseholdOperation,parsed.body):business.execute(token,(parsed.operation==='subscription-edit'?'manual-edit':parsed.operation==='subscription-status'?'status':parsed.operation) as PrivateMobileBusinessOperation,parsed.body,key));if('code'in result){problem(response,result.status,result.code);return;}value=result.value;status=result.status;}
    }json(response,status,value);
   }catch(error){if(response.destroyed)return;if(response.headersSent){response.destroy();return;}if(error instanceof SandboxError){const status=error.kind==='denied'?401:error.kind==='capacity'?429:error.kind==='restart'?409:500;problem(response,status,error.kind==='denied'?'SANDBOX_AUTHENTICATION_REQUIRED':error.kind==='capacity'?'SANDBOX_CAPACITY_EXHAUSTED':error.kind==='restart'?'SANDBOX_RESTART_REQUIRED':'SANDBOX_UNAVAILABLE');}else problem(response,400,'INVALID_SANDBOX_REQUEST');}
   finally{if(deadline)clearTimeout(deadline);if(entered)active--;}

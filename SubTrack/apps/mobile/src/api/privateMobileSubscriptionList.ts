@@ -1,5 +1,6 @@
 import type {PrivateOwnerPage, PrivateOwnerSubscriptionView} from '../../../../packages/contracts/generated/types.gen';
 import {money, add, type Money} from '../../../../packages/money/src/money';
+import {customCategoryLabel} from '@subtrack/contracts/subscription-category';
 
 export type CompleteOwnerSubscriptions = PrivateOwnerPage & Readonly<{nextCursor: null}>;
 export type OwnerSubscriptionLabels = Readonly<{
@@ -90,8 +91,9 @@ export function projectOwnerSubscriptions(
     if (typeof item.expectedAmountMinor !== 'string' || !/^(?:0|-?[1-9]\d*)$/.test(item.expectedAmountMinor)) throw unavailable();
     const minor = BigInt(item.expectedAmountMinor);
     if (minor < -9223372036854775808n || minor > 9223372036854775807n) throw unavailable();
-    const categoryCode = Object.prototype.hasOwnProperty.call(labels.categories, item.categoryCode) ? item.categoryCode : null;
-    const category = categoryCode === null ? labels.categoryFallback : labels.categories[categoryCode]!;
+    const customLabel=customCategoryLabel(item.categoryCode);
+    const categoryCode = Object.prototype.hasOwnProperty.call(labels.categories, item.categoryCode) || customLabel!==null ? item.categoryCode : null;
+    const category = customLabel ?? (categoryCode === null ? labels.categoryFallback : labels.categories[categoryCode]!);
     const name = item.customName ?? item.merchantName ?? labels.unnamed;
     if (needle && !searchText(name).includes(needle) && !searchText(category).includes(needle)) continue;
     const group = matching.get(categoryCode) ?? [];
@@ -100,10 +102,10 @@ export function projectOwnerSubscriptions(
     filteredCount += 1;
   }
   const groups: OwnerSubscriptionGroup[] = [];
-  for (const categoryCode of [...Object.keys(labels.categories), null]) {
+  for (const categoryCode of [...Object.keys(labels.categories), ...[...matching.keys()].filter((code):code is string=>code!==null&&customCategoryLabel(code)!==null), null]) {
     const rows = matching.get(categoryCode);
     if (!rows) continue;
-    groups.push({categoryCode, label: categoryCode === null ? labels.categoryFallback : labels.categories[categoryCode]!, items: rows, totals: expectedTotals(rows)});
+    groups.push({categoryCode, label: customCategoryLabel(categoryCode) ?? (categoryCode === null ? labels.categoryFallback : labels.categories[categoryCode]!), items: rows, totals: expectedTotals(rows)});
   }
   return {groups, filteredCount, totalCount: items.length};
 }

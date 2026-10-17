@@ -40,3 +40,4 @@ export {
 export { isConfirmedSekPriceIncrease } from './price-increase.js';
 export { parsePositiveSekInput } from './parse-positive-sek-input.js';
 export { formatPositiveSekInputMinor } from './format-positive-sek-input-minor.js';
+export { recurringCost, recurringCostDifference, chartPercent, type RecurringCadence } from './recurring-cost.js';

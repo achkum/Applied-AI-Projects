@@ -6,7 +6,7 @@ import {SandboxToken} from './sandbox-token.js';
 import {createSandboxConfig} from './sandbox-config.js';
 const owner=['123e4567','e89b','42d3','a456','426614174000'].join('-'),session=['123e4567','e89b','42d3','a456','426614174001'].join('-');
 function fixture(){
- let now=1000000;const pair=generateKeyPairSync('ed25519'),config=createSandboxConfig({NODE_ENV:'production',SUBTRACK_RUNTIME:'sandbox',SANDBOX_STARTUP_ENABLED:'true',SANDBOX_PUBLICATION_ENABLED:'true',SANDBOX_DATABASE_HOST:'database',SANDBOX_DATABASE_NAME:'subtrack_sandbox',SANDBOX_DATABASE_ROLE:'subtrack_sandbox_runtime',SANDBOX_POOL_MAX:'4',PORT:'4000'},{username:'subtrack_sandbox_api_login',password:'ab'.repeat(32)},{privateKeyPem:pair.privateKey.export({type:'pkcs8',format:'pem'}).toString(),capabilityKey:'11'.repeat(32),refreshKey:'22'.repeat(32),admissionKey:'33'.repeat(32),rateKey:'44'.repeat(32),gatewayKey:'55'.repeat(32)},['aa'.repeat(32),'bb'.repeat(32)]);
+ let now=1000000;const pair=generateKeyPairSync('ed25519'),config=createSandboxConfig({NODE_ENV:'production',SUBTRACK_RUNTIME:'sandbox',SANDBOX_STARTUP_ENABLED:'true',SANDBOX_PUBLICATION_ENABLED:'true',SANDBOX_DATABASE_HOST:'database',SANDBOX_DATABASE_NAME:'subtrack_sandbox',SANDBOX_DATABASE_ROLE:'subtrack_sandbox_runtime',SANDBOX_POOL_MAX:'4',PORT:'4000'},{username:'subtrack_sandbox_api_login',password:'ab'.repeat(32)},{privateKeyPem:pair.privateKey.export({type:'pkcs8',format:'pem'}).toString(),capabilityKey:'11'.repeat(32),refreshKey:'22'.repeat(32),admissionKey:'33'.repeat(32),rateKey:'44'.repeat(32),gatewayKey:'55'.repeat(32)},['aa'.repeat(32),'bb'.repeat(32),'cc'.repeat(32),'dd'.repeat(32)]);
  const result=(command:string,rows:Record<string,unknown>[]=[])=>({command,rowCount:rows.length,rows});
  let override:((text:string,values:unknown[])=>ReturnType<typeof result>|undefined)|undefined;
  const query=vi.fn(async(text:string,values:unknown[]=[])=>{const custom=override?.(text,values);if(custom)return custom;
@@ -16,8 +16,8 @@ function fixture(){
   if(text.startsWith('SELECT st250_auth.lock_owner'))return result('SELECT',[{id:values[0]}]);
   if(text.startsWith('SELECT se.expires_ms'))return result('SELECT',[{session_expires:'90000000',capability_expires:'2593000000'}]);
   if(text.includes('FROM pg_roles'))return result('SELECT',[{n:4}]);
-  if(text==='SELECT id,sha256 FROM st250_auth.migration ORDER BY id')return result('SELECT',[{id:1,sha256:config.migrationHashes[0]},{id:2,sha256:config.migrationHashes[1]}]);
-  if(text.includes('FROM pg_class'))return result('SELECT',[{n:13}]);
+  if(text==='SELECT id,sha256 FROM st250_auth.migration ORDER BY id')return result('SELECT',config.migrationHashes.map((sha256,index)=>({id:index+1,sha256})));
+  if(text.includes('FROM pg_class'))return result('SELECT',[{n:28}]);
   return result(text.split(' ')[0]!);
  });
  const release=vi.fn(),client={query,release} as unknown as PoolClient,pool={connect:vi.fn(async()=>client)} as unknown as Pick<Pool,'connect'>;

@@ -3,7 +3,7 @@ export const PROFILE_SCREENSHOTS=Object.freeze(['accepted-welcome.png','accepted
 export function proofScope(env,platform){
  const scope=env.SUBTRACK_NATIVE_PROOF_SCOPE??'full';
  assert.ok(scope==='full'||scope==='profile','Unknown native proof scope');
- if(scope==='profile')assert.ok(env.GITHUB_EVENT_NAME==='workflow_dispatch'&&platform==='android','Profile scope requires explicit manual Android dispatch');
+ if(scope==='profile')assert.ok(platform==='android'&&(env.GITHUB_EVENT_NAME==='workflow_dispatch'||env.GITHUB_EVENT_NAME==='pull_request'&&env.SUBTRACK_NATIVE_PROOF_SELECTION==='profile-allowlist-v1'),'Profile scope requires explicit Android dispatch or exact changed-path selection');
  return scope;
 }
 export function profileReceipt({head,platform,binaryIdentity,installedFontState,before,after}){

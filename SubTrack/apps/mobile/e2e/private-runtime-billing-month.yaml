@@ -19,13 +19,14 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: Example streaming
     timeout: 30000
-- scrollUntilVisible:
-    element: ${MAESTRO_MONTH_OPEN}
-    direction: UP
-- tapOn: ${MAESTRO_MONTH_OPEN}
+- tapOn:
+    id: native-nav-month
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_TITLE}
     timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_MONTH_NEXT}
+    direction: DOWN
 # Only an exact previous-month header admits the single adjacent-month action.
 - runFlow:
     when:
@@ -64,6 +65,7 @@ appId: se.subtrack.app
       id: native-personal-title
       text: ${MAESTRO_PERSONAL_TITLE}
     timeout: 30000
+- runFlow: private-runtime-open-profile.yaml
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}
     direction: DOWN

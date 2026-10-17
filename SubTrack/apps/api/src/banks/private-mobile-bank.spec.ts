@@ -139,6 +139,17 @@ describe('bank durable result corruption containment',()=>{
    const bad=fixture({bankTransactions:[{...valid,...patch}]});await expect(new DurableSyntheticIngestionStore({execute:bad.execute} as unknown as OwnerTx,OWNER,account).getRecords(CONNECTION)).rejects.toThrow();
   }
  });
+ it('retains pending and refund semantics only with explicit server-side mixed-record opt-in',async()=>{
+  const account={id:CONNECTION,externalId:'demo',bankName:'Demo',accountType:'CHECKING' as const,currency:'SEK',ownerUserId:OWNER};
+  const f=fixture({bankTransactions:[{provider_transaction_id:'pending',transaction_date:'2026-10-01',raw_description:'PENDING',amount_minor:'-100',currency:'SEK',status:'PENDING'},{provider_transaction_id:'refund',transaction_date:'2026-10-01',raw_description:'REFUND',amount_minor:'100',currency:'SEK',status:'BOOKED'}]});
+  const store=new DurableSyntheticIngestionStore({execute:f.execute} as unknown as OwnerTx,OWNER,account,true);
+  const records=[...(await store.getRecords(CONNECTION)).values()];
+  expect(records).toMatchObject([{externalId:'pending',direction:'DEBIT',pending:true},{externalId:'refund',direction:'CREDIT',pending:false}]);
+  f.execute.mockImplementation(async()=>({command:'INSERT',rowCount:1,rows:[{id:CONNECTION}]}) as never);
+  await store.upsertRecords(records);
+  expect(f.execute).toHaveBeenCalledWith('bankTransactionUpsert',[OWNER,CONNECTION,'pending','-100','SEK','2026-10-01','PENDING','PENDING',false,expect.any(String)]);
+  expect(f.execute).toHaveBeenCalledWith('bankTransactionUpsert',[OWNER,CONNECTION,'refund','100','SEK','2026-10-01','BOOKED','REFUND',true,expect.any(String)]);
+ });
  it('rejects mismatched account/dedup identity and invalid provider records before inserting',async()=>{
   const account={id:CONNECTION,externalId:'demo',bankName:'Demo',accountType:'CHECKING' as const,currency:'SEK',ownerUserId:OWNER};
   const record={dedupKey:CONNECTION+':charge',accountId:CONNECTION,externalId:'charge',date:new Date('2026-10-01'),description:'DEMO',amountMinor:-100,currency:'SEK',direction:'DEBIT',pending:false,rawPayload:'not stored'};

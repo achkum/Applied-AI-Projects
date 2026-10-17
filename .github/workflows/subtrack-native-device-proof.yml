@@ -6,12 +6,20 @@ on:
       - "SubTrack/apps/api/**"
       - "SubTrack/packages/contracts/**"
       - "SubTrack/packages/i18n/**"
+      - "SubTrack/packages/money/**"
+      - "SubTrack/packages/domain/**"
+      - "SubTrack/packages/synthetic/**"
+      - "SubTrack/packages/ui-tokens/**"
+      - "SubTrack/packages/config/**"
+      - "SubTrack/package.json"
+      - "SubTrack/pnpm-lock.yaml"
+      - "SubTrack/pnpm-workspace.yaml"
       - "SubTrack/tools/database/private-mobile*"
       - ".github/workflows/subtrack-native-device-proof.yml"
   workflow_dispatch:
     inputs:
       platform:
-        description: Installed proof platform (PR gates retain both platforms)
+        description: Installed proof platform (PRs retain both except approved PR297 Android acceptance)
         type: choice
         options: [android, all]
         default: android
@@ -20,19 +28,95 @@ on:
         type: choice
         options: [profile, full]
         default: profile
+      signed_product:
+        description: Install the exact verified signed successor, without rebuilding
+        type: boolean
+        default: false
+      source_head:
+        type: string
+        default: ""
+      signed_release_id:
+        type: string
+        default: ""
+      signed_sha256:
+        type: string
+        default: ""
+      verification_run:
+        type: string
+        default: ""
 permissions:
   contents: read
 concurrency:
   group: subtrack-native-device-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
+  final-signed-authority:
+    if: github.event_name == 'workflow_dispatch' && inputs.signed_product == true
+    runs-on: ubuntu-24.04
+    env:
+      ST_FINAL_SOURCE: ${{ inputs.source_head }}
+    steps:
+      - name: Bind explicit install-only source authority
+        shell: bash
+        run: |
+          test "$GITHUB_REPOSITORY" = achkum/Applied-AI-Projects
+          test "$GITHUB_REF" = refs/heads/st/native-synthetic-bank
+          [[ "$ST_FINAL_SOURCE" =~ ^[a-f0-9]{40}$ ]]
+          test "$ST_FINAL_SOURCE" = "$GITHUB_SHA"
+  final-signed-product:
+    needs: final-signed-authority
+    if: github.event_name == 'workflow_dispatch' && inputs.signed_product == true
+    permissions:
+      contents: write
+      actions: read
+    # Same-commit reuse permits this registered entry point to invoke the new
+    # install-only workflow without a main-branch publication or second APK build.
+    # https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows
+    uses: ./.github/workflows/subtrack-sandbox-installed-android.yml
+    with:
+      source_head: ${{ inputs.source_head }}
+      signed_release_id: ${{ inputs.signed_release_id }}
+      signed_sha256: ${{ inputs.signed_sha256 }}
+      verification_run: ${{ inputs.verification_run }}
+  select-proof:
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.signed_product == true) }}
+    name: Select affected native proof
+    runs-on: ubuntu-24.04
+    outputs:
+      scope: ${{ steps.select.outputs.scope }}
+      selection: ${{ steps.select.outputs.selection }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.14.0"
+      - id: select
+        env:
+          ST_PROOF_BASE: ${{ github.event.pull_request.base.sha }}
+          ST_PROOF_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          ST_PROOF_EVENT: ${{ github.event_name }}
+          ST_PROOF_REQUESTED: ${{ inputs.proof_scope }}
+        run: |
+          if [ "$ST_PROOF_EVENT" = pull_request ]; then
+            git fetch --no-tags --depth=1 origin "$ST_PROOF_BASE"
+            node SubTrack/apps/mobile/scripts/private-runtime-change-scope.mjs
+          else
+            case "$ST_PROOF_REQUESTED" in profile|full) ;; *) exit 1;; esac
+            printf 'scope=%s\nselection=manual\n' "$ST_PROOF_REQUESTED" >> "$GITHUB_OUTPUT"
+          fi
   installed-native:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_scope == 'profile' && 'Android profile and restart (scoped)' || format('Installed {0} restart readback', matrix.platform) }}
+    needs: select-proof
+    name: ${{ needs.select-proof.outputs.scope == 'profile' && 'Android profile and restart (scoped)' || format('Installed {0} restart readback', matrix.platform) }}
     strategy:
       fail-fast: false
       max-parallel: 2
       matrix:
-        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.platform == 'android' && '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"}]' || '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"},{"platform":"ios","runner":"macos-15","database_mode":"local"}]') }}
+        # Founder-approved Android-only acceptance for this exact same-repository PR.
+        # iOS remains unqualified; all other full PRs retain both installed targets.
+        include: ${{ fromJSON((needs.select-proof.outputs.scope == 'profile' || github.event_name == 'workflow_dispatch' && inputs.platform == 'android' || github.event_name == 'pull_request' && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.number == 297 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank') && '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"}]' || '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"},{"platform":"ios","runner":"macos-15","database_mode":"local"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     defaults:
@@ -40,13 +124,16 @@ jobs:
         shell: bash
         working-directory: SubTrack
     env:
-      SUBTRACK_NATIVE_PROOF_SCOPE: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_scope || 'full' }}
+      SUBTRACK_NATIVE_PROOF_SCOPE: ${{ needs.select-proof.outputs.scope }}
+      SUBTRACK_NATIVE_PROOF_SELECTION: ${{ needs.select-proof.outputs.selection }}
       CI: "true"
       EXPO_NO_TELEMETRY: "1"
       MAESTRO_CLI_NO_ANALYTICS: "true"
       SUBTRACK_PRIVATE_DEVICE_PROOF: "true"
       ST253_CAPTURE_ENABLED: ${{ matrix.platform == 'ios' && github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' && 'true' || 'false' }}
       ST253_ANDROID_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' && 'true' || 'false' }}
+      ST253_ANDROID_HOME_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 297 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank' && 'true' || 'false' }}
+      ST253_ANDROID_EDIT_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 297 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank' && 'true' || 'false' }}
       ST253_CAPTURE_PLATFORM: ${{ matrix.platform }}
       ST253_CAPTURE_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
       ST253_CAPTURE_SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
@@ -76,6 +163,9 @@ jobs:
           node --test apps/mobile/scripts/private-runtime-preconditions.test.mjs apps/mobile/scripts/private-runtime-proof-scope-test.mjs
           bash apps/mobile/scripts/private-runtime-tools.sh
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-restart-ui.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-restart-ui-test.mjs
+          node --test apps/mobile/scripts/private-runtime-android-home-diagnostic-test.mjs apps/mobile/scripts/private-runtime-android-edit-diagnostic-test.mjs
+          node --test apps/mobile/scripts/native-text-host-test.mjs
+          node --test apps/mobile/scripts/private-runtime-platform-scope-test.mjs
           node apps/mobile/scripts/private-runtime-amount-selector-test.mjs
           node apps/mobile/scripts/private-runtime-pipeline-test.mjs
           if [ "${{ matrix.platform }}" = android ]; then node --test apps/mobile/scripts/private-runtime-font-bundle-test.mjs; fi
@@ -244,6 +334,56 @@ jobs:
         with:
           name: st253-sealed-android-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/subtrack-native-proof/sealed-android/entry-header.st253sealed
+          if-no-files-found: error
+          retention-days: 1
+      - name: Validate separate recipient-encrypted Home diagnostic
+        id: sealed_home
+        if: failure() && matrix.platform == 'android' && env.ST253_ANDROID_HOME_CAPTURE_ENABLED == 'true'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {execFileSync} from 'node:child_process';
+          import {homeCaptureContext,validatedHomeArtifact} from './apps/mobile/scripts/private-runtime-android-home-diagnostic.mjs';
+          const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),context=homeCaptureContext(process.env,head);
+          const ready=context&&validatedHomeArtifact(join(process.env.RUNNER_TEMP,'subtrack-native-proof','private'),context);
+          appendFileSync(process.env.GITHUB_OUTPUT,`ready=${ready===true?'true':'false'}\n`);
+          NODE
+      - name: Recipient-encrypted current synthetic Home failure only
+        if: failure() && steps.sealed_home.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sealed-home-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/subtrack-native-proof/sealed-android-home/home-assertion.st253sealed
+            ${{ runner.temp }}/subtrack-native-proof/sealed-android-home/home-diagnostic-receipt.json
+          if-no-files-found: error
+          retention-days: 1
+      - name: Validate separate recipient-encrypted Edit pre-Save diagnostic
+        id: sealed_edit
+        if: failure() && matrix.platform == 'android' && env.ST253_ANDROID_EDIT_CAPTURE_ENABLED == 'true'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {execFileSync} from 'node:child_process';
+          import {editCaptureContext,validatedEditArtifact} from './apps/mobile/scripts/private-runtime-android-edit-diagnostic.mjs';
+          const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),context=editCaptureContext(process.env,head);
+          const ready=context&&validatedEditArtifact(join(process.env.RUNNER_TEMP,'subtrack-native-proof','private'),context);
+          appendFileSync(process.env.GITHUB_OUTPUT,`ready=${ready===true?'true':'false'}\n`);
+          NODE
+      - name: Recipient-encrypted current synthetic Edit pre-Save failure only
+        if: failure() && steps.sealed_edit.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sealed-edit-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/subtrack-native-proof/sealed-android-edit/edit-presave.st253sealed
+            ${{ runner.temp }}/subtrack-native-proof/sealed-android-edit/edit-diagnostic-receipt.json
           if-no-files-found: error
           retention-days: 1
       - name: Owned fixture and debug server cleanup

@@ -111,7 +111,7 @@ if [[ "$variant" == image-v2 ]];then
  extract_id="$(cat "$work/extract.cid")";[[ "$extract_id" =~ ^[a-f0-9]{64}$ ]]
  mkdir -p "$work/image/apps/api/dist/sandbox" "$work/image/apps/api/prisma/sandbox" "$work/image-secrets"
  docker cp "$extract_id:/workspace/apps/api/dist/sandbox/." "$work/image/apps/api/dist/sandbox" >/dev/null 2>> "$work/extract-private.log"
- for name in 001-sandbox-foundation.sql 002-sandbox-mobile-business.sql;do docker cp "$extract_id:/workspace/apps/api/prisma/sandbox/$name" "$work/image/apps/api/prisma/sandbox/$name" >/dev/null 2>> "$work/extract-private.log";done
+ for name in 001-sandbox-foundation.sql 002-sandbox-mobile-business.sql 003-sandbox-bank-detection.sql 004-sandbox-household.sql;do docker cp "$extract_id:/workspace/apps/api/prisma/sandbox/$name" "$work/image/apps/api/prisma/sandbox/$name" >/dev/null 2>> "$work/extract-private.log";done
  [[ "$(realpath "$work/image")" == "$work/image" && -z "$(find "$work/image" -type l -print -quit)" ]]
  sudo chown -R "$(id -u):$(id -g)" "$work/image"
  for name in database_runtime api_auth_material;do
@@ -144,6 +144,6 @@ sudo cp "$work/hosts.expected" /etc/hosts;mapped=1
 # Only this harness loads DDL; actual main never does so.
 run_mode=run;if [[ "$variant" == image-v2 ]];then run_mode=run-image;fi
 if ! ST250_PG_NETWORK="$network" ST250_IMAGE_MARKER="$marker" timeout --signal=TERM --kill-after=10s 180s node tools/database/sandbox-qualification.cjs "$run_mode" "$work" > "$work/runtime-private.log" 2>&1;then
- grep -E '^ST250_SANDBOX_PG_FAILURE phase=LOAD step=(CONFIG|ADMIN_CONNECT|FOUNDATION_DDL|BUSINESS_DDL|RUNTIME_PASSWORD) category=(NODE_MODULE|CONNECTION|AUTHENTICATION|PERMISSION|SYNTAX|ALREADY_EXISTS|UNDEFINED_OBJECT|CONSTRAINT|FILE|OTHER)$|^ST250_SANDBOX_PG_FAILURE phase=(SETUP|LOAD|CATALOG|START|BOOTSTRAP|BUSINESS|RESTART|ISOLATION|REFRESH|WIRE|LOGOUT|CLOSE)$' "$work/runtime-private.log" >&2 || true
+ grep -E '^ST250_SANDBOX_PG_FAILURE phase=LOAD step=(CONFIG|ADMIN_CONNECT|FOUNDATION_DDL|BUSINESS_DDL|BANK_DDL|HOUSEHOLD_DDL|RUNTIME_PASSWORD) category=(NODE_MODULE|CONNECTION|AUTHENTICATION|PERMISSION|SYNTAX|ALREADY_EXISTS|UNDEFINED_OBJECT|CONSTRAINT|FILE|OTHER)$|^ST250_SANDBOX_PG_FAILURE phase=(SETUP|LOAD|CATALOG|START|BOOTSTRAP|BUSINESS|FEATURES|RESTART|ISOLATION|REFRESH|WIRE|LOGOUT|CLOSE)$' "$work/runtime-private.log" >&2 || true
  exit 1
 fi

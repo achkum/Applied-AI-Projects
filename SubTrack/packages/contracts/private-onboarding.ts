@@ -1,4 +1,5 @@
 import type { ModeView, PrivateOwnerPage, PrivateOwnerSubscriptionView } from './generated/types.gen.ts';
+import {customCategoryLabel} from '@subtrack/contracts/subscription-category';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -45,7 +46,7 @@ export function parsePrivateOwnerView(value: unknown): PrivateOwnerSubscriptionV
       !(v.customName === null || typeof v.customName === 'string' && v.customName.length <= 120) ||
       !(v.merchantId === null || uuid(v.merchantId)) ||
       !(v.merchantName === null || typeof v.merchantName === 'string' && v.merchantName.length <= 120) ||
-      !CATEGORY.has(v.categoryCode as string) || !CADENCE.has(v.cadence as string) || !STATUS.has(v.status as string) ||
+      ( !CATEGORY.has(v.categoryCode as string) && customCategoryLabel(v.categoryCode) === null ) || !CADENCE.has(v.cadence as string) || !STATUS.has(v.status as string) ||
       typeof v.expectedAmountMinor !== 'string' || !MINOR.test(v.expectedAmountMinor) ||
       BigInt(v.expectedAmountMinor) < MIN || BigInt(v.expectedAmountMinor) > MAX ||
       typeof v.currency !== 'string' || !/^[A-Z]{3}$/.test(v.currency) ||
@@ -74,7 +75,7 @@ export function parsePrivateManualCreate(value: unknown): Readonly<{customName:s
   if (typeof v.customName !== 'string' || /[\p{Cc}\p{Cf}\p{Cs}]/u.test(v.customName)) throw new Error('manual-create');
   const customName = v.customName.trim();
   if (customName.length < 1 || customName.length > 120 || /[\p{Cc}\p{Cf}\p{Cs}]/u.test(customName) ||
-      !CATEGORY.has(v.categoryCode as string) || !['WEEKLY','MONTHLY','QUARTERLY','SEMIANNUAL','ANNUAL'].includes(v.cadence as string) ||
+      ( !CATEGORY.has(v.categoryCode as string) && customCategoryLabel(v.categoryCode) === null ) || !['WEEKLY','MONTHLY','QUARTERLY','SEMIANNUAL','ANNUAL'].includes(v.cadence as string) ||
       typeof v.expectedAmountMinor !== 'string' || !/^[1-9][0-9]{0,18}$/.test(v.expectedAmountMinor) || BigInt(v.expectedAmountMinor) > MAX ||
       !(v.nextChargeDate === undefined || v.nextChargeDate === null || date(v.nextChargeDate) && !(v.nextChargeDate as string).startsWith('0000')))
     throw new Error('manual-create');

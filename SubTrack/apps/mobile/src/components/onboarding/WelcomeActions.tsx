@@ -33,7 +33,7 @@ export function WelcomeActions({
       <View style={styles.identity}><SubTrackBrand size={48} wordmark={false} /><Text accessibilityRole="header" style={{color:getColorByTheme(theme,isDark,'ink.primary'),fontFamily:theme.typography.fontFamily.display,fontSize:theme.typography.fontSize['2xl']}}>SubTrack</Text></View>
       <Text accessibilityRole="header" style={{textAlign:'center',color:getColorByTheme(theme,isDark,'ink.primary'),fontFamily:theme.typography.fontFamily.display,fontSize:theme.typography.fontSize.xl}}>{t('onboarding.welcome.tagline')}</Text>
       <View style={styles.actions}>
-        {actions.map(({ key, label, onPress, primary }) => <NativeProductButton key={key} label={label}
+        {actions.map(({ key, label, onPress, primary }) => <NativeProductButton key={key} testID={`native-welcome-${key}`} label={label}
           variant={primary ? 'primary' : 'secondary'} disabled={busy} onPress={() => { if (!busy) onPress(); }} />)}
       </View>
     </View>

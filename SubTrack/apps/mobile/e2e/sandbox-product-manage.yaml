@@ -1,0 +1,63 @@
+appId: se.subtrack.app.sandbox
+---
+- scrollUntilVisible:
+    element: Aurora Video
+    direction: DOWN
+- assertVisible: Cinema Plus
+- takeScreenshot: accepted-sandbox-subscriptions
+- tapOn: Aurora Video
+- scrollUntilVisible:
+    element: ${E_EDIT}
+    direction: DOWN
+- tapOn: ${E_EDIT}
+- scrollUntilVisible:
+    element:
+      id: native-subscription-name
+    direction: UP
+- tapOn:
+    id: native-subscription-name
+- eraseText
+- inputText: Aurora Video Plus
+- hideKeyboard
+- tapOn:
+    id: native-subscription-category
+- eraseText
+- inputText: Streaming extras
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: native-subscription-date
+    direction: DOWN
+- tapOn:
+    id: native-subscription-date
+- tapOn: ${E_TODAY}
+- assertVisible: ${TODAY}
+- takeScreenshot: accepted-sandbox-edit
+- scrollUntilVisible:
+    element: ${E_SAVE_EDIT}
+    direction: DOWN
+- tapOn: ${E_SAVE_EDIT}
+- scrollUntilVisible:
+    element:
+      id: native-personal-title
+    direction: UP
+- extendedWaitUntil:
+    visible: ${E_EDIT_SAVED}
+    timeout: 30000
+- scrollUntilVisible:
+    element: Aurora Video Plus
+    direction: DOWN
+- assertVisible: Streaming extras
+# Saving preserves this row's expanded controls.
+- scrollUntilVisible:
+    element: ${E_PAUSE}
+    direction: DOWN
+- tapOn: ${E_PAUSE}
+- extendedWaitUntil:
+    visible: ${E_RESUME}
+    timeout: 30000
+- tapOn: ${E_RESUME}
+- extendedWaitUntil:
+    visible: ${E_PAUSE}
+    timeout: 30000
+- assertNotVisible: ${E_RESUME}
