@@ -546,6 +546,7 @@
     "me": "Me",
     "overview": "Your subscriptions",
     "activePlans": "%{count} active plans",
+    "sharedPlans": "Shared plans",
     "findings": "%{count} things to review",
     "summary": "Summary",
     "method": "Costs follow saved billing cycles: 52 weeks per year. Each plan is rounded once. Currencies stay separate.",
@@ -618,6 +619,8 @@
     "settings": "Settings",
     "shownTotal": "Shown total",
     "chargeHistory": "Charge history",
+    "tomorrow": "Tomorrow",
+    "yesterday": "Yesterday",
     "perPerson": "Per person",
     "auto": "Auto"
   }

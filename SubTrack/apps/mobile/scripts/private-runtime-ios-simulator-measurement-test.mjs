@@ -8,7 +8,7 @@ const udid='123E4567-E89B-42D3-A456-426614174000',runtime='com.apple.CoreSimulat
 const device=()=>({udid,name:'SubTrack-proof',state:'Booted',isAvailable:true,deviceTypeIdentifier:'com.apple.CoreSimulator.SimDeviceType.iPhone-17'});
 const devices=()=>({devices:{[runtime]:[device()]}});
 const category=(expected,action)=>assert.throws(action,error=>{assert.equal(iosMeasurementCategory(error),expected);assert.equal(error.message,'iOS simulator measurement unavailable');return true;});
-const execute=(change=()=>{})=>{let index=0;return(program,args,options)=>{index++;assert.equal(options.timeout,15000);assert.equal(options.maxBuffer,4194304);assert.equal(options.stdio[1],'pipe');assert.equal(options.stdio[2],'pipe');change(index,options);if(index===1){assert.equal(program,'xcrun');assert.deepEqual(args,['simctl','list','devices','booted','--json']);return JSON.stringify(devices());}if(index===2){assert.equal(program,'xcrun');assert.deepEqual(args,['simctl','listapps',udid]);return 'private plist canary';}assert.equal(index,3);assert.equal(program,'/usr/bin/plutil');assert.deepEqual(args,['-convert','json','-o','-','-']);assert.equal(options.input,'private plist canary');return '{}';};};
+const execute=(change=()=>{})=>{let index=0;return(program,args,options)=>{index++;assert.equal(options.timeout,index===1?60000:15000);assert.equal(options.killSignal,'SIGKILL');assert.equal(options.maxBuffer,4194304);assert.equal(options.stdio[1],'pipe');assert.equal(options.stdio[2],'pipe');change(index,options);if(index===1){assert.equal(program,'xcrun');assert.deepEqual(args,['simctl','list','devices','booted','--json']);return JSON.stringify(devices());}if(index===2){assert.equal(program,'xcrun');assert.deepEqual(args,['simctl','listapps',udid]);return 'private plist canary';}assert.equal(index,3);assert.equal(program,'/usr/bin/plutil');assert.deepEqual(args,['-convert','json','-o','-','-']);assert.equal(options.input,'private plist canary');return '{}';};};
 
 test('native measurement uses original bounded inventory commands and exact owned identity',()=>{
  const value=measureIosSimulator(udid,execute());assert.deepEqual(value,{runtime,udid,name:'SubTrack-proof',deviceType:device().deviceTypeIdentifier});
@@ -24,6 +24,12 @@ test('each native query or conversion failure/timeout becomes a fixed category w
 });
 test('invalid native JSON is separated from query failure',()=>{
  for(const [bad,expected]of [[1,'DEVICES_JSON'],[3,'APPS_JSON']]){let count=0;const next=execute();category(expected,()=>measureIosSimulator(udid,(...args)=>{const value=next(...args);return ++count===bad?'private invalid JSON canary':value;}));}
+});
+
+test('inventory timeout never retries or reaches app inventory or authorizes readiness',()=>{
+ let calls=0;
+ category('DEVICES_TIMEOUT',()=>measureIosSimulator(udid,execute(()=>{calls++;throw Object.assign(new Error('private timeout canary'),{code:'ETIMEDOUT'});} )));
+ assert.equal(calls,1);
 });
 test('invalid device or app shapes never enter inventory traversal or authorize readiness',()=>{
  for(const value of [null,[],{}, {devices:null},{devices:[]},{devices:{[runtime]:null}},{devices:{[runtime]:[null]}},{devices:{[runtime]:[[]]}}])category('DEVICES_SHAPE',()=>measuredIosSimulator(value,{},udid));

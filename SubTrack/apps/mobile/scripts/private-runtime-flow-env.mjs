@@ -44,6 +44,7 @@ export function flowEnvironment(locale = 'en') {
     MAESTRO_MONTH_MANUAL: onboarding.billingMonth.manual,
     MAESTRO_MONTH_CLOSE: catalog.actions.close,
     MAESTRO_MONTH_AMOUNT: String.raw`129,90[ \u00a0\u202f]+SEK`,
+    MAESTRO_MONTH_DETAIL_PRICE: `${String.raw`129,90[ \u00a0\u202f]+SEK`} · ${onboarding.ownerSubscriptions.cadence.MONTHLY.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}`,
     MAESTRO_DATE: onboarding.nativePersonal.date,
     MAESTRO_RENEWALS_OPEN: onboarding.productNav.upcoming,
     MAESTRO_RENEWALS_TITLE: onboarding.nativeRenewals.title,

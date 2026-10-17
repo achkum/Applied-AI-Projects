@@ -4,10 +4,16 @@ import test from 'node:test';
 import {crc32,deflateSync} from 'node:zlib';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {dispatch,verifiedAuthority,signedDraft,bindPending,acceptedPng,productReceipt,PACKAGE,SIGNER,REPO,CHECKS,SCREENSHOTS,foregroundSandbox,diagnosticReceipt} from './sandbox-installed-android-contract.mjs';
+import {createRequire} from 'node:module';
+import {dispatch,verifiedAuthority,signedDraft,bindPending,acceptedPng,productReceipt,PACKAGE,SIGNER,REPO,CHECKS,SCREENSHOTS,VISUAL_CASES,VISUAL_SCREENS,VISUAL_SCREENSHOTS,foregroundSandbox,diagnosticReceipt} from './sandbox-installed-android-contract.mjs';
 import {flowLabels,maestroArgs} from './sandbox-installed-android.mjs';
 const source='a'.repeat(40),signed='c'.repeat(64),unsigned='b'.repeat(64),defaultHead='9'.repeat(40);
 const expected={sourceHead:source,releaseId:20,verificationRun:30,signedSha256:signed};
+function actualPng(){
+ const chunk=(kind,data)=>{const type=Buffer.from(kind),size=Buffer.alloc(4),crc=Buffer.alloc(4);size.writeUInt32BE(data.length);crc.writeUInt32BE(crc32(Buffer.concat([type,data])));return Buffer.concat([size,type,data,crc]);};
+ const header=Buffer.alloc(13);header.writeUInt32BE(300);header.writeUInt32BE(600,4);header[8]=8;header[9]=6;
+ return Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',header),chunk('IDAT',deflateSync(Buffer.alloc((300*4+1)*600))),chunk('IEND',Buffer.alloc(0))]);
+}
 const receipt=()=>({schemaVersion:2,embeddedConfigSha256:'d'.repeat(64),hermesSha256:'e'.repeat(64),sourceHead:source,unsignedSha256:unsigned,applicationId:PACKAGE,versionCode:5,variant:'sandbox',origin:'https://198.44.116.159',buildType:'release',debuggable:false,privateCaIncluded:false,hermesBundled:true,runtimeEnabled:true,bytes:100,signatureVerified:true,zipAligned:true,signedSha256:signed,signerCertificateSha256:SIGNER,cleanup:'REMOVED'});
 const transfer=()=>({schema:'st250-android-draft-transfer-receipt-v2',sourceHead:source,runId:'12-1',defaultTargetHead:defaultHead,draftTag:`st250-android-stage-${source}-12-1`,releaseId:19,draft:true,unsignedSha256:unsigned,bytes:90,applicationId:PACKAGE,apkAssetId:10,manifestSha256:'f'.repeat(64),manifestBytes:500,manifestAssetId:11,manifestSchema:'st250-android-transfer-manifest-v2',unsignedQualified:true,uploadVerified:true,localCleanupConfirmed:true,remoteCustody:'draft-retained'});
 const run=()=>({id:30,repository:{full_name:REPO},path:'.github/workflows/subtrack-sandbox-android-build.yml',event:'workflow_dispatch',head_sha:source,head_branch:'st/native-synthetic-bank',status:'completed',conclusion:'success'});
@@ -31,13 +37,15 @@ test('private unpublished two-asset draft is bound to original target, signer an
  const r=receipt(),pending={schema:'st250-android-signed-pending-v2',...Object.fromEntries(['sourceHead','signerCertificateSha256','unsignedSha256','signedSha256','bytes','runtimeEnabled','embeddedConfigSha256','hermesSha256'].map(key=>[key,r[key]]))};assert.equal(bindPending(pending,authority()),true);assert.throws(()=>bindPending({...pending,bytes:99},authority()));assert.throws(()=>bindPending({...pending,privateInput:'never'},authority()));
 });
 test('accepted images and closed measured receipt reject missing flags, cleanup and private extensions',()=>{
- const png=Buffer.alloc(32);Buffer.from('89504e470d0a1a0a','hex').copy(png);png.write('IHDR',12);png.writeUInt32BE(1080,16);png.writeUInt32BE(2400,20);assert.equal(acceptedPng(png).bytes,32);
- for(const value of [Buffer.alloc(0),Buffer.alloc(32),Buffer.from('private text')])assert.throws(()=>acceptedPng(value));
+ const png=actualPng();assert.equal(acceptedPng(png).bytes,png.length);
+ const headerOnly=Buffer.alloc(32);Buffer.from('89504e470d0a1a0a','hex').copy(headerOnly);headerOnly.write('IHDR',12);headerOnly.writeUInt32BE(1080,16);headerOnly.writeUInt32BE(2400,20);
+ const corrupt=Buffer.from(png);corrupt[corrupt.length-1]^=1;
+ for(const value of [Buffer.alloc(0),Buffer.alloc(32),Buffer.from('private text'),headerOnly,png.subarray(0,png.length-12),corrupt])assert.throws(()=>acceptedPng(value));
  const checks=Object.fromEntries(CHECKS.map(key=>[key,true])),images=SCREENSHOTS.map(name=>({name,sha256:'d'.repeat(64),bytes:32}));assert.equal(productReceipt(expected,authority(),checks,images,true).backendSqlProofClaimed,false);
  for(const key of CHECKS)assert.throws(()=>productReceipt(expected,authority(),{...checks,[key]:false},images,true));assert.throws(()=>productReceipt(expected,authority(),checks,images,false));assert.throws(()=>productReceipt(expected,authority(),checks,images.slice(1),true));assert.throws(()=>productReceipt(expected,authority(),checks,[{...images[0],privateInput:'never'},...images.slice(1)],true));
 });
 test('actual flows use sandbox package, no authority extraction or rebuild, one cold restart and final owner revocation',()=>{
- const names=['setup','bank','manage','pages','restart'];const sources=names.map(name=>readFileSync(new URL(`../e2e/sandbox-product-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n'));
+ const names=['setup','bank','manage','pages','visual','restart'];const sources=names.map(name=>readFileSync(new URL(`../e2e/sandbox-product-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n'));
  for(const source of sources){assert.ok(source.startsWith('appId: se.subtrack.app.sandbox\n'));assert.doesNotMatch(source,/runScript|evalScript|copyTextFrom|openLink|https:\/\/localhost|se\.subtrack\.app\n/);}
  const all=sources.join('\n'),captures=[...all.matchAll(/- takeScreenshot: ([a-z-]+)/g)].map(m=>`${m[1]}.png`);assert.deepEqual(captures.sort(),[...SCREENSHOTS].sort());
  assert.equal((all.match(/clearState: true/g)??[]).length,0);const driver=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8');assert.equal((driver.match(/'shell','pm','clear',PACKAGE/g)??[]).length,1);assert.ok(driver.indexOf("'shell','pm','clear',PACKAGE")>driver.indexOf('checks.signedBytesInstalled=true'));assert.ok(driver.indexOf("'shell','pm','clear',PACKAGE")<driver.indexOf("if(name==='setup')freshWorkspaceStarted=true"));assert.equal((all.match(/- stopApp/g)??[]).length,1);assert.equal((all.match(/native-detection-confirm-atlas-ai/g)??[]).length,2);assert.ok(all.includes('native-detection-confirm-evergreen-mobile'));assert.ok(all.includes('native-detection-reject-motion-club'));assert.ok(all.includes('native-detection-undo'));assert.ok(all.includes('native-profile-theme-dark\n    selected: true'));
@@ -64,9 +72,7 @@ test('signed cold restart verifies the resumed same-owner household and saved va
 });
 
 test('failure screenshot is diagnostic-only and requires verified fresh sandbox foreground fences',()=>{
- const chunk=(kind,data)=>{const type=Buffer.from(kind),size=Buffer.alloc(4),crc=Buffer.alloc(4);size.writeUInt32BE(data.length);crc.writeUInt32BE(crc32(Buffer.concat([type,data])));return Buffer.concat([size,type,data,crc]);};
- const header=Buffer.alloc(13);header.writeUInt32BE(300);header.writeUInt32BE(600,4);header[8]=8;header[9]=6;
- const png=Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',header),chunk('IDAT',deflateSync(Buffer.alloc((300*4+1)*600))),chunk('IEND',Buffer.alloc(0))]);
+ const png=actualPng();
  const guards={verifiedInstall:true,freshWorkspaceStarted:true,ownedDevice:true,foregroundBefore:true,foregroundAfter:true};
  const result=diagnosticReceipt(expected,'BANK',png,guards);assert.deepEqual(Object.keys(result),['schema','status','phase','sourceHead','signedSha256','applicationId','filename','sha256','bytes']);assert.equal(result.status,'diagnostic-only');assert.equal(result.filename,'failed-sandbox-product.png');assert.equal(result.bytes,png.length);assert.ok(!Object.hasOwn(result,'checks'));assert.ok(!Object.hasOwn(result,'accepted'));
  for(const key of Object.keys(guards))assert.throws(()=>diagnosticReceipt(expected,'BANK',png,{...guards,[key]:false}));for(const phase of ['AUTHORITY','INSTALL','ACCEPTED','private'])assert.throws(()=>diagnosticReceipt(expected,phase,png,guards));assert.throws(()=>diagnosticReceipt(expected,'BANK',Buffer.alloc(32),guards));assert.throws(()=>diagnosticReceipt(expected,'BANK',png,{...guards,token:'private'}));
@@ -82,4 +88,36 @@ test('seeded product flow proves additive review, real household rename and exac
  assert.ok(bank.includes('- assertVisible: ${E_BANK_ACTIVE}'));assert.equal((bank.match(/- tapOn:\s+id: native-bank-sync-0/g)??[]).length,1);assert.ok(!bank.includes('native-bank-connect'));
  const labels=flowLabels(new Date('2026-10-17T12:00:00Z'));assert.equal(labels.E_ACTIVE_TEN,'10 active plans');assert.ok(pages.includes('- assertVisible: ${E_ACTIVE_TEN}'));assert.equal(CHECKS.includes('seededHouseholdReadAndRenamed'),true);assert.equal(CHECKS.includes('householdCreated'),false);
  assert.ok(!restart.includes('native-profile-save-preferences'));const language=restart.indexOf('id: native-profile-language-sv'),theme=restart.indexOf('- tapOn:\n    id: native-profile-theme-dark');assert.ok(language<theme);assert.ok(restart.slice(language,theme).includes('visible: ${S_PROFILE_SAVED}'));assert.ok(restart.slice(language,theme).includes('selected: true'));
+});
+
+test('actual signed visual flow captures all five tabs, real detail and chart in four saved locale/theme states before the original cold restart',()=>{
+ const mobile=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobile.resolve('expo/package.json'))('yaml');
+ const source=readFileSync(new URL('../e2e/sandbox-product-visual.yaml',import.meta.url),'utf8'),documents=yaml.parseAllDocuments(source).map(document=>document.toJSON()),rows=documents[1];
+ assert.deepEqual(documents[0],{appId:PACKAGE});assert.deepEqual(VISUAL_CASES,['en-light','en-dark','sv-light','sv-dark']);assert.deepEqual(VISUAL_SCREENS,['home','subscriptions','detail','household','insights','trend','profile']);
+ const captures=rows.filter(row=>row.takeScreenshot).map(row=>`${row.takeScreenshot}.png`);assert.deepEqual(captures,[...VISUAL_SCREENSHOTS]);assert.equal(captures.length,28);
+ const tapId=(steps,id)=>steps.findIndex(row=>row.tapOn?.id===id),selected=(steps,id)=>steps.findIndex(row=>row.extendedWaitUntil?.visible?.id===id&&row.extendedWaitUntil.visible.selected===true&&row.extendedWaitUntil.timeout===30000);
+ const capture=(steps,mode,screen)=>steps.findIndex(row=>row.takeScreenshot===`accepted-sandbox-visual-${mode}-${screen}`);
+ let start=0;
+ for(const mode of VISUAL_CASES){
+  const [locale,theme]=mode.split('-'),end=rows.findIndex((row,index)=>index>=start&&row.takeScreenshot===`accepted-sandbox-visual-${mode}-profile`),steps=rows.slice(start,end+1);assert.ok(end>start);
+  const languageId=`native-profile-language-${locale}`,themeId=`native-profile-theme-${theme}`,language=tapId(steps,languageId),languageReady=selected(steps,languageId),themeAt=tapId(steps,themeId),themeReady=selected(steps,themeId);
+  assert.ok(language>=0&&languageReady>language&&themeAt>languageReady&&themeReady>themeAt&&capture(steps,mode,'home')>themeReady,mode);
+  for(const [tab,screenName]of [['month','home'],['manage','subscriptions'],['household','household'],['insights','insights'],['profile','profile']]){const at=steps.findIndex((row,index)=>row.tapOn?.id===`native-nav-${tab}`&&index<capture(steps,mode,screenName));assert.ok(at>=0,mode+tab);assert.deepEqual(steps[at+1],{extendedWaitUntil:{visible:{id:`native-nav-${tab}`,selected:true},timeout:30000}});}
+  const open=steps.findIndex(row=>row.tapOn==='Cedar Video Plus'),detail=capture(steps,mode,'detail'),close=tapId(steps,'native-subscription-detail-close');assert.ok(open>capture(steps,mode,'subscriptions')&&detail>open&&close>detail&&capture(steps,mode,'household')>close);
+  assert.ok(steps.slice(open,detail).some(row=>row.extendedWaitUntil?.visible?.id==='native-subscription-charge-history'));
+  const chart=steps.findIndex(row=>row.scrollUntilVisible?.element?.id==='native-insights-trend'&&row.scrollUntilVisible.direction==='DOWN');assert.ok(chart>capture(steps,mode,'insights')&&chart<capture(steps,mode,'trend'));
+  assert.ok(steps.some(row=>row.extendedWaitUntil?.visible==='${'+(locale==='en'?'E':'S')+'_ACTIVE_TEN}'));
+  start=end+1;
+ }
+ const restore=rows.slice(start);assert.ok(tapId(restore,'native-profile-language-en')<selected(restore,'native-profile-language-en'));assert.ok(tapId(restore,'native-profile-theme-light')<selected(restore,'native-profile-theme-light'));assert.deepEqual(restore.at(-1),{assertVisible:{id:'native-profile-language-en',selected:true}});
+ assert.doesNotMatch(source,/stopApp|launchApp|clearState|runScript|evalScript|openLink|copyTextFrom|PROFILE_SAVED|inputText/);
+ const driver=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8');assert.ok(driver.includes("['visual',['visualMatrixCaptured']],['restart',"));assert.ok(driver.includes("phase=name==='visual'?'PAGES':name.toUpperCase()"));
+});
+
+test('closed installed receipt requires every matrix image and describes capture without claiming visual parity',()=>{
+ const checks=Object.fromEntries(CHECKS.map(key=>[key,true])),images=SCREENSHOTS.map(name=>({name,sha256:'d'.repeat(64),bytes:32}));
+ const value=productReceipt(expected,authority(),checks,images,true);assert.deepEqual(value.visualMatrix,{status:'captured',cases:[...VISUAL_CASES],screens:[...VISUAL_SCREENS],captureCount:28,comparisonPerformed:false,parityPassed:false});
+ for(const name of VISUAL_SCREENSHOTS)assert.throws(()=>productReceipt(expected,authority(),checks,images.filter(image=>image.name!==name),true),name);
+ assert.throws(()=>productReceipt(expected,authority(),{...checks,visualMatrixCaptured:false},images,true));
+ assert.throws(()=>productReceipt(expected,authority(),checks,[...images.slice(0,-1),{...images.at(-1),name:'accepted-sandbox-visual-en-system-profile.png'}],true));
 });

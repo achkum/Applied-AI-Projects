@@ -29,6 +29,8 @@ import {useReducedMotion} from '@/hooks/useReducedMotion';
 
 export type NativeFeatureSession = Pick<ReturnType<typeof useNativeSession>, 'phase' | 'login' | 'refresh' | 'logout' | 'run'>;
 export type NativePersonalApi = Pick<typeof privateApi, 'readNativeProfile' | 'saveNativeProfile' | 'readNativeMode' | 'chooseNativeJustMe' | 'readNativeSubscriptions' | 'createNativeSubscription' | 'editNativeSubscription' | 'updateNativeSubscriptionStatus'>;
+const systemNow=()=>new Date();
+
 type ManualDraft = { customName: string; categoryCode: string; cadence: string; amount: string; date: string };
 type ManualValidationMessage = 'invalidName' | 'invalidCategory' | 'invalidCadence' | 'invalidAmount' | 'invalidDate';
 export function validateManualDraft(draft: ManualDraft, locale: 'sv' | 'en'):
@@ -55,8 +57,8 @@ export function validateManualDraft(draft: ManualDraft, locale: 'sv' | 'en'):
       expectedAmountMinor, nextChargeDate: draft.date || null }), error: null };
   } catch { return { body: null, error: 'invalidDate' }; }
 }
-export function NativePersonalScreen({ useSession = useNativeSession, api = privateApi, sandbox = false, inactiveContent, onSetupComplete, page:initialPage = 'subscriptions',detailReader }: {
-  useSession?: () => NativeFeatureSession; api?: NativePersonalApi; sandbox?: boolean; inactiveContent?: React.ReactNode; onSetupComplete?: (reason: 'load' | 'mutation') => void; page?:'subscriptions'|'profile';detailReader?:NativeAnalyticsReader;
+export function NativePersonalScreen({ useSession = useNativeSession, api = privateApi, sandbox = false, inactiveContent, onSetupComplete, page:initialPage = 'subscriptions',detailReader,now=systemNow }: {
+  useSession?: () => NativeFeatureSession; api?: NativePersonalApi; sandbox?: boolean; inactiveContent?: React.ReactNode; onSetupComplete?: (reason: 'load' | 'mutation') => void; page?:'subscriptions'|'profile';detailReader?:NativeAnalyticsReader;now?:()=>Date;
 } = {}) {
   const session = useSession(); const router = useRouter(); const { t, locale, setLocale } = useI18n(); const { theme, isDark, setMode: setThemeMode } = useTheme();
   const reducedMotion=useReducedMotion();
@@ -188,17 +190,18 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
   const restoreDetailFocus=()=>{const pendingFocus=restoreDetail.current;restoreDetail.current=null;if(!pendingFocus||pendingFocus.ticket!==generation.current||currentPhase.current!=='active'||currentDetail.current!==null)return;const node=rowNodes.current.get(pendingFocus.id),handle=node&&findNodeHandle(node);if(handle)AccessibilityInfo.setAccessibilityFocus(handle);};
   const closeDetail=()=>{restoreDetail.current=expandedRow?{id:expandedRow,ticket:generation.current}:null;setExpandedRow(null);if(Platform.OS!=='ios')requestAnimationFrame(restoreDetailFocus);};
   const beginAdd=()=>{setExpandedRow(null);setEditing(null);setReview(null);setReviewBlocked(false);setDraft({customName:'',categoryCode:'',cadence:'MONTHLY',amount:'',date:''});setAdding(true);};
-  const renderActions=(item:PrivateOwnerSubscriptionView)=><View style={styles.field}>
-    {item.source === 'DETECTED'&&item.status==='DETECTED' ? <>{button(t('onboarding.nativeDetection.open'),()=>router.push('/personal-detections'))}</> : null}
+  const detailAction=(label:string,onPress:()=>void)=><NativeProductButton compact key={label} label={label} onPress={onPress} disabled={loading} style={styles.detailAction}/>;
+  const renderActions=(item:PrivateOwnerSubscriptionView)=><View testID="native-subscription-detail-actions" style={styles.detailActions}>
+    {item.source === 'DETECTED'&&item.status==='DETECTED' ? <>{detailAction(t('onboarding.nativeDetection.open'),()=>router.push('/personal-detections'))}</> : null}
           {(item.source === 'MANUAL'||sandbox&&item.source==='DETECTED'&&['ACTIVE','PAUSED','CANCELLED','ARCHIVED'].includes(item.status)) && item.currency === 'SEK' && item.cadence !== 'CUSTOM' ? <>
-            {button(t('onboarding.nativeSubscriptionEdit.edit'), () => {
+            {detailAction(t('onboarding.nativeSubscriptionEdit.edit'), () => {
               let amount; try { amount = nativeSekDraft(item.expectedAmountMinor, locale); } catch { setMessage('invalid'); return; }
               setExpandedRow(null);setEditing(item); setReview(null); setReviewBlocked(false); setAdding(true); setMessage('');
               setDraft({ customName: item.customName ?? '', categoryCode: item.categoryCode, cadence: item.cadence, amount, date: item.nextChargeDate ?? '' });
             })}
             {(['ACTIVE', 'PAUSED', 'CANCELLED', 'ARCHIVED'] as const).filter(target =>
               item.status === 'ACTIVE' ? target !== 'ACTIVE' : item.status === 'PAUSED' ? target !== 'PAUSED' : item.status === 'CANCELLED' ? target === 'ARCHIVED' : false).map(target =>
-              button(t(`onboarding.nativeSubscriptionEdit.${target === 'ACTIVE' ? 'resume' : target === 'PAUSED' ? 'pause' : target === 'CANCELLED' ? 'cancelled' : 'archive'}`), () => {
+              detailAction(t(`onboarding.nativeSubscriptionEdit.${target === 'ACTIVE' ? 'resume' : target === 'PAUSED' ? 'pause' : target === 'CANCELLED' ? 'cancelled' : 'archive'}`), () => {
                 void action(async (token, signal) => {
                   const result = await updateNativeSubscriptionStatus({ id: item.id, status: target }, token, signal);
                   if (!('conflict' in result) && result.id !== item.id) throw new Error('result');
@@ -208,9 +211,19 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
                 });
               }))}
           </> : null}</View>;
-  const monthlyByCurrency=new Map<string,Money>();
-  for(const group of projection.groups)for(const item of group.items){if(item.status!=='ACTIVE')continue;const cost=recurringCost(money(BigInt(item.expectedAmountMinor),item.currency),item.cadence);if(cost)monthlyByCurrency.set(item.currency,add(monthlyByCurrency.get(item.currency)??money(0n,item.currency),cost.monthly));}
-  const shownTotals=[...monthlyByCurrency.values()].map(monthly=>({monthly}));
+  function monthlyTotals(rows:readonly PrivateOwnerSubscriptionView[]){
+    const totals=new Map<string,Money|null>();
+    for(const item of rows){if(item.status!=='ACTIVE')continue;const amount=recurringCost(money(BigInt(item.expectedAmountMinor),item.currency),item.cadence)?.monthly??null;
+      totals.set(item.currency,amount===null||totals.get(item.currency)===null?null:add(totals.get(item.currency)??money(0n,item.currency),amount));}
+    return [...totals].sort(([left],[right])=>left.localeCompare(right)).map(([currency,amount])=>({currency,amount}));
+  }
+  const shownTotals=monthlyTotals(projection.groups.flatMap(group=>group.items));
+  const compactDate=(value:string)=>{
+    const date=new Date(`${value}T00:00:00Z`),today=now(),todayDate=new Date(Date.UTC(today.getFullYear(),today.getMonth(),today.getDate())),days=Math.round((date.getTime()-todayDate.getTime())/86400000);
+    if(days===0)return t('onboarding.datePicker.today');if(days===1)return t('nativeProductDetails.tomorrow');if(days===-1)return t('nativeProductDetails.yesterday');
+    return new Intl.DateTimeFormat(locale==='sv'?'sv-SE':'en-GB',{day:'numeric',month:'short',...(date.getUTCFullYear()===today.getFullYear()?{}:{year:'numeric'}),timeZone:'UTC'}).format(date);
+  };
+  const categoryChip=(label:string,category:string|null)=>{const selected=categoryFilter===category;return <Pressable key={category??'all'} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{selected,disabled:loading}} disabled={loading} onPress={()=>setCategoryFilter(category)} style={styles.chipTouch}><View style={[styles.categoryChip,{borderColor:color(selected?'ink.primary':'line.hairline'),backgroundColor:color(selected?'ink.primary':'bg.canvas'),borderRadius:theme.radius.pill}]}><Text style={{...text,fontSize:theme.typography.fontSize.sm,fontFamily:theme.typography.fontFamily['ui.medium'],color:color(selected?'bg.canvas':'ink.secondary')}}>{label}</Text></View></Pressable>;};
   return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView testID="native-personal-scroll" accessibilityElementsHidden={Boolean(detailItem)} importantForAccessibility={detailItem?'no-hide-descendants':'auto'} refreshControl={ready&&!adding?<RefreshControl refreshing={loading} onRefresh={()=>{void load();}} tintColor={color('action.accent')}/>:undefined} style={{ backgroundColor: color('bg.canvas') }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
     {...(Platform.OS==='ios'?{automaticallyAdjustKeyboardInsets:true,keyboardDismissMode:'interactive' as const}:{})}>
     {ready&&page==='profile'?null:<NativeProductHeading testID="native-personal-title" title={session.phase!=='active'?t('onboarding.nativePersonal.loginTitle'):setup?t('onboarding.profile.title'):ready?t('onboarding.productNav.manage'):t('onboarding.mode.title')} trailing={ready&&page==='subscriptions'&&!adding?<Pressable testID="native-add-subscription" accessibilityRole="button" accessibilityLabel={t('onboarding.manualSubscription.title')} disabled={loading} onPress={beginAdd} style={styles.iconButton}><BillingIcon name="add" color={color('action.accent')}/></Pressable>:undefined} />}
@@ -265,23 +278,23 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
               accessibilityState={{disabled:loading}} onPress={()=>setQuery('')} style={styles.clearSearch}><BillingIcon name="close" color={color('action.accent')}/></Pressable> : null}</View>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actions} accessibilityLabel={t('onboarding.manualSubscription.category')}>
-          {button(t('nativeProductDetails.allCategories'),()=>setCategoryFilter(null),loading,categoryFilter===null)}
-          {allGroups.filter(group=>group.categoryCode!==null).map(group=>button(group.label,()=>setCategoryFilter(group.categoryCode),loading,categoryFilter===group.categoryCode))}
+          {categoryChip(t('nativeProductDetails.allCategories'),null)}
+          {allGroups.filter(group=>group.categoryCode!==null).map(group=>categoryChip(group.label,group.categoryCode))}
         </ScrollView>
         {!loading && items.length>0 && projection.filteredCount===0 ? <Text accessibilityLiveRegion="polite" style={text}>{t('onboarding.ownerSubscriptionList.noMatch')}</Text> : null}
         {projection.groups.map(group=><View key={group.categoryCode??'fallback'} style={styles.group}>
           <View style={styles.groupHeading}><Text accessibilityRole="header" style={[text,{fontSize:theme.typography.fontSize.sm,fontFamily:theme.typography.fontFamily['ui.semibold']}]}>{group.label}</Text>
-          {group.totals.length>0 ? <View style={styles.subtotals}>
-            {group.totals.map(total=><Text key={total.amount.currency+':'+total.cadence} style={[text,styles.amount]}>{t(`onboarding.ownerSubscriptions.cadence.${total.cadence}`)} · {formatMinorUnits(total.amount.minorUnits,total.amount.currency,{locale,display:'code'})}</Text>)}</View> : null}</View>
+          {monthlyTotals(group.items).length>0 ? <View style={styles.subtotals}>
+            {monthlyTotals(group.items).map(total=><Text key={total.currency} testID={`native-category-monthly-${group.categoryCode??'fallback'}-${total.currency}`} style={[text,styles.amount,{fontSize:theme.typography.fontSize.sm,color:color('ink.secondary')}]}>{total.amount?formatMinorUnits(total.amount.minorUnits,total.currency,{locale,display:'code'}):t('onboarding.manualSubscription.placeholder')} {t('nativeAnalytics.perMonth')}</Text>)}</View> : null}</View>
         <View style={[styles.list,{backgroundColor:color('bg.surface'),borderRadius:theme.radius.card}]}>{group.items.map((item,index) => <View key={item.id} style={[index>0?styles.rowDivider:null,{borderColor:color('line.hairline')}]}>
-          <Pressable ref={node=>{if(node)rowNodes.current.set(item.id,node);else rowNodes.current.delete(item.id);}} testID={`native-subscription-row-${item.id}`} accessibilityRole="button" accessibilityLabel={item.customName??item.merchantName??categoryLabel(item.categoryCode)} accessibilityState={{expanded:expandedRow===item.id,disabled:loading}} disabled={loading} onPress={()=>setExpandedRow(item.id)} style={styles.subscriptionRow}>
-            <View style={[styles.avatar,{backgroundColor:color('bg.raised'),borderRadius:theme.radius.card}]}><Text style={{...text,fontFamily:theme.typography.fontFamily['ui.semibold']}}>{(item.customName??item.merchantName??group.label).slice(0,1)}</Text></View>
-            <View style={styles.subscriptionName}><Text style={{...text,fontFamily:theme.typography.fontFamily['ui.semibold']}}>{item.customName??item.merchantName??group.label}</Text><Text style={{...text,color:color('ink.secondary'),fontSize:theme.typography.fontSize.sm}}>{t(`onboarding.ownerSubscriptions.cadence.${item.cadence}`)}{item.status==='ACTIVE'?'':` · ${t(`onboarding.ownerSubscriptions.status.${item.status}`)}`}</Text></View>
-            <View style={styles.rowEnd}><Text style={[text,styles.amount]}>{formatMinorUnits(BigInt(item.expectedAmountMinor), item.currency, { locale, display: 'code' })}</Text>{item.nextChargeDate?<Text style={{...text,fontSize:theme.typography.fontSize.sm,color:color('ink.secondary')}}>{item.nextChargeDate}</Text>:null}</View>
+          <Pressable ref={node=>{if(node)rowNodes.current.set(item.id,node);else rowNodes.current.delete(item.id);}} testID={`native-subscription-row-${item.id}`} accessibilityRole="button" accessibilityLabel={item.customName??item.merchantName??categoryLabel(item.categoryCode)} accessibilityState={{expanded:expandedRow===item.id,disabled:loading}} accessibilityValue={{text:[formatMinorUnits(BigInt(item.expectedAmountMinor),item.currency,{locale,display:'code'}),t(`onboarding.ownerSubscriptions.cadence.${item.cadence}`),t(`onboarding.ownerSubscriptions.status.${item.status}`),item.alwaysPrivate?t('onboarding.billingMonth.private'):'',item.nextChargeDate??''].filter(Boolean).join(' · ')}} disabled={loading} onPress={()=>setExpandedRow(item.id)} style={styles.subscriptionRow}>
+            <View style={[styles.avatar,{backgroundColor:color('bg.raised'),borderRadius:theme.radius.pill}]}><Text style={{...text,fontFamily:theme.typography.fontFamily['ui.semibold']}}>{(item.customName??item.merchantName??group.label).slice(0,1)}</Text></View>
+            <View style={styles.subscriptionName}><Text style={{...text,fontFamily:theme.typography.fontFamily['ui.semibold']}}>{item.customName??item.merchantName??group.label}</Text><Text numberOfLines={1} style={{...text,color:color('ink.secondary'),fontSize:theme.typography.fontSize.sm}}>{t(`onboarding.ownerSubscriptions.cadence.${item.cadence}`)}{item.alwaysPrivate?` · ${t('onboarding.billingMonth.private')}`:''}{item.status==='ACTIVE'?'':` · ${t(`onboarding.ownerSubscriptions.status.${item.status}`)}`}</Text></View>
+            <View style={styles.rowEnd}><Text style={[text,styles.amount]}>{formatMinorUnits(BigInt(item.expectedAmountMinor), item.currency, { locale, display: 'code' })}</Text>{item.nextChargeDate?<Text accessibilityLabel={item.nextChargeDate} style={{...text,fontSize:theme.typography.fontSize.sm,color:color('ink.secondary')}}>{compactDate(item.nextChargeDate)}</Text>:null}</View>
           </Pressable>
 </View>)}</View>
         </View>)}
-        {shownTotals.map(total=><View key={total.monthly.currency} style={[styles.total,{borderColor:color('line.hairline')}]}><Text style={{...text,color:color('ink.secondary')}}>{t('nativeProductDetails.shownTotal')}</Text><Text style={[text,styles.amount]}>{formatMinorUnits(total.monthly.minorUnits,total.monthly.currency,{locale,display:'code'})} {t('nativeAnalytics.perMonth')}</Text></View>)}
+        {shownTotals.map(total=><View key={total.currency} style={[styles.total,{borderColor:color('line.hairline')}]}><Text style={{...text,color:color('ink.secondary')}}>{t('nativeProductDetails.shownTotal')}</Text><Text style={[text,styles.amount]}>{total.amount?formatMinorUnits(total.amount.minorUnits,total.currency,{locale,display:'code'}):t('onboarding.manualSubscription.placeholder')} {t('nativeAnalytics.perMonth')}</Text></View>)}
         {message==='unavailable'?button(t('onboarding.nativePersonal.reload'),()=>{void load();}):null}
         </View> : null}
         {adding ? <NativeProductCard>
@@ -330,7 +343,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
       <View style={[styles.scrim,{backgroundColor:color('sheet.scrim')}]}><Pressable testID="native-subscription-detail-scrim" accessible={false} onPress={closeDetail} style={StyleSheet.absoluteFillObject}/><SafeAreaView accessibilityViewIsModal onAccessibilityEscape={closeDetail} style={[styles.sheet,{backgroundColor:color('bg.canvas'),borderTopLeftRadius:theme.radius.sheet,borderTopRightRadius:theme.radius.sheet}]}><ScrollView contentContainerStyle={styles.content}><View accessible={false} style={[styles.grip,{backgroundColor:color('line.hairline')}]} />{detailItem?<NativeSubscriptionDetail session={session} reader={detailReader} item={detailItem} headingRef={detailHeading} onClose={closeDetail} actions={<>{renderActions(detailItem)}{message?<Text accessibilityRole="alert" style={text}>{t(message.startsWith('edit.')?`onboarding.nativeSubscriptionEdit.${message.slice(5)}`:`onboarding.nativePersonal.${message}`)}</Text>:null}</>}/>:null}</ScrollView></SafeAreaView></View>
     </Modal></SafeAreaView>;
 }
-const styles = StyleSheet.create({ content: { flexGrow: 1, paddingHorizontal:20,paddingTop:18,paddingBottom:32,gap:16 }, field: { gap: 8 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },segment:{minWidth:156,flexDirection:'row',padding:3,borderRadius:12,gap:3,flexShrink:1},segmentButton:{flex:1,alignSelf:'stretch',borderWidth:0,borderRadius:9,paddingHorizontal:8},settingRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:12,paddingVertical:12},settingLabel:{flexDirection:'row',alignItems:'center',gap:10,flexGrow:1},settingDivider:{borderTopWidth:1},
+const styles = StyleSheet.create({detailActions:{flexDirection:'row',flexWrap:'wrap',gap:8},detailAction:{flexGrow:1,flexBasis:'45%',alignSelf:'stretch'},chipTouch:{minHeight:44,justifyContent:'center'},categoryChip:{minHeight:34,paddingHorizontal:14,paddingVertical:6,borderWidth:1,justifyContent:'center'}, content: { flexGrow: 1, paddingHorizontal:20,paddingTop:18,paddingBottom:32,gap:16 }, field: { gap: 8 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },segment:{minWidth:156,flexDirection:'row',padding:3,borderRadius:12,gap:3,flexShrink:1},segmentButton:{flex:1,alignSelf:'stretch',borderWidth:0,borderRadius:9,paddingHorizontal:8},settingRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:12,paddingVertical:12},settingLabel:{flexDirection:'row',alignItems:'center',gap:10,flexGrow:1},settingDivider:{borderTopWidth:1},
   subscriptionRow:{flexDirection:'row',alignItems:'center',gap:12,minHeight:64,paddingVertical:14},subscriptionName:{flex:1,minWidth:0,gap:4},avatar:{width:38,height:38,alignItems:'center',justifyContent:'center'},
   search:{gap:8},searchControls:{flexDirection:'row',alignItems:'center',gap:8,paddingLeft:12},searchInput:{flex:1,minWidth:0,minHeight:44,paddingVertical:10,paddingRight:12},clearSearch:{minWidth:48,minHeight:48,alignItems:'center',justifyContent:'center'},group:{gap:8,marginTop:12},groupHeading:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:12},list:{paddingHorizontal:16},rowDivider:{borderTopWidth:1},rowEnd:{alignItems:'flex-end',gap:4,flexShrink:1},total:{flexDirection:'row',justifyContent:'space-between',gap:12,borderTopWidth:1,paddingVertical:16},chips:{flexDirection:'row',gap:6},iconButton:{minWidth:44,minHeight:44,alignItems:'center',justifyContent:'center'},scrim:{flex:1,justifyContent:'flex-end'},sheet:{maxHeight:'92%'},subtotals:{gap:4},amount:{textAlign:'right',fontVariant:['tabular-nums'],flexShrink:1},
   grip:{alignSelf:'center',width:34,height:4,borderRadius:2},input: { borderWidth: 1, padding: 12, minHeight: 44 }, button: { borderWidth: 1, borderRadius:12, padding: 12, minHeight: 44, justifyContent: 'center' } });

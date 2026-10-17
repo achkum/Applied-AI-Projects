@@ -57,12 +57,12 @@ appId: se.subtrack.app
     visible: ${MAESTRO_MONTH_SAVED_DATE}
     timeout: 30000
 - assertVisible: Example streaming
-- assertVisible: ${MAESTRO_MONTH_AMOUNT}
+- assertVisible: ${MAESTRO_MONTH_DETAIL_PRICE}
 - assertVisible: ${MAESTRO_MONTH_MANUAL}
 - takeScreenshot: accepted-billing-month-detail
 - scrollUntilVisible:
     element: ${MAESTRO_MONTH_CLOSE}
-    direction: DOWN
+    direction: UP
 - tapOn: ${MAESTRO_MONTH_CLOSE}
 - tapOn:
     id: native-nav-manage

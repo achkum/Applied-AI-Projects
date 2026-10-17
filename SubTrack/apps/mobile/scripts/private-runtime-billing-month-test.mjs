@@ -101,3 +101,23 @@ test('actual normal and empty Home flows perform one bounded pull gesture betwee
   assert.ok(rows.some(step=>step.assertNotVisible==='${MAESTRO_MONTH_SAVED_DATE}'));
  }
 });
+
+test('the actual detail flow asserts full exact accessible price with saved cadence and returns to the top Close control',()=>{
+ const mobile=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobile.resolve('expo/package.json'))('yaml');
+ const [,rows]=yaml.parseAllDocuments(readFileSync(new URL('../e2e/private-runtime-billing-month.yaml',import.meta.url),'utf8')).map(document=>document.toJSON());
+ const open=rows.findIndex(row=>row.tapOn==='${MAESTRO_MONTH_DETAIL}'),capture=rows.findIndex(row=>row.takeScreenshot==='accepted-billing-month-detail'),close=rows.findIndex(row=>row.tapOn==='${MAESTRO_MONTH_CLOSE}');
+ assert.ok(open>0&&capture>open&&close>capture);
+ const detail=rows.slice(open+1,capture);assert.ok(detail.some(row=>row.extendedWaitUntil?.visible==='${MAESTRO_MONTH_SAVED_DATE}'&&row.extendedWaitUntil.timeout===30000));
+ for(const exact of ['Example streaming','${MAESTRO_MONTH_DETAIL_PRICE}','${MAESTRO_MONTH_MANUAL}'])assert.ok(detail.some(row=>row.assertVisible===exact));
+ assert.ok(!detail.some(row=>row.assertVisible==='${MAESTRO_MONTH_AMOUNT}'));assert.equal(rows.slice(0,open).filter(row=>row.assertVisible==='${MAESTRO_MONTH_AMOUNT}').length,2);
+ assert.deepEqual(rows[close-1],{scrollUntilVisible:{element:'${MAESTRO_MONTH_CLOSE}',direction:'UP'}});
+ const content=readFileSync(new URL('../src/components/billing/NativeSubscriptionDetailContent.tsx',import.meta.url),'utf8');
+ assert.ok(content.includes('accessibilityLabel={`${price} · ${cadence}`}'));assert.ok(content.includes("cadence=t(`onboarding.ownerSubscriptions.cadence.${item.cadence}`)"));
+ for(const locale of ['en','sv']){
+  const env=flowEnvironment(locale),catalog=JSON.parse(readFileSync(new URL(`../../../packages/i18n/catalogs/${locale}.json`,import.meta.url),'utf8')),cadence=catalog.onboarding.ownerSubscriptions.cadence.MONTHLY;
+  assert.equal(typeof env.MAESTRO_MONTH_DETAIL_PRICE,'string');const pattern=new RegExp(`^(?:${env.MAESTRO_MONTH_DETAIL_PRICE})$`);
+  for(const space of [' ','\u00a0','\u202f'])assert.equal(pattern.test(`129,90${space}SEK · ${cadence}`),true);
+  for(const wrong of ['129,91 SEK','129,900 SEK','129,90 EUR','129,90SEK','129,90\tSEK'])assert.equal(pattern.test(`${wrong} · ${cadence}`),false);
+  for(const wrong of ['129,90 SEK',`129,90 SEK · ${cadence} extra`,'129,90 SEK · YEARLY'])assert.equal(pattern.test(wrong),false);
+ }
+});

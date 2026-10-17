@@ -546,6 +546,7 @@
     "me": "Jag",
     "overview": "Dina prenumerationer",
     "activePlans": "%{count} aktiva abonnemang",
+    "sharedPlans": "Delade planer",
     "findings": "%{count} saker att se över",
     "summary": "Sammanfattning",
     "method": "Kostnader följer sparade betalningsperioder: 52 veckor per år. Varje abonnemang avrundas en gång. Valutor hålls åtskilda.",
@@ -618,6 +619,8 @@
     "settings": "Inställningar",
     "shownTotal": "Visad total",
     "chargeHistory": "Debiteringshistorik",
+    "tomorrow": "I morgon",
+    "yesterday": "I går",
     "perPerson": "Per person",
     "auto": "Auto"
   }
