@@ -11,12 +11,20 @@ export function flowEnvironment(locale = 'en') {
     ),
   );
   const onboarding = catalog.onboarding;
+  const swedish=JSON.parse(readFileSync(new URL('../../../packages/i18n/catalogs/sv.json',import.meta.url),'utf8'));
   const bank = onboarding.nativeBank;
   const bankLabels = Object.fromEntries(Object.entries(bank).map(([key,value]) => [`MAESTRO_BANK_${key.replace(/([A-Z])/g, '_$1').toUpperCase()}`,value]));
   bankLabels.MAESTRO_BANK_LAST_SYNC_NEVER=bank.lastSync.replace('%{date}',bank.never);
   bankLabels.MAESTRO_BANK_LAST_SYNC_PRESENT=bank.lastSync.replace('%{date}','.+');
   return {
     ...bankLabels,
+    MAESTRO_SWEDISH: catalog.preferences.languageName.sv,
+    MAESTRO_DARK: catalog.preferences.themes.dark,
+    MAESTRO_SAVE_PREFERENCES: onboarding.nativePersonal.savePreferences,
+    MAESTRO_SV_SAVE_PREFERENCES: swedish.onboarding.nativePersonal.savePreferences,
+    MAESTRO_SV_ENGLISH: swedish.preferences.languageName.en,
+    MAESTRO_SV_MONTH_TITLE: swedish.onboarding.billingMonth.title,
+
     MAESTRO_MONTH_OPEN: onboarding.productNav.month,
     MAESTRO_MANAGE: onboarding.productNav.manage,
     MAESTRO_PROFILE_TITLE: onboarding.profile.title,

@@ -490,3 +490,18 @@ it.each(['en','sv'] as const)('shows a concise signed-out screen without prematu
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});
  await waitFor(()=>expect(login.props.accessibilityState.disabled).toBe(false));fireEvent.press(login);await screen.findByText(catalogs[locale].onboarding.ownerSubscriptions.empty);
 });
+
+it('profile setup offers only contract-supported avatars and saves selected emoji with readback',async()=>{
+ const {parseProfilePatch}=jest.requireActual('@subtrack/contracts/profile');
+ expect(()=>parseProfilePatch({displayName:'Example',avatarEmoji:'🥹'})).toThrow();
+ jest.mocked(api.readNativeProfile).mockResolvedValueOnce({...profile,displayName:null,profileComplete:false}).mockResolvedValueOnce({...profile,avatarEmoji:'🙂'});
+ jest.mocked(api.readNativeMode).mockResolvedValue({mode:null});jest.mocked(api.saveNativeProfile).mockResolvedValue({...profile,avatarEmoji:'🙂'});
+ mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
+ fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByLabelText(copy.nativePersonal.name);
+ expect(screen.queryByLabelText(copy.nativePersonal.emoji)).toBeNull();expect(screen.queryByText(copy.nativePersonal.language)).toBeNull();expect(screen.queryByText(copy.nativePersonal.theme)).toBeNull();
+ fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.saveProfile}));expect(screen.getByText(copy.nativePersonal.invalidProfileName)).toBeTruthy();expect(api.saveNativeProfile).not.toHaveBeenCalled();
+ fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.name),'Example');
+ for(const emoji of ['🙂','😀','😎','🌟','🌿','🐱','🦊','🦉']){expect(()=>parseProfilePatch({avatarEmoji:emoji})).not.toThrow();expect(screen.getByRole('button',{name:emoji})).toBeTruthy();}
+ fireEvent.press(screen.getByRole('button',{name:'🙂'}));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.saveProfile}));
+ await screen.findByText(copy.nativePersonal.profileSaved);expect(api.saveNativeProfile).toHaveBeenCalledWith({displayName:'Example',avatarEmoji:'🙂'},credentials.accessToken,expect.any(AbortSignal));expect(api.readNativeProfile).toHaveBeenCalledTimes(2);
+});

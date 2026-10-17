@@ -86,7 +86,7 @@ describe('RegistrationScreen', () => {
     render(<RegistrationScreen mode="login" />);
     fireEvent.press(screen.getByRole('button', { name: catalogs.en.onboarding.nativePersonal.verify }));
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/personal'));
-    expect(screen.getByText(catalogs.en.onboarding.sandbox.noticeShort)).toBeTruthy();
+    expect(screen.queryByText(catalogs.en.onboarding.sandbox.noticeShort)).toBeNull();
   });
 
   it('does not clear sandbox installation credentials when a pending login view unmounts', async () => {

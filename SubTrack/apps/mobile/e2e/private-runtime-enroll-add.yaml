@@ -20,7 +20,8 @@ appId: se.subtrack.app
     id: native-profile-name
 - inputText: Synthetic Native Proof
 - hideKeyboard
-- tapOn: ${MAESTRO_ENGLISH}
+- tapOn:
+    id: native-profile-avatar-smile
 - scrollUntilVisible:
     element: ${MAESTRO_SAVE_PROFILE}
     direction: DOWN
@@ -42,6 +43,33 @@ appId: se.subtrack.app
     visible:
       id: native-personal-title
       text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_SWEDISH}
+    direction: DOWN
+- tapOn: ${MAESTRO_SWEDISH}
+- tapOn: ${MAESTRO_DARK}
+- scrollUntilVisible:
+    element: ${MAESTRO_SAVE_PREFERENCES}
+    direction: DOWN
+- tapOn: ${MAESTRO_SAVE_PREFERENCES}
+- extendedWaitUntil:
+    visible: ${MAESTRO_SV_SAVE_PREFERENCES}
+    timeout: 30000
+- tapOn:
+    id: native-nav-month
+- extendedWaitUntil:
+    visible: ${MAESTRO_SV_MONTH_TITLE}
+    timeout: 30000
+- tapOn:
+    id: native-nav-manage
+- extendedWaitUntil:
+    visible: ${MAESTRO_SV_SAVE_PREFERENCES}
+    timeout: 30000
+- tapOn: ${MAESTRO_SV_ENGLISH}
+- tapOn: ${MAESTRO_SV_SAVE_PREFERENCES}
+- extendedWaitUntil:
+    visible: ${MAESTRO_SAVE_PREFERENCES}
     timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_ADD}

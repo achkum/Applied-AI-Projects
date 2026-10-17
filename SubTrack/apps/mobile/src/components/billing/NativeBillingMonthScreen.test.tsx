@@ -22,7 +22,7 @@ const copy=catalogs.en.onboarding;const now=()=>new Date(2026,2,28,12);
 it('sandbox dependency port reuses Month totals and replaces private inactive controls',async()=>{
  const facade={phase:'verification-required' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:jest.fn()};
  const view=render(<NativeBillingMonthScreen now={now} sandbox useSession={()=>facade} inactiveContent={<Text>Sandbox entry control</Text>}/>);
- expect(screen.getByText(copy.sandbox.noticeShort)).toBeTruthy();expect(screen.getByText('Sandbox entry control')).toBeTruthy();expect(screen.queryByRole('button',{name:copy.nativePersonal.verify})).toBeNull();view.unmount();
+ expect(screen.queryByText(copy.sandbox.noticeShort)).toBeNull();expect(screen.getByText('Sandbox entry control')).toBeTruthy();expect(screen.queryByRole('button',{name:copy.nativePersonal.verify})).toBeNull();view.unmount();
  const {selectBillingMonth}=jest.requireActual('@/api/privateMobileBillingMonth');const readProjection=jest.fn().mockResolvedValue({kind:'ready',projection:selectBillingMonth([row],{year:2026,month:3})});
  const active={...facade,phase:'active' as const,run:async<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>work('sandbox-only',new AbortController().signal)};
  render(<NativeBillingMonthScreen now={now} sandbox useSession={()=>active} readProjection={readProjection}/>);await screen.findByText(row.customName);expect(readProjection).toHaveBeenCalledWith('sandbox-only',expect.anything(),{year:2026,month:3});expect(api.readNativeSubscriptions).not.toHaveBeenCalled();expect(screen.queryByRole('button',{name:copy.nativeDetection.open})).toBeNull();

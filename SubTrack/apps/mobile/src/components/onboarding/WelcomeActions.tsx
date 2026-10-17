@@ -1,8 +1,10 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '@/context/ThemeContext';
+import { getColorByTheme } from '@/utils/colors';
 import { useI18n } from '@/context/I18nContext';
 import { SubTrackBrand } from '@/components/branding/SubTrackBrand';
-import { NativeProductBadge, NativeProductButton, NativeProductHeading } from '@/components/billing/NativeProductUI';
+import { NativeProductButton } from '@/components/billing/NativeProductUI';
 
 export interface WelcomeActionsProps {
   onCreateAccount: () => void;
@@ -17,9 +19,9 @@ export function WelcomeActions({
   onLogIn,
   onExploreDemo,
   busy = false,
-  environment = 'production',
 }: WelcomeActionsProps) {
   const { t } = useI18n();
+  const {theme,isDark}=useTheme();
   const actions = [
     { key: 'createAccount', label: t('onboarding.welcome.createAccount'), onPress: onCreateAccount, primary: true },
     { key: 'logIn', label: t('onboarding.welcome.logIn'), onPress: onLogIn, primary: false },
@@ -28,9 +30,8 @@ export function WelcomeActions({
 
   return (
     <View style={styles.container}>
-      <SubTrackBrand size={48} />
-      <NativeProductHeading title={t('onboarding.welcome.tagline')} />
-      {environment === 'sandbox' ? <NativeProductBadge label={t('onboarding.sandbox.noticeShort')} /> : null}
+      <View style={styles.identity}><SubTrackBrand size={48} wordmark={false} /><Text accessibilityRole="header" style={{color:getColorByTheme(theme,isDark,'ink.primary'),fontFamily:theme.typography.fontFamily.display,fontSize:theme.typography.fontSize['2xl']}}>SubTrack</Text></View>
+      <Text accessibilityRole="header" style={{textAlign:'center',color:getColorByTheme(theme,isDark,'ink.primary'),fontFamily:theme.typography.fontFamily.display,fontSize:theme.typography.fontSize.xl}}>{t('onboarding.welcome.tagline')}</Text>
       <View style={styles.actions}>
         {actions.map(({ key, label, onPress, primary }) => <NativeProductButton key={key} label={label}
           variant={primary ? 'primary' : 'secondary'} disabled={busy} onPress={() => { if (!busy) onPress(); }} />)}
@@ -39,4 +40,4 @@ export function WelcomeActions({
   );
 }
 
-const styles = StyleSheet.create({ container: { width: '100%', gap: 20 }, actions: { gap: 10, marginTop: 8 } });
+const styles = StyleSheet.create({ identity: { alignItems: 'center', gap: 12 }, container: { width: '100%', gap: 20 }, actions: { gap: 10, marginTop: 8 } });

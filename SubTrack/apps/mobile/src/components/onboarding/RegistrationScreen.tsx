@@ -7,7 +7,7 @@ import { getColorByTheme } from '@/utils/colors';
 import { IdentifierEntry } from './IdentifierEntry';
 import { useOnboarding } from '@/state/OnboardingAdapter';
 import {calibrateEnrollmentDiagnostic} from '@/utils/privateRuntimeEnrollmentDiagnostic';
-import { NativeProductBadge, NativeProductButton, NativeProductCard, NativeProductHeading } from '@/components/billing/NativeProductUI';
+import { NativeProductButton, NativeProductCard, NativeProductHeading } from '@/components/billing/NativeProductUI';
 
 export type RegistrationMode = 'register' | 'login';
 
@@ -63,7 +63,6 @@ export function RegistrationScreen({
         </Text>
       </Pressable>
       <NativeProductHeading title={t(mode==='login'?'onboarding.nativePersonal.loginTitle':'onboarding.registration.title')} />
-      {provider === 'sandbox' ? <NativeProductBadge label={t('onboarding.sandbox.noticeShort')} /> : null}
 
       {mode!=='login'&&loginError?<Text accessibilityRole="alert" style={{color:color('ink.primary')}}>{t('onboarding.nativePersonal.unavailable')}</Text>:null}
       {mode === 'login' ? (
