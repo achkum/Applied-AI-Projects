@@ -10,7 +10,7 @@ import {TextDecoder} from 'node:util';
 const MAX_BYTES=4*1024*1024;
 const KINDS=Object.freeze({tapOnElement:'TAP',inputTextCommand:'INPUT',hideKeyboardCommand:'HIDE_KEYBOARD',assertConditionCommand:'ASSERT_CONDITION',scrollUntilVisible:'SCROLL_UNTIL_VISIBLE',takeScreenshotCommand:'SCREENSHOT',applyConfigurationCommand:'CONFIGURATION',runFlowCommand:'SUBFLOW'});
 const STATUSES=['PENDING','RUNNING','COMPLETED','FAILED','WARNED','SKIPPED'];
-const TARGETS=Object.freeze(['personal-title','profile-save','add-open','subscription-name','subscription-category','subscription-amount','date-field','subscription-save','saved-row','verification-entry','profile-name','profile-title','mode-choice','home-title','saved-ack','saved-amount','preferences-sv','preferences-en','UNKNOWN']);
+const TARGETS=Object.freeze(['personal-title','profile-save','add-open','subscription-name','subscription-category','subscription-amount','date-field','subscription-save','saved-row','verification-entry','profile-name','profile-title','mode-choice','home-en','home-sv','saved-ack','saved-amount','preferences-sv','preferences-en','UNKNOWN']);
 export const ENROLLMENT_HEADER_OCCURRENCES=Object.freeze(['ENTRY_HEADER','SAVED_HEADER','UNKNOWN']);
 const closed=(metadata,command='UNKNOWN',target='UNKNOWN',occurrence='UNKNOWN')=>Object.freeze({metadata,command,target,occurrence,errorClass:'UNKNOWN'});
 const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
@@ -51,7 +51,7 @@ function scrollTarget(command){
 const ASSERT_TARGETS=new Map([
  [{textRegex:'${MAESTRO_VERIFY_BANKID}'},'verification-entry'],[{textRegex:'${MAESTRO_PROFILE_NAME}'},'profile-name'],[{idRegex:'native-profile-name'},'profile-name'],
  [{idRegex:'native-personal-title',textRegex:'${MAESTRO_PROFILE_TITLE}'},'profile-title'],[{idRegex:'native-personal-title',textRegex:'${MAESTRO_PERSONAL_TITLE}'},'personal-title'],
- [{textRegex:'${MAESTRO_JUST_ME}'},'mode-choice'],[{textRegex:'${MAESTRO_MONTH_TITLE}'},'home-title'],[{textRegex:'${MAESTRO_SV_MONTH_TITLE}'},'home-title'],
+ [{textRegex:'${MAESTRO_JUST_ME}'},'mode-choice'],[{textRegex:'${MAESTRO_MONTH_TITLE}'},'home-en'],[{textRegex:'${MAESTRO_SV_MONTH_TITLE}'},'home-sv'],
  [{textRegex:'${MAESTRO_ADD}'},'add-open'],[{textRegex:'${MAESTRO_SAVE_SUBSCRIPTION}',enabled:true},'subscription-save'],
  [{textRegex:'${MAESTRO_SAVED}'},'saved-ack'],[{textRegex:'Example streaming'},'saved-row'],[{textRegex:'${MAESTRO_EXPECTED_AMOUNT}'},'saved-amount'],
  [{textRegex:'${MAESTRO_SV_SAVE_PREFERENCES}'},'preferences-sv'],[{textRegex:'${MAESTRO_SAVE_PREFERENCES}'},'preferences-en'],
@@ -131,6 +131,14 @@ function prepareCommandMetadata(privateRoot,execution,flowName,phaseName,project
  }});
 }
 export function prepareEnrollmentMetadata(privateRoot,execution,platform='android'){if(!['android','ios'].includes(platform))throw Error('Invalid metadata platform');return prepareCommandMetadata(privateRoot,execution,'enroll-add','flow-enroll-add',projectEnrollmentMetadata,platform);}
+/** Separate Home reader; the original entry reader/projector and capture authority remain unchanged. */
+export function prepareHomeEnrollmentMetadata(privateRoot,execution,admitPrefix){
+ return prepareCommandMetadata(privateRoot,execution,'enroll-add','flow-enroll-add',bytes=>{
+  const result=projectEnrollmentMetadata(bytes);
+  if(result.metadata!=='AVAILABLE'||result.command!=='ASSERT_CONDITION'||!['home-en','home-sv'].includes(result.target)||result.occurrence!=='UNKNOWN'||!admitPrefix(bytes,result.target))return closed('UNAVAILABLE');
+  return result;
+ },'android');
+}
 /** Only this exact fixed grammar may leave the private invocation. */
 export function enrollmentMetadataLines(result){
  if(!plain(result)||Object.keys(result).sort().join(',')!=='command,errorClass,metadata,occurrence,target'||!['AVAILABLE','UNAVAILABLE','INVALID'].includes(result.metadata)||!['UNKNOWN',...Object.values(KINDS)].includes(result.command)||!TARGETS.includes(result.target)||!ENROLLMENT_HEADER_OCCURRENCES.includes(result.occurrence)||(result.occurrence!=='UNKNOWN'&&(result.metadata!=='AVAILABLE'||result.command!=='SCROLL_UNTIL_VISIBLE'||result.target!=='personal-title'))||(!['SCROLL_UNTIL_VISIBLE','ASSERT_CONDITION'].includes(result.command)&&result.target!=='UNKNOWN')||result.errorClass!=='UNKNOWN'||(result.metadata!=='AVAILABLE'&&result.command!=='UNKNOWN')||(result.metadata==='AVAILABLE'&&result.command==='UNKNOWN'))return null;

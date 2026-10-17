@@ -130,6 +130,7 @@ jobs:
       SUBTRACK_PRIVATE_DEVICE_PROOF: "true"
       ST253_CAPTURE_ENABLED: ${{ matrix.platform == 'ios' && github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' && 'true' || 'false' }}
       ST253_ANDROID_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' && 'true' || 'false' }}
+      ST253_ANDROID_HOME_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 297 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank' && 'true' || 'false' }}
       ST253_CAPTURE_PLATFORM: ${{ matrix.platform }}
       ST253_CAPTURE_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
       ST253_CAPTURE_SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
@@ -159,6 +160,7 @@ jobs:
           node --test apps/mobile/scripts/private-runtime-preconditions.test.mjs apps/mobile/scripts/private-runtime-proof-scope-test.mjs
           bash apps/mobile/scripts/private-runtime-tools.sh
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-restart-ui.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-restart-ui-test.mjs
+          node --test apps/mobile/scripts/private-runtime-android-home-diagnostic-test.mjs
           node apps/mobile/scripts/private-runtime-amount-selector-test.mjs
           node apps/mobile/scripts/private-runtime-pipeline-test.mjs
           if [ "${{ matrix.platform }}" = android ]; then node --test apps/mobile/scripts/private-runtime-font-bundle-test.mjs; fi
@@ -327,6 +329,31 @@ jobs:
         with:
           name: st253-sealed-android-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/subtrack-native-proof/sealed-android/entry-header.st253sealed
+          if-no-files-found: error
+          retention-days: 1
+      - name: Validate separate recipient-encrypted Home diagnostic
+        id: sealed_home
+        if: failure() && matrix.platform == 'android' && env.ST253_ANDROID_HOME_CAPTURE_ENABLED == 'true'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {execFileSync} from 'node:child_process';
+          import {homeCaptureContext,validatedHomeArtifact} from './apps/mobile/scripts/private-runtime-android-home-diagnostic.mjs';
+          const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),context=homeCaptureContext(process.env,head);
+          const ready=context&&validatedHomeArtifact(join(process.env.RUNNER_TEMP,'subtrack-native-proof','private'),context);
+          appendFileSync(process.env.GITHUB_OUTPUT,`ready=${ready===true?'true':'false'}\n`);
+          NODE
+      - name: Recipient-encrypted current synthetic Home failure only
+        if: failure() && steps.sealed_home.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sealed-home-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/subtrack-native-proof/sealed-android-home/home-assertion.st253sealed
+            ${{ runner.temp }}/subtrack-native-proof/sealed-android-home/home-diagnostic-receipt.json
           if-no-files-found: error
           retention-days: 1
       - name: Owned fixture and debug server cleanup

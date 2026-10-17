@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import {syncBuiltinESMExports,createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join,resolve,dirname,basename} from 'node:path';
-import {projectEnrollmentMetadata,prepareEnrollmentMetadata,enrollmentMetadataLines,preinputWelcomeMetadata,preparePreinputMetadata,preinputCaptureContext,recordPreinputSimulator,zeroAllApi,validPreinputPng,validAndroidPng,sealPreinputPng,validSealedPreinput,validatedPreinputArtifact,captureSealedPreinput,PREINPUT_RECIPIENT_SHA256,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS,ENROLLMENT_HEADER_OCCURRENCES,androidCaptureContext,androidAvdStage,verifyAndroidDevice,measureAndroidApp,recordAndroidApp,prepareAndroidEntryMetadata,androidFixtureBinding,sealAndroidEntryPng,validSealedAndroid,validatedAndroidArtifact,captureSealedAndroidEntry} from './private-runtime-maestro-metadata.mjs';
+import {projectEnrollmentMetadata,prepareEnrollmentMetadata,prepareHomeEnrollmentMetadata,enrollmentMetadataLines,preinputWelcomeMetadata,preparePreinputMetadata,preinputCaptureContext,recordPreinputSimulator,zeroAllApi,validPreinputPng,validAndroidPng,sealPreinputPng,validSealedPreinput,validatedPreinputArtifact,captureSealedPreinput,PREINPUT_RECIPIENT_SHA256,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS,ENROLLMENT_HEADER_OCCURRENCES,androidCaptureContext,androidAvdStage,verifyAndroidDevice,measureAndroidApp,recordAndroidApp,prepareAndroidEntryMetadata,androidFixtureBinding,sealAndroidEntryPng,validSealedAndroid,validatedAndroidArtifact,captureSealedAndroidEntry} from './private-runtime-maestro-metadata.mjs';
 import {createEnrollmentExecution} from './private-runtime-identifier-diagnostic.mjs';
 const IOS_RUNNER_CHECKS=Object.freeze(['RUNNER_NAME','RUNNER_ENTRY_TYPE','RUNNER_STAT','RUNNER_TYPE','RUNNER_CANONICAL','FINAL_PORTFOLIO_LIST','FINAL_PORTFOLIO_LIMIT','FINAL_PORTFOLIO_SET','FINAL_RUNNER_STAT','FINAL_RUNNER_TYPE','FINAL_RUNNER_CANONICAL','FINAL_RUNNER_IDENTITY']);
 const kinds=['tapOnElement','inputTextCommand','hideKeyboardCommand','assertConditionCommand','scrollUntilVisible','takeScreenshotCommand','applyConfigurationCommand'];
@@ -420,12 +420,20 @@ test('assertion diagnostics project only fixed original selectors and never qual
  const known=[
   [{textRegex:'${MAESTRO_VERIFY_BANKID}'},'verification-entry'],[{textRegex:'${MAESTRO_PROFILE_NAME}'},'profile-name'],[{idRegex:'native-profile-name'},'profile-name'],
   [{idRegex:'native-personal-title',textRegex:'${MAESTRO_PROFILE_TITLE}'},'profile-title'],[{idRegex:'native-personal-title',textRegex:'${MAESTRO_PERSONAL_TITLE}'},'personal-title'],
-  [{textRegex:'${MAESTRO_JUST_ME}'},'mode-choice'],[{textRegex:'${MAESTRO_MONTH_TITLE}'},'home-title'],[{textRegex:'${MAESTRO_SV_MONTH_TITLE}'},'home-title'],
+  [{textRegex:'${MAESTRO_JUST_ME}'},'mode-choice'],[{textRegex:'${MAESTRO_MONTH_TITLE}'},'home-en'],[{textRegex:'${MAESTRO_SV_MONTH_TITLE}'},'home-sv'],
   [{textRegex:'${MAESTRO_ADD}'},'add-open'],[{textRegex:'${MAESTRO_SAVE_SUBSCRIPTION}',enabled:true},'subscription-save'],
   [{textRegex:'${MAESTRO_SAVED}'},'saved-ack'],[{textRegex:'Example streaming'},'saved-row'],[{textRegex:'${MAESTRO_EXPECTED_AMOUNT}'},'saved-amount'],
   [{textRegex:'${MAESTRO_SV_SAVE_PREFERENCES}'},'preferences-sv'],[{textRegex:'${MAESTRO_SAVE_PREFERENCES}'},'preferences-en']];
  const project=(condition,evaluated)=>projectEnrollmentMetadata(flowBytes([{command:{assertConditionCommand:{condition}},metadata:{status:'FAILED',sequenceNumber:1,depth:0,...(evaluated?{evaluatedCommand:evaluated}:{})}}]));
  for(const [selector,target]of known){const result=project({visible:{optional:false,...selector,idRegex:selector.idRegex??null},notVisible:null});assert.equal(result.command,'ASSERT_CONDITION');assert.equal(result.target,target);assert.equal(result.occurrence,'UNKNOWN');assert.ok(enrollmentMetadataLines(result));assert.equal(enrollmentMetadataLines({...result,occurrence:'ENTRY_HEADER'}),null);}
  for(const condition of [null,{},[],{visible:null},{visible:[]},{visible:{textRegex:'private-canary'}},{visible:{textRegex:'${MAESTRO_SAVED}',idRegex:'private-canary'}},{visible:{textRegex:'${MAESTRO_SAVED}',optional:true}},{visible:{textRegex:'${MAESTRO_SAVED}',enabled:true}},{visible:{textRegex:'${MAESTRO_SAVED}'},notVisible:{}},{visible:{textRegex:'${MAESTRO_SAVED}'},private:'canary'}]){const result=project(condition,{assertConditionCommand:{condition:{visible:{textRegex:'${MAESTRO_SAVED}'}}}});assert.equal(result.metadata,'AVAILABLE');assert.equal(result.target,'UNKNOWN');assert.ok(!JSON.stringify(result).includes('canary'));}
- const actual=sourceEnrollmentRecords(),assertions=actual.filter(record=>record.command.assertConditionCommand);assert.ok(assertions.length>10);for(const record of assertions){const value=record.command.assertConditionCommand.condition.visible;if(value?.textRegex==='${MAESTRO_MONTH_TITLE}')assert.equal(project({visible:value}).target,'home-title');}
+ const actual=sourceEnrollmentRecords(),assertions=actual.filter(record=>record.command.assertConditionCommand);assert.ok(assertions.length>10);for(const record of assertions){const value=record.command.assertConditionCommand.condition.visible;if(value?.textRegex==='${MAESTRO_MONTH_TITLE}')assert.equal(project({visible:value}).target,'home-en');}
+});
+
+test('separate Home reader requires a fixed original Home assertion and its admitted current prefix',async()=>{
+ for(const scenario of ['accepted','non-home','wrong-command','unavailable','reject-prefix'])await privateTemporary(async({root})=>{
+  const execution=createEnrollmentExecution('enroll-add'),admit=()=>scenario!=='reject-prefix',reader=prepareHomeEnrollmentMetadata(root,execution,admit),flow=join(root,'enroll-add','2026-10-15_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});
+  const record={command:{assertConditionCommand:{condition:{visible:{textRegex:scenario==='non-home'?'${MAESTRO_SAVED}':'${MAESTRO_MONTH_TITLE}'}}}},metadata:{status:'FAILED',sequenceNumber:1,depth:0}};if(scenario==='wrong-command')record.command={tapOnElement:{}};
+  fs.writeFileSync(join(flow,'commands.json'),scenario==='unavailable'?flowBytes([]):flowBytes([record]));execution.record('exit',1,null);assert.equal(reader.read('flow-enroll-add').metadata,scenario==='accepted'?'AVAILABLE':'UNAVAILABLE');
+ });
 });

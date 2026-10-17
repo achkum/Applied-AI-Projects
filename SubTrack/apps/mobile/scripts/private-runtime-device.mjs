@@ -1,3 +1,4 @@
+import {homeCaptureContext,prepareAndroidHomeMetadata,recordHomeApp,captureSealedAndroidHome} from './private-runtime-android-home-diagnostic.mjs';
 import {proofScope,profileReceipt,PROFILE_SCREENSHOTS} from './private-runtime-proof-scope.mjs';
 import {Buffer} from 'node:buffer';
 import {observeRestartUi} from './private-runtime-restart-ui.mjs';
@@ -126,16 +127,17 @@ async function main() {
   let enrollmentMetadata = null, preinputMetadata = null;
   const captureContext=platform==='ios'?preinputCaptureContext(process.env,head):null;
   const androidContext=platform==='android'?androidCaptureContext(process.env,head):null;
+  const homeContext=platform==='android'?homeCaptureContext(process.env,head):null;let homeAppCheckpoint=null;
   let androidMetadata=null,androidAppCheckpoint=null;
   const androidBuilt=join(app,'android/app/build/outputs/apk/debug/app-debug.apk');
-  const measureAndroid=()=>measureAndroidApp(privateDir,androidContext,process.env,androidBuilt);
+  const measureAndroid=()=>measureAndroidApp(privateDir,androidContext??homeContext,process.env,androidBuilt);
   async function run(command, args, label, extraEnv = {}, cwd = app) {
     const execution = command === 'maestro' && label === 'enroll-add' && args.at(-1) === join(app, 'e2e/private-runtime-enroll-add.yaml')
       ? createEnrollmentExecution(label) : null;
     let preinput=null;
     if(captureContext&&command==='maestro'&&label==='identifier'&&args.at(-1)===join(app,'e2e/private-runtime-identifier.yaml'))try{preinput=preparePreinputMetadata(privateDir);}catch{/* Optional diagnostics never prevent the original flow. */}
     if(preinput)preinputMetadata=preinput;
-    if (execution) {enrollmentExecution = execution;enrollmentMetadata=androidContext?(androidMetadata=prepareAndroidEntryMetadata(privateDir,execution)):prepareEnrollmentMetadata(privateDir,execution,platform);}
+    if (execution) {enrollmentExecution = execution;enrollmentMetadata=androidContext?(androidMetadata=prepareAndroidEntryMetadata(privateDir,execution)):homeContext?(androidMetadata=prepareAndroidHomeMetadata(privateDir,execution)):prepareEnrollmentMetadata(privateDir,execution,platform);}
     const fd = openSync(join(privateDir, `${label}.log`), 'w', 0o600);
     try {
       await new Promise((accept, reject) => {
@@ -251,6 +253,7 @@ async function main() {
       },
     );
     if(androidContext)try{androidAppCheckpoint=recordAndroidApp(privateDir,androidContext,measureAndroid());}catch{/* Unavailable custody withholds diagnostics, never changes qualification. */}
+    if(homeContext)try{homeAppCheckpoint=recordHomeApp(privateDir,homeContext,measureAndroid());}catch{/* Separate Home custody failure only withholds its diagnostic. */}
     await flow('identifier');
     const fontStartup=startupStageDiagnostic({phase:'flow-identifier',log:readFileSync(join(privateDir,'metro.log'),'utf8')});
     const loaded=fontStartup?.['fonts-loaded'],fallback=fontStartup?.['fonts-fallback'];
@@ -508,6 +511,11 @@ async function main() {
         try{sealed=await captureSealedAndroidEntry({privateRoot:privateDir,context:androidContext,reader:androidMetadata,metadata,measure:measureAndroid,onWithheld:value=>{if(PREINPUT_WITHHELD_STAGES.includes(value))withheldStage=value;},checkpoint:androidAppCheckpoint,markerHash:createHash('sha256').update(config.marker).digest('hex'),observe:async()=>({receipt:await harness.readbackReceipt(),manual:harness.manualSaveObservation()}),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),
           capture:async file=>{const png=execFileSync(join(process.env.ANDROID_HOME,'platform-tools/adb'),['-s','emulator-5554','exec-out','screencap','-p'],{timeout:10000,killSignal:'SIGKILL',maxBuffer:8388608,stdio:['ignore','pipe','pipe']});try{writeFileSync(file,png,{flag:'wx',mode:0o600});}finally{png.fill(0);}}});}catch{/* No values/errors or raw screenshot fallback. */}
         console.error(`ST244_NATIVE android_entry_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}`);
+      }
+      if(homeContext&&androidMetadata){
+        let sealed=false,withheld='CUSTODY';
+        try{sealed=await captureSealedAndroidHome({privateRoot:privateDir,context:homeContext,reader:androidMetadata,metadata,measure:measureAndroid,checkpoint:homeAppCheckpoint,markerHash:createHash('sha256').update(config.marker).digest('hex'),observe:async assertion=>({receipt:await harness.readbackReceipt(),manual:harness.manualSaveObservation(),renewals:assertion==='home-sv'?await harness.readbackRenewalsReceipt(renewalDate):null}),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),onWithheld:value=>{if(['CUSTODY','METADATA_SHAPE','API_BEFORE','CAPTURE','PNG','API_AFTER','SEAL','RAW_CLEANUP','SEALED_OUTPUT','SEALED_READBACK'].includes(value))withheld=value;},capture:async file=>{const png=execFileSync(join(process.env.ANDROID_HOME,'platform-tools/adb'),['-s','emulator-5554','exec-out','screencap','-p'],{timeout:10000,killSignal:'SIGKILL',maxBuffer:8388608,stdio:['ignore','pipe','pipe']});try{writeFileSync(file,png,{flag:'wx',mode:0o600});}finally{png.fill(0);}}});}catch{/* No raw fallback or private error output. */}
+        console.error(`ST244_NATIVE android_home_frame=${sealed?'sealed':'withheld'} stage=${withheld}`);
       }
       let enrollmentLogSize = null;
       try { enrollmentLogSize = statSync(join(privateDir, 'enroll-add.log')).size; } catch { /* No paths or error details escape. */ }

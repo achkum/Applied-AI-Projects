@@ -122,16 +122,21 @@ jobs:
         working-directory: SubTrack
     steps:
       - name: Checkout
+        id: checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up pnpm
+        id: pnpm
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         uses: pnpm/action-setup@v4
         with:
           version: 12.6.0
 
       - name: Set up Node.js
+        id: node
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.pnpm.outcome == 'success' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -139,23 +144,33 @@ jobs:
           cache-dependency-path: SubTrack/pnpm-lock.yaml
 
       - name: Test maintenance workflow helpers
+        id: maintenance
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.node.outcome == 'success' }}
         run: |
           python3 -m unittest discover -s tools/workflow -p 'test_*.py' -v
           node --test tools/workflow/qa-common.test.cjs
 
       - name: Install workspace dependencies
+        id: dependencies
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.pnpm.outcome == 'success' && steps.node.outcome == 'success' }}
         run: pnpm install --frozen-lockfile
 
       - name: Lint
+        id: lint
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: pnpm lint
 
       - name: Typecheck
+        id: typecheck
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: pnpm typecheck
 
       # ST-017: Token contrast check (ST-020 script). Guard lets CI pass before
       # ST-020 tokens land; once the script exists it is a hard gate (exit 1 on failure).
       # Docs: packages/ui-tokens/scripts/check-contrast.mjs (WCAG AA, OKLCH pairs)
       - name: Token contrast check (ST-020)
+        id: contrast
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         shell: bash
         run: |
           if [[ -f packages/ui-tokens/scripts/check-contrast.mjs ]]; then
@@ -165,10 +180,14 @@ jobs:
           fi
 
       - name: Install Playwright browsers (Storybook and catalogue extraction)
+        id: playwright
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         shell: bash
         run: pnpm --filter @subtrack/ui exec playwright install chromium --with-deps
 
       - name: Tests
+        id: tests
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' && steps.playwright.outcome == 'success' }}
         run: pnpm exec turbo run test --concurrency=1
 
       # ST-017: Storybook visual regression (ST-022). Builds static Storybook, serves it,
@@ -177,6 +196,8 @@ jobs:
       # them (non-failing). Reference: https://storybook.js.org/docs/writing-tests/test-runner
       # (accessed 2026-10-01).
       - name: Visual regression — Storybook (ST-022)
+        id: visual
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' && steps.playwright.outcome == 'success' }}
         shell: bash
         run: |
           pnpm --filter @subtrack/ui run storybook:build --quiet
@@ -187,11 +208,15 @@ jobs:
           kill "$SERVER_PID" || true
 
       - name: Set up Python 3.12
+        id: python
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Set up uv
+        id: uv
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.python.outcome == 'success' }}
         uses: astral-sh/setup-uv@v6
         with:
           version: "0.12.19"
@@ -199,14 +224,20 @@ jobs:
           cache-dependency-glob: SubTrack/services/ml/uv.lock
 
       - name: Install locked ML dependencies
+        id: ml_dependencies
+        if: ${{ !cancelled() && steps.python.outcome == 'success' && steps.uv.outcome == 'success' }}
         working-directory: SubTrack/services/ml
         run: uv sync --locked
 
       - name: Test ML endpoints
+        id: ml_tests
+        if: ${{ !cancelled() && steps.ml_dependencies.outcome == 'success' }}
         working-directory: SubTrack/services/ml
         run: uv run --locked pytest
 
       - name: i18n catalog parity
+        id: i18n
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.node.outcome == 'success' }}
         shell: bash
         run: |
           if [[ -f packages/i18n/scripts/check-parity.mjs ]]; then
@@ -216,6 +247,8 @@ jobs:
           fi
 
       - name: Gitleaks secret scan
+        id: gitleaks
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -226,6 +259,8 @@ jobs:
       # The action's PR commit lookup is limited to its first API page. Scan the
       # complete event base..head range with the same installed pinned binary.
       - name: Gitleaks complete pull request range
+        id: gitleaks_range
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && steps.gitleaks.outcome == 'success' }}
         shell: bash
         working-directory: .
         env:
@@ -251,6 +286,8 @@ jobs:
           echo 'Complete pull request secret scan passed.'
 
       - name: License check
+        id: licenses
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         shell: bash
         run: |
           pnpm licenses list --json > "$RUNNER_TEMP/subtrack-licenses.json"

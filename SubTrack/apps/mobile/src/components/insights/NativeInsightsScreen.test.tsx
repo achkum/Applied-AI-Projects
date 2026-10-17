@@ -41,7 +41,7 @@ async function realSession() {
 }
 it('keeps real native authority usable for Manage when leaving Home during an in-flight analytics read', async () => {
   const { core, session, changed, store } = await realSession();
-  const reader: jest.MockedFunction<NativeAnalyticsReader> = jest.fn((_token: string, signal: AbortSignal) => new Promise<NativeAnalyticsRead>((_resolve, reject) => { signal.addEventListener('abort', () => reject(new Error('Local route read aborted')), { once: true }); }));
+  const reader: jest.MockedFunction<NativeAnalyticsReader> = jest.fn((_token: string, signal: AbortSignal, at: Date) => { expect(at).toEqual(now()); return new Promise<NativeAnalyticsRead>((_resolve, reject) => { signal.addEventListener('abort', () => reject(new Error('Local route read aborted')), { once: true }); }); });
   render(<NativeHomeOverview session={session} reader={reader} now={now} />);
   await waitFor(() => expect(reader).toHaveBeenCalledTimes(1));
   act(() => { mockFocus.cleanup?.(); });
