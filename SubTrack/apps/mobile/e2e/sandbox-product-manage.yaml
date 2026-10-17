@@ -48,7 +48,7 @@ appId: se.subtrack.app.sandbox
     element: Aurora Video Plus
     direction: DOWN
 - assertVisible: Streaming extras
-- tapOn: Aurora Video Plus
+# Saving preserves this row's expanded controls.
 - scrollUntilVisible:
     element: ${E_PAUSE}
     direction: DOWN

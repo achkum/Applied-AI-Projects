@@ -24,15 +24,9 @@ appId: se.subtrack.app.sandbox
 - launchApp
 - extendedWaitUntil:
     visible:
-      id: native-welcome-logIn
-    timeout: 120000
-- assertNotVisible: Aurora Video Plus
-- tapOn:
-    id: native-welcome-logIn
-- extendedWaitUntil:
-    visible:
       id: native-nav-household
-    timeout: 30000
+    timeout: 120000
+# The saved installation capability resumes this same isolated owner on startup.
 - tapOn:
     id: native-nav-household
 - extendedWaitUntil:

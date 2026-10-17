@@ -63,7 +63,7 @@ stop_owned_emulator() {
 
 # Diagnostic custody is produced around successful creation/boot, never inferred from a flag.
 android_custody() {
-  [[ "${ST253_ANDROID_CAPTURE_ENABLED:-}" == true || "${ST253_ANDROID_HOME_CAPTURE_ENABLED:-}" == true ]] || return 0
+  [[ "${ST253_ANDROID_CAPTURE_ENABLED:-}" == true || "${ST253_ANDROID_HOME_CAPTURE_ENABLED:-}" == true || "${ST253_ANDROID_EDIT_CAPTURE_ENABLED:-}" == true ]] || return 0
   local helper
   helper="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/private-runtime-maestro-metadata.mjs"
   NODE_ENV=development node --input-type=module - "$helper" "$1" "$proof_private" 2> "$proof_private/android-custody-$1.log" <<'NODE'
@@ -72,7 +72,8 @@ import {execFileSync} from 'node:child_process';
 const {androidCaptureContext,androidAvdStage}=await import(pathToFileURL(process.argv[2]).href);
 const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
 const {homeCaptureContext}=await import(new URL('./private-runtime-android-home-diagnostic.mjs',pathToFileURL(process.argv[2])).href);
-const context=androidCaptureContext(process.env,head)??homeCaptureContext(process.env,head);
+const {editCaptureContext}=await import(new URL('./private-runtime-android-edit-diagnostic.mjs',pathToFileURL(process.argv[2])).href);
+const context=androidCaptureContext(process.env,head)??homeCaptureContext(process.env,head)??editCaptureContext(process.env,head);
 let stage='CONTEXT';
 try{if(!context)throw Error();androidAvdStage(process.argv[4],context,process.argv[3],process.env,value=>{stage=value;});}
 catch{if(['CONTEXT','CREATION','AVD_HOME','AVD_RECEIPTS','AVD_INTENT','AVD_DATA','AVD_INDEX','AVD_CONFIG','AVD_SCHEMA','AVD_INTENT_BINDING','AVD_DATA_BINDING','AVD_INDEX_BINDING','AVD_CONFIG_BINDING','AVD_PATH','PROCESS','EXECUTABLE','ARGUMENTS','ADB','RECEIPT'].includes(stage))console.log(`ST244_ANDROID custody_check=${stage}`);process.exitCode=1;}

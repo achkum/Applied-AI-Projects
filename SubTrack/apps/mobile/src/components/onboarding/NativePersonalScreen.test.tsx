@@ -484,6 +484,15 @@ async function realActivePersonalSession(){
  const store:NativeBundleStore={read:jest.fn().mockResolvedValue(null),write:jest.fn().mockResolvedValue(undefined),clear:jest.fn().mockResolvedValue(undefined)},changed=jest.fn(),core=new NativeSessionCore(store,changed);await core.establish(async()=>credentials);
  const session:import('./NativePersonalScreen').NativeFeatureSession={phase:'active',run:work=>core.run(work),login:jest.fn(),refresh:jest.fn(),logout:jest.fn()};return{core,session,store,changed};
 }
+it('clearing the actual date picker keeps Edit mounted, closes its modal and submits an explicit null date',async()=>{
+ const dated={...row,nextChargeDate:'2026-10-17'},edited={...dated,customName:'Example streaming Plus',nextChargeDate:null,revision:'2'};
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[dated],nextCursor:null}).mockResolvedValueOnce({items:[edited],nextCursor:null});jest.mocked(api.editNativeSubscription).mockResolvedValue({id:row.id,revision:'2'});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
+ expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Example streaming Plus');fireEvent.press(screen.getByTestId('native-subscription-date'));
+ expect(screen.getByTestId('native-date-2026-10-17')).toBeTruthy();fireEvent.press(screen.getByRole('button',{name:copy.datePicker.clear}));
+ expect(screen.queryByRole('button',{name:copy.datePicker.clear})).toBeNull();expect(screen.queryByTestId('native-date-2026-10-17')).toBeNull();expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}).props.accessibilityState.disabled).toBe(false);expect(screen.queryByRole('button',{name:copy.manualSubscription.save})).toBeNull();expect(api.editNativeSubscription).not.toHaveBeenCalled();
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativeSubscriptionEdit.saved);expect(api.editNativeSubscription).toHaveBeenCalledWith(expect.objectContaining({id:row.id,expectedRevision:'1',customName:'Example streaming Plus',nextChargeDate:null}),credentials.accessToken,expect.any(AbortSignal));
+});
 it('real native authority survives an aborted read when leaving Manage',async()=>{
  const f=await realActivePersonalSession();jest.mocked(api.readNativeSubscriptions).mockImplementation((_token,signal)=>new Promise((_resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('Route read aborted')),{once:true})));
  const view=render(<NativePersonalScreen useSession={()=>f.session}/>);await waitFor(()=>expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(1));view.unmount();

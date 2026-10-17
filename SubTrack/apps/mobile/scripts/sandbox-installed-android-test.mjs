@@ -45,6 +45,24 @@ test('actual flows use sandbox package, no authority extraction or rebuild, one 
  const workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-sandbox-installed-android.yml',import.meta.url),'utf8');assert.doesNotMatch(workflow,/pnpm install|gradlew|expo prebuild|assembleRelease|assembleDebug|eas build|push:|pull_request:/);assert.ok(workflow.includes('if: success()'));assert.ok(workflow.includes('subtrack-sandbox-installed/public/'));
 });
 
+test('signed edit reaches preserved expanded actions without collapsing the saved row',()=>{
+ const flow=readFileSync(new URL('../e2e/sandbox-product-manage.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
+ assert.equal((flow.match(/- tapOn: Aurora Video\n/g)??[]).length,1);
+ const saved=flow.slice(flow.indexOf('visible: ${E_EDIT_SAVED}'));
+ assert.ok(saved.includes('element: Aurora Video Plus'));assert.ok(saved.includes('- assertVisible: Streaming extras'));
+ assert.ok(!saved.includes('- tapOn: Aurora Video Plus'));
+ assert.ok(saved.includes('- tapOn: ${E_PAUSE}'));assert.ok(saved.includes('- tapOn: ${E_RESUME}'));assert.ok(saved.includes('- assertNotVisible: ${E_RESUME}'));
+});
+
+test('signed cold restart verifies the resumed same-owner household and saved values before final revocation',()=>{
+ const flow=readFileSync(new URL('../e2e/sandbox-product-restart.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
+ assert.ok(flow.includes('- stopApp\n- launchApp\n- extendedWaitUntil:\n    visible:\n      id: native-nav-household\n    timeout: 120000'));
+ assert.ok(!flow.includes('native-welcome-logIn'));assert.ok(!flow.includes('clearState:'));
+ for(const readback of ['visible: QA Family','- assertVisible: QA Member','element: Aurora Video Plus','- assertVisible: Streaming extras','- assertVisible: ${TODAY}','id: native-profile-language-sv\n    selected: true','id: native-profile-theme-dark\n    selected: true'])assert.ok(flow.includes(readback),readback);
+ for(const denied of ['- assertNotVisible: Aurora Video Plus','- assertNotVisible: QA Family','- assertNotVisible:\n    id: native-product-navigation'])assert.ok(flow.includes(denied),denied);
+ assert.ok(flow.includes('visible: ${S_LOGOUT_CONFIRMED}'));
+});
+
 test('failure screenshot is diagnostic-only and requires verified fresh sandbox foreground fences',()=>{
  const chunk=(kind,data)=>{const type=Buffer.from(kind),size=Buffer.alloc(4),crc=Buffer.alloc(4);size.writeUInt32BE(data.length);crc.writeUInt32BE(crc32(Buffer.concat([type,data])));return Buffer.concat([size,type,data,crc]);};
  const header=Buffer.alloc(13);header.writeUInt32BE(300);header.writeUInt32BE(600,4);header[8]=8;header[9]=6;

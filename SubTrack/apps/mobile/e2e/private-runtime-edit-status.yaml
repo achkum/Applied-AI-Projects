@@ -44,6 +44,9 @@ appId: se.subtrack.app
     visible: ${MAESTRO_DATE_CLEAR}
     timeout: 30000
 - tapOn: ${MAESTRO_DATE_CLEAR}
+- extendedWaitUntil:
+    notVisible: ${MAESTRO_DATE_CLEAR}
+    timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_SAVE_EDIT}
     direction: DOWN

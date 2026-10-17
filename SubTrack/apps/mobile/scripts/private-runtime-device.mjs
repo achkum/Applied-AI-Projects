@@ -1,3 +1,4 @@
+import {editCaptureContext,prepareAndroidEditMetadata,recordEditApp,captureSealedAndroidEdit} from './private-runtime-android-edit-diagnostic.mjs';
 import {homeCaptureContext,prepareAndroidHomeMetadata,recordHomeApp,captureSealedAndroidHome} from './private-runtime-android-home-diagnostic.mjs';
 import {proofScope,profileReceipt,PROFILE_SCREENSHOTS} from './private-runtime-proof-scope.mjs';
 import {Buffer} from 'node:buffer';
@@ -128,9 +129,10 @@ async function main() {
   const captureContext=platform==='ios'?preinputCaptureContext(process.env,head):null;
   const androidContext=platform==='android'?androidCaptureContext(process.env,head):null;
   const homeContext=platform==='android'?homeCaptureContext(process.env,head):null;let homeAppCheckpoint=null;
+  const editContext=platform==='android'?editCaptureContext(process.env,head):null;let editMetadata=null,editAppCheckpoint=null,editExpected=null;
   let androidMetadata=null,androidAppCheckpoint=null;
   const androidBuilt=join(app,'android/app/build/outputs/apk/debug/app-debug.apk');
-  const measureAndroid=()=>measureAndroidApp(privateDir,androidContext??homeContext,process.env,androidBuilt);
+  const measureAndroid=()=>measureAndroidApp(privateDir,androidContext??homeContext??editContext,process.env,androidBuilt);
   async function run(command, args, label, extraEnv = {}, cwd = app) {
     const execution = command === 'maestro' && label === 'enroll-add' && args.at(-1) === join(app, 'e2e/private-runtime-enroll-add.yaml')
       ? createEnrollmentExecution(label) : null;
@@ -138,6 +140,8 @@ async function main() {
     if(captureContext&&command==='maestro'&&label==='identifier'&&args.at(-1)===join(app,'e2e/private-runtime-identifier.yaml'))try{preinput=preparePreinputMetadata(privateDir);}catch{/* Optional diagnostics never prevent the original flow. */}
     if(preinput)preinputMetadata=preinput;
     if (execution) {enrollmentExecution = execution;enrollmentMetadata=androidContext?(androidMetadata=prepareAndroidEntryMetadata(privateDir,execution)):homeContext?(androidMetadata=prepareAndroidHomeMetadata(privateDir,execution)):prepareEnrollmentMetadata(privateDir,execution,platform);}
+    let editReader=null;
+    if(editContext&&command==='maestro'&&label==='edit-status'&&args.at(-1)===join(app,'e2e/private-runtime-edit-status.yaml'))try{editMetadata=editReader=prepareAndroidEditMetadata(privateDir);}catch{/* Separate owned diagnostic remains optional. */}
     const fd = openSync(join(privateDir, `${label}.log`), 'w', 0o600);
     try {
       await new Promise((accept, reject) => {
@@ -147,21 +151,21 @@ async function main() {
           env: { ...process.env, ...extraEnv },
           stdio: ['ignore', fd, fd],
         }); } catch {
-          execution?.record('error');preinput?.record('error');androidMetadata?.record('error');
+          execution?.record('error');preinput?.record('error');androidMetadata?.record('error');editReader?.record('error');
           reject(new Error(`Private qualification ${label} could not start`));
           return;
         }
         child.on('error', () => {
-          execution?.record('error');preinput?.record('error');androidMetadata?.record('error');
+          execution?.record('error');preinput?.record('error');androidMetadata?.record('error');editReader?.record('error');
           reject(new Error(`Private qualification ${label} could not start`));
         });
         child.on('exit', (code, signal) => {
-          execution?.record('exit', code, signal);preinput?.record('exit',code,signal);if(execution)androidMetadata?.record('exit',code,signal);
-          if(preinput||execution&&androidMetadata)return;
+          execution?.record('exit', code, signal);preinput?.record('exit',code,signal);if(execution)androidMetadata?.record('exit',code,signal);editReader?.record('exit',code,signal);
+          if(preinput||execution&&androidMetadata||editReader)return;
           if (code === 0) accept();
           else reject(new Error(`Private qualification ${label} failed`));
         });
-        child.on('close', (code, signal) => {execution?.record('close',code,signal);preinput?.record('close',code,signal);if(execution)androidMetadata?.record('close',code,signal);if(preinput||execution&&androidMetadata){if(code===0)accept();else reject(new Error(`Private qualification ${label} failed`));}});
+        child.on('close', (code, signal) => {execution?.record('close',code,signal);preinput?.record('close',code,signal);if(execution)androidMetadata?.record('close',code,signal);editReader?.record('close',code,signal);if(preinput||execution&&androidMetadata||editReader){if(code===0)accept();else reject(new Error(`Private qualification ${label} failed`));}});
       });
     } finally {
       closeSync(fd);
@@ -254,6 +258,7 @@ async function main() {
     );
     if(androidContext)try{androidAppCheckpoint=recordAndroidApp(privateDir,androidContext,measureAndroid());}catch{/* Unavailable custody withholds diagnostics, never changes qualification. */}
     if(homeContext)try{homeAppCheckpoint=recordHomeApp(privateDir,homeContext,measureAndroid());}catch{/* Separate Home custody failure only withholds its diagnostic. */}
+    if(editContext)try{editAppCheckpoint=recordEditApp(privateDir,editContext,measureAndroid());}catch{/* Separate edit custody failure only withholds diagnostic. */}
     await flow('identifier');
     const fontStartup=startupStageDiagnostic({phase:'flow-identifier',log:readFileSync(join(privateDir,'metro.log'),'utf8')});
     const loaded=fontStartup?.['fonts-loaded'],fallback=fontStartup?.['fonts-fallback'];
@@ -304,6 +309,7 @@ async function main() {
     }
     const originalRenewals=await qualifyNativeRenewalsBeforeEdit({flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),phase:markPhase});
     await qualifyNativeMonthBeforeEdit({original:originalRenewals,flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),phase:markPhase});
+    if(editContext)try{const receipt=await harness.readbackReceipt();assert.deepEqual(receipt,acceptedCreatedReceipt);editExpected={receipt,tracking:await harness.readbackTrackingReceipt()};}catch{/* Missing baseline withholds only the optional edit diagnostic. */}
     const editedTracking=await qualifyNativeEditStatus({flow,restart:()=>harness.restart(),readback:()=>harness.readbackTrackingReceipt(),phase:markPhase});
     const renewals=await qualifyNativeRenewalsAfterEdit({original:originalRenewals,flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),tracking:()=>harness.readbackTrackingReceipt(),phase:markPhase});
     const billingMonth=await qualifyNativeMonthAfterEdit({original:originalRenewals,flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),tracking:()=>harness.readbackTrackingReceipt(),phase:markPhase});
@@ -501,6 +507,11 @@ async function main() {
         if(ui)console.error(`ST244_NATIVE restart_ui welcome=${ui.welcome} verify=${ui.verify} manage=${ui.manage} month=${ui.month} developer=${ui.developer} route_error=${ui.routeError} link_chooser=${ui.linkChooser}`);
         else console.error('ST244_NATIVE restart_ui=withheld');
       }
+    }
+    if(currentPhase==='flow-edit-status'&&editContext&&editMetadata){
+      let sealed=false,withheld='CUSTODY';
+      try{const metadata=editMetadata.read(currentPhase);sealed=await captureSealedAndroidEdit({privateRoot:privateDir,context:editContext,reader:editMetadata,metadata,measure:measureAndroid,checkpoint:editAppCheckpoint,expected:editExpected,markerHash:createHash('sha256').update(config.marker).digest('hex'),observe:async()=>({receipt:await harness.readbackReceipt(),manual:harness.manualSaveObservation(),renewals:await harness.readbackRenewalsReceipt(renewalDate),tracking:await harness.readbackTrackingReceipt()}),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),onWithheld:value=>{if(['CUSTODY','METADATA_SHAPE','API_BEFORE','CAPTURE','PNG','API_AFTER','SEAL','RAW_CLEANUP','SEALED_OUTPUT','SEALED_READBACK'].includes(value))withheld=value;},capture:async file=>{const png=execFileSync(join(process.env.ANDROID_HOME,'platform-tools/adb'),['-s','emulator-5554','exec-out','screencap','-p'],{timeout:10000,killSignal:'SIGKILL',maxBuffer:8388608,stdio:['ignore','pipe','pipe']});try{writeFileSync(file,png,{flag:'wx',mode:0o600});}finally{png.fill(0);}}});}catch{/* No raw fallback, UI action, retry or private error output. */}
+      console.error(`ST244_NATIVE android_edit_frame=${sealed?'sealed':'withheld'} stage=${withheld}`);
     }
     if (currentPhase === 'flow-enroll-add') {
       // Target and occurrence share this owned original-command bundle; legacy text never supplies either.

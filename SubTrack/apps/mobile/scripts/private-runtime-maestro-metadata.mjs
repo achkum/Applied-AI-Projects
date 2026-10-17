@@ -139,6 +139,16 @@ export function prepareHomeEnrollmentMetadata(privateRoot,execution,admitPrefix)
   return result;
  },'android');
 }
+/** Separate edit pre-Save reader. Original enrollment/Home projectors and authorities remain unchanged. */
+export function prepareEditStatusMetadata(privateRoot,execution,admitPrefix){
+ return prepareCommandMetadata(privateRoot,execution,'edit-status','flow-edit-status',bytes=>{
+  try{const rows=strictJson(bytes);if(!Array.isArray(rows)||rows.length<3||rows.length>128)throw Error('invalid');
+   for(const row of rows){if(!plain(row)||Object.keys(row).sort().join(',')!=='command,metadata')throw Error('invalid');validateMetadata(row.metadata);}
+   if(!admitPrefix(Buffer.from(JSON.stringify(rows))))return closed('UNAVAILABLE');
+   return closed('AVAILABLE','SCROLL_UNTIL_VISIBLE','UNKNOWN');
+  }catch{return closed('INVALID');}
+ },'android');
+}
 /** Only this exact fixed grammar may leave the private invocation. */
 export function enrollmentMetadataLines(result){
  if(!plain(result)||Object.keys(result).sort().join(',')!=='command,errorClass,metadata,occurrence,target'||!['AVAILABLE','UNAVAILABLE','INVALID'].includes(result.metadata)||!['UNKNOWN',...Object.values(KINDS)].includes(result.command)||!TARGETS.includes(result.target)||!ENROLLMENT_HEADER_OCCURRENCES.includes(result.occurrence)||(result.occurrence!=='UNKNOWN'&&(result.metadata!=='AVAILABLE'||result.command!=='SCROLL_UNTIL_VISIBLE'||result.target!=='personal-title'))||(!['SCROLL_UNTIL_VISIBLE','ASSERT_CONDITION'].includes(result.command)&&result.target!=='UNKNOWN')||result.errorClass!=='UNKNOWN'||(result.metadata!=='AVAILABLE'&&result.command!=='UNKNOWN')||(result.metadata==='AVAILABLE'&&result.command==='UNKNOWN'))return null;

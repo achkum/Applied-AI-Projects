@@ -21,7 +21,8 @@ test('date selection uses the real calendar day id with only one bounded month-b
   assert.ok(helper.includes('when:\n      notVisible:\n        id: native-date-${MAESTRO_RENEWAL_DATE}\n    commands:\n      - tapOn: ${MAESTRO_MONTH_NEXT}'));
   assert.equal(helper.split('- tapOn: ${MAESTRO_MONTH_NEXT}').length - 1, 1);
   assert.ok(helper.endsWith('- tapOn:\n    id: native-date-${MAESTRO_RENEWAL_DATE}\n'));
-  assert.ok(edit.includes('- tapOn:\n    id: native-subscription-date\n- extendedWaitUntil:\n    visible: ${MAESTRO_DATE_CLEAR}\n    timeout: 30000\n- tapOn: ${MAESTRO_DATE_CLEAR}'));
+  assert.ok(edit.includes('- tapOn:\n    id: native-subscription-date\n- extendedWaitUntil:\n    visible: ${MAESTRO_DATE_CLEAR}\n    timeout: 30000\n- tapOn: ${MAESTRO_DATE_CLEAR}\n- extendedWaitUntil:\n    notVisible: ${MAESTRO_DATE_CLEAR}\n    timeout: 30000\n- scrollUntilVisible:\n    element: ${MAESTRO_SAVE_EDIT}'));
+  assert.equal(edit.split('- tapOn: ${MAESTRO_DATE_CLEAR}').length - 1, 1);
   assert.doesNotMatch(helper, /repeat:|optional:|inputText:|eraseText|clearState|setDate/);
   assert.doesNotMatch(add, /inputText: \$\{MAESTRO_RENEWAL_DATE\}/);
   assert.equal(edit.split('- tapOn: ${MAESTRO_SAVE_EDIT}').length - 1, 1);
