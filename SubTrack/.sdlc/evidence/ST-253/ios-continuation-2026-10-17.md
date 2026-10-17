@@ -1,0 +1,13 @@
+# iOS continuation
+
+Founder requests iOS fixes after private AndroidV5 delivery. Work remains in the existing checkout on codex/ios-startup-fixes. Android delivery evidence is committed separately atfd77f7ff; original V5/source/signer/data remain retained.
+
+Last actual iOSjob117440816752 atf27494d1929d6b6924e5b4dbbaf87ce8fe352aa9 failed the original first Welcome wait, before identifier requests. Startup observer saw root/fonts-ready/welcome-committed and system-font fallback. The accessible button uses the same catalogue label as the flow; no source-proven missing-button cause exists. Do not claim font failure explains the Welcome failure without installed evidence.
+
+Source audit finds no iOS UIAppFonts embedding: expo-font only configured Android. Add the same six existing approved static assets for iOS, map theme/root useFonts names to their actual PostScript names, and preserve graceful fallback and Android/web behavior. Actual pinned Expo plugin/plist and TTF metadata checks pass; actual compiled Expo Font.js/memory.js uses bundled-name roster without resolving/downloading assets. Ten font/config tests,16 component/alias/theme/root/fallback tests, mobile types and scoped lint pass. An actual compiled .app checker now requires correct bundleID, exact UIAppFonts and six approved resource hashes before simulator installation. The installed driver requires custom fonts on iOS as on Android; no native success is inferred locally.
+
+Six later restart/Edit/Bank flows now wait for the original Welcome before deep links on iOS as on Android. Original actions/readbacks and first identifier flow are retained. Actual YAML policy/affected flow checks pass; scoped lint passes.
+
+Manual platformios/full dispatch selects only macos-15/iOS26.2/Xcode26.2 and binds exact repository/ref/supplied-source/GITHUB_SHA/checkout. The existing PR297 exception and other automatic PR matrices remain. Existing sealed first-Welcome diagnostic is enabled only for this exact repair dispatch or original PR293. First-command portfolio, zero total API observation, owned fresh simulator/current installed app, pinned recipient/PNG/encryption and raw cleanup remain unchanged. Metadata47 platform/resource cases pass; metadata helper remains100%lines/branches/functions.24 affected selector/pipeline/flow consumers pass, root script lint and build-script bash syntax pass. Independent source review finds no blocking scope/custody issue. No dependency, account, public backend route, store signing or release change.
+
+Next checkpoint is an actual full iOS simulator run with retained backend restart/readback and screen evidence. Simulator qualification is not an installable signed iPhone build; existing Apple signing access remains unestablished by this work.

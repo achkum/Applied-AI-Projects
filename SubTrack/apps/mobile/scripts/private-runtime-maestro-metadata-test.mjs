@@ -98,6 +98,13 @@ test('failed scroll targets come only from exact original source selectors and e
 const captureHead='ab'.repeat(20),captureId='123e4567-e89b-42d3-a456-426614174000';
 const captureEnv={ST253_CAPTURE_ENABLED:'true',ST253_CAPTURE_PLATFORM:'ios',ST253_CAPTURE_HEAD_REPOSITORY:'achkum/Applied-AI-Projects',NODE_ENV:'development',SUBTRACK_PRIVATE_DEVICE_PROOF:'true',EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL:'https://localhost:3443',GITHUB_REPOSITORY:'achkum/Applied-AI-Projects',GITHUB_EVENT_NAME:'pull_request',GITHUB_REF:'refs/pull/293/merge',GITHUB_HEAD_REF:'codex/native-owner-search',ST253_CAPTURE_SOURCE_HEAD:captureHead,GITHUB_RUN_ID:'1234',GITHUB_RUN_ATTEMPT:'1',SUBTRACK_SIMULATOR_UDID:'123E4567-E89B-42D3-A456-426614174000'};
 const captureContext=preinputCaptureContext(captureEnv,captureHead),zeroApi={state:'active',arrivals:'zero'};
+test('explicit iOS repair dispatch binds the exact source without broadening original preinput eligibility',()=>{
+ const manual={...captureEnv,GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/codex/ios-startup-fixes',GITHUB_HEAD_REF:'',GITHUB_SHA:captureHead,ST253_CAPTURE_DISPATCH_SOURCE:captureHead};
+ assert.deepEqual(preinputCaptureContext(manual,captureHead),captureContext);
+ for(const key of Object.keys(manual))assert.equal(preinputCaptureContext({...manual,[key]:'private-canary'},captureHead),null,key);
+ assert.equal(preinputCaptureContext({...manual,GITHUB_HEAD_REF:undefined},captureHead)?.sourceHead,captureHead);
+ assert.equal(preinputCaptureContext({...manual,GITHUB_EVENT_NAME:'pull_request'},captureHead),null);
+});
 function initialRecords(){return [prefix(),{command:{applyConfigurationCommand:{config:{appId:'se.subtrack.app'}}},metadata:{status:'COMPLETED',sequenceNumber:1,depth:0}},{command:{launchAppCommand:{appId:'se.subtrack.app',clearState:true,optional:false}},metadata:{status:'COMPLETED',sequenceNumber:2,depth:0}},{command:{assertConditionCommand:{condition:{visible:{textRegex:'${MAESTRO_CREATE_ACCOUNT}',optional:false}},timeout:'120000',optional:false}},metadata:{status:'FAILED',sequenceNumber:3,depth:0}}];}
 function pngChunk(kind,body=Buffer.alloc(0)){const header=Buffer.alloc(8),crc=Buffer.alloc(4);header.writeUInt32BE(body.length);header.write(kind,4);crc.writeUInt32BE(crc32(Buffer.concat([header.subarray(4),body])));return Buffer.concat([header,body,crc]);}
 function pngHeader(patch={}){const b=Buffer.alloc(13);b.writeUInt32BE(patch.width??1);b.writeUInt32BE(patch.height??1,4);b[8]=patch.bits??8;b[9]=patch.color??2;b[10]=patch.compression??0;b[11]=patch.filter??0;b[12]=patch.interlace??0;return b;}

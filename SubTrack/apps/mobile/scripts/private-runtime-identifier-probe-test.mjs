@@ -6,6 +6,7 @@ import childProcess, {spawn as realSpawn} from 'node:child_process';
 import {syncBuiltinESMExports} from 'node:module';
 import {EventEmitter} from 'node:events';
 import process from 'node:process';
+import vm from 'node:vm';
 import {prepareAndroidEntryMetadata} from './private-runtime-maestro-metadata.mjs';
 import {setTimeout,clearTimeout} from 'node:timers';
 import { probeResult, identifierProbes, runIdentifierProbe } from './private-runtime-identifier-probe.mjs';
@@ -178,11 +179,18 @@ test('real Node spawn port reports actual process exit, missing executable and s
 });
 
 
-test('pre-input frame remains exact-source iOS PR293 only, first-flow/zero-total gated and ciphertext-only upload',()=>{
+test('pre-input frame remains exact-source iOS authority, first-flow/zero-total gated and ciphertext-only upload',()=>{
  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');
  const workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-native-device-proof.yml',import.meta.url),'utf8');
- assert.ok(workflow.includes("matrix.platform == 'ios' && github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search'"));
- assert.ok(workflow.includes('ST253_CAPTURE_SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}'));assert.ok(workflow.includes('ref: ${{ github.event.pull_request.head.sha || github.sha }}'));
+ const expression=workflow.match(/ST253_CAPTURE_ENABLED: \$\{\{ (.+) \}\}/)?.[1];assert.ok(expression);
+ const enabled=(github,inputs={},platform='ios')=>vm.runInNewContext(expression,{github,inputs,matrix:{platform}});
+ const pr={event_name:'pull_request',repository:'achkum/Applied-AI-Projects',event:{pull_request:{number:293,head:{repo:{full_name:'achkum/Applied-AI-Projects'},ref:'codex/native-owner-search'}}}};
+ assert.equal(enabled(pr),'true');assert.equal(enabled(pr,{},'android'),'false');
+ const manual={event_name:'workflow_dispatch',repository:pr.repository,ref:'refs/heads/codex/ios-startup-fixes',sha:'ab'.repeat(20)};
+ const inputs={platform:'ios',proof_scope:'full',source_head:manual.sha};assert.equal(enabled(manual,inputs),'true');
+ for(const patch of [{platform:'android'},{proof_scope:'profile'},{source_head:'cd'.repeat(20)}])assert.equal(enabled(manual,{...inputs,...patch}),'false');
+ for(const patch of [{repository:'foreign/repository'},{ref:'refs/heads/main'},{sha:'cd'.repeat(20)}])assert.equal(enabled({...manual,...patch},inputs),'false');
+ assert.ok(workflow.includes('ST253_CAPTURE_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}'));assert.ok(workflow.includes('ref: ${{ github.event.pull_request.head.sha || github.sha }}'));
  assert.ok(driver.includes("const captureContext=platform==='ios'?preinputCaptureContext(process.env,head):null"));assert.ok(driver.includes("currentPhase === 'flow-identifier' && captureContext && preinputMetadata"));assert.ok(driver.includes("label==='identifier'&&args.at(-1)===join(app,'e2e/private-runtime-identifier.yaml')"));assert.ok(driver.includes('observe:()=>harness.allApiObservation()'));
  for(const command of ["['simctl','list','devices','booted','--json']","['simctl','get_app_container',udid,'se.subtrack.app','app']","['simctl','io',udid,'screenshot',file]"])assert.ok(driver.includes(command));assert.ok(driver.includes("['Info.plist','SubTrack']"));
  const validation=workflow.slice(workflow.indexOf('- name: Validate sealed pre-input'),workflow.indexOf('- name: Owned fixture and debug server cleanup'));

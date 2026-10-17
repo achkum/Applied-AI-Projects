@@ -264,7 +264,7 @@ async function main() {
     const loaded=fontStartup?.['fonts-loaded'],fallback=fontStartup?.['fonts-fallback'];
     const installedFontState=loaded&&loaded!=='unobserved'&&fallback==='unobserved'?'custom':fallback&&fallback!=='unobserved'&&loaded==='unobserved'?'fallback':'unobserved';
     if(platform==='android')console.log(`ST244_NATIVE installed_fonts=${installedFontState}`);
-    if(platform==='android')assert.equal(installedFontState,'custom','Approved Android custom fonts must be loaded');
+    assert.equal(installedFontState,'custom',`Approved ${platform} custom fonts must be loaded`);
     assert.ok(
       code,
       'Synthetic OTP must have been issued to the private in-memory callback',

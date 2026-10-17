@@ -49,6 +49,7 @@ else
     -derivedDataPath "$proof_root/private/derived" CODE_SIGNING_ALLOWED=NO \
     build > "$proof_root/private/build.log" 2>&1
   set_build_phase ios-install
+  node scripts/private-runtime-ios-font-bundle.mjs "$proof_root/private/derived/Build/Products/Debug-iphonesimulator/SubTrack.app"
   xcrun simctl install "$SUBTRACK_SIMULATOR_UDID" "$proof_root/private/derived/Build/Products/Debug-iphonesimulator/SubTrack.app"
   set_build_phase ios-ca-trust
   xcrun simctl keychain "$SUBTRACK_SIMULATOR_UDID" add-root-cert "$SUBTRACK_PRIVATE_CA_CERT"

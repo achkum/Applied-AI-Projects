@@ -2,13 +2,9 @@ appId: se.subtrack.app
 ---
 - stopApp
 - launchApp
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - extendedWaitUntil:
-          visible: ${MAESTRO_CREATE_ACCOUNT}
-          timeout: 120000
+- extendedWaitUntil:
+    visible: ${MAESTRO_CREATE_ACCOUNT}
+    timeout: 120000
 - openLink: subtrack:///personal
 - extendedWaitUntil:
     visible:

@@ -80,7 +80,7 @@ describe('root layout startup imports', () => {
     });
 
     expect(SplashScreen.preventAutoHideAsync).toHaveBeenCalledTimes(1);
-    expect(Object.keys(mockUseFonts.mock.calls[0]![0])).toEqual(['Geist400','Geist500','Geist600','Bricolage600','Bricolage700','Bricolage800']);
+    expect(Object.keys(mockUseFonts.mock.calls[0]![0])).toEqual(['Geist-Regular','Geist-Medium','Geist-SemiBold','BricolageGrotesque-SemiBold','BricolageGrotesque-Bold','BricolageGrotesque-ExtraBold']);
     expect(await screen.findByTestId('router-stack')).toBeTruthy();
     expect(screen.getByTestId('provider-state').props.children).toBe('en|Me|system');
     expect(mockStorage.getItem).toHaveBeenCalledWith('theme-mode-preference');
@@ -99,7 +99,7 @@ describe('root layout startup imports', () => {
     mockUseFonts.mockReturnValue([true, null]);
     await act(async () => app.rerender(<RootLayout />));
     expect(await screen.findByTestId('router-stack')).toBeTruthy();
-    expect(screen.getByTestId('font-state').props.children).toBe('Geist400|Bricolage700');
+    expect(screen.getByTestId('font-state').props.children).toBe('Geist-Regular|BricolageGrotesque-Bold');
     expect(SplashScreen.hideAsync).toHaveBeenCalledTimes(1);
     await act(async () => app.rerender(<RootLayout />));
     expect(SplashScreen.hideAsync).toHaveBeenCalledTimes(1);
@@ -137,4 +137,21 @@ test('Android root uses the same native asset basename aliases as the theme',asy
   expect(Object.keys(mockUseFonts.mock.calls[mockUseFonts.mock.calls.length-1]![0])).toEqual(['Geist-Regular','Geist-Medium','Geist-SemiBold','BricolageGrotesque-SemiBold','BricolageGrotesque-Bold','BricolageGrotesque-ExtraBold']);
   expect(screen.getByTestId('font-state').props.children).toBe('Geist-Regular|BricolageGrotesque-Bold');
  }finally{Object.defineProperty(Platform,'OS',{configurable:true,value:original});}
+});
+
+test('iOS root uses bundled PostScript names and preserves genuine System fallback',async()=>{
+ const original=Platform.OS;Object.defineProperty(Platform,'OS',{configurable:true,value:'ios'});
+ try{
+  mockUseFonts.mockReturnValue([true,null]);const view=render(<RootLayout/>);await screen.findByTestId('router-stack');
+  expect(Object.keys(mockUseFonts.mock.calls[mockUseFonts.mock.calls.length-1]![0])).toEqual(['Geist-Regular','Geist-Medium','Geist-SemiBold','BricolageGrotesque-SemiBold','BricolageGrotesque-Bold','BricolageGrotesque-ExtraBold']);
+  expect(screen.getByTestId('font-state').props.children).toBe('Geist-Regular|BricolageGrotesque-Bold');
+  mockUseFonts.mockReturnValue([false,new Error('font fixture unavailable')]);await act(async()=>view.rerender(<RootLayout/>));
+  expect(screen.getByTestId('font-state').props.children).toBe('System|System');
+ }finally{Object.defineProperty(Platform,'OS',{configurable:true,value:original});}
+});
+
+test('web root retains its original variable-font map',async()=>{
+ const original=Platform.OS;Object.defineProperty(Platform,'OS',{configurable:true,value:'web'});
+ try{mockUseFonts.mockReturnValue([true,null]);render(<RootLayout/>);await screen.findByTestId('router-stack');expect(Object.keys(mockUseFonts.mock.calls[mockUseFonts.mock.calls.length-1]![0])).toEqual(['Manrope','Fraunces']);}
+ finally{Object.defineProperty(Platform,'OS',{configurable:true,value:original});}
 });
