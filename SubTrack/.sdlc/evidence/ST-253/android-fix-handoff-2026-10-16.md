@@ -2,6 +2,22 @@
 
 Development stopped for transfer to a new session. One agent only; no subagents or orchestration. Hourly automation `subtrack-hourly-development-progress` is paused. The issue list is recorded in `.sdlc/backlog.yaml` under `android_fix_handoff`, linked to existing tasks rather than duplicate tickets.
 
+## Verified V4 candidate delivered — 2026-10-17
+
+Actual Release build39022765026/job117367701691 PASS and independent signed verification39023804762/job117370716252 PASS at d2709cedb6d7d5cf8ddc05775ea321ceb47be7f1. VersionCode4, se.subtrack.app.sandbox, runtime true, release/nondebuggable, no private CA; original certificate, actual signature/zip alignment and signed/unsigned config/Hermes identities verified. SourceM remains immutable. Desktop signing execution443d7774, retained tools/backup/key and backend data preserved. Exact signed-return draft415726304 private/unpublished. Local APK65512945 bytes, SHA2561af7ab91f190d526341ea52756b433bc16d045893869ba3f6c183809896ca4fd verified again after authenticated asset download.
+
+User file delivered: C:/Users/achku/Downloads/SubTrack-Android-v4-20261017.apk, with sibling verification JSON. Install over existing app; never identify the public gateway V2 or failed phone V3 as this correction. Founder actual signed-phone acceptance remains pending.
+
+Broader full run39022386716/job117367319883 passes profile/avatar/preferences/Add/exact durable app/API restart, then its renewals test waits for native-personal-title/Manage while already on Upcoming. This was introduced by overly broad test-only viewport replacement, not established as an app failure. Restore original Upcoming row assertions, retaining only the necessary initial Manage scroll; add route-ownership regression. Ten focused scope/agenda cases pass. Test-only correction changes no APK/runtime source; full default path must be qualified separately and is not represented by the successful scoped receipt. No new app build is needed for this test repair.
+
+## Latest CI-first correction — 2026-10-17
+
+Supersedes the V3-ready disposition below: founder actual phone test FAILED. Profile arbitrary emoji text violated the eight-value contract before any API save; supported optional picker and field-specific errors now replace it. Initial setup omits language/theme; existing Manage persists both selected values via authoritative reread. Welcome is centred, Sandbox badges omitted and its sandbox Log in resumes directly. Source corrected and111 component/provider cases pass.
+
+Founder explicitly reiterates CI/CD first. Scoped run39021165682/job117363095493 PASS at86a9035b6e7b3ebcaa84ee3c990cc613199540c4 in14m23s (prior full22m52s; observed8m29s shorter, not controlled benchmark). Original app/API restart/exact persisted row/logout retained. Six original PNGs inspected; actual dark theme persists after restart. Distinct scoped receipt never claims full bank/edit/month coverage. Runtime/product inputs are unchanged at final443d7774; only policy/tests/full-flow viewport guards/docs differ. Final PR quality and honest Release-policy check PASS; policy43s, no second PR APK compilation. New Release build uses public library-only cache; original application-output exclusion and all signer/custody gates remain.
+
+PR295 merged normally without administrator override as d2709cedb6d7d5cf8ddc05775ea321ceb47be7f1; entire tree equals443d7774. One actual runtime-enabled V4 Release build39022765026 now in progress. No signed V4 acceptance/delivery yet. Current desktop signing execution remains443d7774c5147fa053f728eb0b93c13ceebd43ea until custody operations finish; retain original backup/key/tools and all backend data. Public gateway still V2; V3 is the phone-failed version, not a new fix. Full PR source443d7774 run39022386716 remains pending separately. User phone/signed-app and broader accessibility matrix remain open.
+
 ## Current disposition — 2026-10-17
 
 

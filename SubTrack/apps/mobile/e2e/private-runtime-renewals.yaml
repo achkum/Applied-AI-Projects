@@ -21,6 +21,10 @@ appId: se.subtrack.app
     visible: Example streaming
     timeout: 30000
 - scrollUntilVisible:
+    element: Example streaming
+    direction: DOWN
+    centerElement: true
+- scrollUntilVisible:
     element: ${MAESTRO_RENEWALS_OPEN}
     direction: UP
 - tapOn: ${MAESTRO_RENEWALS_OPEN}
@@ -28,17 +32,12 @@ appId: se.subtrack.app
     visible: ${MAESTRO_RENEWALS_TITLE}
     timeout: 30000
 - extendedWaitUntil:
-    visible:
-      id: native-personal-title
-      text: ${MAESTRO_PERSONAL_TITLE}
+    visible: Example streaming
     timeout: 30000
 - scrollUntilVisible:
     element: Example streaming
     direction: DOWN
     centerElement: true
-- extendedWaitUntil:
-    visible: Example streaming
-    timeout: 30000
 - assertVisible: ${MAESTRO_RENEWAL_DATE}
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - scrollUntilVisible:
@@ -46,17 +45,12 @@ appId: se.subtrack.app
     direction: DOWN
 - tapOn: ${MAESTRO_RENEWALS_REFRESH}
 - extendedWaitUntil:
-    visible:
-      id: native-personal-title
-      text: ${MAESTRO_PERSONAL_TITLE}
+    visible: Example streaming
     timeout: 30000
 - scrollUntilVisible:
     element: Example streaming
     direction: DOWN
     centerElement: true
-- extendedWaitUntil:
-    visible: Example streaming
-    timeout: 30000
 - assertVisible: ${MAESTRO_RENEWAL_DATE}
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-renewals
