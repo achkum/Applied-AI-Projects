@@ -96,6 +96,22 @@ describe('passive owned OTP start observations', () => {
     expect(f.observer.observation().incomplete).toBe('multiple');
   });
 
+  it('retains an immutable creation checkpoint while completed201 buckets reset for the restarted graph', () => {
+    const f=manualFixture(),created=f.response(201);f.request(created);
+    const staleFinish=created.listeners('finish')[0] as () => void;
+    created.emit('finish');
+    const acknowledged=f.observer.observation();
+    expect(acknowledged).toEqual({arrivals:'one',finished201:'one',rejected4xx:'zero',failed5xx:'zero',other:'zero',incomplete:'zero'});
+    expect(Object.isFrozen(acknowledged)).toBe(true);
+    f.observer.stop();
+    const restarted=new EventEmitter() as Server;f.observer.attach(restarted);
+    staleFinish();created.emit('finish');
+    expect(f.observer.observation()).toEqual({arrivals:'zero',finished201:'zero',rejected4xx:'zero',failed5xx:'zero',other:'zero',incomplete:'zero'});
+    expect(acknowledged.arrivals).toBe('one');expect(acknowledged.finished201).toBe('one');
+    expect(f.server.listenerCount('request')).toBe(0);expect(restarted.listenerCount('request')).toBe(1);
+    f.observer.stop();
+  });
+
   it('stop and restart remove housekeeping listeners, reset buckets and fence stale callbacks', () => {
     const f = fixture();
     const first = f.response(); f.request(first);

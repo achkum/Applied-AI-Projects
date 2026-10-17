@@ -235,7 +235,7 @@ async function main() {
     }
   }
 
-  let acceptedCreatedReceipt=null;
+  let acceptedCreatedReceipt=null,acceptedCreationManual=null;
   try {
     markPhase('https-start');
     await harness.start();
@@ -278,6 +278,7 @@ async function main() {
     assert.equal(created.activeSavedDateReadback,true);
     assert.equal(created.archivedEmptyReadback,false);
     acceptedCreatedReceipt=before;
+    if(editContext)try{acceptedCreationManual=harness.manualSaveObservation();}catch{/* Historical diagnostic provenance is optional and remains runner-local. */}
     console.log('ST244_NATIVE created_row_expected_value=confirmed');
     markPhase('api-restart');
     await harness.restart();
@@ -309,7 +310,7 @@ async function main() {
     }
     const originalRenewals=await qualifyNativeRenewalsBeforeEdit({flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),phase:markPhase});
     await qualifyNativeMonthBeforeEdit({original:originalRenewals,flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),phase:markPhase});
-    if(editContext)try{const receipt=await harness.readbackReceipt();assert.deepEqual(receipt,acceptedCreatedReceipt);editExpected={receipt,tracking:await harness.readbackTrackingReceipt()};}catch{/* Missing baseline withholds only the optional edit diagnostic. */}
+    if(editContext)try{const receipt=await harness.readbackReceipt();assert.deepEqual(receipt,acceptedCreatedReceipt);editExpected={receipt,tracking:await harness.readbackTrackingReceipt(),creationManual:acceptedCreationManual};}catch{/* Missing baseline withholds only the optional edit diagnostic. */}
     const editedTracking=await qualifyNativeEditStatus({flow,restart:()=>harness.restart(),readback:()=>harness.readbackTrackingReceipt(),phase:markPhase});
     const renewals=await qualifyNativeRenewalsAfterEdit({original:originalRenewals,flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),tracking:()=>harness.readbackTrackingReceipt(),phase:markPhase});
     const billingMonth=await qualifyNativeMonthAfterEdit({original:originalRenewals,flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),tracking:()=>harness.readbackTrackingReceipt(),phase:markPhase});
