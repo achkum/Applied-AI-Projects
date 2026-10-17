@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {copyFileSync,mkdtempSync,readFileSync,rmSync,writeFileSync} from 'node:fs';
+import {copyFileSync,mkdtempSync,readFileSync,realpathSync,rmSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {URL,fileURLToPath} from 'node:url';
 import {verifyIosFontBundle} from './private-runtime-ios-font-bundle.mjs';
 const source=fileURLToPath(new URL('../assets/fonts/',import.meta.url)),fonts=JSON.parse(readFileSync(join(source,'billing-month-fonts.json'),'utf8')).staticInstances;
 test('compiled iOS bundle requires exact approved resources and UIAppFonts before native install',()=>{
- const root=mkdtempSync(join(tmpdir(),'subtrack-ios-fonts-'));
+ const root=mkdtempSync(join(realpathSync(tmpdir()),'subtrack-ios-fonts-'));
  try{
   writeFileSync(join(root,'Info.plist'),'opaque plist');for(const font of fonts)copyFileSync(join(source,font.file),join(root,font.file));
   const plist={CFBundleIdentifier:'se.subtrack.app',UIAppFonts:fonts.map(font=>font.file)};
