@@ -188,7 +188,7 @@ jobs:
       - name: Tests
         id: tests
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' && steps.playwright.outcome == 'success' }}
-        run: pnpm exec turbo run test --concurrency=1
+        run: pnpm exec turbo run test --concurrency=1 --continue=dependencies-successful
 
       # ST-017: Storybook visual regression (ST-022). Builds static Storybook, serves it,
       # then runs @storybook/test-runner (Playwright + jest-image-snapshot, 1 % threshold).

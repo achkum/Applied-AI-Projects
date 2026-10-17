@@ -53,7 +53,7 @@ class QualityGatePolicy(unittest.TestCase):
             self.assertEqual(guards, [expected] if prerequisites else [])
         for identifier, command in {
             "lint": "run: pnpm lint", "typecheck": "run: pnpm typecheck",
-            "tests": "run: pnpm exec turbo run test --concurrency=1",
+            "tests": "run: pnpm exec turbo run test --concurrency=1 --continue=dependencies-successful",
             "contrast": "node packages/ui-tokens/scripts/check-contrast.mjs",
             "visual": "pnpm --filter @subtrack/ui run storybook:test",
             "ml_dependencies": "run: uv sync --locked", "ml_tests": "run: uv run --locked pytest",
