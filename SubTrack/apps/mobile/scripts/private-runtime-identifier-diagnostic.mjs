@@ -116,6 +116,21 @@ export function restartToolDiagnostic({phase,restart,metro,labels}){
  return closedToolDiagnostic(restart,metro,[...restartRoster.map(([name,key])=>[name,labels[key]]),['edited-row','Example streaming Plus'],['saved-row','Example streaming'],['subscription-name','native-subscription-name'],['date-field','native-subscription-date']]);
 }
 
+const billingMonthRoster=[['bankid-verify','login'],['personal-title','personalTitle'],['profile-title','profileTitle'],['home-title','home'],['next-month','nextMonth'],['month-target','monthTarget'],['month-previous','monthPrevious'],['month-empty','monthEmpty'],['subscription-detail','detail'],['expected-amount','amount'],['detail-price','detailPrice'],['manual-source','manual'],['close','close'],['logout','logout'],['logout-confirmed','logoutConfirmed']];
+/** Original billing child output only. Target values are caller-owned catalog/date labels; none are emitted. */
+export function billingMonthToolDiagnostic({phase,billingMonth,metro,labels}){
+ if(!['flow-billing-month','flow-billing-month-empty'].includes(phase))return {withheld:'outside-billing-month'};
+ const keys=[...billingMonthRoster.map(([,key])=>key),'date'];
+ if(!labels||Object.getPrototypeOf(labels)!==Object.prototype)return {withheld:'trusted-target-unavailable'};
+ const descriptors=Object.getOwnPropertyDescriptors(labels);
+ if(Reflect.ownKeys(labels).length!==keys.length||keys.some(key=>{const d=descriptors[key];return !d||!('value'in d)||!d.enumerable||typeof d.value!=='string'||d.value.length<1||d.value.length>500||/[\p{Cc}]/u.test(d.value);}))return {withheld:'trusted-target-unavailable'};
+ const date=descriptors.date.value;
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date.startsWith('0000')||!Number.isFinite(Date.parse(`${date}T00:00:00Z`))||new Date(`${date}T00:00:00Z`).toISOString().slice(0,10)!==date)return {withheld:'trusted-target-unavailable'};
+ return closedToolDiagnostic(billingMonth,metro,[...billingMonthRoster.map(([name,key])=>[name,labels[key],true]),
+  ['bankid-verify','native-personal-login',true],['personal-title','native-personal-title',true],['home-title','native-nav-month',true],['home-title','native-home-overview',true],
+  ['saved-row',phase==='flow-billing-month'?'Example streaming':'Example streaming Plus',true],['date-picker','native-home-calendar',true],['date-cell',`native-date-${date}`,true],['selected-date','native-month-selected-date',true],['expected-date',date,true],['close','native-subscription-detail-close',true]]);
+}
+
 /** One exact enrollment invocation owns the event latch. No process values escape. */
 export function createEnrollmentExecution(label) {
   if (label !== 'enroll-add') return null;
@@ -177,7 +192,7 @@ function closedToolDiagnostic(identifier, metro, targetRoster) {
     (a, b) => b[1].length - a[1].length,
   );
   for (const line of failedLines) {
-    const target = sortedTargets.find(([name, label]) => fixedInputIds.has(label)||name==='email-field'?new RegExp(`(^|[^\\w-])${label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}(?![\\w-])`).test(line):line.includes(label));
+    const target = sortedTargets.find(([name, label, exact=false]) => exact||fixedInputIds.has(label)||name==='email-field'?new RegExp(`(^|[^\\w-])${label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}(?![\\w-])`).test(line):line.includes(label));
     if (target) targets.add(target[0]);
   }
   const bundler = metroReasons

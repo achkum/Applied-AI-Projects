@@ -25,6 +25,9 @@ import {
   readdirSync,
   copyFileSync,
   statSync,
+  constants,
+  fstatSync,
+  readSync,
 } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,6 +45,7 @@ import {
 import {
   identifierToolDiagnostic,
   restartToolDiagnostic,
+  billingMonthToolDiagnostic,
   enrollmentToolDiagnostic,
   createEnrollmentExecution,
   enrollmentExecutionDiagnostic,
@@ -497,6 +501,13 @@ async function main() {
         console.error(
           `ST244_NATIVE identifier_diagnostic=fixed source=legacy-text target_observation=unobserved commands=${diagnostic.commands.join(',') || 'none'} reasons=${diagnostic.reasons.join(',') || 'none'} legacy_targets=${diagnostic.targets.join(',') || 'none'} metro=${diagnostic.metro.join(',') || 'none'} modules=${diagnostic.modules.join(',') || 'none'}`,
         );
+    }
+    if(['flow-billing-month','flow-billing-month-empty'].includes(currentPhase)){
+      // Original failed child only. No UI command, capture, raw excerpt or retry.
+      const readOwned=name=>{let fd;try{if(!Number.isInteger(constants.O_NOFOLLOW))return '';fd=openSync(join(privateDir,name),constants.O_RDONLY|constants.O_NOFOLLOW);const before=fstatSync(fd);if(!before.isFile()||before.size<1||before.size>4000000)return '';const bytes=Buffer.alloc(4000001);let size=0;while(size<bytes.length){const count=readSync(fd,bytes,size,bytes.length-size,null);if(count===0)break;size+=count;}const after=fstatSync(fd);if(size>4000000||size!==before.size||['dev','ino','size','mtimeMs','ctimeMs'].some(key=>after[key]!==before[key]))return '';return bytes.subarray(0,size).toString('utf8');}catch{return '';}finally{if(fd!==undefined)closeSync(fd);}};
+      const diagnostic=billingMonthToolDiagnostic({phase:currentPhase,billingMonth:readOwned(`${currentPhase.slice(5)}.log`),metro:readOwned('metro.log'),labels:{login:labels.MAESTRO_VERIFY_BANKID,personalTitle:labels.MAESTRO_PERSONAL_TITLE,profileTitle:labels.MAESTRO_PROFILE_PAGE_TITLE,home:labels.MAESTRO_MONTH_TITLE,nextMonth:labels.MAESTRO_MONTH_NEXT,monthTarget:fixtureMonthLabels(renewalDate).MAESTRO_MONTH_TARGET,monthPrevious:fixtureMonthLabels(renewalDate).MAESTRO_MONTH_PREVIOUS,monthEmpty:labels.MAESTRO_MONTH_EMPTY,detail:labels.MAESTRO_MONTH_DETAIL,amount:labels.MAESTRO_MONTH_AMOUNT,detailPrice:labels.MAESTRO_MONTH_DETAIL_PRICE,manual:labels.MAESTRO_MONTH_MANUAL,close:labels.MAESTRO_MONTH_CLOSE,logout:labels.MAESTRO_LOGOUT,logoutConfirmed:labels.MAESTRO_LOGOUT_CONFIRMED,date:labels.MAESTRO_MONTH_ISO}});
+      if(diagnostic.withheld)console.error(`ST244_NATIVE billing_diagnostic=withheld reason=${diagnostic.withheld}`);
+      else console.error(`ST244_NATIVE billing_diagnostic=fixed source=original-child target_observation=unobserved commands=${diagnostic.commands.join(',')||'none'} reasons=${diagnostic.reasons.join(',')||'none'} targets=${diagnostic.targets.join(',')||'none'} metro=${diagnostic.metro.join(',')||'none'} modules=${diagnostic.modules.join(',')||'none'}`);
     }
     if(['flow-restart','flow-edit-status','flow-edit-status-api-restart'].includes(currentPhase)){
       const readOwned=name=>{try{return readFileSync(join(privateDir,name),'utf8');}catch{return '';}};
