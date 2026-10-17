@@ -46,7 +46,7 @@ test('platform selection and initial flow preserve freshness while keeping all a
 test('every cold restart waits for committed Welcome before the original deep link and verification',()=>{
  for(const name of ['restart','edit-status','edit-status-api-restart','bank-retain','bank-cancel','bank-final']){
   const flow=readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n');
-  assert.ok(flow.includes("- stopApp\n- launchApp\n- runFlow:\n    when:\n      platform: Android\n    commands:\n      - extendedWaitUntil:\n          visible: ${MAESTRO_CREATE_ACCOUNT}\n          timeout: 120000\n- openLink: subtrack:///personal\n- extendedWaitUntil:\n    visible: ${MAESTRO_VERIFY_BANKID}\n    timeout: 30000"));
+  assert.ok(flow.includes("- stopApp\n- launchApp\n- runFlow:\n    when:\n      platform: Android\n    commands:\n      - extendedWaitUntil:\n          visible: ${MAESTRO_CREATE_ACCOUNT}\n          timeout: 120000\n- openLink: subtrack:///personal\n- extendedWaitUntil:\n    visible:\n      id: native-personal-login\n    timeout: 30000"));
   assert.equal(flow.split('- launchApp').length-1,1);
   assert.equal(flow.includes('clearState: true'),false);
  }

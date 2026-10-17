@@ -151,7 +151,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
   const setup = Boolean(profile && !profile.profileComplete);
   const text = { color: color('ink.primary'), fontFamily: theme.typography.fontFamily.ui, fontSize: theme.typography.fontSize.md };
   const input = [styles.input, text, { backgroundColor: color('bg.raised'), borderColor: color('line.hairline'), borderRadius: theme.radius.card }];
-  const button = (label: string, onPress: () => void, disabled = loading, selected?: boolean, primary = false) => <NativeProductButton key={label} label={label}
+  const button = (label: string, onPress: () => void, disabled = loading, selected?: boolean, primary = false, testID?: string) => <NativeProductButton {...(testID?{testID}:{})} key={label} label={label}
     variant={primary ? 'primary' : 'secondary'} selected={Boolean(selected)} disabled={disabled} onPress={onPress} />;
   const field = (label: string, value: string, onChangeText: (value: string) => void, decimal = false, testID?: string) => <View key={label} style={styles.field}>
     <Text style={text}>{label}</Text><TextInput testID={testID} accessibilityLabel={label} value={value} editable={!loading} onChangeText={onChangeText}
@@ -168,7 +168,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
     {session.phase !== 'active' ? sandbox ? inactiveContent : <>
       {button(t('onboarding.nativePersonal.verify'), () => { const ticket = ++feedbackGeneration.current; setMessage(''); void session.login().catch(() => {
         if (ticket === feedbackGeneration.current) setMessage('unavailable');
-      }); }, session.phase !== 'verification-required')}
+      }); }, session.phase !== 'verification-required',undefined,false,'native-personal-login')}
       {button(t('onboarding.nativePersonal.register'), () => { feedbackGeneration.current++; router.replace('/register'); }, session.phase !== 'verification-required')}
     </> : <>
       {loading ? <Text accessibilityLiveRegion="polite" style={text}>{t('onboarding.nativePersonal.loading')}</Text> : null}

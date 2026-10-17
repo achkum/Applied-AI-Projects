@@ -32,7 +32,7 @@ test('Maestro uses bilingual catalog labels and starts from parent logout withou
  for(const locale of ['sv','en']){const environment=flowEnvironment(locale);const catalog=JSON.parse(readFileSync(new URL(`../../../packages/i18n/catalogs/${locale}.json`,import.meta.url),'utf8')).onboarding;
   assert.equal(environment.MAESTRO_EDIT,catalog.nativeSubscriptionEdit.edit);assert.equal(environment.MAESTRO_SAVE_EDIT,catalog.nativeSubscriptionEdit.save);assert.equal(environment.MAESTRO_EDIT_SAVED,catalog.nativeSubscriptionEdit.saved);assert.equal(environment.MAESTRO_PAUSE,catalog.nativeSubscriptionEdit.pause);assert.equal(environment.MAESTRO_RESUME,catalog.nativeSubscriptionEdit.resume);assert.equal(environment.MAESTRO_MARK_CANCELLED,catalog.nativeSubscriptionEdit.cancelled);assert.equal(environment.MAESTRO_ARCHIVE,catalog.nativeSubscriptionEdit.archive);assert.equal(environment.MAESTRO_STATUS_SAVED,catalog.nativeSubscriptionEdit.statusSaved);
  }
- const flow=readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8');assert.ok(flow.indexOf('${MAESTRO_VERIFY_BANKID}')<flow.indexOf('${MAESTRO_EDIT}'));assert.match(flow,/accepted-edited-restart/);
+ const flow=readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8');assert.ok(flow.indexOf('id: native-personal-login')<flow.indexOf('${MAESTRO_EDIT}'));assert.match(flow,/accepted-edited-restart/);
  const restart=readFileSync(new URL('../e2e/private-runtime-edit-status-api-restart.yaml',import.meta.url),'utf8');assert.match(restart,/accepted-edited-api-restart/);assert.match(restart,/MAESTRO_LOGOUT_CONFIRMED/);
 });
 

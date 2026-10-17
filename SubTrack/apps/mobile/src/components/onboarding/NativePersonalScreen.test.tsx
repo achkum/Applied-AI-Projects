@@ -485,4 +485,8 @@ it.each(['en','sv'] as const)('shows a concise signed-out screen without prematu
  expect(screen.queryByText(personal.logoutConfirmed)).toBeNull();expect(screen.queryByText(personal.saved)).toBeNull();
  expect(screen.queryByRole('button',{name:personal.logout})).toBeNull();
  expect(screen.queryByRole('tab',{name:catalogs[locale].onboarding.productNav.manage})).toBeNull();
+ const login=screen.getByTestId('native-personal-login');expect(login).toBe(screen.getByRole('button',{name:personal.verify}));
+ expect(login).not.toBe(screen.getByRole('header',{name:personal.loginTitle}));
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});
+ await waitFor(()=>expect(login.props.accessibilityState.disabled).toBe(false));fireEvent.press(login);await screen.findByText(catalogs[locale].onboarding.ownerSubscriptions.empty);
 });

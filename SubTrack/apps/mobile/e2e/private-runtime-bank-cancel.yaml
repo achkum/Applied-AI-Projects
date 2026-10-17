@@ -11,9 +11,11 @@ appId: se.subtrack.app
           timeout: 120000
 - openLink: subtrack:///personal
 - extendedWaitUntil:
-    visible: ${MAESTRO_VERIFY_BANKID}
+    visible:
+      id: native-personal-login
     timeout: 30000
-- tapOn: ${MAESTRO_VERIFY_BANKID}
+- tapOn:
+    id: native-personal-login
 - extendedWaitUntil:
     visible: Example streaming Plus
     timeout: 30000

@@ -3,9 +3,11 @@ appId: se.subtrack.app
 # Previous parent flow ends logged out. Verify fresh authority, then open agenda.
 - openLink: subtrack:///personal
 - extendedWaitUntil:
-    visible: ${MAESTRO_VERIFY_BANKID}
+    visible:
+      id: native-personal-login
     timeout: 30000
-- tapOn: ${MAESTRO_VERIFY_BANKID}
+- tapOn:
+    id: native-personal-login
 - extendedWaitUntil:
     visible: Example streaming
     timeout: 30000
