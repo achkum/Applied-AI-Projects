@@ -14,15 +14,15 @@ export function AnalyticsText({ children, kind = 'body' }: { children: React.Rea
   return <Text {...(kind === 'hero' ? { numberOfLines: 1, adjustsFontSizeToFit: true, minimumFontScale: 0.4, allowFontScaling: true } : {})} style={{ color: getColorByTheme(theme, isDark, kind === 'muted' ? 'ink.secondary' : 'ink.primary'),
     fontFamily: theme.typography.fontFamily[kind === 'hero' ? 'display.extraBold' : kind === 'amount' ? 'display' : kind === 'title' ? 'ui.medium' : 'ui'],
     fontSize: theme.typography.fontSize[kind === 'hero' ? typeof children === 'string' && children.length > 18 ? '2xl' : 'total' : kind === 'amount' ? '2xl' : kind === 'muted' ? 'sm' : 'md'],
-    ...(kind === 'hero' ? { textAlign: 'right' as const, fontVariant: ['tabular-nums' as const], alignSelf: 'stretch' as const, minWidth: 0 } : {}) }}>{children}</Text>;
+    ...(kind === 'hero' ? { textAlign: 'left' as const, fontVariant: ['tabular-nums' as const], alignSelf: 'stretch' as const, minWidth: 0 } : {}) }}>{children}</Text>;
 }
-export function AnalyticsMoney({ value, kind = 'amount' }: { value: Money; kind?: 'body' | 'muted' | 'title' | 'amount' | 'hero' }) {
+export function AnalyticsMoney({ value, kind = 'amount', heroPeriod }: { value: Money; kind?: 'body' | 'muted' | 'title' | 'amount' | 'hero'; heroPeriod?: string }) {
   const { locale } = useI18n();
   const formatted = formatMinorUnits(value.minorUnits, value.currency, { locale, display: 'code' });
   if (kind === 'hero') {
     // Presentation only: preserve the exact bigint-formatted digits and locale separators.
     const numeric = formatted.endsWith(value.currency) ? formatted.slice(0, -value.currency.length).trimEnd() : formatted.startsWith(value.currency) ? formatted.slice(value.currency.length).trimStart() : formatted;
-    return <View accessible accessibilityLabel={formatted} style={{ width: '100%', alignItems: 'flex-end', gap: 4 }}><AnalyticsText kind="hero">{numeric}</AnalyticsText><AnalyticsText kind="muted">{value.currency}</AnalyticsText></View>;
+    return <View accessible accessibilityLabel={formatted} accessibilityHint={heroPeriod} style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}><View style={{ flexShrink: 1, minWidth: 0 }}><AnalyticsText kind="hero">{numeric}</AnalyticsText></View><View style={{ paddingBottom: 6, maxWidth: '40%' }}><AnalyticsText kind="muted">{heroPeriod ? `${value.currency} ${heroPeriod}` : value.currency}</AnalyticsText></View></View>;
   }
   return <AnalyticsText kind={kind}>{formatted}</AnalyticsText>;
 }

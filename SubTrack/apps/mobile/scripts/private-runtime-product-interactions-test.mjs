@@ -67,15 +67,15 @@ test('Upcoming is reached through Home and empty-day selection is asserted witho
   }
   const day = read('month-day');
   assert.ok(!day.includes('MAESTRO_RIBBON_DIRECTION'));
-  assert.ok(!day.includes('scrollUntilVisible:'));
-  assert.ok(day.includes('direction: LEFT'));
-  assert.ok(day.endsWith('- assertVisible:\n    text: ${MAESTRO_MONTH_DAY}\n    selected: true\n'));
+  assert.ok(day.includes('id: native-home-calendar\n    direction: UP'));
+  assert.ok(day.includes('id: native-date-${MAESTRO_MONTH_ISO}'));
+  assert.ok(day.endsWith('- assertVisible:\n    id: native-month-selected-date\n    text: ${MAESTRO_MONTH_ISO}\n'));
   for (const name of ['billing-month', 'billing-month-empty']) {
     const flow = read(name);
     assert.ok(flow.includes('- scrollUntilVisible:\n    element: ${MAESTRO_MONTH_NEXT}\n    direction: DOWN\n# Only an exact previous-month header'));
     assert.ok(!flow.includes('MAESTRO_RIBBON_DIRECTION'));
     assert.equal(flow.split('- runFlow: private-runtime-month-day.yaml').length - 1, 2);
-    assert.ok(flow.includes('id: native-month-ribbon\n    direction: DOWN\n- runFlow: private-runtime-month-day.yaml'));
+    assert.ok(!flow.includes('native-month-ribbon'));
   }
   const empty = read('billing-month-empty');
   assert.equal(empty.split('- assertNotVisible: ${MAESTRO_MONTH_DAY_EMPTY}').length - 1, 2);
@@ -92,5 +92,5 @@ test('actual recursive YAML directions use pinned Maestro enum literals rather t
  for(const name of ['billing-month','billing-month-empty','month-day','pick-renewal-date','enroll-add','edit-status'])for(const document of yaml.parseAllDocuments(read(name)))validate(document.toJSON());
  for(const name of ['setup','bank','manage','pages','restart'])for(const document of yaml.parseAllDocuments(readFileSync(new URL(`../e2e/sandbox-product-${name}.yaml`,import.meta.url),'utf8')))validate(document.toJSON());
  assert.throws(()=>validate({runFlow:{commands:[{scrollUntilVisible:{element:{id:'native-month-ribbon'},direction:'${MAESTRO_RIBBON_DIRECTION}'}}]}}),/enum literal/);
- const positive=read('billing-month'),empty=read('billing-month-empty');assert.ok(positive.includes('id: native-month-ribbon\n    direction: UP\n- runFlow: private-runtime-month-day.yaml'));assert.equal(empty.split('id: native-month-ribbon\n    direction: DOWN\n- runFlow: private-runtime-month-day.yaml').length-1,2);
+ for(const name of ['billing-month','billing-month-empty'])assert.equal(read(name).split('- runFlow: private-runtime-month-day.yaml').length-1,2);
 });

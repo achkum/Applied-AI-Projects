@@ -197,6 +197,7 @@ async function main() {
   const renewalDate=renewalCandidateDate();
   const labels = {...flowEnvironment(),MAESTRO_RENEWAL_DATE:renewalDate};
   labels.MAESTRO_MONTH_DAY=labels.MAESTRO_MONTH_DAY_TEMPLATE.replace('%{date}',renewalDate);
+  labels.MAESTRO_MONTH_ISO=renewalDate;
   labels.MAESTRO_MONTH_SAVED_DATE=labels.MAESTRO_MONTH_SAVED_DATE_TEMPLATE.replace('%{date}',renewalDate);
   async function flow(name, extraEnv = {}) {
     const calendarEnv=(name==='billing-month'||name==='billing-month-empty')?fixtureMonthLabels(renewalDate):{};

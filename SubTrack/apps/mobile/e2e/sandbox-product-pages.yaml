@@ -18,8 +18,8 @@ appId: se.subtrack.app.sandbox
 - tapOn:
     id: native-date-${TODAY}
 - assertVisible:
-    text: .*${TODAY}.*
-    selected: true
+    id: native-month-selected-date
+    text: ${TODAY}
 - scrollUntilVisible:
     element: ${E_DETAIL_AURORA_PLUS}
     direction: DOWN

@@ -138,4 +138,13 @@ it('keeps the Home household scope, calendar rows and exact totals consistent wi
  fireEvent.press(screen.getByTestId('native-home-scope-everyone'));
  expect(screen.getByRole('button',{name:detail(first.customName)})).toBeTruthy();expect(reader).toHaveBeenCalledTimes(1);expect(readProjection).toHaveBeenCalledTimes(1);
  expect(screen.getByTestId('native-home-calendar')).toBeTruthy();
+ // The reference overview fits the whole month; precise accessible selection uses the real picker.
+ const chart=screen.getByTestId('native-month-ribbon');
+ fireEvent(chart,'layout',{nativeEvent:{layout:{width:310}}});
+ fireEvent.press(chart,{nativeEvent:{locationX:295}});
+ expect(screen.getByTestId('native-month-selected-date').props.children).toBe('2026-03-30');
+ fireEvent.press(screen.getByTestId('native-home-calendar'));
+ fireEvent.press(screen.getByTestId('native-date-2026-03-05'));
+ expect(screen.getByTestId('native-month-selected-date').props.children).toBe('2026-03-05');
+ expect(screen.queryByTestId('native-date-2026-03-05')).toBeNull();
 });

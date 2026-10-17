@@ -36,10 +36,6 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_TARGET}
     timeout: 30000
-- scrollUntilVisible:
-    element:
-      id: native-month-ribbon
-    direction: DOWN
 - runFlow: private-runtime-month-day.yaml
 - assertVisible: Example streaming
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}
@@ -47,10 +43,6 @@ appId: se.subtrack.app
     element: ${MAESTRO_MONTH_REFRESH}
     direction: DOWN
 - tapOn: ${MAESTRO_MONTH_REFRESH}
-- scrollUntilVisible:
-    element:
-      id: native-month-ribbon
-    direction: UP
 - runFlow: private-runtime-month-day.yaml
 - assertVisible: Example streaming
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}
