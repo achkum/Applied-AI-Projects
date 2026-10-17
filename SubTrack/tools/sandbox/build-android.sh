@@ -142,7 +142,7 @@ tools="${ANDROID_HOME:?}/build-tools/36.0.0"
 [[ -x "$tools/apksigner" && -x "$tools/zipalign" ]]
 [[ -x "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" ]]
 stage=GRADLE
-if (cd android && ./gradlew :app:assembleRelease --no-daemon --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m') > "$private/build.log" 2>&1; then :
+if (cd android && ./gradlew :app:assembleRelease --no-daemon --build-cache --init-script ../scripts/private-runtime-gradle-cache.init.gradle --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m') > "$private/build.log" 2>&1; then :
 else
   node "$root/tools/sandbox/android-release-receipt.mjs" build-diagnostic "$private/build.log" >&2 || true
   exit 1
