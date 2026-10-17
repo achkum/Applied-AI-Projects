@@ -6,6 +6,14 @@ on:
       - "SubTrack/apps/api/**"
       - "SubTrack/packages/contracts/**"
       - "SubTrack/packages/i18n/**"
+      - "SubTrack/packages/money/**"
+      - "SubTrack/packages/domain/**"
+      - "SubTrack/packages/synthetic/**"
+      - "SubTrack/packages/ui-tokens/**"
+      - "SubTrack/packages/config/**"
+      - "SubTrack/package.json"
+      - "SubTrack/pnpm-lock.yaml"
+      - "SubTrack/pnpm-workspace.yaml"
       - "SubTrack/tools/database/private-mobile*"
       - ".github/workflows/subtrack-native-device-proof.yml"
   workflow_dispatch:
@@ -26,13 +34,42 @@ concurrency:
   group: subtrack-native-device-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
+  select-proof:
+    name: Select affected native proof
+    runs-on: ubuntu-24.04
+    outputs:
+      scope: ${{ steps.select.outputs.scope }}
+      selection: ${{ steps.select.outputs.selection }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.14.0"
+      - id: select
+        env:
+          ST_PROOF_BASE: ${{ github.event.pull_request.base.sha }}
+          ST_PROOF_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          ST_PROOF_EVENT: ${{ github.event_name }}
+          ST_PROOF_REQUESTED: ${{ inputs.proof_scope }}
+        run: |
+          if [ "$ST_PROOF_EVENT" = pull_request ]; then
+            git fetch --no-tags --depth=1 origin "$ST_PROOF_BASE"
+            node SubTrack/apps/mobile/scripts/private-runtime-change-scope.mjs
+          else
+            case "$ST_PROOF_REQUESTED" in profile|full) ;; *) exit 1;; esac
+            printf 'scope=%s\nselection=manual\n' "$ST_PROOF_REQUESTED" >> "$GITHUB_OUTPUT"
+          fi
   installed-native:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_scope == 'profile' && 'Android profile and restart (scoped)' || format('Installed {0} restart readback', matrix.platform) }}
+    needs: select-proof
+    name: ${{ needs.select-proof.outputs.scope == 'profile' && 'Android profile and restart (scoped)' || format('Installed {0} restart readback', matrix.platform) }}
     strategy:
       fail-fast: false
       max-parallel: 2
       matrix:
-        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.platform == 'android' && '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"}]' || '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"},{"platform":"ios","runner":"macos-15","database_mode":"local"}]') }}
+        include: ${{ fromJSON((needs.select-proof.outputs.scope == 'profile' || github.event_name == 'workflow_dispatch' && inputs.platform == 'android') && '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"}]' || '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"},{"platform":"ios","runner":"macos-15","database_mode":"local"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     defaults:
@@ -40,7 +77,8 @@ jobs:
         shell: bash
         working-directory: SubTrack
     env:
-      SUBTRACK_NATIVE_PROOF_SCOPE: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_scope || 'full' }}
+      SUBTRACK_NATIVE_PROOF_SCOPE: ${{ needs.select-proof.outputs.scope }}
+      SUBTRACK_NATIVE_PROOF_SELECTION: ${{ needs.select-proof.outputs.selection }}
       CI: "true"
       EXPO_NO_TELEMETRY: "1"
       MAESTRO_CLI_NO_ANALYTICS: "true"

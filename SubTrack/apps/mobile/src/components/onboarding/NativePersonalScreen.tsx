@@ -7,6 +7,7 @@ import type { ProfileView, PrivateOwnerSubscriptionView } from '../../../../../p
 import { isCanonicalDisplayName, parseProfilePatch } from '@subtrack/contracts/profile';
 import { parsePrivateMobileManualEdit } from '@subtrack/contracts/private-mobile';
 import { parsePrivateManualCreate } from '@subtrack/contracts/private-onboarding';
+import {customCategoryLabel} from '@subtrack/contracts/subscription-category';
 import { useNativeSession } from '@/state/NativeSession';
 import * as privateApi from '@/api/privateMobileApi';
 import { parsePositiveSekInput, formatMinorUnits, nativeSekDraft } from '@/api/privateMobileMoney';
@@ -17,7 +18,9 @@ import { catalogs } from '@subtrack/i18n';
 import { readAllOwnerSubscriptions, projectOwnerSubscriptions } from '@/api/privateMobileSubscriptionList';
 import { BillingIcon } from '../billing/BillingIcon';
 import { NativeProductButton, NativeProductCard, NativeProductHeading } from '../billing/NativeProductUI';
-import { NativeProductNav, type NativeProductDestination } from '../billing/NativeProductNav';
+import { NativeProductNav, nativeProductRoutes, type NativeProductDestination } from '../billing/NativeProductNav';
+import {NativeDatePicker} from '../billing/NativeDatePicker';
+import {NativeCategoryField} from './NativeCategoryField';
 
 export type NativeFeatureSession = Pick<ReturnType<typeof useNativeSession>, 'phase' | 'login' | 'refresh' | 'logout' | 'run'>;
 export type NativePersonalApi = Pick<typeof privateApi, 'readNativeProfile' | 'saveNativeProfile' | 'readNativeMode' | 'chooseNativeJustMe' | 'readNativeSubscriptions' | 'createNativeSubscription' | 'editNativeSubscription' | 'updateNativeSubscriptionStatus'>;
@@ -47,20 +50,24 @@ export function validateManualDraft(draft: ManualDraft, locale: 'sv' | 'en'):
       expectedAmountMinor, nextChargeDate: draft.date || null }), error: null };
   } catch { return { body: null, error: 'invalidDate' }; }
 }
-export function NativePersonalScreen({ useSession = useNativeSession, api = privateApi, sandbox = false, inactiveContent, onSetupComplete }: {
-  useSession?: () => NativeFeatureSession; api?: NativePersonalApi; sandbox?: boolean; inactiveContent?: React.ReactNode; onSetupComplete?: (reason: 'load' | 'mutation') => void;
+export function NativePersonalScreen({ useSession = useNativeSession, api = privateApi, sandbox = false, inactiveContent, onSetupComplete, page:initialPage = 'subscriptions' }: {
+  useSession?: () => NativeFeatureSession; api?: NativePersonalApi; sandbox?: boolean; inactiveContent?: React.ReactNode; onSetupComplete?: (reason: 'load' | 'mutation') => void; page?:'subscriptions'|'profile';
 } = {}) {
   const session = useSession(); const router = useRouter(); const { t, locale, setLocale } = useI18n(); const { theme, isDark, setMode: setThemeMode } = useTheme();
+  const [page,setPage]=useState(initialPage);
+  React.useEffect(()=>setPage(initialPage),[initialPage]);
   const { readNativeProfile, saveNativeProfile, readNativeMode, chooseNativeJustMe, createNativeSubscription, editNativeSubscription, updateNativeSubscriptionStatus } = api;
   const readNativeSubscriptions: NativePersonalApi['readNativeSubscriptions'] = async (...args) => {
     const page = await api.readNativeSubscriptions(...args);
-    if (sandbox && page.items.some(row => row.source !== 'MANUAL' || row.currency !== 'SEK' || !row.alwaysPrivate)) throw new Error('Sandbox rows unavailable');
+    if (sandbox && page.items.some(row => row.currency !== 'SEK' || !row.alwaysPrivate)) throw new Error('Sandbox rows unavailable');
     return page;
   };
   const color = (key: string) => getColorByTheme(theme, isDark, key);
   const [profile, setProfile] = useState<ProfileView | null>(null); const [mode, setMode] = useState<'just-me' | null>(null);
   const [items, setItems] = useState<PrivateOwnerSubscriptionView[]>([]); const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
+  const [categoryFilter,setCategoryFilter]=useState<string|null>(null);
+  const [expandedRow,setExpandedRow]=useState<string|null>(null);
   const request = useRef<AbortController | null>(null);
   const [message, setMessage] = useState(''); const [adding, setAdding] = useState(false); const [name, setName] = useState('');
   const [emoji, setEmoji] = useState(''); const [language, setLanguage] = useState<'sv' | 'en'>(locale);
@@ -86,7 +93,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
     if (ticket !== generation.current) return;
     await setThemeMode(current.theme);
   }
-  function clear() { setProfile(null); setMode(null); setItems([]); setQuery('');request.current?.abort();request.current=null; setAdding(false); setEditing(null); setReview(null); setReviewBlocked(false); setName(''); setEmoji(''); setDraft({ customName: '', categoryCode: '', cadence: 'MONTHLY', amount: '', date: '' }); }
+  function clear() { setPage(initialPage); setProfile(null); setMode(null); setItems([]); setQuery('');setCategoryFilter(null);setExpandedRow(null);request.current?.abort();request.current=null; setAdding(false); setEditing(null); setReview(null); setReviewBlocked(false); setName(''); setEmoji(''); setDraft({ customName: '', categoryCode: '', cadence: 'MONTHLY', amount: '', date: '' }); }
   async function load() {
     if (pending.current || session.phase !== 'active') return;
     const ticket = ++generation.current; pending.current = true; setLoading(true); setMessage('');
@@ -145,8 +152,9 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
     return readAllOwnerSubscriptions(cursor => cursor === undefined ? readNativeSubscriptions(token, signal) : readNativeSubscriptions(token, signal, cursor), signal);
   }
   const categoryLabel = (code: string) => Object.prototype.hasOwnProperty.call(catalogs[locale].onboarding.ownerSubscriptions.category, code)
-    ? t(`onboarding.ownerSubscriptions.category.${code}`) : t('onboarding.ownerSubscriptions.categoryFallback');
-  const projection = projectOwnerSubscriptions(items, query, { categories: catalogs[locale].onboarding.ownerSubscriptions.category, categoryFallback: t('onboarding.ownerSubscriptions.categoryFallback'), unnamed: t('onboarding.ownerSubscriptions.categoryFallback') });
+    ? t(`onboarding.ownerSubscriptions.category.${code}`) : customCategoryLabel(code) ?? t('onboarding.ownerSubscriptions.categoryFallback');
+  const allGroups = projectOwnerSubscriptions(items, '', { categories: catalogs[locale].onboarding.ownerSubscriptions.category, categoryFallback: t('onboarding.ownerSubscriptions.categoryFallback'), unnamed: t('onboarding.ownerSubscriptions.categoryFallback') }).groups;
+  const projection = projectOwnerSubscriptions(categoryFilter===null?items:items.filter(item=>item.categoryCode===categoryFilter), query, { categories: catalogs[locale].onboarding.ownerSubscriptions.category, categoryFallback: t('onboarding.ownerSubscriptions.categoryFallback'), unnamed: t('onboarding.ownerSubscriptions.categoryFallback') });
   const ready = profile?.profileComplete && mode === 'just-me';
   const setup = Boolean(profile && !profile.profileComplete);
   const text = { color: color('ink.primary'), fontFamily: theme.typography.fontFamily.ui, fontSize: theme.typography.fontSize.md };
@@ -157,11 +165,11 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
     <Text style={text}>{label}</Text><TextInput testID={testID} accessibilityLabel={label} value={value} editable={!loading} onChangeText={onChangeText}
       autoCorrect={false} autoCapitalize="none" keyboardType={decimal ? 'decimal-pad' : 'default'} style={input} /></View>;
   const navigate = (destination: NativeProductDestination) => {
-    if (destination === 'month') router.replace('/personal-billing-month');
-    else if (destination === 'upcoming') router.replace('/personal-home');
+    if(destination==='profile'||destination==='manage'){setPage(destination==='profile'?'profile':'subscriptions');setAdding(false);setEditing(null);setReview(null);setReviewBlocked(false);}
+    router.replace(nativeProductRoutes[destination]);
   };
   return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView style={{ backgroundColor: color('bg.canvas') }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-    <NativeProductHeading testID="native-personal-title" title={session.phase!=='active'?t('onboarding.nativePersonal.loginTitle'):setup?t('onboarding.profile.title'):ready?t('onboarding.productNav.manage'):t('onboarding.mode.title')} />
+    <NativeProductHeading testID="native-personal-title" title={session.phase!=='active'?t('onboarding.nativePersonal.loginTitle'):setup?t('onboarding.profile.title'):ready?t(page==='profile'?'onboarding.productNav.profile':'onboarding.productNav.manage'):t('onboarding.mode.title')} />
     {session.phase === 'storage-error' ? <Text accessibilityRole="alert" style={text}>{t('onboarding.nativePersonal.storageError')}</Text> : null}
     {message && !(message==='storageError' && session.phase==='storage-error') ? <Text accessibilityRole="alert" style={text}>{t(message.startsWith('edit.') ? `onboarding.nativeSubscriptionEdit.${message.slice(5)}` : message.startsWith('manualSubscription.') ? `onboarding.${message}` : `onboarding.nativePersonal.${message}`)}</Text> : null}
     {session.phase !== 'active' ? sandbox ? inactiveContent : <>
@@ -190,13 +198,17 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
         if (current.mode !== 'just-me') throw new Error('mode'); const page = await rereadLoaded(token, signal);
         return () => { setMode(current.mode); setItems(page.items); if (onSetupComplete && !setupCompletionNotified.current) { setupCompletionNotified.current = true; onSetupComplete('mutation'); } };
       }); }, loading, undefined, true) : null}
+      {profile?.profileComplete && mode !== 'just-me' ? button(t('onboarding.mode.household'), () => {void action(async(token,signal)=>{
+        await chooseNativeJustMe(token,signal);const current=await readNativeMode(token,signal);if(current.mode!=='just-me')throw new Error('mode');
+        return ()=>{setMode(current.mode);router.replace('/personal-household');};
+      });},loading) : null}
       {profile?.profileComplete && mode === 'just-me' ? <>
-        {!adding ? button(t('onboarding.manualSubscription.title'), () => { setEditing(null); setReview(null); setReviewBlocked(false); setDraft({ customName: '', categoryCode: '', cadence: 'MONTHLY', amount: '', date: '' }); setAdding(true); }, loading, undefined, true) : null}
-        {!adding ? <NativeProductCard>
-        <NativeProductHeading title={t('onboarding.ownerSubscriptions.title')} />
-        <Text style={text}>{t('onboarding.nativePersonal.language')}</Text><View style={styles.actions}>{(['sv', 'en'] as const).map(value => button(t(`preferences.languageName.${value}`), () => setLanguage(value), loading, language === value))}</View>
+        {!adding && page==='subscriptions' ? button(t('onboarding.manualSubscription.title'), () => { setEditing(null); setReview(null); setReviewBlocked(false); setDraft({ customName: '', categoryCode: '', cadence: 'MONTHLY', amount: '', date: '' }); setAdding(true); }, loading, undefined, true) : null}
+        {!adding && page==='profile' ? <NativeProductCard>
+        <View style={styles.subscriptionRow}><View style={[styles.avatar,{backgroundColor:color('bg.raised'),borderRadius:theme.radius.pill}]}><Text style={{...text,fontSize:theme.typography.fontSize['2xl']}}>{profile.avatarEmoji??profile.displayName?.slice(0,1)}</Text></View><NativeProductHeading title={profile.displayName??t('onboarding.productNav.profile')}/></View>
+        <Text style={text}>{t('onboarding.nativePersonal.language')}</Text><View style={styles.actions}>{(['sv', 'en'] as const).map(value => button(t(`preferences.languageName.${value}`), () => setLanguage(value), loading, language === value, false, `native-profile-language-${value}`))}</View>
         <Text style={text}>{t('onboarding.nativePersonal.theme')}</Text>
-        <View style={styles.actions}>{(['system', 'light', 'dark'] as const).map(value => button(t(`preferences.themes.${value}`), () => setProfileTheme(value), loading, profileTheme === value))}</View>
+        <View style={styles.actions}>{(['system', 'light', 'dark'] as const).map(value => button(t(`preferences.themes.${value}`), () => setProfileTheme(value), loading, profileTheme === value, false, `native-profile-theme-${value}`))}</View>
         {button(t('onboarding.nativePersonal.savePreferences'), () => {
           if (!profile) return;
           let patch; try { patch = parseProfilePatch({ language, theme: profileTheme }); }
@@ -204,10 +216,13 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
           void action(async (token, signal) => { await saveNativeProfile(patch, token, signal); const current = await readNativeProfile(token, signal);
             return async ticket => { await applyPreferences(current, ticket); if (ticket !== generation.current) return;
               setProfile(current); setLanguage(current.language); setProfileTheme(current.theme); setMessage('profileSaved'); }; });
-        }, loading, undefined, true)}
-        {button(t('onboarding.nativeDetection.open'), () => router.push('/personal-detections'), loading || sandbox)}
-        {button(t('onboarding.nativeBank.open'), () => router.push('/personal-bank'), loading || sandbox)}
-        {sandbox ? <Text style={text}>{t('onboarding.sandbox.manageUnavailable')}</Text> : null}
+        }, loading, undefined, true, 'native-profile-save-preferences')}
+        {button(t('onboarding.nativeBank.open'), () => router.push('/personal-bank'), loading)}
+        {button(t('onboarding.productNav.household'), () => router.push('/personal-household'), loading)}
+        </NativeProductCard> : null}
+        {!adding && page==='subscriptions' ? <View style={styles.field}>
+        {button(t('onboarding.nativeDetection.open'), () => router.push('/personal-detections'), loading)}
+        {button(t('onboarding.nativeBank.open'), () => router.push('/personal-bank'), loading)}
         {items.length === 0 && !loading ? <Text style={text}>{t('onboarding.ownerSubscriptions.empty')}</Text> : null}
         <View style={styles.search}>
           <Text style={text}>{t('onboarding.ownerSubscriptionList.search')}</Text>
@@ -216,16 +231,23 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
             {query ? <Pressable accessibilityRole="button" accessibilityLabel={t('onboarding.ownerSubscriptionList.clear')} disabled={loading}
               accessibilityState={{disabled:loading}} onPress={()=>setQuery('')} style={styles.clearSearch}><BillingIcon name="close" color={color('action.accent')}/></Pressable> : null}</View>
         </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actions} accessibilityLabel={t('onboarding.manualSubscription.category')}>
+          {button(t('nativeProductDetails.allCategories'),()=>setCategoryFilter(null),loading,categoryFilter===null)}
+          {allGroups.filter(group=>group.categoryCode!==null).map(group=>button(group.label,()=>setCategoryFilter(group.categoryCode),loading,categoryFilter===group.categoryCode))}
+        </ScrollView>
         {!loading && items.length>0 && projection.filteredCount===0 ? <Text accessibilityLiveRegion="polite" style={text}>{t('onboarding.ownerSubscriptionList.noMatch')}</Text> : null}
         {projection.groups.map(group=><View key={group.categoryCode??'fallback'} style={[styles.group,{backgroundColor:color('bg.surface'),borderColor:color('line.hairline'),borderRadius:theme.radius.card}]}>
           <Text accessibilityRole="header" style={[text,{fontFamily:theme.typography.fontFamily['ui.semibold']}]}>{group.label}</Text>
-          {group.totals.length>0 ? <View style={styles.subtotals}><Text style={[text,{color:color('ink.secondary'),fontSize:theme.typography.fontSize.sm}]}>{t('onboarding.ownerSubscriptionList.expectedSubtotal')}</Text>
+          {group.totals.length>0 ? <View style={styles.subtotals}>
             {group.totals.map(total=><Text key={total.amount.currency+':'+total.cadence} style={[text,styles.amount]}>{t(`onboarding.ownerSubscriptions.cadence.${total.cadence}`)} · {formatMinorUnits(total.amount.minorUnits,total.amount.currency,{locale,display:'code'})}</Text>)}</View> : null}
-        {group.items.map(item => <View key={item.id} style={styles.field}><Text style={text}>{item.customName ?? item.merchantName ?? t('onboarding.ownerSubscriptions.categoryFallback')}</Text>
-          <Text style={text}>{t(`onboarding.ownerSubscriptions.status.${item.status}`)}</Text>
-          <Text style={text}>{formatMinorUnits(BigInt(item.expectedAmountMinor), item.currency, { locale, display: 'code' })}</Text>
-          {!sandbox && item.source === 'DETECTED' ? <><Text style={text}>{t('onboarding.nativeDetection.detected')}</Text>{button(t('onboarding.nativeDetection.open'), () => router.push('/personal-detections'))}</> : null}
-          {item.source === 'MANUAL' && item.currency === 'SEK' && item.cadence !== 'CUSTOM' ? <>
+        {group.items.map(item => <View key={item.id} style={styles.field}>
+          <Pressable testID={`native-subscription-row-${item.id}`} accessibilityRole="button" accessibilityLabel={item.customName??item.merchantName??categoryLabel(item.categoryCode)} accessibilityState={{expanded:expandedRow===item.id}} onPress={()=>setExpandedRow(prior=>prior===item.id?null:item.id)} style={styles.subscriptionRow}>
+            <View style={[styles.avatar,{backgroundColor:color('bg.raised'),borderRadius:theme.radius.card}]}><Text style={{...text,fontFamily:theme.typography.fontFamily['ui.semibold']}}>{(item.customName??item.merchantName??group.label).slice(0,1)}</Text></View>
+            <View style={styles.subscriptionName}><Text style={{...text,fontFamily:theme.typography.fontFamily['ui.semibold']}}>{item.customName??item.merchantName??group.label}</Text><Text style={{...text,color:color('ink.secondary'),fontSize:theme.typography.fontSize.sm}}>{t(`onboarding.ownerSubscriptions.cadence.${item.cadence}`)}{item.status==='ACTIVE'?'':` · ${t(`onboarding.ownerSubscriptions.status.${item.status}`)}`}</Text></View>
+            <Text style={[text,styles.amount]}>{formatMinorUnits(BigInt(item.expectedAmountMinor), item.currency, { locale, display: 'code' })}</Text>
+          </Pressable>
+          {expandedRow===item.id&&item.source === 'DETECTED'&&item.status==='DETECTED' ? <>{button(t('onboarding.nativeDetection.open'),()=>router.push('/personal-detections'))}</> : null}
+          {expandedRow===item.id&&(item.source === 'MANUAL'||sandbox&&item.source==='DETECTED'&&['ACTIVE','PAUSED','CANCELLED','ARCHIVED'].includes(item.status)) && item.currency === 'SEK' && item.cadence !== 'CUSTOM' ? <>
             {button(t('onboarding.nativeSubscriptionEdit.edit'), () => {
               let amount; try { amount = nativeSekDraft(item.expectedAmountMinor, locale); } catch { setMessage('invalid'); return; }
               setEditing(item); setReview(null); setReviewBlocked(false); setAdding(true); setMessage('');
@@ -245,7 +267,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
           </> : null}</View>)}
         </View>)}
         {button(t('onboarding.nativePersonal.reload'), () => { void load(); })}
-        </NativeProductCard> : null}
+        </View> : null}
         {adding ? <NativeProductCard>
           {review ? <><Text style={text}>{review.customName} · {categoryLabel(review.categoryCode)} · {t(`onboarding.ownerSubscriptions.cadence.${review.cadence}`)} · {formatMinorUnits(BigInt(review.expectedAmountMinor), review.currency, {locale, display:'code'})} · {review.nextChargeDate ?? t('onboarding.manualSubscription.placeholder')} · {t(`onboarding.ownerSubscriptions.status.${review.status}`)}</Text>
             {button(t('onboarding.nativeSubscriptionEdit.review'), () => { setEditing(review); setReview(null); setReviewBlocked(false); setMessage(''); })}</> : null}
@@ -254,14 +276,11 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
               return () => { setItems(page.items);  setReview(current ?? null); setReviewBlocked(!current); setMessage(current ? 'edit.conflict' : 'readbackUnavailable'); }; });
           }) : null}
           {field(t('onboarding.manualSubscription.name'), draft.customName, value => setDraft(prior => ({ ...prior, customName: value })), false, 'native-subscription-name')}
-          <Text style={text}>{t('onboarding.manualSubscription.category')}</Text><View style={styles.actions}>{Object.entries(catalogs[locale].onboarding.ownerSubscriptions.category).map(([code, label]) =>
-            button(label, () => setDraft(prior => ({ ...prior, categoryCode: code })), loading, draft.categoryCode === code))}</View>
-          <Text style={text}>{draft.categoryCode ? categoryLabel(draft.categoryCode) : t('onboarding.manualSubscription.placeholder')}</Text>
+          <NativeCategoryField value={draft.categoryCode} onChange={categoryCode=>setDraft(prior=>({...prior,categoryCode}))} disabled={loading}/>
           <Text style={text}>{t('onboarding.manualSubscription.cadence')}</Text><View style={styles.actions}>{(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMIANNUAL', 'ANNUAL'] as const).map(code =>
             button(t(`onboarding.ownerSubscriptions.cadence.${code}`), () => setDraft(prior => ({ ...prior, cadence: code })), loading, draft.cadence === code))}</View>
-          <Text style={text}>{t(`onboarding.ownerSubscriptions.cadence.${draft.cadence}`)}</Text>
           {field(t('onboarding.nativePersonal.amount'), draft.amount, value => setDraft(prior => ({ ...prior, amount: value })), true, 'native-subscription-amount')}
-          {field(t('onboarding.nativePersonal.date'), draft.date, value => setDraft(prior => ({ ...prior, date: value })), false, 'native-subscription-date')}
+          <NativeDatePicker label={t('onboarding.nativePersonal.date')} value={draft.date} onChange={date=>setDraft(prior=>({...prior,date}))} disabled={loading} testID="native-subscription-date"/>
           {button(t(editing ? 'onboarding.nativeSubscriptionEdit.save' : 'onboarding.manualSubscription.save'), () => {
             if (review || reviewBlocked) return;
             const validated = validateManualDraft(draft, locale);
@@ -287,11 +306,12 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
         </NativeProductCard> : null}
       </> : null}
     </>}
-    {session.phase!=='active'||profile?.profileComplete?<NativeSessionExit phase={session.phase} onExit={() => { const exitPhase=session.phase; const ticket = ++feedbackGeneration.current; generation.current++; pending.current = false; setLoading(false); clear(); setMessage('');
+    {session.phase!=='active'||profile?.profileComplete&&page==='profile'?<NativeSessionExit phase={session.phase} onExit={() => { const exitPhase=session.phase; const ticket = ++feedbackGeneration.current; generation.current++; pending.current = false; setLoading(false); clear(); setMessage('');
       void session.logout().then(ack => { if (ticket === feedbackGeneration.current) setMessage(sessionExitFeedback(exitPhase,ack)); })
         .catch(() => { if (ticket === feedbackGeneration.current) setMessage('storageError'); }); }}/>:null}
-  </ScrollView>{ready ? <NativeProductNav active="manage" onNavigate={navigate} /> : null}</SafeAreaView>;
+  </ScrollView>{ready ? <NativeProductNav active={page==='profile'?'profile':'manage'} onNavigate={navigate} /> : null}</SafeAreaView>;
 }
 const styles = StyleSheet.create({ content: { flexGrow: 1, padding: 20, gap: 16 }, field: { gap: 8 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  subscriptionRow:{flexDirection:'row',alignItems:'center',gap:12,minHeight:64},subscriptionName:{flex:1,minWidth:0,gap:4},avatar:{minWidth:44,minHeight:44,alignItems:'center',justifyContent:'center'},
   search:{gap:8},searchControls:{flexDirection:'row',alignItems:'center',gap:8},searchInput:{flex:1,minWidth:0},clearSearch:{minWidth:48,minHeight:48,alignItems:'center',justifyContent:'center'},group:{padding:16,gap:16,borderWidth:1},subtotals:{gap:4},amount:{textAlign:'right',fontVariant:['tabular-nums'],flexShrink:1},
   input: { borderWidth: 1, padding: 12, minHeight: 48 }, button: { borderWidth: 1, borderRadius:18, padding: 12, minHeight: 48, justifyContent: 'center' } });

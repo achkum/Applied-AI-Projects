@@ -31,6 +31,7 @@ appId: se.subtrack.app
     timeout: 30000
 - takeScreenshot: accepted-restart
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
+- runFlow: private-runtime-open-profile.yaml
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}
     direction: DOWN

@@ -69,7 +69,7 @@ test('saved and restarted row checkpoints center the name before retaining exact
 
 test('Edit below a visible saved row is reached downwards without repeating Edit or Save',()=>{
  const flow=readFileSync(new URL('../e2e/private-runtime-edit-status.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
- assert.ok(flow.includes('visible: Example streaming\n    timeout: 30000\n- scrollUntilVisible:\n    element: ${MAESTRO_EDIT}\n    direction: DOWN\n- tapOn: ${MAESTRO_EDIT}'));
+ assert.ok(flow.includes('visible: Example streaming\n    timeout: 30000\n- tapOn: Example streaming\n- scrollUntilVisible:\n    element: ${MAESTRO_EDIT}\n    direction: DOWN\n- tapOn: ${MAESTRO_EDIT}'));
  assert.equal(flow.split('- tapOn: ${MAESTRO_EDIT}').length-1,1);assert.equal(flow.split('- tapOn: ${MAESTRO_SAVE_EDIT}').length-1,1);
 });
 

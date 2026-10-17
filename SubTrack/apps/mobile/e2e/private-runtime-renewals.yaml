@@ -24,9 +24,14 @@ appId: se.subtrack.app
     element: Example streaming
     direction: DOWN
     centerElement: true
+- tapOn:
+    id: native-nav-month
+- extendedWaitUntil:
+    visible: ${MAESTRO_MONTH_TITLE}
+    timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_RENEWALS_OPEN}
-    direction: UP
+    direction: DOWN
 - tapOn: ${MAESTRO_RENEWALS_OPEN}
 - extendedWaitUntil:
     visible: ${MAESTRO_RENEWALS_TITLE}
@@ -61,6 +66,7 @@ appId: se.subtrack.app
       id: native-personal-title
       text: ${MAESTRO_PERSONAL_TITLE}
     timeout: 30000
+- runFlow: private-runtime-open-profile.yaml
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}
     direction: DOWN

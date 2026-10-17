@@ -1,0 +1,18 @@
+appId: se.subtrack.app
+---
+- extendedWaitUntil:
+    visible: ${MAESTRO_DATE_TODAY}
+    timeout: 30000
+# Tomorrow is in the displayed month or its single immediate successor.
+- runFlow:
+    when:
+      notVisible:
+        id: native-date-${MAESTRO_RENEWAL_DATE}
+    commands:
+      - tapOn: ${MAESTRO_MONTH_NEXT}
+- extendedWaitUntil:
+    visible:
+      id: native-date-${MAESTRO_RENEWAL_DATE}
+    timeout: 30000
+- tapOn:
+    id: native-date-${MAESTRO_RENEWAL_DATE}

@@ -29,6 +29,21 @@ test('Jest only resolves the exact formatter specifier from Money source directo
  assert.equal(resolve('./formatter.js',options),target);assert.equal(resolve('./other.js',options),'./other.js');const other={...options,basedir:path.dirname(origin)+'other'};assert.equal(resolve('./formatter.js',other),'./formatter.js');assert.deepEqual(seen.at(-1),['./formatter.js',other]);
 });
 
+test('new analytics imports resolve the real Money implementation only from the two approved source files',()=>{
+ const bridge=createNativeMoneyResolver({origin,target});
+ for(const platform of ['android','ios'])for(const file of ['recurring-cost.ts','price-increase.ts']){
+  const ctx={...context,originModulePath:path.join(path.dirname(origin),file)};
+  assert.equal(bridge(ctx,'./money.js',platform).filePath,origin);
+  assert.equal(bridge({...ctx,originModulePath:origin},'./formatter.js',platform).filePath,target);
+ }
+ const calls=[],prior=createNativeMoneyResolver({origin,target,previous:(...args)=>{calls.push(args);return 'prior';}});
+ const unknown={originModulePath:path.join(path.dirname(origin),'unreviewed.ts')};
+ assert.equal(prior(unknown,'./money.js','android'),'prior');assert.equal(calls[0][1],'./money.js');
+ const resolve=createJestMoneyResolver({directory:path.dirname(origin),target}),options={basedir:path.dirname(origin),defaultResolver:name=>name};
+ assert.equal(resolve('./money.js',options),origin);
+ assert.equal(resolve('./money.js',{...options,basedir:path.dirname(origin)+'other'}),'./money.js');
+});
+
 test('actual Expo Metro config resolves the complete Money source dependency graph for both native platforms',()=>{
  // Expose Expo's already installed, pinned transitive dependencies to its config bootstrap.
  // This changes only this test process lookup, never dependencies or the app resolver.

@@ -11,7 +11,10 @@
     "./private-mobile": "./private-mobile.ts",
     "./private-mobile-bank": "./private-mobile-bank.ts",
     "./private-mobile-detection": "./private-mobile-detection.ts",
-    "./sandbox-mobile": "./sandbox-mobile.ts"
+    "./sandbox-mobile": "./sandbox-mobile.ts",
+    "./sandbox-household": "./sandbox-household.ts",
+    "./sandbox-household-types": "./sandbox-household-types.ts",
+    "./subscription-category": "./subscription-category.ts"
   },
   "engines": {
     "node": ">=22.18.0"

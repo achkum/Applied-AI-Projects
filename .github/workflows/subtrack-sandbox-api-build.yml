@@ -24,7 +24,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  api-image-policy:
+    name: API image configuration and migration policy
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.18.0'
+      - name: Check image configuration without a duplicate image build
+        working-directory: SubTrack
+        shell: bash
+        run: |
+          bash -n tools/sandbox/build-api.sh
+          node --test tools/sandbox/bootstrap.test.cjs tools/database/sandbox-qualification-receipt.test.cjs
+      # The same-image PostgreSQL workflow compiles and exercises the actual image.
+      # This policy job does not claim an image build or upload a build receipt.
   image-preparation:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:

@@ -4,7 +4,9 @@ import {Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useFocusEffect,useRouter} from 'expo-router';
 import {useNativeSession} from '@/state/NativeSession';
-import {readNativeDetections,readDetectionOwnerRows,mutateNativeDetection,detectionRequestKey,type DetectionIntent,type PrivateMobileDetectionCandidate,type PrivateMobileDetectionReviewResult} from '@/api/privateMobileDetection';
+import * as privateDetection from '@/api/privateMobileDetection';
+import type {NativeFeatureSession} from '../onboarding/NativePersonalScreen';
+import {type DetectionIntent,type PrivateMobileDetectionCandidate,type PrivateMobileDetectionReviewResult} from '@/api/privateMobileDetection';
 import {formatMinorUnits} from '@/api/privateMobileMoney';
 import {useI18n} from '@/context/I18nContext';
 import {useTheme} from '@/context/ThemeContext';
@@ -12,11 +14,13 @@ import {getColorByTheme} from '@/utils/colors';
 import {catalogs} from '@subtrack/i18n';
 import {BillingIcon} from '../billing/BillingIcon';
 
-export function NativeDetectionInboxScreen(){
- const session=useNativeSession(),router=useRouter(),{t,locale}=useI18n(),{theme,isDark}=useTheme();const current=useRef(session);current.current=session;
+export function NativeDetectionInboxScreen({useSession=useNativeSession,api=privateDetection}:{useSession?:()=>NativeFeatureSession;api?:Pick<typeof privateDetection,'readNativeDetections'|'readDetectionOwnerRows'|'mutateNativeDetection'|'detectionRequestKey'>}={}){
+ const {readNativeDetections,readDetectionOwnerRows,mutateNativeDetection,detectionRequestKey}=api;
+ const session=useSession(),router=useRouter(),{t,locale}=useI18n(),{theme,isDark}=useTheme();const current=useRef(session);current.current=session;
  const generation=useRef(0),feedback=useRef(0),focused=useRef(false),request=useRef<AbortController|null>(null),pages=useRef(1),cursorHistory=useRef(new Set<string>());
+ const [why,setWhy]=useState<string|null>(null);const scroll=useRef<ScrollView>(null);
  const [items,setItems]=useState<readonly PrivateMobileDetectionCandidate[]>([]),[cursor,setCursor]=useState<string|null>(null),[receipt,setReceipt]=useState<PrivateMobileDetectionReviewResult|null>(null),[state,setState]=useState<'idle'|'loading'|'ready'|'setup-required'|'error'>('idle'),[message,setMessage]=useState('');
- const invalidate=useCallback(()=>{generation.current++;request.current?.abort();request.current=null;setItems([]);setCursor(null);setReceipt(null);pages.current=1;cursorHistory.current.clear();},[]);
+ const invalidate=useCallback(()=>{generation.current++;request.current?.abort();request.current=null;setItems([]);setCursor(null);setReceipt(null);setWhy(null);pages.current=1;cursorHistory.current.clear();},[]);
  useEffect(()=>()=>{feedback.current++;},[]);
  const execute=useCallback(async(intent?:DetectionIntent,more?:string)=>{
   if(!focused.current||current.current.phase!=='active'||request.current)return;
@@ -45,18 +49,18 @@ export function NativeDetectionInboxScreen(){
   if(result.setup){setItems([]);setCursor(null);setReceipt(null);setState('setup-required');return;}
   setItems(more?[...priorItems,...result.rows]:result.rows);setCursor(result.next);pages.current=more?priorPages+1:intent?.operation==='scan'?1:priorPages;
   if(!more)cursorHistory.current.clear();for(const value of result.cursors)cursorHistory.current.add(value);if(more)cursorHistory.current.add(more);setState('ready');
-  if(result.response){if('conflict'in result.response)setMessage(result.response.conflict==='UNDO_EXPIRED'?'expired':'conflict');else if(!result.acknowledged)setMessage('readback');else{setMessage(intent?.operation==='scan'?'scanned':intent?.operation==='undo'?'undone':'reviewed');if('undoUntil'in result.response&&result.response.undoUntil!==null)setReceipt(result.response);}}
+  if(result.response){scroll.current?.scrollTo({y:0,animated:false});if('conflict'in result.response)setMessage(result.response.conflict==='UNDO_EXPIRED'?'expired':'conflict');else if(!result.acknowledged)setMessage('readback');else{setMessage(intent?.operation==='scan'?'scanned':intent?.operation==='undo'?'undone':'reviewed');if('undoUntil'in result.response&&result.response.undoUntil!==null)setReceipt(result.response);}}
   }catch{if(notice===feedback.current){setItems([]);setCursor(null);setReceipt(null);setState('error');setMessage(intent?'uncertain':'unavailable');}}
   finally{if(ticket===generation.current)request.current=null;}
- },[items]);
+ },[items,readNativeDetections,readDetectionOwnerRows,mutateNativeDetection,detectionRequestKey]);
  // The callback uses refs for authority; changing page contents must not trigger a focus reload.
  const executeRef=useRef(execute);executeRef.current=execute;
  useFocusEffect(useCallback(()=>{focused.current=true;invalidate();setState('idle');if(session.phase==='active'){feedback.current++;void executeRef.current();}return()=>{if(current.current.phase==='active')feedback.current++;focused.current=false;invalidate();setState('idle');};},[session.phase,invalidate]));
  const color=(key:string)=>getColorByTheme(theme,isDark,key),text={color:color('ink.primary'),fontFamily:theme.typography.fontFamily.ui,fontSize:theme.typography.fontSize.md},strong={...text,fontFamily:theme.typography.fontFamily['ui.semibold']},secondary={...text,color:color('ink.secondary')};
  const copy=(key:string,values?:Record<string,string|number>)=>t(`onboarding.nativeDetection.${key}`,values),busy=state==='loading';
- const button=(label:string,onPress:()=>void,disabled=busy)=><Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled}} disabled={disabled} onPress={onPress} style={[styles.control,{backgroundColor:color('bg.raised'),borderColor:color('line.hairline'),borderRadius:theme.radius.card,opacity:disabled?0.5:1}]}><Text style={strong}>{label}</Text></Pressable>;
- return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView contentContainerStyle={styles.content}>
-  <View style={styles.header}><View style={styles.grow}><Text accessibilityRole="header" style={{...strong,fontFamily:theme.typography.fontFamily.display,fontSize:theme.typography.fontSize['2xl']}}>{copy('title')}</Text></View><BillingIcon name="manage" color={color('action.accent')}/></View>
+ const button=(label:string,onPress:()=>void,disabled=busy,testID?:string,expanded?:boolean)=><Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled,...(expanded===undefined?{}:{expanded})}} disabled={disabled} onPress={onPress} style={[styles.control,{backgroundColor:color('bg.raised'),borderColor:color('line.hairline'),borderRadius:theme.radius.card,opacity:disabled?0.5:1}]}><Text style={strong}>{label}</Text></Pressable>;
+ return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView ref={scroll} contentContainerStyle={styles.content}>
+  <View style={styles.header}><View style={styles.grow}><Text testID="native-detection-title" accessibilityRole="header" style={{...strong,fontFamily:theme.typography.fontFamily.display,fontSize:theme.typography.fontSize['2xl']}}>{copy('title')}</Text></View><BillingIcon name="manage" color={color('action.accent')}/></View>
   {session.phase==='active'?<Text style={secondary}>{copy('demo')}</Text>:null}
   {message?<Text accessibilityRole="alert" style={text}>{['logoutConfirmed','logoutLocal','storageError','verificationCancelled','sessionCleared'].includes(message)?t(`onboarding.nativePersonal.${message}`):copy(message)}</Text>:null}
   {session.phase==='active'?<>
@@ -64,14 +68,14 @@ export function NativeDetectionInboxScreen(){
    {state==='setup-required'?<Text accessibilityRole="alert" style={text}>{copy('setup')}</Text>:null}
    {state==='ready'?<>
     {button(copy('scan'),()=>{void execute({operation:'scan'});})}
-    {receipt?<View style={[styles.card,{backgroundColor:color('bg.surface'),borderColor:color('line.hairline'),borderRadius:theme.radius.card}]}><Text style={secondary}>{copy('deadline',{date:receipt.undoUntil!})}</Text>{button(copy('undo'),()=>{void execute({operation:'undo',receiptId:receipt.receiptId,candidateId:receipt.candidateId});})}</View>:null}
-    {items.length===0?<Text style={secondary}>{copy('empty')}</Text>:null}
+    {receipt?<View style={[styles.card,{backgroundColor:color('bg.surface'),borderColor:color('line.hairline'),borderRadius:theme.radius.card}]}><Text style={secondary}>{copy('deadline',{date:receipt.undoUntil!})}</Text>{button(copy('undo'),()=>{void execute({operation:'undo',receiptId:receipt.receiptId,candidateId:receipt.candidateId});},busy,'native-detection-undo')}</View>:null}
+    {items.length===0?<View style={styles.card}><Text style={secondary}>{copy('empty')}</Text>{button(t('onboarding.nativeBank.open'),()=>router.push('/personal-bank'))}</View>:null}
     {items.map(item=><View key={item.id} style={[styles.card,{backgroundColor:color('bg.surface'),borderColor:color('line.hairline'),borderRadius:theme.radius.card}]}>
      <Text accessibilityRole="header" style={strong}>{item.displayName}</Text><Text style={{...strong,fontVariant:['tabular-nums']}}>{formatMinorUnits(BigInt(item.expectedAmountMinor),item.currency,{locale,display:'code'})}</Text>
      <Text style={secondary}>{Object.prototype.hasOwnProperty.call(catalogs[locale].onboarding.ownerSubscriptions.category,item.categoryCode)?t(`onboarding.ownerSubscriptions.category.${item.categoryCode}`):t('onboarding.ownerSubscriptions.categoryFallback')} · {t(`onboarding.ownerSubscriptions.cadence.${item.cadence}`)}</Text>
-     <Text style={secondary}>{copy('confidence',{percent:Math.round(item.confidence*100)})}</Text>{item.reasons.map(reason=><Text key={reason} style={secondary}>{copy(`reasons.${reason}`)}</Text>)}
-     {button(copy('confirm',{name:item.displayName}),()=>{void execute({operation:'confirm',candidateId:item.id,expectedRevision:item.revision});})}
-     {button(copy('reject',{name:item.displayName}),()=>{void execute({operation:'reject',candidateId:item.id,expectedRevision:item.revision});})}
+     <Text style={secondary}>{copy('confidence',{percent:Math.round(item.confidence*100)})}</Text>{button(copy('why'),()=>setWhy(prior=>prior===item.id?null:item.id),busy,`native-detection-why-${item.displayName.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`,why===item.id)}{why===item.id?item.reasons.map(reason=><Text key={reason} style={secondary}>{copy(`reasons.${reason}`)}</Text>):null}
+     {button(copy('confirm',{name:item.displayName}),()=>{void execute({operation:'confirm',candidateId:item.id,expectedRevision:item.revision});},busy,`native-detection-confirm-${item.displayName.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`)}
+     {button(copy('reject',{name:item.displayName}),()=>{void execute({operation:'reject',candidateId:item.id,expectedRevision:item.revision});},busy,`native-detection-reject-${item.displayName.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`)}
     </View>)}
     {cursor?button(copy('more'),()=>{void execute(undefined,cursor);}):null}
    </>:null}

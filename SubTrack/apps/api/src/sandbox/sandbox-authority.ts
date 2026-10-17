@@ -1,9 +1,12 @@
 import type {Pool,PoolClient,QueryResultRow} from 'pg';
 import type {OwnerTx} from '../auth/sessions-v2/durable-current-web-authority.js';
 import type {MobileOwner,PrivateMobilePrecommitGuard} from '../auth/mobile-private/durable-mobile-authority.js';
+import {SANDBOX_BANK_STATEMENTS} from './sandbox-bank-business.js';
+import {SANDBOX_HOUSEHOLD_STATEMENTS} from './sandbox-household.js';
 import {PRIVATE_MOBILE_BUSINESS_STATEMENTS} from '../profile/private-mobile-business.js';
 import {SandboxToken,type SandboxClaims} from './sandbox-token.js';
 import {SANDBOX_EPOCH,type SandboxConfig} from './sandbox-config.js';
+const SANDBOX_STATEMENTS=Object.freeze({...PRIVATE_MOBILE_BUSINESS_STATEMENTS,...SANDBOX_BANK_STATEMENTS,...SANDBOX_HOUSEHOLD_STATEMENTS});
 export class SandboxError extends Error{constructor(readonly kind:'denied'|'unavailable'|'capacity'|'restart'){super('Sandbox request unavailable');}}
 const fail=(kind:SandboxError['kind']='unavailable'):never=>{throw new SandboxError(kind);};
 const time=(value:unknown):number=>{if(typeof value!=='string'||!/^[1-9][0-9]{0,15}$/.test(value))return fail();const now=Number(value);if(!Number.isSafeInteger(now)||now<1)return fail();return now;};
@@ -27,13 +30,13 @@ export class SandboxAuthority{
  async withCurrentMobileAuthority<T>(accessToken:string,action:(tx:OwnerTx,owner:MobileOwner)=>Promise<T>,beforeCommit?:PrivateMobilePrecommitGuard):Promise<T>{
   let claims:SandboxClaims;try{claims=this.tokens.verify(accessToken);}catch{return fail('denied');}let expiry:{session:number;capability:number}|undefined;
   return this.transaction(async client=>{await this.scope(client,claims.sub);expiry=await this.current(client,claims);await client.query('SET LOCAL ROLE subtrack_sandbox_runtime');let open=true,pending=0;
-   const tx:OwnerTx=Object.freeze({execute:async<R extends QueryResultRow=QueryResultRow>(name:string,values:readonly unknown[])=>{if(!open||!Object.hasOwn(PRIVATE_MOBILE_BUSINESS_STATEMENTS,name)||!Array.isArray(values))return fail();if(name==='manualIdMint'?values.length!==0:values[name==='manualSubscriptionInsert'?1:0]!==claims.sub)return fail();pending++;try{return await client.query<R>(PRIVATE_MOBILE_BUSINESS_STATEMENTS[name as keyof typeof PRIVATE_MOBILE_BUSINESS_STATEMENTS],[...values]);}finally{pending--;}}});
+   const tx:OwnerTx=Object.freeze({execute:async<R extends QueryResultRow=QueryResultRow>(name:string,values:readonly unknown[])=>{if(!open||!Object.hasOwn(SANDBOX_STATEMENTS,name)||!Array.isArray(values))return fail();if(name==='manualIdMint'?values.length!==0:values[name==='manualSubscriptionInsert'?1:0]!==claims.sub)return fail();pending++;try{return await client.query<R>(SANDBOX_STATEMENTS[name as keyof typeof SANDBOX_STATEMENTS],[...values]);}finally{pending--;}}});
    let value:T;try{value=await action(tx,Object.freeze({identityId:claims.sub,sessionId:claims.sid}));}finally{open=false;}if(pending!==0)return fail();await client.query('SET LOCAL ROLE subtrack_sandbox_auth_producer');expiry=await this.current(client,claims);if(beforeCommit&&beforeCommit()!==undefined)return fail();return value;
   },()=>{let final:SandboxClaims;try{final=this.tokens.verify(accessToken);}catch{return fail('denied');}const now=this.now();if(final.sub!==claims.sub||final.sid!==claims.sid||!expiry||now>=final.exp*1000||now>=expiry.session||now>=expiry.capability)return fail('denied');});
  }
  async verifyStartup(){await this.transaction(async client=>{
   const roles=await client.query("SELECT count(*)::int4 AS n FROM pg_roles WHERE rolname IN('subtrack_sandbox_owner','subtrack_sandbox_api_login','subtrack_sandbox_runtime','subtrack_sandbox_auth_producer') AND NOT rolsuper AND NOT rolbypassrls AND NOT rolinherit AND NOT rolcreatedb AND NOT rolcreaterole");if(roles.rows[0]?.n!==4)return fail();
-  const migrations=await client.query('SELECT id,sha256 FROM st250_auth.migration ORDER BY id');if(migrations.rowCount!==2||migrations.rows.some((r,i)=>r.id!==i+1||r.sha256!==this.config.migrationHashes[i]))return fail();
-  const rls=await client.query("SELECT count(*)::int4 AS n FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relrowsecurity AND c.relforcerowsecurity AND (n.nspname='st250_auth' AND c.relname IN('epoch','migration','capacity','capability','session','consumed_refresh','reservation') OR n.nspname='public' AND c.relname IN('identity','identity_profile','merchant','subscription','manual_subscription_create_receipt','manual_subscription_edit_receipt'))");if(rls.rows[0]?.n!==13)return fail();return undefined;
+  const migrations=await client.query('SELECT id,sha256 FROM st250_auth.migration ORDER BY id');if(migrations.rowCount!==this.config.migrationHashes.length||migrations.rows.some((r,i)=>r.id!==i+1||r.sha256!==this.config.migrationHashes[i]))return fail();
+  const rls=await client.query("SELECT count(*)::int4 AS n FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relrowsecurity AND c.relforcerowsecurity AND (n.nspname='st250_auth' AND c.relname IN('epoch','migration','capacity','capability','session','consumed_refresh','reservation') OR n.nspname='public' AND c.relname IN('identity','identity_profile','merchant','subscription','manual_subscription_create_receipt','manual_subscription_edit_receipt','bank_connection','bank_account','raw_transaction','household','household_member','household_audit','household_subscription_usage','household_subscription_plan') OR n.nspname='st248_bank' AND c.relname IN('generation','receipt') OR n.nspname='st081_detection' AND c.relname IN('candidate','source_link','scan_receipt','review_receipt','feedback'))");if(rls.rows[0]?.n!==28)return fail();return undefined;
  });}
 }

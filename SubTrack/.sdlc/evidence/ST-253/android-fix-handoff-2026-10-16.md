@@ -79,3 +79,16 @@ Android only. No iOS/web/backlog expansion, spending, new accounts, real bank/OT
 At handoff, sole workflow watch was session67656 for run38927710444, private `native-8493987-watch-private.log`; Android completed failure, remaining iOS status not rechecked. Close/cancel obsolete observation if still active; do not start additional polling loops. No new test/build requested by this handoff.
 
 The last estimate given was 60–90 minutes for a corrected APK, explicitly low confidence. It is an unfulfilled estimate, not evidence of delivery readiness. Re-estimate only after identifying the actual post-save failure.
+
+
+## 2026-10-17 consolidated Android product successor
+
+Founder supersedes the original single-agent instruction with three parallel feature authors, a three-hour target and one final delivery after implementation. Worktree remains native-owner-search; feature branch codex/android-product-completion includes PR296's test-only route repair. No iOS/web feature changes, real integrations, new accounts, spending, public/store release or OpenClaw software.
+
+V4 phone acceptance failed: missing bank/detection access, family profiles and dedicated Insights/comparison plus category/date/calendar UI. Source now adds those shared native pages and actual Synthetic recurring ingestion/detection/review, additive owner-scoped household plans/users/planned payer, exact Money analytics and sample-price comparisons. Calendar/category controls and five prototype tabs replace the old three-tab/verbose form layout. The HTML is the visual reference; fictional score, Paid, market claims and settlement records are not treated as persisted facts. No full PRODUCT_SPEC completion claim.
+
+Local checks: mobile/API typecheck and lint, exact recurring Money 100% coverage, changed contracts and bilingual parity, bank/detection original regression46, detection UI31, household19, NativePersonal46, sandbox read/projection38, calendar14 and affected native flow/source consumers pass. Original bank mixed-record default rejects remain; sandbox showcase alone opts into pending/refund ingestion. Contracts for final signed installed qualification and forward API upgrade are authored. Independent upgrade review caught/fixed UID1000 bootstrap readability, actual manifest byte binding and ambiguous-stop recovery; ten upgrade tests pass. Actual PostgreSQL/image and installed signed successor are still pending.
+
+CI now selects a closed profile allowlist automatically; this broad feature batch intentionally selects full. PR API-image preparation is a source/config policy job; the separate same-image PostgreSQL gate retains real runtime proof. Final installed qualification consumes exact already-signed verified APK, with no second APK build. Preserve original V2 public APK/custody, existing signer/secrets/volumes and manual records. Upgrade tool appends successor receipts rather than rewriting original source/image custody.
+
+Candidate merge, adult invitations/cross-account household sharing, settlements and genuine production provider authority remain outside the implemented bounded successor; do not report these complete. Current live API and V4 APK have not been changed by source implementation. Delivery remains blocked on real gates, retained image/API upgrade, TLS feature readback and final APK inspection.

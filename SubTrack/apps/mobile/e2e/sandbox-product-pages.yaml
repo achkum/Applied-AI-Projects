@@ -1,0 +1,59 @@
+appId: se.subtrack.app.sandbox
+---
+- tapOn:
+    id: native-nav-month
+- extendedWaitUntil:
+    visible:
+      id: native-home-overview
+    timeout: 30000
+- assertVisible: ${E_ACTIVE_TWO}
+- tapOn:
+    id: native-home-calendar
+- extendedWaitUntil:
+    visible:
+      id: native-date-${TODAY}
+    timeout: 30000
+- takeScreenshot: accepted-sandbox-calendar
+- tapOn:
+    id: native-date-${TODAY}
+- scrollUntilVisible:
+    element: ${E_DETAIL_AURORA_PLUS}
+    direction: DOWN
+- assertVisible: ${TODAY}
+- assertVisible: ${E_DETAIL_AURORA_PLUS}
+- takeScreenshot: accepted-sandbox-home
+- tapOn:
+    id: native-nav-insights
+- extendedWaitUntil:
+    visible:
+      id: native-insights-overview
+    timeout: 30000
+- tapOn:
+    id: native-insights-overview
+- assertVisible: ${E_ANALYTICS_SUMMARY}
+- scrollUntilVisible:
+    element: ${E_PRICE_RISE}
+    direction: DOWN
+- assertVisible: Aurora Video Plus
+- takeScreenshot: accepted-sandbox-insights
+- tapOn:
+    id: native-nav-month
+- extendedWaitUntil:
+    visible:
+      id: native-home-overview
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${E_COMPARE}
+    direction: DOWN
+- tapOn: ${E_COMPARE}
+- extendedWaitUntil:
+    visible: ${E_YOUR_PLANS}
+    timeout: 30000
+- tapOn: Cinema Plus
+- tapOn: ${E_ANNUAL}
+- scrollUntilVisible:
+    element: ${E_SAMPLE_PRICE}
+    direction: DOWN
+- takeScreenshot: accepted-sandbox-comparisons
+- tapOn:
+    id: native-nav-profile

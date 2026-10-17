@@ -1,9 +1,11 @@
 appId: se.subtrack.app
+env:
+  MAESTRO_RIBBON_DIRECTION: UP
 ---
 - scrollUntilVisible:
     element:
       id: native-month-ribbon
-    direction: UP
+    direction: ${MAESTRO_RIBBON_DIRECTION}
 - repeat:
     times: 31
     while:
@@ -19,4 +21,6 @@ appId: se.subtrack.app
     visible: ${MAESTRO_MONTH_DAY}
     timeout: 30000
 - tapOn: ${MAESTRO_MONTH_DAY}
-- assertVisible: ${MAESTRO_RENEWAL_DATE}
+- assertVisible:
+    text: ${MAESTRO_MONTH_DAY}
+    selected: true

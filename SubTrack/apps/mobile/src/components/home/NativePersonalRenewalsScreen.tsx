@@ -11,7 +11,7 @@ import {getColorByTheme} from '@/utils/colors';
 import {catalogs} from '@subtrack/i18n';
 import {SandboxNotice} from '../onboarding/SandboxEntry';
 import type {NativeFeatureSession} from '../onboarding/NativePersonalScreen';
-import {NativeProductNav, type NativeProductDestination} from '../billing/NativeProductNav';
+import {NativeProductNav, nativeProductRoutes, type NativeProductDestination} from '../billing/NativeProductNav';
 import {NativeProductHeading} from '../billing/NativeProductUI';
 export function NativePersonalRenewalsScreen({now=()=>new Date(),useSession=useNativeSession,readProjection=readNativeRenewals,sandbox=false,inactiveContent}:{now?:()=>Date;useSession?:()=>NativeFeatureSession;readProjection?:typeof readNativeRenewals;sandbox?:boolean;inactiveContent?:React.ReactNode}) {
  const session=useSession(),router=useRouter(),{t,locale}=useI18n(),{theme,isDark}=useTheme();
@@ -27,7 +27,7 @@ export function NativePersonalRenewalsScreen({now=()=>new Date(),useSession=useN
   try{
    const result=await current.current.run(async(token,authoritySignal)=>{
     const abort=()=>controller.abort();if(authoritySignal.aborted)controller.abort();authoritySignal.addEventListener('abort',abort,{once:true});
-    try{const value=await readProjection(token,controller.signal,clock.current());if(sandbox&&value.kind==='ready'&&value.groups.some(group=>group.items.some(row=>row.source!=='MANUAL'||row.currency!=='SEK'||!row.alwaysPrivate)))throw new Error('Sandbox projection unavailable');return value;}
+    try{const value=await readProjection(token,controller.signal,clock.current());if(sandbox&&value.kind==='ready'&&value.groups.some(group=>group.items.some(row=>row.currency!=='SEK'||!row.alwaysPrivate)))throw new Error('Sandbox projection unavailable');return value;}
     catch(error){if(controller.signal.aborted&&ticket!==generation.current)return {kind:'obsolete'} as const;throw error;}
     finally{authoritySignal.removeEventListener('abort',abort);}
    });
@@ -45,7 +45,7 @@ export function NativePersonalRenewalsScreen({now=()=>new Date(),useSession=useN
  const text={color:color('ink.primary'),fontFamily:theme.typography.fontFamily.ui,fontSize:theme.typography.fontSize.md};
  const button=(label:string,onPress:()=>void,disabled=false)=><Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled}} disabled={disabled} onPress={onPress}
   style={[styles.button,{backgroundColor:color('bg.raised'),borderColor:color('ink.secondary'),borderRadius:theme.radius.card}]}><Text style={text}>{label}</Text></Pressable>;
- const navigate=(destination:NativeProductDestination)=>{if(destination==='month')router.replace('/personal-billing-month');else if(destination==='manage')router.replace('/personal');};
+ const navigate=(destination:NativeProductDestination)=>router.replace(nativeProductRoutes[destination]);
  return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView style={{backgroundColor:color('bg.canvas')}} contentContainerStyle={styles.content}>
   <NativeProductHeading title={t('onboarding.nativeRenewals.title')} />
   {session.phase==='active'?<Text style={text}>{t('onboarding.nativeRenewals.expected')}</Text>:null}

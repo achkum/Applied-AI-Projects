@@ -20,6 +20,7 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: Example streaming
     timeout: 30000
+- tapOn: Example streaming
 - scrollUntilVisible:
     element: ${MAESTRO_EDIT}
     direction: DOWN
@@ -39,8 +40,10 @@ appId: se.subtrack.app
     direction: DOWN
 - tapOn:
     id: native-subscription-date
-- eraseText
-- hideKeyboard
+- extendedWaitUntil:
+    visible: ${MAESTRO_DATE_CLEAR}
+    timeout: 30000
+- tapOn: ${MAESTRO_DATE_CLEAR}
 - scrollUntilVisible:
     element: ${MAESTRO_SAVE_EDIT}
     direction: DOWN
@@ -119,6 +122,8 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: Example streaming Plus
     timeout: 30000
+- tapOn: Example streaming Plus
+- assertVisible: ${MAESTRO_EDIT}
 - assertNotVisible: ${MAESTRO_ARCHIVE}
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-edited-restart

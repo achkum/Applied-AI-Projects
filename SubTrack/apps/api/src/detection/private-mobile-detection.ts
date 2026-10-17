@@ -31,32 +31,34 @@ const conflict=():PrivateMobileDetectionResult=>({status:409,code:'DETECTION_STA
 const missing=():PrivateMobileDetectionResult=>({status:404,code:'DETECTION_UNAVAILABLE'});
 // Fixed server canonical roster for the one reviewed Synthetic generation. Never
 // derive a persisted name/key from normalized raw text or a client catalogue.
-const MERCHANTS=Object.freeze([
+export const PRIVATE_DETECTION_MERCHANTS=Object.freeze([
  {key:'netflix',canonicalName:'Netflix',category:'VIDEO_STREAMING',aliases:['NETFLIX','Netflix','NETFLIX*','NETFLIX.COM']},
  {key:'spotify',canonicalName:'Spotify',category:'MUSIC_AUDIO',aliases:['SPOTIFY','Spotify','SPOTIFY AB','SPOTIFY NORDIC']},
  {key:'apple-icloud',canonicalName:'iCloud',category:'CLOUD_STORAGE',aliases:['APPLE.COM/BILL','ICLOUD','APPLE ICLOUD','APPLE.COM']},
  {key:'linkedin-premium',canonicalName:'LinkedIn Premium',category:'SOFTWARE_PRODUCTIVITY',aliases:['LINKEDIN','LINKEDIN PREMIUM','LINKEDIN.COM','LINKEDIN DIGITAL']},
 ]);
+export type SyntheticDetectionOptions=Readonly<{fixtureVersion?:string;merchants?:readonly Readonly<{key:string;canonicalName:string;category:string;aliases:readonly string[]}>[]}>;
 /** Only reviewed named operations, bound to the current transaction/owner. */
 export class DurableSyntheticDetectionStore{
- constructor(readonly tx:OwnerTx,readonly owner:string){}
+ constructor(readonly tx:OwnerTx,readonly owner:string,readonly options:SyntheticDetectionOptions={}){}
  async scan(key:string,now:number):Promise<PrivateMobileDetectionResult>{
-  const generations=await rows(this.tx,'detectionActiveGenerationLock',[this.owner,PROVIDER,INSTITUTION,FIXTURE,'ACTIVE']);if(generations.length===0)return conflict();if(generations.length!==1)return fail();
-  const connection=uuid(generations[0]!.connection_id);if(generations[0]!.fixture_version!==FIXTURE)return fail();
+  const merchants=this.options.merchants??PRIVATE_DETECTION_MERCHANTS,fixture=this.options.fixtureVersion??FIXTURE;
+  const generations=await rows(this.tx,'detectionActiveGenerationLock',[this.owner,PROVIDER,INSTITUTION,fixture,'ACTIVE']);if(generations.length===0)return conflict();if(generations.length!==1)return fail();
+  const connection=uuid(generations[0]!.connection_id);if(generations[0]!.fixture_version!==fixture)return fail();
   const keyHash=digest(['scan-key-v1',this.owner,key]),requestHash=digest(['scan-request-v1','{}']);
   const receipt=await one(this.tx,'detectionScanReceiptRead',[this.owner,keyHash]);if(receipt){if(receipt.connection_id!==connection||!equal(receipt.request_h,requestHash))return {status:409,code:'DETECTION_IDEMPOTENCY_CONFLICT'};return {status:200,value:wire.parsePrivateMobileDetectionScanResult({scan:receipt.result_status})};}
-  const booked=await rows(this.tx,'detectionBookedRows',[this.owner,connection,PROVIDER,INSTITUTION,FIXTURE,'ACTIVE','BOOKED']);if(booked.length>10000)return fail();
-  const core=await loadDomain(),groups=new Map<string,{series:BigintTransactionSeries;merchant:typeof MERCHANTS[number]}>();
+  const booked=await rows(this.tx,'detectionBookedRows',[this.owner,connection,PROVIDER,INSTITUTION,fixture,'ACTIVE','BOOKED']);if(booked.length>10000)return fail();
+  const core=await loadDomain(),groups=new Map<string,{series:BigintTransactionSeries;merchant:typeof merchants[number]}>();
   for(const row of booked){
    const account=uuid(row.account_id),id=uuid(row.transaction_id);
    if(typeof row.raw_description!=='string'||row.raw_description.length>500||typeof row.currency!=='string'||!/^[A-Z]{3}$/.test(row.currency)||typeof row.transaction_date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(row.transaction_date)||typeof row.amount_minor!=='string'||!/^-[1-9][0-9]{0,18}$/.test(row.amount_minor))return fail();
    const amount=BigInt(row.amount_minor),when=new Date(`${row.transaction_date}T00:00:00.000Z`);if(amount<MIN||!Number.isFinite(when.getTime())||when.toISOString().slice(0,10)!==row.transaction_date)return fail();
-   const match=core.matchMerchantDescriptor(row.raw_description,MERCHANTS);if(!match)continue;const merchant=MERCHANTS.find(x=>x.key===match.key);if(!merchant||match.canonicalName!==merchant.canonicalName)return fail();
+   const match=core.matchMerchantDescriptor(row.raw_description,merchants);if(!match)continue;const merchant=merchants.find(x=>x.key===match.key);if(!merchant||match.canonicalName!==merchant.canonicalName)return fail();
    const groupKey=JSON.stringify([account,merchant.key,row.currency]);let group=groups.get(groupKey);
    if(!group){group={series:{ownerId:this.owner,accountId:account,merchantKey:merchant.key,currency:row.currency,categoryCode:merchant.category,transactions:[]},merchant};groups.set(groupKey,group);}
    (group.series.transactions as {id:string;accountId:string;date:Date;amountMinor:bigint;currency:string;direction:'DEBIT';pending:boolean}[]).push({id,accountId:account,date:when,amountMinor:amount,currency:row.currency,direction:'DEBIT',pending:false});
   }
-  const candidates:{candidate:RecurringCandidate;merchant:typeof MERCHANTS[number];hash:Buffer}[]=[];
+  const candidates:{candidate:RecurringCandidate;merchant:typeof merchants[number];hash:Buffer}[]=[];
   for(const {series,merchant} of groups.values())for(const candidate of core.detectRecurringBigint(series)){
    const amount=candidate.amountBand.representative.minorUnits;
    if(typeof amount!=='bigint'||amount<=0n||amount>MAX||candidate.ownerId!==this.owner||candidate.accountId!==series.accountId||candidate.merchantKey!==merchant.key||candidate.currency!==series.currency)return fail();
@@ -75,8 +77,8 @@ export class DurableSyntheticDetectionStore{
    const inserted=await this.tx.execute('detectionSubscriptionInsert',[this.owner,id,null,candidate.accountId,merchant.canonicalName,merchant.category,candidate.cadence,candidate.amountBand.representative.minorUnits.toString(),candidate.currency,'DETECTED','DETECTED',candidate.confidence,JSON.stringify(candidate.reasons.map(r=>r.code)),completed]);
    if(inserted.command!=='INSERT'||inserted.rowCount!==1||inserted.rows.length!==0)return fail();
    const saved=await required(this.tx,'detectionSubscriptionReadback',[this.owner,id,'DETECTED','DETECTED'],'SELECT','id',id);if(saved.revision!=='1')return fail();
-   await required(this.tx,'detectionCandidateInsert',[this.owner,id,connection,candidate.accountId,merchant.key,candidate.currency,candidate.cadence,ALGORITHM,hash,PROVIDER,INSTITUTION,FIXTURE,'ACTIVE','DETECTED','DETECTED'],'INSERT','subscription_id',id);
-   for(const transaction of candidate.transactionIds)await required(this.tx,'detectionSourceLinkInsert',[this.owner,id,uuid(transaction),'BOOKED',PROVIDER,INSTITUTION,FIXTURE,'ACTIVE'],'INSERT','raw_transaction_id',transaction);
+   await required(this.tx,'detectionCandidateInsert',[this.owner,id,connection,candidate.accountId,merchant.key,candidate.currency,candidate.cadence,ALGORITHM,hash,PROVIDER,INSTITUTION,fixture,'ACTIVE','DETECTED','DETECTED'],'INSERT','subscription_id',id);
+   for(const transaction of candidate.transactionIds)await required(this.tx,'detectionSourceLinkInsert',[this.owner,id,uuid(transaction),'BOOKED',PROVIDER,INSTITUTION,fixture,'ACTIVE'],'INSERT','raw_transaction_id',transaction);
   }
   await required(this.tx,'detectionScanReceiptInsert',[this.owner,connection,keyHash,requestHash,new Date(now).toISOString(),'complete'],'INSERT','connection_id',connection);
   const readback=await one(this.tx,'detectionScanReceiptRead',[this.owner,keyHash]);if(!readback||readback.connection_id!==connection||!equal(readback.request_h,requestHash))return fail();return {status:200,value:wire.parsePrivateMobileDetectionScanResult({scan:readback.result_status})};
@@ -91,14 +93,14 @@ function replay(receipt:Row,candidateId:string,operation:string,hash:Buffer):Pri
  if(receipt.subscription_id!==candidateId||receipt.operation!==operation)return fail();if(!equal(receipt.request_h,hash))return {status:409,code:'DETECTION_IDEMPOTENCY_CONFLICT'};
  const value=wire.parsePrivateMobileDetectionReviewResult(receipt.result_response);if(value.candidateId!==candidateId||value.receiptId!==receipt.id||value.revision!==receipt.post_revision||value.status!==receipt.result_status||(operation==='undo'?value.status!=='DETECTED':operation==='confirm'?value.status!=='ACTIVE':value.status!=='REJECTED'))return fail();return {status:200,value};
 }
-export function createPrivateMobileDetection(authority:DurablePrivateMobileAuthority){return Object.freeze({async execute(token:string,operation:PrivateMobileDetectionOperation,body:unknown,key?:string):Promise<PrivateMobileDetectionResult>{
+export function createPrivateMobileDetection(authority:Pick<DurablePrivateMobileAuthority,'withCurrentMobileAuthority'|'now'>,options:SyntheticDetectionOptions={}){return Object.freeze({async execute(token:string,operation:PrivateMobileDetectionOperation,body:unknown,key?:string):Promise<PrivateMobileDetectionResult>{
  let parsed:{candidateId?:string;expectedRevision?:string;receiptId?:string;cursor?:string};
  try{wire.parsePrivateMobileDetectionRequestKey(operation,key);parsed=operation==='scan'?wire.parsePrivateMobileDetectionScan(body):operation==='read'?wire.parsePrivateMobileDetectionRead(body):operation==='undo'?wire.parsePrivateMobileDetectionUndo(body):wire.parsePrivateMobileDetectionReview(body);if(operation==='read')parsePrivateMobileCursor(parsed.cursor);}catch{throw new Error('wire');}
  let deadline:number|undefined;
  return authority.withCurrentMobileAuthority(token,async(tx,owner)=>{
   const identity=owner.identityId,mode=await one(tx,'detectionModeRead',[identity]);if(mode?.profile_complete!==true||mode.onboarding_mode!=='just-me')return {status:409,code:'MODE_CONFLICT'};
   const fence=async()=>{await required(tx,'detectionFinalFence',[identity,owner.sessionId,authority.now(),'just-me'],'SELECT','identity_id',identity);};
-  const store=new DurableSyntheticDetectionStore(tx,identity);
+  const store=new DurableSyntheticDetectionStore(tx,identity,options);
   if(operation==='scan'||operation==='read'){const result=operation==='scan'?await store.scan(key!,authority.now()):await store.read(parsed.cursor);await fence();return result;}
   let original:Row|undefined,candidateId=parsed.candidateId;
   if(operation==='undo'){original=await one(tx,'detectionReceiptLock',[identity,null,parsed.receiptId,null,null]);if(!original)return missing();if(!['confirm','reject'].includes(original.operation as string))return conflict();candidateId=uuid(original.subscription_id);}

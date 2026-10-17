@@ -81,14 +81,36 @@ it.each(['unicode', 'bits', 'noncanonical', 'wrong-session', 'wrong-header'])('r
   const p = encode(kind === 'wrong-session' ? { ...claims, sid: '223e4567-e89b-42d3-a456-426614174000' } : claims);
   f.fetch.mockResolvedValue(response(201, { ...credentials, accessToken: `${h}.${p}.signature`, installationCapability: capability })); await expect(f.api.bootstrap('en', signal())).rejects.toThrow();
 });
-it('aborted entropy or body delivery cannot fetch/accept and unsupported owner rows are rejected', async () => {
+it('aborted entropy or body delivery cannot fetch or accept a response', async () => {
   const f = fixture(), a = new AbortController(); f.entropy.mockImplementation(async () => { a.abort(); return new Uint8Array(16); }); await expect(f.api.bootstrap('en', a.signal)).rejects.toThrow(); expect(f.fetch).not.toHaveBeenCalled();
   const g = fixture(), b = new AbortController(); g.fetch.mockResolvedValue({ ...response(201, {}), text: async () => { b.abort(); return JSON.stringify({ ...credentials, installationCapability: capability }); } }); await expect(g.api.bootstrap('en', b.signal)).rejects.toThrow();
-  const row = { id, revision: '1', source: 'DETECTED', visibility: 'owner', customName: 'Fiction', merchantId: null, merchantName: null, categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', status: 'ACTIVE', expectedAmountMinor: '100', currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
-  const h = fixture(); h.fetch.mockResolvedValue(response(200, { items: [row], nextCursor: null })); await expect(h.api.readNativeSubscriptions(token, signal(), 'invalid')).rejects.toThrow();
-  await expect(h.api.readNativeSubscriptions(token, signal())).rejects.toThrow();
-  for(const variant of [{source:'MANUAL',currency:'EUR',alwaysPrivate:true},{source:'MANUAL',currency:'SEK',alwaysPrivate:false}]){h.fetch.mockResolvedValue(response(200,{items:[{...row,...variant}],nextCursor:null}));await expect(h.api.readNativeSubscriptions(token,signal())).rejects.toThrow();}
-  await expect(h.api.readNativeProfile('malformed',signal())).rejects.toThrow();
+});
+it('accepts confirmed detected owner records through isolated readback without weakening row privacy or authority', async () => {
+  const row = { id, revision: '1', source: 'DETECTED', visibility: 'owner', customName: 'Fiction', merchantId: null, merchantName: null, categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', status: 'ACTIVE', expectedAmountMinor: '9007199254740993', currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
+  const h = fixture(); h.fetch.mockResolvedValue(response(200, { items: [row], nextCursor: null }));
+  await expect(h.api.readNativeSubscriptions(token, signal())).resolves.toEqual({ items: [row], nextCursor: null });
+  expect(h.fetch.mock.calls[0]![0]).toBe('https://198.44.116.159/v2/sandbox/mobile/business');
+  expect(JSON.parse(h.fetch.mock.calls[0]![1]!.body as string)).toEqual({ operation: 'owner-read', body: {} });
+  expect(h.fetch.mock.calls[0]![1]!.headers).toMatchObject({ Authorization: `Bearer ${token}` });
+  for (const variant of [{ currency: 'EUR' }, { alwaysPrivate: false }, { visibility: 'household' }, { source: 'UNRECOGNIZED' }]) {
+    h.fetch.mockResolvedValue(response(200, { items: [{ ...row, ...variant }], nextCursor: null }));
+    await expect(h.api.readNativeSubscriptions(token, signal())).rejects.toThrow('Sandbox request unavailable');
+  }
+  const before = h.fetch.mock.calls.length;
+  await expect(h.api.readNativeSubscriptions(token, signal(), 'invalid cursor')).rejects.toThrow();
+  await expect(h.api.readNativeSubscriptions('malformed', signal())).rejects.toThrow();
+  await expect(h.api.readNativeSubscriptions(`${encode(header)}.${encode({ ...claims, iss: 'production' })}.signature`, signal())).rejects.toThrow();
+  expect(h.fetch).toHaveBeenCalledTimes(before);
+});
+it('accepts a terminal bounded mixed-source page while rejecting duplicate rows and malformed continuation responses', async () => {
+  const row = { id, revision: '1', source: 'DETECTED', visibility: 'owner', customName: 'Fiction', merchantId: null, merchantName: null, categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', status: 'ACTIVE', expectedAmountMinor: '12990', currency: 'SEK', nextChargeDate: '2026-10-17', alwaysPrivate: true };
+  const items = Array.from({ length: 50 }, (_, index) => ({ ...row, id: `123e4567-e89b-42d3-a456-${String(index).padStart(12, '0')}`, source: index % 2 ? 'MANUAL' : 'DETECTED' }));
+  const f = fixture(); f.fetch.mockResolvedValue(response(200, { items, nextCursor: null }));
+  await expect(f.api.readNativeSubscriptions(token, signal(), 'opaque_cursor')).resolves.toEqual({ items, nextCursor: null });
+  expect(JSON.parse(f.fetch.mock.calls[0]![1]!.body as string)).toEqual({ operation: 'owner-read', body: { cursor: 'opaque_cursor' } });
+  for (const page of [{ items: [row, row], nextCursor: null }, { items: [row], nextCursor: 'continue' }, { items, nextCursor: 'invalid cursor' }]) {
+    f.fetch.mockResolvedValue(response(200, page)); await expect(f.api.readNativeSubscriptions(token, signal())).rejects.toThrow('Sandbox request unavailable');
+  }
 });
 
 it.each(['ios','android'] as const)('default exported API consumes actual %s marker/platform with no private fallback',async platform=>{
@@ -96,4 +118,18 @@ it.each(['ios','android'] as const)('default exported API consumes actual %s mar
  try{Object.defineProperty(Platform,'OS',{configurable:true,value:platform});globalThis.fetch=fetch;constants.expoConfig={extra:{subtrackSandbox:{variant:'sandbox',apiBaseUrl:'https://198.44.116.159',runtimeEnabled:true,publicationEnabled:false,privateDiagnosticsEnabled:false}}};expect(resolveSandboxRuntime({marker:readSandboxMarker(Constants.expoConfig),platform:Platform.OS})).not.toBeNull();await sandboxMobileApi.bootstrap('en',signal());expect(fetch.mock.calls[0]![0]).toBe('https://198.44.116.159/v2/sandbox/mobile/bootstrap');expect(fetch.mock.calls[0]![1]).toMatchObject({credentials:'omit',redirect:'error',cache:'no-store'});
   for(const config of [{extra:{}},{extra:{subtrackSandbox:undefined}},{extra:{subtrackSandbox:{variant:'sandbox',apiBaseUrl:'https://198.44.116.159',runtimeEnabled:false,publicationEnabled:false,privateDiagnosticsEnabled:false}}},{extra:{subtrackSandbox:{variant:'sandbox',apiBaseUrl:'https://api.subtrack.app',runtimeEnabled:true,publicationEnabled:false,privateDiagnosticsEnabled:false}}},{extra:Object.defineProperty({},'subtrackSandbox',{get(){throw Error('must not read');}})}]){constants.expoConfig=config;await expect(sandboxMobileApi.bootstrap('en',signal())).rejects.toThrow('Sandbox request unavailable');}expect(fetch).toHaveBeenCalledTimes(1);
  }finally{constants.expoConfig=before;globalThis.fetch=fetchBefore;if(descriptor)Object.defineProperty(Platform,'OS',descriptor);}
+});
+
+it('bank connect and detection preserve mutation intent keys and use only the isolated business transport',async()=>{
+ const f=fixture(),connection={connectionId:id,provider:'SYNTHETIC',institutionId:'synthetic-demo-v1',status:'ACTIVE',disposition:'retained',accountCount:1,transactionCount:278,lastSyncAt:'2026-10-17T12:00:00.000Z'};
+ f.fetch.mockResolvedValue(response(200,{operation:'connect',connection}));await f.api.mutateNativeBank({operation:'connect',institutionId:'synthetic-demo-v1'},id,token,signal());
+ expect(f.fetch.mock.calls[0]![1]!.headers).toMatchObject({'Idempotency-Key':id,Authorization:`Bearer ${token}`});expect(JSON.parse(f.fetch.mock.calls[0]![1]!.body as string)).toEqual({operation:'bank-connect',body:{institutionId:'synthetic-demo-v1'}});
+ f.fetch.mockResolvedValue(response(200,{connections:[connection]}));expect(await f.api.readNativeBank(token,signal())).toEqual({kind:'ready',connections:[connection]});
+ f.fetch.mockResolvedValue(response(200,{scan:'complete'}));await f.api.mutateNativeDetection({operation:'scan'},id,token,signal());expect(JSON.parse(f.fetch.mock.calls[2]![1]!.body as string)).toEqual({operation:'detection-scan',body:{}});
+ f.fetch.mockResolvedValue(response(200,{items:[],nextCursor:null}));expect(await f.api.readNativeDetections(token,signal())).toEqual({kind:'ready',items:[],nextCursor:null});expect(await f.api.readNativeBankHistory(token,signal())).toEqual({items:[],nextCursor:null});
+ expect(f.fetch.mock.calls.every(([url])=>url==='https://198.44.116.159/v2/sandbox/mobile/business')).toBe(true);expect(f.entropy).not.toHaveBeenCalled();
+});
+it('bank/detection conflicts remain explicit and malformed history never reaches UI',async()=>{
+ const f=fixture();f.fetch.mockResolvedValue(response(409,{type:'about:blank',title:'Sandbox request unavailable',status:409,code:'BANK_STATE_CONFLICT'},'application/problem+json'));expect(await f.api.mutateNativeBank({operation:'sync',connectionId:id},id,token,signal())).toEqual({conflict:'BANK_STATE_CONFLICT'});
+ f.fetch.mockResolvedValue(response(200,{items:[{id,subscriptionId:null,displayName:'Fiction',date:'2026-02-30',amountMinor:'-123',currency:'SEK'}],nextCursor:null}));await expect(f.api.readNativeBankHistory(token,signal())).rejects.toThrow();
 });

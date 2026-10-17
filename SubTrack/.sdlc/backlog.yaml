@@ -10,7 +10,7 @@ delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
 android_fix_handoff:
   updated: "2026-10-17"
-  execution: "SIGNED V4 DELIVERED FOR FOUNDER TEST; CI scoped PASS14m23s/policy43s; full Upcoming-test correction pending qualification"
+  execution: "V4 PHONE PRODUCT ACCEPTANCE FAILED. Consolidated Android product successor implemented: Synthetic bank/detection, family profiles, Insights/comparison, category search/custom labels, date picker and prototype navigation/layout. Local focused checks pass; hosted database/image/Android gates, retained API upgrade and signed successor installation remain pending. Do not resend V4."
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
   tested_source_head: 86a9035b6e7b3ebcaa84ee3c990cc613199540c4

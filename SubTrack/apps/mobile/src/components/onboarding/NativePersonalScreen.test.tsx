@@ -26,6 +26,11 @@ const profile = { displayName: 'Synthetic', avatarColourToken: null, avatarEmoji
 const row = { id: credentials.sessionId, revision: '1', source: 'MANUAL' as const, visibility: 'owner' as const, customName: 'Current database name', merchantId: null, merchantName: null,
   categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY' as const, status: 'ACTIVE' as const, expectedAmountMinor: '9007199254740993', currency: 'SEK', nextChargeDate: null, alwaysPrivate: true };
 const copy = catalogs.en.onboarding;
+function chooseCategory(label:string){fireEvent.changeText(screen.getByTestId('native-subscription-category'),label);fireEvent.press(screen.getByRole('button',{name:label}));}
+function expandCurrentRow(id=row.id){const current=screen.getByTestId(`native-subscription-row-${id}`);if(!current.props.accessibilityState.expanded)fireEvent.press(current);}
+function openProfile(){const tab=screen.queryByTestId('native-nav-profile');if(tab)fireEvent.press(tab);}
+function performLogout(){openProfile();fireEvent.press(screen.getByRole('button',{name:catalogs[mockLocale.value].onboarding.nativePersonal.logout}));}
+
 // Cold native host/Babel initialization took 4429 ms in the first workflow.
 // Prepare only generic hosts; every behavioral test retains its 5000 ms deadline.
 beforeAll(() => {
@@ -49,12 +54,12 @@ it('sandbox entry completes profile/Just Me/Add/Edit/status/readback/logout thro
   expect(screen.queryByRole('button',{name:copy.nativePersonal.verify})).toBeNull();fireEvent.press(screen.getByRole('button',{name:copy.sandbox.enter}));
   await screen.findByLabelText(copy.nativePersonal.name);fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.name),'Fiction');fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.saveProfile}));
   await screen.findByText(copy.nativePersonal.profileSaved);fireEvent.press(screen.getByRole('button',{name:copy.mode.choose}));await screen.findByRole('tab',{name:copy.productNav.manage});expect(onSetupComplete).toHaveBeenCalledWith('mutation');
-  expect(screen.getByRole('button',{name:copy.nativeBank.open}).props.accessibilityState.disabled).toBe(true);expect(screen.getByRole('button',{name:copy.nativeDetection.open}).props.accessibilityState.disabled).toBe(true);expect(screen.getByText(copy.sandbox.manageUnavailable)).toBeTruthy();
-  fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.title}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Fiction');fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.category.VIDEO_STREAMING}));
+  expect(screen.getByRole('button',{name:copy.nativeBank.open}).props.accessibilityState.disabled).toBe(false);expect(screen.getByRole('button',{name:copy.nativeDetection.open}).props.accessibilityState.disabled).toBe(false);expect(screen.queryByText(copy.sandbox.manageUnavailable)).toBeNull();fireEvent.press(screen.getByRole('button',{name:copy.nativeBank.open}));expect(mockPush).toHaveBeenCalledWith('/personal-bank');fireEvent.press(screen.getByRole('button',{name:copy.nativeDetection.open}));expect(mockPush).toHaveBeenCalledWith('/personal-detections');
+  fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.title}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Fiction');chooseCategory(copy.ownerSubscriptions.category.VIDEO_STREAMING);
   fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.amount),'12.00');fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.save}));await screen.findByText('Persisted sandbox service');
-  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Changed draft');fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText('Persisted edited service');
-  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await waitFor(()=>expect(sandboxApi.updateNativeSubscriptionStatus).toHaveBeenCalledTimes(1));await screen.findByText(copy.ownerSubscriptions.status.PAUSED);
-  fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.logout}));await screen.findByText(copy.nativePersonal.logoutConfirmed);expect(screen.queryByText('Persisted edited service')).toBeNull();expect(api.verifiedNativeLogin).not.toHaveBeenCalled();
+  expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Changed draft');fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText('Persisted edited service');
+  expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await waitFor(()=>expect(sandboxApi.updateNativeSubscriptionStatus).toHaveBeenCalledTimes(1));await screen.findByText(`${copy.ownerSubscriptions.cadence.MONTHLY} · ${copy.ownerSubscriptions.status.PAUSED}`);
+  performLogout();await screen.findByText(copy.nativePersonal.logoutConfirmed);expect(screen.queryByText('Persisted edited service')).toBeNull();expect(api.verifiedNativeLogin).not.toHaveBeenCalled();
 });
 it.each(['en','sv'] as const)('uses the localized single profile heading during setup in %s',async locale=>{
  mockLocale.value=locale;const localized=catalogs[locale].onboarding;jest.mocked(api.readNativeProfile).mockResolvedValue({...profile,displayName:null,profileComplete:false});
@@ -75,7 +80,7 @@ it('reads current private rows only after fresh verification and clears them imm
   expect(screen.queryByText(row.customName)).toBeNull(); fireEvent.press(screen.getByRole('button', { name: copy.nativePersonal.verify }));
   await screen.findByText(row.customName); expect(api.readNativeProfile).toHaveBeenCalledWith(credentials.accessToken, expect.any(AbortSignal));
   fireEvent.press(screen.getByRole('button', { name: copy.nativeBank.open })); expect(mockPush).toHaveBeenCalledWith('/personal-bank');
-  fireEvent.press(screen.getByRole('button', { name: copy.nativePersonal.logout })); expect(screen.queryByText(row.customName)).toBeNull();
+  performLogout(); expect(screen.queryByText(row.customName)).toBeNull();
   expect(screen.queryByRole('button', { name: copy.nativeBank.open })).toBeNull();
   await screen.findByText(copy.nativePersonal.logoutLocal);
   expect(screen.queryByRole('button', { name: copy.nativePersonal.logout })).toBeNull();
@@ -88,21 +93,21 @@ it('uses exact localized Money input and displays authoritative reread rather th
   fireEvent.press(screen.getByRole('button', { name: copy.nativePersonal.verify })); await screen.findByText(copy.ownerSubscriptions.empty);
   expect(screen.getByRole('button', { name: copy.manualSubscription.title })).toBeTruthy();
   expect(screen.getByLabelText(copy.ownerSubscriptionList.search)).toBeTruthy();
-  expect(screen.getByRole('button', { name: copy.nativePersonal.logout })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: copy.nativePersonal.logout })).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: copy.manualSubscription.title }));
   expect(screen.getByLabelText(copy.manualSubscription.name)).toBeTruthy();
   expect(screen.queryByText(copy.nativePersonal.theme)).toBeNull();
   expect(screen.queryByLabelText(copy.ownerSubscriptionList.search)).toBeNull();
   expect(screen.getByRole('tab', { name: copy.productNav.manage })).toBeTruthy();
-  expect(screen.getByRole('button', { name: copy.nativePersonal.logout })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: copy.nativePersonal.logout })).toBeNull();
   fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name), 'Submitted draft');
-  fireEvent.press(screen.getByRole('button', { name: copy.ownerSubscriptions.category.VIDEO_STREAMING }));
+  chooseCategory(copy.ownerSubscriptions.category.VIDEO_STREAMING);
   fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.amount), '90071992547409.93');
   fireEvent.press(screen.getByRole('button', { name: copy.manualSubscription.save }));
   await screen.findByText(copy.nativePersonal.saved); expect(screen.getByText(row.customName)).toBeTruthy(); expect(screen.queryByText('Submitted draft')).toBeNull();
   expect(screen.getByRole('button', { name: copy.manualSubscription.title })).toBeTruthy();
   expect(screen.getByLabelText(copy.ownerSubscriptionList.search)).toBeTruthy();
-  expect(screen.getByText(copy.nativePersonal.theme)).toBeTruthy();
+  expect(screen.queryByText(copy.nativePersonal.theme)).toBeNull();
   expect(api.createNativeSubscription).toHaveBeenCalledWith(expect.objectContaining({ expectedAmountMinor: '9007199254740993' }), credentials.accessToken, expect.any(AbortSignal));
 });
 
@@ -122,19 +127,18 @@ it.each([
     fireEvent.press(screen.getByRole('button', { name: localized.manualSubscription.title }));
     const badValue = typeof invalidValue === 'string' ? invalidValue : '';
     fireEvent.changeText(screen.getByLabelText(localized.manualSubscription.name), fieldName === 'name' ? badValue : 'Retained draft');
-    if (fieldName !== 'category') fireEvent.press(screen.getByRole('button', { name: localized.ownerSubscriptions.category.VIDEO_STREAMING }));
+    if (fieldName !== 'category') chooseCategory(localized.ownerSubscriptions.category.VIDEO_STREAMING);
     const validAmount = locale === 'sv' ? '12,00' : '12.00';
     fireEvent.changeText(screen.getByLabelText(localized.nativePersonal.amount), fieldName === 'amount' ? badValue : validAmount);
-    if (fieldName === 'date') fireEvent.changeText(screen.getByLabelText(localized.nativePersonal.date), badValue);
-    fireEvent.press(screen.getByRole('button', { name: localized.manualSubscription.save }));
-    await screen.findByText(localized.manualSubscription[message]);
+    if(fieldName==='date'){expect(validateManualDraft({customName:'Retained draft',categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',amount:validAmount,date:badValue},locale).error).toBe('invalidDate');fireEvent.press(screen.getByTestId('native-subscription-date'));expect(screen.queryByRole('button',{name:badValue})).toBeNull();fireEvent.press(screen.getByRole('button',{name:catalogs[locale].actions.close}));}
+    if(fieldName!=='date'){fireEvent.press(screen.getByRole('button', { name: localized.manualSubscription.save }));await screen.findByText(localized.manualSubscription[message]);}
     expect(api.createNativeSubscription).not.toHaveBeenCalled();
     expect(api.editNativeSubscription).not.toHaveBeenCalled();
     expect(screen.getByTestId('native-subscription-name').props.value).toBe(fieldName === 'name' ? badValue : 'Retained draft');
     expect(screen.getByTestId('native-subscription-name').props.accessibilityLabel).toBe(localized.manualSubscription.name);
     expect(screen.getByTestId('native-subscription-amount').props.value).toBe(fieldName === 'amount' ? badValue : validAmount);
     expect(screen.getByTestId('native-subscription-amount').props.accessibilityLabel).toBe(localized.nativePersonal.amount);
-    expect(screen.getByTestId('native-subscription-date').props.value).toBe(fieldName === 'date' ? badValue : '');
+    expect(screen.getByText(catalogs[locale].onboarding.datePicker.choose)).toBeTruthy();
     expect(screen.getByTestId('native-subscription-date').props.accessibilityLabel).toBe(localized.nativePersonal.date);
     view.unmount();
   }
@@ -149,7 +153,7 @@ it('accepts the Swedish decimal separator and persists the canonical full Add bo
   fireEvent.press(screen.getByRole('button', { name: localized.nativePersonal.verify })); await screen.findByText(localized.ownerSubscriptions.empty);
   fireEvent.press(screen.getByRole('button', { name: localized.manualSubscription.title }));
   fireEvent.changeText(screen.getByLabelText(localized.manualSubscription.name), 'Swedish draft');
-  fireEvent.press(screen.getByRole('button', { name: localized.ownerSubscriptions.category.VIDEO_STREAMING }));
+  chooseCategory(localized.ownerSubscriptions.category.VIDEO_STREAMING);
   fireEvent.changeText(screen.getByLabelText(localized.nativePersonal.amount), '129,90');
   fireEvent.press(screen.getByRole('button', { name: localized.manualSubscription.save })); await screen.findByText(localized.nativePersonal.saved);
   expect(api.createNativeSubscription).toHaveBeenCalledWith(expect.objectContaining({ customName: 'Swedish draft', categoryCode: 'VIDEO_STREAMING', cadence: 'MONTHLY', expectedAmountMinor: '12990', nextChargeDate: null }), credentials.accessToken, expect.any(AbortSignal));
@@ -167,7 +171,7 @@ it('preserves failed Add feedback when the real session core requires fresh veri
  fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(copy.ownerSubscriptions.empty);
  fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.title}));
  fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Unpersisted draft');
- fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.category.VIDEO_STREAMING}));
+ chooseCategory(copy.ownerSubscriptions.category.VIDEO_STREAMING);
  fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.amount),'129.90');
  fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.save}));
  await screen.findByText(copy.nativePersonal.unavailable);
@@ -192,12 +196,12 @@ it('keeps the Add form isolated after validation errors and restores Manage on C
   expect(screen.queryByLabelText(copy.ownerSubscriptionList.search)).toBeNull();
   expect(screen.queryByText(copy.nativePersonal.theme)).toBeNull();
   expect(screen.queryByRole('button', { name: copy.nativeBank.open })).toBeNull();
-  expect(screen.getByRole('button', { name: copy.nativePersonal.logout })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: copy.nativePersonal.logout })).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: copy.manualSubscription.cancel }));
   expect(screen.getByRole('button', { name: copy.manualSubscription.title })).toBeTruthy();
   expect(screen.getByText(row.customName)).toBeTruthy();
   expect(screen.getByLabelText(copy.ownerSubscriptionList.search)).toBeTruthy();
-  expect(screen.getByText(copy.nativePersonal.theme)).toBeTruthy();
+  expect(screen.queryByText(copy.nativePersonal.theme)).toBeNull();
   expect(api.createNativeSubscription).not.toHaveBeenCalled();
 });
 
@@ -225,7 +229,7 @@ it('confirms Add only after automatically reading the complete authoritative own
   await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
   fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText('Earlier 0');
   fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.title}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Not authoritative draft');
-  fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.category.VIDEO_STREAMING}));fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.amount),'1.00');
+  chooseCategory(copy.ownerSubscriptions.category.VIDEO_STREAMING);fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.amount),'1.00');
   fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.save}));await screen.findByText(copy.nativePersonal.saved);
   expect(screen.queryByText('Not authoritative draft')).toBeNull();expect(screen.queryByRole('button',{name:copy.ownerSubscriptions.loadMore})).toBeNull();
   expect(screen.getByText(row.customName)).toBeTruthy();expect(api.readNativeSubscriptions).toHaveBeenLastCalledWith(credentials.accessToken,expect.any(AbortSignal),'cursor-one');
@@ -260,7 +264,7 @@ it('uses the accepted category fallback rather than exposing an unresolved legac
   jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,categoryCode:'LEGACY_UNKNOWN'}],nextCursor:null});
   mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
   fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
-  expect(screen.getByRole('header',{name:copy.ownerSubscriptions.categoryFallback})).toBeTruthy();expect(screen.getByText(copy.ownerSubscriptions.status.ACTIVE)).toBeTruthy();
+  expect(screen.getByRole('header',{name:copy.ownerSubscriptions.categoryFallback})).toBeTruthy();expect(screen.getByTestId(`native-subscription-row-${row.id}`).props.accessibilityState.expanded).toBe(false);expect(screen.queryByText(copy.ownerSubscriptions.status.ACTIVE)).toBeNull();
   expect(screen.queryByText('onboarding.ownerSubscriptions.category.LEGACY_UNKNOWN')).toBeNull();
 });
 
@@ -273,7 +277,7 @@ it('does not let an old logout acknowledgement replace feedback after fresh veri
     .mockImplementationOnce(()=>new Promise(done=>{completeVerification=done;}));
   mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
   fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
-  fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.logout}));expect(screen.queryByText(row.customName)).toBeNull();
+  performLogout();expect(screen.queryByText(row.customName)).toBeNull();
   await waitFor(()=>expect(api.revokeNativeSession).toHaveBeenCalledTimes(1));
   fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));
   await act(async()=>acknowledge());await waitFor(()=>expect(api.verifiedNativeLogin).toHaveBeenCalledTimes(2));
@@ -303,7 +307,7 @@ it('ignores a late login rejection after logout and a newer verification', async
     mount(); await waitFor(() => expect(screen.getByRole('button', { name: copy.nativePersonal.verify }).props.accessibilityState.disabled).toBe(false));
     fireEvent.press(screen.getByRole('button', { name: copy.nativePersonal.verify }));
     await screen.findByText(row.customName);
-    fireEvent.press(screen.getByRole('button', { name: copy.nativePersonal.logout }));
+    performLogout();
     await screen.findByText(copy.nativePersonal.logoutConfirmed);
     fireEvent.press(screen.getByRole('button', { name: copy.nativePersonal.verify }));
     await screen.findByText(row.customName);
@@ -319,7 +323,7 @@ it('Edit preserves exact huge amount and reads authoritative revision after save
  jest.mocked(api.editNativeSubscription).mockResolvedValue({id:row.id,revision:'2'});mount();
  await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
  fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
- fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));
+ expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));
  expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByLabelText(copy.ownerSubscriptionList.search)).toBeNull();
  expect(screen.queryByText(copy.nativePersonal.theme)).toBeNull();expect(screen.getByRole('tab',{name:copy.productNav.manage})).toBeTruthy();
  expect(screen.getByLabelText(copy.nativePersonal.amount).props.value).toBe('90071992547409.93');
@@ -334,12 +338,12 @@ it('stale Edit preserves draft until explicit saved-value review and new intent'
  jest.mocked(api.editNativeSubscription).mockResolvedValue({conflict:'MANUAL_EDIT_CONFLICT'});mount();
  await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
  fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
- fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Preserved draft');fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));
+ expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Preserved draft');fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));
  await screen.findByText(copy.nativeSubscriptionEdit.conflict);expect(screen.getByLabelText(copy.manualSubscription.name).props.value).toBe('Preserved draft');
  expect(screen.queryByLabelText(copy.ownerSubscriptionList.search)).toBeNull();expect(screen.queryByText(copy.nativePersonal.theme)).toBeNull();
  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));expect(api.editNativeSubscription).toHaveBeenCalledTimes(1);
  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.review}));expect(screen.getByLabelText(copy.manualSubscription.name).props.value).toBe('Preserved draft');
- expect(screen.queryByLabelText(copy.ownerSubscriptionList.search)).toBeNull();expect(screen.getByRole('button',{name:copy.nativePersonal.logout})).toBeTruthy();
+ expect(screen.queryByLabelText(copy.ownerSubscriptionList.search)).toBeNull();expect(screen.queryByRole('button',{name:copy.nativePersonal.logout})).toBeNull();
  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await waitFor(()=>expect(api.editNativeSubscription).toHaveBeenCalledTimes(2));expect(jest.mocked(api.editNativeSubscription).mock.calls[1]?.[0].expectedRevision).toBe('2');
 });
 it('Pause tracks only acknowledged and reread status, with no provider cancellation',async()=>{
@@ -347,7 +351,7 @@ it('Pause tracks only acknowledged and reread status, with no provider cancellat
  jest.mocked(api.updateNativeSubscriptionStatus).mockResolvedValue({id:row.id,status:'PAUSED'});mount();
  await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
  fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
- fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);
+ expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);
  expect(api.updateNativeSubscriptionStatus).toHaveBeenCalledWith({id:row.id,status:'PAUSED'},credentials.accessToken,expect.any(AbortSignal));expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeTruthy();
 });
 
@@ -362,7 +366,7 @@ it('rereads both loaded owner pages after later-page Edit, retaining acknowledge
  jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:first,nextCursor:'cursorA'}).mockResolvedValueOnce({items:[row],nextCursor:null})
   .mockResolvedValueOnce({items:first,nextCursor:'cursorB'}).mockResolvedValueOnce({items:[current],nextCursor:null});
  jest.mocked(api.editNativeSubscription).mockResolvedValue({id:row.id,revision:'2'});await laterPageScreen(first);
- fireEvent.press(screen.getAllByRole('button',{name:copy.nativeSubscriptionEdit.edit})[50]!);
+ expandCurrentRow(row.id);fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));
  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativeSubscriptionEdit.saved);
  expect(screen.getByText(current.customName)).toBeTruthy();expect(api.readNativeSubscriptions).toHaveBeenLastCalledWith(credentials.accessToken,expect.any(AbortSignal),'cursorB');
 });
@@ -371,7 +375,7 @@ it('later-page stale conflict preserves draft and requires explicit review of th
  jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:first,nextCursor:'cursorA'}).mockResolvedValueOnce({items:[row],nextCursor:null})
   .mockResolvedValueOnce({items:first,nextCursor:'cursorB'}).mockResolvedValueOnce({items:[current],nextCursor:null});
  jest.mocked(api.editNativeSubscription).mockResolvedValue({conflict:'MANUAL_EDIT_CONFLICT'});await laterPageScreen(first);
- fireEvent.press(screen.getAllByRole('button',{name:copy.nativeSubscriptionEdit.edit})[50]!);fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Private later draft');
+ expandCurrentRow(row.id);fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Private later draft');
  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativeSubscriptionEdit.conflict);
  expect(screen.getByLabelText(copy.manualSubscription.name).props.value).toBe('Private later draft');
  expect(screen.queryByText(/onboarding\.ownerSubscriptions\.category\.LEGACY_CATEGORY/)).toBeNull();expect(screen.getAllByText(new RegExp(copy.ownerSubscriptions.categoryFallback)).length).toBeGreaterThan(0);
@@ -381,13 +385,13 @@ it('later-page tracking Pause rereads the loaded range and confirms only the tar
  const first=earlierPage();jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:first,nextCursor:'cursorA'}).mockResolvedValueOnce({items:[row],nextCursor:null})
   .mockResolvedValueOnce({items:first,nextCursor:'cursorB'}).mockResolvedValueOnce({items:[{...row,status:'PAUSED',revision:'2'}],nextCursor:null});
  jest.mocked(api.updateNativeSubscriptionStatus).mockResolvedValue({id:row.id,status:'PAUSED'});await laterPageScreen(first);
- fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);expect(screen.getByText(row.customName)).toBeTruthy();
+ expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);expect(screen.getByText(row.customName)).toBeTruthy();
  expect(api.readNativeSubscriptions).toHaveBeenLastCalledWith(credentials.accessToken,expect.any(AbortSignal),'cursorB');
 });
 it('a missing reread never treats a preserved Edit draft as deleted',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[row],nextCursor:null}).mockResolvedValueOnce({items:[],nextCursor:null});
  jest.mocked(api.editNativeSubscription).mockResolvedValue({conflict:'MANUAL_EDIT_CONFLICT'});mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
- fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));
+ fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));
  fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Still private draft');fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativePersonal.readbackUnavailable);
  expect(screen.getByLabelText(copy.manualSubscription.name).props.value).toBe('Still private draft');expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}).props.accessibilityState.disabled).toBe(true);
  expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.review})).toBeTruthy();
@@ -397,8 +401,8 @@ it.each(['edit','status'])('wrong resource ID in acknowledged %s retires authori
  jest.mocked(api.editNativeSubscription).mockResolvedValue({id:'123e4567-e89b-42d3-a456-426614174099',revision:'2'});
  jest.mocked(api.updateNativeSubscriptionStatus).mockResolvedValue({id:'123e4567-e89b-42d3-a456-426614174099',status:'PAUSED'});
  mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
- if(operation==='edit'){fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));}
- else fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));
+ if(operation==='edit'){expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));}
+ else {expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));}
  await screen.findByText(copy.nativePersonal.unavailable);expect(screen.queryByText(copy.nativeSubscriptionEdit.saved)).toBeNull();expect(screen.queryByText(copy.nativeSubscriptionEdit.statusSaved)).toBeNull();expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(1);
 });
 
@@ -406,22 +410,22 @@ it.each(['cursor','duplicate'])('malformed paginated %s readback retires authori
  const first=earlierPage();jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:first,nextCursor:'cursorA'}).mockResolvedValueOnce({items:[row],nextCursor:null})
   .mockResolvedValueOnce({items:first,nextCursor:'cursorB'}).mockResolvedValueOnce({items:defect==='duplicate'?[first[0]!,row]:[row],nextCursor:defect==='cursor'?'cursorB':null});
  jest.mocked(api.updateNativeSubscriptionStatus).mockResolvedValue({id:row.id,status:'PAUSED'});await laterPageScreen(first);
- fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativePersonal.unavailable);
+ expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativePersonal.unavailable);
  expect(screen.queryByText(copy.nativeSubscriptionEdit.statusSaved)).toBeNull();expect(screen.queryByText(row.customName)).toBeNull();
 });
 it('legacy category draft uses the accepted fallback until the owner chooses an approved category',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,categoryCode:'LEGACY_CATEGORY'}],nextCursor:null});mount();
  await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
- fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));expect(screen.queryByText('onboarding.ownerSubscriptions.category.LEGACY_CATEGORY')).toBeNull();
- expect(screen.getAllByText(copy.ownerSubscriptions.categoryFallback).length).toBeGreaterThan(0);
+ expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));expect(screen.queryByText('onboarding.ownerSubscriptions.category.LEGACY_CATEGORY')).toBeNull();
+ expect(screen.getByTestId('native-subscription-category').props.value).toBe('');
  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.manualSubscription.invalidCategory);expect(api.editNativeSubscription).not.toHaveBeenCalled();
 });
 
-it('opens the native renewals agenda only after current profile and Just me readback',async()=>{
+it('opens native Home only after current profile and Just me readback',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});mount();
- expect(screen.queryByRole('tab',{name:copy.productNav.upcoming})).toBeNull();
+ expect(screen.queryByRole('tab',{name:copy.productNav.home})).toBeNull();
  await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));
- await screen.findByRole('tab',{name:copy.productNav.upcoming});fireEvent.press(screen.getByRole('tab',{name:copy.productNav.upcoming}));expect(mockReplace).toHaveBeenCalledWith('/personal-home');
+ await screen.findByRole('tab',{name:copy.productNav.home});expect(screen.getAllByRole('tab')).toHaveLength(5);fireEvent.press(screen.getByRole('tab',{name:copy.productNav.home}));expect(mockReplace).toHaveBeenCalledWith('/personal-billing-month');
 });
 
 it('personal list focus after the agenda rereads changed saved rows',async()=>{
@@ -430,8 +434,8 @@ it('personal list focus after the agenda rereads changed saved rows',async()=>{
  const focused=jest.mocked(useFocusEffect).mock.calls[jest.mocked(useFocusEffect).mock.calls.length-1]![0];act(()=>{focused();});await screen.findByText('After agenda edit');expect(screen.queryByText(row.customName)).toBeNull();
 });
 
-it('confirmed detected rows use a read-only badge and inbox link without manual edit/status controls',async()=>{
- jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,source:'DETECTED'}],nextCursor:null});mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);expect(screen.getByText(copy.nativeDetection.detected)).toBeTruthy();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.edit})).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.pause})).toBeNull();fireEvent.press(screen.getAllByRole('button',{name:copy.nativeDetection.open})[0]!);expect(mockPush).toHaveBeenCalledWith('/personal-detections');
+it('production confirmed detected rows retain owner display without sandbox editing controls',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,source:'DETECTED'}],nextCursor:null});mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);expect(screen.queryByText(copy.nativeDetection.detected)).toBeNull();expandCurrentRow();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.edit})).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.pause})).toBeNull();fireEvent.press(screen.getAllByRole('button',{name:copy.nativeDetection.open})[0]!);expect(mockPush).toHaveBeenCalledWith('/personal-detections');
 });
 
 
@@ -444,11 +448,31 @@ it('searches the terminal second page with Unicode names, localized category and
  fireEvent.changeText(search,copy.ownerSubscriptions.category.VIDEO_STREAMING.toUpperCase());expect(screen.getByText(second.customName)).toBeTruthy();expect(screen.getByText(row.customName)).toBeTruthy();
 });
 
+it('combines category filters with search and restores all categories without another server read',async()=>{
+ const music={...row,id:'22222222-2222-4222-8222-222222222222',customName:'Soundwave Family',categoryCode:'MUSIC_AUDIO'};
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row,music],nextCursor:null});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
+ fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
+ const all=catalogs.en.nativeProductDetails.allCategories;
+ expect(screen.getByRole('button',{name:all}).props.accessibilityState.selected).toBe(true);
+ fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.category.VIDEO_STREAMING}));
+ expect(screen.getByRole('button',{name:copy.ownerSubscriptions.category.VIDEO_STREAMING}).props.accessibilityState.selected).toBe(true);
+ expect(screen.getByText(row.customName)).toBeTruthy();expect(screen.queryByText(music.customName)).toBeNull();
+ fireEvent.changeText(screen.getByLabelText(copy.ownerSubscriptionList.search),'Soundwave');
+ expect(screen.getByText(copy.ownerSubscriptionList.noMatch)).toBeTruthy();expect(screen.queryByText(row.customName)).toBeNull();
+ fireEvent.press(screen.getByRole('button',{name:all}));
+ expect(screen.getByRole('button',{name:all}).props.accessibilityState.selected).toBe(true);
+ expect(screen.getByText(music.customName)).toBeTruthy();expect(screen.queryByText(row.customName)).toBeNull();
+ expect(screen.getByLabelText(copy.ownerSubscriptionList.search).props.value).toBe('Soundwave');
+ fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptionList.clear}));
+ expect(screen.getByText(row.customName)).toBeTruthy();expect(screen.getByText(music.customName)).toBeTruthy();expect(api.readNativeSubscriptions).toHaveBeenCalledTimes(1);
+});
+
 it('renders active per-cadence currency totals and recomputes category groups after persisted edit/status readback',async()=>{
  const saved={...row,expectedAmountMinor:'12990'},edited={...saved,revision:'2',categoryCode:'MUSIC_AUDIO'},paused={...edited,status:'PAUSED' as const};jest.mocked(api.readNativeSubscriptions).mockResolvedValueOnce({items:[saved],nextCursor:null}).mockResolvedValueOnce({items:[edited],nextCursor:null}).mockResolvedValueOnce({items:[paused],nextCursor:null});jest.mocked(api.editNativeSubscription).mockResolvedValue({id:saved.id,revision:'2'});jest.mocked(api.updateNativeSubscriptionStatus).mockResolvedValue({id:saved.id,status:'PAUSED'});mount();
- await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(saved.customName);expect(screen.getByText(copy.ownerSubscriptionList.expectedSubtotal)).toBeTruthy();
- fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.category.MUSIC_AUDIO}));fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativeSubscriptionEdit.saved);expect(screen.getByRole('header',{name:copy.ownerSubscriptions.category.MUSIC_AUDIO})).toBeTruthy();expect(screen.queryByRole('header',{name:copy.ownerSubscriptions.category.VIDEO_STREAMING})).toBeNull();
- fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);expect(screen.getByText(saved.customName)).toBeTruthy();expect(screen.queryByText(copy.ownerSubscriptionList.expectedSubtotal)).toBeNull();expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeTruthy();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(saved.customName);expect(screen.getByText(`${copy.ownerSubscriptions.cadence.MONTHLY} · 129,90 SEK`)).toBeTruthy();
+ expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));chooseCategory(copy.ownerSubscriptions.category.MUSIC_AUDIO);fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativeSubscriptionEdit.saved);expect(screen.getByRole('header',{name:copy.ownerSubscriptions.category.MUSIC_AUDIO})).toBeTruthy();expect(screen.queryByRole('header',{name:copy.ownerSubscriptions.category.VIDEO_STREAMING})).toBeNull();
+ expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);expect(screen.getByText(saved.customName)).toBeTruthy();expect(screen.queryByText(copy.ownerSubscriptionList.expectedSubtotal)).toBeNull();expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeTruthy();
 });
 
 it('blur aborts a complete read and clears query/data while stale completion cannot revive the view',async()=>{
@@ -457,7 +481,7 @@ it('blur aborts a complete read and clears query/data while stale completion can
 });
 
 it('uses Swedish search/category/subtotal labels and clears search immediately on logout',async()=>{
- mockLocale.value='sv';jest.mocked(api.readNativeProfile).mockResolvedValue({...profile,language:'sv'});jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,customName:'Fiktiv tjänst'}],nextCursor:null});jest.mocked(api.revokeNativeSession).mockResolvedValue(undefined);mount();const sv=catalogs.sv.onboarding;await waitFor(()=>expect(screen.getByRole('button',{name:sv.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:sv.nativePersonal.verify}));await screen.findByText('Fiktiv tjänst');fireEvent.changeText(screen.getByLabelText(sv.ownerSubscriptionList.search),sv.ownerSubscriptions.category.VIDEO_STREAMING);expect(screen.getByText('Fiktiv tjänst')).toBeTruthy();expect(screen.getByText(sv.ownerSubscriptionList.expectedSubtotal)).toBeTruthy();fireEvent.press(screen.getByRole('button',{name:sv.nativePersonal.logout}));expect(screen.queryByText('Fiktiv tjänst')).toBeNull();expect(screen.queryByLabelText(sv.ownerSubscriptionList.search)).toBeNull();
+ mockLocale.value='sv';jest.mocked(api.readNativeProfile).mockResolvedValue({...profile,language:'sv'});jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,customName:'Fiktiv tjänst'}],nextCursor:null});jest.mocked(api.revokeNativeSession).mockResolvedValue(undefined);mount();const sv=catalogs.sv.onboarding;await waitFor(()=>expect(screen.getByRole('button',{name:sv.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:sv.nativePersonal.verify}));await screen.findByText('Fiktiv tjänst');fireEvent.changeText(screen.getByLabelText(sv.ownerSubscriptionList.search),sv.ownerSubscriptions.category.VIDEO_STREAMING);expect(screen.getByText('Fiktiv tjänst')).toBeTruthy();expect(screen.getByText(new RegExp(`^${sv.ownerSubscriptions.cadence.MONTHLY} · `))).toBeTruthy();performLogout();expect(screen.queryByText('Fiktiv tjänst')).toBeNull();expect(screen.queryByLabelText(sv.ownerSubscriptionList.search)).toBeNull();
 });
 
 
@@ -467,12 +491,12 @@ it.each([false,true])('retains disabled loaded rows during pending status and cl
  jest.mocked(api.updateNativeSubscriptionStatus).mockImplementationOnce(()=>new Promise(done=>{finish=done;}));
  mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
  fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
- fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await waitFor(()=>expect(api.updateNativeSubscriptionStatus).toHaveBeenCalledTimes(1));
+ expandCurrentRow();fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await waitFor(()=>expect(api.updateNativeSubscriptionStatus).toHaveBeenCalledTimes(1));
  expect(screen.getByText(row.customName)).toBeTruthy();
  expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}).props.accessibilityState.disabled).toBe(true);
  expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeNull();
  expect(screen.queryByText(copy.nativeSubscriptionEdit.statusSaved)).toBeNull();
- if(logout){fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.logout}));expect(screen.queryByText(row.customName)).toBeNull();}
+ if(logout){performLogout();expect(screen.queryByText(row.customName)).toBeNull();}
  await act(async()=>finish({id:row.id,status:'PAUSED'}));
  if(logout){expect(screen.queryByText(row.customName)).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeNull();expect(screen.queryByText(copy.nativeSubscriptionEdit.statusSaved)).toBeNull();}
  else {await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeTruthy();}
@@ -504,4 +528,22 @@ it('profile setup offers only contract-supported avatars and saves selected emoj
  for(const emoji of ['🙂','😀','😎','🌟','🌿','🐱','🦊','🦉']){expect(()=>parseProfilePatch({avatarEmoji:emoji})).not.toThrow();expect(screen.getByRole('button',{name:emoji})).toBeTruthy();}
  fireEvent.press(screen.getByRole('button',{name:'🙂'}));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.saveProfile}));
  await screen.findByText(copy.nativePersonal.profileSaved);expect(api.saveNativeProfile).toHaveBeenCalledWith({displayName:'Example',avatarEmoji:'🙂'},credentials.accessToken,expect.any(AbortSignal));expect(api.readNativeProfile).toHaveBeenCalledTimes(2);
+});
+
+it('sandbox confirmed detected plans support correction and acknowledged tracking while pending detections stay review-only',async()=>{
+ let persisted={...row,source:'DETECTED' as const,customName:'Detected current plan',nextChargeDate:'2026-11-17'};
+ const pending={...persisted,id:'123e4567-e89b-42d3-a456-426614174001',customName:'Pending detection',status:'DETECTED' as const};
+ const injected={...api,readNativeProfile:jest.fn().mockResolvedValue(profile),readNativeMode:jest.fn().mockResolvedValue({mode:'just-me'}),
+  readNativeSubscriptions:jest.fn(async()=>({items:[persisted,pending],nextCursor:null})),
+  editNativeSubscription:jest.fn(async()=>{persisted={...persisted,customName:'Backend confirmed correction',revision:'2'};return{id:persisted.id,revision:'2'};}),
+  updateNativeSubscriptionStatus:jest.fn(async()=>{persisted={...persisted,status:'PAUSED' as never,revision:'3'};return{id:persisted.id,status:'PAUSED' as const};})};
+ const session={phase:'active' as const,login:async()=>{},refresh:async()=>{},logout:async()=>true,run:async<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>work('sandbox-current',new AbortController().signal)};
+ render(<NativePersonalScreen useSession={()=>session} api={injected} sandbox/>);await screen.findByText(persisted.customName);
+ expandCurrentRow(pending.id);expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.edit})).toBeNull();expect(screen.queryByRole('button',{name:copy.nativeSubscriptionEdit.pause})).toBeNull();expect(screen.getAllByRole('button',{name:copy.nativeDetection.open}).length).toBe(2);
+ expandCurrentRow(persisted.id);fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));
+ expect(screen.getByLabelText(copy.nativePersonal.amount).props.value).toBe('90071992547409.93');fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'User correction');
+ fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText(copy.nativeSubscriptionEdit.saved);expect(screen.getByText('Backend confirmed correction')).toBeTruthy();expect(screen.queryByText('User correction')).toBeNull();
+ expect(injected.editNativeSubscription).toHaveBeenCalledWith(expect.objectContaining({id:row.id,expectedRevision:'1',customName:'User correction',expectedAmountMinor:row.expectedAmountMinor,nextChargeDate:'2026-11-17'}),'sandbox-current',expect.any(AbortSignal));
+ expandCurrentRow(persisted.id);fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await screen.findByText(copy.nativeSubscriptionEdit.statusSaved);expect(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.resume})).toBeTruthy();
+ expect(injected.updateNativeSubscriptionStatus).toHaveBeenCalledWith({id:row.id,status:'PAUSED'},'sandbox-current',expect.any(AbortSignal));expect(api.readNativeProfile).not.toHaveBeenCalled();expect(api.editNativeSubscription).not.toHaveBeenCalled();expect(api.updateNativeSubscriptionStatus).not.toHaveBeenCalled();
 });

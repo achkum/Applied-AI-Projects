@@ -34,10 +34,18 @@ it('injected qualified transport activates only after actual core persistence', 
   render(<SandboxSessionProvider available store={store} api={api as unknown as SandboxMobileApi}><MockConsumer /></SandboxSessionProvider>); await screen.findByText('verification-required'); fireEvent.press(screen.getByRole('button', { name: 'enter' })); await screen.findByText('active'); expect(store.write).toHaveBeenCalledTimes(1);
 });
 it('unsupported initial and later deep links never mount a private subtree before repair',()=>{
- const mounted=jest.fn();function Child(){mounted();return<Text>Allowed subtree</Text>;}
- for(const path of ['/personal-bank','/personal-detections','/(tabs)','/en/demo']){
+ const mounted=jest.fn(),unmounted=jest.fn();function Child(){mounted();React.useEffect(()=>()=>unmounted(),[]);return<Text>Allowed subtree</Text>;}
+ for(const path of ['/(tabs)','/en/demo']){
   mockPath=path;const view=render(<SandboxSessionProvider><SandboxRouteBoundary><Child/></SandboxRouteBoundary></SandboxSessionProvider>);expect(screen.queryByText('Allowed subtree')).toBeNull();expect(mockReplace).toHaveBeenCalledWith('/welcome');view.unmount();
- }expect(mounted).not.toHaveBeenCalled();mockPath='/personal';const view=render(<SandboxSessionProvider><SandboxRouteBoundary><Child/></SandboxRouteBoundary></SandboxSessionProvider>);expect(screen.getByText('Allowed subtree')).toBeTruthy();const before=mounted.mock.calls.length;mockPath='/personal-bank';view.rerender(<SandboxSessionProvider><SandboxRouteBoundary><Child/></SandboxRouteBoundary></SandboxSessionProvider>);expect(screen.queryByText('Allowed subtree')).toBeNull();expect(mounted).toHaveBeenCalledTimes(before);
+ }expect(mounted).not.toHaveBeenCalled();expect(unmounted).not.toHaveBeenCalled();mockPath='/personal';const view=render(<SandboxSessionProvider><SandboxRouteBoundary><Child/></SandboxRouteBoundary></SandboxSessionProvider>);expect(screen.getByText('Allowed subtree')).toBeTruthy();const before=mounted.mock.calls.length;mockPath='/(tabs)';view.rerender(<SandboxSessionProvider><SandboxRouteBoundary><Child/></SandboxRouteBoundary></SandboxSessionProvider>);expect(screen.queryByText('Allowed subtree')).toBeNull();expect(mounted).toHaveBeenCalledTimes(before);expect(unmounted).toHaveBeenCalledTimes(1);expect(mockReplace).toHaveBeenLastCalledWith('/welcome');view.unmount();
+});
+it('allows the shared sandbox product routes without falling back to private authority providers',()=>{
+ function Child(){return<Text>Shared sandbox feature</Text>;}
+ const native=jest.mocked(NativeSessionProvider),enrollment=jest.mocked(EnrollmentProvider);native.mockClear();enrollment.mockClear();
+ for(const path of ['/personal','/personal-billing-month','/personal-home','/personal-profile','/personal-bank','/personal-detections','/personal-household','/personal-insights','/personal-comparisons']){
+  mockReplace.mockClear();mockPath=path;const view=render(<SandboxSessionProvider><SandboxRouteBoundary><Child/></SandboxRouteBoundary></SandboxSessionProvider>);
+  expect(screen.getByText('Shared sandbox feature')).toBeTruthy();expect(mockReplace).not.toHaveBeenCalled();expect(native).not.toHaveBeenCalled();expect(enrollment).not.toHaveBeenCalled();view.unmount();
+ }mockPath='/personal';
 });
 it('malformed sandbox marker remains isolated instead of falling back to private providers',()=>{
  for(const marker of [null,{variant:'unknown'},{variant:'sandbox',apiBaseUrl:'http://unapproved'}])expect(sandboxBuildSelected({extra:{subtrackSandbox:marker}})).toBe(true);

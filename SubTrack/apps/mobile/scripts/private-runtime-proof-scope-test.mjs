@@ -6,6 +6,8 @@ import {proofScope,profileReceipt,PROFILE_SCREENSHOTS} from './private-runtime-p
 test('full remains automatic/default; profile requires explicit Android dispatch and rejects unknown scope',()=>{
  assert.equal(proofScope({},'android'),'full');assert.equal(proofScope({GITHUB_EVENT_NAME:'pull_request'},'android'),'full');
  assert.equal(proofScope({GITHUB_EVENT_NAME:'workflow_dispatch',SUBTRACK_NATIVE_PROOF_SCOPE:'profile'},'android'),'profile');
+ assert.equal(proofScope({GITHUB_EVENT_NAME:'pull_request',SUBTRACK_NATIVE_PROOF_SCOPE:'profile',SUBTRACK_NATIVE_PROOF_SELECTION:'profile-allowlist-v1'},'android'),'profile');
+ assert.throws(()=>proofScope({GITHUB_EVENT_NAME:'pull_request',SUBTRACK_NATIVE_PROOF_SCOPE:'profile',SUBTRACK_NATIVE_PROOF_SELECTION:'unrecognized'},'android'));
  for(const env of [{SUBTRACK_NATIVE_PROOF_SCOPE:'profile'},{GITHUB_EVENT_NAME:'pull_request',SUBTRACK_NATIVE_PROOF_SCOPE:'profile'},{SUBTRACK_NATIVE_PROOF_SCOPE:'bad'}])assert.throws(()=>proofScope(env,'android'));
  assert.throws(()=>proofScope({GITHUB_EVENT_NAME:'workflow_dispatch',SUBTRACK_NATIVE_PROOF_SCOPE:'profile'},'ios'));
 });
