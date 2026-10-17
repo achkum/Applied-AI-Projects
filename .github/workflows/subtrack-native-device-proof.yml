@@ -15,14 +15,19 @@ on:
         type: choice
         options: [android, all]
         default: android
+      proof_scope:
+        description: Profile feedback or complete release qualification
+        type: choice
+        options: [profile, full]
+        default: profile
 permissions:
   contents: read
 concurrency:
-  group: subtrack-native-device-${{ github.ref }}-${{ github.event.pull_request.head.sha || github.sha }}
+  group: subtrack-native-device-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
   installed-native:
-    name: Installed ${{ matrix.platform }} restart readback
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_scope == 'profile' && 'Android profile and restart (scoped)' || format('Installed {0} restart readback', matrix.platform) }}
     strategy:
       fail-fast: false
       max-parallel: 2
@@ -35,6 +40,7 @@ jobs:
         shell: bash
         working-directory: SubTrack
     env:
+      SUBTRACK_NATIVE_PROOF_SCOPE: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_scope || 'full' }}
       CI: "true"
       EXPO_NO_TELEMETRY: "1"
       MAESTRO_CLI_NO_ANALYTICS: "true"
@@ -67,7 +73,7 @@ jobs:
           pnpm --filter @subtrack/domain build:bank
           pnpm --filter @subtrack/domain build:detection
           pnpm --filter @subtrack/synthetic build:bank
-          node --test apps/mobile/scripts/private-runtime-preconditions.test.mjs
+          node --test apps/mobile/scripts/private-runtime-preconditions.test.mjs apps/mobile/scripts/private-runtime-proof-scope-test.mjs
           bash apps/mobile/scripts/private-runtime-tools.sh
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-restart-ui.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-restart-ui-test.mjs
           node apps/mobile/scripts/private-runtime-amount-selector-test.mjs

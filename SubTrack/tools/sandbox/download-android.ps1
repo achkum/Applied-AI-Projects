@@ -153,7 +153,7 @@ if($Mode -eq 'StageApk'){
     $start=[Diagnostics.ProcessStartInfo]::new();$start.FileName='git';$start.UseShellExecute=$false;$start.CreateNoWindow=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
     foreach($argument in @('-C',$PSScriptRoot,'show',$object)){$start.ArgumentList.Add($argument)}
     $process=[Diagnostics.Process]::new();$process.StartInfo=$start;$memory=[IO.MemoryStream]::new()
-    try{Require $process.Start();$copy=$process.StandardOutput.BaseStream.CopyToAsync($memory);$stderr=$process.StandardError.ReadToEndAsync();if(-not $process.WaitForExit(15000)){$process.Kill($true);throw 'ST250_ANDROID_GIT_TIMEOUT'};$copy.GetAwaiter().GetResult();$privateError=$stderr.GetAwaiter().GetResult();Require ($process.ExitCode -eq 0 -and $memory.Length -eq [long]$size -and $privateError.Length -le 65536);return ,$memory.ToArray()}
+    try{Require $process.Start();$copy=$process.StandardOutput.BaseStream.CopyToAsync($memory);$stderr=$process.StandardError.ReadToEndAsync();if(-not $process.WaitForExit(15000)){$process.Kill($true);throw 'ST250_ANDROID_GIT_TIMEOUT'};[void]$copy.GetAwaiter().GetResult();$privateError=$stderr.GetAwaiter().GetResult();Require ($process.ExitCode -eq 0 -and $memory.Length -eq [long]$size -and $privateError.Length -le 65536);return ,$memory.ToArray()}
     finally{$process.Dispose();$memory.Dispose()}
   }
   $apkLocal=Join-Path $transferRoot "apk-$ApkRun";$toolsLocal=Join-Path $transferRoot "tools-$ToolsRun";Check-PrivateAcl $apkLocal;Check-PrivateAcl $toolsLocal

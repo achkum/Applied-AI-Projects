@@ -56,7 +56,7 @@ describe('WelcomeActions', () => {
 
   it('keeps the shared welcome actions in sandbox and labels simulation without opening the demo web route', () => {
     render(<WelcomeActions environment="sandbox" onCreateAccount={jest.fn()} onLogIn={jest.fn()} />);
-    expect(screen.getByText(catalogs.en.onboarding.sandbox.noticeShort)).toBeTruthy();
+    expect(screen.queryByText(catalogs.en.onboarding.sandbox.noticeShort)).toBeNull();
     expect(screen.getByRole('button', { name: catalogs.en.onboarding.welcome.createAccount })).toBeTruthy();
     expect(screen.getByRole('button', { name: catalogs.en.onboarding.welcome.logIn })).toBeTruthy();
     expect(screen.queryByRole('button', { name: catalogs.en.onboarding.welcome.exploreDemo })).toBeNull();

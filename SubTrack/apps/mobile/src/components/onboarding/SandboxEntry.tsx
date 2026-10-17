@@ -4,12 +4,8 @@ import { useSandboxSession } from '@/state/SandboxSession';
 import { useI18n } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getColorByTheme } from '@/utils/colors';
-import { NativeProductBadge } from '@/components/billing/NativeProductUI';
 
-export function SandboxNotice() {
-  const { t } = useI18n();
-  return <NativeProductBadge label={t('onboarding.sandbox.noticeShort')} />;
-}
+export function SandboxNotice() { return null; }
 export function SandboxEntry({notice=true}:{notice?:boolean}={}) {
   const session = useSandboxSession(), { t, locale } = useI18n(), { theme, isDark } = useTheme();
   const [failed, setFailed] = useState(false), generation = useRef(0);

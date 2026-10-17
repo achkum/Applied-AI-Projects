@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import type { ProfileView, PrivateOwnerSubscriptionView } from '../../../../../packages/contracts/generated/types.gen';
-import { parseProfilePatch } from '@subtrack/contracts/profile';
+import { isCanonicalDisplayName, parseProfilePatch } from '@subtrack/contracts/profile';
 import { parsePrivateMobileManualEdit } from '@subtrack/contracts/private-mobile';
 import { parsePrivateManualCreate } from '@subtrack/contracts/private-onboarding';
 import { useNativeSession } from '@/state/NativeSession';
@@ -16,7 +16,7 @@ import { getColorByTheme } from '@/utils/colors';
 import { catalogs } from '@subtrack/i18n';
 import { readAllOwnerSubscriptions, projectOwnerSubscriptions } from '@/api/privateMobileSubscriptionList';
 import { BillingIcon } from '../billing/BillingIcon';
-import { NativeProductBadge, NativeProductButton, NativeProductCard, NativeProductHeading } from '../billing/NativeProductUI';
+import { NativeProductButton, NativeProductCard, NativeProductHeading } from '../billing/NativeProductUI';
 import { NativeProductNav, type NativeProductDestination } from '../billing/NativeProductNav';
 
 export type NativeFeatureSession = Pick<ReturnType<typeof useNativeSession>, 'phase' | 'login' | 'refresh' | 'logout' | 'run'>;
@@ -162,7 +162,6 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
   };
   return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView style={{ backgroundColor: color('bg.canvas') }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <NativeProductHeading testID="native-personal-title" title={session.phase!=='active'?t('onboarding.nativePersonal.loginTitle'):setup?t('onboarding.profile.title'):ready?t('onboarding.productNav.manage'):t('onboarding.mode.title')} />
-    {sandbox ? <NativeProductBadge label={t('onboarding.sandbox.noticeShort')} /> : null}
     {session.phase === 'storage-error' ? <Text accessibilityRole="alert" style={text}>{t('onboarding.nativePersonal.storageError')}</Text> : null}
     {message && !(message==='storageError' && session.phase==='storage-error') ? <Text accessibilityRole="alert" style={text}>{t(message.startsWith('edit.') ? `onboarding.nativeSubscriptionEdit.${message.slice(5)}` : message.startsWith('manualSubscription.') ? `onboarding.${message}` : `onboarding.nativePersonal.${message}`)}</Text> : null}
     {session.phase !== 'active' ? sandbox ? inactiveContent : <>
@@ -173,12 +172,14 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
     </> : <>
       {loading ? <Text accessibilityLiveRegion="polite" style={text}>{t('onboarding.nativePersonal.loading')}</Text> : null}
       {profile && !profile.profileComplete ? <NativeProductCard>
-        {field(t('onboarding.nativePersonal.name'), name, setName, false, 'native-profile-name')}{field(t('onboarding.nativePersonal.emoji'), emoji, setEmoji)}
-        <Text style={text}>{t('onboarding.nativePersonal.language')}</Text><View style={styles.actions}>{(['sv', 'en'] as const).map(value => button(t(`preferences.languageName.${value}`), () => setLanguage(value), loading, language === value))}</View>
-        <Text style={text}>{t('onboarding.nativePersonal.theme')}</Text><View style={styles.actions}>{(['system', 'light', 'dark'] as const).map(value => button(t(`preferences.themes.${value}`), () => setProfileTheme(value), loading, profileTheme === value))}</View>
+        {field(t('onboarding.nativePersonal.name'), name, setName, false, 'native-profile-name')}
+        <Text style={text}>{t('onboarding.nativePersonal.emoji')}</Text>
+        <View style={styles.actions}>{(['', '🙂', '😀', '😎', '🌟', '🌿', '🐱', '🦊', '🦉'] as const).map(value => button(value || t('onboarding.nativePersonal.noEmoji'), () => setEmoji(value), loading, emoji === value, false, value === '🙂' ? 'native-profile-avatar-smile' : undefined))}</View>
         {button(t('onboarding.nativePersonal.saveProfile'), () => {
-          let patch; try { patch = parseProfilePatch({ displayName: name.trim().normalize('NFC'), avatarEmoji: emoji || null, language, theme: profileTheme }); }
-          catch { setMessage('invalid'); return; }
+          const displayName = name.trim().normalize('NFC');
+          if (!isCanonicalDisplayName(displayName)) { setMessage('invalidProfileName'); return; }
+          let patch; try { patch = parseProfilePatch({ displayName, avatarEmoji: emoji || null }); }
+          catch { setMessage('invalidProfileEmoji'); return; }
           void action(async (token, signal) => { await saveNativeProfile(patch, token, signal); const current = await readNativeProfile(token, signal);
             return async ticket => { await applyPreferences(current, ticket); if (ticket !== generation.current) return;
               setProfile(current); setName(current.displayName ?? ''); setLanguage(current.language); setProfileTheme(current.theme); setMessage('profileSaved'); }; });
@@ -193,15 +194,16 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
         {!adding ? button(t('onboarding.manualSubscription.title'), () => { setEditing(null); setReview(null); setReviewBlocked(false); setDraft({ customName: '', categoryCode: '', cadence: 'MONTHLY', amount: '', date: '' }); setAdding(true); }, loading, undefined, true) : null}
         {!adding ? <NativeProductCard>
         <NativeProductHeading title={t('onboarding.ownerSubscriptions.title')} />
+        <Text style={text}>{t('onboarding.nativePersonal.language')}</Text><View style={styles.actions}>{(['sv', 'en'] as const).map(value => button(t(`preferences.languageName.${value}`), () => setLanguage(value), loading, language === value))}</View>
         <Text style={text}>{t('onboarding.nativePersonal.theme')}</Text>
         <View style={styles.actions}>{(['system', 'light', 'dark'] as const).map(value => button(t(`preferences.themes.${value}`), () => setProfileTheme(value), loading, profileTheme === value))}</View>
         {button(t('onboarding.nativePersonal.savePreferences'), () => {
           if (!profile) return;
-          let patch; try { patch = parseProfilePatch({ displayName: profile.displayName ?? '', avatarEmoji: profile.avatarEmoji ?? null, language: profile.language, theme: profileTheme }); }
+          let patch; try { patch = parseProfilePatch({ language, theme: profileTheme }); }
           catch { setMessage('invalid'); return; }
           void action(async (token, signal) => { await saveNativeProfile(patch, token, signal); const current = await readNativeProfile(token, signal);
             return async ticket => { await applyPreferences(current, ticket); if (ticket !== generation.current) return;
-              setProfile(current); setProfileTheme(current.theme); setMessage('profileSaved'); }; });
+              setProfile(current); setLanguage(current.language); setProfileTheme(current.theme); setMessage('profileSaved'); }; });
         }, loading, undefined, true)}
         {button(t('onboarding.nativeDetection.open'), () => router.push('/personal-detections'), loading || sandbox)}
         {button(t('onboarding.nativeBank.open'), () => router.push('/personal-bank'), loading || sandbox)}

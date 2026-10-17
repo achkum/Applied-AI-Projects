@@ -2,7 +2,7 @@ import {observeStartupStage} from '@/utils/privateRuntimeEnrollmentDiagnostic';
 jest.mock('@/utils/privateRuntimeEnrollmentDiagnostic',()=>({observeStartupStage:jest.fn()}));
 jest.mock('react-native-safe-area-context',()=>jest.requireActual('react-native-safe-area-context/jest/mock').default);
 import React from 'react';
-import {render} from '@testing-library/react-native';
+import {act,render} from '@testing-library/react-native';
 import PersonalRoute from '../../../app/personal';
 import WelcomeRoute from '../../../app/welcome';
 import IndexRoute from '../../../app/index';
@@ -10,11 +10,12 @@ jest.mock('@/context/ThemeContext',()=>({useTheme:()=>jest.requireActual('../sig
 jest.mock('@/context/I18nContext',()=>({useI18n:()=>jest.requireActual('../signature/testUtils/contextMocks').makeI18n('en')}));
 jest.mock('./WelcomeActions',()=>({WelcomeActions:(props:Record<string,unknown>)=>{mockWelcomeProps=props;return null;}}));
 let mockWelcomeProps:Record<string,unknown>;
+const mockWelcomeLogin=jest.fn();
 let mockFocused=true,mockPhase='active';
 let mockSandbox=false,mockSetup:undefined|string;const mockReplace=jest.fn();let mockProps:Record<string,unknown>;
 jest.mock('expo-router',()=>({useFocusEffect:(effect:()=>void)=>jest.requireActual<typeof import('react')>('react').useEffect(()=>{if(mockFocused)return effect();},[effect,mockFocused]),useRouter:()=>({replace:mockReplace,push:jest.fn()}),useLocalSearchParams:()=>({setup:mockSetup}),Redirect:(props:unknown)=>{mockProps=props as Record<string,unknown>;return null;}}));
 jest.mock('@/state/SandboxSession',()=>({sandboxBuildSelected:()=>mockSandbox,useSandboxSession:()=>({phase:'active'})}));
-jest.mock('@/state/OnboardingAdapter',()=>({useOnboarding:()=>({sessionPhase:mockPhase,provider:mockSandbox?'sandbox':'production',reset:jest.fn()})}));
+jest.mock('@/state/OnboardingAdapter',()=>({useOnboarding:()=>({sessionPhase:mockPhase,provider:mockSandbox?'sandbox':'production',reset:jest.fn(),login:mockWelcomeLogin})}));
 jest.mock('@/api/sandboxMobileApi',()=>({sandboxMobileApi:{sandbox:true}}));
 jest.mock('./NativePersonalScreen',()=>({NativePersonalScreen:(props:Record<string,unknown>)=>{mockProps=props;return null;}}));
 beforeEach(()=>{jest.clearAllMocks();mockSetup=undefined;mockFocused=true;mockPhase='active';});
@@ -35,3 +36,11 @@ it.each([false,true])('background Welcome cannot replace a freshly verified Mana
  mockFocused=true;view.rerender(<WelcomeRoute/>);expect(mockReplace).toHaveBeenCalledWith({pathname:'/personal',params:{setup:'1'}});
 });
 it.each(['busy','verification-required','storage-error'])('focused Welcome does not redirect without active authority phase=%s',phase=>{mockPhase=phase;render(<WelcomeRoute/>);expect(mockReplace).not.toHaveBeenCalled();});
+
+it('Welcome sandbox Login resumes once without another login page',async()=>{
+ mockSandbox=true;mockPhase='verification-required';let resolve:()=>void=()=>undefined;
+ mockWelcomeLogin.mockImplementation(()=>new Promise<void>(done=>{resolve=done;}));render(<WelcomeRoute/>);
+ await act(async()=>{(mockWelcomeProps.onLogIn as ()=>void)();(mockWelcomeProps.onLogIn as ()=>void)();});
+ expect(mockWelcomeLogin).toHaveBeenCalledTimes(1);expect(mockReplace).not.toHaveBeenCalled();
+ await act(async()=>resolve());expect(mockReplace).toHaveBeenCalledWith({pathname:'/personal',params:{setup:'1'}});
+});

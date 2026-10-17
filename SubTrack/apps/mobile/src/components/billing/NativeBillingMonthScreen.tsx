@@ -13,7 +13,7 @@ import {catalogs} from '@subtrack/i18n';
 import {BillingIcon} from './BillingIcon';
 import type {NativeFeatureSession} from '../onboarding/NativePersonalScreen';
 import {NativeProductNav, type NativeProductDestination} from './NativeProductNav';
-import {NativeProductHeading,NativeProductBadge} from './NativeProductUI';
+import {NativeProductHeading} from './NativeProductUI';
 export function NativeBillingMonthScreen({now=()=>new Date(),useSession=useNativeSession,readProjection=readBillingMonth,sandbox=false,inactiveContent}:{now?:()=>Date;useSession?:()=>NativeFeatureSession;readProjection?:typeof readBillingMonth;sandbox?:boolean;inactiveContent?:React.ReactNode}){
  const session=useSession(),router=useRouter(),{t,locale}=useI18n(),{theme,isDark}=useTheme();
  const current=useRef(session);current.current=session;const [month,setMonth]=useState<BillingMonth>(()=>currentBillingMonth(now()));const chosen=useRef(month);chosen.current=month;
@@ -64,7 +64,6 @@ export function NativeBillingMonthScreen({now=()=>new Date(),useSession=useNativ
   <ScrollView contentContainerStyle={styles.content}>
    <NativeProductHeading title={t('onboarding.billingMonth.title')} trailing={<BillingIcon name="calendar" color={color('action.accent')}/>} />
    {session.phase==='active'?<View style={styles.monthNav}>{button(t('onboarding.billingMonth.previous'),'previous',()=>navigate(-1),month.year===1&&month.month===1,true)}<Text accessibilityRole="header" style={{...display,fontSize:theme.typography.fontSize.lg,flexShrink:1,textAlign:'center'}}>{title}</Text>{button(t('onboarding.billingMonth.next'),'next',()=>navigate(1),month.year===9999&&month.month===12,true)}</View>:null}
-   {sandbox?<NativeProductBadge label={t('onboarding.sandbox.noticeShort')}/>:null}
    {message?<Text accessibilityRole="alert" style={text}>{t(`onboarding.nativePersonal.${message}`)}</Text>:null}
    {session.phase==='active'?<>
     {state==='loading'?<Text accessibilityLiveRegion="polite" style={text}>{t('onboarding.nativePersonal.loading')}</Text>:null}

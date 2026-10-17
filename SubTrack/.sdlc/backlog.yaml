@@ -10,15 +10,17 @@ delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
 android_fix_handoff:
   updated: "2026-10-17"
-  execution: "ACTIVE single-agent: full Android installed/durable suite PASS; confirmed font fallback native-bundle repair pending; review/signed successor pending; no automation"
+  execution: "SIGNED V3 READY FOR FOUNDER TEST; PR293 merged at founder instruction; one agent, no automation"
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
-  tested_source_head: 094dbad66b8a267bca3a3eebc51c249b0bd8955a
+  tested_source_head: d816fb19100607cb200dd1ee85d07534b087f9f9
+  delivery_source_head: c975449a5875436fd5108d9c4fcb62c264f3f180
+  version_code: 3
+  signed_sha256: 4438be15b3f0bad696118a5185cf48484fd6451366be7f7d65b597544c04d293
   issues:
-    - "P0 ST-247/ST-253: Current PR Android full PASS at094dbad6 confirms installed_fonts=fallback. Configure Android-only native bundling of six approved TTF files and exact basename aliases for root/theme; actual plugin byte-copy test/config/root/context checks pass. Next Android proof must report custom fonts and retain original suite. Independent visual review, dark/scaling/accessibility/launcher and signed sandbox acceptance remain open."
-    - "ST-086/ST-253 functional resolved: Run38972952354/job117215481489 at37e0939f passes signup/profile/Just me, add/edit/all statuses, exact durable row/revision6, app/API restarts/logout, Month/Upcoming and seven synthetic-bank flows. Receipt and pixel inventory: .sdlc/evidence/ST-253/android-installed-review-2026-10-17.md. This is development-emulator proof; signed sandbox acceptance remains pending."
-    - "P0 ST-252/ST-167: Build, retain-sign, publish and verify a corrected Android successor APK with existing backend data. Download still serves V2; do not resend it as fixed. Preserve applicable review/CI and delivery branch authority."
-  resolved_do_not_reopen: "AVD startup config custody; Android Skia PNG compatibility; first Manage navigation blocked by private RN warning overlay. Latest installed run passes first Manage entry after private-only notification UI fix."
+    - "ST-252/ST-167: Corrected same-signer V3 APK verified by run39017822447/job117353435017 and retained for founder testing. Public download still V2; never identify that URL as the fix. No production/store release."
+    - "ST-145/ST-174: Founder signed-app/device acceptance and broader dark/scaling/accessibility/launcher matrix remain open; emulator proof does not establish them."
+  resolved_do_not_reopen: "SAVED_HEADER/Hermes money display, first Manage, startup/Skia; custom fonts and full original installed/durable suite PASS run39014849663/job117344738132. Feedback1-3 concise copy/auth-state controls/direct sandbox entry and login target fixed;18 accepted PNGs inspected. Desktop VoidTaskResult transfer repaired without rebuilding app."
 native_bundle_repair_slice: ST-254
 detection_persistence_repair_slice: ST-255
 execution_phase: isolated_public_sandbox_delivery

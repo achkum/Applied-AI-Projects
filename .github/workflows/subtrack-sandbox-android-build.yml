@@ -78,8 +78,32 @@ concurrency:
   group: ${{ github.event_name == 'workflow_dispatch' && inputs.delivery_mode != 'none' && format('subtrack-sandbox-android-custody-{0}-{1}', github.run_id, github.run_attempt) || format('subtrack-sandbox-android-{0}', github.ref) }}
   cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.delivery_mode != 'none') }}
 jobs:
+  android-release-policy:
+    name: Android Release configuration and custody policy
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: SubTrack
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.14.0"
+      - name: Locked configuration dependencies
+        run: |
+          npm install --global pnpm@12.6.0
+          pnpm install --frozen-lockfile
+      - name: Actual release configuration and custody contracts
+        run: node --test tools/sandbox/android-release-receipt.test.mjs tools/sandbox/android-transfer-receipt.test.mjs tools/sandbox/android-release-cache.test.mjs
   unsigned-android:
-    if: github.event_name == 'pull_request' || inputs.delivery_mode == 'none'
+    if: github.event_name != 'pull_request' && inputs.delivery_mode == 'none'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     defaults:
@@ -116,10 +140,32 @@ jobs:
         run: |
           test -x "${ANDROID_HOME:?}/cmdline-tools/latest/bin/sdkmanager"
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;36.0.0' 'platforms;android-36' 'ndk;27.1.12297006'
+      - name: Restore public Android Release Gradle inputs
+        id: release_gradle_cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/*/transforms
+            ~/.gradle/caches/transforms-*
+            ~/.gradle/caches/build-cache-*
+            ~/.gradle/wrapper
+          key: subtrack-android-release-gradle-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/tools/sandbox/build-android.sh', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}
       - name: Actual locked-template and receipt policy
-        run: node --test tools/sandbox/android-release-receipt.test.mjs
+        run: node --test tools/sandbox/android-release-receipt.test.mjs tools/sandbox/android-release-cache.test.mjs
       - name: Actual unsigned Release APK and closed cleanup receipt
         run: bash tools/sandbox/build-android.sh unsigned-release
+      - name: Persist public Android Release library cache
+        if: success() && steps.release_gradle_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/*/transforms
+            ~/.gradle/caches/transforms-*
+            ~/.gradle/caches/build-cache-*
+            ~/.gradle/wrapper
+          key: ${{ steps.release_gradle_cache.outputs.cache-primary-key }}
       # No APK/log/key uploads until included storage and authenticated transfer gates pass.
   private-delivery:
     if: github.event_name == 'workflow_dispatch' && (inputs.delivery_mode == 'unsigned-apk' || inputs.delivery_mode == 'signing-tools')
@@ -161,6 +207,18 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Restore public Android Release Gradle inputs
+        if: inputs.delivery_mode == 'unsigned-apk'
+        id: release_gradle_cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/*/transforms
+            ~/.gradle/caches/transforms-*
+            ~/.gradle/caches/build-cache-*
+            ~/.gradle/wrapper
+          key: subtrack-android-release-gradle-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/tools/sandbox/build-android.sh', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}
       - name: Pinned APK dependencies
         if: inputs.delivery_mode == 'unsigned-apk'
         run: |
@@ -196,6 +254,7 @@ jobs:
           NODE
           fi
           node --test tools/sandbox/android-release-receipt.test.mjs tools/sandbox/android-transfer-receipt.test.mjs
+          if [ "$ST250_DELIVERY_MODE" = unsigned-apk ]; then node --test tools/sandbox/android-release-cache.test.mjs; fi
       - name: Free private draft custody and observed cleanup
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -205,6 +264,17 @@ jobs:
             signing-tools) bash tools/sandbox/draft-android.sh tools;;
             *) exit 2;;
           esac
+      - name: Persist public Android Release library cache
+        if: success() && inputs.delivery_mode == 'unsigned-apk' && steps.release_gradle_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/*/transforms
+            ~/.gradle/caches/transforms-*
+            ~/.gradle/caches/build-cache-*
+            ~/.gradle/wrapper
+          key: ${{ steps.release_gradle_cache.outputs.cache-primary-key }}
   signed-return-verification:
     if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'verify-signed'
     runs-on: ubuntu-24.04

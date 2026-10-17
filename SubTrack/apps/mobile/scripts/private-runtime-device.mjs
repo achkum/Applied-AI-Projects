@@ -1,3 +1,4 @@
+import {proofScope,profileReceipt,PROFILE_SCREENSHOTS} from './private-runtime-proof-scope.mjs';
 import {Buffer} from 'node:buffer';
 import {observeRestartUi} from './private-runtime-restart-ui.mjs';
 import {qualifyNativeBank,acceptedNativeBankScreenshot,ACCEPTED_NATIVE_BANK_SCREENSHOTS} from './private-runtime-bank.mjs';
@@ -103,6 +104,7 @@ async function main() {
   ).version;
   assert.equal(installedNativeVersion, '0.81.5');
   const repo = resolve(app, '../..');
+  const scope=proofScope(process.env,platform);
   const root = join(process.env.RUNNER_TEMP, 'subtrack-native-proof');
   const privateDir = join(root, 'private');
   const publicDir = join(root, 'public');
@@ -286,6 +288,15 @@ async function main() {
         assert.equal(receipt[field], 1);
       assert.match(receipt.markerHash, /^[a-f0-9]{64}$/);
       assert.match(receipt.subscriptionDigest, /^[a-f0-9]{64}$/);
+    }
+    if(scope==='profile'){
+      markPhase('accepted-evidence');copyAcceptedScreenshots(privateDir);
+      for(const name of PROFILE_SCREENSHOTS)assert.ok(statSync(join(publicDir,name)).size>0);
+      assert.deepEqual(readdirSync(publicDir).sort(),[...PROFILE_SCREENSHOTS].sort());
+      const binaryIdentity=createHash('sha256').update(readFileSync(join(app,'android/app/build/outputs/apk/debug/app-debug.apk'))).digest('hex');
+      const receipt=profileReceipt({head,platform,binaryIdentity,installedFontState,before,after});
+      writeFileSync(join(publicDir,'installed-native-profile-receipt.json'),JSON.stringify(receipt,null,2));
+      console.log('Installed Android profile and restart readback PASS scope=profile');return;
     }
     const originalRenewals=await qualifyNativeRenewalsBeforeEdit({flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),phase:markPhase});
     await qualifyNativeMonthBeforeEdit({original:originalRenewals,flow,readback:()=>harness.readbackRenewalsReceipt(renewalDate),phase:markPhase});
