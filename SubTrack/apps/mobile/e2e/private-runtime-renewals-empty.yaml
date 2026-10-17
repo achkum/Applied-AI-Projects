@@ -9,6 +9,15 @@ appId: se.subtrack.app
 - tapOn:
     id: native-personal-login
 - extendedWaitUntil:
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
+- scrollUntilVisible:
+    element: Example streaming Plus
+    direction: DOWN
+    centerElement: true
+- extendedWaitUntil:
     visible: Example streaming Plus
     timeout: 30000
 - scrollUntilVisible:

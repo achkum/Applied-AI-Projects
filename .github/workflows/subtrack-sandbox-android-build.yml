@@ -78,8 +78,32 @@ concurrency:
   group: ${{ github.event_name == 'workflow_dispatch' && inputs.delivery_mode != 'none' && format('subtrack-sandbox-android-custody-{0}-{1}', github.run_id, github.run_attempt) || format('subtrack-sandbox-android-{0}', github.ref) }}
   cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.delivery_mode != 'none') }}
 jobs:
+  android-release-policy:
+    name: Android Release configuration and custody policy
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: SubTrack
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.14.0"
+      - name: Locked configuration dependencies
+        run: |
+          npm install --global pnpm@12.6.0
+          pnpm install --frozen-lockfile
+      - name: Actual release configuration and custody contracts
+        run: node --test tools/sandbox/android-release-receipt.test.mjs tools/sandbox/android-transfer-receipt.test.mjs tools/sandbox/android-release-cache.test.mjs
   unsigned-android:
-    if: github.event_name == 'pull_request' || inputs.delivery_mode == 'none'
+    if: github.event_name != 'pull_request' && inputs.delivery_mode == 'none'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     defaults:

@@ -26,3 +26,10 @@ test('new proof commits cancel obsolete runs while actual signing/delivery custo
  assert.equal(native.concurrency.group,'subtrack-native-device-${{ github.event.pull_request.number || github.ref }}');assert.equal(native.concurrency['cancel-in-progress'],true);
  assert.ok(workflow.concurrency.group.includes('github.run_id'));assert.ok(workflow.concurrency['cancel-in-progress'].includes("inputs.delivery_mode != 'none'"));
 });
+
+test('PR policy is honestly named and actual Release compilation happens once in retained delivery',()=>{
+ const policy=workflow.jobs['android-release-policy'];assert.equal(policy.if,"github.event_name == 'pull_request'");assert.ok(policy.name.includes('policy'));assert.ok(policy.steps.some(s=>s.run?.includes('android-release-receipt.test.mjs')));assert.ok(!policy.steps.some(s=>s.run?.includes('sdkmanager')||s.run?.includes('assembleRelease')));
+ assert.equal(workflow.jobs['unsigned-android'].if,"github.event_name != 'pull_request' && inputs.delivery_mode == 'none'");
+ const delivery=workflow.jobs['private-delivery'];assert.ok(delivery.if.includes("inputs.delivery_mode == 'unsigned-apk'"));assert.ok(delivery.steps.some(s=>s.run?.includes('draft-android.sh apk')));
+ assert.ok(read('./build-android.sh').includes(':app:assembleRelease'));
+});
