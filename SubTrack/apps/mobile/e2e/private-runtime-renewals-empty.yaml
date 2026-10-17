@@ -7,7 +7,7 @@ appId: se.subtrack.app
     timeout: 30000
 - tapOn: ${MAESTRO_VERIFY_BANKID}
 - extendedWaitUntil:
-    visible: Native edited restart proof
+    visible: Example streaming Plus
     timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_RENEWALS_OPEN}
@@ -19,7 +19,7 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_RENEWALS_EMPTY}
     timeout: 30000
-- assertNotVisible: Native edited restart proof
+- assertNotVisible: Example streaming Plus
 - scrollUntilVisible:
     element: ${MAESTRO_RENEWALS_REFRESH}
     direction: DOWN
@@ -27,7 +27,7 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_RENEWALS_EMPTY}
     timeout: 30000
-- assertNotVisible: Native edited restart proof
+- assertNotVisible: Example streaming Plus
 - takeScreenshot: accepted-renewals-empty
 - tapOn:
     id: native-nav-manage
@@ -44,4 +44,4 @@ appId: se.subtrack.app
     visible: ${MAESTRO_LOGOUT_CONFIRMED}
     timeout: 30000
 - assertNotVisible: ${MAESTRO_LOGOUT}
-- assertNotVisible: Native edited restart proof
+- assertNotVisible: Example streaming Plus

@@ -161,7 +161,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
     else if (destination === 'upcoming') router.replace('/personal-home');
   };
   return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView style={{ backgroundColor: color('bg.canvas') }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-    <NativeProductHeading testID="native-personal-title" eyebrow={t('scope.personal')} title={session.phase!=='active'?t('onboarding.nativePersonal.loginTitle'):setup?t('onboarding.profile.title'):ready?t('onboarding.productNav.manage'):t('onboarding.mode.title')} />
+    <NativeProductHeading testID="native-personal-title" title={session.phase!=='active'?t('onboarding.nativePersonal.loginTitle'):setup?t('onboarding.profile.title'):ready?t('onboarding.productNav.manage'):t('onboarding.mode.title')} />
     {sandbox ? <NativeProductBadge label={t('onboarding.sandbox.noticeShort')} /> : null}
     {session.phase === 'storage-error' ? <Text accessibilityRole="alert" style={text}>{t('onboarding.nativePersonal.storageError')}</Text> : null}
     {message && !(message==='storageError' && session.phase==='storage-error') ? <Text accessibilityRole="alert" style={text}>{t(message.startsWith('edit.') ? `onboarding.nativeSubscriptionEdit.${message.slice(5)}` : message.startsWith('manualSubscription.') ? `onboarding.${message}` : `onboarding.nativePersonal.${message}`)}</Text> : null}
@@ -220,9 +220,8 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
           {group.totals.length>0 ? <View style={styles.subtotals}><Text style={[text,{color:color('ink.secondary'),fontSize:theme.typography.fontSize.sm}]}>{t('onboarding.ownerSubscriptionList.expectedSubtotal')}</Text>
             {group.totals.map(total=><Text key={total.amount.currency+':'+total.cadence} style={[text,styles.amount]}>{t(`onboarding.ownerSubscriptions.cadence.${total.cadence}`)} · {formatMinorUnits(total.amount.minorUnits,total.amount.currency,{locale,display:'code'})}</Text>)}</View> : null}
         {group.items.map(item => <View key={item.id} style={styles.field}><Text style={text}>{item.customName ?? item.merchantName ?? t('onboarding.ownerSubscriptions.categoryFallback')}</Text>
-          <Text style={text}>{Object.prototype.hasOwnProperty.call(catalogs[locale].onboarding.ownerSubscriptions.category, item.categoryCode)
-            ? t(`onboarding.ownerSubscriptions.category.${item.categoryCode}`) : t('onboarding.ownerSubscriptions.categoryFallback')} · {t(`onboarding.ownerSubscriptions.status.${item.status}`)}</Text>
-          <Text style={text}>{t('onboarding.manualSubscription.expectedAmount')}: {formatMinorUnits(BigInt(item.expectedAmountMinor), item.currency, { locale, display: 'code' })}</Text>
+          <Text style={text}>{t(`onboarding.ownerSubscriptions.status.${item.status}`)}</Text>
+          <Text style={text}>{formatMinorUnits(BigInt(item.expectedAmountMinor), item.currency, { locale, display: 'code' })}</Text>
           {!sandbox && item.source === 'DETECTED' ? <><Text style={text}>{t('onboarding.nativeDetection.detected')}</Text>{button(t('onboarding.nativeDetection.open'), () => router.push('/personal-detections'))}</> : null}
           {item.source === 'MANUAL' && item.currency === 'SEK' && item.cadence !== 'CUSTOM' ? <>
             {button(t('onboarding.nativeSubscriptionEdit.edit'), () => {
@@ -286,9 +285,9 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
         </NativeProductCard> : null}
       </> : null}
     </>}
-    {<NativeSessionExit phase={session.phase} onExit={() => { const exitPhase=session.phase; const ticket = ++feedbackGeneration.current; generation.current++; pending.current = false; setLoading(false); clear(); setMessage('');
+    {session.phase!=='active'||profile?.profileComplete?<NativeSessionExit phase={session.phase} onExit={() => { const exitPhase=session.phase; const ticket = ++feedbackGeneration.current; generation.current++; pending.current = false; setLoading(false); clear(); setMessage('');
       void session.logout().then(ack => { if (ticket === feedbackGeneration.current) setMessage(sessionExitFeedback(exitPhase,ack)); })
-        .catch(() => { if (ticket === feedbackGeneration.current) setMessage('storageError'); }); }}/>}
+        .catch(() => { if (ticket === feedbackGeneration.current) setMessage('storageError'); }); }}/>:null}
   </ScrollView>{ready ? <NativeProductNav active="manage" onNavigate={navigate} /> : null}</SafeAreaView>;
 }
 const styles = StyleSheet.create({ content: { flexGrow: 1, padding: 20, gap: 16 }, field: { gap: 8 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

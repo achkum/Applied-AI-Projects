@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import {privateMobileTrackingReceipt} from './private-mobile-tracking-receipt.js';
 const marker='a'.repeat(32),id='123e4567-e89b-42d3-a456-426614174000';
-const row={id,custom_name:'Native edited restart proof',source:'MANUAL',currency:'SEK',category_code:'VIDEO_STREAMING',cadence:'MONTHLY',expected_amount_minor:'12990',next_charge_date:null,always_private:true,status:'ARCHIVED',revision:'6'};
+const row={id,custom_name:'Example streaming Plus',source:'MANUAL',currency:'SEK',category_code:'VIDEO_STREAMING',cadence:'MONTHLY',expected_amount_minor:'12990',next_charge_date:null,always_private:true,status:'ARCHIVED',revision:'6'};
 describe('closed actual native tracking fixture projection',()=>{
  it('publishes only stable hashes/count and validated flags, not fixture values',()=>{
   const value=privateMobileTrackingReceipt(marker,[row]);expect(value).toMatchObject({version:1,subscriptionCount:1,manualEditReadback:true,archivedReadback:true,revisionSixReadback:true});
@@ -11,7 +11,7 @@ describe('closed actual native tracking fixture projection',()=>{
   expect(privateMobileTrackingReceipt(marker,[{...row}])).toEqual(value);
  });
  it('binds same-row identity separately from edited projection and fixture marker',()=>{
-  const value=privateMobileTrackingReceipt(marker,[row]);const initial=privateMobileTrackingReceipt(marker,[{...row,custom_name:'Native restart proof',status:'ACTIVE',revision:'1'}]);
+  const value=privateMobileTrackingReceipt(marker,[row]);const initial=privateMobileTrackingReceipt(marker,[{...row,custom_name:'Example streaming',status:'ACTIVE',revision:'1'}]);
   expect(initial.subscriptionIdentityHash).toBe(value.subscriptionIdentityHash);expect(initial.subscriptionDigest).not.toBe(value.subscriptionDigest);expect(initial.manualEditReadback).toBe(false);expect(initial.archivedReadback).toBe(false);expect(initial.revisionSixReadback).toBe(false);
   expect(privateMobileTrackingReceipt('b'.repeat(32),[row]).markerHash).not.toBe(value.markerHash);
   expect(privateMobileTrackingReceipt(marker,[{...row,id:'123e4567-e89b-42d3-a456-426614174001'}]).subscriptionIdentityHash).not.toBe(value.subscriptionIdentityHash);

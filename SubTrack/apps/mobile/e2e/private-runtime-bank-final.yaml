@@ -15,7 +15,7 @@ appId: se.subtrack.app
     timeout: 30000
 - tapOn: ${MAESTRO_VERIFY_BANKID}
 - extendedWaitUntil:
-    visible: Native edited restart proof
+    visible: Example streaming Plus
     timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_BANK_OPEN}

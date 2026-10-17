@@ -104,7 +104,7 @@ export function enrollmentToolDiagnostic({ phase, enrollment, metro, labels }) {
     [...enrollmentRoster.map(([name, key]) => [name, labels[key]]),
       ['otp-field', 'native-registration-otp'], ['profile-name', 'native-profile-name'],
       ['subscription-name', 'native-subscription-name'], ['subscription-amount', 'native-subscription-amount'],
-      ['date-field', 'native-subscription-date'], ['saved-row', 'Native restart proof']],
+      ['date-field', 'native-subscription-date'], ['saved-row', 'Example streaming']],
   );
 }
 
@@ -113,7 +113,7 @@ const restartRoster=[['welcome-create-account','createAccount'],['bankid-verify'
 export function restartToolDiagnostic({phase,restart,metro,labels}){
  if(!['flow-restart','flow-edit-status','flow-edit-status-api-restart'].includes(phase))return {withheld:'outside-restart'};
  if(!labels||!restartRoster.every(([,key])=>typeof labels[key]==='string'&&labels[key].length>0))return {withheld:'trusted-target-unavailable'};
- return closedToolDiagnostic(restart,metro,[...restartRoster.map(([name,key])=>[name,labels[key]]),['edited-row','Native edited restart proof'],['saved-row','Native restart proof'],['subscription-name','native-subscription-name'],['date-field','native-subscription-date']]);
+ return closedToolDiagnostic(restart,metro,[...restartRoster.map(([name,key])=>[name,labels[key]]),['edited-row','Example streaming Plus'],['saved-row','Example streaming'],['subscription-name','native-subscription-name'],['date-field','native-subscription-date']]);
 }
 
 /** One exact enrollment invocation owns the event latch. No process values escape. */

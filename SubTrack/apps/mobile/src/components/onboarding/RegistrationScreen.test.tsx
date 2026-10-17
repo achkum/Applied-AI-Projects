@@ -15,7 +15,7 @@ let mockRouteParams: Record<string, string | string[] | undefined> = {};
 const mockBack = jest.fn();
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
-const mockStart = jest.fn();
+const mockStart = jest.fn().mockResolvedValue(undefined);
 const mockReset = jest.fn();
 const mockNativeLogin = jest.fn().mockResolvedValue(undefined);
 const mockNativeLogout = jest.fn().mockResolvedValue(false);
@@ -80,24 +80,24 @@ describe('RegistrationScreen', () => {
     },
   );
 
-  it('uses the shared login view and requires the sandbox confirmation route', async () => {
+  it('uses the shared login view and opens the sandbox session directly', async () => {
     mockProvider = 'sandbox';
-    mockNativeLogin.mockResolvedValueOnce('sandbox-confirmation-required');
+    mockNativeLogin.mockResolvedValueOnce('sandbox-session-ready');
     render(<RegistrationScreen mode="login" />);
     fireEvent.press(screen.getByRole('button', { name: catalogs.en.onboarding.nativePersonal.verify }));
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/register-bankid'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/personal'));
     expect(screen.getByText(catalogs.en.onboarding.sandbox.noticeShort)).toBeTruthy();
   });
 
   it('does not clear sandbox installation credentials when a pending login view unmounts', async () => {
     mockProvider = 'sandbox';
-    let resolveLogin: (value: 'sandbox-confirmation-required') => void = () => undefined;
+    let resolveLogin: (value: 'sandbox-session-ready') => void = () => undefined;
     mockNativeLogin.mockImplementationOnce(() => new Promise(resolve => { resolveLogin = resolve; }));
     const view = render(<RegistrationScreen mode="login" />);
     fireEvent.press(screen.getByRole('button', { name: catalogs.en.onboarding.nativePersonal.verify }));
     view.unmount();
     expect(mockNativeLogout).not.toHaveBeenCalled();
-    resolveLogin('sandbox-confirmation-required');
+    resolveLogin('sandbox-session-ready');
     await new Promise(resolve => setTimeout(resolve, 0));
   });
 
@@ -264,4 +264,9 @@ test('owned mounted register calibration is fixed and survives starting, retires
  const log=jest.spyOn(console,'info').mockImplementation(()=>{});mockDiagnosticChannel=createEnrollmentDiagnosticChannel(()=>({development:true,platform:'ios',proof:'true',enabled:'true',url:'https://localhost:3443'}),fixed=>console.info(fixed));
  try{mockFlow={phase:'identifier'};const view=render(<RegistrationScreen/>);expect(log.mock.calls.map(([line])=>line)).toEqual(['ST244_ENROLLMENT calibration=mounted']);const observer=beginEnrollmentDiagnostic();mockFlow={phase:'starting'};view.rerender(<RegistrationScreen/>);observer?.stage('fetch-entered');expect(log).toHaveBeenLastCalledWith('ST244_ENROLLMENT stage=fetch-entered');view.unmount();observer?.stage('flow-committed');expect(log).toHaveBeenCalledTimes(2);render(<RegistrationScreen mode="login"/>);expect(log).toHaveBeenCalledTimes(2);}
  finally{mockDiagnosticChannel=undefined;log.mockRestore();}
+});
+
+it.each(['en','sv'] as const)('sandbox signup opens the shared profile directly without verification screens in %s',async locale=>{
+ jest.clearAllMocks();mockFlow={phase:'identifier'};mockLocale=locale;mockProvider='sandbox';render(<RegistrationScreen/>);fireEvent.changeText(screen.getByLabelText(catalogs[locale].onboarding.identifier.emailLabel),'sample@example.test');fireEvent.press(screen.getByRole('button',{name:catalogs[locale].onboarding.identifier.continueLabel}));
+ await waitFor(()=>expect(mockReplace).toHaveBeenCalledWith('/personal'));expect(mockReplace).not.toHaveBeenCalledWith('/register-otp');expect(mockReplace).not.toHaveBeenCalledWith('/register-bankid');expect(mockStart).toHaveBeenCalledWith({valid:true,channel:'email',identifier:'sample@example.test'},locale);
 });

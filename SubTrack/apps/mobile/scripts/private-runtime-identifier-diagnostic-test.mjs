@@ -271,7 +271,7 @@ test('enrollment actual typed secrets and arbitrary module/context values never 
     '123456',
     'native-proof@example.test',
     'Synthetic Native Proof',
-    'Native restart proof',
+    'Example streaming',
     '129.90',
     'owner-password-canary',
     'Bearer access-canary',
@@ -307,7 +307,7 @@ test('only exact failed enrollment emits bounded log presence and no fabricated 
  for(const [logSize,log] of [[0,'empty'],[1,'nonempty'],[4000000,'nonempty'],[4000001,'unavailable'],[-1,'unavailable'],[null,'unavailable'],[1.5,'unavailable'],['private-canary','unavailable']]){const result=project({logSize});assert.deepEqual(result,{...execution,log});assert.ok(Object.isFrozen(result));assert.equal(JSON.stringify(result).includes('canary'),false);assert.equal(result.timeout,'not-applicable');}
 });
 test('C18 source-bound targets come only from failed lines, with private values suppressed',()=>{
- const lines=[['date-field',enrollmentLabels.date],['personal-title',enrollmentLabels.personalTitle],['saved-row','Native restart proof'],['expected-amount',enrollmentLabels.expectedAmount]];
+ const lines=[['date-field',enrollmentLabels.date],['personal-title',enrollmentLabels.personalTitle],['saved-row','Example streaming'],['expected-amount',enrollmentLabels.expectedAmount]];
  for(const [target,label] of lines){assert.deepEqual(enrollment({enrollment:`Scroll until ${label} FAILED private-canary`}).targets,[target]);assert.equal(enrollment({enrollment:`Scroll until ${label} COMPLETED`}).withheld,'unknown-tool-diagnostic');}
  assert.deepEqual(enrollment({enrollment:'Scroll until Your subscriptions FAILED',labels:{...enrollmentLabels,add:'subscriptions'}}).targets,['personal-title']);
  for(const key of ['date','personalTitle','expectedAmount']){assert.equal(enrollment({labels:{...enrollmentLabels,[key]:''}}).withheld,'trusted-target-unavailable');}
@@ -322,7 +322,7 @@ test('restart-family original failure projection is phase-bound, fixed and priva
  }
  for(const phase of ['flow-enroll-add','flow-identifier','other',undefined])assert.deepEqual(restartToolDiagnostic({...options,phase}),{withheld:'outside-restart'});
  for(const labels of [null,{},...Object.keys(trusted).map(key=>({...trusted,[key]:''})),{...trusted,logout:42}])assert.deepEqual(restartToolDiagnostic({...options,labels}),{withheld:'trusted-target-unavailable'});
- for(const [text,target] of [['Native restart proof','saved-row'],['Native edited restart proof','edited-row'],...Object.entries(trusted).map(([key,value])=>[value,{createAccount:'welcome-create-account',verifyBankId:'bankid-verify',expectedAmount:'expected-amount',logout:'logout',logoutConfirmed:'logout-confirmed',edit:'edit',saveEdit:'save-edit',editSaved:'edit-saved',pause:'pause',resume:'resume',cancelled:'cancelled',archive:'archive'}[key]])])assert.deepEqual(restartToolDiagnostic({...options,restart:`FAILED Assert visible ${text}`}).targets,[target]);
+ for(const [text,target] of [['Example streaming','saved-row'],['Example streaming Plus','edited-row'],...Object.entries(trusted).map(([key,value])=>[value,{createAccount:'welcome-create-account',verifyBankId:'bankid-verify',expectedAmount:'expected-amount',logout:'logout',logoutConfirmed:'logout-confirmed',edit:'edit',saveEdit:'save-edit',editSaved:'edit-saved',pause:'pause',resume:'resume',cancelled:'cancelled',archive:'archive'}[key]])])assert.deepEqual(restartToolDiagnostic({...options,restart:`FAILED Assert visible ${text}`}).targets,[target]);
  const canonical=restartToolDiagnostic({...options,restart:'No visible element found: Text matching regex: Edit\nprivate-canary'});
  assert.deepEqual(canonical.commands,['scroll']);assert.deepEqual(canonical.reasons,['element-not-found']);assert.deepEqual(canonical.targets,['edit']);assert.equal(JSON.stringify(canonical).includes('private-canary'),false);
  for(const [id,target] of [['native-subscription-name','subscription-name'],['native-subscription-date','date-field']]){assert.deepEqual(restartToolDiagnostic({...options,restart:`No visible element found: ${id}`}).targets,[target]);assert.deepEqual(restartToolDiagnostic({...options,restart:`No visible element found: ${id}-foreign`}).targets,[]);}

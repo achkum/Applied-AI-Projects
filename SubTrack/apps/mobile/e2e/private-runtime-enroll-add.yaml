@@ -56,7 +56,7 @@ appId: se.subtrack.app
     direction: DOWN
 - tapOn:
     id: native-subscription-name
-- inputText: Native restart proof
+- inputText: Example streaming
 - hideKeyboard
 - scrollUntilVisible:
     element: ${MAESTRO_CATEGORY}
@@ -96,9 +96,9 @@ appId: se.subtrack.app
     visible: ${MAESTRO_SAVED}
     timeout: 30000
 - scrollUntilVisible:
-    element: Native restart proof
+    element: Example streaming
     direction: DOWN
     centerElement: true
-- assertVisible: Native restart proof
+- assertVisible: Example streaming
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-add

@@ -6,7 +6,7 @@ appId: se.subtrack.app
     timeout: 30000
 - tapOn: ${MAESTRO_VERIFY_BANKID}
 - extendedWaitUntil:
-    visible: Native restart proof
+    visible: Example streaming
     timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_MONTH_OPEN}
@@ -25,20 +25,20 @@ appId: se.subtrack.app
     visible: ${MAESTRO_MONTH_TARGET}
     timeout: 30000
 - runFlow: private-runtime-month-day.yaml
-- assertVisible: Native restart proof
+- assertVisible: Example streaming
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}
 - scrollUntilVisible:
     element: ${MAESTRO_MONTH_REFRESH}
     direction: DOWN
 - tapOn: ${MAESTRO_MONTH_REFRESH}
 - runFlow: private-runtime-month-day.yaml
-- assertVisible: Native restart proof
+- assertVisible: Example streaming
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}
 - tapOn: ${MAESTRO_MONTH_DETAIL}
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_SAVED_DATE}
     timeout: 30000
-- assertVisible: Native restart proof
+- assertVisible: Example streaming
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}
 - assertVisible: ${MAESTRO_MONTH_MANUAL}
 - takeScreenshot: accepted-billing-month-detail
@@ -61,5 +61,5 @@ appId: se.subtrack.app
     visible: ${MAESTRO_LOGOUT_CONFIRMED}
     timeout: 30000
 - assertNotVisible: ${MAESTRO_LOGOUT}
-- assertNotVisible: Native restart proof
+- assertNotVisible: Example streaming
 - assertNotVisible: ${MAESTRO_MONTH_SAVED_DATE}

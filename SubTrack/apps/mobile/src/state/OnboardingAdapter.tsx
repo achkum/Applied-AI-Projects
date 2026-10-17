@@ -9,9 +9,9 @@ export {SANDBOX_TEST_CODE} from './SandboxOnboardingCore';
 type Identifier=Extract<IdentifierResult,{valid:true}>;
 export interface OnboardingAdapter {
  provider:'production'|'sandbox';flow:OnboardingViewFlow;sessionPhase:ReturnType<typeof useNativeSession>['phase'];
- start(identifier:Identifier):Promise<void>;verify(code:string):Promise<void>;resend():Promise<void>;reset():void;
+ start(identifier:Identifier,locale?:'sv'|'en'):Promise<void>;verify(code:string):Promise<void>;resend():Promise<void>;reset():void;
  complete(locale:'sv'|'en'):Promise<'production-session-ready'|'sandbox-session-ready'>;
- login(locale:'sv'|'en'):Promise<'production-session-ready'|'sandbox-confirmation-required'>;logout():Promise<boolean>;
+ login(locale:'sv'|'en'):Promise<'production-session-ready'|'sandbox-session-ready'>;logout():Promise<boolean>;
 }
 const Context=createContext<OnboardingAdapter|undefined>(undefined);
 export function useOnboarding(){const value=useContext(Context);if(!value)throw new Error('Onboarding adapter required');return value;}
@@ -34,8 +34,8 @@ export function SandboxOnboardingProvider({children}:{children:React.ReactNode})
  },[path,controller]);
  const allowed=()=>{if(!sandboxBuildSelected()||!current.current.available)throw new Error('Sandbox unavailable');};
  const value:OnboardingAdapter={provider:'sandbox',flow,sessionPhase:session.phase,
-  async start(identifier){allowed();await controller.start(identifier);},async verify(code){allowed();await controller.verify(code);},async resend(){allowed();await controller.resend();},reset:()=>controller.reset(),
-  async complete(locale){allowed();return controller.complete(()=>current.current.resumable?current.current.login():current.current.bootstrap(locale));},
-  async login(){allowed();return controller.login();},logout:()=>current.current.logout()};
+  async start(identifier,locale='en'){allowed();await controller.register(identifier,()=>current.current.resumable?current.current.login():current.current.bootstrap(locale));},async verify(){throw new Error('Sandbox verification is not required');},async resend(){throw new Error('Sandbox verification is not required');},reset:()=>controller.reset(),
+  async complete(){throw new Error('Sandbox verification is not required');},
+  async login(locale){allowed();return controller.login(()=>current.current.resumable?current.current.login():current.current.bootstrap(locale));},logout:()=>current.current.logout()};
  return <Context.Provider value={value}>{children}</Context.Provider>;
 }

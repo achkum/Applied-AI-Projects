@@ -7,7 +7,7 @@ appId: se.subtrack.app
     timeout: 30000
 - tapOn: ${MAESTRO_VERIFY_BANKID}
 - extendedWaitUntil:
-    visible: Native restart proof
+    visible: Example streaming
     timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_EDIT}
@@ -20,7 +20,7 @@ appId: se.subtrack.app
 - tapOn:
     id: native-subscription-name
 - eraseText
-- inputText: Native edited restart proof
+- inputText: Example streaming Plus
 - hideKeyboard
 - scrollUntilVisible:
     element:
@@ -45,10 +45,10 @@ appId: se.subtrack.app
     visible: ${MAESTRO_EDIT_SAVED}
     timeout: 30000
 - scrollUntilVisible:
-    element: Native edited restart proof
+    element: Example streaming Plus
     direction: DOWN
     centerElement: true
-- assertVisible: Native edited restart proof
+- assertVisible: Example streaming Plus
 - takeScreenshot: accepted-edit
 - scrollUntilVisible:
     element: ${MAESTRO_PAUSE}
@@ -92,13 +92,13 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_VERIFY_BANKID}
     timeout: 30000
-- assertNotVisible: Native edited restart proof
+- assertNotVisible: Example streaming Plus
 - tapOn: ${MAESTRO_VERIFY_BANKID}
 - extendedWaitUntil:
-    visible: Native edited restart proof
+    visible: Example streaming Plus
     timeout: 30000
 - scrollUntilVisible:
-    element: Native edited restart proof
+    element: Example streaming Plus
     direction: DOWN
     centerElement: true
 - assertNotVisible: ${MAESTRO_ARCHIVE}

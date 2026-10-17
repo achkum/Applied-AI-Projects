@@ -62,7 +62,7 @@ export function NativeBillingMonthScreen({now=()=>new Date(),useSession=useNativ
  return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}>
   <View style={styles.full} accessibilityElementsHidden={detailVisible} importantForAccessibility={detailVisible?'no-hide-descendants':'auto'}>
   <ScrollView contentContainerStyle={styles.content}>
-   <NativeProductHeading eyebrow={t('scope.personal')} title={t('onboarding.billingMonth.title')} trailing={<BillingIcon name="calendar" color={color('action.accent')}/>} />
+   <NativeProductHeading title={t('onboarding.billingMonth.title')} trailing={<BillingIcon name="calendar" color={color('action.accent')}/>} />
    {session.phase==='active'?<View style={styles.monthNav}>{button(t('onboarding.billingMonth.previous'),'previous',()=>navigate(-1),month.year===1&&month.month===1,true)}<Text accessibilityRole="header" style={{...display,fontSize:theme.typography.fontSize.lg,flexShrink:1,textAlign:'center'}}>{title}</Text>{button(t('onboarding.billingMonth.next'),'next',()=>navigate(1),month.year===9999&&month.month===12,true)}</View>:null}
    {sandbox?<NativeProductBadge label={t('onboarding.sandbox.noticeShort')}/>:null}
    {message?<Text accessibilityRole="alert" style={text}>{t(`onboarding.nativePersonal.${message}`)}</Text>:null}
@@ -88,7 +88,7 @@ export function NativeBillingMonthScreen({now=()=>new Date(),useSession=useNativ
      <Text style={{...display,fontSize:theme.typography.fontSize.detail,fontVariant:['tabular-nums']}}>{formatted(BigInt(detail.expectedAmountMinor),detail.currency)}</Text>
      <Text style={text}>{t('onboarding.billingMonth.expected')}</Text><Text style={text}>{category(detail.categoryCode)} · {t(`onboarding.ownerSubscriptions.cadence.${detail.cadence}`)}</Text>
      <Text style={text}>{t('onboarding.billingMonth.savedDate',{date:detail.nextChargeDate!})}</Text><Text style={text}>{t(`onboarding.ownerSubscriptions.status.${detail.status}`)}</Text>
-     <Text style={text}>{t(detail.source==='MANUAL'?'onboarding.billingMonth.manual':'onboarding.billingMonth.detected')}</Text><Text style={text}>{t(detail.alwaysPrivate?'onboarding.billingMonth.private':'onboarding.billingMonth.owner')}</Text>
+     <Text style={text}>{t(detail.source==='MANUAL'?'onboarding.billingMonth.manual':'onboarding.billingMonth.detected')}</Text>
      {button(t('onboarding.billingMonth.manage'),'manage',()=>{closeDetail();router.replace('/personal');})}
     </>:null}{button(t('actions.close'),'close',closeDetail)}</ScrollView>
    </SafeAreaView></View>

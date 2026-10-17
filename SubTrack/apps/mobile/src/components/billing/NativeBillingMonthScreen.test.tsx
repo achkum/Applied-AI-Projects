@@ -38,7 +38,7 @@ it('shows both same-day entries, exact saved totals, detail isolation and manage
  const second={...row,id:'223e4567-e89b-42d3-a456-426614174000',customName:'Second saved service',expectedAmountMinor:'7'};
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row,second],nextCursor:null});mount();expect(api.readNativeSubscriptions).not.toHaveBeenCalled();await login();await screen.findByText(row.customName);
  expect(screen.getByText(second.customName)).toBeTruthy();expect(screen.getByText(formatMinorUnits(BigInt(row.expectedAmountMinor)+7n,'SEK',{locale:'en',display:'code'}).replace(/[\u00a0\u202f]/g,' '))).toBeTruthy();
- fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.details.replace('%{name}',row.customName)}));expect(screen.getByText(copy.billingMonth.manual)).toBeTruthy();expect(screen.getByText(copy.billingMonth.private)).toBeTruthy();expect(screen.queryByRole('button',{name:copy.billingMonth.next})).toBeNull();
+ fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.details.replace('%{name}',row.customName)}));expect(screen.getByText(copy.billingMonth.manual)).toBeTruthy();expect(screen.queryByText(copy.billingMonth.private)).toBeNull();expect(screen.queryByRole('button',{name:copy.billingMonth.next})).toBeNull();
  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.manage}));expect(mockReplace).toHaveBeenCalledWith('/personal');
 });
 it('keeps account controls in Manage and exposes only real Month, Upcoming and Manage destinations',async()=>{

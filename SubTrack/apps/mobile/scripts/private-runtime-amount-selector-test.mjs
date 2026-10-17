@@ -24,17 +24,17 @@ for(const locale of ['en','sv']){
  const old=label+': 129,90\\s+SEK';
  assert.equal(new RegExp('^(?:'+old+')$').test(label+': '+actual),true);
  cases.push([old,label+': '+actual,false]);
- cases.push([env.MAESTRO_EXPECTED_AMOUNT,label+': '+actual,true]);
+ cases.push([env.MAESTRO_EXPECTED_AMOUNT,actual,true]);
  for(const space of [' ','\u00a0','\u202f']){
-  cases.push([env.MAESTRO_EXPECTED_AMOUNT,label+': 129,90'+space+'SEK',true]);
+  cases.push([env.MAESTRO_EXPECTED_AMOUNT,'129,90'+space+'SEK',true]);
   cases.push([env.MAESTRO_MONTH_AMOUNT,'129,90'+space+'SEK',true]);
  }
  for(const wrong of ['129,91 SEK','129,900 SEK','129,90 EUR','129,90\tSEK','129,90\nSEK','129,90SEK']){
-  cases.push([env.MAESTRO_EXPECTED_AMOUNT,label+': '+wrong,false]);
+  cases.push([env.MAESTRO_EXPECTED_AMOUNT,wrong,false]);
   cases.push([env.MAESTRO_MONTH_AMOUNT,wrong,false]);
  }
  cases.push([env.MAESTRO_EXPECTED_AMOUNT,'Wrong label: '+actual,false]);
- cases.push([env.MAESTRO_EXPECTED_AMOUNT,label+': '+actual+' extra',false]);
+ cases.push([env.MAESTRO_EXPECTED_AMOUNT,actual+' extra',false]);
 }
 // The same fixed diagnostic patterns must use Java-compatible spacing too.
 await failedSaveObservations({phase:'flow-enroll-add',diagnostic:{targets:['expected-amount'],commands:['wait-visible'],reasons:['assertion']},metadata:{metadata:'AVAILABLE',command:'ASSERT_CONDITION',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'},labels:flowEnvironment(),observe:async()=>({version:1,markerHash:'a'.repeat(64),identityCount:1,profileCompleteCount:1,justMeCount:1,subscriptionCount:1,subscriptionDigest:'b'.repeat(64)}),run:async(stage,name,pattern)=>{

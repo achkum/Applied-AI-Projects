@@ -54,7 +54,7 @@ export function NativePersonalBankScreen(){
  function choosePurge(id:string){const ticket=generation.current;setPurge(id);requestAnimationFrame(()=>{if(ticket!==generation.current||current.current.phase!=='active'||!focused.current)return;const handle=confirmation.current&&findNodeHandle(confirmation.current);if(handle)AccessibilityInfo.setAccessibilityFocus(handle);});}
  function logout(){const exitPhase=session.phase;const notice=++feedback.current;invalidate();setState('idle');setMessage('');void current.current.logout().then(ack=>{if(notice===feedback.current)setMessage(sessionExitFeedback(exitPhase,ack));}).catch(()=>{if(notice===feedback.current)setMessage('storageError');});}
  return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView contentContainerStyle={styles.content}>
-  <View style={styles.header}><View style={styles.grow}><Text style={secondary}>{t('scope.personal')}</Text><Text accessibilityRole="header" style={display}>{copy('title')}</Text></View><BankIcon color={color('action.accent')}/></View>
+  <View style={styles.header}><View style={styles.grow}><Text accessibilityRole="header" style={display}>{copy('title')}</Text></View><BankIcon color={color('action.accent')}/></View>
   {session.phase==='active'?<Text style={secondary}>{copy('demo')}</Text>:null}
   {message?<Text accessibilityRole="alert" style={text}>{['logoutConfirmed','logoutLocal','storageError','verificationCancelled','sessionCleared'].includes(message)?t(`onboarding.nativePersonal.${message}`):copy(message)}</Text>:null}
   {session.phase==='active'?<>

@@ -65,6 +65,7 @@ export function RegistrationScreen({
       <NativeProductHeading title={t(mode==='login'?'onboarding.nativePersonal.loginTitle':'onboarding.registration.title')} />
       {provider === 'sandbox' ? <NativeProductBadge label={t('onboarding.sandbox.noticeShort')} /> : null}
 
+      {mode!=='login'&&loginError?<Text accessibilityRole="alert" style={{color:color('ink.primary')}}>{t('onboarding.nativePersonal.unavailable')}</Text>:null}
       {mode === 'login' ? (
         <NativeProductCard>
           {loginError ? <Text accessibilityRole="alert" style={{ color: color('ink.primary') }}>{t('onboarding.nativePersonal.unavailable')}</Text> : null}
@@ -72,7 +73,7 @@ export function RegistrationScreen({
             onPress={async () => {
               if (pending.current) return;
               const ticket = ++generation.current; pending.current = true; setLoginError(false);
-              try { const result = await onboarding.login(locale); if (ticket !== generation.current) return; pending.current = false; router.replace(result === 'sandbox-confirmation-required' ? '/register-bankid' : '/personal'); }
+              try { await onboarding.login(locale); if (ticket !== generation.current) return; pending.current = false; router.replace('/personal'); }
               catch { if (ticket === generation.current) { pending.current = false; setLoginError(true); } }
             }} />
         </NativeProductCard>
@@ -112,7 +113,8 @@ export function RegistrationScreen({
             >
               <IdentifierEntry
                 onValidIdentifier={(identifier) => {
-                  void start(identifier);
+                  const ticket=++generation.current;setLoginError(false);
+                  void (provider==='sandbox'?start(identifier,locale):start(identifier)).then(()=>{if(provider==='sandbox'&&ticket===generation.current)router.replace('/personal');}).catch(()=>{if(ticket===generation.current)setLoginError(true);});
                 }}
               />
             </View>

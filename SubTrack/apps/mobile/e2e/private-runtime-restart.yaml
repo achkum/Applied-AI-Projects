@@ -13,13 +13,13 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_VERIFY_BANKID}
     timeout: 30000
-- assertNotVisible: Native restart proof
+- assertNotVisible: Example streaming
 - tapOn: ${MAESTRO_VERIFY_BANKID}
 - extendedWaitUntil:
-    visible: Native restart proof
+    visible: Example streaming
     timeout: 30000
 - scrollUntilVisible:
-    element: Native restart proof
+    element: Example streaming
     direction: DOWN
     centerElement: true
 - takeScreenshot: accepted-restart
@@ -32,5 +32,5 @@ appId: se.subtrack.app
     visible: ${MAESTRO_LOGOUT_CONFIRMED}
     timeout: 30000
 - assertNotVisible: ${MAESTRO_LOGOUT}
-- assertNotVisible: Native restart proof
+- assertNotVisible: Example streaming
 - takeScreenshot: accepted-logout

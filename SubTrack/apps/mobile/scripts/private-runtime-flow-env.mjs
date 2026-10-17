@@ -26,7 +26,7 @@ export function flowEnvironment(locale = 'en') {
     MAESTRO_MONTH_EMPTY: onboarding.billingMonth.empty,
     MAESTRO_MONTH_DAY_EMPTY: onboarding.billingMonth.dayEmpty,
     MAESTRO_MONTH_DAY_TEMPLATE: onboarding.billingMonth.day,
-    MAESTRO_MONTH_DETAIL: onboarding.billingMonth.details.replace('%{name}', 'Native restart proof'),
+    MAESTRO_MONTH_DETAIL: onboarding.billingMonth.details.replace('%{name}', 'Example streaming'),
     MAESTRO_MONTH_SAVED_DATE_TEMPLATE: onboarding.billingMonth.savedDate,
     MAESTRO_MONTH_MANUAL: onboarding.billingMonth.manual,
     MAESTRO_MONTH_CLOSE: catalog.actions.close,
@@ -75,6 +75,6 @@ export function flowEnvironment(locale = 'en') {
     MAESTRO_LOGOUT: onboarding.nativePersonal.logout,
     MAESTRO_LOGOUT_CONFIRMED: onboarding.nativePersonal.logoutConfirmed,
     MAESTRO_EXPECTED_AMOUNT_LABEL: onboarding.manualSubscription.expectedAmount,
-    MAESTRO_EXPECTED_AMOUNT: String.raw`${onboarding.manualSubscription.expectedAmount}: 129,90[ \u00a0\u202f]+SEK`,
+    MAESTRO_EXPECTED_AMOUNT: String.raw`129,90[ \u00a0\u202f]+SEK`,
   };
 }

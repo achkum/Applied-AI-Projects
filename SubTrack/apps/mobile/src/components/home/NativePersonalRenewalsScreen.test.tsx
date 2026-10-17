@@ -33,7 +33,7 @@ function mount(){const store:NativeBundleStore={read:jest.fn().mockResolvedValue
 async function login(){await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));}
 it('requires fresh verification, then shows only expected saved dates with exact Money and return-to-list',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row],nextCursor:null});mount();expect(screen.queryByText(row.customName)).toBeNull();expect(api.readNativeSubscriptions).not.toHaveBeenCalled();await login();
- await screen.findByText(row.customName);expect(screen.getByText('2026-03-28')).toBeTruthy();expect(screen.getByText(`${copy.manualSubscription.expectedAmount}: ${formatMinorUnits(BigInt(row.expectedAmountMinor),'SEK',{locale:'en',display:'code'})}`)).toBeTruthy();
+ await screen.findByText(row.customName);expect(screen.getByText('2026-03-28')).toBeTruthy();expect(screen.getByText(`${formatMinorUnits(BigInt(row.expectedAmountMinor),'SEK',{locale:'en',display:'code'})}`)).toBeTruthy();
  expect(screen.queryByRole('button',{name:copy.nativePersonal.logout})).toBeNull();
  fireEvent.press(screen.getByRole('tab',{name:copy.productNav.manage}));expect(mockReplace).toHaveBeenCalledWith('/personal');
 });

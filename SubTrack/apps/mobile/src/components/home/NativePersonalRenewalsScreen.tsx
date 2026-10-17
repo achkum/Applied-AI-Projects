@@ -47,7 +47,7 @@ export function NativePersonalRenewalsScreen({now=()=>new Date(),useSession=useN
   style={[styles.button,{backgroundColor:color('bg.raised'),borderColor:color('ink.secondary'),borderRadius:theme.radius.card}]}><Text style={text}>{label}</Text></Pressable>;
  const navigate=(destination:NativeProductDestination)=>{if(destination==='month')router.replace('/personal-billing-month');else if(destination==='manage')router.replace('/personal');};
  return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView style={{backgroundColor:color('bg.canvas')}} contentContainerStyle={styles.content}>
-  <NativeProductHeading eyebrow={t('scope.personal')} title={t('onboarding.nativeRenewals.title')} />
+  <NativeProductHeading title={t('onboarding.nativeRenewals.title')} />
   {session.phase==='active'?<Text style={text}>{t('onboarding.nativeRenewals.expected')}</Text>:null}
   {sandbox?<SandboxNotice/>:null}
   {message?<Text accessibilityRole="alert" style={text}>{t(`onboarding.nativePersonal.${message}`)}</Text>:null}
@@ -60,7 +60,7 @@ export function NativePersonalRenewalsScreen({now=()=>new Date(),useSession=useN
     {group.items.map(item=><View key={item.id} style={styles.row}>
      <Text style={text}>{item.customName??item.merchantName??t('onboarding.ownerSubscriptions.categoryFallback')}</Text>
      <Text style={text}>{Object.prototype.hasOwnProperty.call(catalogs[locale].onboarding.ownerSubscriptions.category,item.categoryCode)?t(`onboarding.ownerSubscriptions.category.${item.categoryCode}`):t('onboarding.ownerSubscriptions.categoryFallback')}</Text>
-     <Text style={text}>{t('onboarding.manualSubscription.expectedAmount')}: {formatMinorUnits(BigInt(item.expectedAmountMinor),item.currency,{locale,display:'code'})}</Text>
+     <Text style={text}>{formatMinorUnits(BigInt(item.expectedAmountMinor),item.currency,{locale,display:'code'})}</Text>
     </View>)}
    </View>):null}
   {button(t('onboarding.nativeRenewals.refresh'),()=>{void load();},state==='loading')}

@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, TextInput } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import {useFocusEffect} from 'expo-router';
 import { NativePersonalScreen, validateManualDraft } from './NativePersonalScreen';
-import { NativeSessionProvider } from '@/state/NativeSession';
+import { NativeSessionProvider, useNativeSession } from '@/state/NativeSession';
 import { NativeSessionCore } from '@/state/NativeSessionCore';
 import * as api from '@/api/privateMobileApi';
 import { catalogs } from '@subtrack/i18n';
@@ -53,7 +53,7 @@ it('sandbox entry completes profile/Just Me/Add/Edit/status/readback/logout thro
   fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.title}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Fiction');fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.category.VIDEO_STREAMING}));
   fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.amount),'12.00');fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.save}));await screen.findByText('Persisted sandbox service');
   fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.edit}));fireEvent.changeText(screen.getByLabelText(copy.manualSubscription.name),'Changed draft');fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.save}));await screen.findByText('Persisted edited service');
-  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await waitFor(()=>expect(sandboxApi.updateNativeSubscriptionStatus).toHaveBeenCalledTimes(1));await screen.findByText(`${copy.ownerSubscriptions.category.VIDEO_STREAMING} · ${copy.ownerSubscriptions.status.PAUSED}`);
+  fireEvent.press(screen.getByRole('button',{name:copy.nativeSubscriptionEdit.pause}));await waitFor(()=>expect(sandboxApi.updateNativeSubscriptionStatus).toHaveBeenCalledTimes(1));await screen.findByText(copy.ownerSubscriptions.status.PAUSED);
   fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.logout}));await screen.findByText(copy.nativePersonal.logoutConfirmed);expect(screen.queryByText('Persisted edited service')).toBeNull();expect(api.verifiedNativeLogin).not.toHaveBeenCalled();
 });
 it.each(['en','sv'] as const)('uses the localized single profile heading during setup in %s',async locale=>{
@@ -64,10 +64,10 @@ it.each(['en','sv'] as const)('uses the localized single profile heading during 
  expect(await screen.findByRole('header',{name:localized.profile.title})).toBeTruthy();
  expect(screen.getByTestId('native-personal-title')).toBe(screen.getByRole('header',{name:localized.profile.title}));
  expect(screen.getAllByTestId('native-personal-title')).toHaveLength(1);
- expect(screen.queryByText(localized.nativePersonal.introduction)).toBeNull();
+ expect(screen.queryByText(localized.nativePersonal.introduction)).toBeNull();expect(screen.queryByText(catalogs[locale].scope.personal)).toBeNull();expect(screen.queryByRole('button',{name:localized.nativePersonal.logout})).toBeNull();
 });
-function mount() { const store: NativeBundleStore = { read: jest.fn().mockResolvedValue(null), write: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) };
-  return render(<NativeSessionProvider store={store}><NativePersonalScreen /></NativeSessionProvider>); }
+function mount(children?:React.ReactNode) { const store: NativeBundleStore = { read: jest.fn().mockResolvedValue(null), write: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) };
+  return render(<NativeSessionProvider store={store}><NativePersonalScreen />{children}</NativeSessionProvider>); }
 it('reads current private rows only after fresh verification and clears them immediately on offline logout', async () => {
   jest.mocked(api.readNativeSubscriptions).mockResolvedValue({ items: [row], nextCursor: null });
   jest.mocked(api.revokeNativeSession).mockRejectedValue(new Error('offline')); mount();
@@ -247,11 +247,12 @@ it('does not apply stale profile preferences after logout while the current prof
   jest.mocked(api.readNativeProfile).mockResolvedValueOnce({...profile,displayName:null,profileComplete:false});
   jest.mocked(api.readNativeMode).mockResolvedValue({mode:null});jest.mocked(api.saveNativeProfile).mockResolvedValue(profile);
   let resolve:(value:Awaited<ReturnType<typeof api.readNativeProfile>>)=>void=()=>undefined;
-  mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
+  function Retire(){const session=useNativeSession();return <Pressable accessibilityRole='button' accessibilityLabel='End test session' onPress={()=>{void session.logout();}}><Text>End test session</Text></Pressable>;}
+  mount(<Retire/>);await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
   fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByLabelText(copy.nativePersonal.name);
   jest.mocked(api.readNativeProfile).mockImplementationOnce(()=>new Promise(done=>{resolve=done;}));
   fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.name),'Synthetic');fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.saveProfile}));
-  await waitFor(()=>expect(api.readNativeProfile).toHaveBeenCalledTimes(2));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.logout}));
+  await waitFor(()=>expect(api.readNativeProfile).toHaveBeenCalledTimes(2));expect(screen.queryByRole('button',{name:copy.nativePersonal.logout})).toBeNull();fireEvent.press(screen.getByRole('button',{name:'End test session'}));
   await act(async()=>resolve({...profile,language:'sv',theme:'dark'}));await waitFor(()=>expect(screen.queryByLabelText(copy.nativePersonal.name)).toBeNull());
   expect(mockSetLocale).not.toHaveBeenCalledWith('sv');expect(mockSetMode).not.toHaveBeenCalledWith('dark');
 });
@@ -259,7 +260,7 @@ it('uses the accepted category fallback rather than exposing an unresolved legac
   jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,categoryCode:'LEGACY_UNKNOWN'}],nextCursor:null});
   mount();await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));
   fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(row.customName);
-  expect(screen.getByText(copy.ownerSubscriptions.categoryFallback+' · '+copy.ownerSubscriptions.status.ACTIVE)).toBeTruthy();
+  expect(screen.getByRole('header',{name:copy.ownerSubscriptions.categoryFallback})).toBeTruthy();expect(screen.getByText(copy.ownerSubscriptions.status.ACTIVE)).toBeTruthy();
   expect(screen.queryByText('onboarding.ownerSubscriptions.category.LEGACY_UNKNOWN')).toBeNull();
 });
 
