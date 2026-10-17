@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
-import {ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
+import {Keyboard,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useFocusEffect} from 'expo-router';
 import {memberAccentForId} from '@subtrack/ui-tokens/member-accent';
@@ -34,6 +34,7 @@ export function NativeHouseholdScreen({useSession,api=sandboxHouseholdApi,readSu
  const clear=useCallback(()=>{generation.current++;request.current?.abort();request.current=null;setView(null);setItems([]);setEdit(null);setRemove(null);setMemberName('');setHouseholdName('');setRenaming(false);setSelected(null);setAssign(null);setUsers([]);setPayer(null);},[]);
  const execute=useCallback(async(intent?:SandboxHouseholdIntent)=>{
   if(!focused.current||current.current.phase!=='active'||request.current)return;
+  if(intent)Keyboard.dismiss();
   const ticket=++generation.current,controller=new AbortController();request.current=controller;setBusy(true);setMessage('');
   try{
    const result=await current.current.run(async(token,signal)=>{

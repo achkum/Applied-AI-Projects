@@ -66,7 +66,7 @@ it('renders actual findings, expandable category contributions, exact trend alte
   expect(screen.getByText(copy.categoryOverlap.replace('%{count}', '2'))).toBeTruthy();
   expect(screen.getByText(copy.trendEvidence)).toBeTruthy();
   expect(screen.getByLabelText(`2026-10, ${formatMinorUnits(12000n, 'SEK', { locale: 'en', display: 'code' })}, ${copy.charges.replace('%{count}', '1')}`)).toBeTruthy();
-  const overview = screen.getByRole('button', { name: copy.overview });
+  const overview = screen.getByRole('button', { name: `${copy.overview}. ${copy.activePlans.replace('%{count}', '2')}. ${copy.findings.replace('%{count}', '2')}` });
   expect(overview.props.accessibilityState.expanded).toBe(false); fireEvent.press(overview);
   expect(screen.getByText(copy.method)).toBeTruthy(); expect(overview.props.accessibilityState.expanded).toBe(true);
   fireEvent.press(screen.getAllByRole('button', { name: copy.compare })[0]!); expect(mockPush).toHaveBeenCalledWith({ pathname: '/personal-comparisons', params: { subscriptionId: row.id } });
@@ -92,6 +92,7 @@ it('compares saved prices accurately by month/year and only labels fixture alter
   const reader = jest.fn().mockResolvedValue({ kind: 'ready', projection }), session = facade();
   render(<NativeComparisonsScreen useSession={() => session} reader={reader} now={now} />);
   await screen.findByText(copy.samplePrice); expect(screen.getByText(copy.fixtureSource)).toBeTruthy();
+  expect(screen.queryByText(copy.youPay)).toBeNull(); expect(screen.getAllByText(copy.currentPlan).length).toBeGreaterThan(1);
   expect(screen.getAllByText(formatted(3000n)).length).toBeGreaterThan(0);
   fireEvent.press(screen.getByRole('button', { name: copy.annual }));
   expect(screen.getAllByText(formatted(36000n)).length).toBeGreaterThan(0);
@@ -155,6 +156,17 @@ it('does not assume unknown payers belong to a selected member or leak unrelated
   expect(screen.getByText('Visible 0')).toBeTruthy(); expect(screen.queryByText(row.customName)).toBeNull(); expect(screen.queryByText(copy.priceRise)).toBeNull();
   expect(screen.queryByLabelText(heroLabel(17000n))).toBeNull(); expect(screen.queryByRole('button', { name: copy.connectBank })).toBeNull();
   fireEvent.press(screen.getByTestId('native-home-scope-everyone')); expectHero(17000n);
+});
+it('discloses custom-cycle exclusions beside Home and collapsed Insights totals', async () => {
+  const session = facade(), custom = { ...row, id: '623e4567-e89b-42d3-a456-426614174000', customName: 'Custom-cycle plan', cadence: 'CUSTOM' as const, expectedAmountMinor: '99999' };
+  const reader = jest.fn().mockResolvedValue({ kind: 'ready', projection: projectNativeAnalytics([row, second, custom], null, now()) });
+  const home = render(<NativeHomeOverview session={session} reader={reader} now={now} />);
+  const warning = copy.unknownCadence.replace('%{count}', '1');
+  await screen.findByText(warning); expectHero(17000n); home.unmount();
+  render(<NativeInsightsScreen useSession={() => session} reader={reader} now={now} />);
+  await screen.findByText(warning); expect(screen.getByTestId('native-insights-overview').props.accessibilityState.expanded).toBe(false);
+  expect(screen.getByTestId('native-insights-overview').props.accessibilityLabel).toContain(copy.activePlans.replace('%{count}', '3'));
+  expect(screen.getAllByText(formatted(17000n)).length).toBeGreaterThan(0);
 });
 it('opens a comparison from its insight without using the route parameter as backend authority', async () => {
   const reader = jest.fn().mockResolvedValue(ready()), session = facade();

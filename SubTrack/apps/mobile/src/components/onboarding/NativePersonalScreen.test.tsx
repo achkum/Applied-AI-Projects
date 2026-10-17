@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, Text, TextInput } from 'react-native';
+import { Keyboard, Pressable, ScrollView, Text, TextInput } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import {useFocusEffect} from 'expo-router';
 import { NativePersonalScreen, validateManualDraft } from './NativePersonalScreen';
@@ -73,6 +73,11 @@ it.each(['en','sv'] as const)('uses the localized single profile heading during 
 });
 function mount(children?:React.ReactNode) { const store: NativeBundleStore = { read: jest.fn().mockResolvedValue(null), write: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) };
   return render(<NativeSessionProvider store={store}><NativePersonalScreen />{children}</NativeSessionProvider>); }
+it('dismisses the profile input keyboard before saving and then reads authoritative preferences',async()=>{
+ jest.mocked(api.readNativeProfile).mockResolvedValueOnce({...profile,displayName:null,profileComplete:false}).mockResolvedValue(profile);jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByLabelText(copy.nativePersonal.name);const dismiss=jest.spyOn(Keyboard,'dismiss').mockImplementation(()=>{});
+ try{jest.mocked(api.saveNativeProfile).mockImplementation(async()=>{expect(dismiss).toHaveBeenCalledTimes(1);return profile;});fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.name),'Example owner');fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.saveProfile}));await screen.findByText(copy.nativePersonal.profileSaved);expect(api.saveNativeProfile).toHaveBeenCalledTimes(1);expect(mockSetLocale).toHaveBeenLastCalledWith('en');expect(mockSetMode).toHaveBeenLastCalledWith('system');}finally{dismiss.mockRestore();}
+});
 it('reads current private rows only after fresh verification and clears them immediately on offline logout', async () => {
   jest.mocked(api.readNativeSubscriptions).mockResolvedValue({ items: [row], nextCursor: null });
   jest.mocked(api.revokeNativeSession).mockRejectedValue(new Error('offline')); mount();

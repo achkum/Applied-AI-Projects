@@ -27,8 +27,9 @@ export const SANDBOX_BANK_PERSONA:PersonaHousehold={id:'showcase',displayName:'S
 };
 /** Stable transaction ids survive repeated sync. Includes true negatives and an evidenced price change. */
 export function sandboxBankTransactions(items:BankTransaction[],now:number):BankTransaction[]{
- const boundary=new Date(now);boundary.setUTCDate(1);boundary.setUTCMonth(boundary.getUTCMonth()-2);boundary.setUTCHours(0,0,0,0);
- const mapped=items.map(item=>/aurora video/i.test(item.description)&&item.date>=boundary?
+ // Fixed fictional price-change epoch: later syncs must not rewrite a booked charge.
+ const boundary=new Date('2026-08-01T00:00:00.000Z');
+ const mapped=items.map(item=>item.direction==='DEBIT'&&item.amountMinor<0&&!item.pending&&/aurora video/i.test(item.description)&&item.date>=boundary?
   {...item,amountMinor:-15900}:item);
  const account=items[0]?.accountId;if(!account)return mapped;
  const month=new Date(now);month.setUTCDate(1);month.setUTCHours(0,0,0,0);
@@ -36,8 +37,10 @@ export function sandboxBankTransactions(items:BankTransaction[],now:number):Bank
   const date=new Date(month);date.setUTCMonth(date.getUTCMonth()-index);date.setUTCDate(8);
   if(date.getTime()>now)continue;
   const stamp=date.toISOString().slice(0,10);
+  // Preserve the October2026 sample amounts while binding variation to the booked month.
+  const amountIndex=((2026*12+9-(date.getUTCFullYear()*12+date.getUTCMonth()))%12+12)%12;
   mapped.push({id:`showcase-grocery-${stamp}`,externalId:`showcase-grocery-${stamp}`,accountId:account,date,
-   description:'CORNER GROCERY',amountMinor:-(4500+index*713),currency:'SEK',direction:'DEBIT',pending:false});
+   description:'CORNER GROCERY',amountMinor:-(4500+amountIndex*713),currency:'SEK',direction:'DEBIT',pending:false});
  }
  const date=new Date(month);date.setUTCDate(Math.min(12,new Date(now).getUTCDate()));const stamp=date.toISOString().slice(0,10);
  mapped.push({id:`showcase-refund-${stamp}`,externalId:`showcase-refund-${stamp}`,accountId:account,date,

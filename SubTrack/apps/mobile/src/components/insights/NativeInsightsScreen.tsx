@@ -41,7 +41,7 @@ export function NativeInsightsScreen({ useSession = useNativeSession, reader = d
         {state === 'setup-required' ? <NativeProductButton label={t('nativeAnalytics.finishSetup')} onPress={() => router.replace('/personal')} /> : null}
         {value && state === 'ready' ? <>
           <NativeProductCard>
-            <Pressable testID="native-insights-overview" accessibilityRole="button" accessibilityState={{ expanded }} accessibilityLabel={t('nativeAnalytics.overview')} onPress={() => setExpanded(!expanded)} style={styles.overview}>
+            <Pressable testID="native-insights-overview" accessibilityRole="button" accessibilityState={{ expanded }} accessibilityLabel={`${t('nativeAnalytics.overview')}. ${t('nativeAnalytics.activePlans', { count: value.active.length })}. ${t('nativeAnalytics.findings', { count: value.priceIncreases.length + value.overlaps.length })}`} onPress={() => setExpanded(!expanded)} style={styles.overview}>
               <AnalyticsRing count={value.active.length} label={t('nativeAnalytics.activePlans', { count: value.active.length })} />
               <View style={styles.grow}><AnalyticsText kind="title">{t('nativeAnalytics.overview')}</AnalyticsText><AnalyticsText kind="muted">{t('nativeAnalytics.findings', { count: value.priceIncreases.length + value.overlaps.length })}</AnalyticsText></View>
               <AnalyticsText>{expanded ? '−' : '+'}</AnalyticsText>
@@ -49,11 +49,11 @@ export function NativeInsightsScreen({ useSession = useNativeSession, reader = d
             {expanded ? <View style={styles.chips}>
               {value.categories.map(row => <NativeProductBadge key={row.categoryCode} label={`${category(row.categoryCode)} · ${row.count}`} />)}
               <AnalyticsText kind="muted">{t('nativeAnalytics.method')}</AnalyticsText>
-              {value.unknownCadenceCount > 0 ? <AnalyticsText kind="muted">{t('nativeAnalytics.unknownCadence', { count: value.unknownCadenceCount })}</AnalyticsText> : null}
             </View> : null}
           </NativeProductCard>
           <NativeProductCard><AnalyticsText kind="muted">{t('nativeAnalytics.summary')}</AnalyticsText>
             {value.totals.map(row => <View key={row.monthly.currency} style={styles.stack}><AnalyticsMoney value={row.monthly} /><AnalyticsText kind="muted">{t('nativeAnalytics.perMonth')}</AnalyticsText><AnalyticsMoney value={row.annual} kind="body" /><AnalyticsText kind="muted">{t('nativeAnalytics.perYear')}</AnalyticsText></View>)}
+            {value.unknownCadenceCount > 0 ? <AnalyticsText kind="muted">{t('nativeAnalytics.unknownCadence', { count: value.unknownCadenceCount })}</AnalyticsText> : null}
             {value.active.length === 0 ? <AnalyticsText>{t('nativeAnalytics.empty')}</AnalyticsText> : <AnalyticsText kind="muted">{t('nativeAnalytics.estimate')}</AnalyticsText>}
           </NativeProductCard>
           <NativeProductHeading title={t('nativeAnalytics.actions')} />

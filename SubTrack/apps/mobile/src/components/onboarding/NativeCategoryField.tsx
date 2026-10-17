@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
+import {Keyboard, Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
 import {catalogs} from '@subtrack/i18n';
 import {createCustomCategory, customCategoryLabel} from '@subtrack/contracts/subscription-category';
 import {useI18n} from '@/context/I18nContext';
@@ -17,7 +17,7 @@ export function NativeCategoryField({value, onChange, disabled = false}: {value:
   let custom:string|null=null;
   if (entered && !Object.values(categories).some(label=>fold(label)===fold(entered))) {try {custom=createCustomCategory(entered);} catch {/* Invalid text remains editable; Save validates it. */}}
   const color=(key:string)=>getColorByTheme(theme,isDark,key),text={color:color('ink.primary'),fontFamily:theme.typography.fontFamily.ui,fontSize:theme.typography.fontSize.md};
-  function select(code:string){onChange(code);setQuery(null);setFocused(false);}
+  function select(code:string){Keyboard.dismiss();onChange(code);setQuery(null);setFocused(false);}
   function change(text:string){setQuery(text);setFocused(true);const exact=Object.entries(categories).find(([,label])=>fold(label)===fold(text));
     if(exact)onChange(exact[0]);else {try{onChange(createCustomCategory(text));}catch{onChange('');}}
   }
@@ -25,7 +25,7 @@ export function NativeCategoryField({value, onChange, disabled = false}: {value:
     <Text style={text}>{t('onboarding.manualSubscription.category')}</Text>
     <TextInput testID="native-subscription-category" accessibilityLabel={t('onboarding.manualSubscription.category')} value={entered}
       placeholder={t('onboarding.categoryPicker.search')} placeholderTextColor={color('ink.secondary')} editable={!disabled} maxLength={80}
-      onFocus={()=>setFocused(true)} onChangeText={change} autoCorrect={false}
+      onFocus={()=>setFocused(true)} onBlur={()=>setFocused(false)} onChangeText={change} autoCorrect={false}
       style={[styles.input,text,{backgroundColor:color('bg.raised'),borderColor:color('line.hairline'),borderRadius:theme.radius.card}]}/>
     {focused&&!disabled?<View style={[styles.suggestions,{borderColor:color('line.hairline'),borderRadius:theme.radius.card,backgroundColor:color('bg.surface')}]}>
       {matches.map(([code,label])=><Pressable key={code} accessibilityRole="button" accessibilityLabel={label} onPress={()=>select(code)} style={styles.option}><Text style={text}>{label}</Text></Pressable>)}

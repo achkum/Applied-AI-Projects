@@ -41,7 +41,7 @@ export function NativeDetectionInboxScreen({useSession=useNativeSession,api=priv
      next=page.nextCursor;if(next===null)break;if(next===at||cursors.has(next)||(more&&cursorHistory.current.has(next)))throw new Error('page');cursors.add(next);at=next;
     }
     let acknowledged=true;
-    if(intent&&!setup){const owner=await readDetectionOwnerRows(token,controller.signal);fence();if(response&&!('conflict'in response)&&'candidateId'in response){const found=owner.find(row=>row.id===response.candidateId);acknowledged=response.status==='ACTIVE'?found?.source==='DETECTED'&&found.status==='ACTIVE'&&found.revision===response.revision:found?.status!=='ACTIVE';if(response.status==='DETECTED'?!rows.some(row=>row.id===response.candidateId&&row.revision===response.revision):rows.some(row=>row.id===response.candidateId))acknowledged=false;}}
+    if(intent&&!setup){const owner=await readDetectionOwnerRows(token,controller.signal);fence();if(response&&!('conflict'in response)&&'candidateId'in response){const found=owner.find(row=>row.id===response.candidateId);acknowledged=found?.source==='DETECTED'&&found.status===response.status&&found.revision===response.revision;if(response.status==='DETECTED'?!rows.some(row=>row.id===response.candidateId&&row.revision===response.revision):rows.some(row=>row.id===response.candidateId))acknowledged=false;}}
     fence();return {rows,next,setup,response,acknowledged,cursors};
    }catch(error){if(!sent&&controller.signal.aborted&&ticket!==generation.current)return null;throw error;}finally{signal.removeEventListener('abort',abort);}
   });
