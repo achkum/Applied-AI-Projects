@@ -25,7 +25,6 @@ import {
   readdirSync,
   copyFileSync,
   statSync,
-  lstatSync,
 } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,6 +50,7 @@ import { initialIdentifierFlow } from './private-runtime-flow-policy.mjs';
 import { graphStatus } from './private-runtime-bundle-policy.mjs';
 import { failedSaveObservations } from './private-runtime-save-probe.mjs';
 import { maestroDevicePrefix } from './private-runtime-maestro-device.mjs';
+import {validIosAppContainer,verifyIosAppFiles,IOS_APP_CHECKS} from './private-runtime-ios-app-custody.mjs';
 
 let currentPhase = 'runtime-preconditions';
 const driverPhases = new Set([
@@ -433,23 +433,27 @@ async function main() {
     }
     if (currentPhase === 'flow-identifier' && captureContext && preinputMetadata) {
       const nativeRead=(args)=>new Promise((ok,no)=>execFile('xcrun',args,{timeout:10000,killSignal:'SIGKILL',maxBuffer:65536,encoding:'utf8'},(error,stdout)=>error?no(new Error('Private diagnostic unavailable')):ok(stdout)));
-      let sealed=false,withheldStage='CUSTODY';
+      let sealed=false,withheldStage='CUSTODY',appCheck='UDID';const appSizes={};
+      const checkApp=value=>{if(IOS_APP_CHECKS.includes(value))appCheck=value;};
       const captureStage=value=>{if(PREINPUT_WITHHELD_STAGES.includes(value))withheldStage=value;};
       try{sealed=await captureSealedPreinput({onStage:captureStage,privateRoot:privateDir,reader:preinputMetadata,context:captureContext,observe:()=>harness.allApiObservation(),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),
         capture:async(file,udid)=>{
           assert.equal(udid,process.env.SUBTRACK_SIMULATOR_UDID);
+          checkApp('BOOT_QUERY');
           const booted=JSON.parse(await nativeRead(['simctl','list','devices','booted','--json']));
           const devices=booted.devices?.['com.apple.CoreSimulator.SimRuntime.iOS-26-2'];
+          checkApp('BOOT_MATCH');
           assert.ok(Array.isArray(devices)&&devices.filter(device=>device.udid===udid&&device.state==='Booted'&&device.isAvailable===true&&device.name==='SubTrack-proof').length===1);
-          const installed=(await nativeRead(['simctl','get_app_container',udid,'se.subtrack.app','app'])).trim();
-          assert.ok(installed.startsWith('/')&&installed.includes(`/CoreSimulator/Devices/${udid}/data/Containers/Bundle/Application/`)&&installed.endsWith('/SubTrack.app')&&!/[\r\n\0]/.test(installed));
+          checkApp('CONTAINER_QUERY');const installed=(await nativeRead(['simctl','get_app_container',udid,'se.subtrack.app','app'])).trim();
+          checkApp('CONTAINER_PATH');assert.ok(validIosAppContainer(installed,udid));
           const built=join(privateDir,'derived/Build/Products/Debug-iphonesimulator/SubTrack.app');
-          for(const name of ['Info.plist','SubTrack']){const installedFile=join(installed,name),builtFile=join(built,name),oneStat=lstatSync(installedFile),twoStat=lstatSync(builtFile);assert.ok(oneStat.isFile()&&!oneStat.isSymbolicLink()&&twoStat.isFile()&&!twoStat.isSymbolicLink()&&oneStat.size>0&&oneStat.size<=67108864&&twoStat.size===oneStat.size);const one=readFileSync(installedFile),two=readFileSync(builtFile);assert.ok(one.length===oneStat.size&&two.length===twoStat.size);assert.equal(createHash('sha256').update(one).digest('hex'),createHash('sha256').update(two).digest('hex'));}
+          verifyIosAppFiles(built,installed,checkApp,(role,one,two)=>{appSizes[role]=one>67108864||two>67108864?'over64MiB':one===0||two===0?'zero':'within64MiB';});
           captureStage('CAPTURE');await nativeRead(['simctl','io',udid,'screenshot',file]);
         }});}catch{/* Preserve the original failed qualification and private error. */}
       let metadataCheck='UNKNOWN';
       if(!sealed&&withheldStage==='METADATA_OWNERSHIP')try{const check=preinputMetadata.ownershipCheck();if(PREINPUT_METADATA_CHECKS.includes(check))metadataCheck=check;}catch{/* Unknown stays fixed; no private exception escapes. */}
       console.error(`ST244_NATIVE preinput_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}${!sealed&&withheldStage==='METADATA_OWNERSHIP'?` metadata_check=${metadataCheck}`:''}`);
+      if(!sealed&&withheldStage==='APP_CUSTODY')console.error(`ST244_NATIVE app_custody_check=${appCheck} plist_size=${appSizes.PLIST??'unobserved'} main_size=${appSizes.MAIN??'unobserved'} debug_size=${appSizes.DEBUG??'unobserved'}`);
     }
     if (currentPhase === 'flow-identifier') {
       const syntheticOtpIssued = code !== null;
