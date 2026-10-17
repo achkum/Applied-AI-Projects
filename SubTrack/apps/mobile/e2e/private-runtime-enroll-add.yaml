@@ -44,27 +44,6 @@ appId: se.subtrack.app
       id: native-personal-title
       text: ${MAESTRO_PERSONAL_TITLE}
     timeout: 30000
-- tapOn: ${MAESTRO_SWEDISH}
-- tapOn: ${MAESTRO_DARK}
-- tapOn: ${MAESTRO_SAVE_PREFERENCES}
-- extendedWaitUntil:
-    visible: ${MAESTRO_SV_SAVE_PREFERENCES}
-    timeout: 30000
-- tapOn:
-    id: native-nav-month
-- extendedWaitUntil:
-    visible: ${MAESTRO_SV_MONTH_TITLE}
-    timeout: 30000
-- tapOn:
-    id: native-nav-manage
-- extendedWaitUntil:
-    visible: ${MAESTRO_SV_SAVE_PREFERENCES}
-    timeout: 30000
-- tapOn: ${MAESTRO_SV_ENGLISH}
-- tapOn: ${MAESTRO_SV_SAVE_PREFERENCES}
-- extendedWaitUntil:
-    visible: ${MAESTRO_SAVE_PREFERENCES}
-    timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_ADD}
     direction: DOWN
@@ -124,3 +103,36 @@ appId: se.subtrack.app
 - assertVisible: Example streaming
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-add
+- scrollUntilVisible:
+    element: ${MAESTRO_SWEDISH}
+    direction: UP
+- tapOn: ${MAESTRO_SWEDISH}
+- tapOn: ${MAESTRO_DARK}
+- scrollUntilVisible:
+    element: ${MAESTRO_SAVE_PREFERENCES}
+    direction: DOWN
+- tapOn: ${MAESTRO_SAVE_PREFERENCES}
+- extendedWaitUntil:
+    visible: ${MAESTRO_SV_SAVE_PREFERENCES}
+    timeout: 30000
+- tapOn:
+    id: native-nav-month
+- extendedWaitUntil:
+    visible: ${MAESTRO_SV_MONTH_TITLE}
+    timeout: 30000
+- tapOn:
+    id: native-nav-manage
+- extendedWaitUntil:
+    visible: ${MAESTRO_SV_SAVE_PREFERENCES}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_SV_ENGLISH}
+    direction: UP
+- tapOn: ${MAESTRO_SV_ENGLISH}
+- scrollUntilVisible:
+    element: ${MAESTRO_SV_SAVE_PREFERENCES}
+    direction: DOWN
+- tapOn: ${MAESTRO_SV_SAVE_PREFERENCES}
+- extendedWaitUntil:
+    visible: ${MAESTRO_SAVE_PREFERENCES}
+    timeout: 30000
