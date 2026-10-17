@@ -96,7 +96,6 @@ function markPhase(phase) {
 async function main() {
   assert.equal(process.env.NODE_ENV, 'development');
   const platform = process.argv[2];
-  const scope=proofScope(process.env,platform);
   assert.ok(platform === 'android' || platform === 'ios');
   const app = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   const mobileRequire = createRequire(join(app, 'package.json'));
@@ -105,6 +104,7 @@ async function main() {
   ).version;
   assert.equal(installedNativeVersion, '0.81.5');
   const repo = resolve(app, '../..');
+  const scope=proofScope(process.env,platform);
   const root = join(process.env.RUNNER_TEMP, 'subtrack-native-proof');
   const privateDir = join(root, 'private');
   const publicDir = join(root, 'public');
