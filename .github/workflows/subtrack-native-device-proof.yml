@@ -161,6 +161,7 @@ jobs:
           bash apps/mobile/scripts/private-runtime-tools.sh
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-restart-ui.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-restart-ui-test.mjs
           node --test apps/mobile/scripts/private-runtime-android-home-diagnostic-test.mjs
+          node --test apps/mobile/scripts/native-text-host-test.mjs
           node apps/mobile/scripts/private-runtime-amount-selector-test.mjs
           node apps/mobile/scripts/private-runtime-pipeline-test.mjs
           if [ "${{ matrix.platform }}" = android ]; then node --test apps/mobile/scripts/private-runtime-font-bundle-test.mjs; fi

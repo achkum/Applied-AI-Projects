@@ -103,7 +103,8 @@ export function NativeBillingMonthScreen({now=()=>new Date(),useSession=useNativ
  return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}>
   <View style={styles.full} accessibilityElementsHidden={detailVisible} importantForAccessibility={detailVisible?'no-hide-descendants':'auto'}>
   <ScrollView contentContainerStyle={styles.content}>
-   {!overviewReader||session.phase!=='active'?<NativeProductHeading title={t(overviewReader?'onboarding.productNav.home':'onboarding.billingMonth.title')} trailing={calendarAction}/>:null}   {session.phase==='active'&&overviewReader?<NativeHomeOverview session={session} reader={overviewReader} now={now} headerAction={calendarAction}>{ids=>renderBillingContent(ids)}</NativeHomeOverview>:renderBillingContent()}
+   {!overviewReader||session.phase!=='active'?<NativeProductHeading title={t(overviewReader?'onboarding.productNav.home':'onboarding.billingMonth.title')} trailing={calendarAction}/>:null}
+   {session.phase==='active'&&overviewReader?<NativeHomeOverview session={session} reader={overviewReader} now={now} headerAction={calendarAction}>{ids=>renderBillingContent(ids)}</NativeHomeOverview>:renderBillingContent()}
   </ScrollView>{session.phase==='active'?<NativeProductNav active="month" onNavigate={navigateTab}/>:null}</View>
   <Modal visible={detailVisible} transparent animationType="none" onRequestClose={closeDetail} onShow={()=>{const handle=heading.current&&findNodeHandle(heading.current);if(handle)AccessibilityInfo.setAccessibilityFocus(handle);}}>
    <View style={[styles.scrim,{backgroundColor:color('sheet.scrim')}]}><SafeAreaView accessibilityViewIsModal style={[styles.sheet,{backgroundColor:color('bg.surface'),borderTopLeftRadius:theme.radius.card,borderTopRightRadius:theme.radius.card}]}>
