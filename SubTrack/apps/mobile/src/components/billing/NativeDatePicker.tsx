@@ -52,7 +52,7 @@ export function NativeDatePicker({value, onChange, label, disabled = false, opti
             <Text accessibilityRole="header" style={[text, {fontFamily:theme.typography.fontFamily.display}]}>{label}</Text>
             <View style={styles.navigation}>
               <Pressable accessibilityRole="button" accessibilityLabel={t('onboarding.billingMonth.previous')} disabled={month.year===1 && month.month===1} onPress={() => setMonth(prior=>shiftBillingMonth(prior,-1))} style={styles.arrow}><BillingIcon name="previous" color={color('action.accent')}/></Pressable>
-              <Text accessibilityRole="header" style={[text,styles.title]}>{monthLabel}</Text>
+              <Text testID="native-date-picker-month" accessibilityRole="header" style={[text,styles.title]}>{monthLabel}</Text>
               <Pressable accessibilityRole="button" accessibilityLabel={t('onboarding.billingMonth.next')} disabled={month.year===9999 && month.month===12} onPress={() => setMonth(prior=>shiftBillingMonth(prior,1))} style={styles.arrow}><BillingIcon name="next" color={color('action.accent')}/></Pressable>
             </View>
             <View style={styles.grid}>{weekdays.map((name,index)=><Text key={index} style={[text,styles.weekday]}>{name}</Text>)}</View>

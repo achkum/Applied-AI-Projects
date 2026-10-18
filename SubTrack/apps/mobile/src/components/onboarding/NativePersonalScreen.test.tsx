@@ -8,6 +8,7 @@ import { NativeSessionCore } from '@/state/NativeSessionCore';
 import * as api from '@/api/privateMobileApi';
 import { catalogs } from '@subtrack/i18n';
 import {formatMinorUnits} from '@/api/privateMobileMoney';
+import {BillingIcon} from '../billing/BillingIcon';
 import type { NativeBundleStore } from '@/utils/secureSessionBundle';
 import {SandboxSessionProvider,useSandboxSession} from '@/state/SandboxSession';
 import {SandboxEntry} from './SandboxEntry';
@@ -33,6 +34,12 @@ function closeCurrentDetail(){const close=screen.queryByTestId('native-subscript
 function expandCurrentRow(id=row.id){closeCurrentDetail();const current=screen.getByTestId(`native-subscription-row-${id}`);if(!current.props.accessibilityState.expanded)fireEvent.press(current);}
 function openProfile(){closeCurrentDetail();const tab=screen.queryByTestId('native-nav-profile');if(tab)fireEvent.press(tab);}
 function performLogout(){openProfile();fireEvent.press(screen.getByRole('button',{name:catalogs[mockLocale.value].onboarding.nativePersonal.logout}));}
+it('Profile opens working icon-row Privacy, Bank and Help routes without changing preferences or subscriptions',async()=>{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});const session={phase:'active' as const,run:<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>work(credentials.accessToken,new AbortController().signal),login:async()=>{},refresh:async()=>{},logout:async()=>true};render(<NativePersonalScreen page="profile" useSession={()=>session}/>);
+ await screen.findByTestId('native-profile-privacy');fireEvent.press(screen.getByTestId('native-profile-privacy'));expect(mockPush).toHaveBeenLastCalledWith('/personal-privacy');
+ const bank=screen.getByTestId('native-profile-bank');expect(bank.props.accessibilityLabel).toBe(copy.nativeBank.open);expect(bank.props.accessibilityState.disabled).toBe(false);expect(screen.getByText(copy.nativeBank.title)).toBeTruthy();const icon=screen.getByTestId('native-profile-bank-icon');expect(StyleSheet.flatten(icon.props.style)).toMatchObject({width:34,height:34,borderRadius:10});expect(icon.findByType(BillingIcon).props.name).toBe('bank');fireEvent.press(bank);expect(mockPush).toHaveBeenLastCalledWith('/personal-bank');
+ fireEvent.press(screen.getByTestId('native-profile-help'));expect(mockPush).toHaveBeenLastCalledWith('/personal-help');expect(api.saveNativeProfile).not.toHaveBeenCalled();expect(api.createNativeSubscription).not.toHaveBeenCalled();
+});
 
 it('opens a focused reduced-motion detail surface from a compact row, closes via the scrim and refreshes without a normal Reload button',async()=>{
  jest.mocked(AccessibilityInfo.isReduceMotionEnabled).mockResolvedValue(true);

@@ -74,7 +74,8 @@ test('Upcoming is reached through Home and empty-day selection is asserted witho
   assert.ok(day.endsWith('- assertVisible:\n    id: native-month-selected-date\n    text: ${MAESTRO_MONTH_ISO}\n'));
   for (const name of ['billing-month', 'billing-month-empty']) {
     const flow = read(name);
-    assert.ok(flow.includes('- scrollUntilVisible:\n    element: ${MAESTRO_MONTH_NEXT}\n    direction: DOWN\n# Only an exact previous-month header'));
+    assert.ok(!flow.includes('MAESTRO_MONTH_NEXT'));
+    assert.ok(day.includes('id: native-date-picker-month\n        text: ${MAESTRO_MONTH_PREVIOUS}'));
     assert.ok(!flow.includes('MAESTRO_RIBBON_DIRECTION'));
     assert.equal(flow.split('- runFlow: private-runtime-month-day.yaml').length - 1, 2);
     assert.ok(!flow.includes('native-month-ribbon'));

@@ -36,7 +36,9 @@ test('measured simulator must be the one owned fresh device with neither SubTrac
  for(const name of ['se.subtrack.app','se.subtrack.app.sandbox'])assert.throws(()=>measuredIosSimulator(devices(),{[name]:{}},udid));
 });
 test('actual completed child success removes all raw output and records readiness only',()=>fixture(async({root})=>{
+ const output=[];mock.method(console,'log',value=>output.push(value));
  const result=await runOwnedIosDriverPreflight({environment,root,head,measureDevice:measured,runChild:child(0)});assert.deepEqual(result,{success:true,sealed:false});assert.equal(fs.existsSync(join(root,'ios-driver-preflight')),false);assert.equal(fs.existsSync(join(root,'ios-driver-ready.json')),true);assert.equal(validatedIosDriverArtifact(root,context),false);
+ assert.equal(output.some(line=>line.includes('original_reasons=')),false);
 }));
 test('actual failed child seals exact-command/source/custody only after raw cleanup',()=>fixture(async({root})=>{
  assert.deepEqual(await runOwnedIosDriverPreflight({environment,root,head,measureDevice:measured,runChild:child(1)}),{success:false,sealed:true});assert.equal(fs.existsSync(join(root,'ios-driver-preflight')),false);assert.equal(validatedIosDriverArtifact(root,context),true);
@@ -61,6 +63,30 @@ test('before/after measurement failure emits only closed categories and never gr
   assert.ok(output.includes(`ST253_IOS_DRIVER measurement_phase=${phase} measurement_check=APPS_TIMEOUT`));assert.equal(output.some(line=>line.includes('canary')),false);
   for(const name of ['ios-driver-preflight','ios-driver-ready.json','ios-driver-failure.json'])assert.equal(fs.existsSync(join(root,name)),false);
   assert.equal(fs.existsSync(join(root,'..','sealed','ios-driver-preflight.st253sealed')),false);
+ });
+});
+
+test('original failed child reason survives a later app-inventory timeout without granting artifacts or leaking original text',async()=>{
+ for(const source of ['process','maestro','runner'])await fixture(async({root})=>{
+  const output=[];mock.method(console,'log',value=>output.push(value));mock.method(console,'error',value=>output.push(value));let measurements=0;
+  const runChild=async(file,args,env)=>{assert.deepEqual(args,['--device',udid,'--platform','ios','--verbose','hierarchy']);const text=source==='process'?'Connection refused PRIVATE_DRIVER_CANARY':'PRIVATE_DRIVER_CANARY';const result=await runIosDriverChild(file,['-e',`process.stdout.write(${JSON.stringify(text)});process.exit(1)`],env,10000,process.execPath);
+   if(source!=='process'){const stamp=join(env.XDG_STATE_HOME,'maestro','tests','2026-10-17_120000');fs.mkdirSync(stamp,{recursive:true,mode:448});fs.writeFileSync(join(stamp,source==='maestro'?'maestro.log':'xctest_runner_2026-10-17_120000.log'),'Connection refused PRIVATE_DRIVER_CANARY',{mode:384});}return result;};
+  const measureDevice=()=>{if(++measurements===2)return iosMeasurementStep('APPS_QUERY',()=>{throw Object.assign(new Error('PRIVATE_MEASUREMENT_CANARY'),{code:'ETIMEDOUT'});});return measured();};
+  await assert.rejects(runOwnedIosDriverPreflight({environment,root,head,runChild,measureDevice}));
+  const status=output.indexOf('ST253_IOS_DRIVER child_complete=true child_exit=1 child_timeout=false'),reason=output.indexOf('ST253_IOS_DRIVER original_reasons=connection'),measurement=output.indexOf('ST253_IOS_DRIVER measurement_phase=after measurement_check=APPS_TIMEOUT');assert.ok(status>=0&&status<reason&&reason<measurement);assert.equal(measurements,2);assert.equal(output.some(line=>line.includes('CANARY')||line.includes('Connection refused')),false);
+  for(const name of ['ios-driver-preflight','ios-driver-ready.json','ios-driver-failure.json'])assert.equal(fs.existsSync(join(root,name)),false);assert.equal(validatedIosDriverArtifact(root,context),false);assert.equal(fs.existsSync(join(root,'..','sealed','ios-driver-preflight.st253sealed')),false);
+ });
+});
+
+test('unknown original text and invalid or ambiguous optional logs yield UNKNOWN without partial process fallback',async()=>{
+ for(const variant of ['unknown','timeout','empty-process','empty','oversized','ambiguous','invalid-utf8'])await fixture(async({root})=>{
+  const output=[];mock.method(console,'log',value=>output.push(value));mock.method(console,'error',value=>output.push(value));let measurements=0;
+  const runChild=async(file,args,env)=>{fs.writeFileSync(file,variant==='empty-process'?'':variant==='unknown'?'PRIVATE_DRIVER_CANARY':'Connection refused PRIVATE_DRIVER_CANARY',{mode:384});
+   if(!['unknown','timeout','empty-process'].includes(variant)){const stamp=join(env.XDG_STATE_HOME,'maestro','tests','2026-10-17_120000');fs.mkdirSync(stamp,{recursive:true,mode:448});fs.writeFileSync(join(stamp,'maestro.log'),variant==='empty'?'':variant==='oversized'?Buffer.alloc(262145):variant==='invalid-utf8'?Buffer.from([255]):'PRIVATE_OPTIONAL_CANARY',{mode:384});if(variant==='ambiguous')for(const suffix of ['000000','000001'])fs.writeFileSync(join(stamp,`xctest_runner_2026-10-17_${suffix}.log`),'PRIVATE_RUNNER_CANARY',{mode:384});}
+   return {complete:variant!=='timeout',exitCode:variant==='timeout'?null:1,timedOut:variant==='timeout'};};
+  const measureDevice=()=>{if(++measurements===2)return iosMeasurementStep('APPS_QUERY',()=>{throw Object.assign(new Error('PRIVATE_MEASUREMENT_CANARY'),{code:'ETIMEDOUT'});});return measured();};
+  await assert.rejects(runOwnedIosDriverPreflight({environment,root,head,runChild,measureDevice}));assert.ok(output.includes('ST253_IOS_DRIVER original_reasons=UNKNOWN'));assert.equal(output.some(line=>line.includes('original_reasons=connection')||line.includes('CANARY')),false);
+  for(const name of ['ios-driver-preflight','ios-driver-ready.json','ios-driver-failure.json'])assert.equal(fs.existsSync(join(root,name)),false);assert.equal(fs.existsSync(join(root,'..','sealed','ios-driver-preflight.st253sealed')),false);
  });
 });
 test('only bounded fixed-name owned Maestro and XCTest logs join the sealed payload',()=>fixture(async({root})=>{

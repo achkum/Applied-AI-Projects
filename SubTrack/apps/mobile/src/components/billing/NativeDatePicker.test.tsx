@@ -44,6 +44,7 @@ it('selects actual leap-day without exposing a free-form date input',()=>{
  const change=jest.fn();render(<NativeDatePicker label="Renewal" value="2024-02-12" onChange={change}/>);
  expect(screen.UNSAFE_queryByType(TextInput)).toBeNull();fireEvent.press(screen.getByRole('button',{name:'Renewal'}));
  expect(screen.getByRole('button',{name:'2024-02-29'})).toBeTruthy();expect(screen.queryByRole('button',{name:'2024-02-30'})).toBeNull();
+ expect(screen.getByTestId('native-date-picker-month').props.children).toBe('February 2024');
  fireEvent.press(screen.getByRole('button',{name:'2024-02-29'}));expect(change).toHaveBeenCalledWith('2024-02-29');
  expect(screen.queryByRole('button',{name:'2024-02-29'})).toBeNull();
 });

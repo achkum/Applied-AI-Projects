@@ -23,6 +23,7 @@ import { NativeProductButton, NativeProductCard, NativeProductHeading, NativePro
 import { NativeProductNav, nativeProductRoutes, type NativeProductDestination } from '../billing/NativeProductNav';
 import {NativeDatePicker} from '../billing/NativeDatePicker';
 import {NativeCategoryField} from './NativeCategoryField';
+import {NativeProfileSettingsLink} from './NativeProfileTools';
 import {NativeSubscriptionDetail} from '../billing/NativeSubscriptionDetail';
 import type {NativeAnalyticsReader} from '@/api/nativeAnalyticsReader';
 import {add,money,type Money} from '../../../../../packages/money/src/money';
@@ -274,7 +275,9 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
         <NativeProductSegmentedControl label={t('onboarding.nativePersonal.theme')} value={profileTheme} disabled={loading} onSelect={value=>{if(profileTheme!==value)savePreference({theme:value});}} options={(['system','light','dark'] as const).map(value=>({value,label:t(value==='system'?'nativeProductDetails.auto':`preferences.themes.${value}`),testID:`native-profile-theme-${value}`}))}/></View>
         <View style={[styles.settingRow,styles.settingDivider,{borderColor:color('line.hairline')}]}><View style={styles.settingLabel}><View style={[styles.settingIcon,{backgroundColor:color('bg.raised')}]}><BillingIcon name="globe" size={18} color={color('ink.secondary')}/></View><Text style={text}>{t('onboarding.nativePersonal.language')}</Text></View>
         <NativeProductSegmentedControl label={t('onboarding.nativePersonal.language')} value={language} disabled={loading} onSelect={value=>{if(language!==value)savePreference({language:value});}} options={(['sv','en'] as const).map(value=>({value,label:t(value==='sv'?'nativeProductDetails.languageSwedish':'nativeProductDetails.languageEnglish'),testID:`native-profile-language-${value}`}))}/></View>
-        </NativeProductCard><NativeProductHeading level="section" title={t('onboarding.nativeBank.open')}/><NativeProductCard style={{paddingVertical:0}}><Pressable accessibilityRole="button" accessibilityLabel={t('onboarding.nativeBank.open')} disabled={loading} onPress={()=>router.push('/personal-bank')} style={styles.subscriptionRow}><View style={styles.subscriptionName}><Text style={text}>{t('onboarding.nativeBank.title')}</Text></View><BillingIcon name="next" size={18} color={color('ink.secondary')}/></Pressable></NativeProductCard>
+        <View style={[styles.settingDivider,{borderColor:color('line.hairline')}]}><NativeProfileSettingsLink label={t('nativeProfileTools.privacy')} icon="shield" testID="native-profile-privacy" disabled={loading} onPress={()=>router.push('/personal-privacy')}/></View>
+        </NativeProductCard><NativeProductHeading level="section" title={t('onboarding.nativeBank.open')}/><NativeProductCard style={{paddingVertical:0}}><NativeProfileSettingsLink label={t('onboarding.nativeBank.title')} accessibilityLabel={t('onboarding.nativeBank.open')} icon="bank" testID="native-profile-bank" disabled={loading} onPress={()=>router.push('/personal-bank')}/></NativeProductCard>
+        <NativeProductHeading level="section" title={t('nativeProfileTools.support')}/><NativeProductCard style={{paddingVertical:0}}><NativeProfileSettingsLink label={t('nativeProfileTools.help')} icon="help" testID="native-profile-help" disabled={loading} onPress={()=>router.push('/personal-help')}/></NativeProductCard>
         </> : null}
         {!adding && page==='subscriptions' ? <View style={styles.field}>
         {items.length === 0 && !loading ? <Text style={text}>{t('onboarding.ownerSubscriptions.empty')}</Text> : null}

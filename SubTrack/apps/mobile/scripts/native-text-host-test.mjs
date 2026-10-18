@@ -37,5 +37,6 @@ test('newline formatting and actual Text wrappers remain legal native JSX',()=>{
 });
 test('production native product screens and their shared presentation graph compile without raw host text',()=>{
  const files=['onboarding/NativePersonalScreen.tsx','onboarding/NativeCategoryField.tsx','banks/NativePersonalBankScreen.tsx','home/NativePersonalRenewalsScreen.tsx','detection/NativeDetectionInboxScreen.tsx','household/NativeHouseholdScreen.tsx','insights/NativeHomeOverview.tsx','insights/NativeInsightsScreen.tsx','insights/NativeComparisonsScreen.tsx','insights/NativeAnalyticsUI.tsx','billing/NativeBillingMonthScreen.tsx','billing/NativeSubscriptionDetail.tsx','billing/NativeSubscriptionDetailContent.tsx','billing/NativeProductUI.tsx','billing/NativeProductNav.tsx','billing/NativeDatePicker.tsx','billing/BillingIcon.tsx'];
+ files.push('onboarding/NativeProfileTools.tsx');
  for(const file of files){const source=readFileSync(new URL(`../src/components/${file}`,import.meta.url),'utf8');assert.deepEqual(rawHostChildren(source,file),[],`${file}: raw native host text`);}
 });

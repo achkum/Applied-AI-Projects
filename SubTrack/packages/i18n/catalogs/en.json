@@ -613,6 +613,28 @@
     "openPlan": "Open %{name}",
     "comparisonTitle": "%{name} · %{alternative}"
   },
+  "nativeProfileTools": {
+    "privacy": "Privacy",
+    "support": "Support",
+    "help": "Help",
+    "bankData": "Bank data",
+    "noBankData": "No bank data.",
+    "manageBankData": "Manage bank data",
+    "bankUnavailable": "Couldn’t load bank data.",
+    "retry": "Try again",
+    "signIn": "Sign in to view your bank data.",
+    "shortcuts": "Go to",
+    "openBanks": "Banks",
+    "openReview": "Review subscriptions",
+    "openFamily": "Household",
+    "openUpcoming": "Upcoming renewals",
+    "detectionQuestion": "How are subscriptions found?",
+    "detectionAnswer": "Repeating bank payments suggest subscriptions. Review a match to confirm or dismiss it.",
+    "trackingQuestion": "Does pausing cancel a service?",
+    "trackingAnswer": "No. Pause and archive only change tracking in SubTrack.",
+    "familyQuestion": "Can family profiles see bank transactions?",
+    "familyAnswer": "No. Family profiles organize your plans and their cost shares; they do not receive access to your bank transactions."
+  },
   "nativeProductDetails": {
     "allCategories": "All",
     "thisWeek": "This week",

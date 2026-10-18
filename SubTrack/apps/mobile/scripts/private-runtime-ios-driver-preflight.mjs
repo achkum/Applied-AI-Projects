@@ -12,6 +12,7 @@ import {maestroDevicePrefix} from './private-runtime-maestro-device.mjs';
 import {preinputCaptureContext,PREINPUT_RECIPIENT_SHA256} from './private-runtime-maestro-metadata.mjs';
 import {sealIosDriverLog,validSealedIosDriverLog} from './private-runtime-ios-driver-seal.mjs';
 import {measureIosSimulator,iosMeasurementStep,iosMeasurementCategory} from './private-runtime-ios-simulator-measurement.mjs';
+import {originalDriverToolDiagnostic} from './private-runtime-identifier-diagnostic.mjs';
 export {measuredIosSimulator} from './private-runtime-ios-simulator-measurement.mjs';
 
 const LIMIT=262144,sha=value=>createHash('sha256').update(value).digest('hex');
@@ -32,20 +33,26 @@ export async function runIosDriverChild(file,args,environment,timeoutMs=180000,p
   child.on('close',(code,signal)=>{clearTimeout(timer);resolveChild({exitCode:code,complete:!invalid&&exited!==null&&exited.code===code&&exited.signal===null&&signal===null&&!timeout,timedOut:timeout});});
  });}finally{clearTimeout(timer);closeSync(fd);}
 }
-export function collectIosDriverLogs(invocation){
+export function collectIosDriverLogs(invocation,{strict=false}={}){
  const processLog=privateBytes(join(invocation,'process.log'));let count=processLog.length;
  const payload={version:1,process:processLog.toString('base64'),maestro:null,runner:null};
+ if(strict)for(const file of [join(invocation,'state'),join(invocation,'state','maestro'),join(invocation,'state','maestro','tests')]){try{owned(file,true);}catch(error){if(error.code==='ENOENT')return Buffer.from(JSON.stringify(payload));throw error;}}
  // These are optional tool logs, never authority for the original child.
  // Refuse ambiguous/oversized additions while retaining its bounded process log.
  try{
- const tests=join(invocation,'state','maestro','tests');let entries;try{owned(tests,true);entries=readdirSync(tests,{withFileTypes:true});}catch{return Buffer.from(JSON.stringify(payload));}
+ const tests=join(invocation,'state','maestro','tests');let entries;try{owned(tests,true);entries=readdirSync(tests,{withFileTypes:true});}catch(error){if(strict)throw error;return Buffer.from(JSON.stringify(payload));}
  assert.equal(entries.length,1);assert.ok(entries[0].isDirectory()&&!entries[0].isSymbolicLink()&&/^\d{4}-\d{2}-\d{2}_\d{6}$/.test(entries[0].name));const stamp=join(tests,entries[0].name);owned(stamp,true);
  const files=readdirSync(stamp,{withFileTypes:true});assert.ok(files.length<=32);
  for(const [kind,predicate]of [['maestro',name=>name==='maestro.log'],['runner',name=>/^xctest_runner_\d{4}-\d{2}-\d{2}_\d{6}\.log$/.test(name)]]){
   const matches=files.filter(file=>predicate(file.name));assert.ok(matches.length<=1);if(!matches.length)continue;const file=join(stamp,matches[0].name),s=owned(file,false);assert.ok(matches[0].isFile()&&!matches[0].isSymbolicLink());const fd=openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW);try{const current=fstatSync(fd);for(const key of ['ino','dev','size','mtimeMs','ctimeMs'])assert.equal(current[key],s[key]);const bytes=readFileSync(fd),openedAfter=fstatSync(fd),after=owned(file,false);for(const key of ['ino','dev','size','mtimeMs','ctimeMs']){assert.equal(openedAfter[key],current[key]);assert.equal(after[key],current[key]);}assert.equal(bytes.length,s.size);count+=bytes.length;assert.ok(count<=LIMIT);payload[kind]=bytes.toString('base64');}finally{closeSync(fd);}
  }
  assert.deepEqual(readdirSync(stamp).sort(),files.map(file=>file.name).sort());assert.deepEqual(readdirSync(tests).sort(),entries.map(entry=>entry.name).sort());return Buffer.from(JSON.stringify(payload));
- }catch{return Buffer.from(JSON.stringify({...payload,maestro:null,runner:null}));}
+ }catch(error){if(strict)throw error;return Buffer.from(JSON.stringify({...payload,maestro:null,runner:null}));}
+}
+/** A projection of the completed original child, not readiness or an artifact authorization. */
+function originalDriverReasons(invocation,result){
+ if(!result.complete||result.timedOut||!Number.isInteger(result.exitCode)||result.exitCode<1||result.exitCode>255)return ['UNKNOWN'];
+ try{const payload=JSON.parse(collectIosDriverLogs(invocation,{strict:true})),texts=[];for(const key of ['process','maestro','runner']){if(payload[key]===null)continue;const bytes=Buffer.from(payload[key],'base64'),text=bytes.toString('utf8');assert.equal(Buffer.from(text).equals(bytes),true);texts.push(text);}return originalDriverToolDiagnostic(texts.join('\n'));}catch{return ['UNKNOWN'];}
 }
 function removeOwned(directory,parent){assert.equal(dirname(resolve(directory)),resolve(parent));owned(directory,true);const walk=(path,depth=0)=>{assert.ok(depth<=8);const entries=readdirSync(path,{withFileTypes:true});assert.ok(entries.length<=128);for(const entry of entries){const file=join(path,entry.name),s=lstatSync(file);if(typeof process.getuid==='function')assert.equal(s.uid,process.getuid());assert.equal(s.isSymbolicLink(),false);assert.equal(realpathSync(file),resolve(file));if(s.isDirectory())walk(file,depth+1);else assert.ok(s.isFile());}};walk(directory);rmSync(directory,{recursive:true});}
 export function validatedIosDriverArtifact(root,context){try{if(!context)return false;const binding=JSON.parse(privateBytes(join(root,'ios-driver-failure.json'),4096));for(const name of ['sourceHead','runId','attempt','udid'])assert.equal(binding[name],context[name]);assert.equal(binding.commandSha256,sha(JSON.stringify(['maestro',...maestroDevicePrefix('ios',{SUBTRACK_SIMULATOR_UDID:context.udid}),'--verbose','hierarchy'])));assert.equal(binding.simulatorCustodySha256,custody(root,context));try{lstatSync(join(root,'ios-driver-preflight'));return false;}catch(error){assert.equal(error.code,'ENOENT');}return validSealedIosDriverLog(privateBytes(join(dirname(root),'sealed','ios-driver-preflight.st253sealed'),397312),binding);}catch{return false;}}
@@ -61,6 +68,7 @@ export async function runOwnedIosDriverPreflight({environment,root,head,measureD
  try{
   const result=await runChild(join(invocation,'process.log'),args,{...environment,XDG_STATE_HOME:state});
   console.log(`ST253_IOS_DRIVER child_complete=${result.complete===true} child_exit=${Number.isInteger(result.exitCode)&&result.exitCode>=0&&result.exitCode<=255?result.exitCode:'unavailable'} child_timeout=${result.timedOut===true}`);
+  if(!result.complete||result.exitCode!==0||result.timedOut)console.log(`ST253_IOS_DRIVER original_reasons=${originalDriverReasons(invocation,result).join(',')}`);
   stage='after-device';measureAt('after',before);stage='after-custody';if(context)assert.equal(custody(root,context),custodyHash);
   stage='child-result';
   if(result.complete&&result.exitCode===0){success=true;writeFileSync(join(root,'ios-driver-ready.json'),JSON.stringify({sourceHead:head,udid,commandSha256:sha(JSON.stringify(['maestro',...args]))}),{flag:'wx',mode:384});}

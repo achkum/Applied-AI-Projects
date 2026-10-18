@@ -47,6 +47,12 @@ const moduleRoster = new Set([
   '@subtrack/ui-tokens',
 ]);
 
+/** Original owned driver text only; reuse the accepted tool patterns, never return excerpts. */
+export function originalDriverToolDiagnostic(text){
+ const result=closedToolDiagnostic(text,'',[]);
+ return Object.freeze(result.withheld===null&&result.reasons.length?[...result.reasons]:['UNKNOWN']);
+}
+
 /** Closed enums only; never excerpts or dynamic values from device/tool output. */
 export function identifierToolDiagnostic({ phase, identifier, metro, labels }) {
   const unavailable = (reason) => ({ withheld: reason });

@@ -613,6 +613,28 @@
     "openPlan": "Öppna %{name}",
     "comparisonTitle": "%{name} · %{alternative}"
   },
+  "nativeProfileTools": {
+    "privacy": "Integritet",
+    "support": "Support",
+    "help": "Hjälp",
+    "bankData": "Bankdata",
+    "noBankData": "Inga bankdata.",
+    "manageBankData": "Hantera bankdata",
+    "bankUnavailable": "Kunde inte läsa bankdata.",
+    "retry": "Försök igen",
+    "signIn": "Logga in för att se dina bankdata.",
+    "shortcuts": "Gå till",
+    "openBanks": "Banker",
+    "openReview": "Granska prenumerationer",
+    "openFamily": "Hushåll",
+    "openUpcoming": "Kommande förnyelser",
+    "detectionQuestion": "Hur hittas prenumerationer?",
+    "detectionAnswer": "Återkommande bankbetalningar ger förslag på prenumerationer. Granska en träff för att bekräfta eller avvisa den.",
+    "trackingQuestion": "Säger paus upp en tjänst?",
+    "trackingAnswer": "Nej. Paus och arkivering ändrar bara spårningen i SubTrack.",
+    "familyQuestion": "Kan familjeprofiler se banktransaktioner?",
+    "familyAnswer": "Nej. Familjeprofiler organiserar dina prenumerationer och deras kostnadsandelar; de får inte tillgång till dina banktransaktioner."
+  },
   "nativeProductDetails": {
     "allCategories": "Alla",
     "thisWeek": "Denna vecka",

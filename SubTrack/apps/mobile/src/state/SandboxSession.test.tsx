@@ -42,7 +42,7 @@ it('unsupported initial and later deep links never mount a private subtree befor
 it('allows the shared sandbox product routes without falling back to private authority providers',()=>{
  function Child(){return<Text>Shared sandbox feature</Text>;}
  const native=jest.mocked(NativeSessionProvider),enrollment=jest.mocked(EnrollmentProvider);native.mockClear();enrollment.mockClear();
- for(const path of ['/personal','/personal-billing-month','/personal-home','/personal-profile','/personal-bank','/personal-detections','/personal-household','/personal-insights','/personal-comparisons']){
+ for(const path of ['/personal','/personal-billing-month','/personal-home','/personal-profile','/personal-privacy','/personal-help','/personal-bank','/personal-detections','/personal-household','/personal-insights','/personal-comparisons']){
   mockReplace.mockClear();mockPath=path;const view=render(<SandboxSessionProvider><SandboxRouteBoundary><Child/></SandboxRouteBoundary></SandboxSessionProvider>);
   expect(screen.getByText('Shared sandbox feature')).toBeTruthy();expect(mockReplace).not.toHaveBeenCalled();expect(native).not.toHaveBeenCalled();expect(enrollment).not.toHaveBeenCalled();view.unmount();
  }mockPath='/personal';

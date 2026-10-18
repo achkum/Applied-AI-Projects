@@ -146,7 +146,7 @@ test('only the fixed814 artifact may use a clean reviewed direct-child tooling p
 test('signed fixture navigation targets Profile bank entry, the bottom Compare and bounded horizontal plan-strip gestures before exact selection',()=>{
  const yaml=productYaml();
  const rows=name=>yaml.parseAllDocuments(readFileSync(new URL(`../e2e/sandbox-product-${name}.yaml`,import.meta.url),'utf8'))[1].toJSON();const bank=rows('bank'),pages=rows('pages'),restart=rows('restart');
- assert.deepEqual(bank[0],{tapOn:{id:'native-nav-profile'}});assert.ok(bank.some(row=>row.tapOn?.text==='${E_BANK_OPEN}'&&row.tapOn.index===1));
+ assert.deepEqual(bank[0],{tapOn:{id:'native-nav-profile'}});assert.deepEqual(bank[1],{extendedWaitUntil:{visible:{id:'native-profile-bank'},timeout:30000}});assert.deepEqual(bank[2],{tapOn:{id:'native-profile-bank'}});
  assert.ok(pages.some(row=>row.tapOn?.text==='${E_COMPARE}'&&row.tapOn.below==='${E_TREND_EVIDENCE}'));
  const loop=pages.find(row=>row.repeat);assert.equal(loop.repeat.times,12);assert.deepEqual(loop.repeat.commands,[{runFlow:{when:{notVisible:'Disney[+] Standard'},commands:[{swipe:{start:'90%, 24%',end:'10%, 24%',duration:500}}]}}]);assert.ok(pages.findIndex(row=>row.assertVisible==='Disney[+] Standard')<pages.findIndex(row=>row.tapOn==='Disney[+] Standard'));
  for(const id of ['native-profile-language-sv','native-profile-theme-dark']){const tap=restart.findIndex(row=>row.tapOn?.id===id);assert.deepEqual(restart[tap+1],{extendedWaitUntil:{visible:{id,selected:true},timeout:30000}});}

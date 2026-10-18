@@ -3,11 +3,11 @@ appId: se.subtrack.app.sandbox
 - tapOn:
     id: native-nav-profile
 - extendedWaitUntil:
-    visible: ${E_BANK_OPEN}
+    visible:
+      id: native-profile-bank
     timeout: 30000
 - tapOn:
-    text: ${E_BANK_OPEN}
-    index: 1
+    id: native-profile-bank
 - extendedWaitUntil:
     visible:
       id: native-bank-sync-0

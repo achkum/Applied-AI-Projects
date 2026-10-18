@@ -8,8 +8,15 @@ import {
   enrollmentToolDiagnostic,
   createEnrollmentExecution,
   enrollmentExecutionDiagnostic,
+  originalDriverToolDiagnostic,
 } from './private-runtime-identifier-diagnostic.mjs';
 const labels = { createAccount: 'Create account', email: 'Email address', otp: 'Verification code' };
+test('original driver classification reuses only accepted tool reasons and leaves unknown prose unknown',()=>{
+ assert.deepEqual(originalDriverToolDiagnostic('Connection refused private-canary'),['connection']);
+ assert.deepEqual(originalDriverToolDiagnostic('Unable to launch private-canary; unable to connect'),['launch','connection']);
+ for(const text of [undefined,null,{},'private-canary startup stopped','Tap on private-canary FAILED','x'.repeat(4000001)])assert.deepEqual(originalDriverToolDiagnostic(text),['UNKNOWN']);
+ assert.equal(JSON.stringify(originalDriverToolDiagnostic('No devices found private-canary')).includes('canary'),false);
+});
 function classify(overrides = {}) {
   return identifierToolDiagnostic({
     phase: 'flow-identifier',
