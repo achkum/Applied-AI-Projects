@@ -2,7 +2,8 @@ import React from 'react';
 import {AccessibilityInfo,Modal,Pressable,RefreshControl,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {NativeProductCard} from './NativeProductUI';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
-import {NativeBillingMonthScreen} from './NativeBillingMonthScreen';
+import {NativeBillingMonthScreen,billingMonthAxisLabelDates} from './NativeBillingMonthScreen';
+import {billingMonthCalendarDates} from '@/api/privateMobileBillingMonth';
 import {NativeSubscriptionDetailContent} from './NativeSubscriptionDetailContent';
 import {NativeSessionProvider,useNativeSession} from '@/state/NativeSession';
 import type {NativeBundleStore} from '@/utils/secureSessionBundle';
@@ -10,6 +11,13 @@ import * as api from '@/api/privateMobileApi';
 import {catalogs} from '@subtrack/i18n';
 import {formatMinorUnits} from '@/api/privateMobileMoney';
 const mockReplace=jest.fn();const mockFocus:{enabled:boolean;hold?:boolean;start?: (()=>void|(()=>void)) | undefined;cleanup?:void|(()=>void)}={enabled:true};
+it('keeps today legible without adjacent ribbon-axis labels at every date and month boundary',()=>{
+ for(const month of [{year:2024,month:2},{year:2026,month:2},{year:2026,month:10}]){
+  const dates=billingMonthCalendarDates(month);
+  for(const today of dates){const labels=[...billingMonthAxisLabelDates(dates,today)];expect(labels).toContain(today);const positions=labels.map(date=>dates.indexOf(date));for(let index=1;index<positions.length;index++)expect(positions[index]!-positions[index-1]!).toBeGreaterThanOrEqual(3);}
+ }
+ const october=billingMonthCalendarDates({year:2026,month:10});expect([...billingMonthAxisLabelDates(october,'2026-11-01')]).toEqual(['2026-10-01','2026-10-08','2026-10-22','2026-10-29']);expect([...billingMonthAxisLabelDates(october,'2026-10-18')]).not.toContain('2026-10-19');
+});
 jest.mock('expo-secure-store',()=>({WHEN_UNLOCKED_THIS_DEVICE_ONLY:6}));
 jest.mock('expo-router',()=>({useRouter:()=>({replace:mockReplace,push:mockReplace}),useFocusEffect:(callback:()=>void|(()=>void))=>{
  const React=jest.requireActual('react');React.useEffect(()=>{mockFocus.start=callback;if(mockFocus.enabled&&!mockFocus.hold)mockFocus.cleanup=callback();return ()=>{if(!mockFocus.hold)mockFocus.cleanup?.();mockFocus.cleanup=undefined;};},[callback]);

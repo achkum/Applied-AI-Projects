@@ -45,8 +45,12 @@ test('existing manual full/profile selection stays available and signed-product 
  const signed=workflow.jobs['final-signed-authority'];assert.equal(signed.env.ST_FINAL_SCOPE,'${{ inputs.proof_scope }}');
  const script=signed.steps[0].run;
  for(const scope of ['ios-driver','profile','full']){
-  const result=spawnSync(bash,['-e','-c',script],{cwd:repo,env:{...process.env,...authority,GITHUB_REF:'refs/heads/st/native-synthetic-bank',ST_FINAL_SOURCE:head,ST_FINAL_SCOPE:scope},encoding:'utf8',timeout:10000});
+  const result=spawnSync(bash,['-e','-c',script],{cwd:repo,env:{...process.env,...authority,GITHUB_REF:'refs/heads/st/native-synthetic-bank',ST_FINAL_SOURCE:head,ST_FINAL_TOOLING:head,ST_FINAL_SCOPE:scope},encoding:'utf8',timeout:10000});
   assert.equal(result.error,undefined);assert.equal(result.status===0,scope!=='ios-driver');
+ }
+ for(const tooling of ['',undefined,'foreign',head==='a'.repeat(40)?'b'.repeat(40):'a'.repeat(40)]){
+  const result=spawnSync(bash,['-e','-c',script],{cwd:repo,env:{...process.env,...authority,GITHUB_REF:'refs/heads/st/native-synthetic-bank',ST_FINAL_SOURCE:head,ST_FINAL_TOOLING:tooling,ST_FINAL_SCOPE:'full'},encoding:'utf8',timeout:10000});
+  assert.equal(result.error,undefined);assert.notEqual(result.status,0);
  }
 });
 
