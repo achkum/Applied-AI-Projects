@@ -8,13 +8,15 @@ import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join,dirname} from 'node:path';
 import {deflateSync,crc32} from 'node:zlib';
-import {captureIosFrame,openOwnedIosSimulator,iosFrameFailure,IOS_FRAME_FAILURES,runIosFrameCapability,IOS_FRAME_FLOW,IOS_FRAME_CONFIG} from './private-runtime-ios-frame-capability.mjs';
+import {captureIosFrame,openOwnedIosSimulator,iosFrameFailure,iosFramePngFacts,IOS_FRAME_FAILURES,runIosFrameCapability,IOS_FRAME_FLOW,IOS_FRAME_CONFIG} from './private-runtime-ios-frame-capability.mjs';
+import {validPreinputPng} from './private-runtime-maestro-metadata.mjs';
 import {runIosDriverChild} from './private-runtime-ios-driver-preflight.mjs';
 import {iosMeasurementStep} from './private-runtime-ios-simulator-measurement.mjs';
 
 const udid='123E4567-E89B-42D3-A456-426614174000',head='ab'.repeat(20);
 function chunk(kind,body=Buffer.alloc(0)){const h=Buffer.alloc(8),c=Buffer.alloc(4);h.writeUInt32BE(body.length);h.write(kind,4);c.writeUInt32BE(crc32(Buffer.concat([h.subarray(4),body])));return Buffer.concat([h,body,c]);}
 function png(){const h=Buffer.alloc(13);h.writeUInt32BE(1);h.writeUInt32BE(1,4);h[8]=8;h[9]=2;return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',h),chunk('IDAT',deflateSync(Buffer.from([0,0,0,0]))),chunk('IEND')]);}
+function hdrPng(){const h=Buffer.alloc(13);h.writeUInt32BE(1);h.writeUInt32BE(1,4);h[8]=16;h[9]=6;const pixels=Buffer.from([0,255,255,0,0,0,0,255,255]);return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',h),chunk('cICP',Buffer.from([9,16,0,1])),chunk('mDCV',Buffer.alloc(24)),chunk('cLLI',Buffer.alloc(8)),chunk('IDAT',deflateSync(pixels)),chunk('IEND')]);}
 function env(temp){return {CI:'true',NODE_ENV:'development',RUNNER_TEMP:temp,GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/codex/ios-startup-fixes',GITHUB_SHA:head,GITHUB_REPOSITORY:'achkum/Applied-AI-Projects',GITHUB_HEAD_REF:'',ST253_CAPTURE_DISPATCH_SOURCE:head,ST253_CAPTURE_ENABLED:'true',ST253_CAPTURE_PLATFORM:'ios',ST253_CAPTURE_HEAD_REPOSITORY:'achkum/Applied-AI-Projects',ST253_CAPTURE_SOURCE_HEAD:head,GITHUB_RUN_ID:'1234',GITHUB_RUN_ATTEMPT:'1',SUBTRACK_SIMULATOR_UDID:udid,SUBTRACK_NATIVE_PROOF_SCOPE:'full',SUBTRACK_PRIVATE_DEVICE_PROOF:'true',EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL:'https://localhost:3443'};}
 async function fixture(work){
  const temp=fs.realpathSync(fs.mkdtempSync(join(tmpdir(),'st253-frame-'))),root=join(temp,'subtrack-native-proof','private');fs.mkdirSync(root,{recursive:true,mode:448});fs.chmodSync(root,448);
@@ -39,7 +41,7 @@ test('command failures expose only closed categories, including terminated inste
  assert.ok(Object.isFrozen(IOS_FRAME_FAILURES));const seen=[];await assert.rejects(openOwnedIosSimulator(udid,value=>{seen.push(value);throw Error('private-canary');},{execute:()=>{throw Object.assign(Error('private-canary'),{code:'EACCES'});}}));assert.deepEqual(seen,['SPAWN']);
 });
 test('one fixture-free capability check opens exact Simulator, validates a complete PNG and removes all raw output before readiness',()=>fixture(async f=>{
- const result=await runIosFrameCapability({...f,head},f.ports);assert.deepEqual(f.calls,['gui','measure','capture','measure']);assert.deepEqual(result,{schema:'st253-ios-frame-capability-v1',ready:true,stage:'COMPLETE',failureStage:null,commandFailure:null,originalReasons:null,measurementCheck:null,pngFailure:null,cleanupFailure:null,cleanupRosterFailure:null,cleanupVerified:true});assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);assert.deepEqual(fs.readdirSync(f.root).sort(),['ios-frame-capability-claim.json','preinput-ios-custody.json']);
+ const result=await runIosFrameCapability({...f,head},f.ports);assert.deepEqual(f.calls,['gui','measure','capture','measure']);assert.deepEqual(result,{schema:'st253-ios-frame-capability-v1',ready:true,stage:'COMPLETE',failureStage:null,commandFailure:null,originalReasons:null,measurementCheck:null,pngFailure:null,pngStructure:null,cleanupFailure:null,cleanupRosterFailure:null,cleanupVerified:true});assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);assert.deepEqual(fs.readdirSync(f.root).sort(),['ios-frame-capability-claim.json','preinput-ios-custody.json']);
  const repeated=await runIosFrameCapability({...f,head},f.ports);assert.equal(repeated.ready,false);assert.equal(repeated.stage,'CUSTODY');assert.deepEqual(f.calls,['gui','measure','capture','measure']);
 }));
 test('wrong source/scope/platform/fixture/custody prevents every GUI or frame command',async()=>{
@@ -54,6 +56,23 @@ test('invalid frame, partial capture, changed simulator or custody withholds rea
   assert.equal(result.ready,false);assert.equal(result.cleanupVerified,true);assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);assert.ok(!JSON.stringify(result).includes('private-canary'));if(kind==='capture'){assert.equal(result.commandFailure,'TERMINATED');assert.equal(result.failureStage,'CAPTURE');}if(kind==='png'){assert.equal(result.failureStage,'PNG');assert.equal(result.pngFailure,'PNG_FORMAT');}
  });
 });
+test('a real sixteen-bit RGBA HDR envelope yields only fixed structural facts while PNG acceptance and cleanup remain strict',()=>fixture(async f=>{
+ const image=hdrPng();assert.equal(validPreinputPng(image),false);
+ const result=await runIosFrameCapability({...f,head},{...f.ports,capture:async(id,file)=>{await f.ports.capture(id,file);fs.writeFileSync(file,image);}});
+ assert.equal(result.ready,false);assert.equal(result.failureStage,'PNG');assert.equal(result.pngFailure,'PNG_FORMAT');assert.equal(result.cleanupVerified,true);assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);
+ assert.deepEqual(result.pngStructure,{signature:'PNG',envelope:'ENDED',width:1,height:1,bitDepth:16,colorType:6,compression:'ZERO',filter:'ZERO',interlace:'NONE',chunkTypes:['IHDR','cICP','mDCV','cLLI','IDAT','IEND']});assert.equal(Object.isFrozen(result.pngStructure),true);assert.equal(Object.isFrozen(result.pngStructure.chunkTypes),true);
+}));
+
+test('PNG structural projection suppresses text, unknown chunk names, payloads and CRC values and bounds its complete output',()=>{
+ const base=png(),canary=Buffer.from('PRIVATE_TEXT_PAYLOAD_CANARY'),image=Buffer.concat([base.subarray(0,33),chunk('tEXt',canary),chunk('iTXt',canary),chunk('zTXt',canary),chunk('eXIf',canary),chunk('pRIV',canary),base.subarray(33)]);
+ const facts=iosFramePngFacts(image);assert.deepEqual(facts,{signature:'PNG',envelope:'ENDED',width:1,height:1,bitDepth:8,colorType:2,compression:'ZERO',filter:'ZERO',interlace:'NONE',chunkTypes:['IHDR','tEXt','iTXt','zTXt','eXIf','OTHER','IDAT','IEND']});assert.ok(!JSON.stringify(facts).includes('PRIVATE_'));assert.ok(!JSON.stringify(facts).includes('pRIV'));assert.deepEqual(Object.keys(facts),['signature','envelope','width','height','bitDepth','colorType','compression','filter','interlace','chunkTypes']);
+ const header=Buffer.from(base.subarray(16,29));header.writeUInt32BE(4294967295);header[8]=7;header[9]=1;header[10]=3;header[11]=4;header[12]=1;const odd=Buffer.concat([base.subarray(0,8),chunk('IHDR',header),base.subarray(33)]);
+ assert.deepEqual(iosFramePngFacts(odd),{signature:'PNG',envelope:'ENDED',width:null,height:1,bitDepth:'OTHER',colorType:'OTHER',compression:'OTHER',filter:'OTHER',interlace:'ADAM7',chunkTypes:['IHDR','IDAT','IEND']});header[12]=3;assert.equal(iosFramePngFacts(Buffer.concat([base.subarray(0,8),chunk('IHDR',header),base.subarray(33)])).interlace,'OTHER');
+ const many=Buffer.concat([base.subarray(0,33),...Array.from({length:130},()=>chunk('pRIV')),base.subarray(33)]),bounded=iosFramePngFacts(many);assert.equal(bounded.envelope,'CHUNK_LIMIT');assert.equal(bounded.chunkTypes.length,128);assert.ok(JSON.stringify(bounded).length<2048);
+ assert.equal(iosFramePngFacts(base.subarray(0,20)).envelope,'TRUNCATED');assert.equal(iosFramePngFacts(Buffer.concat([base,canary])).envelope,'TRAILING');assert.equal(iosFramePngFacts(base.subarray(0,base.length-12)).envelope,'MISSING_END');assert.equal(iosFramePngFacts(Buffer.alloc(8388609)).envelope,'UNAVAILABLE');
+ assert.equal(iosFramePngFacts(Buffer.concat([Buffer.from([255,216,255]),canary])).signature,'JPEG');assert.equal(iosFramePngFacts(canary).signature,'OTHER');assert.equal(iosFramePngFacts(null).signature,'OTHER');
+});
+
 test('GUI failure prevents inventory and a failed BEFORE inventory after GUI prevents every child command without retry',async()=>{
  await fixture(async f=>{let children=0,measurements=0;const result=await runIosFrameCapability({...f,head},{...f.ports,measure:()=>{measurements++;throw Error('private-canary');},capture:async()=>{children++;throw Error('Unexpected child');}});assert.equal(result.stage,'BEFORE');assert.deepEqual(f.calls,['gui']);assert.equal(measurements,1);assert.equal(children,0);assert.equal(result.cleanupVerified,true);});
  await fixture(async f=>{const result=await runIosFrameCapability({...f,head},{...f.ports,openSimulator:async(_id,report)=>{report('EXIT_NONZERO');throw Error('private-canary');}});assert.equal(result.stage,'GUI');assert.equal(result.commandFailure,'EXIT_NONZERO');assert.deepEqual(f.calls,[]);});

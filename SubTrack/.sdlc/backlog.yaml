@@ -9,11 +9,11 @@ independent_native_slice: ST-251
 delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
 android_fix_handoff:
-  updated: "2026-10-18"
-  execution: "V6 remains the delivered APK; Swedish backend1c71ee5c remains live. Android bc8e02f4 run39166765129/job117791273485 PASS with actual restart/backend readback and18 accepted development frames. The subsequent Home/Household/Subscriptions/Bank audit batch passes68mobile suites/817tests, types and locale parity, followed by27affected Household cases after its final draft-refresh correction; all lane reviews clean. iOS original Welcome failure remains unobserved. New same-XCTest image strategy is source-reviewed; early runs stop on corrected cache-policy/coverage checks before simulator. Exact metadata53tests now pass100% coverage, and all31pre-app policy command sets pass locally. Next changed-producer hosted check pending. Apple setup deferred until signing; no IPA or new signed APK. Original signer/data/memory floor and review/CI gates preserved. Exact whole-app HTML parity remains unqualified. See native-resume-after-data-2026-10-18.md."
+  updated: "2026-10-19"
+  execution: "V6 remains delivered; Swedish backend1c71ee5c is live. Current UI sourcee793f766 passes all68mobile suites/821tests and full installed Android run39171005038/job117803914058, durable app/API-restart/backend readback, bank lifecycle and18accepted frames. All other PR304 checks pass; iOS stops before compilation. Its screenshot child succeeds but strict output roster rejects an unknown directory; pinned-source audit finds omitted opt-out state and exact cleanup-only correction. Later fresh host stops at DEVICES_TIMEOUT before testing it. Controlled GUI-before-inventory comparisone7a88d20/run39172615622 is pending; no unchanged retries, gate skips or app fix inferred. Original Welcome failure remains unobserved. Apple setup deferred until signing. Original signer/data/history preserved; public recovery tools/bootstrap plan reviewed but no genuine artifact transfer, original-key signing, new APK or IPA yet. Exact whole-product HTML/accessibility parity remains unqualified. See native-resume-after-data-2026-10-18.md."
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
-  tested_source_head: bc8e02f4290ff201369e5ff0ee4ba05d5d46771c
+  tested_source_head: e793f7669406aed0c64689bf6b33be530163d23f
   delivery_source_head: 81420b1faa8dae3143bd18653ac5cae383e8a9bc
   version_code: 6
   backend_source_head: 1c71ee5cd8b8d80ecbb3630b4043d4657db3840f

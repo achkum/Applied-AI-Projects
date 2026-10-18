@@ -16,6 +16,31 @@ import {originalDriverToolDiagnostic} from './private-runtime-identifier-diagnos
 export const IOS_FRAME_FAILURES=Object.freeze(['SPAWN','OUTPUT_LIMIT','TERMINATED','EXIT_NONZERO','OTHER']);
 const ORIGINAL_REASONS=['assertion','element-not-found','launch','device-unavailable','tool-config','connection','UNKNOWN'];
 const ROSTER_FAILURES=['PATH','OWNER','PERMISSIONS','FILE_SHAPE','SIZE','UNEXPECTED_DIRECTORY','UNEXPECTED_FILE','ROSTER_LIMIT','READ_OR_IDENTITY'];
+const PNG_CHUNKS=['IHDR','IDAT','IEND','PLTE','cHRM','gAMA','iCCP','sBIT','sRGB','bKGD','hIST','tRNS','pHYs','sPLT','tIME','iTXt','tEXt','zTXt','eXIf','cICP','mDCV','cLLI','CgBI','acTL','fcTL','fdAT'];
+/** Diagnostic envelope facts only: no CRC, payload, text, pixels or acceptance. */
+export function iosFramePngFacts(bytes){
+ const facts={signature:'OTHER',envelope:'UNAVAILABLE',width:null,height:null,bitDepth:null,colorType:null,compression:null,filter:null,interlace:null,chunkTypes:[]};
+ const done=()=>Object.freeze({...facts,chunkTypes:Object.freeze(facts.chunkTypes)});
+ if(!Buffer.isBuffer(bytes)||bytes.length>8388608)return done();
+ if(bytes.length<8||!bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))){if(bytes.length>=3&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255)facts.signature='JPEG';facts.envelope='SIGNATURE';return done();}
+ facts.signature='PNG';
+ let at=8,count=0;facts.envelope='MISSING_END';
+ while(at<bytes.length){
+  if(count++>=128){facts.envelope='CHUNK_LIMIT';return done();}
+  if(at+12>bytes.length){facts.envelope='TRUNCATED';return done();}
+  const length=bytes.readUInt32BE(at),end=at+12+length;
+  const kind=PNG_CHUNKS.find(name=>bytes.subarray(at+4,at+8).equals(Buffer.from(name)))??'OTHER';facts.chunkTypes.push(kind);
+  if(end>bytes.length){facts.envelope='TRUNCATED';return done();}
+  if(at===8&&kind==='IHDR'&&length===13){
+   const dimension=offset=>{const value=bytes.readUInt32BE(offset);return value>=1&&value<=65535?value:null;};
+   facts.width=dimension(at+8);facts.height=dimension(at+12);
+   facts.bitDepth=[1,2,4,8,16].includes(bytes[at+16])?bytes[at+16]:'OTHER';facts.colorType=[0,2,3,4,6].includes(bytes[at+17])?bytes[at+17]:'OTHER';
+   facts.compression=bytes[at+18]===0?'ZERO':'OTHER';facts.filter=bytes[at+19]===0?'ZERO':'OTHER';facts.interlace=bytes[at+20]===0?'NONE':bytes[at+20]===1?'ADAM7':'OTHER';
+  }
+  at=end;if(kind==='IEND'){facts.envelope=at===bytes.length?'ENDED':'TRAILING';return done();}
+ }
+ return done();
+}
 export function iosFrameFailure(error){
  try{
  if(['ENOENT','EACCES','EPERM'].includes(error?.code))return 'SPAWN';
@@ -86,7 +111,7 @@ function frameRoster(directory){
 }
 function cleanFrameProbe(directory,ownedDirectory,step){step('DIRECTORY_CUSTODY');directoryIdentity(directory,ownedDirectory);step('ROSTER');const rows=frameRoster(directory);for(const row of rows.filter(item=>!item.directory)){step('FILE_CUSTODY');identity(row.state,lstatSync(row.file));step('UNLINK');unlinkSync(row.file);}for(const row of rows.filter(item=>item.directory).reverse()){step('DIRECTORY_CUSTODY');directoryIdentity(row.file,row.state);step('RMDIR');rmdirSync(row.file);}step('DIRECTORY_CUSTODY');directoryIdentity(directory,ownedDirectory);step('RMDIR');rmdirSync(directory);step('VERIFY');assert.equal(existsSync(directory),false);}
 export async function runIosFrameCapability({environment,head,root},{platform=process.platform,measure=measureIosSimulator,capture=captureIosFrame,openSimulator=openOwnedIosSimulator}={}){
- let stage='CONTEXT',failureStage=null,commandFailure='OTHER',originalReasons=null,measurementCheck=null,pngFailure=null,cleanupFailure=null,cleanupRosterFailure=null,directory,ownedDirectory,ready=false,cleanupVerified=true;
+ let stage='CONTEXT',failureStage=null,commandFailure='OTHER',originalReasons=null,measurementCheck=null,pngFailure=null,pngStructure=null,cleanupFailure=null,cleanupRosterFailure=null,directory,ownedDirectory,ready=false,cleanupVerified=true;
  const observe=value=>{if(IOS_FRAME_FAILURES.includes(value))commandFailure=value;};
  try{
   assert.equal(platform,'darwin');assert.equal(environment.CI,'true');assert.ok(['full','ios-driver'].includes(environment.SUBTRACK_NATIVE_PROOF_SCOPE));assert.equal(environment.SUBTRACK_PRIVATE_FIXTURE_CONFIG,undefined);assert.equal(process.umask()&63,63);
@@ -95,14 +120,14 @@ export async function runIosFrameCapability({environment,head,root},{platform=pr
   stage='GUI';await openSimulator(context.udid,observe);stage='BEFORE';const before=measure(context.udid);
   stage='CUSTODY';directory=join(root,'ios-frame-capability');mkdirSync(directory,{mode:448});cleanupVerified=false;ownedDirectory=privateState(directory,true);
   const file=join(directory,frameRelative);assert.equal(existsSync(file),false);stage='CAPTURE';await capture(context.udid,file,observe,{environment});
-  stage='PNG';directoryIdentity(directory,ownedDirectory);const png=privateBytes(file,8388608);try{custodyCheck(validPreinputPng(png),'PNG_FORMAT');}finally{png.fill(0);}
+  stage='PNG';directoryIdentity(directory,ownedDirectory);const png=privateBytes(file,8388608);try{const accepted=validPreinputPng(png);if(!accepted)pngStructure=iosFramePngFacts(png);custodyCheck(accepted,'PNG_FORMAT');}finally{png.fill(0);}
   stage='AFTER';assert.deepEqual(measure(context.udid),before);assert.equal(custody(root,context),original);ready=true;
  }catch(error){if(['BEFORE','AFTER'].includes(stage))measurementCheck=iosMeasurementCategory(error);if(stage==='CAPTURE'&&Array.isArray(error?.frameOriginalReasons)&&error.frameOriginalReasons.length>0&&error.frameOriginalReasons.length<=ORIGINAL_REASONS.length&&error.frameOriginalReasons.every(reason=>ORIGINAL_REASONS.includes(reason)))originalReasons=[...error.frameOriginalReasons];if(stage==='CAPTURE'&&['INPUT','OUTPUT'].includes(error?.frameStage))stage=error.frameStage;failureStage=stage;if(['PNG','OUTPUT'].includes(stage))pngFailure=['PATH','OWNER','PERMISSIONS','FILE_SHAPE','SIZE','PNG_FORMAT'].includes(error?.frameCustodyFailure)?error.frameCustodyFailure:'READ_OR_IDENTITY';/* No raw error values leave this fixture-free check. */}
  finally{
   if(ownedDirectory){let cleanupStep='DIRECTORY_CUSTODY';try{cleanFrameProbe(directory,ownedDirectory,value=>{cleanupStep=value;});cleanupVerified=true;}catch(error){cleanupFailure=cleanupStep;if(cleanupStep==='ROSTER')cleanupRosterFailure=ROSTER_FAILURES.includes(error?.frameCustodyFailure)?error.frameCustodyFailure:'READ_OR_IDENTITY';stage='CLEANUP';ready=false;cleanupVerified=false;}}
  }
- return Object.freeze({schema:'st253-ios-frame-capability-v1',ready:ready&&cleanupVerified,stage:ready&&cleanupVerified?'COMPLETE':stage,failureStage,commandFailure:['GUI','CAPTURE'].includes(failureStage)?commandFailure:null,originalReasons,measurementCheck,pngFailure,cleanupFailure,cleanupRosterFailure,cleanupVerified});
+ return Object.freeze({schema:'st253-ios-frame-capability-v1',ready:ready&&cleanupVerified,stage:ready&&cleanupVerified?'COMPLETE':stage,failureStage,commandFailure:['GUI','CAPTURE'].includes(failureStage)?commandFailure:null,originalReasons,measurementCheck,pngFailure,pngStructure,cleanupFailure,cleanupRosterFailure,cleanupVerified});
 }
 if(process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.url){
- void(async()=>{assert.equal(process.argv.length,2);const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),result=await runIosFrameCapability({environment:process.env,head,root:join(process.env.RUNNER_TEMP,'subtrack-native-proof','private')});console.log(JSON.stringify(result));if(!result.ready)process.exitCode=1;})().catch(()=>{console.log(JSON.stringify({schema:'st253-ios-frame-capability-v1',ready:false,stage:'CONTEXT',failureStage:'CONTEXT',commandFailure:null,originalReasons:null,measurementCheck:null,pngFailure:null,cleanupFailure:null,cleanupRosterFailure:null,cleanupVerified:false}));process.exitCode=1;});
+ void(async()=>{assert.equal(process.argv.length,2);const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),result=await runIosFrameCapability({environment:process.env,head,root:join(process.env.RUNNER_TEMP,'subtrack-native-proof','private')});console.log(JSON.stringify(result));if(!result.ready)process.exitCode=1;})().catch(()=>{console.log(JSON.stringify({schema:'st253-ios-frame-capability-v1',ready:false,stage:'CONTEXT',failureStage:'CONTEXT',commandFailure:null,originalReasons:null,measurementCheck:null,pngFailure:null,pngStructure:null,cleanupFailure:null,cleanupRosterFailure:null,cleanupVerified:false}));process.exitCode=1;});
 }
