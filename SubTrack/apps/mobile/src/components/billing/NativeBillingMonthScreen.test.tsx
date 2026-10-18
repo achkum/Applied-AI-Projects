@@ -1,7 +1,7 @@
 import React from 'react';
 import {AccessibilityInfo,Modal,Pressable,RefreshControl,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {NativeProductCard} from './NativeProductUI';
-import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
+import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react-native';
 import {NativeBillingMonthScreen,billingMonthAxisLabelDates} from './NativeBillingMonthScreen';
 import {billingMonthCalendarDates} from '@/api/privateMobileBillingMonth';
 import {NativeSubscriptionDetailContent} from './NativeSubscriptionDetailContent';
@@ -68,6 +68,15 @@ it.each(['week','selected-day'] as const)('opens the exact %s renewal through it
  await screen.findByRole('header',{name:row.customName});expect(screen.getByText('2026-03-28')).toBeTruthy();expect(screen.getByText(copy.billingMonth.manual)).toBeTruthy();
  expect(screen.getByLabelText(`${price} · ${copy.ownerSubscriptions.cadence.MONTHLY}`)).toBeTruthy();expect(readProjection).toHaveBeenCalledTimes(1);
 });
+it('keeps two-digit month-axis labels on one centered line without expanding day columns or changing dates',async()=>{
+ const {selectBillingMonth}=jest.requireActual('@/api/privateMobileBillingMonth'),{projectNativeAnalytics}=jest.requireActual('@/api/nativeAnalyticsProjection');
+ const clock=()=>new Date(2026,9,18,12),saved={...row,nextChargeDate:'2026-10-19'},reader=jest.fn().mockResolvedValue({kind:'ready',projection:projectNativeAnalytics([saved],null,clock())});
+ const readProjection=jest.fn().mockResolvedValue({kind:'ready',projection:selectBillingMonth([saved],{year:2026,month:10})}),active={phase:'active' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:async<T,>(operation:(token:string,signal:AbortSignal)=>Promise<T>)=>operation('scoped-owner',new AbortController().signal)};
+ render(<NativeBillingMonthScreen now={clock} useSession={()=>active} readProjection={readProjection} overviewReader={reader}/>);
+ const chart=await screen.findByTestId('native-month-ribbon'),labels:readonly {props:{children:React.ReactNode}}[]=chart.findAllByType(Text);expect(labels).toHaveLength(31);expect(labels.map(label=>String(label.props.children)).filter(label=>label.trim())).toEqual(['1','8','18','22','29']);
+ for(const label of ['22','29']){const text=within(chart).getByText(label);expect(text.props.numberOfLines).toBe(1);expect(StyleSheet.flatten(text.props.style)).toMatchObject({width:28,maxWidth:28,textAlign:'center'});let column=text.parent;while(column&&StyleSheet.flatten(column.props.style)?.flex!==1)column=column.parent;expect(StyleSheet.flatten(column?.props.style)).toMatchObject({flex:1,minWidth:0});}
+ expect(screen.getByTestId('native-month-selected-date').props.children).toBe(saved.nextChargeDate);expect(screen.getByTestId('native-home-calendar')).toBeTruthy();
+});
 it('shared detail body keeps exact large Money and annual cost, owns no Modal and exposes its top Close action',()=>{
  const close=jest.fn(),manage=jest.fn();render(<NativeSubscriptionDetailContent item={row} onClose={close} onManage={manage}/>);
  const price=formatMinorUnits(BigInt(row.expectedAmountMinor),'SEK',{locale:'en',display:'code'}).replace(/[\u00a0\u202f]/g,' ');
@@ -78,7 +87,7 @@ it('shared detail body keeps exact large Money and annual cost, owns no Modal an
 });
 it('shared detail body leaves custom cadence annual cost unknown and preserves injected real actions',()=>{
  render(<NativeSubscriptionDetailContent item={{...row,cadence:'CUSTOM',nextChargeDate:null}} onClose={jest.fn()} actions={<Text>Owned action</Text>}/>);
- expect(screen.getAllByText(copy.manualSubscription.placeholder)).toHaveLength(2);expect(screen.getByText('Owned action')).toBeTruthy();expect(screen.queryByRole('button',{name:copy.billingMonth.manage})).toBeNull();
+ expect(screen.getByText(catalogs.en.nativeProductDetails.notSet)).toBeTruthy();expect(screen.getByText(catalogs.en.nativeProductDetails.unknown)).toBeTruthy();expect(screen.queryByText(copy.manualSubscription.placeholder)).toBeNull();expect(screen.getByText('Owned action')).toBeTruthy();expect(screen.queryByRole('button',{name:copy.billingMonth.manage})).toBeNull();
 });
 it('keeps account controls in Profile and uses the five product tabs without duplicate Upcoming or Refresh buttons',async()=>{
  jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});mount();await login();await screen.findByText(copy.billingMonth.empty);

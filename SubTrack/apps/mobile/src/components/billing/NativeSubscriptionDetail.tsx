@@ -32,7 +32,7 @@ function AuthorizedDetail({session,reader,now,detail}:{session:NativeFeatureSess
  if(household&&assignment){
   const payer=household.members.find(member=>member.id===assignment.payerMemberId),users=household.members.filter(member=>assignment.memberIds.includes(member.id));
   fields.push([t('onboarding.nativeHousehold.payerLabel'),payer?.displayName??t('onboarding.nativeHousehold.payerUnknown')]);
-  fields.push([t('onboarding.nativeHousehold.usersLabel'),users.map(member=>member.displayName).join(', ')||t('onboarding.manualSubscription.placeholder')]);
+  fields.push([t('onboarding.nativeHousehold.usersLabel'),users.map(member=>member.displayName).join(', ')||t('nativeProductDetails.unassigned')]);
   if(users.length>1){const amounts=allocateEvenly(money(BigInt(detail.item.expectedAmountMinor),detail.item.currency),users.length).sort((a,b)=>a.minorUnits<b.minorUnits?-1:a.minorUnits>b.minorUnits?1:0),minimum=amounts[0]!,maximum=amounts[amounts.length-1]!;fields.push([t('nativeProductDetails.perPerson'),minimum.minorUnits===maximum.minorUnits?format(minimum):`${format(minimum)}–${format(maximum)}`]);}
  }
  const charges=ready&&value?.historyAvailable?value.attributedCharges.filter(row=>row.subscriptionId===detail.item.id&&row.currency===detail.item.currency).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id)).slice(-6):[];

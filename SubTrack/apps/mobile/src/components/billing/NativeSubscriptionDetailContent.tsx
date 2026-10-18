@@ -25,8 +25,8 @@ export function NativeSubscriptionDetailContent({item,onClose,onManage,actions,h
  const formatted=(minor:bigint)=>formatMinorUnits(minor,item.currency,{locale,display:'code'}).replace(/[\u00a0\u202f]/g,' ');
  const price=formatted(BigInt(item.expectedAmountMinor)),cost=recurringCost(money(BigInt(item.expectedAmountMinor),item.currency),item.cadence);
  const fields=[
-  [t('nativeProductDetails.nextRenewal'),item.nextChargeDate??t('onboarding.manualSubscription.placeholder')],
-  [t('nativeProductDetails.annualCost'),cost?formatted(cost.annual.minorUnits):t('onboarding.manualSubscription.placeholder')],
+  [t('nativeProductDetails.nextRenewal'),item.nextChargeDate??t('nativeProductDetails.notSet')],
+  [t('nativeProductDetails.annualCost'),cost?formatted(cost.annual.minorUnits):t('nativeProductDetails.unknown')],
   [t('nativeProductDetails.category'),category],
   ...(item.status!=='ACTIVE'?[[t('nativeProductDetails.status'),t(`onboarding.ownerSubscriptions.status.${item.status}`)]]:[]),
   ...metadataFields,

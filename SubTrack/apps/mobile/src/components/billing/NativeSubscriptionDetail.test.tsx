@@ -9,10 +9,11 @@ import {NativeSessionCore} from '@/state/NativeSessionCore';
 import {formatMinorUnits} from '@/api/privateMobileMoney';
 import {catalogs} from '@subtrack/i18n';
 const mockCleanup:{current?:void|(()=>void)}={};
+const mockLocale:{value:'en'|'sv'}={value:'en'};
 jest.mock('expo-secure-store',()=>({WHEN_UNLOCKED_THIS_DEVICE_ONLY:6}));
 jest.mock('expo-router',()=>({useFocusEffect:(callback:()=>void|(()=>void))=>{const React=jest.requireActual('react');React.useEffect(()=>{mockCleanup.current=callback();return()=>{mockCleanup.current?.();};},[callback]);}}));
 jest.mock('@/context/ThemeContext',()=>({useTheme:()=>({...jest.requireActual('../signature/testUtils/contextMocks').makeTheme(false),theme:jest.requireActual('../../../../../packages/ui-tokens/generated/billing-month.native.json')})}));
-jest.mock('@/context/I18nContext',()=>({useI18n:()=>jest.requireActual('../signature/testUtils/contextMocks').makeI18n('en')}));
+jest.mock('@/context/I18nContext',()=>({useI18n:()=>jest.requireActual('../signature/testUtils/contextMocks').makeI18n(mockLocale.value)}));
 const row={id:'123e4567-e89b-42d3-a456-426614174000',revision:'1',source:'MANUAL' as const,visibility:'owner' as const,customName:'Owned sample plan',merchantId:null,merchantName:null,categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY' as const,status:'ACTIVE' as const,expectedAmountMinor:'10001',currency:'SEK',nextChargeDate:'2026-10-19',alwaysPrivate:true};
 const other={...row,id:'223e4567-e89b-42d3-a456-426614174000',customName:'Unrelated owner plan'};
 const members=[{id:'323e4567-e89b-42d3-a456-426614174000',displayName:'Sample parent',role:'ADMIN' as const},{id:'423e4567-e89b-42d3-a456-426614174000',displayName:'Sample child',role:'DEPENDANT' as const}];
@@ -21,7 +22,7 @@ const now=()=>new Date(2026,9,17,12),history:AnalyticsCharge[]=['-10000','-10000
 const ready=():NativeAnalyticsRead=>({kind:'ready',projection:{...projectNativeAnalytics([row,other],[...history,{...history[0]!,id:'unrelated-charge',subscriptionId:other.id,amountMinor:'-999999'}],now(),[],true),household}});
 const session=(phase:NativeFeatureSession['phase']='active'):NativeFeatureSession=>({phase,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:async work=>work('owner-token',new AbortController().signal)});
 const formatted=(amount:bigint)=>formatMinorUnits(amount,'SEK',{locale:'en',display:'code'}).replace(/[\u00a0\u202f]/g,' ');
-beforeEach(()=>{jest.clearAllMocks();mockCleanup.current=undefined;});
+beforeEach(()=>{jest.clearAllMocks();mockCleanup.current=undefined;mockLocale.value='en';});
 it('keeps the production view primary-only when no authorized metadata adapter is provided',()=>{
  const active=session();render(<NativeSubscriptionDetail session={active} item={row} onClose={jest.fn()}/>);
  expect(screen.getByRole('header',{name:row.customName})).toBeTruthy();expect(screen.queryByText(catalogs.en.onboarding.nativeHousehold.payerLabel)).toBeNull();expect(screen.queryByTestId('native-subscription-charge-history')).toBeNull();
@@ -33,6 +34,13 @@ it('attaches only matching current household assignments and exact attributed ch
  const chart=screen.getByTestId('native-subscription-charge-history');for(const charge of history)expect(chart.props.accessibilityLabel).toContain(`${charge.date}, ${formatMinorUnits(-BigInt(charge.amountMinor),'SEK',{locale:'en',display:'code'})}`);
  expect(chart.props.accessibilityLabel).not.toContain(formatMinorUnits(999999n,'SEK',{locale:'en',display:'code'}));expect(screen.getByText(catalogs.en.nativeAnalytics.historyLimited)).toBeTruthy();
  expect(screen.getByLabelText(`${formatted(10001n)} · ${catalogs.en.onboarding.ownerSubscriptions.cadence.MONTHLY}`)).toBeTruthy();expect(reader).toHaveBeenCalledWith('owner-token',expect.any(AbortSignal),now());fireEvent.press(screen.getByTestId('native-subscription-detail-close'));expect(close).toHaveBeenCalledTimes(1);
+});
+it.each(['en','sv'] as const)('uses correct absent date, custom cost and unassigned-user values without inventing metadata in %s',async locale=>{
+ mockLocale.value=locale;const item={...row,cadence:'CUSTOM' as const,nextChargeDate:null},projection={...projectNativeAnalytics([item],[],now()),household:{...household,assignments:[{subscriptionId:row.id,memberIds:[],payerMemberId:null}]}};
+ const reader=jest.fn().mockResolvedValue({kind:'ready',projection});render(<NativeSubscriptionDetail session={session()} reader={reader} now={now} item={item} onClose={jest.fn()}/>);
+ const details=catalogs[locale].nativeProductDetails;await screen.findByText(details.unassigned);
+ expect(screen.getByText(details.notSet)).toBeTruthy();expect(screen.getByText(details.unknown)).toBeTruthy();expect(screen.queryByText(catalogs[locale].onboarding.manualSubscription.placeholder)).toBeNull();expect(screen.getByText(catalogs[locale].onboarding.nativeHousehold.payerUnknown)).toBeTruthy();expect(screen.queryByText(details.perPerson)).toBeNull();expect(screen.queryByTestId('native-subscription-charge-history')).toBeNull();
+ expect(screen.getByLabelText(`${formatMinorUnits(10001n,'SEK',{locale,display:'code'}).replace(/[\u00a0\u202f]/g,' ')} · ${catalogs[locale].onboarding.ownerSubscriptions.cadence.CUSTOM}`)).toBeTruthy();expect(reader).toHaveBeenCalledTimes(1);
 });
 it.each(['revision','id'] as const)('withholds attached metadata on an authoritative %s mismatch while preserving the primary exact item',async mismatch=>{
  const value=ready();if(value.kind!=='ready')throw Error('fixture');const projection={...value.projection,subscriptions:value.projection.subscriptions.map(item=>item.id===row.id?{...item,...(mismatch==='revision'?{revision:'2'}:{id:'623e4567-e89b-42d3-a456-426614174000'})}:item)};
