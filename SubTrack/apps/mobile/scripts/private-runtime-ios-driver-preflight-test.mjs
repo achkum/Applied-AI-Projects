@@ -11,6 +11,11 @@ import {measuredIosSimulator,runIosDriverChild,runOwnedIosDriverPreflight,collec
 import {preinputCaptureContext,recordPreinputSimulator} from './private-runtime-maestro-metadata.mjs';
 import {iosMeasurementStep} from './private-runtime-ios-simulator-measurement.mjs';
 import console from 'node:console';
+import {EventEmitter} from 'node:events';
+import {PassThrough} from 'node:stream';
+import {execFileSync} from 'node:child_process';
+import {setTimeout} from 'node:timers';
+const {queueMicrotask}=globalThis;
 
 const head='ab'.repeat(20),udid='123E4567-E89B-42D3-A456-426614174000';
 const environment={...process.env,CI:'true',NODE_ENV:'development',SUBTRACK_PRIVATE_DEVICE_PROOF:'true',ST253_CAPTURE_ENABLED:'true',ST253_CAPTURE_PLATFORM:'ios',ST253_CAPTURE_HEAD_REPOSITORY:'achkum/Applied-AI-Projects',EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL:'https://localhost:3443',GITHUB_REPOSITORY:'achkum/Applied-AI-Projects',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/codex/ios-startup-fixes',GITHUB_HEAD_REF:'',GITHUB_SHA:head,ST253_CAPTURE_SOURCE_HEAD:head,ST253_CAPTURE_DISPATCH_SOURCE:head,GITHUB_RUN_ID:'1234',GITHUB_RUN_ATTEMPT:'1',SUBTRACK_SIMULATOR_UDID:udid};
@@ -18,6 +23,61 @@ delete environment.SUBTRACK_PRIVATE_FIXTURE_CONFIG;
 const device={udid,name:'SubTrack-proof',state:'Booted',isAvailable:true,deviceTypeIdentifier:'com.apple.CoreSimulator.SimDeviceType.iPhone-17'};
 const devices=()=>({devices:{'com.apple.CoreSimulator.SimRuntime.iOS-26-2':[{...device}]}}),context=preinputCaptureContext(environment,head);
 const measured=()=>measuredIosSimulator(devices(),{},udid);
+
+function controlledChild(file,{pid=process.pid+10000,verifiedContext=context,killFails=false,sampleDriver=async()=> 'ANDROID_DISCOVERY'}={}){
+ const spawned=new EventEmitter();Object.assign(spawned,{pid,stdout:new PassThrough(),stderr:new PassThrough(),unref:()=>{}});
+ const timers=[],signals=[],ports={platform:'darwin',verifiedContext,sampleDriver,spawnChild:(_program,_args,options)=>{assert.equal(options.detached,true);queueMicrotask(()=>spawned.emit('spawn'));return spawned;},signalProcess:(target,signal)=>{signals.push([target,signal]);if(killFails)throw Error('Synthetic kill failure');},schedule:(fn,ms)=>{const timer={fn,ms,cancelled:false};timers.push(timer);return timer;},cancel:timer=>{if(timer)timer.cancelled=true;}};
+ const result=runIosDriverChild(file,['--device',udid,'--platform','ios','--verbose','hierarchy'],environment,180000,'maestro',ports);
+ return {spawned,timers,signals,result};
+}
+
+test('deadline signals only its spawned owned POSIX group and preserves timeout failure',()=>fixture(async({root})=>{
+ const c=controlledChild(join(root,'group.log'));await Promise.resolve();c.timers.find(t=>t.ms===180000).fn();
+ expectNoProbe(c);assert.deepEqual(c.signals,[[-c.spawned.pid,'SIGKILL']]);assert.equal(c.spawned.stdout.destroyed,true);assert.equal(c.spawned.stderr.destroyed,true);
+ c.spawned.emit('exit',null,'SIGKILL');c.spawned.emit('close',null,'SIGKILL');const result=await c.result;assert.equal(result.complete,false);assert.equal(result.timedOut,true);assert.equal(c.timers.find(t=>t.ms===120000).cancelled,true);
+}));
+function expectNoProbe(c){assert.equal(c.timers.find(t=>t.ms===120000)?.cancelled,true);}
+
+test('failed kill and held pipes return bounded incomplete failure without a late reused-group signal',()=>fixture(async({root})=>{
+ for(const exitedFirst of [false,true]){
+  const c=controlledChild(join(root,`failed-kill-${exitedFirst}.log`),{killFails:true});await Promise.resolve();
+  if(exitedFirst)c.spawned.emit('exit',1,null);c.timers.find(t=>t.ms===180000).fn();
+  assert.equal(c.spawned.stdout.destroyed,true);c.timers.find(t=>t.ms===5000).fn();const result=await c.result;
+  assert.deepEqual(result,{exitCode:null,complete:false,timedOut:true,closed:false});assert.equal(c.signals.length,exitedFirst?0:1);
+  c.spawned.emit('exit',1,null);c.spawned.emit('close',1,null);c.timers.find(t=>t.ms===180000).fn();assert.equal(c.signals.length,exitedFirst?0:1);
+ }
+}));
+
+test('sampling requires actual-head verified context, is cancelled on early exit and never signals an invalid PID',()=>fixture(async({root})=>{
+ const calls=[];
+ for(const [name,options]of [['foreign-head',{verifiedContext:null}],['invalid-pid',{pid:1}],['early-exit',{}]]){
+  const c=controlledChild(join(root,`${name}.log`),{...options,sampleDriver:async value=>{calls.push(value);return 'HIERARCHY';}});await Promise.resolve();
+  if(name==='invalid-pid'){c.timers.find(t=>t.ms===180000).fn();assert.equal(c.signals.length,0);c.spawned.emit('exit',null,'SIGKILL');c.spawned.emit('close',null,'SIGKILL');}
+  else {c.spawned.emit('exit',0,null);c.spawned.emit('close',0,null);c.timers.find(t=>t.ms===120000)?.fn();}
+  const result=await c.result;assert.equal(Object.hasOwn(result,'sampledStage'),false);
+ }
+ assert.equal(calls.length,0);
+ let supplied;
+ await runOwnedIosDriverPreflight({environment,root,head:'cd'.repeat(20),measureDevice:measured,runChild:async(file,_args,_env,_deadline,_program,ports)=>{supplied=ports.verifiedContext;fs.writeFileSync(file,'private canary',{mode:384});return {complete:false,exitCode:null,timedOut:true};}});
+ assert.equal(supplied,null);assert.equal(fs.existsSync(join(root,'ios-driver-ready.json')),false);assert.equal(fs.existsSync(join(root,'ios-driver-failure.json')),false);
+}));
+
+test('one bounded sample emits only its closed stage separately and cancels with the original child',()=>fixture(async({root})=>{
+ let samples=0,signal;
+ const c=controlledChild(join(root,'sample.log'),{sampleDriver:async value=>{samples++;signal=value.signal;assert.equal(value.pid,c.spawned.pid);assert.equal(value.parentPid,process.pid);assert.equal(value.logFile,join(root,'thread-stack.log'));value.onCheck('THREAD_PRINT');return 'ANDROID_DISCOVERY';}});await Promise.resolve();
+ c.timers.find(t=>t.ms===120000).fn();await Promise.resolve();await Promise.resolve();c.timers.find(t=>t.ms===180000).fn();c.spawned.emit('exit',null,'SIGKILL');c.spawned.emit('close',null,'SIGKILL');
+ const result=await c.result;assert.equal(samples,1);assert.equal(signal.aborted,true);assert.equal(result.sampledStage,'ANDROID_DISCOVERY');assert.equal(result.sampledCheck,'THREAD_PRINT');assert.equal(result.complete,false);assert.equal(result.timedOut,true);
+ const output=[];mock.method(console,'log',line=>output.push(line));
+ const runChild=async file=>{fs.writeFileSync(file,'PRIVATE_CANARY',{mode:384});return {...result,sampledStage:'PRIVATE_CANARY\nforged',sampledCheck:'PRIVATE_CANARY\nforged'};};
+ assert.deepEqual(await runOwnedIosDriverPreflight({environment,root,head,measureDevice:measured,runChild}),{success:false,sealed:false});assert.ok(output.includes('ST253_IOS_DRIVER original_reasons=UNKNOWN'));assert.ok(output.includes('ST253_IOS_DRIVER sampled_stage=UNKNOWN'));assert.equal(output.some(line=>line.includes('CANARY')),false);
+}));
+
+if(process.platform!=='win32')test('actual deadline terminates a POSIX descendant holding inherited output pipes',()=>fixture(async({root})=>{
+ const file=join(root,'descendant.log'),script="const {spawn}=require('node:child_process');const c=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:['ignore',process.stdout,process.stderr]});console.log('CHILD_PID='+c.pid);setInterval(()=>{},1000);";
+ const result=await runIosDriverChild(file,['-e',script],process.env,1500,process.execPath);assert.equal(result.complete,false);assert.equal(result.timedOut,true);assert.notEqual(result.closed,false);
+ const pid=Number(/^CHILD_PID=(\d+)$/m.exec(fs.readFileSync(file,'utf8'))?.[1]);assert.ok(Number.isSafeInteger(pid)&&pid>1);
+ let stopped=false;for(let count=0;count<40;count++){try{const status=execFileSync('ps',['-p',String(pid),'-o','stat='],{encoding:'utf8',stdio:['ignore','pipe','ignore'],timeout:1000}).trim();if(!status||status.startsWith('Z')){stopped=true;break;}}catch{stopped=true;break;}await new Promise(resolve=>setTimeout(resolve,25));}assert.equal(stopped,true);
+}));
 
 async function fixture(action){
  const temporary=fs.mkdtempSync(join(fs.realpathSync(tmpdir()),'subtrack-ios-driver-')),root=join(temporary,'subtrack-native-proof','private');fs.mkdirSync(root,{recursive:true,mode:448});

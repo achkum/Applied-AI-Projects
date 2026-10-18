@@ -199,7 +199,7 @@ jobs:
           node apps/mobile/scripts/private-runtime-amount-selector-test.mjs
           node apps/mobile/scripts/private-runtime-pipeline-test.mjs
           node --test apps/mobile/scripts/private-runtime-font-bundle-test.mjs apps/mobile/scripts/private-runtime-ios-font-bundle-test.mjs
-          node --test apps/mobile/scripts/private-runtime-maestro-device-test.mjs apps/mobile/scripts/private-runtime-ios-driver-seal-test.mjs apps/mobile/scripts/private-runtime-ios-driver-preflight-test.mjs
+          node --test apps/mobile/scripts/private-runtime-maestro-device-test.mjs apps/mobile/scripts/private-runtime-ios-driver-seal-test.mjs apps/mobile/scripts/private-runtime-ios-driver-preflight-test.mjs apps/mobile/scripts/private-runtime-ios-driver-stack-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-ios-simulator-measurement.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-ios-simulator-measurement-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-ios-app-custody.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-ios-app-custody-test.mjs
           node apps/mobile/scripts/private-runtime-ca-test.mjs

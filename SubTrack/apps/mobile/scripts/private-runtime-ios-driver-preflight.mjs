@@ -13,25 +13,36 @@ import {preinputCaptureContext,PREINPUT_RECIPIENT_SHA256} from './private-runtim
 import {sealIosDriverLog,validSealedIosDriverLog} from './private-runtime-ios-driver-seal.mjs';
 import {measureIosSimulator,iosMeasurementStep,iosMeasurementCategory} from './private-runtime-ios-simulator-measurement.mjs';
 import {originalDriverToolDiagnostic} from './private-runtime-identifier-diagnostic.mjs';
+import {sampleOwnedIosDriver} from './private-runtime-ios-driver-stack.mjs';
 export {measuredIosSimulator} from './private-runtime-ios-simulator-measurement.mjs';
 
 const LIMIT=262144,sha=value=>createHash('sha256').update(value).digest('hex');
+const SAMPLE_CHECKS=['CONTEXT','JDK','CUSTODY','IDENTITY_BEFORE','THREAD_PRINT','IDENTITY_AFTER','CLASSIFICATION','COMPLETE'];
 const keys=(value,list)=>assert.deepEqual(Object.keys(value).sort(),[...list].sort());
 function owned(file,directory=false,maximum=LIMIT){const s=lstatSync(file);assert.equal(s.isSymbolicLink(),false);assert.equal(realpathSync(file),resolve(file));if(typeof process.getuid==='function')assert.equal(s.uid,process.getuid());assert.ok(directory?s.isDirectory():s.isFile()&&s.size>0&&s.size<=maximum);return s;}
 function privateBytes(file,maximum=LIMIT){const before=owned(file,false,maximum);assert.equal(before.mode&511,384);const fd=openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW);try{const opened=fstatSync(fd);assert.equal(opened.ino,before.ino);assert.equal(opened.dev,before.dev);const bytes=readFileSync(fd),after=owned(file,false,maximum);assert.equal(bytes.length,before.size);assert.equal(after.ino,before.ino);assert.equal(after.size,before.size);return bytes;}finally{closeSync(fd);}}
 function custody(root,context){const file=join(root,'preinput-ios-custody.json'),bytes=privateBytes(file,4096),value=JSON.parse(bytes);assert.equal(JSON.stringify(value),bytes.toString('utf8'));keys(value,['version','sourceHead','runId','attempt','udid','device','runtime','fresh']);assert.equal(value.version,1);for(const key of ['sourceHead','runId','attempt','udid'])assert.equal(value[key],context[key]);assert.equal(value.device,'iPhone-17');assert.equal(value.runtime,'iOS-26-2');assert.equal(value.fresh,true);return sha(bytes);}
 
 /** Original child only; log bytes stay in the owned private directory. */
-export async function runIosDriverChild(file,args,environment,timeoutMs=180000,program='maestro'){
- const fd=openSync(file,'wx',384);let timeout=false,timer;
+export async function runIosDriverChild(file,args,environment,timeoutMs=180000,program='maestro',{
+ spawnChild=spawn,signalProcess=(pid,signal)=>process.kill(pid,signal),platform=process.platform,
+ sampleDriver=sampleOwnedIosDriver,schedule=setTimeout,cancel=clearTimeout,verifiedContext=null,
+}={}){
+ const fd=openSync(file,'wx',384);let timeout=false,timer,cleanupTimer,probeTimer,probePromise,ownedPid=null,sampledStage='UNKNOWN',sampledCheck='UNKNOWN',probeAttempted=false;
+ const probeAbort=new globalThis.AbortController(),group=platform!=='win32';
  try{return await new Promise((resolveChild,reject)=>{
-  let child;try{child=spawn(program,args,{env:environment,stdio:['ignore','pipe','pipe']});}catch{reject(Error('iOS driver spawn unavailable'));return;}
-  let exited=null,invalid=false;
-  const stop=()=>{timeout=true;child.kill('SIGKILL');};timer=setTimeout(stop,timeoutMs);let size=0;
-  const consume=chunk=>{if(timeout)return;size+=chunk.length;if(size>LIMIT){stop();return;}try{let offset=0;while(offset<chunk.length){const wrote=writeSync(fd,chunk,offset,chunk.length-offset);if(wrote<1)throw Error();offset+=wrote;}}catch{stop();}};child.stdout.on('data',consume);child.stderr.on('data',consume);
-  child.on('error',()=>{invalid=true;});child.on('exit',(code,signal)=>{if(exited!==null)invalid=true;exited={code,signal};});
-  child.on('close',(code,signal)=>{clearTimeout(timer);resolveChild({exitCode:code,complete:!invalid&&exited!==null&&exited.code===code&&exited.signal===null&&signal===null&&!timeout,timedOut:timeout});});
- });}finally{clearTimeout(timer);closeSync(fd);}
+  let child;try{child=spawnChild(program,args,{env:environment,stdio:['ignore','pipe','pipe'],detached:group});}catch{reject(Error('iOS driver spawn unavailable'));return;}
+  let exited=null,invalid=false,closed=false;
+  const finish=(code,signal,observedClose)=>{if(closed)return;closed=true;cancel(timer);cancel(cleanupTimer);cancel(probeTimer);probeAbort.abort();if(!observedClose)child.unref();const result=()=>({exitCode:code,complete:observedClose&&!invalid&&ownedPid!==null&&exited!==null&&exited.code===code&&exited.signal===null&&signal===null&&!timeout,timedOut:timeout,...(probeAttempted?{sampledStage,sampledCheck}:{}),...(!observedClose?{closed:false}:{})});if(observedClose)Promise.resolve(probePromise).then(()=>resolveChild(result()));else resolveChild(result());};
+  const stop=()=>{if(timeout||closed)return;timeout=true;cancel(probeTimer);probeAbort.abort();cleanupTimer=schedule(()=>finish(null,null,false),5000);if(ownedPid!==null&&exited===null){try{signalProcess(group?-ownedPid:ownedPid,'SIGKILL');}catch{/* A failed kill never grants completion/readiness. */}}child.stdout.destroy();child.stderr.destroy();};
+  timer=schedule(stop,timeoutMs);let size=0;
+  child.once('spawn',()=>{if(timeout||closed||exited!==null)return;const pid=child.pid;if(!Number.isSafeInteger(pid)||pid<=1||pid===process.pid){invalid=true;return;}ownedPid=pid;
+   if(platform==='darwin'&&program==='maestro'&&timeoutMs===180000&&verifiedContext?.sourceHead===environment.ST253_CAPTURE_SOURCE_HEAD&&verifiedContext?.udid===environment.SUBTRACK_SIMULATOR_UDID)probeTimer=schedule(()=>{if(timeout||closed||exited!==null||probeAbort.signal.aborted)return;probeAttempted=true;probePromise=Promise.resolve().then(()=>sampleDriver({pid,parentPid:process.pid,environment,signal:probeAbort.signal,logFile:join(dirname(file),'thread-stack.log'),onCheck:check=>{sampledCheck=SAMPLE_CHECKS.includes(check)?check:'UNKNOWN';}})).then(stage=>{if(['ANDROID_DISCOVERY','IOS_INVENTORY','SESSION_LOCK','XCTEST_INSTALL','XCTEST_STATUS','HIERARCHY'].includes(stage))sampledStage=stage;},()=>{});},120000);
+  });
+  const consume=chunk=>{if(timeout||closed)return;size+=chunk.length;if(size>LIMIT){stop();return;}try{let offset=0;while(offset<chunk.length){const wrote=writeSync(fd,chunk,offset,chunk.length-offset);if(wrote<1)throw Error();offset+=wrote;}}catch{stop();}};child.stdout.on('data',consume);child.stderr.on('data',consume);
+  child.on('error',()=>{invalid=true;});child.on('exit',(code,signal)=>{if(exited!==null)invalid=true;exited={code,signal};cancel(probeTimer);probeAbort.abort();});
+  child.on('close',(code,signal)=>finish(code,signal,true));
+ });}finally{cancel(timer);cancel(cleanupTimer);cancel(probeTimer);probeAbort.abort();closeSync(fd);}
 }
 export function collectIosDriverLogs(invocation,{strict=false}={}){
  const processLog=privateBytes(join(invocation,'process.log'));let count=processLog.length;
@@ -66,8 +77,11 @@ export async function runOwnedIosDriverPreflight({environment,root,head,measureD
  const invocation=join(root,'ios-driver-preflight');mkdirSync(invocation,{mode:448});const state=join(invocation,'state');mkdirSync(state,{mode:448});
  let success=false,sealed=false,failure=null,stage='child';
  try{
-  const result=await runChild(join(invocation,'process.log'),args,{...environment,XDG_STATE_HOME:state});
+  const result=await runChild(join(invocation,'process.log'),args,{...environment,XDG_STATE_HOME:state},180000,'maestro',{verifiedContext:context});
   console.log(`ST253_IOS_DRIVER child_complete=${result.complete===true} child_exit=${Number.isInteger(result.exitCode)&&result.exitCode>=0&&result.exitCode<=255?result.exitCode:'unavailable'} child_timeout=${result.timedOut===true}`);
+  if(Object.hasOwn(result,'sampledStage'))console.log(`ST253_IOS_DRIVER sampled_stage=${['ANDROID_DISCOVERY','IOS_INVENTORY','SESSION_LOCK','XCTEST_INSTALL','XCTEST_STATUS','HIERARCHY'].includes(result.sampledStage)?result.sampledStage:'UNKNOWN'}`);
+  if(Object.hasOwn(result,'sampledCheck'))console.log(`ST253_IOS_DRIVER sampled_check=${SAMPLE_CHECKS.includes(result.sampledCheck)?result.sampledCheck:'UNKNOWN'}`);
+  if(result.closed===false)console.log('ST253_IOS_DRIVER child_closed=false');
   if(!result.complete||result.exitCode!==0||result.timedOut)console.log(`ST253_IOS_DRIVER original_reasons=${originalDriverReasons(invocation,result).join(',')}`);
   stage='after-device';measureAt('after',before);stage='after-custody';if(context)assert.equal(custody(root,context),custodyHash);
   stage='child-result';
