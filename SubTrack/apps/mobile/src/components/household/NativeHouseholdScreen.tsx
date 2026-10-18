@@ -46,6 +46,7 @@ export function NativeHouseholdScreen({useSession,api=sandboxHouseholdApi,readSu
    });
    if(result===null||ticket!==generation.current||!focused.current||current.current.phase!=='active')return;
    setView(result.household);setItems(result.subscriptions.items);setHouseholdName(result.household.household?.name??'');
+   setSelected(prior=>prior!==null&&result.household.household?.members.some(member=>member.id===prior)?prior:null);
    if(intent){setEdit(null);setAddingMember(false);setRemove(null);setMemberName('');setAssign(null);setUsers([]);setPayer(null);setRenaming(false);setMessage('saved');if(intent.operation==='dependant-remove')setSelected(null);}
   }catch{if(ticket===generation.current){setView(null);setItems([]);setMessage(intent?'uncertain':'unavailable');}}
   finally{if(ticket===generation.current){request.current=null;setBusy(false);}}
@@ -122,5 +123,5 @@ const styles=StyleSheet.create({
  personRow:{flexDirection:'row',alignItems:'center',gap:12},grow:{flex:1,minWidth:0},chips:{flexDirection:'row',flexWrap:'wrap',gap:8},member:{gap:4,paddingVertical:8},
  payerStack:{height:12,flexDirection:'row',gap:2,overflow:'hidden',marginTop:4,marginBottom:4},legend:{flexDirection:'row',flexWrap:'wrap',rowGap:12,columnGap:20},legendItem:{flexDirection:'row',alignItems:'center',gap:8,minWidth:0,flexGrow:1,flexBasis:'45%'},legendDot:{height:10,width:10},
  scopeRow:{gap:6},scopeDot:{height:8,width:8},chipTouch:{minHeight:44,justifyContent:'center'},chip:{minHeight:34,paddingHorizontal:14,borderWidth:1,flexDirection:'row',alignItems:'center',gap:7},
- link:{minHeight:44,justifyContent:'center',paddingHorizontal:2},planList:{gap:0},planRow:{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:12,minHeight:64},provider:{width:38,height:38,alignItems:'center',justifyContent:'center'},planAmount:{alignItems:'flex-end',gap:2,maxWidth:'48%'},
+ link:{minHeight:44,minWidth:44,maxWidth:'100%',justifyContent:'center',paddingHorizontal:2},planList:{gap:0},planRow:{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:12,minHeight:64},provider:{width:38,height:38,alignItems:'center',justifyContent:'center'},planAmount:{alignItems:'flex-end',gap:2,maxWidth:'48%'},
 });

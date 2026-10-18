@@ -1,5 +1,5 @@
 import React from 'react';
-import {Keyboard,Platform,RefreshControl,ScrollView} from 'react-native';
+import {Keyboard,Platform,RefreshControl,ScrollView,StyleSheet} from 'react-native';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
 import {NativeHouseholdScreen} from './NativeHouseholdScreen';
 import {parseSandboxHouseholdView,type SandboxHouseholdView} from '@subtrack/contracts/sandbox-household';
@@ -95,6 +95,7 @@ it('shows unknown planned payer until explicit saved attribution, then renders t
 });
 it('keeps rename and member editors closed until requested and Cancel performs no mutation',async()=>{
  const f=fixture(household());await screen.findAllByText('Example parent');
+ for(const id of ['native-household-rename','native-household-member-add-open',`native-household-member-edit-${child}`,`native-household-member-remove-${child}`])expect(StyleSheet.flatten(screen.getByTestId(id).props.style)).toMatchObject({minHeight:44,minWidth:44,maxWidth:'100%'});
  expect(screen.queryByTestId('native-household-name')).toBeNull();expect(screen.queryByTestId('native-household-member-name')).toBeNull();
  fireEvent.press(screen.getByTestId('native-household-rename'));fireEvent.changeText(screen.getByTestId('native-household-name'),'Unsaved household');fireEvent.press(screen.getByRole('button',{name:copy.cancel}));
  expect(screen.queryByTestId('native-household-name')).toBeNull();await openMemberEditor();fireEvent.changeText(screen.getByTestId('native-household-member-name'),'Unsaved member');fireEvent.press(screen.getByRole('button',{name:copy.cancel}));
@@ -135,4 +136,18 @@ it('shows an empty scoped list for a member with no assignments and restores pla
  expect(screen.queryByTestId(`native-household-assignment-${subscription}`)).toBeNull();expect(screen.getByText(copy.noSubscriptions)).toBeTruthy();
  fireEvent.press(screen.getByTestId('native-household-scope-everyone'));expect(screen.getByTestId(`native-household-assignment-${subscription}`)).toBeTruthy();expect(screen.queryByText(copy.noSubscriptions)).toBeNull();
  expect(f.api.read).toHaveBeenCalledTimes(2);expect(f.api.mutate).not.toHaveBeenCalled();
+});
+
+it('preserves a valid member scope on refresh and returns to Everyone after an authoritative removal elsewhere',async()=>{
+ const parentPlan='123e4567-e89b-42d3-a456-426614174002',childPlan='123e4567-e89b-42d3-a456-426614174003';
+ const initial=parseSandboxHouseholdView({household:{...household().household!,assignments:[{subscriptionId:parentPlan,memberIds:[admin],payerMemberId:admin},{subscriptionId:childPlan,memberIds:[child],payerMemberId:child}]}}),f=fixture(initial);
+ const base={visibility:'owner',source:'MANUAL',revision:'1',merchantId:null,merchantName:null,categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',status:'ACTIVE',expectedAmountMinor:'101',currency:'SEK',nextChargeDate:null,alwaysPrivate:true};
+ f.subscriptions.mockResolvedValue({items:[{...base,id:parentPlan,customName:'Parent plan'},{...base,id:childPlan,customName:'Child plan'}],nextCursor:null});
+ await refresh();await screen.findByTestId(`native-household-assignment-${parentPlan}`);
+ fireEvent.press(screen.getByTestId(`native-household-scope-${child}`));expect(screen.getByTestId(`native-household-assignment-${childPlan}`)).toBeTruthy();expect(screen.queryByTestId(`native-household-assignment-${parentPlan}`)).toBeNull();
+ await refresh();await waitFor(()=>expect(f.api.read).toHaveBeenCalledTimes(3));await waitFor(()=>expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false));
+ expect(screen.getByTestId(`native-household-scope-${child}`).props.accessibilityState.selected).toBe(true);expect(screen.queryByTestId(`native-household-assignment-${parentPlan}`)).toBeNull();
+ jest.mocked(f.api.read).mockResolvedValue(parseSandboxHouseholdView({household:{...household(false).household!,assignments:[{subscriptionId:parentPlan,memberIds:[admin],payerMemberId:admin}]}}));
+ await refresh();await screen.findByTestId(`native-household-assignment-${parentPlan}`);
+ expect(screen.getByTestId('native-household-scope-everyone').props.accessibilityState.selected).toBe(true);expect(screen.queryByTestId(`native-household-scope-${child}`)).toBeNull();expect(screen.getByTestId(`native-household-assignment-${childPlan}`)).toBeTruthy();expect(screen.queryByText(copy.noSubscriptions)).toBeNull();expect(f.api.read).toHaveBeenCalledTimes(4);expect(f.api.mutate).not.toHaveBeenCalled();
 });

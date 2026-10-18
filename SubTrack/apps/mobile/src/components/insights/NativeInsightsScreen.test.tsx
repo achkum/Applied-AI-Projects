@@ -1,5 +1,5 @@
 import React from 'react';
-import {AccessibilityInfo,DeviceEventEmitter,Modal,RefreshControl,StyleSheet,Text} from 'react-native';
+import {AccessibilityInfo,DeviceEventEmitter,Modal,RefreshControl,StyleSheet,Text,View} from 'react-native';
 import {Circle,Polygon,Polyline,Text as SvgText} from 'react-native-svg';
 import {AnalyticsMoney,AnalyticsPriceBox,AnalyticsText,AnalyticsTrend} from './NativeAnalyticsUI';
 import {getColorByTheme} from '@/utils/colors';
@@ -81,6 +81,17 @@ it('renders actual findings, expandable category contributions, exact trend alte
   expect(screen.getByText(copy.method)).toBeTruthy(); expect(overview.props.accessibilityState.expanded).toBe(true);
   fireEvent.press(screen.getAllByRole('button', { name: copy.openPlan.replace('%{name}',row.customName) })[0]!);await screen.findByRole('header',{name:row.customName});expect(screen.getByText(row.nextChargeDate)).toBeTruthy();expect(reader).toHaveBeenCalledTimes(2);expect(mockPush).not.toHaveBeenCalled();fireEvent.press(screen.getByTestId('native-subscription-detail-close'));expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false);
   expect(screen.queryByText(/\/100/)).toBeNull(); expect(screen.queryByText('Me')).toBeNull();
+});
+it('keeps long category action titles inside the card beside their badge without truncating the actual label',async()=>{
+ const label='Software productivity and cloud services',categoryCode=`CUSTOM:${label}`,projection=projectNativeAnalytics([{...row,categoryCode},{...second,categoryCode}],history,now()),session=facade();
+ render(<NativeInsightsScreen useSession={()=>session} reader={jest.fn().mockResolvedValue({kind:'ready',projection})} now={now}/>);
+ await screen.findByText(label);
+ for(const title of [label,copy.priceRise,copy.largest]){
+  const constrained=screen.UNSAFE_getAllByType(View).find(node=>{const style=StyleSheet.flatten(node.props.style);return style?.flex===1&&style?.minWidth===0&&node.findAllByType(Text).some((text:{props:{children?:React.ReactNode}})=>text.props.children===title);});
+  expect(constrained).toBeTruthy();expect(screen.getByText(title).props.numberOfLines).toBeUndefined();
+ }
+ expect(screen.getByText(copy.categoryOverlap.replace('%{count}','2'))).toBeTruthy();
+ expect(screen.getAllByRole('button',{name:copy.openPlan.replace('%{name}',row.customName)}).length).toBeGreaterThan(0);
 });
 it('keeps signed-out screens free of private rows and avoids all backend access', () => {
   const reader = jest.fn(), session = facade('verification-required');
