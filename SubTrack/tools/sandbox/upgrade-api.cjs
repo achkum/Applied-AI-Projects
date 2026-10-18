@@ -27,7 +27,7 @@ function networkIdentity(value,name){if(!value||value.Name!==name||!hex(value.Id
 function environmentGuard(env=process.env){if(process.platform!=='linux'||process.getuid()!==996||process.getgid()!==987||os.hostname()!=='racknerd-49cd240'||['DOCKER_HOST','DOCKER_CONTEXT','NODE_OPTIONS','NODE_EXTRA_CA_CERTS','NODE_TLS_REJECT_UNAUTHORIZED'].some(key=>env[key]!==undefined&&env[key]!==''))fail();if(docker(['context','inspect','--format','{{.Endpoints.docker.Host}}']).trim()!=='unix:///var/run/docker.sock')fail();const security=JSON.parse(docker(['info','--format','{{json .SecurityOptions}}']));if(!Array.isArray(security)||security.some(value=>typeof value!=='string'||/rootless|userns/i.test(value)))fail();}
 function resources(){const memory=/^MemAvailable:\s+([0-9]+) kB$/m.exec(fs.readFileSync('/proc/meminfo','utf8')),disk=command('df',['--output=avail','-k',ROOT]).trim().split(/\s+/).at(-1);if(!memory||Number(memory[1])<524288||!/^\d+$/.test(disk??'')||Number(disk)<4194304)fail();}
 function input(state,expected){if(!run(state)||!hex(expected,64))fail();const stage=ROOT+'/staging/api-upgrade/'+state;for(const dir of [ROOT,ROOT+'/staging',ROOT+'/staging/api-upgrade',stage])directory(dir);const bytes=regular(stage+'/upgrade-plan.json',{max:16384});if(sha(bytes)!==expected)fail();const p=plan(JSON.parse(bytes));if(p.runId!==state||sha(regular(stage+'/upgrade-api.cjs'))!==p.toolSha256||fs.realpathSync(__filename)!==stage+'/upgrade-api.cjs'||sha(bootstrapBytes(stage+'/bootstrap.cjs'))!==p.bootstrapSha256)fail();return {stage,p};}
-function runtimeSnapshot(p,stage){
+function runtimeSnapshot(p,stage,currentApi=null){
  const r=ROOT+'/runtime',pred=p.predecessor;directory(r);directory(ROOT+'/secrets');
  const files={};for(const [name,key]of [['.source-custody.json','sourceCustodySha256'],['runtime/image-import-binding.json','imageImportBindingSha256'],['runtime/deployment-receipt.json','deploymentReceiptSha256'],['runtime/android-download-binding.json','androidDownloadBindingSha256']]){const bytes=regular(ROOT+'/'+name,{max:16384});if(sha(bytes)!==pred[key])fail();files[name]={bytes,sha256:sha(bytes)};}
  for(const name of ['runtime/source-head','runtime/image-id','runtime/bootstrap-complete','runtime/volume-generation','runtime/volume-database-data.json','runtime/volume-certificate-data.json','runtime/volume-gateway-config.json']){const bytes=regular(ROOT+'/'+name,{max:16384});files[name]={bytes,sha256:sha(bytes)};}
@@ -44,15 +44,16 @@ function runtimeSnapshot(p,stage){
  const volumes={};const volumeValidate=sourceValidator(files['tools/sandbox/verify.sh'].bytes.toString(),'VOLUME');const generation=files['runtime/volume-generation'].bytes.toString().trim();if(!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(generation))fail();
  for(const suffix of ['database-data','certificate-data','gateway-config']){const record=JSON.parse(files['runtime/volume-'+suffix+'.json'].bytes);const actual=JSON.parse(docker(['volume','inspect','subtrack-sandbox-'+suffix]));if(record.length!==1||actual.length!==1)fail();volumeValidate(actual[0],record[0],suffix,pred.sourceHead,binding.runId,generation);volumes[suffix]=actual[0];}
  const validateLive=sourceValidator(files['tools/sandbox/verify.sh'].bytes.toString(),'LIVE'),containers={},baseImages={};
- for(const [service,key,bound]of [['api-live','apiId','api'],['database','databaseId','database'],['gateway-live','gatewayId','gateway']]){const c=inspect(pred[key]),base=inspect(binding.services[bound].requestedImage,true);if(c.Id!==pred[key])fail();validateLive(c,base,service,ROOT,volumes,pred.sourceHead,binding.services[bound],android);containers[service]=c;baseImages[service]=base;}
- const running=docker(['ps','--quiet','--no-trunc','--filter','label=org.subtrack.sandbox.namespace='+NAMESPACE]).trim().split('\n').filter(Boolean).sort();assert.deepEqual(running,[pred.apiId,pred.databaseId,pred.gatewayId].sort());
+ for(const [service,key,bound]of [['api-live','apiId','api'],['database','databaseId','database'],['gateway-live','gatewayId','gateway']]){const replacement=service==='api-live'?currentApi:null,id=replacement?.apiId??pred[key],identity=replacement?{containerImageId:replacement.imageId,inspectedImageId:replacement.imageId,requestedImage:replacement.imageId}:binding.services[bound],c=inspect(id),base=inspect(identity.requestedImage,true);if(c.Id!==id)fail();validateLive(c,base,service,ROOT,volumes,replacement?.sourceHead??pred.sourceHead,identity,android);containers[service]=c;baseImages[service]=base;}
+ const running=docker(['ps','--quiet','--no-trunc','--filter','label=org.subtrack.sandbox.namespace='+NAMESPACE]).trim().split('\n').filter(Boolean).sort();assert.deepEqual(running,[currentApi?.apiId??pred.apiId,pred.databaseId,pred.gatewayId].sort());
  const networks={};for(const suffix of ['database','ingress','edge']){const name='subtrack-sandbox-'+suffix,rows=JSON.parse(docker(['network','inspect',name]));if(rows.length!==1)fail();networks[name]=networkIdentity(rows[0],name);for(const c of Object.values(containers))if(c.NetworkSettings.Networks[name]&&c.NetworkSettings.Networks[name].NetworkID!==rows[0].Id)fail();}
  const secrets={};for(const [name,uid]of [['database-bootstrap',999],['database-bootstrap-loader',1000],['database-runtime',1000],['api-auth-material',1000],['gateway-key',1000]])secrets[name]=metadata(ROOT+'/secrets/'+name,uid);
- const snapshot={schema:'st253-api-predecessor-v1',sourceHead:pred.sourceHead,containers,volumes,networks,secrets,files:Object.fromEntries(Object.entries(files).map(([name,value])=>[name,value.sha256]))};
+ const snapshot={schema:'st253-api-predecessor-v1',sourceHead:currentApi?.sourceHead??pred.sourceHead,containers,volumes,networks,secrets,files:Object.fromEntries(Object.entries(files).map(([name,value])=>[name,value.sha256]))};
  retain(stage+'/predecessor.json',snapshot);for(const name of ['.source-custody.json','runtime/image-import-binding.json','runtime/deployment-receipt.json','runtime/android-download-binding.json'])retain(stage+'/predecessor-'+path.basename(name),files[name].bytes);
  return {snapshot,files,helpers,source,binding,android,validateLive,volumes,baseImages};
 }
 function unchanged(saved,includeApi=true){gatewayCustody(saved.helpers,saved.source,saved.binding);for(const [name,hash]of Object.entries(saved.snapshot.files)){const bytes=regular(ROOT+'/'+name,{mode:name==='public/android/subtrack-sandbox.apk'?0o444:null,max:name==='public/android/subtrack-sandbox.apk'?209715200:2097152});if(sha(bytes)!==hash)fail();}for(const [name,value]of Object.entries(saved.snapshot.secrets))assert.deepEqual(metadata(ROOT+'/secrets/'+name,value.uid),value);
+ for(const prior of saved.retainedStopped??[]){const actual=inspect(prior.Id);if(actual.State.Running)fail();assert.deepEqual(graphIdentity(actual),graphIdentity(prior));}
  for(const [service,value]of Object.entries(saved.snapshot.containers)){if(!includeApi&&service==='api-live')continue;const actual=inspect(value.Id);if(!actual.State.Running)fail();assert.deepEqual(graphIdentity(actual),graphIdentity(value));}
  for(const [name,value]of Object.entries(saved.snapshot.networks)){const actual=JSON.parse(docker(['network','inspect',name]));if(actual.length!==1)fail();assert.deepEqual(networkIdentity(actual[0],name),value);}for(const [suffix,value]of Object.entries(saved.snapshot.volumes)){const actual=JSON.parse(docker(['volume','inspect','subtrack-sandbox-'+suffix]));if(actual.length!==1)fail();assert.deepEqual(actual[0],value);}}
 async function candidate(p,stage,helpers){const transfer=ROOT+'/staging/'+p.runId;directory(transfer);const wire=require(ROOT+'/tools/sandbox/draft-transfer-receipt.cjs'),mb=regular(transfer+'/transfer-manifest.json',{max:16384}),rb=regular(transfer+'/transfer-receipt.json',{max:16384}),m=wire.transferManifest(JSON.parse(mb)),receipt=wire.draftTransferReceipt(JSON.parse(rb),m);
@@ -120,5 +121,101 @@ async function upgrade(p,stage){let state='PREFLIGHT',oldStopped=false,migration
   process.stderr.write('ST253_API_UPGRADE_UNAVAILABLE stage='+state+' state='+held+'\n');throw error;
  }
 }
-module.exports={plan,sourceValidator,gatewayCustody,graphIdentity,networkIdentity,offlineBinding,recoveryPolicy,limits,envArgs,secretArgs,bootstrapBytes,actualManifestBinding,backupArgs,captureBackup};
-if(require.main===module){void(async()=>{if(process.argv.length!==4||process.argv[2]!=='upgrade')fail();environmentGuard();const value=input(process.argv[3],process.env.ST253_UPGRADE_PLAN_SHA256);directory(ROOT+'/runtime');retain(ROOT+'/runtime/api-upgrade-claim.json',{schema:'st253-api-upgrade-claim-v1',runId:value.p.runId,sourceHead:value.p.sourceHead,planSha256:process.env.ST253_UPGRADE_PLAN_SHA256});await upgrade(value.p,value.stage);})().catch(()=>{process.stderr.write('ST253_API_UPGRADE_STOPPED inspect=retained-evidence\n');process.exitCode=1;});}
+/** Separate no-DDL lineage. Never consume or rewrite the original migration claim. */
+function successorPlan(value){
+ closed(value,['schema','host','sourceHead','runId','toolSourceHead','toolSha256','bootstrapSha256','transferReceiptSha256','migrationSha256','predecessor','recovery']);
+ if(value.schema!=='st253-api-replacement-plan-v1'||!hex(value.toolSourceHead,40))fail();
+ plan(Object.fromEntries(['schema','host','sourceHead','runId','toolSha256','bootstrapSha256','transferReceiptSha256','migrationSha256','predecessor'].map(key=>[key,key==='schema'?'st253-api-upgrade-plan-v1':value[key]])));
+ const r=closed(value.recovery,['runId','planSha256','predecessorSha256','recoveryReceiptSha256','candidateImageSha256','failureReceiptSha256','backupReceiptSha256']);
+ if(!run(r.runId)||r.runId===value.runId||Object.entries(r).some(([key,v])=>key!=='runId'&&!hex(v,64)))fail();return value;
+}
+function successorLineage(p,old,recovery,snapshot,candidate,failed,backup,claim){
+ successorPlan(p);plan(old);assert.deepEqual(old.predecessor,p.predecessor);assert.deepEqual(old.migrationSha256,p.migrationSha256);
+ closed(recovery,['schema','runId','sourceHead','scriptSha256','apiId','failedApiId','predecessorApiId','databaseId','gatewayId','imageId','backupReceiptSha256','failureReceiptSha256','frozenValidatorPassed','originalCustody','originalData','noDdl','qualification']);
+ if(recovery.schema!=='st253-api-successor-recovery-v1'||recovery.runId!==p.recovery.runId||old.runId!==recovery.runId||recovery.sourceHead!==old.sourceHead||recovery.sourceHead===p.sourceHead||!hex(recovery.scriptSha256,64)||!image(recovery.imageId)||!hex(recovery.apiId,64)||!hex(recovery.failedApiId,64)||recovery.predecessorApiId!==old.predecessor.apiId||recovery.databaseId!==old.predecessor.databaseId||recovery.gatewayId!==old.predecessor.gatewayId||new Set([recovery.apiId,recovery.failedApiId,recovery.predecessorApiId,recovery.databaseId,recovery.gatewayId]).size!==5||recovery.frozenValidatorPassed!==true||recovery.originalCustody!=='unchanged'||recovery.originalData!=='retained'||recovery.noDdl!==true||recovery.qualification!=='awaiting-tls-reachability-product-unvalidated')fail();
+ if(snapshot.schema!=='st253-api-predecessor-v1'||snapshot.sourceHead!==old.predecessor.sourceHead||snapshot.containers?.['api-live']?.Id!==old.predecessor.apiId||snapshot.containers?.database?.Id!==recovery.databaseId||snapshot.containers?.['gateway-live']?.Id!==recovery.gatewayId)fail();
+ if(candidate.schema!=='st253-api-image-v1'||candidate.sourceHead!==recovery.sourceHead||candidate.runId!==recovery.runId||candidate.importedImageId!==recovery.imageId||candidate.transferReceiptSha256!==old.transferReceiptSha256||!image(candidate.exportedImageId))fail();
+ if(failed.schema!=='st253-api-upgrade-failure-v1'||failed.stage!=='VERIFY_NEW_API'||failed.state!=='forward-ddl-started-api-held-stopped'||failed.sourceHead!==recovery.sourceHead||failed.runId!==recovery.runId||failed.apiId!==recovery.failedApiId||failed.oldApiId!==recovery.predecessorApiId||failed.forwardMigrationStarted!==true)fail();
+ if(backup.schema!=='st253-api-private-backup-v1'||backup.databaseId!==recovery.databaseId||backup.sourceHead!==old.predecessor.sourceHead||backup.runId!==recovery.runId||backup.pgDumpCompleted!==true||backup.pgRestoreListVerified!==true||backup.restored!==false||recovery.backupReceiptSha256!==p.recovery.backupReceiptSha256||recovery.failureReceiptSha256!==p.recovery.failureReceiptSha256)fail();
+ assert.deepEqual(claim,{schema:'st253-api-upgrade-claim-v1',runId:old.runId,sourceHead:old.sourceHead,planSha256:p.recovery.planSha256});
+ return {sourceHead:recovery.sourceHead,imageId:recovery.imageId,apiId:recovery.apiId};
+}
+function replacementInput(state,expected){
+ if(!run(state)||!hex(expected,64))fail();const stage=ROOT+'/staging/api-upgrade/'+state;
+ for(const dir of [ROOT,ROOT+'/staging',ROOT+'/staging/api-upgrade',stage])directory(dir);
+ const bytes=regular(stage+'/replacement-plan.json',{max:16384});if(sha(bytes)!==expected)fail();const p=successorPlan(JSON.parse(bytes));
+ if(p.runId!==state||sha(regular(stage+'/upgrade-api.cjs'))!==p.toolSha256||fs.realpathSync(__filename)!==stage+'/upgrade-api.cjs'||sha(bootstrapBytes(stage+'/bootstrap.cjs'))!==p.bootstrapSha256)fail();return {stage,p};
+}
+function replacementSnapshot(p,stage){
+ const prior=ROOT+'/staging/api-upgrade/'+p.recovery.runId;directory(prior);const pinned={};
+ for(const [name,key]of [['upgrade-plan.json','planSha256'],['predecessor.json','predecessorSha256'],['successor-recovery-receipt.json','recoveryReceiptSha256'],['candidate-image.json','candidateImageSha256'],['failure-receipt.json','failureReceiptSha256'],['database-backup-receipt.json','backupReceiptSha256']]){
+  const bytes=regular(prior+'/'+name);if(sha(bytes)!==p.recovery[key])fail();pinned[name]={bytes,value:JSON.parse(bytes)};
+ }
+ const current=successorLineage(p,...['upgrade-plan.json','successor-recovery-receipt.json','predecessor.json','candidate-image.json','failure-receipt.json','database-backup-receipt.json'].map(name=>pinned[name].value),JSON.parse(regular(ROOT+'/runtime/api-upgrade-claim.json')));
+ const saved=runtimeSnapshot(p,stage,current),original=pinned['predecessor.json'].value;
+ assert.deepEqual(saved.snapshot.files,original.files);
+ for(const key of ['volumes','networks','secrets'])assert.deepEqual(saved.snapshot[key],original[key]);
+ for(const service of ['database','gateway-live'])assert.deepEqual(graphIdentity(saved.snapshot.containers[service]),graphIdentity(original.containers[service]));
+ const runtimeReceipt='runtime/api-successor-recovery-'+p.recovery.runId+'.json';if(sha(regular(ROOT+'/'+runtimeReceipt))!==p.recovery.recoveryReceiptSha256)fail();
+ for(const [name,value]of Object.entries(pinned))saved.snapshot.files['staging/api-upgrade/'+p.recovery.runId+'/'+name]=sha(value.bytes);
+ saved.snapshot.files[runtimeReceipt]=p.recovery.recoveryReceiptSha256;saved.snapshot.files['runtime/api-upgrade-claim.json']=sha(regular(ROOT+'/runtime/api-upgrade-claim.json'));
+ saved.retainedStopped=[p.predecessor.apiId,pinned['successor-recovery-receipt.json'].value.failedApiId].map(id=>{const c=inspect(id);if(c.Id!==id||c.State.Running||c.Image!==(id===p.predecessor.apiId?p.predecessor.imageId:current.imageId))fail();return c;});
+ return {saved,current,oldPlan:pinned['upgrade-plan.json'].value,oldCandidate:pinned['candidate-image.json'].value};
+}
+function unchangedMigrations(p,old,next,manifest){
+ for(const value of [old,next]){closed(value,['manifest','migrations','entrypoint','bootstrap']);if(!hex(value.manifest,64)||!hex(value.entrypoint,64)||value.bootstrap!==p.bootstrapSha256)fail();assert.deepEqual(hashes(value.migrations,4),p.migrationSha256);}
+ if(old.manifest!==next.manifest||next.entrypoint!==manifest.compiledEntrypointSha256)fail();return next;
+}
+async function retainedReplacementArchive(p,stage,saved,oldPlan,oldCandidate,current){
+ const dir=ROOT+'/staging/'+oldPlan.runId;directory(dir);const wire=require(ROOT+'/tools/sandbox/draft-transfer-receipt.cjs'),mb=regular(dir+'/transfer-manifest.json',{max:16384}),rb=regular(dir+'/transfer-receipt.json',{max:16384}),manifest=wire.transferManifest(JSON.parse(mb)),receipt=wire.draftTransferReceipt(JSON.parse(rb),manifest);actualManifestBinding(mb,receipt);
+ if(sha(rb)!==oldPlan.transferReceiptSha256||manifest.sourceHead!==current.sourceHead||manifest.runId!==oldPlan.runId||manifest.imageId!==oldCandidate.exportedImageId)fail();
+ const archive=dir+'/api-image.tar.gz',stat=fs.lstatSync(archive);if(!stat.isFile()||stat.isSymbolicLink()||fs.realpathSync(archive)!==archive||stat.uid!==996||stat.gid!==987||(stat.mode&511)!==384||stat.size!==manifest.archiveBytes)fail();
+ const digest=await saved.helpers.streamArchive(archive);for(const key of ['archiveBytes','archiveSha256','rawTarBytes','rawTarSha256'])if(digest[key]!==manifest[key])fail();
+ return retain(stage+'/predecessor-image-archive.json',{schema:'st253-api-retained-predecessor-image-v1',sourceHead:current.sourceHead,imageId:current.imageId,exportedImageId:manifest.imageId,path:archive,...digest});
+}
+const apiNetworks=['subtrack-sandbox-database','subtrack-sandbox-ingress'];
+function replacementNetworks(container){const names=Object.keys(container.NetworkSettings.Networks);if(names.some(name=>!apiNetworks.includes(name)))fail();return names;}
+function restoreConnections(before,actual){
+ if(actual.Id!==before.Id||actual.Image!==before.Image)fail();replacementNetworks(actual);
+ assert.deepEqual(graphIdentity({...actual,NetworkSettings:before.NetworkSettings}),graphIdentity(before));
+ assert.deepEqual(Object.keys(before.NetworkSettings.Networks).sort(),[...apiNetworks].sort());
+ const result=[];for(const name of apiNetworks){const expected=before.NetworkSettings.Networks[name],present=actual.NetworkSettings.Networks[name];
+  if(present){assert.deepEqual(graphIdentity({NetworkSettings:{Networks:{[name]:present}}}).networks,graphIdentity({NetworkSettings:{Networks:{[name]:expected}}}).networks);continue;}
+  if(!/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(expected.IPAddress)||expected.IPAddress.split('.').some(part=>Number(part)>255)||!Array.isArray(expected.Aliases)||!expected.Aliases.includes('api-live')||expected.Aliases.length>8||expected.Aliases.some(alias=>typeof alias!=='string'||!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(alias)))fail();
+  result.push(['network','connect','--ip',expected.IPAddress,...expected.Aliases.flatMap(alias=>['--alias',alias]),name,before.Id]);
+ }return result;
+}
+async function replaceWithoutDdl(p,stage){
+ let state='PREFLIGHT',saved,current,c,newApi=null,stopped=false;
+ try{
+  const lineage=replacementSnapshot(p,stage);({saved,current}=lineage);resources();const effective={...p,predecessor:{...p.predecessor,...current}};
+  const archiveReceiptSha256=await retainedReplacementArchive(p,stage,saved,lineage.oldPlan,lineage.oldCandidate,current);
+  c=await candidate(effective,stage,saved.helpers);
+  const old=configProbe(p,stage,current.imageId,'predecessor-offline'),next=configProbe(p,stage,c.imageId,'candidate-offline');unchangedMigrations(p,old,next,c.manifest);retain(stage+'/offline-qualified.json',next);
+  state='ORDINARY_STARTUP';
+  const ordinary=nodeOperation(p,stage,c.imageId,'ordinary-startup',`const{Pool}=require('/workspace/apps/api/node_modules/pg'),{loadSandboxConfig}=require('/workspace/apps/api/dist/sandbox/sandbox-config.js'),{SandboxAuthority}=require('/workspace/apps/api/dist/sandbox/sandbox-authority.js'),{SandboxToken}=require('/workspace/apps/api/dist/sandbox/sandbox-token.js');(async()=>{const c=await loadSandboxConfig(process.env),pool=new Pool(c.database);try{await new SandboxAuthority(pool,new SandboxToken(c.privateKey,c.publicKey,Date.now),c).verifyStartup();process.stdout.write('ST253_ORDINARY_STARTUP_VERIFIED\\n');}finally{await pool.end();}})().catch(()=>process.exit(1));`,'subtrack-sandbox-database');
+  startOnce(ordinary,c.imageId,p.runId,stage,'ordinary-startup');removeOperation(ordinary,c.imageId,p.runId);
+  state='PRIVATE_BACKUP';const backupReceiptSha256=await privateBackup(effective,stage,saved);unchanged(saved);
+  state='STOP_V5_API';stopped=true;docker(['stop','--time','20',current.apiId]);if(inspect(current.apiId).State.Running)fail();unchanged(saved,false);
+  state='REPLACE_API';for(const name of ['subtrack-sandbox-database','subtrack-sandbox-ingress'])docker(['network','disconnect',name,current.apiId]);
+  newApi=create([...limits(),'--name','subtrack-sandbox-api-successor-'+p.runId,'--network','subtrack-sandbox-database','--network-alias','api-live',...secretArgs(),...envArgs(),'--label','org.subtrack.sandbox.namespace='+NAMESPACE,'--label','com.docker.compose.project=subtrack-sandbox','--label','com.docker.compose.service=api-live'],stage,'successor',c.imageId,p.sourceHead);
+  docker(['network','connect','--alias','api-live','subtrack-sandbox-ingress',newApi]);docker(['start',newApi]);state='VERIFY_NEW_API';
+  saved.validateLive(inspect(newApi),c.base,'api-live',ROOT,saved.volumes,p.sourceHead,{containerImageId:c.imageId,inspectedImageId:c.imageId,requestedImage:c.imageId},saved.android);unchanged(saved,false);
+  const receipt={schema:'st253-api-no-ddl-successor-v1',sourceHead:p.sourceHead,runId:p.runId,apiId:newApi,imageId:c.imageId,predecessor:current,databaseId:p.predecessor.databaseId,gatewayId:p.predecessor.gatewayId,priorRecoveryReceiptSha256:p.recovery.recoveryReceiptSha256,predecessorImageArchiveReceiptSha256:archiveReceiptSha256,backupReceiptSha256,toolSourceHead:p.toolSourceHead,toolSha256:p.toolSha256,bootstrapSha256:p.bootstrapSha256,transferReceiptSha256:p.transferReceiptSha256,migrationSha256:p.migrationSha256,ordinaryStartup:true,frozenValidatorPassed:true,noDdl:true,oldApiState:'stopped-retained',originalCustody:'unchanged',originalData:'retained',publicAndroid:'v2-unchanged',qualification:'awaiting-tls-feature-readback'};
+  retain(stage+'/no-ddl-successor-receipt.json',receipt);retain(ROOT+'/runtime/api-no-ddl-successor-'+p.runId+'.json',receipt);process.stdout.write('ST253_API_NO_DDL_SUCCESSOR_STARTED qualification=awaiting-tls-feature-readback data=retained\n');return receipt;
+ }catch(error){
+  let recovery='preflight-failed';
+  if(stopped&&saved&&current){
+   try{
+    if(newApi&&c){const actual=ownedOperation(newApi,c.imageId,p.runId);replacementNetworks(actual);if(actual.State.Running)docker(['stop','--time','20',newApi]);if(ownedOperation(newApi,c.imageId,p.runId).State.Running)fail();for(const name of replacementNetworks(inspect(newApi)))docker(['network','disconnect',name,newApi]);}
+    unchanged(saved,false);const old=inspect(current.apiId),connections=restoreConnections(saved.snapshot.containers['api-live'],old);if(old.State.Running&&connections.length)fail();
+    for(const args of connections)docker(args);
+    if(!old.State.Running)docker(['start',current.apiId]);saved.validateLive(inspect(current.apiId),saved.baseImages['api-live'],'api-live',ROOT,saved.volumes,current.sourceHead,{containerImageId:current.imageId,inspectedImageId:current.imageId,requestedImage:current.imageId},saved.android);unchanged(saved);recovery='v5-api-restored-no-ddl';
+   }catch{recovery='api-state-unconfirmed-retained';}
+  }
+  try{retain(stage+'/replacement-failure-receipt.json',{schema:'st253-api-replacement-failure-v1',sourceHead:p.sourceHead,runId:p.runId,stage:state,state:recovery,apiId:newApi,oldApiId:current?.apiId??null,noDdl:true,originalData:'retained'});}catch{}
+  process.stderr.write('ST253_API_REPLACEMENT_UNAVAILABLE stage='+state+' state='+recovery+'\n');throw error;
+ }
+}
+module.exports={plan,sourceValidator,gatewayCustody,graphIdentity,networkIdentity,offlineBinding,recoveryPolicy,limits,envArgs,secretArgs,bootstrapBytes,actualManifestBinding,backupArgs,captureBackup,successorPlan,successorLineage,unchangedMigrations,replacementNetworks,restoreConnections};
+if(require.main===module){void(async()=>{if(process.argv.length!==4||!['upgrade','replace'].includes(process.argv[2]))fail();environmentGuard();directory(ROOT+'/runtime');if(process.argv[2]==='replace'){const value=replacementInput(process.argv[3],process.env.ST253_REPLACEMENT_PLAN_SHA256);retain(ROOT+'/runtime/api-replacement-claim-'+value.p.runId+'.json',{schema:'st253-api-replacement-claim-v1',runId:value.p.runId,sourceHead:value.p.sourceHead,planSha256:process.env.ST253_REPLACEMENT_PLAN_SHA256});await replaceWithoutDdl(value.p,value.stage);}else{const value=input(process.argv[3],process.env.ST253_UPGRADE_PLAN_SHA256);retain(ROOT+'/runtime/api-upgrade-claim.json',{schema:'st253-api-upgrade-claim-v1',runId:value.p.runId,sourceHead:value.p.sourceHead,planSha256:process.env.ST253_UPGRADE_PLAN_SHA256});await upgrade(value.p,value.stage);}})().catch(()=>{process.stderr.write('ST253_API_UPGRADE_STOPPED inspect=retained-evidence\n');process.exitCode=1;});}

@@ -2,6 +2,7 @@ import React, { useCallback,useEffect,useRef,useState } from 'react';
 import { AccessibilityInfo,findNodeHandle,Modal,Platform,Pressable,RefreshControl,ScrollView,StyleSheet,Text,View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect,useLocalSearchParams,useRouter } from 'expo-router';
+import Svg,{Circle} from 'react-native-svg';
 import { useNativeSession } from '@/state/NativeSession';
 import type { NativeFeatureSession } from '../onboarding/NativePersonalScreen';
 import { useI18n } from '@/context/I18nContext';
@@ -63,8 +64,9 @@ export function NativeInsightsScreen({ useSession = useNativeSession, reader = d
         {value&&state==='ready'&&value.active.length===0?<NativeProductCard><AnalyticsText>{t('nativeAnalytics.empty')}</AnalyticsText><AnalyticsLink label={t('nativeAnalytics.openSubscriptions')} onPress={()=>router.replace('/personal')}/>{!value.historyAvailable?<AnalyticsText kind="muted">{t('nativeAnalytics.noHistory')}</AnalyticsText>:null}</NativeProductCard>:null}
         {value && state === 'ready' && value.active.length>0 ? <>
           <NativeProductCard>
-            <Pressable testID="native-insights-overview" accessibilityRole="button" accessibilityState={{ expanded }} accessibilityLabel={`${t('nativeAnalytics.overview')}. ${t('nativeAnalytics.activePlans', { count: value.active.length })}. ${t('nativeAnalytics.findings', { count: value.priceIncreases.length + value.overlaps.length })}`} onPress={() => setExpanded(!expanded)} style={styles.overview}>
-              <View style={styles.grow}><AnalyticsText kind="title">{t('nativeAnalytics.overview')}</AnalyticsText><AnalyticsText kind="muted">{t('nativeAnalytics.activePlans', { count: value.active.length })} · {t('nativeAnalytics.findings', { count: value.priceIncreases.length + value.overlaps.length })}</AnalyticsText></View>
+            <Pressable testID="native-insights-overview" accessibilityRole="button" accessibilityState={{ expanded }} accessibilityLabel={`${t('nativeAnalytics.overview')}. ${t(value.active.length===1?'nativeAnalytics.activePlan':'nativeAnalytics.activePlans', { count: value.active.length })}. ${t('nativeAnalytics.findings', { count: value.priceIncreases.length + value.overlaps.length })}`} onPress={() => setExpanded(!expanded)} style={styles.overview}>
+              <View testID="native-insights-plan-ring" accessible={false} style={styles.ring}><Svg accessible={false} width={64} height={64}><Circle cx={32} cy={32} r={26} fill="none" stroke={color('bg.raised')} strokeWidth={6}/></Svg><View style={styles.ringCenter}><Text style={{color:color('ink.primary'),fontFamily:theme.typography.fontFamily['display.extraBold'],fontSize:theme.typography.fontSize.stat}}>{value.active.length}</Text><Text style={{color:color('ink.secondary'),fontFamily:theme.typography.fontFamily.ui,fontSize:theme.typography.fontSize.ringLabel}}>{t('nativeAnalytics.plansLabel')}</Text></View></View>
+              <View style={styles.grow}><AnalyticsText kind="title">{t('nativeAnalytics.overview')}</AnalyticsText><AnalyticsText kind="muted">{t('nativeAnalytics.findings', { count: value.priceIncreases.length + value.overlaps.length })}</AnalyticsText></View>
               <View style={expanded?{transform:[{rotate:'90deg'}]}:undefined}><BillingIcon name="next" size={16} color={color('ink.secondary')}/></View>
             </Pressable>
             {expanded ? <View style={styles.chips}>
@@ -80,7 +82,7 @@ export function NativeInsightsScreen({ useSession = useNativeSession, reader = d
           </NativeProductCard>
           <NativeProductHeading style={styles.section} level="section" title={t('nativeAnalytics.actions')} />
           {value.priceIncreases.map(item => <NativeProductCard key={item.subscriptionId}>
-            <View style={styles.cardHeader}><AnalyticsText kind="title">{t('nativeAnalytics.priceRise')}</AnalyticsText><AnalyticsBadge tone="warning" label={t('nativeAnalytics.review')} /></View>
+            <View style={styles.cardHeader}><AnalyticsText kind="title">{t('nativeAnalytics.priceRise')}</AnalyticsText><AnalyticsBadge tone="warning" label={t('nativeAnalytics.actionBadge')} /></View>
             <View style={styles.inlineAmount}><AnalyticsMoney value={item.monthlyDelta} /><AnalyticsText kind="muted">{t('nativeAnalytics.morePerMonth')}</AnalyticsText></View><AnalyticsText kind="muted">{name(item.subscriptionId)}</AnalyticsText>
             <View style={styles.pair}><AnalyticsPriceBox><AnalyticsText kind="label">{t('nativeAnalytics.previous')}</AnalyticsText><AnalyticsMoney value={item.previous} kind="price" /></AnalyticsPriceBox><AnalyticsPriceBox><AnalyticsText kind="label">{t('nativeAnalytics.current')}</AnalyticsText><AnalyticsMoney value={item.current} kind="price" /></AnalyticsPriceBox></View>
             <AnalyticsText kind="muted">{t('nativeAnalytics.increaseEvidence', { first: item.dates[0]!, last: item.dates[4]! })}</AnalyticsText>
@@ -106,9 +108,10 @@ export function NativeInsightsScreen({ useSession = useNativeSession, reader = d
     </View>
     <Modal visible={detailVisible} transparent animationType={reducedMotion?'none':'slide'} onRequestClose={closeDetail} onDismiss={restoreFocus} onShow={()=>{const handle=heading.current&&findNodeHandle(heading.current);if(handle)AccessibilityInfo.setAccessibilityFocus(handle);}}>
       <View style={[styles.scrim,{backgroundColor:color('sheet.scrim')}]}><Pressable testID="native-insights-detail-scrim" accessible={false} onPress={closeDetail} style={StyleSheet.absoluteFillObject}/><SafeAreaView accessibilityViewIsModal onAccessibilityEscape={closeDetail} style={[styles.sheet,{backgroundColor:color('bg.canvas'),borderTopLeftRadius:theme.radius.sheet,borderTopRightRadius:theme.radius.sheet}]}><ScrollView contentContainerStyle={styles.sheetContent}>
+        <View accessible={false} style={[styles.grip,{backgroundColor:color('line.hairline')}]}/>
         {detailVisible&&detail?<NativeSubscriptionDetail session={session} reader={reader} now={now} item={detail} headingRef={heading} onClose={closeDetail} onManage={()=>{closeDetail();router.push('/personal');}}/>:null}
       </ScrollView></SafeAreaView></View>
     </Modal>
   </SafeAreaView>;
 }
-const styles = StyleSheet.create({full:{flex:1},content: { paddingHorizontal:20,paddingTop:18,gap:10,paddingBottom:32 },section:{marginTop:18,marginBottom:2}, overview: { flexDirection:'row',alignItems:'center',gap:16,minHeight:44 }, grow: { flex:1,minWidth:0,gap:4 }, chips: { flexDirection:'row',flexWrap:'wrap',gap:6,paddingTop:14 }, cardHeader: { flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:10 }, pair: { flexDirection:'row',flexWrap:'wrap',gap:6 }, inlineAmount:{flexDirection:'row',alignItems:'baseline',flexWrap:'wrap',gap:6},links:{flexDirection:'row',flexWrap:'wrap',gap:6},scrim:{flex:1,justifyContent:'flex-end'},sheet:{maxHeight:'92%'},sheetContent:{padding:20,gap:16,paddingBottom:32} });
+const styles = StyleSheet.create({full:{flex:1},content: { paddingHorizontal:20,paddingTop:18,gap:10,paddingBottom:32 },section:{marginTop:18,marginBottom:2}, ring:{width:64,height:64},ringCenter:{...StyleSheet.absoluteFillObject,alignItems:'center',justifyContent:'center'}, overview: { flexDirection:'row',alignItems:'center',gap:16,minHeight:44 }, grow: { flex:1,minWidth:0,gap:4 }, chips: { flexDirection:'row',flexWrap:'wrap',gap:6,paddingTop:14 }, cardHeader: { flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:10 }, pair: { flexDirection:'row',flexWrap:'wrap',gap:6 }, inlineAmount:{flexDirection:'row',alignItems:'baseline',flexWrap:'wrap',gap:6},links:{flexDirection:'row',flexWrap:'wrap',gap:6},scrim:{flex:1,justifyContent:'flex-end'},sheet:{maxHeight:'92%'},grip:{alignSelf:'center',width:36,height:4,borderRadius:2},sheetContent:{paddingHorizontal:20,paddingTop:12,gap:16,paddingBottom:22} });

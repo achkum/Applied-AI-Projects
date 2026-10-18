@@ -90,7 +90,11 @@
       "statLabel": 11,
       "chart": 10.5,
       "chartValue": 11.5,
-      "avatarSmall": 10.5
+      "avatarSmall": 10.5,
+      "ringLabel": 9.5,
+      "timelineDay": 21,
+      "groupTitle": 16,
+      "listTotal": 18
     },
     "fontVariantNumeric": "tabular-nums"
   },

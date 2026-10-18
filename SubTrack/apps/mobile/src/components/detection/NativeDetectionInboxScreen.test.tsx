@@ -1,5 +1,5 @@
 import React from 'react';
-import {AccessibilityInfo,Platform,Pressable,RefreshControl,ScrollView,Text} from 'react-native';
+import {AccessibilityInfo,Platform,Pressable,RefreshControl,ScrollView,StyleSheet,Text} from 'react-native';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
 import {NativeDetectionInboxScreen} from './NativeDetectionInboxScreen';
 import {NativeSessionProvider,useNativeSession} from '@/state/NativeSession';
@@ -39,7 +39,7 @@ const candidate={id,revision:'1',displayName:'Netflix',categoryCode:'VIDEO_STREA
 const reviewed={candidateId:id,status:'ACTIVE' as const,revision:'2',receiptId:key,undoUntil:'2000-01-01T00:00:00.000Z'};
 const owner={id,revision:'2',source:'DETECTED' as const,visibility:'owner' as const,customName:'Netflix',merchantId:null,merchantName:null,categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY' as const,status:'ACTIVE' as const,expectedAmountMinor:candidate.expectedAmountMinor,currency:'SEK',nextChargeDate:null,alwaysPrivate:true};
 it('scans explicitly and renders actual current inbox readback with translated reasons',async()=>{
- jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null});mount();await login();await press(copy.scan);await screen.findByText('Netflix');expect(api.mutateNativeDetection).toHaveBeenCalledWith({operation:'scan'},key,credentials.accessToken,expect.any(AbortSignal));expect(api.readDetectionOwnerRows).toHaveBeenCalledTimes(1);expect(screen.queryByText(copy.reasons.CADENCE_MATCHED)).toBeNull();await press(copy.why);expect(screen.getByRole('button',{name:copy.why}).props.accessibilityState.expanded).toBe(true);expect(screen.getByText(copy.reasons.CADENCE_MATCHED)).toBeTruthy();await press(copy.why);expect(screen.queryByText(copy.reasons.CADENCE_MATCHED)).toBeNull();expect(screen.getByRole('button',{name:copy.why}).props.accessibilityState.expanded).toBe(false);
+ jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null});mount();await login();await press(copy.scan);await screen.findByText('Netflix');expect(api.mutateNativeDetection).toHaveBeenCalledWith({operation:'scan'},key,credentials.accessToken,expect.any(AbortSignal));expect(api.readDetectionOwnerRows).toHaveBeenCalledTimes(1);expect(screen.queryByText(copy.reasons.CADENCE_MATCHED)).toBeNull();expect(StyleSheet.flatten(screen.getByTestId(`native-detection-actions-${id}`).props.style)).toMatchObject({flexDirection:'row',gap:8});expect(StyleSheet.flatten(screen.getByTestId(`native-detection-actions-${id}`).props.style).paddingLeft).toBeUndefined();await press(copy.why);expect(screen.getByRole('button',{name:copy.why}).props.accessibilityState.expanded).toBe(true);expect(screen.getByText(copy.reasons.CADENCE_MATCHED)).toBeTruthy();await press(copy.why);expect(screen.queryByText(copy.reasons.CADENCE_MATCHED)).toBeNull();expect(screen.getByRole('button',{name:copy.why}).props.accessibilityState.expanded).toBe(false);
 });
 it('confirms from server revision, verifies owner readback and asks server for Undo even after local deadline',async()=>{
  jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[{...candidate,revision:'3'}],nextCursor:null});jest.mocked(api.readDetectionOwnerRows).mockResolvedValueOnce([owner]).mockResolvedValueOnce([{...owner,status:'DETECTED',revision:'3'}]);jest.mocked(api.mutateNativeDetection).mockResolvedValueOnce(reviewed).mockResolvedValueOnce({...reviewed,status:'DETECTED',revision:'3',undoUntil:null});mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.reviewed);await press(copy.undo);await screen.findByText(copy.undone);expect(screen.getByText('Netflix')).toBeTruthy();expect(jest.mocked(api.mutateNativeDetection).mock.calls[1]![0]).toEqual({operation:'undo',receiptId:key,candidateId:id});
@@ -78,7 +78,7 @@ it('loads complete current inbox pages without mutating private server state',as
  const second={...candidate,id:key,displayName:'Spotify'};jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:'cursorA'}).mockResolvedValueOnce({kind:'ready',items:[second],nextCursor:null});mount();await login();await screen.findByText('Netflix');await press(copy.more);await screen.findByText('Spotify');expect(screen.getByText('Netflix')).toBeTruthy();expect(screen.queryByRole('button',{name:copy.more})).toBeNull();expect(api.mutateNativeDetection).not.toHaveBeenCalled();
 });
 it('does not extend the original server deadline on a replayed review receipt',async()=>{
- jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValue({kind:'ready',items:[],nextCursor:null});jest.mocked(api.mutateNativeDetection).mockResolvedValue(reviewed);jest.mocked(api.readDetectionOwnerRows).mockResolvedValue([owner]);mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.deadline.replace('%{date}',reviewed.undoUntil));expect(api.mutateNativeDetection).toHaveBeenCalledTimes(1);expect(screen.queryByText(/2026-10-14/)).toBeNull();
+ jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValue({kind:'ready',items:[],nextCursor:null});jest.mocked(api.mutateNativeDetection).mockResolvedValue(reviewed);jest.mocked(api.readDetectionOwnerRows).mockResolvedValue([owner]);mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByLabelText(copy.deadline.replace('%{date}',reviewed.undoUntil));expect(api.mutateNativeDetection).toHaveBeenCalledTimes(1);expect(screen.queryByText(/2026-10-14/)).toBeNull();
 });
 it('requires both inbox removal and detected owner source before advertising confirmation',async()=>{
  jest.mocked(api.readNativeDetections).mockResolvedValue({kind:'ready',items:[candidate],nextCursor:null});jest.mocked(api.mutateNativeDetection).mockResolvedValue(reviewed);jest.mocked(api.readDetectionOwnerRows).mockResolvedValue([{...owner,source:'MANUAL'}]);mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.readback);expect(screen.queryByRole('button',{name:copy.undo})).toBeNull();
@@ -169,7 +169,7 @@ it('announces acknowledged iOS review and available Undo once after layout, then
   jest.mocked(api.mutateNativeDetection).mockResolvedValueOnce(reviewed).mockResolvedValueOnce({...reviewed,status:'DETECTED',revision:'3',undoUntil:null});
   view=mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.reviewed);
   expect(ports.announce).not.toHaveBeenCalled();expect(ports.frames).toHaveLength(1);
-  expect(screen.getByText(copy.deadline.replace('%{date}',reviewed.undoUntil))).toBeTruthy();
+  expect(screen.getByLabelText(copy.deadline.replace('%{date}',reviewed.undoUntil))).toBeTruthy();
   act(()=>ports.frames[0]!.callback(0));expect(ports.announce).toHaveBeenCalledTimes(1);expect(ports.announce).toHaveBeenCalledWith(`${copy.reviewed} ${copy.undo}`);act(()=>ports.frames[0]!.callback(0));expect(ports.announce).toHaveBeenCalledTimes(1);
   await press(copy.undo);await screen.findByText(copy.undone);expect(ports.frames).toHaveLength(2);act(()=>ports.frames[1]!.callback(0));
   expect(ports.announce.mock.calls).toEqual([[`${copy.reviewed} ${copy.undo}`],[copy.undone]]);
@@ -208,4 +208,13 @@ it('offers explicit read retry after an active injected failure without scanning
  const read=jest.fn().mockRejectedValueOnce(Error('read unavailable')).mockResolvedValue({kind:'ready',items:[candidate],nextCursor:null}),mutate=jest.fn();
  render(<NativeDetectionInboxScreen useSession={()=>session} api={{readNativeDetections:read,readDetectionOwnerRows:jest.fn(),mutateNativeDetection:mutate,detectionRequestKey:async()=>key}}/>);
  await screen.findByText(copy.unavailable);await press(copy.refresh);await screen.findByText('Netflix');expect(read).toHaveBeenCalledTimes(2);expect(mutate).not.toHaveBeenCalled();expect(screen.queryByRole('button',{name:copy.refresh})).toBeNull();
+});
+
+it('shows loading only while the actual owned read is pending and reports a failure without a success claim',async()=>{
+ let finish!:(value:Awaited<ReturnType<typeof api.readNativeDetections>>)=>void;
+ jest.mocked(api.readNativeDetections).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;})).mockRejectedValueOnce(new Error('unavailable'));
+ mount();expect(screen.queryByText(copy.loading)).toBeNull();await login();await screen.findByText(copy.loading);
+ expect(screen.queryByText(copy.empty)).toBeNull();
+ await act(async()=>finish({kind:'ready',items:[],nextCursor:null}));await screen.findByText(copy.empty);expect(screen.queryByText(copy.loading)).toBeNull();
+ await pullRefresh();await screen.findByText(copy.unavailable);expect(screen.queryByText(copy.loading)).toBeNull();expect(api.mutateNativeDetection).not.toHaveBeenCalled();
 });

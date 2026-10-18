@@ -109,3 +109,12 @@ it('offers a retry only for an active read failure, without issuing another bank
 });
 
 it('shows the current failed verification after session phase changes without retaining bank state',async()=>{jest.mocked(sessionApi.verifiedNativeLogin).mockRejectedValue(Error('verification unavailable'));mount();await login();await screen.findByText(copy.unavailable);expect(screen.queryByText('77')).toBeNull();expect(api.readNativeBank).not.toHaveBeenCalled();});
+
+it('shows loading only while the actual owned read is pending and reports a failure without a success claim',async()=>{
+ let finish!:(value:Awaited<ReturnType<typeof api.readNativeBank>>)=>void;
+ jest.mocked(api.readNativeBank).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;})).mockRejectedValueOnce(new Error('unavailable'));
+ mount();expect(screen.queryByText(copy.loading)).toBeNull();await login();await screen.findByText(copy.loading);
+ expect(screen.queryByText(copy.empty)).toBeNull();
+ await act(async()=>finish({kind:'ready',connections:[]}));await screen.findByText(copy.empty);expect(screen.queryByText(copy.loading)).toBeNull();
+ await pullRefresh();await screen.findByText(copy.unavailable);expect(screen.queryByText(copy.loading)).toBeNull();expect(api.mutateNativeBank).not.toHaveBeenCalled();
+});

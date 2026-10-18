@@ -62,6 +62,7 @@ export function NativePersonalBankScreen({useSession=useNativeSession,api=privat
   <NativeProductHeading title={copy('title')} testID="native-bank-title" level="section"/>
   {message?<Text accessibilityRole="alert" style={text}>{copy(message)}</Text>:null}
   {session.phase==='active'?<>
+   {busy?<Text accessibilityLiveRegion="polite" style={secondary}>{copy('loading')}</Text>:null}
    {state==='setup-required'?<Text accessibilityRole="alert" style={text}>{copy('setup')}</Text>:null}
    {state==='ready'?<>
     {connections.length===0?<NativeProductCard><BankIcon color={color('action.accent')}/><Text style={secondary}>{copy('empty')}</Text>{button(copy('connect'),()=>{void execute({operation:'connect',institutionId:'synthetic-demo-v1'});},busy,'native-bank-connect',copy('connect'),true)}</NativeProductCard>:null}

@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {plan,sourceValidator,gatewayCustody,graphIdentity,networkIdentity,offlineBinding,recoveryPolicy,limits,envArgs,secretArgs,actualManifestBinding,backupArgs,captureBackup}=require('./upgrade-api.cjs');
+const {plan,sourceValidator,gatewayCustody,graphIdentity,networkIdentity,offlineBinding,recoveryPolicy,limits,envArgs,secretArgs,actualManifestBinding,backupArgs,captureBackup,successorPlan,successorLineage,unchangedMigrations,replacementNetworks,restoreConnections}=require('./upgrade-api.cjs');
 const digest=value=>value.repeat(64),id=value=>'sha256:'+digest(value),source=value=>value.repeat(40);
 function input(){return {schema:'st253-api-upgrade-plan-v1',host:'198.44.116.159',sourceHead:source('a'),runId:'123-1',toolSha256:digest('b'),bootstrapSha256:digest('c'),transferReceiptSha256:digest('d'),migrationSha256:['1','2','3','4'].map(digest),predecessor:{sourceHead:source('e'),imageId:id('f'),sourceCustodySha256:digest('1'),imageImportBindingSha256:digest('2'),deploymentReceiptSha256:digest('3'),androidDownloadBindingSha256:digest('4'),apiId:digest('5'),databaseId:digest('6'),gatewayId:digest('7')}};}
 test('exact operator-pinned successor plan rejects foreign namespaces, source/run drift and principal/container ambiguity',()=>{
@@ -88,4 +88,74 @@ test('opaque backup bytes stream to an exclusive bounded file with exact hash; p
 });
 test('actual upgrade awaits archive/list verification before STOP and records restored=false instead of claiming a restore',()=>{
  const source=fs.readFileSync(path.join(__dirname,'upgrade-api.cjs'),'utf8');assert.ok(source.indexOf('await privateBackup(p,stage,saved)')<source.indexOf("state='STOP_OLD_API'"));assert.ok(source.indexOf('await privateBackup(p,stage,saved)')<source.indexOf('migrationStarted=true'));assert.match(source,/setTimeout\(stop,120000\)/);assert.match(source,/pgRestoreListVerified:true,restored:false/);assert.match(source,/archive-and-toc-verified-only/);assert.match(source,/stdio:\['ignore','pipe','pipe'\]/);assert.doesNotMatch(source,/console\.log|pg_restore','--dbname/);
+});
+
+function replacementFixture(){
+ const old=input(),p={...input(),schema:'st253-api-replacement-plan-v1',sourceHead:source('b'),toolSourceHead:source('c'),runId:'456-1',recovery:{runId:old.runId,planSha256:digest('a'),predecessorSha256:digest('b'),recoveryReceiptSha256:digest('c'),candidateImageSha256:digest('d'),failureReceiptSha256:digest('e'),backupReceiptSha256:digest('f')}};
+ const recovery={schema:'st253-api-successor-recovery-v1',runId:old.runId,sourceHead:old.sourceHead,scriptSha256:digest('9'),apiId:digest('8'),failedApiId:digest('9'),predecessorApiId:old.predecessor.apiId,databaseId:old.predecessor.databaseId,gatewayId:old.predecessor.gatewayId,imageId:id('0'),backupReceiptSha256:p.recovery.backupReceiptSha256,failureReceiptSha256:p.recovery.failureReceiptSha256,frozenValidatorPassed:true,originalCustody:'unchanged',originalData:'retained',noDdl:true,qualification:'awaiting-tls-reachability-product-unvalidated'};
+ const snapshot={schema:'st253-api-predecessor-v1',sourceHead:old.predecessor.sourceHead,containers:{'api-live':{Id:old.predecessor.apiId},database:{Id:old.predecessor.databaseId},'gateway-live':{Id:old.predecessor.gatewayId}}};
+ const candidate={schema:'st253-api-image-v1',sourceHead:old.sourceHead,runId:old.runId,importedImageId:recovery.imageId,exportedImageId:id('1'),transferReceiptSha256:old.transferReceiptSha256};
+ const failed={schema:'st253-api-upgrade-failure-v1',stage:'VERIFY_NEW_API',state:'forward-ddl-started-api-held-stopped',sourceHead:old.sourceHead,runId:old.runId,apiId:recovery.failedApiId,oldApiId:old.predecessor.apiId,forwardMigrationStarted:true};
+ const backup={schema:'st253-api-private-backup-v1',databaseId:recovery.databaseId,sourceHead:old.predecessor.sourceHead,runId:old.runId,pgDumpCompleted:true,pgRestoreListVerified:true,restored:false};
+ const claim={schema:'st253-api-upgrade-claim-v1',runId:old.runId,sourceHead:old.sourceHead,planSha256:p.recovery.planSha256};
+ return {p,old,recovery,snapshot,candidate,failed,backup,claim};
+}
+const lineage=value=>successorLineage(...['p','old','recovery','snapshot','candidate','failed','backup','claim'].map(key=>value[key]));
+test('no-DDL successor plan and lineage bind the recovered V5 to immutable original custody and consumed migration claim',()=>{
+ const f=replacementFixture();assert.deepEqual(successorPlan(f.p),f.p);assert.deepEqual(lineage(f),{sourceHead:f.old.sourceHead,imageId:f.recovery.imageId,apiId:f.recovery.apiId});
+ const mutations=[f=>f.p.schema='st253-api-upgrade-plan-v1',f=>f.p.recovery.runId=f.p.runId,f=>f.p.recovery.backupReceiptSha256='unknown',f=>f.p.predecessor.apiId=digest('8'),f=>f.p.recovery.unbound=true,f=>f.old.migrationSha256[3]=digest('0'),f=>f.recovery.apiId=f.recovery.failedApiId,f=>f.recovery.sourceHead=f.p.sourceHead,f=>f.recovery.noDdl=false,f=>f.recovery.frozenValidatorPassed=false,f=>f.recovery.originalData='reset',f=>f.recovery.qualification='qualified',f=>f.recovery.imageId=id('2'),f=>f.recovery.backupReceiptSha256=digest('0'),f=>f.recovery.failureReceiptSha256=digest('0'),f=>f.snapshot.containers.database.Id=digest('0'),f=>f.snapshot.sourceHead=f.old.sourceHead,f=>f.candidate.transferReceiptSha256=digest('0'),f=>f.candidate.exportedImageId='latest',f=>f.failed.stage='FORWARD_MIGRATION',f=>f.failed.apiId=digest('0'),f=>f.failed.forwardMigrationStarted=false,f=>f.backup.pgRestoreListVerified=false,f=>f.backup.restored=true,f=>f.claim.planSha256=digest('0'),f=>f.claim.runId=f.p.runId];
+ for(const mutate of mutations){const changed=replacementFixture();mutate(changed);assert.throws(()=>lineage(changed));}
+ let touched=false;const changed=replacementFixture();Object.defineProperty(changed.p.recovery,'runId',{enumerable:true,get(){touched=true;throw Error();}});assert.throws(()=>lineage(changed));assert.equal(touched,false);
+});
+test('no-DDL compatibility requires old and new exact four hashes, unchanged capability manifest and authenticated candidate entrypoint',()=>{
+ const {p}=replacementFixture(),old={manifest:digest('8'),migrations:[...p.migrationSha256],entrypoint:digest('9'),bootstrap:p.bootstrapSha256},next={...old,entrypoint:digest('a')},manifest={compiledEntrypointSha256:digest('a')};assert.deepEqual(unchangedMigrations(p,old,next,manifest),next);
+ for(const changed of [{...old,migrations:old.migrations.slice(0,2)},{...old,migrations:[...old.migrations.slice(0,3),digest('0')]},{...old,manifest:digest('0')},{...old,bootstrap:digest('0')},{...old,unexpected:true}])assert.throws(()=>unchangedMigrations(p,changed,next,manifest));
+ assert.throws(()=>unchangedMigrations(p,old,{...next,entrypoint:digest('b')},manifest));
+});
+function boundApi(){return {Id:digest('8'),Name:'retained-v5',Image:id('0'),Config:{Image:id('0'),Labels:{source:source('a')}},HostConfig:{ReadonlyRootfs:true},Mounts:[{Source:'/original-secret',RW:false}],State:{Running:false},NetworkSettings:{Networks:Object.fromEntries(['subtrack-sandbox-database','subtrack-sandbox-ingress'].map((name,i)=>[name,{NetworkID:digest(String(i+1)),Aliases:['api-live'],IPAddress:'172.18.'+i+'.4'}]))}};}
+test('rollback restores only fixed existing V5 connections and exact IP/aliases while rejecting altered config, images, networks and attachment drift',()=>{
+ const before=boundApi(),disconnected={...before,NetworkSettings:{Networks:{}}};assert.deepEqual(restoreConnections(before,before),[]);assert.deepEqual(restoreConnections(before,disconnected),['subtrack-sandbox-database','subtrack-sandbox-ingress'].map((name,i)=>['network','connect','--ip','172.18.'+i+'.4','--alias','api-live',name,before.Id]));
+ for(const actual of [{...disconnected,Image:id('3')},{...disconnected,Mounts:[]},{...disconnected,Config:{...before.Config,Image:'latest'}},{...before,NetworkSettings:{Networks:{...before.NetworkSettings.Networks,foreign:{}}}},{...before,NetworkSettings:{Networks:{'subtrack-sandbox-database':{...before.NetworkSettings.Networks['subtrack-sandbox-database'],IPAddress:'172.18.0.5'}}}}])assert.throws(()=>restoreConnections(before,actual));
+ for(const change of [b=>b.NetworkSettings.Networks['subtrack-sandbox-database'].IPAddress='999.0.0.1',b=>b.NetworkSettings.Networks['subtrack-sandbox-database'].Aliases=['foreign'],b=>b.NetworkSettings.Networks['subtrack-sandbox-database'].Aliases=['api-live','--unsafe']]){const changed=structuredClone(before);change(changed);assert.throws(()=>restoreConnections(changed,disconnected));}
+ assert.throws(()=>replacementNetworks({NetworkSettings:{Networks:{'subtrack-sandbox-edge':{}}}}));
+});
+test('replacement orchestration checks compatibility, ordinary startup and private backup before stopping V5; no DDL or original-claim rewrite exists',()=>{
+ const all=fs.readFileSync(path.join(__dirname,'upgrade-api.cjs'),'utf8'),body=all.slice(all.indexOf('async function replaceWithoutDdl('),all.indexOf('\nmodule.exports='));
+ for(const marker of ['await candidate(effective,stage,saved.helpers)','unchangedMigrations(p,old,next,c.manifest)',"startOnce(ordinary,c.imageId,p.runId,stage,'ordinary-startup')",'await privateBackup(effective,stage,saved)'])assert.ok(body.indexOf(marker)<body.indexOf("state='STOP_V5_API'"));
+ assert.doesNotMatch(body,/SUBTRACK_SANDBOX_MIGRATION|bootstrap-loader|forward-migration|\.cjs','upgrade|database.*rm|pull/);assert.match(body,/frozenValidatorPassed:true,noDdl:true/);assert.match(body,/awaiting-tls-feature-readback/);assert.match(body,/restoreConnections\(saved.snapshot.containers\['api-live'\],old\)/);assert.match(body,/if\(!old.State.Running\)docker\(\['start',current.apiId\]\)/);
+ assert.match(all,/api-replacement-claim-'\+value.p.runId/);assert.equal((all.match(/retain\(ROOT\+'\/runtime\/api-upgrade-claim.json'/g)||[]).length,1);
+});
+async function replacementRun(fault){
+ const vm=require('node:vm'),file=path.join(__dirname,'upgrade-api.cjs'),module={exports:{}},context=vm.createContext({module,exports:module.exports,require,Buffer,process:{stdout:{write(){}},stderr:{write(){}}},__filename:file,fault,fixture:JSON.stringify({p:replacementFixture().p,before:boundApi()})});
+ vm.runInContext(fs.readFileSync(file,'utf8')+'\nmodule.exports.execute=replaceWithoutDdl;',context,{timeout:1000});
+ vm.runInContext(`
+ const fx=JSON.parse(fixture),copy=value=>JSON.parse(JSON.stringify(value)),events=[],receipts={},current={apiId:fx.before.Id,imageId:fx.before.Image,sourceHead:'a'.repeat(40)},newId='c'.repeat(64),newImage='sha256:'+'d'.repeat(64),containers={[current.apiId]:copy(fx.before)};containers[current.apiId].State.Running=true;
+ const probe={manifest:'8'.repeat(64),migrations:fx.p.migrationSha256,entrypoint:'9'.repeat(64),bootstrap:fx.p.bootstrapSha256};
+ const saved={snapshot:{containers:{'api-live':copy(containers[current.apiId])}},baseImages:{'api-live':{Id:current.imageId}},volumes:{},helpers:{},android:{},validateLive(actual){events.push('validate:'+actual.Id);if(!actual.State.Running||fault==='validate'&&actual.Id===newId)throw Error('guard');}};
+ replacementSnapshot=()=>({saved,current,oldPlan:{},oldCandidate:{}});resources=()=>events.push('resources');retainedReplacementArchive=async()=>{events.push('archive');return 'a'.repeat(64);};
+ candidate=async()=>{events.push('candidate');return {imageId:newImage,base:{Id:newImage},manifest:{compiledEntrypointSha256:probe.entrypoint}};};configProbe=()=>{events.push('probe');return copy(probe);};
+ retain=(file,value)=>{if(receipts[file])throw Error('overwrite');receipts[file]=copy(value);events.push('retain:'+file.split('/').at(-1));return 'b'.repeat(64);};
+ unchanged=(s,include=true)=>{events.push('unchanged:'+include);if(include&&!containers[current.apiId].State.Running)throw Error('old not running');};
+ nodeOperation=()=>{events.push('ordinary-create');return 'ordinary';};startOnce=()=>{events.push('ordinary-start');if(fault==='ordinary')throw Error('startup');};removeOperation=()=>events.push('ordinary-remove');
+ privateBackup=async()=>{events.push('backup');if(fault==='backup')throw Error('backup');return 'e'.repeat(64);};
+ inspect=id=>copy(containers[id]);
+ create=()=>{events.push('create');containers[newId]={...copy(fx.before),Id:newId,Image:newImage,Config:{Image:newImage,Labels:{'org.subtrack.sandbox.upgrade-run':fx.p.runId}},State:{Running:false},NetworkSettings:{Networks:{'subtrack-sandbox-database':copy(fx.before.NetworkSettings.Networks['subtrack-sandbox-database'])}}};return newId;};
+ docker=args=>{events.push(args.join(' '));const target=containers[args.at(-1)];if(args[0]==='stop'){target.State.Running=false;if(fault==='stop'&&target.Id===current.apiId)throw Error('ambiguous stop');}else if(args[0]==='start'){target.State.Running=true;if(fault==='drift'&&target.Id===newId){containers[current.apiId].Config.Image='unbound';throw Error('replacement');}if(fault==='foreign-network'&&target.Id===newId){target.NetworkSettings.Networks.foreign={};throw Error('replacement');}}else if(args[0]==='network'&&args[1]==='disconnect')delete target.NetworkSettings.Networks[args[2]];else if(args[0]==='network'&&args[1]==='connect')target.NetworkSettings.Networks[args.at(-2)]=copy(fx.before.NetworkSettings.Networks[args.at(-2)]);else throw Error('unexpected docker operation');return '';};
+ globalThis.observed={events,receipts,containers,current,newId};globalThis.parameters=fx.p;
+ `,context,{timeout:1000});
+ let error=false;try{await module.exports.execute(vm.runInContext('parameters',context),'/private-stage');}catch{error=true;}
+ return {error,...JSON.parse(vm.runInContext('JSON.stringify(observed)',context))};
+}
+test('actual no-DDL orchestration leaves V5 running for ordinary-startup/backup rejection and appends only closed failure evidence',async()=>{
+ for(const fault of ['ordinary','backup']){const result=await replacementRun(fault);assert.equal(result.error,true);assert.equal(result.containers[result.current.apiId].State.Running,true);assert.equal(result.events.some(event=>event.startsWith('stop ')),false);assert.equal(result.receipts['/private-stage/replacement-failure-receipt.json'].state,'preflight-failed');}
+});
+test('actual no-DDL orchestration restores exact retained V5 after candidate rejection or ambiguous stop without restoring DB or rerunning migrations',async()=>{
+ for(const fault of ['validate','stop']){const result=await replacementRun(fault);assert.equal(result.error,true);assert.equal(result.containers[result.current.apiId].State.Running,true);assert.equal(result.receipts['/private-stage/replacement-failure-receipt.json'].state,'v5-api-restored-no-ddl');assert.ok(!result.events.some(event=>/migration|pg_restore|rm |pull/.test(event)));if(fault==='validate'){assert.equal(result.containers[result.newId].State.Running,false);assert.deepEqual(Object.keys(result.containers[result.current.apiId].NetworkSettings.Networks).sort(),['subtrack-sandbox-database','subtrack-sandbox-ingress']);}}
+});
+test('actual no-DDL orchestration withholds automatic restore when old config or unexpected candidate network drifts',async()=>{
+ for(const fault of ['drift','foreign-network']){const result=await replacementRun(fault);assert.equal(result.error,true);assert.equal(result.receipts['/private-stage/replacement-failure-receipt.json'].state,'api-state-unconfirmed-retained');assert.equal(result.events.includes('start '+result.current.apiId),false);assert.equal(result.events.some(event=>event.startsWith('network disconnect foreign')),false);}
+});
+test('actual successful no-DDL replacement preserves stopped V5 and immutable claims, backs up before stop and awaits product qualification',async()=>{
+ const result=await replacementRun(null);assert.equal(result.error,false);assert.equal(result.containers[result.current.apiId].State.Running,false);assert.equal(result.containers[result.newId].State.Running,true);assert.ok(result.events.indexOf('ordinary-start')<result.events.indexOf('backup'));assert.ok(result.events.indexOf('backup')<result.events.findIndex(event=>event.startsWith('stop ')));
+ const receipt=result.receipts['/private-stage/no-ddl-successor-receipt.json'];assert.equal(receipt.noDdl,true);assert.equal(receipt.oldApiState,'stopped-retained');assert.equal(receipt.qualification,'awaiting-tls-feature-readback');assert.ok(!Object.keys(result.receipts).some(file=>file.endsWith('api-upgrade-claim.json')));
 });
