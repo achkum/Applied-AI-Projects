@@ -1,4 +1,8 @@
 'use strict';
+const REPLACEMENT_PLAN_V1='st253-api-replacement-plan-v1';
+const REPLACEMENT_PLAN_V2='st253-api-replacement-plan-v2';
+const SUCCESSOR_RECEIPT_V1='st253-api-no-ddl-successor-v1';
+const SUCCESSOR_RECEIPT_V2='st253-api-no-ddl-successor-v2';
 // One explicit API successor. Original source, image, deployment and APK custody stay immutable.
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),assert=require('node:assert/strict'),vm=require('node:vm'),{execFileSync,spawn}=require('node:child_process');
 const ROOT='/home/openclaw/subtrack-sandbox',NAMESPACE='st250-runtime-v1',HOST='198.44.116.159';
@@ -123,11 +127,15 @@ async function upgrade(p,stage){let state='PREFLIGHT',oldStopped=false,migration
 }
 /** Separate no-DDL lineage. Never consume or rewrite the original migration claim. */
 function successorPlan(value){
- closed(value,['schema','host','sourceHead','runId','toolSourceHead','toolSha256','bootstrapSha256','transferReceiptSha256','migrationSha256','predecessor','recovery']);
- if(value.schema!=='st253-api-replacement-plan-v1'||!hex(value.toolSourceHead,40))fail();
+ const schema=value&&Object.getOwnPropertyDescriptor(value,'schema'),chain=!!schema&&'value'in schema&&schema.value===REPLACEMENT_PLAN_V2;
+ closed(value,['schema','host','sourceHead','runId','toolSourceHead','toolSha256','bootstrapSha256','transferReceiptSha256','migrationSha256','predecessor','recovery',...(chain?['history']:[])]);
+ if(![REPLACEMENT_PLAN_V1,REPLACEMENT_PLAN_V2].includes(value.schema)||!hex(value.toolSourceHead,40))fail();
  plan(Object.fromEntries(['schema','host','sourceHead','runId','toolSha256','bootstrapSha256','transferReceiptSha256','migrationSha256','predecessor'].map(key=>[key,key==='schema'?'st253-api-upgrade-plan-v1':value[key]])));
  const r=closed(value.recovery,['runId','planSha256','predecessorSha256','recoveryReceiptSha256','candidateImageSha256','failureReceiptSha256','backupReceiptSha256']);
- if(!run(r.runId)||r.runId===value.runId||Object.entries(r).some(([key,v])=>key!=='runId'&&!hex(v,64)))fail();return value;
+ if(!run(r.runId)||r.runId===value.runId||Object.entries(r).some(([key,v])=>key!=='runId'&&!hex(v,64)))fail();
+ if(chain){const h=value.history;if(!Array.isArray(h)||Object.getPrototypeOf(h)!==Array.prototype||h.length<1||h.length>8||Reflect.ownKeys(h).length!==h.length+1)fail();const runs=new Set([value.runId,r.runId]);
+  for(let i=0;i<h.length;i++){const d=Object.getOwnPropertyDescriptor(h,String(i));if(!d||!('value'in d)||!d.enumerable)fail();const item=closed(d.value,['runId','planSha256','receiptSha256','predecessorSha256','candidateSha256','backupSha256','claimSha256','offlineSha256','archiveSha256']);if(!run(item.runId)||runs.has(item.runId)||Object.entries(item).some(([key,v])=>key!=='runId'&&!hex(v,64)))fail();runs.add(item.runId);}
+ }return value;
 }
 function successorLineage(p,old,recovery,snapshot,candidate,failed,backup,claim){
  successorPlan(p);plan(old);assert.deepEqual(old.predecessor,p.predecessor);assert.deepEqual(old.migrationSha256,p.migrationSha256);
@@ -146,12 +154,41 @@ function replacementInput(state,expected){
  const bytes=regular(stage+'/replacement-plan.json',{max:16384});if(sha(bytes)!==expected)fail();const p=successorPlan(JSON.parse(bytes));
  if(p.runId!==state||sha(regular(stage+'/upgrade-api.cjs'))!==p.toolSha256||fs.realpathSync(__filename)!==stage+'/upgrade-api.cjs'||sha(bootstrapBytes(stage+'/bootstrap.cjs'))!==p.bootstrapSha256)fail();return {stage,p};
 }
+/** Authenticate each completed no-DDL replacement in order. The root migration claim stays consumed. */
+function replacementChain(p,rootCurrent,records){
+ successorPlan(p);if(p.schema!==REPLACEMENT_PLAN_V2||!Array.isArray(records)||records.length!==p.history.length)fail();
+ let current=rootCurrent;const seenIds=new Set([p.predecessor.apiId,p.predecessor.databaseId,p.predecessor.gatewayId,current.apiId]),seenSources=new Set([p.predecessor.sourceHead,current.sourceHead]);
+ for(const [index,record]of records.entries()){
+  closed(record,['plan','receipt','snapshot','candidate','backup','claim','offline','archive']);const prior=successorPlan(record.plan),receipt=record.receipt,descriptor=p.history[index];
+  if(prior.runId!==descriptor.runId||prior.runId===p.runId||seenSources.has(prior.sourceHead))fail();
+  assert.deepEqual(prior.predecessor,p.predecessor);assert.deepEqual(prior.recovery,p.recovery);assert.deepEqual(prior.migrationSha256,p.migrationSha256);if(prior.bootstrapSha256!==p.bootstrapSha256)fail();
+  if(index===0){if(prior.schema!==REPLACEMENT_PLAN_V1)fail();}else{if(prior.schema!==REPLACEMENT_PLAN_V2)fail();assert.deepEqual(prior.history,p.history.slice(0,index));}
+  closed(receipt,['schema','sourceHead','runId','apiId','imageId','predecessor','databaseId','gatewayId','priorRecoveryReceiptSha256','predecessorImageArchiveReceiptSha256','backupReceiptSha256','toolSourceHead','toolSha256','bootstrapSha256','transferReceiptSha256','migrationSha256','ordinaryStartup','frozenValidatorPassed','noDdl','oldApiState','originalCustody','originalData','publicAndroid','qualification',...(index?['priorSuccessorReceiptSha256']:[])]);
+  if(receipt.schema!==(index?SUCCESSOR_RECEIPT_V2:SUCCESSOR_RECEIPT_V1)||receipt.sourceHead!==prior.sourceHead||receipt.runId!==prior.runId||!hex(receipt.apiId,64)||seenIds.has(receipt.apiId)||!image(receipt.imageId)||receipt.imageId===current.imageId||receipt.databaseId!==p.predecessor.databaseId||receipt.gatewayId!==p.predecessor.gatewayId||receipt.priorRecoveryReceiptSha256!==p.recovery.recoveryReceiptSha256||receipt.backupReceiptSha256!==descriptor.backupSha256||receipt.predecessorImageArchiveReceiptSha256!==descriptor.archiveSha256||receipt.ordinaryStartup!==true||receipt.frozenValidatorPassed!==true||receipt.noDdl!==true||receipt.oldApiState!=='stopped-retained'||receipt.originalCustody!=='unchanged'||receipt.originalData!=='retained'||receipt.publicAndroid!=='v2-unchanged'||receipt.qualification!=='awaiting-tls-feature-readback'||index&&receipt.priorSuccessorReceiptSha256!==p.history[index-1].receiptSha256)fail();
+  assert.deepEqual(receipt.predecessor,current);assert.deepEqual(receipt.migrationSha256,p.migrationSha256);for(const key of ['toolSourceHead','toolSha256','bootstrapSha256','transferReceiptSha256'])if(receipt[key]!==prior[key])fail();
+  const s=record.snapshot;if(s.schema!=='st253-api-predecessor-v1'||s.sourceHead!==current.sourceHead||s.containers?.['api-live']?.Id!==current.apiId||s.containers?.['api-live']?.Image!==current.imageId||s.containers?.database?.Id!==p.predecessor.databaseId||s.containers?.['gateway-live']?.Id!==p.predecessor.gatewayId)fail();
+  const c=record.candidate;if(c.schema!=='st253-api-image-v1'||c.sourceHead!==prior.sourceHead||c.runId!==prior.runId||c.importedImageId!==receipt.imageId||!image(c.exportedImageId)||c.transferReceiptSha256!==prior.transferReceiptSha256)fail();
+  const b=record.backup;if(b.schema!=='st253-api-private-backup-v1'||b.sourceHead!==current.sourceHead||b.runId!==prior.runId||b.databaseId!==p.predecessor.databaseId||b.pgDumpCompleted!==true||b.pgRestoreListVerified!==true||b.restored!==false)fail();
+  assert.deepEqual(record.claim,{schema:'st253-api-replacement-claim-v1',runId:prior.runId,sourceHead:prior.sourceHead,planSha256:descriptor.planSha256});
+  const o=record.offline;closed(o,['manifest','migrations','entrypoint','bootstrap']);if(!hex(o.manifest,64)||!hex(o.entrypoint,64)||o.bootstrap!==p.bootstrapSha256)fail();assert.deepEqual(hashes(o.migrations,4),p.migrationSha256);if(index&&o.manifest!==records[index-1].offline.manifest)fail();
+  const a=record.archive;if(a.schema!=='st253-api-retained-predecessor-image-v1'||a.sourceHead!==current.sourceHead||a.imageId!==current.imageId||!image(a.exportedImageId)||a.path!==ROOT+'/staging/'+(index?records[index-1].plan.runId:p.recovery.runId)+'/api-image.tar.gz')fail();
+  current={sourceHead:prior.sourceHead,imageId:receipt.imageId,apiId:receipt.apiId};seenIds.add(current.apiId);seenSources.add(current.sourceHead);
+ }
+ if(seenSources.has(p.sourceHead))fail();return current;
+}
 function replacementSnapshot(p,stage){
  const prior=ROOT+'/staging/api-upgrade/'+p.recovery.runId;directory(prior);const pinned={};
  for(const [name,key]of [['upgrade-plan.json','planSha256'],['predecessor.json','predecessorSha256'],['successor-recovery-receipt.json','recoveryReceiptSha256'],['candidate-image.json','candidateImageSha256'],['failure-receipt.json','failureReceiptSha256'],['database-backup-receipt.json','backupReceiptSha256']]){
   const bytes=regular(prior+'/'+name);if(sha(bytes)!==p.recovery[key])fail();pinned[name]={bytes,value:JSON.parse(bytes)};
  }
- const current=successorLineage(p,...['upgrade-plan.json','successor-recovery-receipt.json','predecessor.json','candidate-image.json','failure-receipt.json','database-backup-receipt.json'].map(name=>pinned[name].value),JSON.parse(regular(ROOT+'/runtime/api-upgrade-claim.json')));
+ let current=successorLineage(p,...['upgrade-plan.json','successor-recovery-receipt.json','predecessor.json','candidate-image.json','failure-receipt.json','database-backup-receipt.json'].map(name=>pinned[name].value),JSON.parse(regular(ROOT+'/runtime/api-upgrade-claim.json')));
+ const rootCurrent=current,records=[],chainFiles={};
+ for(const descriptor of p.history??[]){const dir=ROOT+'/staging/api-upgrade/'+descriptor.runId;directory(dir);const one={};
+  for(const [name,key,role]of [['replacement-plan.json','planSha256','plan'],['no-ddl-successor-receipt.json','receiptSha256','receipt'],['predecessor.json','predecessorSha256','snapshot'],['candidate-image.json','candidateSha256','candidate'],['database-backup-receipt.json','backupSha256','backup'],['offline-qualified.json','offlineSha256','offline'],['predecessor-image-archive.json','archiveSha256','archive']]){const bytes=regular(dir+'/'+name);if(sha(bytes)!==descriptor[key])fail();one[role]=JSON.parse(bytes);chainFiles['staging/api-upgrade/'+descriptor.runId+'/'+name]=sha(bytes);}
+  for(const [name,key,role]of [['api-replacement-claim-','claimSha256','claim'],['api-no-ddl-successor-','receiptSha256',null]]){const file='runtime/'+name+descriptor.runId+'.json',bytes=regular(ROOT+'/'+file);if(sha(bytes)!==descriptor[key])fail();chainFiles[file]=sha(bytes);if(role)one[role]=JSON.parse(bytes);}
+  records.push(one);
+ }
+ if(records.length)current=replacementChain(p,rootCurrent,records);
  const saved=runtimeSnapshot(p,stage,current),original=pinned['predecessor.json'].value;
  assert.deepEqual(saved.snapshot.files,original.files);
  for(const key of ['volumes','networks','secrets'])assert.deepEqual(saved.snapshot[key],original[key]);
@@ -159,8 +196,11 @@ function replacementSnapshot(p,stage){
  const runtimeReceipt='runtime/api-successor-recovery-'+p.recovery.runId+'.json';if(sha(regular(ROOT+'/'+runtimeReceipt))!==p.recovery.recoveryReceiptSha256)fail();
  for(const [name,value]of Object.entries(pinned))saved.snapshot.files['staging/api-upgrade/'+p.recovery.runId+'/'+name]=sha(value.bytes);
  saved.snapshot.files[runtimeReceipt]=p.recovery.recoveryReceiptSha256;saved.snapshot.files['runtime/api-upgrade-claim.json']=sha(regular(ROOT+'/runtime/api-upgrade-claim.json'));
- saved.retainedStopped=[p.predecessor.apiId,pinned['successor-recovery-receipt.json'].value.failedApiId].map(id=>{const c=inspect(id);if(c.Id!==id||c.State.Running||c.Image!==(id===p.predecessor.apiId?p.predecessor.imageId:current.imageId))fail();return c;});
- return {saved,current,oldPlan:pinned['upgrade-plan.json'].value,oldCandidate:pinned['candidate-image.json'].value};
+ Object.assign(saved.snapshot.files,chainFiles);
+ for(const record of records){for(const key of ['volumes','networks','secrets'])assert.deepEqual(record.snapshot[key],original[key]);for(const service of ['database','gateway-live'])assert.deepEqual(graphIdentity(record.snapshot.containers[service]),graphIdentity(original.containers[service]));for(const [name,hash]of Object.entries(original.files))if(record.snapshot.files[name]!==hash)fail();}
+ const ancestors=[{apiId:p.predecessor.apiId,imageId:p.predecessor.imageId},{apiId:pinned['successor-recovery-receipt.json'].value.failedApiId,imageId:rootCurrent.imageId},...(records.length?[rootCurrent,...records.slice(0,-1).map(record=>({apiId:record.receipt.apiId,imageId:record.receipt.imageId}))]:[])];
+ saved.retainedStopped=ancestors.map(prior=>{const c=inspect(prior.apiId);if(c.Id!==prior.apiId||c.State.Running||c.Image!==prior.imageId)fail();return c;});
+ const last=records.at(-1);return {saved,current,oldPlan:last?.plan??pinned['upgrade-plan.json'].value,oldCandidate:last?.candidate??pinned['candidate-image.json'].value};
 }
 function unchangedMigrations(p,old,next,manifest){
  for(const value of [old,next]){closed(value,['manifest','migrations','entrypoint','bootstrap']);if(!hex(value.manifest,64)||!hex(value.entrypoint,64)||value.bootstrap!==p.bootstrapSha256)fail();assert.deepEqual(hashes(value.migrations,4),p.migrationSha256);}
@@ -196,12 +236,12 @@ async function replaceWithoutDdl(p,stage){
   const ordinary=nodeOperation(p,stage,c.imageId,'ordinary-startup',`const{Pool}=require('/workspace/apps/api/node_modules/pg'),{loadSandboxConfig}=require('/workspace/apps/api/dist/sandbox/sandbox-config.js'),{SandboxAuthority}=require('/workspace/apps/api/dist/sandbox/sandbox-authority.js'),{SandboxToken}=require('/workspace/apps/api/dist/sandbox/sandbox-token.js');(async()=>{const c=await loadSandboxConfig(process.env),pool=new Pool(c.database);try{await new SandboxAuthority(pool,new SandboxToken(c.privateKey,c.publicKey,Date.now),c).verifyStartup();process.stdout.write('ST253_ORDINARY_STARTUP_VERIFIED\\n');}finally{await pool.end();}})().catch(()=>process.exit(1));`,'subtrack-sandbox-database');
   startOnce(ordinary,c.imageId,p.runId,stage,'ordinary-startup');removeOperation(ordinary,c.imageId,p.runId);
   state='PRIVATE_BACKUP';const backupReceiptSha256=await privateBackup(effective,stage,saved);unchanged(saved);
-  state='STOP_V5_API';stopped=true;docker(['stop','--time','20',current.apiId]);if(inspect(current.apiId).State.Running)fail();unchanged(saved,false);
+  state='STOP_V5_API';if(p.history)state='STOP_PREDECESSOR_API';stopped=true;docker(['stop','--time','20',current.apiId]);if(inspect(current.apiId).State.Running)fail();unchanged(saved,false);
   state='REPLACE_API';for(const name of ['subtrack-sandbox-database','subtrack-sandbox-ingress'])docker(['network','disconnect',name,current.apiId]);
   newApi=create([...limits(),'--name','subtrack-sandbox-api-successor-'+p.runId,'--network','subtrack-sandbox-database','--network-alias','api-live',...secretArgs(),...envArgs(),'--label','org.subtrack.sandbox.namespace='+NAMESPACE,'--label','com.docker.compose.project=subtrack-sandbox','--label','com.docker.compose.service=api-live'],stage,'successor',c.imageId,p.sourceHead);
   docker(['network','connect','--alias','api-live','subtrack-sandbox-ingress',newApi]);docker(['start',newApi]);state='VERIFY_NEW_API';
   saved.validateLive(inspect(newApi),c.base,'api-live',ROOT,saved.volumes,p.sourceHead,{containerImageId:c.imageId,inspectedImageId:c.imageId,requestedImage:c.imageId},saved.android);unchanged(saved,false);
-  const receipt={schema:'st253-api-no-ddl-successor-v1',sourceHead:p.sourceHead,runId:p.runId,apiId:newApi,imageId:c.imageId,predecessor:current,databaseId:p.predecessor.databaseId,gatewayId:p.predecessor.gatewayId,priorRecoveryReceiptSha256:p.recovery.recoveryReceiptSha256,predecessorImageArchiveReceiptSha256:archiveReceiptSha256,backupReceiptSha256,toolSourceHead:p.toolSourceHead,toolSha256:p.toolSha256,bootstrapSha256:p.bootstrapSha256,transferReceiptSha256:p.transferReceiptSha256,migrationSha256:p.migrationSha256,ordinaryStartup:true,frozenValidatorPassed:true,noDdl:true,oldApiState:'stopped-retained',originalCustody:'unchanged',originalData:'retained',publicAndroid:'v2-unchanged',qualification:'awaiting-tls-feature-readback'};
+  const receipt={schema:p.history?SUCCESSOR_RECEIPT_V2:SUCCESSOR_RECEIPT_V1,sourceHead:p.sourceHead,runId:p.runId,apiId:newApi,imageId:c.imageId,predecessor:current,databaseId:p.predecessor.databaseId,gatewayId:p.predecessor.gatewayId,priorRecoveryReceiptSha256:p.recovery.recoveryReceiptSha256,...(p.history?{priorSuccessorReceiptSha256:p.history.at(-1).receiptSha256}:{}),predecessorImageArchiveReceiptSha256:archiveReceiptSha256,backupReceiptSha256,toolSourceHead:p.toolSourceHead,toolSha256:p.toolSha256,bootstrapSha256:p.bootstrapSha256,transferReceiptSha256:p.transferReceiptSha256,migrationSha256:p.migrationSha256,ordinaryStartup:true,frozenValidatorPassed:true,noDdl:true,oldApiState:'stopped-retained',originalCustody:'unchanged',originalData:'retained',publicAndroid:'v2-unchanged',qualification:'awaiting-tls-feature-readback'};
   retain(stage+'/no-ddl-successor-receipt.json',receipt);retain(ROOT+'/runtime/api-no-ddl-successor-'+p.runId+'.json',receipt);process.stdout.write('ST253_API_NO_DDL_SUCCESSOR_STARTED qualification=awaiting-tls-feature-readback data=retained\n');return receipt;
  }catch(error){
   let recovery='preflight-failed';
@@ -210,12 +250,12 @@ async function replaceWithoutDdl(p,stage){
     if(newApi&&c){const actual=ownedOperation(newApi,c.imageId,p.runId);replacementNetworks(actual);if(actual.State.Running)docker(['stop','--time','20',newApi]);if(ownedOperation(newApi,c.imageId,p.runId).State.Running)fail();for(const name of replacementNetworks(inspect(newApi)))docker(['network','disconnect',name,newApi]);}
     unchanged(saved,false);const old=inspect(current.apiId),connections=restoreConnections(saved.snapshot.containers['api-live'],old);if(old.State.Running&&connections.length)fail();
     for(const args of connections)docker(args);
-    if(!old.State.Running)docker(['start',current.apiId]);saved.validateLive(inspect(current.apiId),saved.baseImages['api-live'],'api-live',ROOT,saved.volumes,current.sourceHead,{containerImageId:current.imageId,inspectedImageId:current.imageId,requestedImage:current.imageId},saved.android);unchanged(saved);recovery='v5-api-restored-no-ddl';
+    if(!old.State.Running)docker(['start',current.apiId]);saved.validateLive(inspect(current.apiId),saved.baseImages['api-live'],'api-live',ROOT,saved.volumes,current.sourceHead,{containerImageId:current.imageId,inspectedImageId:current.imageId,requestedImage:current.imageId},saved.android);unchanged(saved);recovery=p.history?'immediate-predecessor-restored-no-ddl':'v5-api-restored-no-ddl';
    }catch{recovery='api-state-unconfirmed-retained';}
   }
   try{retain(stage+'/replacement-failure-receipt.json',{schema:'st253-api-replacement-failure-v1',sourceHead:p.sourceHead,runId:p.runId,stage:state,state:recovery,apiId:newApi,oldApiId:current?.apiId??null,noDdl:true,originalData:'retained'});}catch{}
   process.stderr.write('ST253_API_REPLACEMENT_UNAVAILABLE stage='+state+' state='+recovery+'\n');throw error;
  }
 }
-module.exports={plan,sourceValidator,gatewayCustody,graphIdentity,networkIdentity,offlineBinding,recoveryPolicy,limits,envArgs,secretArgs,bootstrapBytes,actualManifestBinding,backupArgs,captureBackup,successorPlan,successorLineage,unchangedMigrations,replacementNetworks,restoreConnections};
+module.exports={plan,sourceValidator,gatewayCustody,graphIdentity,networkIdentity,offlineBinding,recoveryPolicy,limits,envArgs,secretArgs,bootstrapBytes,actualManifestBinding,backupArgs,captureBackup,successorPlan,successorLineage,replacementChain,unchangedMigrations,replacementNetworks,restoreConnections};
 if(require.main===module){void(async()=>{if(process.argv.length!==4||!['upgrade','replace'].includes(process.argv[2]))fail();environmentGuard();directory(ROOT+'/runtime');if(process.argv[2]==='replace'){const value=replacementInput(process.argv[3],process.env.ST253_REPLACEMENT_PLAN_SHA256);retain(ROOT+'/runtime/api-replacement-claim-'+value.p.runId+'.json',{schema:'st253-api-replacement-claim-v1',runId:value.p.runId,sourceHead:value.p.sourceHead,planSha256:process.env.ST253_REPLACEMENT_PLAN_SHA256});await replaceWithoutDdl(value.p,value.stage);}else{const value=input(process.argv[3],process.env.ST253_UPGRADE_PLAN_SHA256);retain(ROOT+'/runtime/api-upgrade-claim.json',{schema:'st253-api-upgrade-claim-v1',runId:value.p.runId,sourceHead:value.p.sourceHead,planSha256:process.env.ST253_UPGRADE_PLAN_SHA256});await upgrade(value.p,value.stage);}})().catch(()=>{process.stderr.write('ST253_API_UPGRADE_STOPPED inspect=retained-evidence\n');process.exitCode=1;});}

@@ -17,7 +17,8 @@
       "types": "./dist/personas.d.ts",
       "import": "./dist/personas.js",
       "require": "./dist/personas.js"
-    }
+    },
+    "./sweden-subscriptions": "./src/sweden-subscriptions.json"
   },
   "scripts": {
     "build": "tsc --noEmit",
