@@ -6,6 +6,10 @@ on:
         description: Frozen integrated source of the already signed successor APK
         type: string
         required: true
+      tooling_head:
+        description: Exact reviewed test-tooling commit (same source or immediate tooling-only child of814)
+        type: string
+        default: ""
       signed_release_id:
         description: Private unpublished signed-return draft ID
         type: string
@@ -24,6 +28,10 @@ on:
         description: Frozen integrated source of the already signed successor APK
         type: string
         required: true
+      tooling_head:
+        description: Exact reviewed test-tooling commit (same source or immediate tooling-only child of814)
+        type: string
+        default: ""
       signed_release_id:
         description: Private unpublished signed-return draft ID
         type: string
@@ -61,6 +69,7 @@ jobs:
       MAESTRO_CLI_NO_ANALYTICS: "true"
       # Reuses only the existing disposable-emulator ownership guard, never private API/CA configuration.
       SUBTRACK_PRIVATE_DEVICE_PROOF: "true"
+      ST_PRODUCT_TOOLING_SOURCE: ${{ inputs.tooling_head || github.sha }}
       ST_PRODUCT_SOURCE: ${{ inputs.source_head }}
       ST_PRODUCT_RELEASE: ${{ inputs.signed_release_id }}
       ST_PRODUCT_SIGNED_SHA256: ${{ inputs.signed_sha256 }}
@@ -70,7 +79,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-          fetch-depth: 1
+          fetch-depth: 2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "24.14.0"
@@ -79,7 +88,29 @@ jobs:
           distribution: temurin
           java-version: "17"
       - name: Check final installed qualification contracts
-        run: node --test apps/mobile/scripts/sandbox-installed-android-test.mjs
+        run: |
+          umask 077
+          yaml_owner=$(mktemp -d "$RUNNER_TEMP/st253-product-yaml.XXXXXXXX")
+          trap 'rm -rf -- "$yaml_owner"' EXIT
+          trap 'exit 1' INT TERM
+          export ST_PRODUCT_YAML_ROOT="$yaml_owner/package"
+          node --input-type=module - "$yaml_owner" <<'NODE'
+          import fs from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';import {spawnSync} from 'node:child_process';
+          try {
+          // ST250_TOOLS_YAML_VALIDATORS_BEGIN
+          const integrity='sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw==';
+          function validateDependencyLock(text){if(typeof text!=='string'||text.length>4194304||!text.includes(`  yaml@2.9.1:\n    resolution: {integrity: ${integrity}}\n`)||!text.includes('  yaml@2.9.1: {}\n'))throw Error('YAML_DEPENDENCY_UNAVAILABLE');}
+          function validateDependencyArchive(bytes){if(!Buffer.isBuffer(bytes)||bytes.length<1||bytes.length>1048576||'sha512-'+createHash('sha512').update(bytes).digest('base64')!==integrity)throw Error('YAML_DEPENDENCY_UNAVAILABLE');}
+          // ST250_TOOLS_YAML_VALIDATORS_END
+          validateDependencyLock(fs.readFileSync('pnpm-lock.yaml','utf8').replace(/\r\n/g,'\n'));
+          const response=await fetch('https://registry.npmjs.org/yaml/-/yaml-2.9.1.tgz',{redirect:'error',signal:AbortSignal.timeout(30000)});if(!response.ok)throw Error('YAML_DEPENDENCY_UNAVAILABLE');
+          const chunks=[];let size=0;for await(const chunk of response.body){size+=chunk.length;if(size>1048576)throw Error('YAML_DEPENDENCY_UNAVAILABLE');chunks.push(chunk);}const bytes=Buffer.concat(chunks);validateDependencyArchive(bytes);
+          const owner=process.argv[2],archive=path.join(owner,'yaml.tgz');fs.writeFileSync(archive,bytes,{flag:'wx',mode:0o600});
+          const extract=spawnSync('tar',['--extract','--gzip','--file',archive,'--directory',owner,'--no-same-owner','--no-same-permissions'],{stdio:'ignore',timeout:30000});if(extract.status!==0)throw Error('YAML_DEPENDENCY_UNAVAILABLE');
+          const pkg=JSON.parse(fs.readFileSync(path.join(owner,'package/package.json'),'utf8'));if(pkg.name!=='yaml'||pkg.version!=='2.9.1'||['dependencies','optionalDependencies','peerDependencies'].some(k=>Object.keys(pkg[k]??{}).length))throw Error('YAML_DEPENDENCY_UNAVAILABLE');
+          }catch{process.stderr.write('ST250_TOOLS_YAML_DEPENDENCY_UNAVAILABLE\n');process.exitCode=1;}
+          NODE
+          node --test apps/mobile/scripts/sandbox-installed-android-test.mjs
       - name: Bind successful independent verification and authenticated exact signed bytes
         env:
           GITHUB_TOKEN: ${{ github.token }}

@@ -44,9 +44,20 @@ export function flowLabels(now=new Date()){
 export function maestroArgs(labels,output,flow){
  return ['test','--test-output-dir',output,...Object.entries(labels).flatMap(([key,value])=>['-e',`${key}=${value}`]),flow];
 }
+function currentDispatch(){
+ const git=args=>{const result=spawnSync('git',args,{cwd:root,encoding:'utf8',stdio:['ignore','pipe','ignore'],timeout:10000,maxBuffer:65536});if(result.status!==0||result.error)fail();return result.stdout;};
+ const checkout=git(['rev-parse','HEAD']).trim();let lineage;
+ if(checkout!==process.env.ST_PRODUCT_SOURCE){
+  const parents=git(['rev-list','--parents','-n','1','HEAD']).trim().split(' ').slice(1);
+  const paths=git(['diff','--name-only','--no-renames','-z','HEAD^','HEAD']).split('\0').filter(Boolean);
+  // A dirty worktree cannot claim that the reviewed child commit supplied these tools.
+  if(git(['status','--porcelain','--untracked-files=no']).trim())fail();lineage={parents,paths};
+ }
+ return dispatch(process.env,checkout,lineage);
+}
 async function prepare(){
  const w=workspace();if(existsSync(w.privateDir)||existsSync(w.publicDir))fail();mkdirSync(w.privateDir,{mode:0o700});
- const checkout=spawnSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8',stdio:['ignore','pipe','ignore']});if(checkout.status!==0)fail();const expected=dispatch(process.env,checkout.stdout.trim());
+ const expected=currentDispatch();
  phase='VERIFICATION';const run=await json(`/repos/${REPO}/actions/runs/${expected.verificationRun}`),jobs=(await json(`/repos/${REPO}/actions/runs/${expected.verificationRun}/jobs?per_page=100`)).jobs;
  const job=jobs?.filter(value=>value.name==='signed-return-verification');if(job?.length!==1||!Number.isSafeInteger(job[0].id))fail();
  const logs=await github(`/repos/${REPO}/actions/jobs/${job[0].id}/logs`,8388608);let authority;try{authority=verifiedAuthority(run,jobs,logs,expected);}finally{logs.fill(0);}
@@ -59,7 +70,7 @@ async function prepare(){
 }
 function run(){
  const w=workspace();const {expected,authority}=JSON.parse(readFileSync(path.join(w.privateDir,'authority.json'),'utf8'));
- const checkout=spawnSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8',stdio:['ignore','pipe','ignore']});if(checkout.status!==0||JSON.stringify(dispatch(process.env,checkout.stdout.trim()))!==JSON.stringify(expected))fail();
+ if(JSON.stringify(currentDispatch())!==JSON.stringify(expected))fail();
  const apk=path.join(w.privateDir,'signed.apk');if(digest(readFileSync(apk))!==expected.signedSha256)fail();
  const checks={signedVerificationBound:true};let complete=false,freshWorkspaceStarted=false,diagnostic;
  try{

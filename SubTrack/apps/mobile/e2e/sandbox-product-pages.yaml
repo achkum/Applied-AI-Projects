@@ -51,12 +51,30 @@ appId: se.subtrack.app.sandbox
       id: native-insights-overview
     timeout: 30000
 - scrollUntilVisible:
-    element: ${E_COMPARE}
+    element:
+      text: ${E_COMPARE}
+      below: ${E_TREND_EVIDENCE}
     direction: DOWN
-- tapOn: ${E_COMPARE}
+- tapOn:
+    text: ${E_COMPARE}
+    below: ${E_TREND_EVIDENCE}
 - extendedWaitUntil:
     visible: ${E_YOUR_PLANS}
     timeout: 30000
+# The ten-plan strip is horizontal; bounded real fragment swipes reveal the owned plan.
+# Fixed disposable emulator/normal font fixture: this is the plan-strip row, not screen centre.
+- repeat:
+    times: 12
+    commands:
+      - runFlow:
+          when:
+            notVisible: Birch Cinema
+          commands:
+            - swipe:
+                start: 90%, 24%
+                end: 10%, 24%
+                duration: 500
+- assertVisible: Birch Cinema
 - tapOn: Birch Cinema
 - tapOn: ${E_ANNUAL}
 - scrollUntilVisible:

@@ -35,6 +35,9 @@ on:
       source_head:
         type: string
         default: ""
+      tooling_head:
+        type: string
+        default: ""
       signed_release_id:
         type: string
         default: ""
@@ -55,6 +58,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       ST_FINAL_SOURCE: ${{ inputs.source_head }}
+      ST_FINAL_TOOLING: ${{ inputs.tooling_head || github.sha }}
       ST_FINAL_SCOPE: ${{ inputs.proof_scope }}
     steps:
       - name: Bind explicit install-only source authority
@@ -64,7 +68,10 @@ jobs:
           test "$ST_FINAL_SCOPE" != ios-driver
           test "$GITHUB_REF" = refs/heads/st/native-synthetic-bank
           [[ "$ST_FINAL_SOURCE" =~ ^[a-f0-9]{40}$ ]]
-          test "$ST_FINAL_SOURCE" = "$GITHUB_SHA"
+          test "$ST_FINAL_TOOLING" = "$GITHUB_SHA"
+          if test "$ST_FINAL_SOURCE" != "$GITHUB_SHA"; then
+            test "$ST_FINAL_SOURCE" = 81420b1faa8dae3143bd18653ac5cae383e8a9bc
+          fi
   final-signed-product:
     needs: final-signed-authority
     if: github.event_name == 'workflow_dispatch' && inputs.signed_product == true
@@ -77,6 +84,7 @@ jobs:
     uses: ./.github/workflows/subtrack-sandbox-installed-android.yml
     with:
       source_head: ${{ inputs.source_head }}
+      tooling_head: ${{ inputs.tooling_head || github.sha }}
       signed_release_id: ${{ inputs.signed_release_id }}
       signed_sha256: ${{ inputs.signed_sha256 }}
       verification_run: ${{ inputs.verification_run }}

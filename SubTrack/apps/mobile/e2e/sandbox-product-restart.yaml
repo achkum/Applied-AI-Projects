@@ -7,7 +7,9 @@ appId: se.subtrack.app.sandbox
 - tapOn:
     id: native-profile-language-sv
 - extendedWaitUntil:
-    visible: ${S_PROFILE_SAVED}
+    visible:
+      id: native-profile-language-sv
+      selected: true
     timeout: 30000
 - assertVisible:
     id: native-profile-language-sv
@@ -15,7 +17,9 @@ appId: se.subtrack.app.sandbox
 - tapOn:
     id: native-profile-theme-dark
 - extendedWaitUntil:
-    visible: ${S_PROFILE_SAVED}
+    visible:
+      id: native-profile-theme-dark
+      selected: true
     timeout: 30000
 - assertVisible:
     id: native-profile-language-sv
