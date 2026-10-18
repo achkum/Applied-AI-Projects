@@ -277,6 +277,13 @@ jobs:
           const context=preinputCaptureContext(process.env,process.env.ST253_CAPTURE_SOURCE_HEAD);
           if(context){const root=join(process.env.RUNNER_TEMP,'subtrack-native-proof','private');mkdirSync(root,{recursive:true,mode:0o700});recordPreinputSimulator(root,context);}
           NODE
+      - name: Fresh owned iOS screenshot capability before fixture or compilation
+        if: matrix.platform == 'ios' && env.ST253_CAPTURE_ENABLED == 'true' && (needs.select-proof.outputs.scope == 'full' || needs.select-proof.outputs.scope == 'ios-driver')
+        env:
+          NODE_ENV: development
+        run: |
+          umask 077
+          node apps/mobile/scripts/private-runtime-ios-frame-capability.mjs
       - name: Owned iOS driver readiness before native compilation
         id: ios_driver_preflight
         if: matrix.platform == 'ios'
@@ -285,13 +292,6 @@ jobs:
         run: |
           umask 077
           node apps/mobile/scripts/private-runtime-ios-driver-preflight.mjs
-      - name: Fresh owned iOS screenshot capability before fixture or compilation
-        if: matrix.platform == 'ios' && env.ST253_CAPTURE_ENABLED == 'true' && (needs.select-proof.outputs.scope == 'full' || needs.select-proof.outputs.scope == 'ios-driver')
-        env:
-          NODE_ENV: development
-        run: |
-          umask 077
-          node apps/mobile/scripts/private-runtime-ios-frame-capability.mjs
       - name: Owned PostgreSQL16 and ephemeral TLS fixture
         if: needs.select-proof.outputs.scope != 'ios-driver'
         run: |

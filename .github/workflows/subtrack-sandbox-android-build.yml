@@ -65,6 +65,8 @@ on:
       - .github/workflows/subtrack-sandbox-android-build.yml
       - SubTrack/tools/sandbox/build-android.sh
       - SubTrack/tools/sandbox/android-release-receipt*
+      - SubTrack/tools/sandbox/android-local-signing*
+      - SubTrack/tools/sandbox/sign-android-local-recovery*
       - SubTrack/apps/mobile/**
       - SubTrack/packages/**
       - SubTrack/package.json
@@ -101,7 +103,7 @@ jobs:
           npm install --global pnpm@12.6.0
           pnpm install --frozen-lockfile
       - name: Actual release configuration and custody contracts
-        run: node --test tools/sandbox/android-release-receipt.test.mjs tools/sandbox/android-transfer-receipt.test.mjs tools/sandbox/android-release-cache.test.mjs
+        run: node --test tools/sandbox/android-release-receipt.test.mjs tools/sandbox/android-transfer-receipt.test.mjs tools/sandbox/android-release-cache.test.mjs tools/sandbox/android-local-signing-reservation.test.mjs tools/sandbox/android-local-signing-receipt.test.mjs
   unsigned-android:
     if: github.event_name != 'pull_request' && inputs.delivery_mode == 'none'
     runs-on: ubuntu-24.04
@@ -254,6 +256,7 @@ jobs:
           NODE
           fi
           node --test tools/sandbox/android-release-receipt.test.mjs tools/sandbox/android-transfer-receipt.test.mjs
+          node --test tools/sandbox/android-local-signing-reservation.test.mjs tools/sandbox/android-local-signing-receipt.test.mjs
           if [ "$ST250_DELIVERY_MODE" = unsigned-apk ]; then node --test tools/sandbox/android-release-cache.test.mjs; fi
       - name: Free private draft custody and observed cleanup
         env:

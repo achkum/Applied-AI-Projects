@@ -7,6 +7,18 @@ const read=name=>readFileSync(new URL(name,import.meta.url),'utf8');
 const requireMobile=createRequire(new URL('../../apps/mobile/package.json',import.meta.url));
 const yaml=createRequire(requireMobile.resolve('expo/package.json'))('yaml');
 const workflow=yaml.parse(read('../../../.github/workflows/subtrack-sandbox-android-build.yml'));
+test('recovery-only changes select lightweight policy and both protocol suites also guard private delivery',()=>{
+ const filters=workflow.on.pull_request.paths;
+ for(const changed of ['SubTrack/tools/sandbox/android-local-signing-reservation.mjs','SubTrack/tools/sandbox/android-local-signing-receipt.test.mjs','SubTrack/tools/sandbox/sign-android-local-recovery.ps1']){
+  assert.ok(filters.some(pattern=>pattern.endsWith('*')?changed.startsWith(pattern.slice(0,-1)):pattern===changed));
+ }
+ const suites=['tools/sandbox/android-local-signing-reservation.test.mjs','tools/sandbox/android-local-signing-receipt.test.mjs'];
+ const policy=workflow.jobs['android-release-policy'],delivery=workflow.jobs['private-delivery'];
+ for(const suite of suites){assert.ok(policy.steps.some(step=>step.run?.includes(suite)));assert.ok(delivery.steps.some(step=>step.name==='Focused Android custody contracts'&&step.run.includes(suite)));}
+ assert.ok(delivery.steps.findIndex(step=>step.name==='Focused Android custody contracts')<delivery.steps.findIndex(step=>step.name==='Free private draft custody and observed cleanup'));
+ assert.ok(!policy.steps.some(step=>step.run?.includes('sdkmanager')||step.run?.includes('assembleRelease')));
+});
+
 test('release cache contains only public dependencies/library tasks and never application/signing material',()=>{
  const expected=['~/.gradle/caches/modules-2','~/.gradle/caches/*/transforms','~/.gradle/caches/transforms-*','~/.gradle/caches/build-cache-*','~/.gradle/wrapper'];
  for(const name of ['unsigned-android','private-delivery']){
