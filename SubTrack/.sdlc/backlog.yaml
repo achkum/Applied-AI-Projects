@@ -9,14 +9,15 @@ independent_native_slice: ST-251
 delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
 android_fix_handoff:
-  updated: "2026-10-17"
-  execution: "V5 UNVALIDATED private APK retains original signer/data, but founder phone acceptance is FAILED: app-wide HTML layout mismatch/clutter and insufficient test data. Shared native HTML correction and per-test-user persistent sample data are implemented; all55 local tasks and715 mobile tests pass. Durable PostgreSQL, installed visual/accessibility qualification and corrected signed delivery remain pending. iOS test infrastructure is independently blocked by CoreSimulator DEVICES_TIMEOUT; no further runner attempts during this product batch. No completed-product claim."
+  updated: "2026-10-18"
+  execution: "V6 known-issues private APK delivered at source81420b1f, original signer/data retained. Rich per-owner backend seed update deployed once; independent signed-binary verification39111619704 PASS. Exact signed installed run39111679544 passes SETUP/BANK/MANAGE, then PAGES fails without retained screen; visual/preferences/cold-restart stages not reached. Complete native acceptance and exact HTML parity remain unproven. No app rebuild or redeploy after test-tooling-only PR301. See android-v6-private-delivery-2026-10-18.md."
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
   tested_source_head: ccac41571127ef97acb46728a57c67da691bd120
-  delivery_source_head: 381a19ba731c7b1a802ebabea1ff6a5ffad56783
-  version_code: 5
+  delivery_source_head: 81420b1faa8dae3143bd18653ac5cae383e8a9bc
+  version_code: 6
   issues:
+    - "V6: SubTrack-Android-v6-20261018-TEST.apk,65648113bytes,SHA25677e400676d67fa4d638172f969cda7c74ccf87e13772a1d41458b9f6fc3d4ad1. Signed build delivered; PAGES failure and exact native visual parity unresolved. No successful complete-product claim."
     - "V5 private test delivery: SubTrack-Android-v5-20261017-UNVALIDATED.apk,65611249 bytes,SHA2567b951487d4a22f261fe534991b79e68c97424eb2358be2510fad6a14ab7dec18. Android build39058274305 and API39058276540 succeed; full device/signed-product validation explicitly waived. Source reviews retained."
     - "ST-253 deployment follow-up: upgrade-api.cjs limits uses no-new-privileges while frozen live validator requires explicit no-new-privileges:true. Actual failure recovered without DDL/rebuild using same image and independently reviewed execution-only script; persist exact option in future helper before reuse. Original failure, backup and recovery receipts retained."
     - "Phone V3 acceptance FAILED: unsupported avatar input blocked profile, preferences not applied before rejected save, redundant login/badges/Welcome alignment. Source corrected; scoped profile/avatar/preferences/Add/app/API restart/logout and real dark restart PNG PASS. Actual signed V4 phone acceptance still pending."
