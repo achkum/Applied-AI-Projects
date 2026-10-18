@@ -107,6 +107,19 @@ it.each(['ios','android'] as const)('configures profile keyboard scrolling on %s
  try{jest.mocked(api.saveNativeProfile).mockImplementation(async()=>{expect(dismiss).toHaveBeenCalledTimes(1);return profile;});fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.name),'Example owner');fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.saveProfile}));await screen.findByText(copy.nativePersonal.profileSaved);expect(api.saveNativeProfile).toHaveBeenCalledTimes(1);expect(mockSetLocale).toHaveBeenLastCalledWith('en');expect(mockSetMode).toHaveBeenLastCalledWith('system');}finally{dismiss.mockRestore();}
  }finally{os.restore();}
 });
+it.each(['ios','android'] as const)('passes first handled taps through horizontal subscription controls on %s without losing the draft',async platform=>{
+ const os=jest.replaceProperty(Platform,'OS',platform);
+ try{
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(copy.ownerSubscriptions.empty);
+ const categoryStrip=screen.UNSAFE_getAllByType(ScrollView).find(item=>item.props.horizontal)!;expect(categoryStrip.props.keyboardShouldPersistTaps).toBe('handled');
+ fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.title}));fireEvent.changeText(screen.getByTestId('native-subscription-name'),'Retained weekly plan');chooseCategory(copy.ownerSubscriptions.category.VIDEO_STREAMING);fireEvent.changeText(screen.getByLabelText(copy.nativePersonal.amount),'12.00');
+ const cadenceStrip=screen.UNSAFE_getAllByType(ScrollView).find(item=>item.props.horizontal)!;expect(cadenceStrip.props.keyboardShouldPersistTaps).toBe('handled');
+ fireEvent.press(screen.getByRole('button',{name:copy.ownerSubscriptions.cadence.WEEKLY}));expect(screen.getByRole('button',{name:copy.ownerSubscriptions.cadence.WEEKLY}).props.accessibilityState.selected).toBe(true);expect(screen.getByTestId('native-subscription-name').props.value).toBe('Retained weekly plan');expect(api.createNativeSubscription).not.toHaveBeenCalled();
+ jest.mocked(api.createNativeSubscription).mockResolvedValue({id:row.id});jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,customName:'Retained weekly plan',cadence:'WEEKLY',expectedAmountMinor:'1200'}],nextCursor:null});
+ fireEvent.press(screen.getByRole('button',{name:copy.manualSubscription.save}));await waitFor(()=>expect(api.createNativeSubscription).toHaveBeenCalledTimes(1));expect(api.createNativeSubscription).toHaveBeenCalledWith(expect.objectContaining({customName:'Retained weekly plan',cadence:'WEEKLY',expectedAmountMinor:'1200'}),credentials.accessToken,expect.any(AbortSignal));await screen.findByText('Retained weekly plan');
+ }finally{os.restore();}
+});
 it('reads current private rows only after fresh verification and clears them immediately on offline logout', async () => {
   jest.mocked(api.readNativeSubscriptions).mockResolvedValue({ items: [row], nextCursor: null });
   jest.mocked(api.revokeNativeSession).mockRejectedValue(new Error('offline')); mount();

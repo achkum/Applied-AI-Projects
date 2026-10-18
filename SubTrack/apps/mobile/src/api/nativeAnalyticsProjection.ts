@@ -91,7 +91,7 @@ export function isNativeComparisonAlternative(left:ComparisonPlan,right:Comparis
 
 /** A display scope over this owner's already-authorized rows. It grants no member access. */
 export function scopeNativeAnalytics(value: NativeAnalytics, subscriptionIds: ReadonlySet<string>, now: Date): NativeAnalytics {
-  const active=value.active.filter(row=>subscriptionIds.has(row.id)),ids=new Set(active.map(row=>row.id));
+  const subscriptions=value.subscriptions.filter(row=>subscriptionIds.has(row.id)),ids=new Set(subscriptions.map(row=>row.id));
   const history=value.historyAvailable?value.attributedCharges.filter(row=>row.subscriptionId!==null&&ids.has(row.subscriptionId)):null;
-  return projectNativeAnalytics(active,history,now,value.plans.filter(plan=>plan.source==='synthetic-persona-fixture'),value.historyTruncated);
+  return projectNativeAnalytics(subscriptions,history,now,value.plans.filter(plan=>plan.source==='synthetic-persona-fixture'),value.historyTruncated);
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {Pressable,RefreshControl,ScrollView,StyleSheet,Text,View} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams,useRouter } from 'expo-router';
 import { useNativeSession } from '@/state/NativeSession';
 import type { NativeFeatureSession } from '../onboarding/NativePersonalScreen';
 import { useI18n } from '@/context/I18nContext';
@@ -9,7 +9,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { getColorByTheme } from '@/utils/colors';
 import * as privateApi from '@/api/privateMobileApi';
 import { createNativeAnalyticsReader, type NativeAnalyticsReader } from '@/api/nativeAnalyticsReader';
-import { compareNativePlans,isNativeComparisonAlternative } from '@/api/nativeAnalyticsProjection';
+import { compareNativePlans,isNativeComparisonAlternative,scopeNativeAnalytics } from '@/api/nativeAnalyticsProjection';
 import { recurringCost } from '../../../../../packages/money/src/recurring-cost';
 import { money, multiply } from '../../../../../packages/money/src/money';
 import { NativeProductButton, NativeProductCard, NativeProductHeading } from '../billing/NativeProductUI';
@@ -22,14 +22,18 @@ export function NativeComparisonsScreen({ useSession = useNativeSession, reader 
   useSession?: () => NativeFeatureSession; reader?: NativeAnalyticsReader; now?: () => Date; inactiveContent?: React.ReactNode; initialSubscriptionId?: string;
 }) {
   const session = useSession(), router = useRouter(), { t } = useI18n(), { theme, isDark } = useTheme();
-  const { value, state, reload } = useNativeAnalytics(session, reader, now), [selection, setSelection] = useState<string | null>(null);
+  const { value:all, state, reload } = useNativeAnalytics(session, reader, now), [selection, setSelection] = useState<string | null>(null);
+  const params=useLocalSearchParams<{memberId?:string|string[]}>(),requestedMember=typeof params.memberId==='string'?params.memberId:null;
+  const member=all?.household?.members.find(row=>row.id===requestedMember);
+  const ids=member?new Set(all!.household!.assignments.filter(row=>row.payerMemberId===member.id).map(row=>row.subscriptionId)):null;
+  const value=all&&ids?scopeNativeAnalytics(all,ids,now()):all;
   const [period, setPeriod] = useState<'monthly' | 'annual'>('monthly');
   const saved = value?.plans.filter(row => row.source === 'saved') ?? [];
   const selected = saved.find(row => row.id === selection) ?? saved.find(row => row.subscriptionId === initialSubscriptionId) ?? saved[0];
   const alternatives = selected ? value?.plans.filter(row => isNativeComparisonAlternative(selected,row)) ?? [] : [];
   return <SafeAreaView style={{ flex: 1, backgroundColor: getColorByTheme(theme, isDark, 'bg.canvas') }}><ScrollView testID="native-comparisons-scroll" alwaysBounceVertical contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={session.phase==='active'&&state==='loading'} enabled={session.phase==='active'} onRefresh={()=>{void reload();}} tintColor={getColorByTheme(theme,isDark,'action.accent')}/>}>
-    <AnalyticsLink label={t('nativeAnalytics.backToInsights')} onPress={() => router.replace('/personal-insights')} />
-    <NativeProductHeading title={t('nativeAnalytics.comparisons')} />
+    <AnalyticsLink label={t('nativeAnalytics.backToInsights')} onPress={() => router.replace(requestedMember?{pathname:'/personal-insights',params:{memberId:requestedMember}}:'/personal-insights')} />
+    <NativeProductHeading eyebrow={member?.displayName} title={t('nativeAnalytics.comparisons')} />
     {session.phase !== 'active' ? inactiveContent ?? <AnalyticsText>{t('nativeAnalytics.loginRequired')}</AnalyticsText> : <>
       {state === 'loading' ? <AnalyticsText kind="muted">{t('nativeAnalytics.loading')}</AnalyticsText> : null}
       {state === 'error' ? <AnalyticsText>{t('nativeAnalytics.unavailable')}</AnalyticsText> : null}

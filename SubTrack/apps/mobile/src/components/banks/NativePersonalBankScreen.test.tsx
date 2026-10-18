@@ -1,5 +1,5 @@
 import React from 'react';
-import {Pressable,RefreshControl,ScrollView,Text} from 'react-native';
+import {Pressable,RefreshControl,ScrollView,StyleSheet,Text} from 'react-native';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
 import {NativePersonalBankScreen} from './NativePersonalBankScreen';
 import {NativeSessionProvider,useNativeSession} from '@/state/NativeSession';
@@ -117,4 +117,15 @@ it('shows loading only while the actual owned read is pending and reports a fail
  expect(screen.queryByText(copy.empty)).toBeNull();
  await act(async()=>finish({kind:'ready',connections:[]}));await screen.findByText(copy.empty);expect(screen.queryByText(copy.loading)).toBeNull();
  await pullRefresh();await screen.findByText(copy.unavailable);expect(screen.queryByText(copy.loading)).toBeNull();expect(api.mutateNativeBank).not.toHaveBeenCalled();
+});
+
+it('keeps bank facts and compact actions within narrow large-text bounds and handles the iOS escape as Back without a mutation',async()=>{
+ jest.mocked(api.readNativeBank).mockResolvedValue({kind:'ready',connections:[active]});mount();await login();await screen.findByText(copy.active);
+ expect(StyleSheet.flatten(screen.getByTestId('native-bank-facts-0').props.style)).toMatchObject({flexDirection:'row',flexWrap:'wrap'});
+ for(const id of ['native-bank-accounts-0','native-bank-transactions-0'])expect(StyleSheet.flatten(screen.getByTestId(id).props.style)).toMatchObject({maxWidth:'100%',flexWrap:'wrap'});
+ for(const label of [copy.sync,copy.options])expect(StyleSheet.flatten(screen.getByRole('button',{name:label}).props.style)).toMatchObject({minHeight:44,minWidth:44,maxWidth:'100%'});
+ expect(StyleSheet.flatten(screen.getByText(copy.demo).props.style)).toMatchObject({flexShrink:1,textAlign:'right'});
+ await press(copy.purge);await screen.findByText(copy.purgeWarning);
+ fireEvent(screen.getByTestId('native-bank-screen'),'accessibilityEscape');
+ expect(mockReplace.mock.calls).toEqual([['/personal']]);expect(api.mutateNativeBank).not.toHaveBeenCalled();expect(screen.getByText('77')).toBeTruthy();
 });

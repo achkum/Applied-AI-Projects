@@ -218,3 +218,13 @@ it('shows loading only while the actual owned read is pending and reports a fail
  await act(async()=>finish({kind:'ready',items:[],nextCursor:null}));await screen.findByText(copy.empty);expect(screen.queryByText(copy.loading)).toBeNull();
  await pullRefresh();await screen.findByText(copy.unavailable);expect(screen.queryByText(copy.loading)).toBeNull();expect(api.mutateNativeDetection).not.toHaveBeenCalled();
 });
+
+it('wraps compact review metadata for large text and handles iOS escape without confirming or rejecting a candidate',async()=>{
+ jest.mocked(api.readNativeDetections).mockResolvedValue({kind:'ready',items:[candidate],nextCursor:null});mount();await login();await screen.findByText('Netflix');
+ expect(StyleSheet.flatten(screen.getByTestId(`native-detection-meta-${id}`).props.style)).toMatchObject({flexDirection:'row',flexWrap:'wrap'});
+ for(const label of [copy.why,copy.confirm.replace('%{name}',candidate.displayName),copy.reject.replace('%{name}',candidate.displayName)])expect(StyleSheet.flatten(screen.getByRole('button',{name:label}).props.style)).toMatchObject({minHeight:44,minWidth:44,maxWidth:'100%'});
+ expect(StyleSheet.flatten(screen.getByText(copy.demo).props.style)).toMatchObject({flexShrink:1,textAlign:'right'});
+ await press(copy.why);expect(screen.getByText(copy.reasons.CADENCE_MATCHED)).toBeTruthy();
+ fireEvent(screen.getByTestId('native-detection-screen'),'accessibilityEscape');
+ expect(mockReplace.mock.calls).toEqual([['/personal']]);expect(api.mutateNativeDetection).not.toHaveBeenCalled();expect(api.readDetectionOwnerRows).not.toHaveBeenCalled();
+});

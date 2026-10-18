@@ -111,6 +111,28 @@ it('compares saved prices accurately by month/year and only labels fixture alter
   expect(screen.getByText(copy.more.replace('%{period}', copy.annual))).toBeTruthy();
   expect(screen.queryByText(/verified today|live price|market average/i)).toBeNull();
 });
+it('carries the actual planned-payer scope through inline and full comparisons and back to Insights',async()=>{
+ const projection=projectNativeAnalytics([row,second],history,now(),[{id:'fixture:example-video',name:'Example Video sample',categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',amountMinor:'6000',currency:'SEK',source:'synthetic-persona-fixture'}]);
+ const reader=jest.fn().mockResolvedValue({kind:'ready',projection:{...projection,household:homeHousehold}}),session=facade(),memberId=homeHousehold.members[0]!.id;mockSearchParams={memberId};
+ const insights=render(<NativeInsightsScreen useSession={()=>session} reader={reader} now={now}/>);await screen.findByText(copy.priceRise);
+ const links=screen.getAllByRole('button',{name:copy.compare});fireEvent.press(links[0]!);expect(mockPush).toHaveBeenLastCalledWith({pathname:'/personal-comparisons',params:{subscriptionId:row.id,memberId}});
+ fireEvent.press(links[links.length-1]!);expect(mockPush).toHaveBeenLastCalledWith({pathname:'/personal-comparisons',params:{memberId}});insights.unmount();
+ render(<NativeComparisonsScreen useSession={()=>session} reader={reader} now={now} initialSubscriptionId={second.id}/>);await screen.findByText(copy.samplePrice);
+ expect(screen.getByText(homeHousehold.members[0]!.displayName)).toBeTruthy();expect(screen.getByRole('button',{name:row.customName}).props.accessibilityState.selected).toBe(true);expect(screen.queryByRole('button',{name:second.customName})).toBeNull();expect(screen.queryByText(second.customName)).toBeNull();
+ fireEvent.press(screen.getByRole('button',{name:copy.backToInsights}));expect(mockReplace).toHaveBeenLastCalledWith({pathname:'/personal-insights',params:{memberId}});
+});
+it('never assigns unknown-payer plans to an empty comparison member scope and updates when the route member changes',async()=>{
+ const reader=jest.fn().mockResolvedValue({kind:'ready',projection:{...projectNativeAnalytics([row,second],history,now()),household:homeHousehold}}),session=facade();mockSearchParams={memberId:homeHousehold.members[0]!.id};
+ const view=render(<NativeComparisonsScreen useSession={()=>session} reader={reader} now={now}/>);await screen.findByRole('button',{name:row.customName});
+ mockSearchParams={memberId:homeHousehold.members[1]!.id};view.rerender(<NativeComparisonsScreen useSession={()=>session} reader={reader} now={now}/>);await screen.findByText(copy.empty);
+ expect(screen.queryByRole('button',{name:row.customName})).toBeNull();expect(screen.queryByRole('button',{name:second.customName})).toBeNull();expect(screen.queryByText(copy.currentPlan)).toBeNull();expect(reader).toHaveBeenCalledTimes(1);
+});
+it.each((['PAUSED','CANCELLED','ARCHIVED'] as const).flatMap(status=>[false,true].map(scoped=>({status,scoped}))))('retains exact authorized booked history in Insights when the last plan is $status (member scope=$scoped)',async({status,scoped})=>{
+ const projection=projectNativeAnalytics([{...row,status}],history,now()),reader=jest.fn().mockResolvedValue({kind:'ready',projection:{...projection,...(scoped?{household:homeHousehold}:{})}}),session=facade();if(scoped)mockSearchParams={memberId:homeHousehold.members[0]!.id};
+ render(<NativeInsightsScreen useSession={()=>session} reader={reader} now={now}/>);await screen.findByText(copy.empty);
+ expect(screen.getByTestId('native-insights-trend').props.accessibilityLabel).toContain(`2026-10, ${formatMinorUnits(12000n,'SEK',{locale:'en',display:'code'})}, ${copy.charges.replace('%{count}','1')}`);
+ expect(screen.queryByTestId('native-insights-overview')).toBeNull();expect(screen.queryByText(copy.priceRise)).toBeNull();expect(screen.queryByRole('button',{name:copy.compare})).toBeNull();expect(screen.getByRole('button',{name:copy.openSubscriptions})).toBeTruthy();
+});
 it('shows actionable Home empty state and Insights navigation without duplicate tab destinations or fake totals', async () => {
   const session = facade(), reader = jest.fn().mockResolvedValue({ kind: 'ready', projection: projectNativeAnalytics([], [], now()) });
   render(<NativeHomeOverview session={session} reader={reader} now={now} />);

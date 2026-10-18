@@ -57,7 +57,10 @@ it.each(['ios','android'] as const)('configures household keyboard scrolling on 
  expect(scroll.props.automaticallyAdjustKeyboardInsets).toBe(platform==='ios'?true:undefined);
  expect(scroll.props.keyboardDismissMode).toBe(platform==='ios'?'interactive':undefined);
  try{jest.mocked(f.api.mutate).mockImplementation(async()=>{expect(dismiss).toHaveBeenCalledTimes(1);return household();});jest.mocked(f.api.read).mockResolvedValue(household());
- fireEvent.changeText(screen.getByTestId('native-household-member-name'),'Example child');fireEvent.press(screen.getByTestId('native-household-member-add'));await screen.findByRole('button',{name:copy.remove});expect(f.api.mutate).toHaveBeenCalledTimes(1);expect(screen.queryByTestId('native-household-member-name')).toBeNull();}finally{dismiss.mockRestore();}
+ fireEvent.changeText(screen.getByTestId('native-household-member-name'),'Example child');
+ const scope=screen.UNSAFE_getAllByType(ScrollView).find(item=>item.props.horizontal)!;expect(scope.props.keyboardShouldPersistTaps).toBe('handled');
+ fireEvent.press(screen.getByTestId(`native-household-scope-${admin}`));expect(screen.getByTestId(`native-household-scope-${admin}`).props.accessibilityState.selected).toBe(true);expect(screen.getByTestId('native-household-member-name').props.value).toBe('Example child');expect(f.api.mutate).not.toHaveBeenCalled();
+ fireEvent.press(screen.getByTestId(`native-household-scope-${admin}`));fireEvent.press(screen.getByTestId('native-household-member-add'));await screen.findByRole('button',{name:copy.remove});expect(f.api.mutate).toHaveBeenCalledTimes(1);expect(screen.queryByTestId('native-household-member-name')).toBeNull();}finally{dismiss.mockRestore();}
  }finally{os.restore();}
 });
 it('adds profile-only members, confirms removal and never offers removal of the admin',async()=>{

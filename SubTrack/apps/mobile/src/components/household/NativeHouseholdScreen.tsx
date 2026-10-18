@@ -83,7 +83,7 @@ export function NativeHouseholdScreen({useSession,api=sandboxHouseholdApi,readSu
      <View style={[styles.statRow,styles.divided,{borderColor:color('line.hairline')}]}><NativeProductLabel style={{fontSize:theme.typography.fontSize.control}}>{copy('perMonth')}</NativeProductLabel><Text style={[strong,styles.statValue]}>{currency(projection.monthly.minorUnits)}</Text></View>
      {renaming?<>{input(copy('householdName'),householdName,setHouseholdName,'native-household-name')}{btn('save',saveHousehold,true)}{btn('cancel',()=>setRenaming(false))}</>:null}
     </NativeProductCard>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scopeRow}>{scopeChip(null,copy('everyone'))}{household.members.map(member=>scopeChip(member.id,member.displayName))}</ScrollView>
+    <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scopeRow}>{scopeChip(null,copy('everyone'))}{household.members.map(member=>scopeChip(member.id,member.displayName))}</ScrollView>
     <NativeProductHeading level="section" title={copy('plannedPayers')}/>
     <NativeProductCard>
      <View testID="native-household-payer-distribution" accessible accessibilityRole="image" accessibilityLabel={copy('plannedPayers')} accessibilityValue={{text:payerSummary}} style={[styles.payerStack,{backgroundColor:color('bg.raised'),borderRadius:theme.radius.pill}]}>

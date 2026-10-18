@@ -21,7 +21,7 @@ it('retains a validated immutable owner roster for confirmed inactive detail wit
  const inactive={...second,status:'PAUSED' as const},input=[row,inactive],value=projectNativeAnalytics(input,[],now);
  expect(value.subscriptions).toEqual(input);expect(value.active.map(item=>item.id)).toEqual([row.id]);expect(Object.isFrozen(value.subscriptions)).toBe(true);expect(value.subscriptions.every(Object.isFrozen)).toBe(true);
  Object.assign(inactive,{revision:'2',customName:'Changed after read'});expect(value.subscriptions[1]).toMatchObject({revision:'1',customName:second.customName});
- expect(scopeNativeAnalytics(value,new Set([inactive.id]),now).subscriptions).toEqual([]);
+ expect(scopeNativeAnalytics(value,new Set([inactive.id]),now).subscriptions).toEqual([value.subscriptions[1]]);
 });
 it('shows category overlap as a review finding without inventing duplicate-service savings', () => {
   const value = projectNativeAnalytics([row, second], [], now);
@@ -92,14 +92,24 @@ it('does not present the same named sample snapshot as an alternative while reta
  expect(isNativeComparisonAlternative(saved,{...sample,name:'Another plan'})).toBe(true);expect(compareNativePlans(saved,{...sample,name:'Another plan'})?.monthly.minorUnits).toBe(1000n);
  expect(compareNativePlans(saved,{...sample,source:'saved',id:`saved:${second.id}`} )?.monthly.minorUnits).toBe(1000n);
 });
-it('scopes actual booked history to selected active subscription IDs without retaining foreign or unassigned evidence',()=>{
+it('scopes actual booked history to selected authorized subscription IDs without retaining foreign or unassigned evidence',()=>{
  const secondCharges=charges(['-7000','-7000','-7000','-7000','-7000']).map(item=>({...item,id:`second-${item.id}`,subscriptionId:second.id}));
  const archived={...row,id:'323e4567-e89b-42d3-a456-426614174000',status:'ARCHIVED' as const};
  const other:AnalyticsCharge[]=[{...charges()[0]!,id:'archived',subscriptionId:archived.id},{...charges()[0]!,id:'unrelated',subscriptionId:null},{...charges()[0]!,id:'foreign',subscriptionId:'423e4567-e89b-42d3-a456-426614174000'}];
  const source=projectNativeAnalytics([row,second,archived],[...charges(),...secondCharges,...other],now,[],true),selected=scopeNativeAnalytics(source,new Set([row.id]),now);
  expect(selected.historyAvailable).toBe(true);expect(selected.historyTruncated).toBe(true);expect(selected.trend.map(month=>month.amount.minorUnits)).toEqual([0n,10000n,10000n,10000n,12000n,12000n]);expect(selected.attributedCharges.map(charge=>charge.id)).toEqual(charges().map(charge=>charge.id));expect(selected.priceIncreases.map(item=>item.subscriptionId)).toEqual([row.id]);
  const disjoint=scopeNativeAnalytics(source,new Set([second.id]),now);expect(disjoint.trend.map(month=>month.amount.minorUnits)).toEqual([0n,7000n,7000n,7000n,7000n,7000n]);expect(disjoint.priceIncreases).toEqual([]);expect(disjoint.attributedCharges.every(charge=>charge.subscriptionId===second.id)).toBe(true);
- const unknown=scopeNativeAnalytics(source,new Set([archived.id,'423e4567-e89b-42d3-a456-426614174000']),now);expect(unknown.active).toEqual([]);expect(unknown.attributedCharges).toEqual([]);expect(unknown.trend.every(month=>month.amount.minorUnits===0n&&month.chargeCount===0)).toBe(true);expect(unknown.priceIncreases).toEqual([]);
+ const inactive=scopeNativeAnalytics(source,new Set([archived.id,'423e4567-e89b-42d3-a456-426614174000']),now);expect(inactive.active).toEqual([]);expect(inactive.attributedCharges).toEqual([other[0]]);expect(inactive.trend.map(month=>month.amount.minorUnits)).toEqual([0n,10000n,0n,0n,0n,0n]);expect(inactive.priceIncreases).toEqual([]);
+ const foreign=scopeNativeAnalytics(source,new Set(['423e4567-e89b-42d3-a456-426614174000']),now);expect(foreign.subscriptions).toEqual([]);expect(foreign.attributedCharges).toEqual([]);
+});
+it.each(['PAUSED','CANCELLED','ARCHIVED'] as const)('retains %s booked history for a selected authorized plan without active costs or price-rise actions',status=>{
+ const source=projectNativeAnalytics([{...row,status},second],[...charges(),{...charges()[0]!,id:'second',subscriptionId:second.id}],now,syntheticComparisonCatalogue,true),scoped=scopeNativeAnalytics(source,new Set([row.id]),now);
+ expect(scoped.subscriptions.map(item=>item.id)).toEqual([row.id]);expect(scoped.active).toEqual([]);expect(scoped.totals).toEqual([]);expect(scoped.categories).toEqual([]);expect(scoped.priceIncreases).toEqual([]);
+ expect(scoped.attributedCharges).toEqual(charges());expect(scoped.trend.map(month=>month.amount.minorUnits)).toEqual([0n,10000n,10000n,10000n,12000n,12000n]);expect(scoped.historyAvailable).toBe(true);expect(scoped.historyTruncated).toBe(true);expect(scoped.plans).toEqual(syntheticComparisonCatalogue);
+});
+it.each(['DETECTED','REJECTED'] as const)('does not admit booked evidence or active comparisons from selected %s plans',status=>{
+ const source=projectNativeAnalytics([{...row,status},second],charges(),now,syntheticComparisonCatalogue),scoped=scopeNativeAnalytics(source,new Set([row.id]),now);
+ expect(scoped.subscriptions.map(item=>item.id)).toEqual([row.id]);expect(scoped.active).toEqual([]);expect(scoped.attributedCharges).toEqual([]);expect(scoped.trend.every(month=>month.chargeCount===0&&month.amount.minorUnits===0n)).toBe(true);expect(scoped.priceIncreases).toEqual([]);expect(scoped.plans).toEqual(syntheticComparisonCatalogue);
 });
 it('preserves unavailable versus available-empty scoped history and snapshots only eligible attributed charges',()=>{
  const unavailable=scopeNativeAnalytics(projectNativeAnalytics([row],null,now),new Set([row.id]),now);expect(unavailable.historyAvailable).toBe(false);expect(unavailable.attributedCharges).toEqual([]);
