@@ -51,15 +51,17 @@ test('preferences and acknowledged primary-screen logout traverse the actual Pro
   }
 });
 
+const rowText=name=>String.raw`${name}(?:, 129,${name.startsWith('Example')?'90':'00'}[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?`;
+
 test('row actions are opened before editing and archived controls are examined after cold restarts', () => {
   const edit = read('edit-status');
-  assert.ok(edit.includes('visible: Example streaming\n    timeout: 30000\n- tapOn: Example streaming\n- scrollUntilVisible:\n    element: ${MAESTRO_EDIT}'));
+  assert.ok(edit.includes('visible: Example streaming\n    timeout: 30000\n- tapOn:\n    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\n    text: Example streaming(?:, 129,90[ \\u00a0\\u202f]+SEK · [^\\r\\n]{1,128})?\n- scrollUntilVisible:\n    element: ${MAESTRO_EDIT}'));
   for (const name of ['edit-status', 'edit-status-api-restart']) {
     const flow = read(name);
-    assert.ok(flow.includes('visible: Example streaming Plus\n    timeout: 30000\n- tapOn: Example streaming Plus\n- assertVisible: ${MAESTRO_EDIT}'), name);
-    const opened = flow.lastIndexOf('- tapOn: Example streaming Plus');
+    assert.ok(flow.includes('visible: Example streaming Plus\n    timeout: 30000\n- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}\n- tapOn:\n    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\n    text: Example streaming Plus(?:, 129,90[ \\u00a0\\u202f]+SEK · [^\\r\\n]{1,128})?\n- assertVisible: ${MAESTRO_EDIT}'), name);
+    const opened = flow.lastIndexOf('- tapOn:\n    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\n    text: Example streaming Plus(?:, 129,90[ \\u00a0\\u202f]+SEK · [^\\r\\n]{1,128})?');
     assert.ok(opened < flow.lastIndexOf('- assertNotVisible: ${MAESTRO_ARCHIVE}'));
-    assert.ok(flow.includes('- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}'));
+    assert.ok(flow.includes('- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}'));assert.ok(flow.includes('- assertVisible: ${MAESTRO_MONTH_DETAIL_PRICE}'));
   }
 });
 
@@ -102,16 +104,41 @@ test('edited saved rows open the actual detail once before status actions and cl
  const mobile=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobile.resolve('expo/package.json'))('yaml');
  const rows=name=>yaml.parseAllDocuments(read(name)).map(document=>document.toJSON())[1];
  const edit=rows('edit-status'),save=edit.findIndex(step=>step.tapOn==='${MAESTRO_SAVE_EDIT}'),pause=edit.findIndex(step=>step.tapOn==='${MAESTRO_PAUSE}');
- assert.equal(edit.filter(step=>step.tapOn==='Example streaming').length,1);
- const postSave=edit.slice(save+1,pause),opened=postSave.filter(step=>step.tapOn==='Example streaming Plus');assert.equal(opened.length,1);
+ assert.equal(edit.filter(step=>step.tapOn?.text===rowText('Example streaming')).length,1);
+ const postSave=edit.slice(save+1,pause),opened=postSave.filter(step=>step.tapOn?.text===rowText('Example streaming Plus'));assert.equal(opened.length,1);
  const statuses=['MAESTRO_PAUSE','MAESTRO_RESUME','MAESTRO_MARK_CANCELLED','MAESTRO_ARCHIVE'];for(const key of statuses)assert.equal(edit.filter(step=>step.tapOn==='${'+key+'}').length,1);
  const archive=edit.findIndex(step=>step.tapOn==='${MAESTRO_ARCHIVE}'),stop=edit.indexOf('stopApp');assert.ok(edit.slice(archive+1,stop).some(step=>step.tapOn?.id==='native-subscription-detail-close'));
  for(const name of ['edit-status','edit-status-api-restart']){
   const flow=rows(name),capture=flow.findIndex(step=>step.takeScreenshot===(name==='edit-status'?'accepted-edited-restart':'accepted-edited-api-restart'));
   assert.ok(capture>0);assert.deepEqual(flow[capture+1],{tapOn:{id:'native-subscription-detail-close'}});
+  const reopen=flow.slice(0,capture).findLastIndex(step=>step.tapOn?.text===rowText('Example streaming Plus'));assert.ok(reopen>0);
+  assert.deepEqual(flow[reopen-1],{assertVisible:'${MAESTRO_EXPECTED_AMOUNT}'});
+  assert.ok(flow.slice(reopen+1,capture).some(step=>step.assertVisible==='${MAESTRO_MONTH_DETAIL_PRICE}'));
+  assert.equal(flow.slice(reopen+1,capture).filter(step=>step.assertVisible==='${MAESTRO_EXPECTED_AMOUNT}').length,0);
   if(name==='edit-status-api-restart')assert.deepEqual(flow[capture+2],{runFlow:'private-runtime-open-profile.yaml'});
  }
  const signed=yaml.parseAllDocuments(readFileSync(new URL('../e2e/sandbox-product-manage.yaml',import.meta.url),'utf8')).map(document=>document.toJSON())[1];
- const saved=signed.findIndex(step=>step.tapOn==='${E_SAVE_EDIT}'),paused=signed.findIndex(step=>step.tapOn==='${E_PAUSE}');assert.equal(signed.filter(step=>step.tapOn==='Netflix').length,1);assert.equal(signed.slice(saved+1,paused).filter(step=>step.tapOn==='Netflix household').length,1);
+ const saved=signed.findIndex(step=>step.tapOn==='${E_SAVE_EDIT}'),paused=signed.findIndex(step=>step.tapOn==='${E_PAUSE}');assert.equal(signed.filter(step=>step.tapOn?.text===rowText('Netflix')).length,1);assert.equal(signed.slice(saved+1,paused).filter(step=>step.tapOn?.text===rowText('Netflix household')).length,1);
  assert.deepEqual(signed.at(-1),{tapOn:{id:'native-subscription-detail-close'}});
+});
+
+test('every owned row tap matches a canonical ID and bounded platform label without relying on descendants',()=>{
+ const mobile=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobile.resolve('expo/package.json'))('yaml');
+ const id='native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+ const cases=[['private-runtime-edit-status',['Example streaming','Example streaming Plus','Example streaming Plus']],['private-runtime-edit-status-api-restart',['Example streaming Plus']],['sandbox-product-manage',['Netflix','Netflix household']],['sandbox-product-restart',['Netflix household']],['sandbox-product-visual',Array(4).fill('Netflix household')]];
+ for(const [file,names]of cases){
+  const source=readFileSync(new URL(`../e2e/${file}.yaml`,import.meta.url),'utf8'),steps=yaml.parseAllDocuments(source)[1].toJSON();
+  const taps=steps.filter(step=>step.tapOn?.id?.startsWith('native-subscription-row-'));assert.equal(taps.length,names.length,file);
+  for(const [index,step]of taps.entries()){
+   const name=names[index],text=rowText(name),pattern=new RegExp(`^(?:${step.tapOn.text})$`),amount=name.startsWith('Example')?'129,90':'129,00';
+   assert.deepEqual(step,{tapOn:{id,text}},file);assert.equal(pattern.test(name),true,'plain iOS label');
+   for(const space of [' ','\u00a0','\u202f'])for(const metadata of ['Monthly · Active · Always private · 2026-10-28','Månadsvis · Aktiv · Alltid privat · 2026-10-28'])assert.equal(pattern.test(`${name}, ${amount}${space}SEK · ${metadata}`),true,'Android label plus composed value');
+   for(const wrong of [name+' foreign',name+' Netflix household',`${name} foreign, ${amount} SEK · Monthly`,`${name}, 129,91 SEK · Monthly`,`${name}, ${amount} EUR · Monthly`,`${name}, ${amount} SEK · `,`${name}, ${amount} SEK · ${'x'.repeat(129)}`,`${name}, ${amount} SEK · Monthly\nforeign`,`${name}, ${amount} SEK · Monthly\rforeign`,`${name}, ${amount} SEK - Monthly`])assert.equal(pattern.test(wrong),false,file);
+   assert.equal(pattern.test(`${name}, ${amount} SEK · ${'x'.repeat(128)}`),true,'bounded metadata is not a status assertion');
+  }
+  assert.equal(steps.filter(step=>typeof step.tapOn==='string'&&/^(Example streaming(?: Plus)?|Netflix(?: household)?)$/.test(step.tapOn)).length,0,file);
+  assert.equal(source.includes('containsDescendants'),false,file);
+ }
+ const pattern=new RegExp(`^(?:${id})$`);assert.equal(pattern.test('native-subscription-row-123e4567-e89b-42d3-a456-426614174000'),true);
+ for(const value of ['native-subscription-row-anything','native-subscription-row-123e4567-e89b-12d3-a456-426614174000','native-subscription-row-123e4567-e89b-42d3-a456-426614174000-foreign'])assert.equal(pattern.test(value),false);
 });

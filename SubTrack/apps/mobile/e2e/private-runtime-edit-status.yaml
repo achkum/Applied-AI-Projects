@@ -20,7 +20,9 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: Example streaming
     timeout: 30000
-- tapOn: Example streaming
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Example streaming(?:, 129,90[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - scrollUntilVisible:
     element: ${MAESTRO_EDIT}
     direction: DOWN
@@ -67,7 +69,9 @@ appId: se.subtrack.app
     centerElement: true
 - assertVisible: Example streaming Plus
 - takeScreenshot: accepted-edit
-- tapOn: Example streaming Plus
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Example streaming Plus(?:, 129,90[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - scrollUntilVisible:
     element: ${MAESTRO_PAUSE}
     direction: DOWN
@@ -124,10 +128,13 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: Example streaming Plus
     timeout: 30000
-- tapOn: Example streaming Plus
+- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Example streaming Plus(?:, 129,90[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - assertVisible: ${MAESTRO_EDIT}
 - assertNotVisible: ${MAESTRO_ARCHIVE}
-- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
+- assertVisible: ${MAESTRO_MONTH_DETAIL_PRICE}
 - takeScreenshot: accepted-edited-restart
 - tapOn:
     id: native-subscription-detail-close

@@ -41,7 +41,8 @@ appId: se.subtrack.app
 - runFlow: private-runtime-month-day.yaml
 - assertVisible: Example streaming
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}
-- tapOn: ${MAESTRO_MONTH_DETAIL}
+- tapOn:
+    id: native-month-detail-row
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_SAVED_DATE}
     timeout: 30000

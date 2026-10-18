@@ -139,7 +139,11 @@ jobs:
       matrix:
         # Founder-approved Android-only acceptance for this exact same-repository PR.
         # iOS remains unqualified; all other full PRs retain both installed targets.
-        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.platform == 'ios' && '[{"platform":"ios","runner":"macos-15","database_mode":"local"}]' || (needs.select-proof.outputs.scope == 'profile' || github.event_name == 'workflow_dispatch' && inputs.platform == 'android' || github.event_name == 'pull_request' && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.number == 297 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank') && '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"}]' || '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"},{"platform":"ios","runner":"macos-15","database_mode":"local"}]') }}
+        # Controlled environment comparison after 0d8 pre-child DEVICES_TIMEOUT; not a proven app fix.
+        # Standard ARM64 macos-26 lists the same pinned Xcode26.2/iOS26.2/iPhone17 (checked 2026-10-18):
+        # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
+        # https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.platform == 'ios' && '[{"platform":"ios","runner":"macos-26","database_mode":"local"}]' || (needs.select-proof.outputs.scope == 'profile' || github.event_name == 'workflow_dispatch' && inputs.platform == 'android' || github.event_name == 'pull_request' && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.number == 297 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank') && '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"}]' || '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"},{"platform":"ios","runner":"macos-26","database_mode":"local"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     defaults:

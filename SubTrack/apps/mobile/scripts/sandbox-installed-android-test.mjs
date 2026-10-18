@@ -59,12 +59,14 @@ test('actual flows use sandbox package, no authority extraction or rebuild, one 
  const workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-sandbox-installed-android.yml',import.meta.url),'utf8');assert.doesNotMatch(workflow,/pnpm install|gradlew|expo prebuild|assembleRelease|assembleDebug|eas build|push:|pull_request:/);assert.ok(workflow.includes('if: success()'));assert.ok(workflow.includes('subtrack-sandbox-installed/public/'));
 });
 
+const rowText=name=>String.raw`${name}(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?`;
+
 test('signed edit opens the acknowledged saved detail once before status actions',()=>{
  const flow=readFileSync(new URL('../e2e/sandbox-product-manage.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
- assert.equal((flow.match(/- tapOn: Netflix\n/g)??[]).length,1);
+ const steps=productYaml().parseAllDocuments(flow)[1].toJSON(),rowTaps=steps.filter(step=>step.tapOn?.id?.startsWith('native-subscription-row-'));assert.equal(rowTaps.filter(step=>step.tapOn.text===rowText('Netflix')).length,1);
  const saved=flow.slice(flow.indexOf('visible: ${E_EDIT_SAVED}'));
  assert.ok(saved.includes('element: Netflix household'));assert.ok(saved.includes('- assertVisible: Streaming extras'));
- assert.equal((saved.match(/- tapOn: Netflix household\n/g)??[]).length,1);assert.ok(saved.indexOf('- tapOn: Netflix household')<saved.indexOf('- tapOn: ${E_PAUSE}'));assert.ok(saved.endsWith('- tapOn:\n    id: native-subscription-detail-close\n'));
+ assert.equal(rowTaps.filter(step=>step.tapOn.text===rowText('Netflix household')).length,1);assert.ok(steps.findIndex(step=>step.tapOn?.text===rowText('Netflix household'))<steps.findIndex(step=>step.tapOn==='${E_PAUSE}'));assert.ok(saved.endsWith('- tapOn:\n    id: native-subscription-detail-close\n'));
  assert.ok(saved.includes('- tapOn: ${E_PAUSE}'));assert.ok(saved.includes('- tapOn: ${E_RESUME}'));assert.ok(saved.includes('- assertNotVisible: ${E_RESUME}'));
 });
 
@@ -113,7 +115,7 @@ test('actual signed visual flow captures all five tabs, real detail and chart in
   const languageId=`native-profile-language-${locale}`,themeId=`native-profile-theme-${theme}`,language=tapId(steps,languageId),languageReady=selected(steps,languageId),themeAt=tapId(steps,themeId),themeReady=selected(steps,themeId);
   assert.ok(language>=0&&languageReady>language&&themeAt>languageReady&&themeReady>themeAt&&capture(steps,mode,'home')>themeReady,mode);
   for(const [tab,screenName]of [['month','home'],['manage','subscriptions'],['household','household'],['insights','insights'],['profile','profile']]){const at=steps.findIndex((row,index)=>row.tapOn?.id===`native-nav-${tab}`&&index<capture(steps,mode,screenName));assert.ok(at>=0,mode+tab);assert.deepEqual(steps[at+1],{extendedWaitUntil:{visible:{id:`native-nav-${tab}`,selected:true},timeout:30000}});}
-  const open=steps.findIndex(row=>row.tapOn==='Netflix household'),detail=capture(steps,mode,'detail'),close=tapId(steps,'native-subscription-detail-close');assert.ok(open>capture(steps,mode,'subscriptions')&&detail>open&&close>detail&&capture(steps,mode,'household')>close);
+  const open=steps.findIndex(row=>row.tapOn?.text===rowText('Netflix household')),detail=capture(steps,mode,'detail'),close=tapId(steps,'native-subscription-detail-close');assert.ok(open>capture(steps,mode,'subscriptions')&&detail>open&&close>detail&&capture(steps,mode,'household')>close);
   assert.ok(steps.slice(open,detail).some(row=>row.extendedWaitUntil?.visible?.id==='native-subscription-charge-history'));
   const chart=steps.findIndex(row=>row.scrollUntilVisible?.element?.id==='native-insights-trend'&&row.scrollUntilVisible.direction==='DOWN');assert.ok(chart>capture(steps,mode,'insights')&&chart<capture(steps,mode,'trend'));
   assert.ok(steps.some(row=>row.extendedWaitUntil?.visible==='${'+(locale==='en'?'E':'S')+'_ACTIVE_FOURTEEN}'));

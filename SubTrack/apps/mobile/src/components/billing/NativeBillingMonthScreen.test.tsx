@@ -52,6 +52,22 @@ it('shows both same-day entries, exact saved totals, detail isolation and manage
  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.details.replace('%{name}',row.customName)}));expect(screen.getByText(copy.billingMonth.manual)).toBeTruthy();expect(screen.queryByText(copy.billingMonth.private)).toBeNull();expect(screen.queryByRole('button',{name:copy.billingMonth.next})).toBeNull();
  fireEvent.press(screen.getByRole('button',{name:copy.billingMonth.manage}));expect(mockReplace).toHaveBeenCalledWith('/personal');
 });
+it.each(['week','selected-day'] as const)('opens the exact %s renewal through its stable row ID while preserving spoken name and amount metadata',async placement=>{
+ const {selectBillingMonth}=jest.requireActual('@/api/privateMobileBillingMonth'),{projectNativeAnalytics}=jest.requireActual('@/api/nativeAnalyticsProjection');
+ const clock=()=>new Date(2026,2,placement==='week'?28:20,12);
+ const reader=jest.fn().mockResolvedValue({kind:'ready',projection:projectNativeAnalytics([row],null,clock())});
+ const readProjection=jest.fn().mockResolvedValue({kind:'ready',projection:selectBillingMonth([row],{year:2026,month:3})});
+ const active={phase:'active' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:async<T,>(operation:(token:string,signal:AbortSignal)=>Promise<T>)=>operation('scoped-owner',new AbortController().signal)};
+ render(<NativeBillingMonthScreen now={clock} useSession={()=>active} readProjection={readProjection} overviewReader={reader}/>);
+ const target=await screen.findByTestId('native-month-detail-row'),price=formatMinorUnits(BigInt(row.expectedAmountMinor),'SEK',{locale:'en',display:'code'}).replace(/[\u00a0\u202f]/g,' ');
+ expect(screen.getAllByTestId('native-month-detail-row')).toHaveLength(1);
+ expect(target.props.accessibilityRole).toBe('button');expect(target.props.accessibilityLabel).toBe(copy.billingMonth.details.replace('%{name}',row.customName));
+ expect(screen.getByText(row.customName)).toBeTruthy();expect(screen.getAllByText(price).length).toBeGreaterThan(0);
+ if(placement==='week')expect(target.props.accessibilityValue).toEqual({text:`2026-03-28 · ${price}`});
+ fireEvent.press(target);
+ await screen.findByRole('header',{name:row.customName});expect(screen.getByText('2026-03-28')).toBeTruthy();expect(screen.getByText(copy.billingMonth.manual)).toBeTruthy();
+ expect(screen.getByLabelText(`${price} · ${copy.ownerSubscriptions.cadence.MONTHLY}`)).toBeTruthy();expect(readProjection).toHaveBeenCalledTimes(1);
+});
 it('shared detail body keeps exact large Money and annual cost, owns no Modal and exposes its top Close action',()=>{
  const close=jest.fn(),manage=jest.fn();render(<NativeSubscriptionDetailContent item={row} onClose={close} onManage={manage}/>);
  const price=formatMinorUnits(BigInt(row.expectedAmountMinor),'SEK',{locale:'en',display:'code'}).replace(/[\u00a0\u202f]/g,' ');

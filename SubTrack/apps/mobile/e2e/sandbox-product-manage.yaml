@@ -9,7 +9,9 @@ appId: se.subtrack.app.sandbox
     direction: DOWN
 - assertVisible: Netflix
 - takeScreenshot: accepted-sandbox-subscriptions
-- tapOn: Netflix
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - scrollUntilVisible:
     element: ${E_EDIT}
     direction: DOWN
@@ -53,7 +55,9 @@ appId: se.subtrack.app.sandbox
     direction: DOWN
 - assertVisible: Streaming extras
 # Saving returns to the list; open the acknowledged saved row once.
-- tapOn: Netflix household
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix household(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - scrollUntilVisible:
     element: ${E_PAUSE}
     direction: DOWN

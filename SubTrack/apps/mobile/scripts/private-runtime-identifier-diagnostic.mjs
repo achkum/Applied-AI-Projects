@@ -134,7 +134,7 @@ export function billingMonthToolDiagnostic({phase,billingMonth,metro,labels}){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date.startsWith('0000')||!Number.isFinite(Date.parse(`${date}T00:00:00Z`))||new Date(`${date}T00:00:00Z`).toISOString().slice(0,10)!==date)return {withheld:'trusted-target-unavailable'};
  return closedToolDiagnostic(billingMonth,metro,[...billingMonthRoster.map(([name,key])=>[name,labels[key],true]),
   ['bankid-verify','native-personal-login',true],['personal-title','native-personal-title',true],['home-title','native-nav-month',true],['home-title','native-home-overview',true],['home-title','native-home-title',true],
-  ['saved-row',phase==='flow-billing-month'?'Example streaming':'Example streaming Plus',true],['date-picker','native-home-calendar',true],['date-cell',`native-date-${date}`,true],['selected-date','native-month-selected-date',true],['expected-date',date,true],['close','native-subscription-detail-close',true]]);
+  ['saved-row',phase==='flow-billing-month'?'Example streaming':'Example streaming Plus',true],['date-picker','native-home-calendar',true],['date-cell',`native-date-${date}`,true],['selected-date','native-month-selected-date',true],['subscription-detail','native-month-detail-row',true],['expected-date',date,true],['close','native-subscription-detail-close',true]]);
 }
 
 /** One exact enrollment invocation owns the event latch. No process values escape. */

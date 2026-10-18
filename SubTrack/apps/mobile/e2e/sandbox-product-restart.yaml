@@ -58,7 +58,9 @@ appId: se.subtrack.app.sandbox
     direction: DOWN
 - assertVisible: Streaming extras
 - takeScreenshot: accepted-sandbox-restart-subscriptions
-- tapOn: Netflix household
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix household(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - scrollUntilVisible:
     element: ${S_EDIT}
     direction: DOWN

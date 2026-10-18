@@ -107,8 +107,8 @@ test('actual normal and empty Home flows perform one bounded pull gesture betwee
 test('the actual detail flow asserts full exact accessible price with saved cadence and returns to the top Close control',()=>{
  const mobile=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobile.resolve('expo/package.json'))('yaml');
  const [,rows]=yaml.parseAllDocuments(readFileSync(new URL('../e2e/private-runtime-billing-month.yaml',import.meta.url),'utf8')).map(document=>document.toJSON());
- const open=rows.findIndex(row=>row.tapOn==='${MAESTRO_MONTH_DETAIL}'),capture=rows.findIndex(row=>row.takeScreenshot==='accepted-billing-month-detail'),close=rows.findIndex(row=>row.tapOn==='${MAESTRO_MONTH_CLOSE}');
- assert.ok(open>0&&capture>open&&close>capture);
+ const open=rows.findIndex(row=>row.tapOn?.id==='native-month-detail-row'),capture=rows.findIndex(row=>row.takeScreenshot==='accepted-billing-month-detail'),close=rows.findIndex(row=>row.tapOn==='${MAESTRO_MONTH_CLOSE}');
+ assert.ok(open>0&&capture>open&&close>capture);assert.equal(rows.filter(row=>row.tapOn?.id==='native-month-detail-row').length,1);assert.equal(rows.filter(row=>row.tapOn==='${MAESTRO_MONTH_DETAIL}').length,0);assert.equal(rows.slice(0,open).filter(row=>row.assertVisible==='Example streaming').length,2);
  const detail=rows.slice(open+1,capture);assert.ok(detail.some(row=>row.extendedWaitUntil?.visible==='${MAESTRO_MONTH_SAVED_DATE}'&&row.extendedWaitUntil.timeout===30000));
  for(const exact of ['Example streaming','${MAESTRO_MONTH_DETAIL_PRICE}','${MAESTRO_MONTH_MANUAL}'])assert.ok(detail.some(row=>row.assertVisible===exact));
  assert.ok(!detail.some(row=>row.assertVisible==='${MAESTRO_MONTH_AMOUNT}'));assert.equal(rows.slice(0,open).filter(row=>row.assertVisible==='${MAESTRO_MONTH_AMOUNT}').length,2);

@@ -76,7 +76,9 @@ appId: se.subtrack.app.sandbox
 - scrollUntilVisible:
     element: Netflix household
     direction: DOWN
-- tapOn: Netflix household
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix household(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - extendedWaitUntil:
     visible:
       id: native-subscription-detail-close
@@ -241,7 +243,9 @@ appId: se.subtrack.app.sandbox
 - scrollUntilVisible:
     element: Netflix household
     direction: DOWN
-- tapOn: Netflix household
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix household(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - extendedWaitUntil:
     visible:
       id: native-subscription-detail-close
@@ -406,7 +410,9 @@ appId: se.subtrack.app.sandbox
 - scrollUntilVisible:
     element: Netflix household
     direction: DOWN
-- tapOn: Netflix household
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix household(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - extendedWaitUntil:
     visible:
       id: native-subscription-detail-close
@@ -571,7 +577,9 @@ appId: se.subtrack.app.sandbox
 - scrollUntilVisible:
     element: Netflix household
     direction: DOWN
-- tapOn: Netflix household
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix household(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - extendedWaitUntil:
     visible:
       id: native-subscription-detail-close

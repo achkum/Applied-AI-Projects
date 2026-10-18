@@ -5,6 +5,7 @@ import {createRequire} from 'node:module';
 import {spawnSync,execFileSync} from 'node:child_process';
 import {fileURLToPath,URL} from 'node:url';
 import process from 'node:process';
+import vm from 'node:vm';
 const require=createRequire(new URL('../package.json',import.meta.url));
 const yaml=createRequire(require.resolve('expo/package.json'))('yaml');
 const readWorkflow=name=>yaml.parse(readFileSync(new URL(`../../../../.github/workflows/${name}`,import.meta.url),'utf8'));
@@ -32,6 +33,16 @@ test('actual manual source guard accepts only its same-source dispatch and rejec
  const measured=archive.steps.find(step=>step.name==='Verify checked-out source before archive preparation'),actual=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();assert.equal(measured.env.ST_IOS_SOURCE,'${{ inputs.source_head }}');for(const [value,status]of [[actual,0],[head,1]]){const result=spawnSync(bash,['--noprofile','--norc','-e','-o','pipefail','-c',measured.run],{cwd:root,env:{...process.env,ST_IOS_SOURCE:value},encoding:'utf8',timeout:5000});assert.equal(result.status,status);}
 });
 test('independent full installed iOS simulator proof still compiles and exercises the actual app, while manual archive stays unsigned/uninstalled',()=>{
- const full=readWorkflow('subtrack-native-device-proof.yml'),job=full.jobs['installed-native'];assert.equal(job.needs,'select-proof');assert.ok(job.strategy.matrix.include.includes('"platform":"ios","runner":"macos-15"'));assert.ok(job.steps.some(step=>step.run?.includes("node apps/mobile/scripts/private-runtime-device.mjs '${{ matrix.platform }}'")));
+ const full=readWorkflow('subtrack-native-device-proof.yml'),job=full.jobs['installed-native'];assert.equal(job.needs,'select-proof');
+ const expression=job.strategy.matrix.include.replace(/^\$\{\{\s*|\s*\}\}$/g,'').replace(/^fromJSON\(/,'JSON.parse(').replaceAll('needs.select-proof.',"needs['select-proof'].");
+ const script=new vm.Script(expression),matrix=(event,scope,inputs={})=>JSON.parse(JSON.stringify(script.runInNewContext({github:event,needs:{'select-proof':{outputs:{scope}}},inputs},{timeout:1000})));
+ const android={platform:'android',runner:'ubuntu-24.04',database_mode:'docker'},ios={platform:'ios',runner:'macos-26',database_mode:'local'};
+ const pr={event_name:'pull_request',repository:'achkum/Applied-AI-Projects',event:{pull_request:{number:292,head:{repo:{full_name:'achkum/Applied-AI-Projects'},ref:'st/native-synthetic-bank'},base:{ref:'st/native-billing-month'}}}},manual={event_name:'workflow_dispatch'};
+ assert.deepEqual(matrix(pr,'full'),[android,ios]);assert.deepEqual(matrix(pr,'profile'),[android]);
+ for(const scope of ['full','ios-driver'])assert.deepEqual(matrix(manual,scope,{platform:'ios'}),[ios]);
+ assert.deepEqual(matrix(manual,'full',{platform:'all'}),[android,ios]);assert.deepEqual(matrix(manual,'full',{platform:'android'}),[android]);
+ assert.equal(job['runs-on'],'${{ matrix.runner }}');
+ const setup=job.steps.find(step=>step.name==='iOS 26.2 / Xcode 26.2 simulator (Expo SDK54)');for(const expected of ['/Applications/Xcode_26.2.app',"'Xcode 26.2'",'com.apple.CoreSimulator.SimDeviceType.iPhone-17','com.apple.CoreSimulator.SimRuntime.iOS-26-2'])assert.ok(setup.run.includes(expected));
+ assert.ok(job.steps.some(step=>step.run?.includes("node apps/mobile/scripts/private-runtime-device.mjs '${{ matrix.platform }}'")));
  const source=readFileSync(new URL('../../../tools/sandbox/build-ios.sh',import.meta.url),'utf8');assert.ok(source.includes('CODE_SIGNING_ALLOWED=NO archive'));assert.ok(source.includes('runtime_qualification=not-performed'));assert.ok(source.includes('installable_ipa=false'));assert.equal(document().jobs['unsigned-ios'].steps.filter(step=>step.run==='bash tools/sandbox/build-ios.sh unsigned-archive').length,1);
 });
