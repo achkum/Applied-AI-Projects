@@ -8,7 +8,7 @@ import {join,resolve,dirname,relative} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import process from 'node:process';
 import {preinputCaptureContext,validPreinputPng} from './private-runtime-maestro-metadata.mjs';
-import {measureIosSimulator} from './private-runtime-ios-simulator-measurement.mjs';
+import {measureIosSimulator,iosMeasurementCategory} from './private-runtime-ios-simulator-measurement.mjs';
 import {runIosDriverChild} from './private-runtime-ios-driver-preflight.mjs';
 import {maestroDevicePrefix} from './private-runtime-maestro-device.mjs';
 import {originalDriverToolDiagnostic} from './private-runtime-identifier-diagnostic.mjs';
@@ -82,7 +82,7 @@ function frameRoster(directory){
 }
 function cleanFrameProbe(directory,ownedDirectory,step){step('DIRECTORY_CUSTODY');directoryIdentity(directory,ownedDirectory);step('ROSTER');const rows=frameRoster(directory);for(const row of rows.filter(item=>!item.directory)){step('FILE_CUSTODY');identity(row.state,lstatSync(row.file));step('UNLINK');unlinkSync(row.file);}for(const row of rows.filter(item=>item.directory).reverse()){step('DIRECTORY_CUSTODY');directoryIdentity(row.file,row.state);step('RMDIR');rmdirSync(row.file);}step('DIRECTORY_CUSTODY');directoryIdentity(directory,ownedDirectory);step('RMDIR');rmdirSync(directory);step('VERIFY');assert.equal(existsSync(directory),false);}
 export async function runIosFrameCapability({environment,head,root},{platform=process.platform,measure=measureIosSimulator,capture=captureIosFrame,openSimulator=openOwnedIosSimulator}={}){
- let stage='CONTEXT',failureStage=null,commandFailure='OTHER',originalReasons=null,pngFailure=null,cleanupFailure=null,cleanupRosterFailure=null,directory,ownedDirectory,ready=false,cleanupVerified=true;
+ let stage='CONTEXT',failureStage=null,commandFailure='OTHER',originalReasons=null,measurementCheck=null,pngFailure=null,cleanupFailure=null,cleanupRosterFailure=null,directory,ownedDirectory,ready=false,cleanupVerified=true;
  const observe=value=>{if(IOS_FRAME_FAILURES.includes(value))commandFailure=value;};
  try{
   assert.equal(platform,'darwin');assert.equal(environment.CI,'true');assert.ok(['full','ios-driver'].includes(environment.SUBTRACK_NATIVE_PROOF_SCOPE));assert.equal(environment.SUBTRACK_PRIVATE_FIXTURE_CONFIG,undefined);assert.equal(process.umask()&63,63);
@@ -93,12 +93,12 @@ export async function runIosFrameCapability({environment,head,root},{platform=pr
   const file=join(directory,frameRelative);assert.equal(existsSync(file),false);stage='CAPTURE';await capture(context.udid,file,observe,{environment});
   stage='PNG';directoryIdentity(directory,ownedDirectory);const png=privateBytes(file,8388608);try{custodyCheck(validPreinputPng(png),'PNG_FORMAT');}finally{png.fill(0);}
   stage='AFTER';assert.deepEqual(measure(context.udid),before);assert.equal(custody(root,context),original);ready=true;
- }catch(error){if(stage==='CAPTURE'&&Array.isArray(error?.frameOriginalReasons)&&error.frameOriginalReasons.length>0&&error.frameOriginalReasons.length<=ORIGINAL_REASONS.length&&error.frameOriginalReasons.every(reason=>ORIGINAL_REASONS.includes(reason)))originalReasons=[...error.frameOriginalReasons];if(stage==='CAPTURE'&&['INPUT','OUTPUT'].includes(error?.frameStage))stage=error.frameStage;failureStage=stage;if(['PNG','OUTPUT'].includes(stage))pngFailure=['PATH','OWNER','PERMISSIONS','FILE_SHAPE','SIZE','PNG_FORMAT'].includes(error?.frameCustodyFailure)?error.frameCustodyFailure:'READ_OR_IDENTITY';/* No raw error values leave this fixture-free check. */}
+ }catch(error){if(['BEFORE','AFTER'].includes(stage))measurementCheck=iosMeasurementCategory(error);if(stage==='CAPTURE'&&Array.isArray(error?.frameOriginalReasons)&&error.frameOriginalReasons.length>0&&error.frameOriginalReasons.length<=ORIGINAL_REASONS.length&&error.frameOriginalReasons.every(reason=>ORIGINAL_REASONS.includes(reason)))originalReasons=[...error.frameOriginalReasons];if(stage==='CAPTURE'&&['INPUT','OUTPUT'].includes(error?.frameStage))stage=error.frameStage;failureStage=stage;if(['PNG','OUTPUT'].includes(stage))pngFailure=['PATH','OWNER','PERMISSIONS','FILE_SHAPE','SIZE','PNG_FORMAT'].includes(error?.frameCustodyFailure)?error.frameCustodyFailure:'READ_OR_IDENTITY';/* No raw error values leave this fixture-free check. */}
  finally{
   if(ownedDirectory){let cleanupStep='DIRECTORY_CUSTODY';try{cleanFrameProbe(directory,ownedDirectory,value=>{cleanupStep=value;});cleanupVerified=true;}catch(error){cleanupFailure=cleanupStep;if(cleanupStep==='ROSTER')cleanupRosterFailure=ROSTER_FAILURES.includes(error?.frameCustodyFailure)?error.frameCustodyFailure:'READ_OR_IDENTITY';stage='CLEANUP';ready=false;cleanupVerified=false;}}
  }
- return Object.freeze({schema:'st253-ios-frame-capability-v1',ready:ready&&cleanupVerified,stage:ready&&cleanupVerified?'COMPLETE':stage,failureStage,commandFailure:['GUI','CAPTURE'].includes(failureStage)?commandFailure:null,originalReasons,pngFailure,cleanupFailure,cleanupRosterFailure,cleanupVerified});
+ return Object.freeze({schema:'st253-ios-frame-capability-v1',ready:ready&&cleanupVerified,stage:ready&&cleanupVerified?'COMPLETE':stage,failureStage,commandFailure:['GUI','CAPTURE'].includes(failureStage)?commandFailure:null,originalReasons,measurementCheck,pngFailure,cleanupFailure,cleanupRosterFailure,cleanupVerified});
 }
 if(process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.url){
- void(async()=>{assert.equal(process.argv.length,2);const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),result=await runIosFrameCapability({environment:process.env,head,root:join(process.env.RUNNER_TEMP,'subtrack-native-proof','private')});console.log(JSON.stringify(result));if(!result.ready)process.exitCode=1;})().catch(()=>{console.log(JSON.stringify({schema:'st253-ios-frame-capability-v1',ready:false,stage:'CONTEXT',failureStage:'CONTEXT',commandFailure:null,originalReasons:null,pngFailure:null,cleanupFailure:null,cleanupRosterFailure:null,cleanupVerified:false}));process.exitCode=1;});
+ void(async()=>{assert.equal(process.argv.length,2);const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),result=await runIosFrameCapability({environment:process.env,head,root:join(process.env.RUNNER_TEMP,'subtrack-native-proof','private')});console.log(JSON.stringify(result));if(!result.ready)process.exitCode=1;})().catch(()=>{console.log(JSON.stringify({schema:'st253-ios-frame-capability-v1',ready:false,stage:'CONTEXT',failureStage:'CONTEXT',commandFailure:null,originalReasons:null,measurementCheck:null,pngFailure:null,cleanupFailure:null,cleanupRosterFailure:null,cleanupVerified:false}));process.exitCode=1;});
 }

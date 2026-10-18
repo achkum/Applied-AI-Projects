@@ -10,6 +10,7 @@ import {join,dirname} from 'node:path';
 import {deflateSync,crc32} from 'node:zlib';
 import {captureIosFrame,openOwnedIosSimulator,iosFrameFailure,IOS_FRAME_FAILURES,runIosFrameCapability,IOS_FRAME_FLOW,IOS_FRAME_CONFIG} from './private-runtime-ios-frame-capability.mjs';
 import {runIosDriverChild} from './private-runtime-ios-driver-preflight.mjs';
+import {iosMeasurementStep} from './private-runtime-ios-simulator-measurement.mjs';
 
 const udid='123E4567-E89B-42D3-A456-426614174000',head='ab'.repeat(20);
 function chunk(kind,body=Buffer.alloc(0)){const h=Buffer.alloc(8),c=Buffer.alloc(4);h.writeUInt32BE(body.length);h.write(kind,4);c.writeUInt32BE(crc32(Buffer.concat([h.subarray(4),body])));return Buffer.concat([h,body,c]);}
@@ -38,7 +39,7 @@ test('command failures expose only closed categories, including terminated inste
  assert.ok(Object.isFrozen(IOS_FRAME_FAILURES));const seen=[];await assert.rejects(openOwnedIosSimulator(udid,value=>{seen.push(value);throw Error('private-canary');},{execute:()=>{throw Object.assign(Error('private-canary'),{code:'EACCES'});}}));assert.deepEqual(seen,['SPAWN']);
 });
 test('one fixture-free capability check opens exact Simulator, validates a complete PNG and removes all raw output before readiness',()=>fixture(async f=>{
- const result=await runIosFrameCapability({...f,head},f.ports);assert.deepEqual(f.calls,['measure','gui','capture','measure']);assert.deepEqual(result,{schema:'st253-ios-frame-capability-v1',ready:true,stage:'COMPLETE',failureStage:null,commandFailure:null,originalReasons:null,pngFailure:null,cleanupFailure:null,cleanupRosterFailure:null,cleanupVerified:true});assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);assert.deepEqual(fs.readdirSync(f.root).sort(),['ios-frame-capability-claim.json','preinput-ios-custody.json']);
+ const result=await runIosFrameCapability({...f,head},f.ports);assert.deepEqual(f.calls,['measure','gui','capture','measure']);assert.deepEqual(result,{schema:'st253-ios-frame-capability-v1',ready:true,stage:'COMPLETE',failureStage:null,commandFailure:null,originalReasons:null,measurementCheck:null,pngFailure:null,cleanupFailure:null,cleanupRosterFailure:null,cleanupVerified:true});assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);assert.deepEqual(fs.readdirSync(f.root).sort(),['ios-frame-capability-claim.json','preinput-ios-custody.json']);
  const repeated=await runIosFrameCapability({...f,head},f.ports);assert.equal(repeated.ready,false);assert.equal(repeated.stage,'CUSTODY');assert.deepEqual(f.calls,['measure','gui','capture','measure']);
 }));
 test('wrong source/scope/platform/fixture/custody prevents every GUI or frame command',async()=>{
@@ -57,6 +58,20 @@ test('unavailable inventory or GUI stops without capture and does not retry',asy
  await fixture(async f=>{const result=await runIosFrameCapability({...f,head},{...f.ports,measure:()=>{throw Error('private-canary');}});assert.equal(result.stage,'BEFORE');assert.deepEqual(f.calls,[]);});
  await fixture(async f=>{const result=await runIosFrameCapability({...f,head},{...f.ports,openSimulator:async(_id,report)=>{report('EXIT_NONZERO');throw Error('private-canary');}});assert.equal(result.stage,'GUI');assert.equal(result.commandFailure,'EXIT_NONZERO');assert.deepEqual(f.calls,['measure']);});
 });
+test('only BEFORE and AFTER measurement failures project existing fixed checks, never private error text or unknown tags',async()=>{
+ for(const phase of ['BEFORE','AFTER'])for(const kind of ['known','unknown'])await fixture(async f=>{
+  let calls=0;const result=await runIosFrameCapability({...f,head},{...f.ports,measure:id=>{
+   if(++calls===(phase==='BEFORE'?1:2)){
+    if(kind==='known')return iosMeasurementStep('DEVICES_QUERY',()=>{throw Object.assign(Error('PRIVATE_MEASUREMENT_CANARY'),{code:'ETIMEDOUT'});});
+    throw Object.assign(Error('PRIVATE_MEASUREMENT_CANARY'),{iosSimulatorCheck:'PRIVATE_TAG_CANARY'});
+   }
+   return f.ports.measure(id);
+  }});
+  assert.equal(result.ready,false);assert.equal(result.failureStage,phase);assert.equal(result.measurementCheck,kind==='known'?'DEVICES_TIMEOUT':'UNKNOWN');assert.equal(result.cleanupVerified,true);assert.equal(result.originalReasons,null);assert.equal(calls,phase==='BEFORE'?1:2);assert.ok(!JSON.stringify(result).includes('PRIVATE_'));
+ });
+ await fixture(async f=>{const result=await runIosFrameCapability({...f,head},{...f.ports,openSimulator:async()=>{throw Object.assign(Error('PRIVATE_GUI_CANARY'),{iosSimulatorCheck:'DEVICES_TIMEOUT'});}});assert.equal(result.failureStage,'GUI');assert.equal(result.measurementCheck,null);assert.ok(!JSON.stringify(result).includes('PRIVATE_'));});
+});
+
 test('a replaced private output directory is retained and cannot authorize readiness or unsafe cleanup',()=>fixture(async f=>{
  const directory=join(f.root,'ios-frame-capability');const result=await runIosFrameCapability({...f,head},{...f.ports,capture:async(id,file)=>{await f.ports.capture(id,file);fs.renameSync(directory,directory+'-retained');fs.mkdirSync(directory,{mode:448});fs.writeFileSync(join(directory,'foreign-marker'),'retained');}});
  assert.equal(result.ready,false);assert.equal(result.stage,'CLEANUP');assert.equal(result.cleanupVerified,false);assert.equal(fs.readFileSync(join(directory,'foreign-marker'),'utf8'),'retained');assert.ok(fs.existsSync(join(directory+'-retained','output/ios-frame-capability/takeScreenshot/frame.png')));
