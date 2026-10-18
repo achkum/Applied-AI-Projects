@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory)][ValidateSet('QualifyPublic','SignReserved')][string]$Mode,
+  [Parameter(Mandatory)][ValidateSet('QualifyPublic','StageInputs','SignReserved')][string]$Mode,
   [Parameter(Mandatory)][string]$PublicToolsDirectory,
   [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{64}$')][string]$PublicToolsReceiptSha256,
   [Parameter(Mandatory)][string]$OutputDirectory,
@@ -234,9 +234,116 @@ function New-SyntheticManifest {
   }finally{$writer.Dispose();$stream.Dispose()}
 }
 function Remote-Command([string]$Verb,$Value){
-  Require ($Verb -cin @('observe','begin-attempt','record-local'))
+  Require ($Verb -cin @('observe','begin-attempt','record-local','prepare-inputs','stage-inputs'))
   $bytes=Json-Bytes $Value;Require ($bytes.Length -le 65536)
   try{$text=Native $script:ssh @('-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=10','-o','ServerAliveInterval=10','-o','ServerAliveCountMax=3','openclaw@198.44.116.159',"umask 077; node /home/openclaw/subtrack-sandbox/tools/sandbox/android-local-signing-reservation.mjs $Verb") $bytes;Require ($text.Length -le 65536);return $text|ConvertFrom-Json -AsHashtable}finally{Clear-Bytes $bytes}
+}
+function Validate-StageCommand($Command){
+  Require ($Command -is [Collections.IDictionary] -and $Command.Count -eq 3 -and $Command.schema -ceq 'st253-android-local-stage-inputs-v1' -and $Command.stageId -cmatch '^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$')
+  $selection=$Command.selection
+  $fields=@('executionHead','sourceHead','apkRun','toolsRun','toolsSourceHead','signingToolingHead','signerExecutionHead','publicToolsReceiptSha256','executionSourceSha256','sourceHashes')
+  Require ($selection -is [Collections.IDictionary] -and $selection.Count -eq $fields.Count)
+  foreach($name in $fields){Require $selection.Contains($name)}
+  foreach($name in @('executionHead','sourceHead','toolsSourceHead','signingToolingHead','signerExecutionHead')){Require ($selection[$name] -is [string] -and $selection[$name] -cmatch '^[a-f0-9]{40}$')}
+  foreach($name in @('apkRun','toolsRun')){Require ($selection[$name] -is [string] -and $selection[$name] -cmatch '^[1-9][0-9]*-[1-9][0-9]*$')}
+  foreach($name in @('publicToolsReceiptSha256','executionSourceSha256')){Require ($selection[$name] -is [string] -and $selection[$name] -cmatch '^[a-f0-9]{64}$')}
+  Require ($selection.sourceHashes -is [Collections.IDictionary] -and $selection.sourceHashes.Count -eq 6)
+  foreach($name in @('reservation','receipt','transfer','release','import','signer')){Require ($selection.sourceHashes.Contains($name) -and $selection.sourceHashes[$name] -is [string] -and $selection.sourceHashes[$name] -cmatch '^[a-f0-9]{64}$')}
+}
+function Stage-FileTransfer([string]$Source,[string]$Destination){
+  # Both endpoints are constructed by Stage-Inputs from validated finite paths;
+  # capabilities, passwords and backup material are never transfer arguments.
+  [void](Native $script:scp @('-q','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=10','-o','ServerAliveInterval=10','-o','ServerAliveCountMax=3','--',$Source,$Destination))
+}
+function Stage-Upload([string]$Source,[string]$StageId,[string]$Name){
+  Require ($StageId -cmatch '^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$' -and $Name -cin @('manifest.json','receipt.json','unsigned.apk','tools-reuse.json'))
+  Check-PrivateAcl $Source;$hash=Sha $Source;$size=(Get-Item -LiteralPath $Source -Force).Length;$limit=if($Name -ceq 'unsigned.apk'){209715200}else{16384};Require ($size -gt 0 -and $size -le $limit)
+  $directory="/home/openclaw/subtrack-sandbox/staging/android-local-inputs/$StageId";$file="$directory/$Name"
+  $sshArgs=@('-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=10','-o','ServerAliveInterval=10','-o','ServerAliveCountMax=3','openclaw@198.44.116.159')
+  $guard='set -eu; test "$(id -u):$(id -g)" = 996:987; d='+$directory+'; test -d "$d"; test ! -L "$d"; test "$(realpath -e "$d")" = '+$directory+'; test "$(stat -c %a:%u:%g "$d")" = 700:996:987; f='+$file+'; '
+  $bytes=$null
+  try{
+    $stream=[IO.FileStream]::new($Source,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+    try{$bytes=[byte[]]::new([int]$size);$offset=0;while($offset -lt $bytes.Length){$count=$stream.Read($bytes,$offset,$bytes.Length-$offset);Require ($count -gt 0);$offset+=$count};Require ($stream.ReadByte() -eq -1 -and $stream.Length -eq $size)}finally{$stream.Dispose()}
+    Require (([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes))).ToLowerInvariant() -ceq $hash);Check-PrivateAcl $Source;Require ((Sha $Source) -ceq $hash)
+    # Noclobber creates the one allowed leaf atomically; SCP's separate absent
+    # check cannot guarantee exclusivity. Interrupted files are retained/held.
+    [void](Native $script:ssh ($sshArgs+@($guard+'test ! -e "$f"; test ! -L "$f"; set -C; umask 077; cat > "$f"')) $bytes)
+    [void](Native $script:ssh ($sshArgs+@($guard+'test -f "$f"; test ! -L "$f"; test "$(realpath -e "$f")" = '+$file+'; test "$(stat -c %a:%u:%g:%h "$f")" = 600:996:987:1; test "$(stat -c %s "$f")" = '+$size+'; test "$(sha256sum "$f" | cut -d " " -f1)" = '+$hash)))
+  }finally{Clear-Bytes $bytes}
+}
+function Check-RemoteStageSource($Selection){
+  $root='/home/openclaw/subtrack-sandbox/tools/sandbox'
+  $sources=@{'reservation'='android-local-signing-reservation.mjs';'receipt'='android-local-signing-receipt.mjs';'transfer'='android-transfer-receipt.mjs';'release'='android-release-receipt.mjs';'import'='image-import-binding.cjs';'signer'='sign-android.sh'}
+  $guards=[Collections.Generic.List[string]]::new();$guards.Add('set -eu; test "$(id -u):$(id -g)" = 996:987')
+  foreach($directory in @('/home','/home/openclaw','/home/openclaw/subtrack-sandbox','/home/openclaw/subtrack-sandbox/tools',$root)){$guards.Add('test -d '+$directory+'; test ! -L '+$directory+'; test "$(realpath -e '+$directory+')" = '+$directory)}
+  foreach($key in @('reservation','receipt','transfer','release','import','signer','handoff')){
+    $name=if($key -ceq 'handoff'){'android-local-signing-source.json'}else{$sources[$key]};$hash=if($key -ceq 'handoff'){$Selection.executionSourceSha256}else{$Selection.sourceHashes[$key]}
+    Require ($hash -cmatch '^[a-f0-9]{64}$')
+    $file="$root/$name";$guards.Add('f='+$file+'; test -f "$f"; test ! -L "$f"; test "$(realpath -e "$f")" = '+$file+'; test "$(stat -c %a:%u:%g "$f")" = 600:996:987; test "$(stat -c %h "$f")" = 1; test "$(sha256sum "$f" | cut -d " " -f1)" = '+$hash)
+  }
+  [void](Native $script:ssh @('-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=10','-o','ServerAliveInterval=10','-o','ServerAliveCountMax=3','openclaw@198.44.116.159',($guards -join '; ')))
+}
+function Write-GitDockerfile([string]$Head,[string]$Destination){
+  Require ($Head -cmatch '^[a-f0-9]{40}$')
+  $git=Resolve-Executable 'git';$object="${Head}:SubTrack/infra/sandbox/Dockerfile.android-signing"
+  $size=(Native $git @('-C',$PSScriptRoot,'--no-replace-objects','cat-file','-s',$object)).Trim();Require ($size -cmatch '^[1-9][0-9]*$' -and [int64]$size -le 65536)
+  $text=Native $git @('-C',$PSScriptRoot,'--no-replace-objects','show',$object)
+  $bytes=[Text.UTF8Encoding]::new($false,$true).GetBytes($text)
+  try{Require ($bytes.Length -eq [int]$size);Write-Private $Destination $bytes;Require ((Sha $Destination) -ceq 'd2867b142a15cb44ce58361baa188e93da1c8c95fda7f7f5c41c6a00f0813e31')}finally{Clear-Bytes $bytes}
+}
+function Remove-StageWork([string]$Work,[string]$Parent){
+  Require ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($Work)) -ceq [IO.Path]::GetFullPath($Parent));Check-PrivateAcl $Work
+  $roster=@{'verified-apk'=@('manifest.json','receipt.json','unsigned.apk');'retained-metadata'=@('manifest.json','receipt.json','import-binding.json')}
+  $leaves=@('apk-Dockerfile','tools-Dockerfile','tools-reuse.json')
+  foreach($item in Get-ChildItem -LiteralPath $Work -Force){
+    Check-PrivateAcl $item.FullName
+    if($item.PSIsContainer){Require $roster.Contains($item.Name);foreach($file in Get-ChildItem -LiteralPath $item.FullName -Force){Require (-not $file.PSIsContainer -and $file.Name -cin $roster[$item.Name]);Check-PrivateAcl $file.FullName}}
+    else{Require ($item.Name -cin $leaves)}
+  }
+  foreach($item in Get-ChildItem -LiteralPath $Work -Force){if($item.PSIsContainer){foreach($file in Get-ChildItem -LiteralPath $item.FullName -Force){Remove-Item -LiteralPath $file.FullName -Force};Remove-Item -LiteralPath $item.FullName -Force}else{Remove-Item -LiteralPath $item.FullName -Force}}
+  Require (@(Get-ChildItem -LiteralPath $Work -Force).Count -eq 0);Remove-Item -LiteralPath $Work -Force
+}
+function Stage-Inputs($Command,[string]$Primary,[string]$Output){
+  Validate-StageCommand $Command;$selection=$Command.selection
+  Require ($selection.publicToolsReceiptSha256 -ceq $PublicToolsReceiptSha256)
+  Require ($null -eq [Environment]::GetEnvironmentVariable('GH_HOST') -or [Environment]::GetEnvironmentVariable('GH_HOST') -ceq 'github.com')
+  $primaryPath=[IO.Path]::GetFullPath($Primary);No-Reparse $primaryPath;Require ($primaryPath -notmatch '[\\/]\.codex[\\/]worktrees[\\/]')
+  $project=(Read-Small (Join-Path $primaryPath 'package.json'))|ConvertFrom-Json -AsHashtable;Require ($project.name -ceq 'subtrack' -and $project.private -eq $true)
+  Require ($Output -ceq [IO.Path]::GetFullPath((Join-Path $primaryPath ".codex-local-task-setup/android-local-inputs-stage/$($Command.stageId)")))
+  Check-ExecutionSource @{executionHead=$selection.executionHead;selection=$selection}
+  $apkLocal=Join-Path $primaryPath ".codex-local-task-setup/android-transfer/apk-$($selection.apkRun)";$toolsLocal=Join-Path $primaryPath ".codex-local-task-setup/android-transfer/tools-$($selection.toolsRun)"
+  Check-PrivateAcl $apkLocal;Check-PrivateAcl $toolsLocal
+  foreach($name in @('manifest.json','receipt.json','unsigned.apk')){Check-PrivateAcl (Join-Path $apkLocal $name)}
+  foreach($name in @('manifest.json','receipt.json','tools-image.tar.gz')){Check-PrivateAcl (Join-Path $toolsLocal $name)}
+  $work=Join-Path $Output ('stage-work-'+[Guid]::NewGuid().ToString('N'));New-PrivateDirectory $work
+  try{
+    $verified=Join-Path $work 'verified-apk';New-PrivateDirectory $verified
+    [void](Native $script:node @($transferModule,'download','apk',(Join-Path $apkLocal 'receipt.json'),$verified) $null 660000)
+    foreach($name in @('manifest.json','receipt.json','unsigned.apk')){$file=Join-Path $verified $name;Set-PrivateAcl $file $false;Require ((Sha $file) -ceq (Sha (Join-Path $apkLocal $name)))}
+    $manifest=(Read-Small (Join-Path $verified 'manifest.json') 16384)|ConvertFrom-Json -AsHashtable;Require ($manifest.sourceHead -ceq $selection.sourceHead -and $manifest.runId -ceq $selection.apkRun -and $manifest.runtimeEnabled -eq $true)
+    $apkDockerfile=Join-Path $work 'apk-Dockerfile';$toolsDockerfile=Join-Path $work 'tools-Dockerfile';Write-GitDockerfile $selection.sourceHead $apkDockerfile;Write-GitDockerfile $selection.toolsSourceHead $toolsDockerfile
+    # The reviewed current receiver and matching source handoff must already be
+    # installed exclusively by the operator. This mode never installs/overwrites
+    # original tooling or calls the legacy Docker preflight/import commands.
+    $selectionHash=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData((Json-Bytes $selection)))).ToLowerInvariant()
+    Check-RemoteStageSource $selection
+    $prepared=Remote-Command 'prepare-inputs' $Command
+    Require ($prepared.Count -eq 5 -and $prepared.schema -ceq 'st253-android-local-inputs-prepared-v1' -and $prepared.stageId -ceq $Command.stageId -and $prepared.selectionSha256 -ceq $selectionHash -and $prepared.filesOnly -eq $true -and $prepared.legacyPreflightPassed -eq $false)
+    $metadata=Join-Path $work 'retained-metadata';New-PrivateDirectory $metadata
+    $remoteTools="/home/openclaw/subtrack-sandbox/staging/android-tools/$($selection.toolsRun)"
+    $readGuard='set -eu; test "$(id -u):$(id -g)" = 996:987; d='+$remoteTools+'; test -d "$d"; test ! -L "$d"; test "$(realpath -e "$d")" = '+$remoteTools+'; test "$(stat -c %a:%u:%g "$d")" = 700:996:987; for n in manifest.json receipt.json import-binding.json; do f="$d/$n"; test -f "$f"; test ! -L "$f"; test "$(stat -c %a:%u:%g "$f")" = 600:996:987; test "$(stat -c %s "$f")" -gt 0; test "$(stat -c %s "$f")" -le 16384; done'
+    [void](Native $script:ssh @('-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','ConnectTimeout=10','-o','ServerAliveInterval=10','-o','ServerAliveCountMax=3','openclaw@198.44.116.159',$readGuard))
+    foreach($name in @('manifest.json','receipt.json','import-binding.json')){$file=Join-Path $metadata $name;Stage-FileTransfer "openclaw@198.44.116.159:${remoteTools}/$name" $file;Set-PrivateAcl $file $false;[void](Read-Small $file 16384)}
+    foreach($name in @('manifest.json','receipt.json')){Require ((Sha (Join-Path $metadata $name)) -ceq (Sha (Join-Path $toolsLocal $name)))}
+    $proof=Join-Path $work 'tools-reuse.json';[void](Native $script:node @($transferModule,'tools-reuse',$toolsLocal,(Join-Path $metadata 'import-binding.json'),$selection.sourceHead,$selection.signerExecutionHead,$selection.signingToolingHead,$apkDockerfile,$toolsDockerfile,$proof));Set-PrivateAcl $proof $false
+    $reuse=(Read-Small $proof 16384)|ConvertFrom-Json -AsHashtable;Require ($reuse.toolsSourceHead -ceq $selection.toolsSourceHead -and $reuse.toolsRun -ceq $selection.toolsRun)
+    foreach($name in @('manifest.json','receipt.json','unsigned.apk','tools-reuse.json')){$file=if($name -ceq 'tools-reuse.json'){$proof}else{Join-Path $verified $name};Stage-Upload $file $Command.stageId $name}
+    $staged=Remote-Command 'stage-inputs' $Command
+    Require ($staged.Count -eq 11 -and $staged.schema -ceq 'st253-android-local-inputs-staged-v1' -and $staged.stageId -ceq $Command.stageId -and $staged.selectionSha256 -ceq $selectionHash -and $staged.apkRun -ceq $selection.apkRun -and $staged.sourceHead -ceq $selection.sourceHead -and $staged.filesOnly -eq $true -and $staged.legacyPreflightPassed -eq $false)
+    foreach($pair in @(@('manifestSha256','manifest.json'),@('receiptSha256','receipt.json'),@('unsignedSha256','unsigned.apk'),@('toolsReuseSha256','tools-reuse.json'))){$file=if($pair[1] -ceq 'tools-reuse.json'){$proof}else{Join-Path $verified $pair[1]};Require ($staged[$pair[0]] -ceq (Sha $file))}
+    return $staged
+  }finally{Remove-StageWork $work $Output}
 }
 function Unpack([byte[]]$Bytes){
   Require ($Bytes.Length -le 131072);$memory=[IO.MemoryStream]::new($Bytes,$false);$reader=[IO.BinaryReader]::new($memory)
@@ -263,6 +370,13 @@ try{
     $stream=[IO.FileStream]::new($unsigned,[IO.FileMode]::CreateNew);try{$zip=[IO.Compression.ZipArchive]::new($stream,[IO.Compression.ZipArchiveMode]::Create,$true);try{foreach($name in @('AndroidManifest.xml','qualification.txt')){$entry=$zip.CreateEntry($name);$entryStream=$entry.Open();try{$content=if($name -ceq 'AndroidManifest.xml'){New-SyntheticManifest}else{[Text.Encoding]::UTF8.GetBytes('Disposable signing qualification; not an installable application.')};$entryStream.Write($content,0,$content.Length)}finally{$entryStream.Dispose()}}}finally{$zip.Dispose()}}finally{$stream.Dispose()};Set-PrivateAcl $unsigned $false
     $syntheticCertificate=Sha $der;Sign-And-Verify $key $passwordFile $unsigned $signed $syntheticCertificate
     $result=[ordered]@{schema='st253-android-local-public-qualification-v1';platform='win32';architecture='x64';publicToolsReceiptSha256=$PublicToolsReceiptSha256;jdkArchiveSha256=$jdkPin;javaSha256=$script:portfolio.jdkFiles['bin/java.exe'].sha256;keytoolSha256=$script:portfolio.jdkFiles['bin/keytool.exe'].sha256;apksignerJarSha256=$jarPin;unsignedSha256=(Sha $unsigned);signedSha256=(Sha $signed);syntheticCertificateSha256=$syntheticCertificate;signatureVerified=$true;temporaryCustodyRemoved=$true}
+  }elseif($Mode -eq 'StageInputs'){
+    Require ($QualificationFile -and $CommandFile -and $PrimaryCheckout)
+    Validate-Record 'qualification' @($QualificationFile,$script:publicRecord)
+    Check-PrivateAcl $QualificationFile;Check-PrivateAcl $CommandFile
+    $script:ssh=Resolve-Executable 'ssh';$script:scp=Resolve-Executable 'scp'
+    $stageCommand=(Read-Small $CommandFile)|ConvertFrom-Json -AsHashtable
+    $result=Stage-Inputs $stageCommand $PrimaryCheckout $output
   }else{
     Require ($QualificationFile -and $CommandFile -and $ManifestFile -and $UnsignedApk -and $PrimaryCheckout)
     Validate-Record 'qualification' @($QualificationFile,$script:publicRecord)
@@ -310,6 +424,9 @@ Require ($ready -and $cleanup)
 if($Mode -eq 'QualifyPublic'){
   $file=Join-Path $output 'public-qualification.json';Write-Private $file (Json-Bytes $result);Validate-Record 'qualification' @($file,$script:publicRecord)
   Write-Output 'ST253_ANDROID_LOCAL_PUBLIC_QUALIFICATION_PASS originalSignerAccessed=false alignmentVerified=false'
+}elseif($Mode -eq 'StageInputs'){
+  Write-Private (Join-Path $output 'inputs-staged.json') (Json-Bytes $result)
+  Write-Output 'ST253_ANDROID_LOCAL_INPUTS_STAGED filesOnly=true legacyPreflightPassed=false signerAccessed=false'
 }else{
   $observationFile=Join-Path $output 'reservation-observation.json';Write-Private $observationFile (Json-Bytes $observed)
   $file=Join-Path $output 'execution.json';Write-Private $file (Json-Bytes $result);Validate-Record 'execution' @($file,$observationFile,$script:publicRecord)

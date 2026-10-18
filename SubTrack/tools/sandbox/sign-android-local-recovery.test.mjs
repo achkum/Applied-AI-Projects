@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {execFileSync} from 'node:child_process';
+import {execFileSync,spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -114,3 +114,89 @@ $rejected=$false;try{[void](Native $env:ST253_RECOVERY_TEST_NODE @('unused'))}ca
 [ST253.LocalBoundedProcess]::Uncertain=$true;$rejected=$false;try{[void](Native $env:ST253_RECOVERY_TEST_NODE @('unused'))}catch{$rejected=$_.Exception.Message -ceq 'ST253_ANDROID_LOCAL_TERMINATION_UNCERTAIN stage=RECEIPT_VALIDATION'};if(-not $rejected){throw 'UNCERTAINTY_LOST'}
 'PASS'
 `));
+
+test('actual staging command rejects extra fields and path/command injection before any transport',{skip:!windows},()=>run(String.raw`
+foreach($name in @('Require','Validate-StageCommand')){Invoke-Expression (Source-Function $name)}
+$selection=@{executionHead='a'*40;sourceHead='b'*40;apkRun='123-1';toolsRun='456-1';toolsSourceHead='c'*40;signingToolingHead='d'*40;signerExecutionHead='e'*40;publicToolsReceiptSha256='f'*64;executionSourceSha256='0'*64;sourceHashes=@{reservation='1'*64;receipt='2'*64;transfer='3'*64;release='4'*64;import='5'*64;signer='6'*64}}
+$inputValue=@{schema='st253-android-local-stage-inputs-v1';stageId='123e4567-e89b-42d3-a456-426614174000';selection=$selection};Validate-StageCommand $inputValue
+$variants=@(
+  @{schema=$inputValue.schema;stageId=$inputValue.stageId;selection=$selection;extra='forbidden'},
+  @{schema=$inputValue.schema;stageId='../escape';selection=$selection},
+  @{schema=$inputValue.schema;stageId=$inputValue.stageId;selection=($selection.Clone())}
+);$variants[2].selection.apkRun='123-1; false'
+foreach($value in $variants){$denied=$false;try{Validate-StageCommand $value}catch{$denied=$_.Exception.Message -ceq 'ST253_ANDROID_LOCAL_CUSTODY_UNAVAILABLE'};if(-not $denied){throw 'STAGE_INPUT_ACCEPTED'}}
+'PASS'
+`));
+
+test('actual staging upload uses bounded exclusive stdin, four names, hash readback and cleared buffers',{skip:!windows},()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'st253-upload-'));
+ try{run(String.raw`
+foreach($name in @('Require','Clear-Bytes','Sha','Stage-Upload')){Invoke-Expression (Source-Function $name)}
+$script:ssh='synthetic-ssh';$script:events=[Collections.Generic.List[object]]::new();$script:failTransport=$false
+$source=Join-Path $env:ST253_RECOVERY_TEST_CWD 'owned-source';[IO.File]::WriteAllText($source,'synthetic-public-payload');$hash=Sha $source
+function Check-PrivateAcl {param($Path);if($Path -cne $source){throw 'LOCAL_PATH'}}
+function Native {param($Program,$Arguments,$InputBytes);if($null -ne $InputBytes -and [Text.Encoding]::UTF8.GetString($InputBytes) -cne 'synthetic-public-payload'){throw 'STDIN_BYTES'};$script:events.Add(@{kind='ssh';program=$Program;arguments=$Arguments;input=$InputBytes});if($script:failTransport){throw 'TRANSPORT_UNCERTAIN'}}
+$stageId='123e4567-e89b-42d3-a456-426614174000';Stage-Upload $source $stageId 'unsigned.apk'
+if($script:events.Count -ne 2){throw 'ORDER'}
+$before=$script:events[0].arguments[-1];$after=$script:events[1].arguments[-1]
+if(-not $before.Contains('test ! -e "$f"; test ! -L "$f"; set -C; umask 077; cat > "$f"') -or -not $after.Contains('600:996:987:1') -or -not $after.Contains('sha256sum') -or -not $after.Contains($hash)){throw 'UPLOAD_GUARDS'}
+if(-not $before.Contains('/home/openclaw/subtrack-sandbox/staging/android-local-inputs/'+$stageId+'/unsigned.apk') -or $null -ne $script:events[1].input){throw 'REMOTE_PATH'}
+if(@($script:events[0].input|Where-Object {$_ -ne 0}).Count -ne 0){throw 'BUFFER_RETAINED'}
+$count=$script:events.Count;$denied=$false;try{Stage-Upload $source $stageId 'password'}catch{$denied=$_.Exception.Message -ceq 'ST253_ANDROID_LOCAL_CUSTODY_UNAVAILABLE'};if(-not $denied -or $script:events.Count -ne $count){throw 'SECRET_UPLOAD'}
+$script:failTransport=$true;$denied=$false;try{Stage-Upload $source $stageId 'unsigned.apk'}catch{$denied=$_.Exception.Message -ceq 'TRANSPORT_UNCERTAIN'};if(-not $denied -or $script:events.Count -ne $count+1 -or @($script:events[-1].input|Where-Object {$_ -ne 0}).Count -ne 0){throw 'FAILURE_BUFFER_RETAINED_OR_RETRIED'}
+'PASS'
+`,{env:{ST253_RECOVERY_TEST_CWD:root}});}finally{fs.rmSync(root,{recursive:true,force:true});}
+});
+
+test('actual upload shell noclobber preserves an existing sentinel and creates only an absent leaf',()=>{
+ const fragment=fs.readFileSync(script,'utf8').match(/set -C; umask 077; cat > "\$f"/)?.[0];assert.ok(fragment);
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'st253-noclobber-')),file=path.join(root,'leaf'),bash=windows?'C:/Program Files/Git/bin/bash.exe':'bash';
+ try{
+  fs.writeFileSync(file,'existing-sentinel');const invoke=()=>spawnSync(bash,['-c',`set -eu; f="$ST253_UPLOAD_LEAF"; ${fragment}`],{input:'replacement-public-bytes',encoding:'utf8',timeout:5000,maxBuffer:65536,env:{...process.env,ST253_UPLOAD_LEAF:file.replaceAll('\\','/')}});
+  assert.notEqual(invoke().status,0);assert.equal(fs.readFileSync(file,'utf8'),'existing-sentinel');fs.unlinkSync(file);
+  const fresh=invoke();assert.equal(fresh.status,0);assert.equal(fresh.stdout,'');assert.equal(fs.readFileSync(file,'utf8'),'replacement-public-bytes');
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});
+
+test('actual staging orchestrator redownloads before four uploads, binds receipts and preserves remote partials on failure',{skip:!windows},()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'st253-input-stage-'));
+ try{run(String.raw`
+foreach($name in @('Require','Validate-StageCommand','Json-Bytes','Sha','Read-Small','Stage-Inputs')){Invoke-Expression (Source-Function $name)}
+$primary=$env:ST253_RECOVERY_TEST_CWD;$script:privateCwd=$primary;$script:node='node';$script:ssh='ssh';$transferModule='transfer';$PublicToolsReceiptSha256='f'*64
+function No-Reparse {param($Path)};function Check-PrivateAcl {param($Path)};function Set-PrivateAcl {param($Path,$Directory)}
+function New-PrivateDirectory {param($Path);if(Test-Path -LiteralPath $Path){throw 'EXISTS'};[void][IO.Directory]::CreateDirectory($Path)}
+$selection=@{executionHead='a'*40;sourceHead='b'*40;apkRun='123-1';toolsRun='456-1';toolsSourceHead='c'*40;signingToolingHead='d'*40;signerExecutionHead='e'*40;publicToolsReceiptSha256=$PublicToolsReceiptSha256;executionSourceSha256='0'*64;sourceHashes=@{reservation='1'*64;receipt='2'*64;transfer='3'*64;release='4'*64;import='5'*64;signer='6'*64}}
+$command=@{schema='st253-android-local-stage-inputs-v1';stageId='123e4567-e89b-42d3-a456-426614174000';selection=$selection}
+$script:apk=Join-Path $primary '.codex-local-task-setup/android-transfer/apk-123-1';$script:tools=Join-Path $primary '.codex-local-task-setup/android-transfer/tools-456-1'
+[void][IO.Directory]::CreateDirectory($script:apk);[void][IO.Directory]::CreateDirectory($script:tools)
+[IO.File]::WriteAllText((Join-Path $primary 'package.json'),'{'+'"name":"subtrack","private":true}')
+$manifest=@{sourceHead=$selection.sourceHead;runId=$selection.apkRun;runtimeEnabled=$true}
+[IO.File]::WriteAllBytes((Join-Path $script:apk 'manifest.json'),(Json-Bytes $manifest));[IO.File]::WriteAllText((Join-Path $script:apk 'receipt.json'),'synthetic-receipt');[IO.File]::WriteAllText((Join-Path $script:apk 'unsigned.apk'),'synthetic-public-apk')
+foreach($name in @('manifest.json','receipt.json','tools-image.tar.gz')){[IO.File]::WriteAllText((Join-Path $script:tools $name),'synthetic-'+$name)}
+$script:events=[Collections.Generic.List[string]]::new();$script:uploads=@{};$script:tamperDownload=$false;$script:tamperReceipt=$false;$script:cleanupCount=0
+function Check-ExecutionSource {param($Binding);if($Binding.executionHead -cne $selection.executionHead){throw 'SOURCE'};$script:events.Add('source')}
+function Write-GitDockerfile {param($Head,$Destination);$script:events.Add('git');[IO.File]::WriteAllText($Destination,'synthetic-immutable-git-blob')}
+function Check-RemoteStageSource {param($Selection);$script:events.Add('remote-source')}
+function Native {param($Program,$Arguments,$InputBytes,$Timeout)
+ if($Program -ceq 'ssh'){$script:events.Add('retained-guard');return}
+ if($Arguments[1] -ceq 'download'){$script:events.Add('download');foreach($name in @('manifest.json','receipt.json','unsigned.apk')){[IO.File]::Copy((Join-Path $script:apk $name),(Join-Path $Arguments[4] $name))};if($script:tamperDownload){[IO.File]::AppendAllText((Join-Path $Arguments[4] 'unsigned.apk'),'changed')};return}
+ if($Arguments[1] -ceq 'tools-reuse'){$script:events.Add('reuse');if($Arguments[5] -cne $selection.signerExecutionHead -or $Arguments[6] -cne $selection.signingToolingHead){throw 'REUSE_HEADS'};[IO.File]::WriteAllBytes($Arguments[9],(Json-Bytes @{toolsSourceHead=$selection.toolsSourceHead;toolsRun=$selection.toolsRun}));return}
+ throw 'UNEXPECTED_NATIVE'
+}
+function Stage-FileTransfer {param($Source,$Destination);$name=$Source.Split('/')[-1];$script:events.Add('metadata');if($name -ceq 'import-binding.json'){[IO.File]::WriteAllText($Destination,'synthetic-public-import')}else{[IO.File]::Copy((Join-Path $script:tools $name),$Destination)}}
+function Stage-Upload {param($Source,$StageId,$Name);$script:events.Add('upload');$script:uploads[$Name]=$Source}
+function Remote-Command {param($Verb,$Value);$script:events.Add($Verb);$selectionHash=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData((Json-Bytes $selection)))).ToLowerInvariant()
+ if($Verb -ceq 'prepare-inputs'){return @{schema='st253-android-local-inputs-prepared-v1';stageId=$command.stageId;selectionSha256=$selectionHash;filesOnly=$true;legacyPreflightPassed=$false}}
+ if($Verb -ceq 'stage-inputs'){$value=@{schema='st253-android-local-inputs-staged-v1';stageId=$command.stageId;selectionSha256=$selectionHash;apkRun=$selection.apkRun;sourceHead=$selection.sourceHead;manifestSha256=(Sha $script:uploads['manifest.json']);receiptSha256=(Sha $script:uploads['receipt.json']);unsignedSha256=(Sha $script:uploads['unsigned.apk']);toolsReuseSha256=(Sha $script:uploads['tools-reuse.json']);filesOnly=$true;legacyPreflightPassed=$false};if($script:tamperReceipt){$value.unsignedSha256='0'*64};return $value}
+ throw 'LEGACY_OR_SIGNER_CALLED'
+}
+function Remove-StageWork {param($Work,$Parent);$script:cleanupCount++}
+$output=Join-Path $primary ('.codex-local-task-setup/android-local-inputs-stage/'+$command.stageId);[void][IO.Directory]::CreateDirectory($output)
+$result=Stage-Inputs $command $primary $output
+if($result.schema -cne 'st253-android-local-inputs-staged-v1' -or $script:uploads.Count -ne 4 -or $script:cleanupCount -ne 1 -or $script:events.IndexOf('download') -gt $script:events.IndexOf('prepare-inputs') -or $script:events.IndexOf('remote-source') -gt $script:events.IndexOf('prepare-inputs') -or $script:events.IndexOf('reuse') -gt $script:events.IndexOf('upload')){throw 'STAGE_ORDER'}
+$script:uploads=@{};$script:tamperDownload=$true;$denied=$false;try{[void](Stage-Inputs $command $primary $output)}catch{$denied=$_.Exception.Message -ceq 'ST253_ANDROID_LOCAL_CUSTODY_UNAVAILABLE'};if(-not $denied -or $script:uploads.Count -ne 0 -or $script:cleanupCount -ne 2){throw 'CHANGED_LOCAL_INPUT'}
+$script:tamperDownload=$false;$script:tamperReceipt=$true;$denied=$false;try{[void](Stage-Inputs $command $primary $output)}catch{$denied=$_.Exception.Message -ceq 'ST253_ANDROID_LOCAL_CUSTODY_UNAVAILABLE'};if(-not $denied -or $script:cleanupCount -ne 3){throw 'FALSE_REMOTE_RECEIPT'}
+if($script:events -contains 'cleanup-remote' -or $script:events -contains 'preflight' -or $script:events -contains 'begin-attempt'){throw 'UNAUTHORIZED_OPERATION'}
+'PASS'
+`,{env:{ST253_RECOVERY_TEST_CWD:root}});}finally{fs.rmSync(root,{recursive:true,force:true});}
+});

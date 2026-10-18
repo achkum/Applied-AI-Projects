@@ -36,7 +36,7 @@ test('independent full installed iOS simulator proof still compiles and exercise
  const full=readWorkflow('subtrack-native-device-proof.yml'),job=full.jobs['installed-native'];assert.equal(job.needs,'select-proof');
  const expression=job.strategy.matrix.include.replace(/^\$\{\{\s*|\s*\}\}$/g,'').replace(/^fromJSON\(/,'JSON.parse(').replaceAll('needs.select-proof.',"needs['select-proof'].");
  const script=new vm.Script(expression),matrix=(event,scope,inputs={})=>JSON.parse(JSON.stringify(script.runInNewContext({github:event,needs:{'select-proof':{outputs:{scope}}},inputs},{timeout:1000})));
- const android={platform:'android',runner:'ubuntu-24.04',database_mode:'docker'},ios={platform:'ios',runner:'macos-26',database_mode:'local'};
+ const android={platform:'android',runner:'ubuntu-24.04',database_mode:'docker'},ios={platform:'ios',runner:'macos-15',database_mode:'local'};
  const pr={event_name:'pull_request',repository:'achkum/Applied-AI-Projects',event:{pull_request:{number:292,head:{repo:{full_name:'achkum/Applied-AI-Projects'},ref:'st/native-synthetic-bank'},base:{ref:'st/native-billing-month'}}}},manual={event_name:'workflow_dispatch'};
  assert.deepEqual(matrix(pr,'full'),[android,ios]);assert.deepEqual(matrix(pr,'profile'),[android]);
  for(const scope of ['full','ios-driver'])assert.deepEqual(matrix(manual,scope,{platform:'ios'}),[ios]);
