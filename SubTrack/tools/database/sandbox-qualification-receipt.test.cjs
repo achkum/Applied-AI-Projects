@@ -58,8 +58,8 @@ ${loop}
 
 test('sample-rich qualification retains empty pre-setup boundary, exact manual provenance and additive owner isolation',()=>{
  const fs=require('node:fs'),path=require('node:path'),source=fs.readFileSync(path.join(__dirname,'sandbox-qualification.cjs'),'utf8');
- for(const name of ['productSamplesSeeded','productSeedReplayStable','productSeedOwnerIsolation','productBookedHistoryAttributed']){assert.ok(checks.includes(name));const v=good();delete v.checks[name];assert.throws(()=>sandboxReceipt(v));}
- assert.ok(source.includes("assert.equal(view.page.items.length,12)"));assert.ok(source.includes("row.source==='DETECTED'&&row.status==='ACTIVE').length,8"));assert.ok(source.includes("assert.equal(manual.source,'MANUAL')"));assert.ok(source.includes("assert.deepEqual(await snapshot(actors[0]),ownerZeroBefore)"));
+ for(const name of ['productSamplesSeeded','productSeedReplayStable','productSeedOwnerIsolation','productBookedHistoryAttributed','swedenLegacyMarkerProjection','swedenEditedReviewedRetained','swedenPurgedUpgradeDeferred']){assert.ok(checks.includes(name));const v=good();delete v.checks[name];assert.throws(()=>sandboxReceipt(v));}
+ assert.ok(source.includes("assert.equal(view.page.items.length,16+retained.length)"));assert.ok(source.includes("row.source==='DETECTED'&&row.status==='ACTIVE').length,12"));assert.ok(source.includes("assert.equal(manual.source,'MANUAL')"));assert.ok(source.includes("assert.deepEqual(await snapshot(actors[0]),ownerZeroBefore)"));
  assert.ok(source.indexOf("done('freshWorkspaceEmpty')")<source.indexOf("business(third,'profile'"));assert.ok(source.includes('assert.equal(measuredOwnerCount,3)'));assert.ok(source.includes('assert.equal(measuredManualCount,2)'));
  assert.ok(source.includes("assert.deepEqual(assigned.assignments.filter(row=>row.subscriptionId!==ids[1]),seeded[1].household.assignments)"));assert.ok(source.includes("done('syntheticRestartReadback')"));
 });

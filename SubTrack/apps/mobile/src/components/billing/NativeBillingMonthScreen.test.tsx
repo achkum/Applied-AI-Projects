@@ -184,6 +184,7 @@ it('keeps the compact Upcoming route available from an empty Home week',async()=
  const active={phase:'active' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:async<T,>(operation:(token:string,signal:AbortSignal)=>Promise<T>)=>operation('scoped-owner',new AbortController().signal)};
  render(<NativeBillingMonthScreen now={now} useSession={()=>active} readProjection={readProjection} overviewReader={reader}/>);
  const upcoming=await screen.findByRole('button',{name:copy.productNav.upcoming});
+ expect(screen.getByTestId('native-home-upcoming')).toBe(upcoming);
  expect(screen.getByText(catalogs.en.nativeProductDetails.noRenewalsThisWeek)).toBeTruthy();
  fireEvent.press(upcoming);expect(mockReplace).toHaveBeenCalledWith('/personal-home');
  expect(screen.queryByRole('button',{name:copy.billingMonth.refresh})).toBeNull();

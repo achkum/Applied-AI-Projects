@@ -1,4 +1,4 @@
-import { compareNativePlans, projectNativeAnalytics, scopeNativeAnalytics, type AnalyticsCharge, type ComparisonPlan } from './nativeAnalyticsProjection';
+import { compareNativePlans,isNativeComparisonAlternative, projectNativeAnalytics, scopeNativeAnalytics, type AnalyticsCharge, type ComparisonPlan } from './nativeAnalyticsProjection';
 import { syntheticComparisonCatalogue } from './syntheticComparisonCatalogue';
 import type { PrivateOwnerSubscriptionView } from '../../../../packages/contracts/generated/types.gen';
 jest.mock('./privateMobileApi', () => ({ readNativeProfile: jest.fn(), readNativeMode: jest.fn(), readNativeSubscriptions: jest.fn() }));
@@ -77,6 +77,20 @@ it('does not create synthetic active records or savings when the actual owner ha
   expect(value.plans.every(plan => plan.source === 'synthetic-persona-fixture')).toBe(true);
   const custom: ComparisonPlan = { id: 'saved:custom', name: 'Custom', categoryCode: 'OTHER_SUBSCRIPTION', cadence: 'CUSTOM', amountMinor: '100', currency: 'SEK', source: 'saved' };
   expect(compareNativePlans(custom, { ...custom, id: 'different' })).toBeNull();
+});
+it('keeps already-available public sample alternatives when scoping while excluding other saved plans and charge history',()=>{
+ const source=projectNativeAnalytics([row,second],charges(),now,syntheticComparisonCatalogue,true),selected=scopeNativeAnalytics(source,new Set([row.id]),now);
+ expect(selected.plans.filter(plan=>plan.source==='synthetic-persona-fixture')).toEqual(syntheticComparisonCatalogue);
+ expect(selected.plans.filter(plan=>plan.source==='saved').map(plan=>plan.subscriptionId)).toEqual([row.id]);
+ expect(selected.attributedCharges.every(charge=>charge.subscriptionId===row.id)).toBe(true);expect(selected.historyTruncated).toBe(true);
+ const unknown=scopeNativeAnalytics(source,new Set(['423e4567-e89b-42d3-a456-426614174000']),now);expect(unknown.plans).toEqual(syntheticComparisonCatalogue);expect(unknown.active).toEqual([]);expect(unknown.totals).toEqual([]);
+});
+it('does not present the same named sample snapshot as an alternative while retaining genuinely separate saved duplicates',()=>{
+ const saved:ComparisonPlan={id:`saved:${row.id}`,name:'  CAFÉ PLAN ',categoryCode:row.categoryCode,cadence:'MONTHLY',amountMinor:'10000',currency:'SEK',source:'saved',subscriptionId:row.id};
+ const sample:ComparisonPlan={...saved,id:'fixture:sample',name:'cafe\u0301 plan',amountMinor:'9000',source:'synthetic-persona-fixture'};
+ expect(isNativeComparisonAlternative(saved,sample)).toBe(false);expect(compareNativePlans(saved,sample)).toBeNull();
+ expect(isNativeComparisonAlternative(saved,{...sample,name:'Another plan'})).toBe(true);expect(compareNativePlans(saved,{...sample,name:'Another plan'})?.monthly.minorUnits).toBe(1000n);
+ expect(compareNativePlans(saved,{...sample,source:'saved',id:`saved:${second.id}`} )?.monthly.minorUnits).toBe(1000n);
 });
 it('scopes actual booked history to selected active subscription IDs without retaining foreign or unassigned evidence',()=>{
  const secondCharges=charges(['-7000','-7000','-7000','-7000','-7000']).map(item=>({...item,id:`second-${item.id}`,subscriptionId:second.id}));

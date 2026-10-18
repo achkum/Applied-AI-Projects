@@ -36,11 +36,11 @@ appId: se.subtrack.app.sandbox
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: native-detection-confirm-atlas-ai
+      id: native-detection-confirm-spotify-premium-individual
     direction: DOWN
 - takeScreenshot: accepted-sandbox-detections
 - tapOn:
-    id: native-detection-confirm-atlas-ai
+    id: native-detection-confirm-spotify-premium-individual
 - scrollUntilVisible:
     element:
       id: native-detection-title
@@ -50,10 +50,10 @@ appId: se.subtrack.app.sandbox
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: native-detection-confirm-evergreen-mobile
+      id: native-detection-confirm-disney-premium
     direction: DOWN
 - tapOn:
-    id: native-detection-confirm-evergreen-mobile
+    id: native-detection-confirm-disney-premium
 - scrollUntilVisible:
     element:
       id: native-detection-title
@@ -63,10 +63,10 @@ appId: se.subtrack.app.sandbox
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: native-detection-reject-motion-club
+      id: native-detection-reject-icloud-50-gb
     direction: DOWN
 - tapOn:
-    id: native-detection-reject-motion-club
+    id: native-detection-reject-icloud-50-gb
 - scrollUntilVisible:
     element:
       id: native-detection-title
@@ -82,10 +82,10 @@ appId: se.subtrack.app.sandbox
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: native-detection-confirm-motion-club
+      id: native-detection-confirm-icloud-50-gb
     direction: DOWN
 - assertVisible:
-    id: native-detection-confirm-motion-club
+    id: native-detection-confirm-icloud-50-gb
 - takeScreenshot: accepted-sandbox-reviewed
 - scrollUntilVisible:
     element: ${E_MANAGE}

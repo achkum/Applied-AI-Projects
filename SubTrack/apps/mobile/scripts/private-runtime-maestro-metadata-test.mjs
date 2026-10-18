@@ -98,6 +98,21 @@ test('failed scroll targets come only from exact original source selectors and e
 const captureHead='ab'.repeat(20),captureId='123e4567-e89b-42d3-a456-426614174000';
 const captureEnv={ST253_CAPTURE_ENABLED:'true',ST253_CAPTURE_PLATFORM:'ios',ST253_CAPTURE_HEAD_REPOSITORY:'achkum/Applied-AI-Projects',NODE_ENV:'development',SUBTRACK_PRIVATE_DEVICE_PROOF:'true',EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL:'https://localhost:3443',GITHUB_REPOSITORY:'achkum/Applied-AI-Projects',GITHUB_EVENT_NAME:'pull_request',GITHUB_REF:'refs/pull/293/merge',GITHUB_HEAD_REF:'codex/native-owner-search',ST253_CAPTURE_SOURCE_HEAD:captureHead,GITHUB_RUN_ID:'1234',GITHUB_RUN_ATTEMPT:'1',SUBTRACK_SIMULATOR_UDID:'123E4567-E89B-42D3-A456-426614174000'};
 const captureContext=preinputCaptureContext(captureEnv,captureHead),zeroApi={state:'active',arrivals:'zero'};
+test('integration preinput capture is restricted to the same-repository PR292 full proof and exact base/head',()=>{
+ const integration={...captureEnv,GITHUB_REF:'refs/pull/292/merge',GITHUB_HEAD_REF:'st/native-synthetic-bank',ST253_CAPTURE_BASE_REF:'st/native-billing-month',SUBTRACK_NATIVE_PROOF_SCOPE:'full'};
+ assert.deepEqual(preinputCaptureContext(integration,captureHead),captureContext);
+ for(const key of Object.keys(integration))assert.equal(preinputCaptureContext({...integration,[key]:'private-canary'},captureHead),null,key);
+ for(const patch of [{GITHUB_REF:'refs/pull/291/merge'},{ST253_CAPTURE_BASE_REF:undefined},{SUBTRACK_NATIVE_PROOF_SCOPE:'profile'},{ST253_CAPTURE_HEAD_REPOSITORY:'foreign/repo'},{GITHUB_EVENT_NAME:'pull_request_target'}])assert.equal(preinputCaptureContext({...integration,...patch},captureHead),null);
+ assert.equal(preinputCaptureContext(integration,'cd'.repeat(20)),null);
+});
+test('first follow-up PR preinput capture requires the exact authorized head/base and a positive original PR merge ref',()=>{
+ const followup={...captureEnv,GITHUB_REF:'refs/pull/305/merge',GITHUB_HEAD_REF:'codex/sweden-data-native-followup',ST253_CAPTURE_BASE_REF:'st/native-synthetic-bank',SUBTRACK_NATIVE_PROOF_SCOPE:'full'};
+ assert.deepEqual(preinputCaptureContext(followup,captureHead),captureContext);
+ for(const key of Object.keys(followup))assert.equal(preinputCaptureContext({...followup,[key]:'private-canary'},captureHead),null,key);
+ for(const ref of ['refs/pull/0/merge','refs/pull/0305/merge','refs/pull/-1/merge','refs/pull/305/head','refs/heads/codex/sweden-data-native-followup','refs/pull/999999999999999999999/merge'])assert.equal(preinputCaptureContext({...followup,GITHUB_REF:ref},captureHead),null);
+ for(const patch of [{ST253_CAPTURE_BASE_REF:undefined},{SUBTRACK_NATIVE_PROOF_SCOPE:'profile'},{ST253_CAPTURE_PLATFORM:'android'},{ST253_CAPTURE_HEAD_REPOSITORY:'foreign/repo'},{GITHUB_EVENT_NAME:'pull_request_target'}])assert.equal(preinputCaptureContext({...followup,...patch},captureHead),null);
+ assert.equal(preinputCaptureContext(followup,'cd'.repeat(20)),null);
+});
 test('explicit iOS repair dispatch binds the exact source without broadening original preinput eligibility',()=>{
  const manual={...captureEnv,GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/codex/ios-startup-fixes',GITHUB_HEAD_REF:'',GITHUB_SHA:captureHead,ST253_CAPTURE_DISPATCH_SOURCE:captureHead};
  assert.deepEqual(preinputCaptureContext(manual,captureHead),captureContext);

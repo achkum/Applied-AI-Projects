@@ -42,7 +42,7 @@ jobs:
         shell: bash
         run: |
           bash -n tools/sandbox/build-api.sh
-          node --test tools/sandbox/bootstrap.test.cjs tools/database/sandbox-qualification-receipt.test.cjs
+          node --test tools/sandbox/bootstrap.test.cjs tools/sandbox/upgrade-api.test.cjs tools/database/sandbox-qualification-receipt.test.cjs tools/database/sandbox-sweden-seed-proof.test.cjs
       # The same-image PostgreSQL workflow compiles and exercises the actual image.
       # This policy job does not claim an image build or upload a build receipt.
   image-preparation:

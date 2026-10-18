@@ -54,17 +54,17 @@ test('actual flows use sandbox package, no authority extraction or rebuild, one 
  const names=['setup','bank','manage','pages','visual','restart'];const sources=names.map(name=>readFileSync(new URL(`../e2e/sandbox-product-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n'));
  for(const source of sources){assert.ok(source.startsWith('appId: se.subtrack.app.sandbox\n'));assert.doesNotMatch(source,/runScript|evalScript|copyTextFrom|openLink|https:\/\/localhost|se\.subtrack\.app\n/);}
  const all=sources.join('\n'),captures=[...all.matchAll(/- takeScreenshot: ([a-z-]+)/g)].map(m=>`${m[1]}.png`);assert.deepEqual(captures.sort(),[...SCREENSHOTS].sort());
- assert.equal((all.match(/clearState: true/g)??[]).length,0);const driver=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8');assert.equal((driver.match(/'shell','pm','clear',PACKAGE/g)??[]).length,1);assert.ok(driver.indexOf("'shell','pm','clear',PACKAGE")>driver.indexOf('checks.signedBytesInstalled=true'));assert.ok(driver.indexOf("'shell','pm','clear',PACKAGE")<driver.indexOf("if(name==='setup')freshWorkspaceStarted=true"));assert.equal((all.match(/- stopApp/g)??[]).length,1);assert.equal((all.match(/native-detection-confirm-atlas-ai/g)??[]).length,2);assert.ok(all.includes('native-detection-confirm-evergreen-mobile'));assert.ok(all.includes('native-detection-reject-motion-club'));assert.ok(all.includes('native-detection-undo'));assert.ok(all.includes('native-profile-theme-dark\n    selected: true'));
+ assert.equal((all.match(/clearState: true/g)??[]).length,0);const driver=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8');assert.equal((driver.match(/'shell','pm','clear',PACKAGE/g)??[]).length,1);assert.ok(driver.indexOf("'shell','pm','clear',PACKAGE")>driver.indexOf('checks.signedBytesInstalled=true'));assert.ok(driver.indexOf("'shell','pm','clear',PACKAGE")<driver.indexOf("if(name==='setup')freshWorkspaceStarted=true"));assert.equal((all.match(/- stopApp/g)??[]).length,1);assert.equal((all.match(/native-detection-confirm-spotify-premium-individual/g)??[]).length,2);assert.ok(all.includes('native-detection-confirm-disney-premium'));assert.ok(all.includes('native-detection-reject-icloud-50-gb'));assert.ok(all.includes('native-detection-undo'));assert.ok(all.includes('native-profile-theme-dark\n    selected: true'));
  const labels=flowLabels(new Date('2026-10-17T12:00:00Z'));assert.equal(labels.TODAY,'2026-10-17');const args=maestroArgs(labels,'/private/output','/flow.yaml');assert.equal(args.filter(value=>value==='-e').length,Object.keys(labels).length);assert.ok(args.includes('TODAY=2026-10-17'));assert.equal(args.at(-1),'/flow.yaml');for(const match of all.matchAll(/\$\{([A-Z_]+)\}/g))assert.equal(typeof labels[match[1]],'string');
  const workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-sandbox-installed-android.yml',import.meta.url),'utf8');assert.doesNotMatch(workflow,/pnpm install|gradlew|expo prebuild|assembleRelease|assembleDebug|eas build|push:|pull_request:/);assert.ok(workflow.includes('if: success()'));assert.ok(workflow.includes('subtrack-sandbox-installed/public/'));
 });
 
 test('signed edit opens the acknowledged saved detail once before status actions',()=>{
  const flow=readFileSync(new URL('../e2e/sandbox-product-manage.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
- assert.equal((flow.match(/- tapOn: Cedar Video\n/g)??[]).length,1);
+ assert.equal((flow.match(/- tapOn: Netflix\n/g)??[]).length,1);
  const saved=flow.slice(flow.indexOf('visible: ${E_EDIT_SAVED}'));
- assert.ok(saved.includes('element: Cedar Video Plus'));assert.ok(saved.includes('- assertVisible: Streaming extras'));
- assert.equal((saved.match(/- tapOn: Cedar Video Plus\n/g)??[]).length,1);assert.ok(saved.indexOf('- tapOn: Cedar Video Plus')<saved.indexOf('- tapOn: ${E_PAUSE}'));assert.ok(saved.endsWith('- tapOn:\n    id: native-subscription-detail-close\n'));
+ assert.ok(saved.includes('element: Netflix household'));assert.ok(saved.includes('- assertVisible: Streaming extras'));
+ assert.equal((saved.match(/- tapOn: Netflix household\n/g)??[]).length,1);assert.ok(saved.indexOf('- tapOn: Netflix household')<saved.indexOf('- tapOn: ${E_PAUSE}'));assert.ok(saved.endsWith('- tapOn:\n    id: native-subscription-detail-close\n'));
  assert.ok(saved.includes('- tapOn: ${E_PAUSE}'));assert.ok(saved.includes('- tapOn: ${E_RESUME}'));assert.ok(saved.includes('- assertNotVisible: ${E_RESUME}'));
 });
 
@@ -72,8 +72,8 @@ test('signed cold restart verifies the resumed same-owner household and saved va
  const flow=readFileSync(new URL('../e2e/sandbox-product-restart.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
  assert.ok(flow.includes('- stopApp\n- launchApp\n- extendedWaitUntil:\n    visible:\n      id: native-nav-household\n    timeout: 120000'));
  assert.ok(!flow.includes('native-welcome-logIn'));assert.ok(!flow.includes('clearState:'));
- for(const readback of ['visible: QA Family','- assertVisible: QA Member','element: Cedar Video Plus','- assertVisible: Streaming extras','- assertVisible: ${TODAY}','id: native-profile-language-sv\n    selected: true','id: native-profile-theme-dark\n    selected: true'])assert.ok(flow.includes(readback),readback);
- for(const denied of ['- assertNotVisible: Cedar Video Plus','- assertNotVisible: QA Family','- assertNotVisible:\n    id: native-product-navigation'])assert.ok(flow.includes(denied),denied);
+ for(const readback of ['visible: QA Family','- assertVisible: QA Member','element: Netflix household','- assertVisible: Streaming extras','- assertVisible: ${TODAY}','id: native-profile-language-sv\n    selected: true','id: native-profile-theme-dark\n    selected: true'])assert.ok(flow.includes(readback),readback);
+ for(const denied of ['- assertNotVisible: Netflix household','- assertNotVisible: QA Family','- assertNotVisible:\n    id: native-product-navigation'])assert.ok(flow.includes(denied),denied);
  assert.ok(flow.includes('visible: ${S_LOGOUT_CONFIRMED}'));
 });
 
@@ -92,11 +92,11 @@ test('failure screenshot is diagnostic-only and requires verified fresh sandbox 
 });
 
 
-test('seeded product flow proves additive review, real household rename and exact ten active plans',()=>{
+test('seeded product flow proves additive review, real household rename and exact fourteen active plans',()=>{
  const setup=readFileSync(new URL('../e2e/sandbox-product-setup.yaml',import.meta.url),'utf8'),bank=readFileSync(new URL('../e2e/sandbox-product-bank.yaml',import.meta.url),'utf8'),pages=readFileSync(new URL('../e2e/sandbox-product-pages.yaml',import.meta.url),'utf8'),restart=readFileSync(new URL('../e2e/sandbox-product-restart.yaml',import.meta.url),'utf8');
  assert.ok(setup.includes('- assertVisible: Demo family'));assert.ok(setup.includes('id: native-household-rename'));assert.ok(setup.includes('id: native-household-save'));assert.ok(!setup.includes('id: native-household-create'));assert.ok(setup.indexOf('id: native-household-member-add-open')<setup.indexOf('id: native-household-member-name'));
  assert.ok(bank.includes('- assertVisible: ${E_BANK_ACTIVE}'));assert.equal((bank.match(/- tapOn:\s+id: native-bank-sync-0/g)??[]).length,1);assert.ok(!bank.includes('native-bank-connect'));
- const labels=flowLabels(new Date('2026-10-17T12:00:00Z'));assert.equal(labels.E_ACTIVE_TEN,'10 active plans');assert.ok(pages.includes('- assertVisible: ${E_ACTIVE_TEN}'));assert.equal(CHECKS.includes('seededHouseholdReadAndRenamed'),true);assert.equal(CHECKS.includes('householdCreated'),false);
+ const labels=flowLabels(new Date('2026-10-17T12:00:00Z'));assert.equal(labels.E_ACTIVE_FOURTEEN,'14 active plans');assert.ok(pages.includes('- assertVisible: ${E_ACTIVE_FOURTEEN}'));assert.equal(CHECKS.includes('seededHouseholdReadAndRenamed'),true);assert.equal(CHECKS.includes('householdCreated'),false);
  assert.ok(!restart.includes('native-profile-save-preferences'));const language=restart.indexOf('id: native-profile-language-sv'),theme=restart.indexOf('- tapOn:\n    id: native-profile-theme-dark');assert.ok(language<theme);assert.ok(restart.slice(language,theme).includes('id: native-profile-language-sv\n      selected: true'));assert.ok(restart.slice(language,theme).includes('selected: true'));
 });
 
@@ -113,10 +113,10 @@ test('actual signed visual flow captures all five tabs, real detail and chart in
   const languageId=`native-profile-language-${locale}`,themeId=`native-profile-theme-${theme}`,language=tapId(steps,languageId),languageReady=selected(steps,languageId),themeAt=tapId(steps,themeId),themeReady=selected(steps,themeId);
   assert.ok(language>=0&&languageReady>language&&themeAt>languageReady&&themeReady>themeAt&&capture(steps,mode,'home')>themeReady,mode);
   for(const [tab,screenName]of [['month','home'],['manage','subscriptions'],['household','household'],['insights','insights'],['profile','profile']]){const at=steps.findIndex((row,index)=>row.tapOn?.id===`native-nav-${tab}`&&index<capture(steps,mode,screenName));assert.ok(at>=0,mode+tab);assert.deepEqual(steps[at+1],{extendedWaitUntil:{visible:{id:`native-nav-${tab}`,selected:true},timeout:30000}});}
-  const open=steps.findIndex(row=>row.tapOn==='Cedar Video Plus'),detail=capture(steps,mode,'detail'),close=tapId(steps,'native-subscription-detail-close');assert.ok(open>capture(steps,mode,'subscriptions')&&detail>open&&close>detail&&capture(steps,mode,'household')>close);
+  const open=steps.findIndex(row=>row.tapOn==='Netflix household'),detail=capture(steps,mode,'detail'),close=tapId(steps,'native-subscription-detail-close');assert.ok(open>capture(steps,mode,'subscriptions')&&detail>open&&close>detail&&capture(steps,mode,'household')>close);
   assert.ok(steps.slice(open,detail).some(row=>row.extendedWaitUntil?.visible?.id==='native-subscription-charge-history'));
   const chart=steps.findIndex(row=>row.scrollUntilVisible?.element?.id==='native-insights-trend'&&row.scrollUntilVisible.direction==='DOWN');assert.ok(chart>capture(steps,mode,'insights')&&chart<capture(steps,mode,'trend'));
-  assert.ok(steps.some(row=>row.extendedWaitUntil?.visible==='${'+(locale==='en'?'E':'S')+'_ACTIVE_TEN}'));
+  assert.ok(steps.some(row=>row.extendedWaitUntil?.visible==='${'+(locale==='en'?'E':'S')+'_ACTIVE_FOURTEEN}'));
   start=end+1;
  }
  const restore=rows.slice(start);assert.ok(tapId(restore,'native-profile-language-en')<selected(restore,'native-profile-language-en'));assert.ok(tapId(restore,'native-profile-theme-light')<selected(restore,'native-profile-theme-light'));assert.deepEqual(restore.at(-1),{assertVisible:{id:'native-profile-language-en',selected:true}});
@@ -148,7 +148,7 @@ test('signed fixture navigation targets Profile bank entry, the bottom Compare a
  const rows=name=>yaml.parseAllDocuments(readFileSync(new URL(`../e2e/sandbox-product-${name}.yaml`,import.meta.url),'utf8'))[1].toJSON();const bank=rows('bank'),pages=rows('pages'),restart=rows('restart');
  assert.deepEqual(bank[0],{tapOn:{id:'native-nav-profile'}});assert.ok(bank.some(row=>row.tapOn?.text==='${E_BANK_OPEN}'&&row.tapOn.index===1));
  assert.ok(pages.some(row=>row.tapOn?.text==='${E_COMPARE}'&&row.tapOn.below==='${E_TREND_EVIDENCE}'));
- const loop=pages.find(row=>row.repeat);assert.equal(loop.repeat.times,12);assert.deepEqual(loop.repeat.commands,[{runFlow:{when:{notVisible:'Birch Cinema'},commands:[{swipe:{start:'90%, 24%',end:'10%, 24%',duration:500}}]}}]);assert.ok(pages.findIndex(row=>row.assertVisible==='Birch Cinema')<pages.findIndex(row=>row.tapOn==='Birch Cinema'));
+ const loop=pages.find(row=>row.repeat);assert.equal(loop.repeat.times,12);assert.deepEqual(loop.repeat.commands,[{runFlow:{when:{notVisible:'Disney[+] Standard'},commands:[{swipe:{start:'90%, 24%',end:'10%, 24%',duration:500}}]}}]);assert.ok(pages.findIndex(row=>row.assertVisible==='Disney[+] Standard')<pages.findIndex(row=>row.tapOn==='Disney[+] Standard'));
  for(const id of ['native-profile-language-sv','native-profile-theme-dark']){const tap=restart.findIndex(row=>row.tapOn?.id===id);assert.deepEqual(restart[tap+1],{extendedWaitUntil:{visible:{id,selected:true},timeout:30000}});}
 });
 

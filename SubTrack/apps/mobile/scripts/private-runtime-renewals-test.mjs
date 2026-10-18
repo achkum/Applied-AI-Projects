@@ -40,14 +40,23 @@ test('installed flows validate candidate date using actual UI/refresh and retain
 
 test('Upcoming uses shared catalog navigation and returns to the exact ready Manage header before logout',()=>{
  for(const locale of ['en','sv']){const env=flowEnvironment(locale),c=JSON.parse(readFileSync(new URL(`../../../packages/i18n/catalogs/${locale}.json`,import.meta.url),'utf8')).onboarding;assert.equal(env.MAESTRO_MANAGE,c.productNav.manage);assert.equal(env.MAESTRO_PERSONAL_TITLE,c.productNav.manage);assert.equal(env.MAESTRO_PROFILE_TITLE,c.profile.title);}
- for(const name of ['renewals','renewals-empty']){const flow=readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n');assert.equal(flow.split('- tapOn: ${MAESTRO_RENEWALS_OPEN}').length-1,1);assert.ok(flow.includes('- tapOn:\n    id: native-nav-manage\n- extendedWaitUntil:\n    visible:\n      id: native-personal-title\n      text: ${MAESTRO_PERSONAL_TITLE}\n    timeout: 30000\n- runFlow: private-runtime-open-profile.yaml\n- scrollUntilVisible:\n    element: ${MAESTRO_LOGOUT}\n    direction: DOWN\n- tapOn: ${MAESTRO_LOGOUT}'));assert.equal(flow.split('- tapOn:\n    id: native-nav-manage').length-1,1);}
+ for(const name of ['renewals','renewals-empty']){const flow=readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n');assert.equal(flow.split('- tapOn:\n    id: native-home-upcoming').length-1,1);assert.ok(flow.includes('- tapOn:\n    id: native-nav-manage\n- extendedWaitUntil:\n    visible:\n      id: native-personal-title\n      text: ${MAESTRO_PERSONAL_TITLE}\n    timeout: 30000\n- runFlow: private-runtime-open-profile.yaml\n- scrollUntilVisible:\n    element: ${MAESTRO_LOGOUT}\n    direction: DOWN\n- tapOn: ${MAESTRO_LOGOUT}'));assert.equal(flow.split('- tapOn:\n    id: native-nav-manage').length-1,1);}
 });
 
 test('agenda row waits stay on Upcoming and never wait for a Manage-only heading',()=>{
  const flow=readFileSync(new URL('../e2e/private-runtime-renewals.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
- const agenda=flow.slice(flow.indexOf('- tapOn: ${MAESTRO_RENEWALS_OPEN}'),flow.lastIndexOf('- tapOn:\n    id: native-nav-manage'));
+ const upcoming=flow.indexOf('- tapOn:\n    id: native-home-upcoming');assert.ok(upcoming>=0);
+ const agenda=flow.slice(upcoming,flow.lastIndexOf('- tapOn:\n    id: native-nav-manage'));
  assert.ok(agenda.includes('${MAESTRO_RENEWALS_TITLE}'));assert.ok(!agenda.includes('native-personal-title'));assert.ok(!agenda.includes('${MAESTRO_PERSONAL_TITLE}'));
  assert.equal(agenda.split('- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}').length-1,2);
+});
+
+test('agenda entry targets the real Upcoming button instead of matching the decorative chart legend',()=>{
+ for(const name of ['renewals','renewals-empty']){
+  const flow=readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n');
+  assert.ok(flow.includes('element:\n      id: native-home-upcoming\n    direction: DOWN\n- tapOn:\n    id: native-home-upcoming'));
+  assert.ok(!flow.includes('- tapOn: ${MAESTRO_RENEWALS_OPEN}'));
+ }
 });
 
 test('native Upcoming pull refresh remains a real owner read without a normal refresh button',()=>{

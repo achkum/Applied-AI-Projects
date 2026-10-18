@@ -181,6 +181,8 @@ export function preparePreinputMetadata(privateRoot){
 export function preinputCaptureContext(environment,head){
  try{const e=environment;
   const authority=e.GITHUB_EVENT_NAME==='pull_request'&&e.GITHUB_REF==='refs/pull/293/merge'&&e.GITHUB_HEAD_REF==='codex/native-owner-search'
+   ||e.GITHUB_EVENT_NAME==='pull_request'&&e.GITHUB_REF==='refs/pull/292/merge'&&e.GITHUB_HEAD_REF==='st/native-synthetic-bank'&&e.ST253_CAPTURE_BASE_REF==='st/native-billing-month'&&e.SUBTRACK_NATIVE_PROOF_SCOPE==='full'
+   ||e.GITHUB_EVENT_NAME==='pull_request'&&/^refs\/pull\/[1-9][0-9]{0,19}\/merge$/.test(e.GITHUB_REF)&&e.GITHUB_HEAD_REF==='codex/sweden-data-native-followup'&&e.ST253_CAPTURE_BASE_REF==='st/native-synthetic-bank'&&e.SUBTRACK_NATIVE_PROOF_SCOPE==='full'
    ||e.GITHUB_EVENT_NAME==='workflow_dispatch'&&e.GITHUB_REF==='refs/heads/codex/ios-startup-fixes'&&!e.GITHUB_HEAD_REF&&e.ST253_CAPTURE_DISPATCH_SOURCE===head&&e.GITHUB_SHA===head;
   if(!authority||e.ST253_CAPTURE_ENABLED!=='true'||e.ST253_CAPTURE_PLATFORM!=='ios'||e.ST253_CAPTURE_HEAD_REPOSITORY!=='achkum/Applied-AI-Projects'||e.NODE_ENV!=='development'||e.SUBTRACK_PRIVATE_DEVICE_PROOF!=='true'||e.EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC!=='true'||e.EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED!=='true'||e.EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL!=='https://localhost:3443'||e.GITHUB_REPOSITORY!=='achkum/Applied-AI-Projects'||e.ST253_CAPTURE_SOURCE_HEAD!==head||!/^[a-f0-9]{40}$/.test(head)||! /^[1-9][0-9]{0,19}$/.test(e.GITHUB_RUN_ID)||! /^[1-9][0-9]{0,3}$/.test(e.GITHUB_RUN_ATTEMPT)||! /^[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/.test(e.SUBTRACK_SIMULATOR_UDID))return null;
   return Object.freeze({sourceHead:head,runId:e.GITHUB_RUN_ID,attempt:e.GITHUB_RUN_ATTEMPT,udid:e.SUBTRACK_SIMULATOR_UDID});

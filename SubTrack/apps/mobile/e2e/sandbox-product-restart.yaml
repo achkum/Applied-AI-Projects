@@ -54,11 +54,11 @@ appId: se.subtrack.app.sandbox
 - tapOn:
     id: native-nav-manage
 - scrollUntilVisible:
-    element: Cedar Video Plus
+    element: Netflix household
     direction: DOWN
 - assertVisible: Streaming extras
 - takeScreenshot: accepted-sandbox-restart-subscriptions
-- tapOn: Cedar Video Plus
+- tapOn: Netflix household
 - scrollUntilVisible:
     element: ${S_EDIT}
     direction: DOWN
@@ -93,7 +93,7 @@ appId: se.subtrack.app.sandbox
     visible: ${S_LOGOUT_CONFIRMED}
     timeout: 30000
 - assertNotVisible: ${S_LOGOUT}
-- assertNotVisible: Cedar Video Plus
+- assertNotVisible: Netflix household
 - assertNotVisible: QA Family
 - assertNotVisible:
     id: native-product-navigation

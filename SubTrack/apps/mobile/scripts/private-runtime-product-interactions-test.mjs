@@ -65,7 +65,7 @@ test('row actions are opened before editing and archived controls are examined a
 
 test('Upcoming is reached through Home and empty-day selection is asserted without inventing a card', () => {
   for (const name of ['renewals', 'renewals-empty']) {
-    assert.ok(read(name).includes('- tapOn:\n    id: native-nav-month\n- extendedWaitUntil:\n    visible: ${MAESTRO_MONTH_TITLE}\n    timeout: 30000\n- scrollUntilVisible:\n    element: ${MAESTRO_RENEWALS_OPEN}\n    direction: DOWN\n- tapOn: ${MAESTRO_RENEWALS_OPEN}'));
+    assert.ok(read(name).includes('- tapOn:\n    id: native-nav-month\n- extendedWaitUntil:\n    visible: ${MAESTRO_MONTH_TITLE}\n    timeout: 30000\n- scrollUntilVisible:\n    element:\n      id: native-home-upcoming\n    direction: DOWN\n- tapOn:\n    id: native-home-upcoming'));
   }
   const day = read('month-day');
   assert.ok(!day.includes('MAESTRO_RIBBON_DIRECTION'));
@@ -111,6 +111,6 @@ test('edited saved rows open the actual detail once before status actions and cl
   if(name==='edit-status-api-restart')assert.deepEqual(flow[capture+2],{runFlow:'private-runtime-open-profile.yaml'});
  }
  const signed=yaml.parseAllDocuments(readFileSync(new URL('../e2e/sandbox-product-manage.yaml',import.meta.url),'utf8')).map(document=>document.toJSON())[1];
- const saved=signed.findIndex(step=>step.tapOn==='${E_SAVE_EDIT}'),paused=signed.findIndex(step=>step.tapOn==='${E_PAUSE}');assert.equal(signed.filter(step=>step.tapOn==='Cedar Video').length,1);assert.equal(signed.slice(saved+1,paused).filter(step=>step.tapOn==='Cedar Video Plus').length,1);
+ const saved=signed.findIndex(step=>step.tapOn==='${E_SAVE_EDIT}'),paused=signed.findIndex(step=>step.tapOn==='${E_PAUSE}');assert.equal(signed.filter(step=>step.tapOn==='Netflix').length,1);assert.equal(signed.slice(saved+1,paused).filter(step=>step.tapOn==='Netflix household').length,1);
  assert.deepEqual(signed.at(-1),{tapOn:{id:'native-subscription-detail-close'}});
 });

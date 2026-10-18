@@ -63,5 +63,5 @@ test('actual bank source flows use one pull gesture, contextual Options and Prof
  }
  const sandbox=yaml.parseAllDocuments(readFileSync(new URL('../e2e/sandbox-product-bank.yaml',import.meta.url),'utf8')).map(document=>document.toJSON())[1];
  const at=sandbox.findIndex(row=>row.tapOn==='${E_MANAGE}');assert.ok(at>0);assert.deepEqual(sandbox[at-1],{scrollUntilVisible:{element:'${E_MANAGE}',direction:'UP'}});
- for(const id of ['native-detection-confirm-atlas-ai','native-detection-confirm-evergreen-mobile','native-detection-reject-motion-club','native-detection-undo'])assert.equal(byId(sandbox,id).length,1,id);
+ for(const id of ['native-detection-confirm-spotify-premium-individual','native-detection-confirm-disney-premium','native-detection-reject-icloud-50-gb','native-detection-undo'])assert.equal(byId(sandbox,id).length,1,id);
 });

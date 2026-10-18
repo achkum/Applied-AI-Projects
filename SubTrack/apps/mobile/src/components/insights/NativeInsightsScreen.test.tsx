@@ -70,6 +70,9 @@ it('renders actual findings, expandable category contributions, exact trend alte
   expect(screen.getByRole('header', { name: copy.insights })).toBeTruthy();
   expect(screen.getByText(copy.categoryOverlap.replace('%{count}', '2'))).toBeTruthy();
   expect(screen.getByText(copy.trendEvidence)).toBeTruthy();
+  expect(screen.getByText(`${copy.previous}: ${formatMinorUnits(10000n,'SEK',{locale:'en',display:'code'})} · ${copy.current}: ${formatMinorUnits(12000n,'SEK',{locale:'en',display:'code'})}`)).toBeTruthy();
+  expect(screen.getByLabelText(`${formatMinorUnits(2000n,'SEK',{locale:'en',display:'code'})} ${copy.morePerMonth}. ${copy.increaseEvidence.replace('%{first}','2026-06-03').replace('%{last}','2026-10-03')}`)).toBeTruthy();
+  expect(StyleSheet.flatten(screen.getByText(formatMinorUnits(2000n,'SEK',{locale:'en',display:'code'})).props.style).color).toBe(getColorByTheme(jest.requireActual('../../../../../packages/ui-tokens/generated/billing-month.native.json'),false,'status.warning'));
   expect(screen.getByTestId('native-insights-trend').props.accessibilityLabel).toContain(`2026-10, ${formatMinorUnits(12000n, 'SEK', { locale: 'en', display: 'code' })}, ${copy.charges.replace('%{count}', '1')}`);
   expect(screen.getByText('May – October')).toBeTruthy();
   const overview = screen.getByRole('button', { name: `${copy.overview}. ${copy.activePlans.replace('%{count}', '2')}. ${copy.findings.replace('%{count}', '2')}` });
@@ -180,7 +183,7 @@ it('keeps inline sample comparisons in Insights truthful and opens the actual se
  const projection=projectNativeAnalytics([row,second],history,now(),[{id:'fixture:example-video',name:'Example Video sample',categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',amountMinor:'6000',currency:'SEK',source:'synthetic-persona-fixture'}]);
  render(<NativeInsightsScreen useSession={()=>facade()} reader={jest.fn().mockResolvedValue({kind:'ready',projection})} now={now}/>);
  await screen.findByRole('header',{name:copy.sameCategory});
- expect(screen.getAllByText(copy.samplePrice)).toHaveLength(2);expect(screen.getAllByText(copy.fixtureSource)).toHaveLength(2);
+ expect(screen.getAllByText(copy.samplePrice)).toHaveLength(2);expect(screen.getAllByText(copy.fixtureSource)).toHaveLength(1);
  expect(screen.getByText(copy.comparisonTitle.replace('%{name}',row.customName).replace('%{alternative}','Example Video sample'))).toBeTruthy();
  fireEvent.press(screen.getAllByRole('button',{name:copy.compare})[0]!);expect(mockPush).toHaveBeenLastCalledWith({pathname:'/personal-comparisons',params:{subscriptionId:row.id}});
  expect(screen.queryByText(/market average|live offer today|score.*100/i)).toBeNull();
@@ -192,6 +195,12 @@ it.each([1,2])('uses the actual category-overlap count for singular and plural s
  await screen.findByText(count===1?copy.summaryOverlapOne:copy.summaryOverlap.replace('%{count}',String(count)));
  expect(screen.queryByText(count===1?copy.summaryOverlap.replace('%{count}','1'):copy.summaryOverlapOne)).toBeNull();
  expect(catalogs.sv.nativeAnalytics.summaryOverlapOne).toBe('1 kategori innehåller fler än ett aktivt abonnemang.');
+});
+it('skips an identical named sample in both inline Insights and the dedicated comparison list',async()=>{
+ const own={...row,customName:'Example Video'},fixtures=[{id:'fixture:same',name:' example video ',categoryCode:row.categoryCode,cadence:'MONTHLY' as const,amountMinor:'9000',currency:'SEK',source:'synthetic-persona-fixture' as const},{id:'fixture:other',name:'Other sample',categoryCode:row.categoryCode,cadence:'MONTHLY' as const,amountMinor:'6000',currency:'SEK',source:'synthetic-persona-fixture' as const}],projection=projectNativeAnalytics([own],null,now(),fixtures),reader=jest.fn().mockResolvedValue({kind:'ready',projection});
+ const view=render(<NativeInsightsScreen useSession={()=>facade()} reader={reader} now={now}/>);
+ await screen.findByText(copy.comparisonTitle.replace('%{name}',own.customName).replace('%{alternative}','Other sample'));expect(screen.queryByText(copy.comparisonTitle.replace('%{name}',own.customName).replace('%{alternative}',' example video '))).toBeNull();view.unmount();
+ render(<NativeComparisonsScreen useSession={()=>facade()} reader={reader} now={now}/>);await screen.findByText('Other sample');expect(screen.getAllByText(copy.samplePrice)).toHaveLength(1);expect(screen.queryByText(' example video ')).toBeNull();expect(screen.getByText(copy.fixtureSource)).toBeTruthy();
 });
 it('keeps every exact historical amount accessible while showing the reference area chart and in-chart month labels',()=>{
  const projection=projectNativeAnalytics([row],history,now());render(<AnalyticsTrend months={projection.trend}/>);

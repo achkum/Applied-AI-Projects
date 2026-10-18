@@ -9,7 +9,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { getColorByTheme } from '@/utils/colors';
 import * as privateApi from '@/api/privateMobileApi';
 import { createNativeAnalyticsReader, type NativeAnalyticsReader } from '@/api/nativeAnalyticsReader';
-import { compareNativePlans } from '@/api/nativeAnalyticsProjection';
+import { compareNativePlans,isNativeComparisonAlternative } from '@/api/nativeAnalyticsProjection';
 import { recurringCost } from '../../../../../packages/money/src/recurring-cost';
 import { money, multiply } from '../../../../../packages/money/src/money';
 import { NativeProductButton, NativeProductCard, NativeProductHeading } from '../billing/NativeProductUI';
@@ -26,7 +26,7 @@ export function NativeComparisonsScreen({ useSession = useNativeSession, reader 
   const [period, setPeriod] = useState<'monthly' | 'annual'>('monthly');
   const saved = value?.plans.filter(row => row.source === 'saved') ?? [];
   const selected = saved.find(row => row.id === selection) ?? saved.find(row => row.subscriptionId === initialSubscriptionId) ?? saved[0];
-  const alternatives = selected ? value?.plans.filter(row => row.id !== selected.id && row.categoryCode === selected.categoryCode && row.currency === selected.currency) ?? [] : [];
+  const alternatives = selected ? value?.plans.filter(row => isNativeComparisonAlternative(selected,row)) ?? [] : [];
   return <SafeAreaView style={{ flex: 1, backgroundColor: getColorByTheme(theme, isDark, 'bg.canvas') }}><ScrollView testID="native-comparisons-scroll" alwaysBounceVertical contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={session.phase==='active'&&state==='loading'} enabled={session.phase==='active'} onRefresh={()=>{void reload();}} tintColor={getColorByTheme(theme,isDark,'action.accent')}/>}>
     <AnalyticsLink label={t('nativeAnalytics.backToInsights')} onPress={() => router.replace('/personal-insights')} />
     <NativeProductHeading title={t('nativeAnalytics.comparisons')} />
