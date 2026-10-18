@@ -25,7 +25,9 @@ import {
   readdirSync,
   copyFileSync,
   statSync,
-  lstatSync,
+  constants,
+  fstatSync,
+  readSync,
 } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,6 +45,7 @@ import {
 import {
   identifierToolDiagnostic,
   restartToolDiagnostic,
+  billingMonthToolDiagnostic,
   enrollmentToolDiagnostic,
   createEnrollmentExecution,
   enrollmentExecutionDiagnostic,
@@ -50,6 +53,8 @@ import {
 import { initialIdentifierFlow } from './private-runtime-flow-policy.mjs';
 import { graphStatus } from './private-runtime-bundle-policy.mjs';
 import { failedSaveObservations } from './private-runtime-save-probe.mjs';
+import { maestroDevicePrefix } from './private-runtime-maestro-device.mjs';
+import {validIosAppContainer,verifyIosAppFiles,IOS_APP_CHECKS} from './private-runtime-ios-app-custody.mjs';
 
 let currentPhase = 'runtime-preconditions';
 const driverPhases = new Set([
@@ -99,6 +104,7 @@ async function main() {
   assert.equal(process.env.NODE_ENV, 'development');
   const platform = process.argv[2];
   assert.ok(platform === 'android' || platform === 'ios');
+  const maestroPrefix = maestroDevicePrefix(platform, process.env);
   const app = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   const mobileRequire = createRequire(join(app, 'package.json'));
   const installedNativeVersion = mobileRequire(
@@ -211,6 +217,7 @@ async function main() {
     await run(
       'maestro',
       [
+        ...maestroPrefix,
         'test',
         '--test-output-dir',
         join(privateDir, name),
@@ -264,7 +271,7 @@ async function main() {
     const loaded=fontStartup?.['fonts-loaded'],fallback=fontStartup?.['fonts-fallback'];
     const installedFontState=loaded&&loaded!=='unobserved'&&fallback==='unobserved'?'custom':fallback&&fallback!=='unobserved'&&loaded==='unobserved'?'fallback':'unobserved';
     if(platform==='android')console.log(`ST244_NATIVE installed_fonts=${installedFontState}`);
-    if(platform==='android')assert.equal(installedFontState,'custom','Approved Android custom fonts must be loaded');
+    assert.equal(installedFontState,'custom',`Approved ${platform} custom fonts must be loaded`);
     assert.ok(
       code,
       'Synthetic OTP must have been issued to the private in-memory callback',
@@ -430,23 +437,27 @@ async function main() {
     }
     if (currentPhase === 'flow-identifier' && captureContext && preinputMetadata) {
       const nativeRead=(args)=>new Promise((ok,no)=>execFile('xcrun',args,{timeout:10000,killSignal:'SIGKILL',maxBuffer:65536,encoding:'utf8'},(error,stdout)=>error?no(new Error('Private diagnostic unavailable')):ok(stdout)));
-      let sealed=false,withheldStage='CUSTODY';
+      let sealed=false,withheldStage='CUSTODY',appCheck='UDID';const appSizes={};
+      const checkApp=value=>{if(IOS_APP_CHECKS.includes(value))appCheck=value;};
       const captureStage=value=>{if(PREINPUT_WITHHELD_STAGES.includes(value))withheldStage=value;};
       try{sealed=await captureSealedPreinput({onStage:captureStage,privateRoot:privateDir,reader:preinputMetadata,context:captureContext,observe:()=>harness.allApiObservation(),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),
         capture:async(file,udid)=>{
           assert.equal(udid,process.env.SUBTRACK_SIMULATOR_UDID);
+          checkApp('BOOT_QUERY');
           const booted=JSON.parse(await nativeRead(['simctl','list','devices','booted','--json']));
           const devices=booted.devices?.['com.apple.CoreSimulator.SimRuntime.iOS-26-2'];
+          checkApp('BOOT_MATCH');
           assert.ok(Array.isArray(devices)&&devices.filter(device=>device.udid===udid&&device.state==='Booted'&&device.isAvailable===true&&device.name==='SubTrack-proof').length===1);
-          const installed=(await nativeRead(['simctl','get_app_container',udid,'se.subtrack.app','app'])).trim();
-          assert.ok(installed.startsWith('/')&&installed.includes(`/CoreSimulator/Devices/${udid}/data/Containers/Bundle/Application/`)&&installed.endsWith('/SubTrack.app')&&!/[\r\n\0]/.test(installed));
+          checkApp('CONTAINER_QUERY');const installed=(await nativeRead(['simctl','get_app_container',udid,'se.subtrack.app','app'])).trim();
+          checkApp('CONTAINER_PATH');assert.ok(validIosAppContainer(installed,udid));
           const built=join(privateDir,'derived/Build/Products/Debug-iphonesimulator/SubTrack.app');
-          for(const name of ['Info.plist','SubTrack']){const installedFile=join(installed,name),builtFile=join(built,name),oneStat=lstatSync(installedFile),twoStat=lstatSync(builtFile);assert.ok(oneStat.isFile()&&!oneStat.isSymbolicLink()&&twoStat.isFile()&&!twoStat.isSymbolicLink()&&oneStat.size>0&&oneStat.size<=67108864&&twoStat.size===oneStat.size);const one=readFileSync(installedFile),two=readFileSync(builtFile);assert.ok(one.length===oneStat.size&&two.length===twoStat.size);assert.equal(createHash('sha256').update(one).digest('hex'),createHash('sha256').update(two).digest('hex'));}
+          verifyIosAppFiles(built,installed,checkApp,(role,one,two)=>{appSizes[role]=one>67108864||two>67108864?'over64MiB':one===0||two===0?'zero':'within64MiB';});
           captureStage('CAPTURE');await nativeRead(['simctl','io',udid,'screenshot',file]);
         }});}catch{/* Preserve the original failed qualification and private error. */}
       let metadataCheck='UNKNOWN';
       if(!sealed&&withheldStage==='METADATA_OWNERSHIP')try{const check=preinputMetadata.ownershipCheck();if(PREINPUT_METADATA_CHECKS.includes(check))metadataCheck=check;}catch{/* Unknown stays fixed; no private exception escapes. */}
       console.error(`ST244_NATIVE preinput_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}${!sealed&&withheldStage==='METADATA_OWNERSHIP'?` metadata_check=${metadataCheck}`:''}`);
+      if(!sealed&&withheldStage==='APP_CUSTODY')console.error(`ST244_NATIVE app_custody_check=${appCheck} plist_size=${appSizes.PLIST??'unobserved'} main_size=${appSizes.MAIN??'unobserved'} debug_size=${appSizes.DEBUG??'unobserved'}`);
     }
     if (currentPhase === 'flow-identifier') {
       const syntheticOtpIssued = code !== null;
@@ -490,6 +501,13 @@ async function main() {
         console.error(
           `ST244_NATIVE identifier_diagnostic=fixed source=legacy-text target_observation=unobserved commands=${diagnostic.commands.join(',') || 'none'} reasons=${diagnostic.reasons.join(',') || 'none'} legacy_targets=${diagnostic.targets.join(',') || 'none'} metro=${diagnostic.metro.join(',') || 'none'} modules=${diagnostic.modules.join(',') || 'none'}`,
         );
+    }
+    if(['flow-billing-month','flow-billing-month-empty'].includes(currentPhase)){
+      // Original failed child only. No UI command, capture, raw excerpt or retry.
+      const readOwned=name=>{let fd;try{if(!Number.isInteger(constants.O_NOFOLLOW))return '';fd=openSync(join(privateDir,name),constants.O_RDONLY|constants.O_NOFOLLOW);const before=fstatSync(fd);if(!before.isFile()||before.size<1||before.size>4000000)return '';const bytes=Buffer.alloc(4000001);let size=0;while(size<bytes.length){const count=readSync(fd,bytes,size,bytes.length-size,null);if(count===0)break;size+=count;}const after=fstatSync(fd);if(size>4000000||size!==before.size||['dev','ino','size','mtimeMs','ctimeMs'].some(key=>after[key]!==before[key]))return '';return bytes.subarray(0,size).toString('utf8');}catch{return '';}finally{if(fd!==undefined)closeSync(fd);}};
+      const diagnostic=billingMonthToolDiagnostic({phase:currentPhase,billingMonth:readOwned(`${currentPhase.slice(5)}.log`),metro:readOwned('metro.log'),labels:{login:labels.MAESTRO_VERIFY_BANKID,personalTitle:labels.MAESTRO_PERSONAL_TITLE,profileTitle:labels.MAESTRO_PROFILE_PAGE_TITLE,home:labels.MAESTRO_MONTH_TITLE,nextMonth:labels.MAESTRO_MONTH_NEXT,monthTarget:fixtureMonthLabels(renewalDate).MAESTRO_MONTH_TARGET,monthPrevious:fixtureMonthLabels(renewalDate).MAESTRO_MONTH_PREVIOUS,monthEmpty:labels.MAESTRO_MONTH_EMPTY,detail:labels.MAESTRO_MONTH_DETAIL,amount:labels.MAESTRO_MONTH_AMOUNT,detailPrice:labels.MAESTRO_MONTH_DETAIL_PRICE,manual:labels.MAESTRO_MONTH_MANUAL,close:labels.MAESTRO_MONTH_CLOSE,logout:labels.MAESTRO_LOGOUT,logoutConfirmed:labels.MAESTRO_LOGOUT_CONFIRMED,date:labels.MAESTRO_MONTH_ISO}});
+      if(diagnostic.withheld)console.error(`ST244_NATIVE billing_diagnostic=withheld reason=${diagnostic.withheld}`);
+      else console.error(`ST244_NATIVE billing_diagnostic=fixed source=original-child target_observation=unobserved commands=${diagnostic.commands.join(',')||'none'} reasons=${diagnostic.reasons.join(',')||'none'} targets=${diagnostic.targets.join(',')||'none'} metro=${diagnostic.metro.join(',')||'none'} modules=${diagnostic.modules.join(',')||'none'}`);
     }
     if(['flow-restart','flow-edit-status','flow-edit-status-api-restart'].includes(currentPhase)){
       const readOwned=name=>{try{return readFileSync(join(privateDir,name),'utf8');}catch{return '';}};
@@ -582,7 +600,7 @@ async function main() {
           await new Promise((accept) => {
             const child = spawn('timeout', [
               '--signal=TERM', '--kill-after=5s', '20s',
-              'maestro', 'test', '--test-output-dir', join(privateDir, fileName),
+              'maestro', ...maestroPrefix, 'test', '--test-output-dir', join(privateDir, fileName),
               join(app, header ? 'e2e/private-runtime-save-header.yaml' : 'e2e/private-runtime-save-probe.yaml'),
             ], { cwd: app, env: { ...process.env, MAESTRO_SAVE_PROBE_LABEL: label, MAESTRO_PERSONAL_TITLE: labels.MAESTRO_PERSONAL_TITLE }, stdio: ['ignore', fd, fd] });
             child.on('error', () => accept());

@@ -18,8 +18,13 @@ app="$root/apps/mobile"
 cd "$app"
 node scripts/private-runtime-preflight.mjs
 node scripts/sandbox-app-config-test.mjs
+node --test scripts/sandbox-ios-build-intent-test.mjs
 node node_modules/expo/bin/cli install --check
-if [[ "$1" == prepare ]]; then printf 'ST250_IOS_TOOLCHAIN_PREPARATION_PASS Xcode=26.2 signing=unavailable runtime=disabled\n'; exit 0; fi
+# Read the actual public Expo configuration, rather than assuming a disabled caller.
+ios_intent="$(node scripts/sandbox-ios-build-intent.mjs)"
+[[ "$ios_intent" =~ ^(enabled|disabled)\ ([1-9][0-9]*)$ ]]
+runtime_intent="${BASH_REMATCH[1]}"; build_number="${BASH_REMATCH[2]}"
+if [[ "$1" == prepare ]]; then printf 'ST250_IOS_TOOLCHAIN_PREPARATION_PASS Xcode=26.2 signing=unavailable runtime_intent=%s runtime_qualification=not-performed build_number=%s installable_ipa=false\n' "$runtime_intent" "$build_number"; exit 0; fi
 base="$(cd "${RUNNER_TEMP:?}" && pwd -P)"
 build_root="$(mktemp -d "$base/st250-ios.XXXXXXXX")"
 [[ "$build_root" == "$base"/st250-ios.* && ! -L "$build_root" ]]
@@ -38,4 +43,5 @@ xcodebuild -workspace ios/SubTrackSandbox.xcworkspace -scheme SubTrackSandbox -c
 bundle="$build_root/SubTrackSandbox.xcarchive/Products/Applications/SubTrackSandbox.app"
 [[ -d "$bundle" ]]
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$bundle/Info.plist")" == se.subtrack.app.sandbox ]]
-printf 'ST250_IOS_UNSIGNED_ARCHIVE_PASS Xcode=26.2 signing=unavailable upload=not-performed runtime=disabled\n'
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$bundle/Info.plist")" == "$build_number" ]]
+printf 'ST250_IOS_UNSIGNED_ARCHIVE_PASS Xcode=26.2 signing=unavailable upload=not-performed runtime_intent=%s runtime_qualification=not-performed build_number=%s installable_ipa=false\n' "$runtime_intent" "$build_number"

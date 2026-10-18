@@ -1,5 +1,5 @@
 import React from 'react';
-import {Pressable,ScrollView,Text} from 'react-native';
+import {AccessibilityInfo,Platform,Pressable,RefreshControl,ScrollView,Text} from 'react-native';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
 import {NativeDetectionInboxScreen} from './NativeDetectionInboxScreen';
 import {NativeSessionProvider,useNativeSession} from '@/state/NativeSession';
@@ -33,6 +33,7 @@ function MountedInbox(){const [visible,setVisible]=React.useState(true);return <
 function mount(overrides:Partial<NativeBundleStore>={}){const store:NativeBundleStore={read:jest.fn().mockResolvedValue(null),write:jest.fn().mockResolvedValue(undefined),clear:jest.fn().mockResolvedValue(undefined),...overrides};return render(<NativeSessionProvider store={store}><MountedInbox/></NativeSessionProvider>);}
 async function login(){await waitFor(()=>expect(screen.getByRole('button',{name:personal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:personal.verify}));}
 async function press(label:string){fireEvent.press(await screen.findByRole('button',{name:label}));}
+async function pullRefresh(){await act(async()=>{screen.UNSAFE_getByType(RefreshControl).props.onRefresh();});}
 
 const candidate={id,revision:'1',displayName:'Netflix',categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY' as const,expectedAmountMinor:'9007199254740993',currency:'SEK',confidence:0.9,reasons:['CADENCE_MATCHED'],status:'DETECTED' as const};
 const reviewed={candidateId:id,status:'ACTIVE' as const,revision:'2',receiptId:key,undoUntil:'2000-01-01T00:00:00.000Z'};
@@ -61,8 +62,8 @@ it('uncertain mutation clears private state and verification reads durable state
 it('remount requires verification and does not restore transient Undo or private candidates',async()=>{
  jest.mocked(api.readNativeDetections).mockResolvedValue({kind:'ready',items:[candidate],nextCursor:null});const first=mount();await login();await screen.findByText('Netflix');first.unmount();mount();expect(screen.queryByText('Netflix')).toBeNull();await login();await screen.findByText('Netflix');expect(api.mutateNativeDetection).not.toHaveBeenCalled();
 });
-it('logout immediately hides candidates and requires fresh verification',async()=>{
- jest.mocked(api.readNativeDetections).mockResolvedValue({kind:'ready',items:[candidate],nextCursor:null});mount();await login();await screen.findByText('Netflix');await press(personal.logout);await screen.findByText(personal.logoutConfirmed);expect(screen.queryByRole('button',{name:personal.logout})).toBeNull();expect(screen.queryByText(copy.demo)).toBeNull();expect(screen.queryByText('Netflix')).toBeNull();expect(screen.getByRole('button',{name:personal.verify})).toBeTruthy();
+it('external Profile logout immediately hides candidates and requires fresh verification',async()=>{
+ jest.mocked(api.readNativeDetections).mockResolvedValue({kind:'ready',items:[candidate],nextCursor:null});mount();await login();await screen.findByText('Netflix');await press('Retire test authority');await screen.findByRole('button',{name:personal.verify});expect(screen.queryByRole('button',{name:personal.logout})).toBeNull();expect(screen.queryByText(copy.demo)).toBeNull();expect(screen.queryByText('Netflix')).toBeNull();expect(screen.getByRole('button',{name:personal.verify})).toBeTruthy();
 });
 it('fences ignored-abort owner readback after a sent mutation and retires authority',async()=>{
  let resolve!:(value:typeof owner[])=>void;const pending=new Promise<typeof owner[]>(done=>{resolve=done;});jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValue({kind:'ready',items:[],nextCursor:null});jest.mocked(api.mutateNativeDetection).mockResolvedValue(reviewed);jest.mocked(api.readDetectionOwnerRows).mockReturnValueOnce(pending);mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await waitFor(()=>expect(api.readDetectionOwnerRows).toHaveBeenCalledTimes(1));act(()=>{mockFocus.enabled=false;mockFocus.cleanup?.();});act(()=>{mockFocus.enabled=true;mockFocus.cleanup=mockFocus.start?.();});await act(async()=>resolve([owner]));await screen.findByRole('button',{name:personal.verify});expect(screen.queryByText(copy.reviewed)).toBeNull();expect(screen.queryByRole('button',{name:copy.undo})).toBeNull();expect(api.mutateNativeDetection).toHaveBeenCalledTimes(1);
@@ -106,26 +107,26 @@ it('shows bilingual catalogue fallback for an unknown canonical category',async(
 it('failed verification is shown without retaining a private candidate',async()=>{
  jest.mocked(sessionApi.verifiedNativeLogin).mockRejectedValue(new Error('simulator unavailable'));mount();await login();await screen.findByText(copy.unavailable);expect(screen.queryByText('Netflix')).toBeNull();
 });
-it('logout with failed revoke acknowledges only local disposal',async()=>{
- jest.mocked(sessionApi.revokeNativeSession).mockRejectedValue(new Error('revoke unavailable'));mount();await login();await screen.findByRole('button',{name:copy.scan});await press(personal.logout);await screen.findByText(personal.logoutLocal);expect(screen.queryByRole('button',{name:copy.scan})).toBeNull();
+it('external Profile logout with failed revoke still removes private review actions',async()=>{
+ jest.mocked(sessionApi.revokeNativeSession).mockRejectedValue(new Error('revoke unavailable'));mount();await login();await screen.findByRole('button',{name:copy.scan});await press('Retire test authority');await waitFor(()=>expect(sessionApi.revokeNativeSession).toHaveBeenCalledTimes(1));await screen.findByRole('button',{name:personal.verify});expect(screen.queryByRole('button',{name:copy.scan})).toBeNull();
 });
-it('private storage failure after logout is explicit and keeps private content hidden',async()=>{
- const clear=jest.fn().mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('storage unavailable'));mount({clear});await login();await screen.findByRole('button',{name:copy.scan});await press(personal.logout);await screen.findByText(personal.storageError);expect(screen.queryByRole('button',{name:copy.scan})).toBeNull();expect(screen.queryByRole('button',{name:copy.undo})).toBeNull();
+it('external Profile storage failure keeps private candidates and Undo hidden',async()=>{
+ const clear=jest.fn().mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('storage unavailable'));mount({clear});await login();await screen.findByRole('button',{name:copy.scan});await press('Retire test authority');await waitFor(()=>expect(clear).toHaveBeenCalledTimes(3));expect(screen.queryByRole('button',{name:copy.scan})).toBeNull();expect(screen.queryByRole('button',{name:copy.undo})).toBeNull();
 });
 it('obsolete logout acknowledgement cannot repaint an unmounted inbox',async()=>{
- let resolve!:()=>void;const pending=new Promise<undefined>(done=>{resolve=()=>done(undefined);});jest.mocked(sessionApi.revokeNativeSession).mockReturnValueOnce(pending);const view=mount();await login();await screen.findByRole('button',{name:copy.scan});await press(personal.logout);await waitFor(()=>expect(sessionApi.revokeNativeSession).toHaveBeenCalledTimes(1));view.unmount();await act(async()=>resolve());
+ let resolve!:()=>void;const pending=new Promise<undefined>(done=>{resolve=()=>done(undefined);});jest.mocked(sessionApi.revokeNativeSession).mockReturnValueOnce(pending);const view=mount();await login();await screen.findByRole('button',{name:copy.scan});await press('Retire test authority');await waitFor(()=>expect(sessionApi.revokeNativeSession).toHaveBeenCalledTimes(1));view.unmount();await act(async()=>resolve());
 });
 it('obsolete failed verification and storage disposal callbacks are ignored after unmount',async()=>{
  let reject!:(error:Error)=>void;const pending=new Promise<typeof credentials>((_done,fail)=>{reject=fail;});jest.mocked(sessionApi.verifiedNativeLogin).mockReturnValueOnce(pending);const view=mount();await login();await waitFor(()=>expect(sessionApi.verifiedNativeLogin).toHaveBeenCalledTimes(1));view.unmount();await act(async()=>reject(new Error('obsolete verification')));
 });
-it('uses existing personal and Billing Month navigation destinations',async()=>{
- mount();await login();await screen.findByRole('button',{name:copy.scan});await press(copy.manage);await press(catalogs.en.onboarding.billingMonth.open);expect(mockReplace.mock.calls).toEqual([['/personal'],['/personal-billing-month']]);
+it('uses one contextual Back to subscriptions and omits duplicate destination buttons',async()=>{
+ mount();await login();await screen.findByRole('button',{name:copy.scan});await press(copy.manage);expect(screen.queryByRole('button',{name:catalogs.en.onboarding.billingMonth.open})).toBeNull();expect(mockReplace.mock.calls).toEqual([['/personal']]);
 });
 it('ignores failed verification feedback after leaving the screen while Core remains mounted',async()=>{
  let reject!:(error:Error)=>void;const pending=new Promise<typeof credentials>((_done,fail)=>{reject=fail;});jest.mocked(sessionApi.verifiedNativeLogin).mockReturnValueOnce(pending);mount();await login();await waitFor(()=>expect(sessionApi.verifiedNativeLogin).toHaveBeenCalledTimes(1));await press('Leave test inbox');await act(async()=>reject(new Error('late failed verification')));expect(screen.queryByText(copy.unavailable)).toBeNull();
 });
 it('ignores failed storage feedback after leaving the inbox with disposal still pending',async()=>{
- let reject!:(error:Error)=>void;const pending=new Promise<void>((_done,fail)=>{reject=fail;});const clear=jest.fn().mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockReturnValueOnce(pending);mount({clear});await login();await screen.findByRole('button',{name:copy.scan});await press(personal.logout);await waitFor(()=>expect(clear).toHaveBeenCalledTimes(3));await press('Leave test inbox');await act(async()=>reject(new Error('late failed disposal')));expect(screen.queryByText(personal.storageError)).toBeNull();
+ let reject!:(error:Error)=>void;const pending=new Promise<void>((_done,fail)=>{reject=fail;});const clear=jest.fn().mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockReturnValueOnce(pending);mount({clear});await login();await screen.findByRole('button',{name:copy.scan});await press('Retire test authority');await waitFor(()=>expect(clear).toHaveBeenCalledTimes(3));await press('Leave test inbox');await act(async()=>reject(new Error('late failed disposal')));expect(screen.queryByText(personal.storageError)).toBeNull();
 });
 
 
@@ -149,4 +150,62 @@ it.each(['reject','undo'] as const)('withholds %s acknowledgement for missing, f
   await screen.findByText(copy.readback);expect(screen.queryByRole('button',{name:copy.undo})).toBeNull();expect(screen.queryByText(copy.undone)).toBeNull();
   expect(api.mutateNativeDetection).toHaveBeenCalledTimes(operation==='undo'?2:1);view.unmount();
  }
+});
+
+
+function announcementPorts(platform:'ios'|'android'){
+ const descriptor=Object.getOwnPropertyDescriptor(Platform,'OS');Object.defineProperty(Platform,'OS',{configurable:true,value:platform});
+ const frames:{id:number;callback:Parameters<typeof requestAnimationFrame>[0]}[]=[];
+ const raf=jest.spyOn(globalThis,'requestAnimationFrame').mockImplementation(callback=>{const id=frames.length+1;frames.push({id,callback});return id;});
+ const cancel=jest.spyOn(globalThis,'cancelAnimationFrame').mockImplementation(()=>undefined);
+ const announce=jest.spyOn(AccessibilityInfo,'announceForAccessibility').mockImplementation(()=>undefined);
+ return {frames,cancel,announce,restore:()=>{raf.mockRestore();cancel.mockRestore();announce.mockRestore();if(descriptor)Object.defineProperty(Platform,'OS',descriptor);}};
+}
+it('announces acknowledged iOS review and available Undo once after layout, then announces acknowledged Undo without changing its deadline',async()=>{
+ const ports=announcementPorts('ios');let view:ReturnType<typeof mount>|undefined;
+ try{
+  jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[],nextCursor:null}).mockResolvedValueOnce({kind:'ready',items:[{...candidate,revision:'3'}],nextCursor:null});
+  jest.mocked(api.readDetectionOwnerRows).mockResolvedValueOnce([owner]).mockResolvedValueOnce([{...owner,status:'DETECTED',revision:'3'}]);
+  jest.mocked(api.mutateNativeDetection).mockResolvedValueOnce(reviewed).mockResolvedValueOnce({...reviewed,status:'DETECTED',revision:'3',undoUntil:null});
+  view=mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.reviewed);
+  expect(ports.announce).not.toHaveBeenCalled();expect(ports.frames).toHaveLength(1);
+  expect(screen.getByText(copy.deadline.replace('%{date}',reviewed.undoUntil))).toBeTruthy();
+  act(()=>ports.frames[0]!.callback(0));expect(ports.announce).toHaveBeenCalledTimes(1);expect(ports.announce).toHaveBeenCalledWith(`${copy.reviewed} ${copy.undo}`);act(()=>ports.frames[0]!.callback(0));expect(ports.announce).toHaveBeenCalledTimes(1);
+  await press(copy.undo);await screen.findByText(copy.undone);expect(ports.frames).toHaveLength(2);act(()=>ports.frames[1]!.callback(0));
+  expect(ports.announce.mock.calls).toEqual([[`${copy.reviewed} ${copy.undo}`],[copy.undone]]);
+  expect(jest.mocked(api.mutateNativeDetection).mock.calls[1]![0]).toEqual({operation:'undo',receiptId:key,candidateId:id});
+ }finally{view?.unmount();ports.restore();}
+});
+it.each(['blur','unmount','new-read'] as const)('cancels pending iOS acknowledgement speech after %s and fences even an already queued callback',async transition=>{
+ const ports=announcementPorts('ios');let view:ReturnType<typeof mount>|undefined;
+ try{
+  jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValue({kind:'ready',items:[],nextCursor:null});jest.mocked(api.readDetectionOwnerRows).mockResolvedValue([owner]);jest.mocked(api.mutateNativeDetection).mockResolvedValue(reviewed);
+  view=mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.reviewed);const frame=ports.frames[0]!;expect(frame).toBeDefined();
+  if(transition==='blur')act(()=>{mockFocus.enabled=false;mockFocus.cleanup?.();});else if(transition==='unmount'){view.unmount();view=undefined;}else await pullRefresh();
+  expect(ports.cancel).toHaveBeenCalledWith(frame.id);act(()=>frame.callback(0));expect(ports.announce).not.toHaveBeenCalled();
+ }finally{view?.unmount();ports.restore();}
+});
+it('never announces speculative iOS review success when durable owner readback disagrees',async()=>{
+ const ports=announcementPorts('ios');let view:ReturnType<typeof mount>|undefined;
+ try{jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValue({kind:'ready',items:[],nextCursor:null});jest.mocked(api.mutateNativeDetection).mockResolvedValue(reviewed);view=mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.readback);expect(ports.frames).toHaveLength(0);expect(ports.announce).not.toHaveBeenCalled();}
+ finally{view?.unmount();ports.restore();}
+});
+it('keeps Android review accessibility behavior unchanged',async()=>{
+ const ports=announcementPorts('android');let view:ReturnType<typeof mount>|undefined;
+ try{jest.mocked(api.readNativeDetections).mockResolvedValueOnce({kind:'ready',items:[candidate],nextCursor:null}).mockResolvedValue({kind:'ready',items:[],nextCursor:null});jest.mocked(api.readDetectionOwnerRows).mockResolvedValue([owner]);jest.mocked(api.mutateNativeDetection).mockResolvedValue(reviewed);view=mount();await login();await press(copy.confirm.replace('%{name}','Netflix'));await screen.findByText(copy.reviewed);expect(ports.frames).toHaveLength(0);expect(ports.announce).not.toHaveBeenCalled();}
+ finally{view?.unmount();ports.restore();}
+});
+
+it('pulls current suggestions without scanning, keeps Why collapsed and uses concise visible review actions',async()=>{
+ jest.mocked(api.readNativeDetections).mockResolvedValue({kind:'ready',items:[candidate],nextCursor:null});mount();await login();await screen.findByText('Netflix');
+ expect(screen.queryByRole('button',{name:copy.refresh})).toBeNull();expect(screen.queryByRole('button',{name:personal.logout})).toBeNull();expect(screen.queryByText(copy.reasons.CADENCE_MATCHED)).toBeNull();expect(screen.getByText(copy.confirmShort)).toBeTruthy();expect(screen.getByText(copy.rejectShort)).toBeTruthy();
+ expect(screen.getByRole('button',{name:copy.confirm.replace('%{name}','Netflix')})).toBeTruthy();expect(screen.getByRole('button',{name:copy.reject.replace('%{name}','Netflix')})).toBeTruthy();
+ await pullRefresh();expect(api.readNativeDetections).toHaveBeenCalledTimes(2);expect(api.mutateNativeDetection).not.toHaveBeenCalled();expect(api.readDetectionOwnerRows).not.toHaveBeenCalled();
+ await press(copy.scan);await screen.findByText(copy.scanned);expect(api.mutateNativeDetection).toHaveBeenCalledWith({operation:'scan'},key,credentials.accessToken,expect.any(AbortSignal));
+});
+it('offers explicit read retry after an active injected failure without scanning',async()=>{
+ const session={phase:'active' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:async<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>work('sandbox-token',new AbortController().signal)};
+ const read=jest.fn().mockRejectedValueOnce(Error('read unavailable')).mockResolvedValue({kind:'ready',items:[candidate],nextCursor:null}),mutate=jest.fn();
+ render(<NativeDetectionInboxScreen useSession={()=>session} api={{readNativeDetections:read,readDetectionOwnerRows:jest.fn(),mutateNativeDetection:mutate,detectionRequestKey:async()=>key}}/>);
+ await screen.findByText(copy.unavailable);await press(copy.refresh);await screen.findByText('Netflix');expect(read).toHaveBeenCalledTimes(2);expect(mutate).not.toHaveBeenCalled();expect(screen.queryByRole('button',{name:copy.refresh})).toBeNull();
 });

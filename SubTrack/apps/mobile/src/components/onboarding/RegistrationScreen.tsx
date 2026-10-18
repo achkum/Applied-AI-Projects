@@ -125,12 +125,12 @@ export function RegistrationScreen({
 }
 
 const styles = StyleSheet.create({
-  content: { flexGrow: 1, gap: 16, padding: 24 },
+  content: { flexGrow: 1, gap: 16, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 24 },
   back: {
     alignSelf: 'flex-start',
     minHeight: 48,
     justifyContent: 'center',
     paddingHorizontal: 8,
   },
-  card: { padding: 24 },
+  card: { padding: 16 },
 });

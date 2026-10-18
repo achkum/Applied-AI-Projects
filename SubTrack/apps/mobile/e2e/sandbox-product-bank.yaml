@@ -8,10 +8,14 @@ appId: se.subtrack.app.sandbox
 - tapOn: ${E_BANK_OPEN}
 - extendedWaitUntil:
     visible:
-      id: native-bank-connect
+      id: native-bank-sync-0
     timeout: 30000
+- assertVisible: ${E_BANK_ACTIVE}
 - tapOn:
-    id: native-bank-connect
+    id: native-bank-sync-0
+- extendedWaitUntil:
+    visible: ${E_BANK_UPDATED}
+    timeout: 60000
 - extendedWaitUntil:
     visible: ${E_BANK_ACTIVE}
     timeout: 60000
@@ -30,11 +34,11 @@ appId: se.subtrack.app.sandbox
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: native-detection-confirm-aurora-video
+      id: native-detection-confirm-atlas-ai
     direction: DOWN
 - takeScreenshot: accepted-sandbox-detections
 - tapOn:
-    id: native-detection-confirm-aurora-video
+    id: native-detection-confirm-atlas-ai
 - scrollUntilVisible:
     element:
       id: native-detection-title
@@ -44,10 +48,10 @@ appId: se.subtrack.app.sandbox
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: native-detection-confirm-cinema-plus
+      id: native-detection-confirm-evergreen-mobile
     direction: DOWN
 - tapOn:
-    id: native-detection-confirm-cinema-plus
+    id: native-detection-confirm-evergreen-mobile
 - scrollUntilVisible:
     element:
       id: native-detection-title
@@ -57,10 +61,10 @@ appId: se.subtrack.app.sandbox
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: native-detection-reject-move-club
+      id: native-detection-reject-motion-club
     direction: DOWN
 - tapOn:
-    id: native-detection-reject-move-club
+    id: native-detection-reject-motion-club
 - scrollUntilVisible:
     element:
       id: native-detection-title
@@ -76,14 +80,14 @@ appId: se.subtrack.app.sandbox
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: native-detection-confirm-move-club
+      id: native-detection-confirm-motion-club
     direction: DOWN
 - assertVisible:
-    id: native-detection-confirm-move-club
+    id: native-detection-confirm-motion-club
 - takeScreenshot: accepted-sandbox-reviewed
 - scrollUntilVisible:
     element: ${E_MANAGE}
-    direction: DOWN
+    direction: UP
 - tapOn: ${E_MANAGE}
 - extendedWaitUntil:
     visible:

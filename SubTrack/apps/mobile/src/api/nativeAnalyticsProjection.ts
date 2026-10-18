@@ -11,7 +11,7 @@ export type AnalyticsTotal = Readonly<{ monthly: Money; annual: Money }>;
 export type AnalyticsCategory = Readonly<{ categoryCode: string; count: number; totals: readonly AnalyticsTotal[]; subscriptionIds: readonly string[] }>;
 export type AnalyticsTrendMonth = Readonly<{ month: string; amount: Money; chargeCount: number }>;
 export type AnalyticsIncrease = Readonly<{ subscriptionId: string; previous: Money; current: Money; monthlyDelta: Money; annualDelta: Money; dates: readonly string[] }>;
-export type NativeAnalytics = Readonly<{ active: readonly PrivateOwnerSubscriptionView[]; totals: readonly AnalyticsTotal[]; categories: readonly AnalyticsCategory[]; unknownCadenceCount: number; overlaps: readonly AnalyticsCategory[]; trend: readonly AnalyticsTrendMonth[]; priceIncreases: readonly AnalyticsIncrease[]; historyAvailable: boolean; historyTruncated: boolean; plans: readonly ComparisonPlan[] }>;
+export type NativeAnalytics = Readonly<{ subscriptions: readonly PrivateOwnerSubscriptionView[]; active: readonly PrivateOwnerSubscriptionView[]; totals: readonly AnalyticsTotal[]; categories: readonly AnalyticsCategory[]; unknownCadenceCount: number; overlaps: readonly AnalyticsCategory[]; trend: readonly AnalyticsTrendMonth[]; priceIncreases: readonly AnalyticsIncrease[]; attributedCharges: readonly AnalyticsCharge[]; historyAvailable: boolean; historyTruncated: boolean; plans: readonly ComparisonPlan[] }>;
 
 function totalsFor(rows: readonly PrivateOwnerSubscriptionView[]): readonly AnalyticsTotal[] {
   const totals = new Map<string, AnalyticsTotal>();
@@ -28,11 +28,11 @@ function totalsFor(rows: readonly PrivateOwnerSubscriptionView[]): readonly Anal
 export function projectNativeAnalytics(input: readonly PrivateOwnerSubscriptionView[], history: readonly AnalyticsCharge[] | null, now: Date, fixture: readonly ComparisonPlan[] = [], historyTruncated = false): NativeAnalytics {
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())) throw new Error('Analytics unavailable');
   const seen = new Set<string>();
-  const all = input.map(value => {
+  const all = Object.freeze(input.map(value => {
     const row = parsePrivateOwnerView(value);
     if (seen.has(row.id)) throw new Error('Analytics unavailable');
-    seen.add(row.id); return row;
-  });
+    seen.add(row.id); return Object.freeze({...row});
+  }));
   const active = all.filter(row => row.status === 'ACTIVE');
   const historicalSubscriptionIds = new Set(all.filter(row => row.status !== 'DETECTED' && row.status !== 'REJECTED').map(row => row.id));
   const grouped = new Map<string, PrivateOwnerSubscriptionView[]>();
@@ -50,7 +50,7 @@ export function projectNativeAnalytics(input: readonly PrivateOwnerSubscriptionV
     if (BigInt(row.amountMinor) < -9223372036854775808n || BigInt(row.amountMinor) > 9223372036854775807n) throw new Error('Analytics unavailable');
     chargeIds.add(row.id);
     // Attribution must belong to this exact authorized read. Refunds and unrelated bank spending are excluded.
-    if (row.subscriptionId !== null && historicalSubscriptionIds.has(row.subscriptionId) && BigInt(row.amountMinor) < 0n && row.date <= `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`) charges.push(row);
+    if (row.subscriptionId !== null && historicalSubscriptionIds.has(row.subscriptionId) && BigInt(row.amountMinor) < 0n && row.date <= `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`) charges.push(Object.freeze({...row}));
   }
   const trend = months.map(month => {
     const items = charges.filter(row => row.date.startsWith(month));
@@ -75,7 +75,7 @@ export function projectNativeAnalytics(input: readonly PrivateOwnerSubscriptionV
     if (plan.source !== 'synthetic-persona-fixture' || !/^fixture:[a-z0-9-]+$/.test(plan.id) || !/^[1-9]\d*$/.test(plan.amountMinor) || plan.currency !== 'SEK' || !plan.name || !recurringCost(money(BigInt(plan.amountMinor), plan.currency), plan.cadence)) throw new Error('Analytics unavailable');
     plans.push(plan);
   }
-  return { active, totals: totalsFor(active), categories, unknownCadenceCount: active.filter(row => row.cadence === 'CUSTOM').length, overlaps: categories.filter(row => row.count > 1), trend, priceIncreases, historyAvailable: history !== null, historyTruncated, plans };
+  return { subscriptions:all, active, totals: totalsFor(active), categories, unknownCadenceCount: active.filter(row => row.cadence === 'CUSTOM').length, overlaps: categories.filter(row => row.count > 1), trend, priceIncreases, attributedCharges:Object.freeze(charges), historyAvailable: history !== null, historyTruncated, plans };
 }
 
 export function compareNativePlans(left: ComparisonPlan, right: ComparisonPlan) {
@@ -85,6 +85,7 @@ export function compareNativePlans(left: ComparisonPlan, right: ComparisonPlan) 
 
 /** A display scope over this owner's already-authorized rows. It grants no member access. */
 export function scopeNativeAnalytics(value: NativeAnalytics, subscriptionIds: ReadonlySet<string>, now: Date): NativeAnalytics {
-  const scoped = projectNativeAnalytics(value.active.filter(row => subscriptionIds.has(row.id)), null, now);
-  return { ...scoped, priceIncreases: value.priceIncreases.filter(row => subscriptionIds.has(row.subscriptionId)) };
+  const active=value.active.filter(row=>subscriptionIds.has(row.id)),ids=new Set(active.map(row=>row.id));
+  const history=value.historyAvailable?value.attributedCharges.filter(row=>row.subscriptionId!==null&&ids.has(row.subscriptionId)):null;
+  return projectNativeAnalytics(active,history,now,[],value.historyTruncated);
 }

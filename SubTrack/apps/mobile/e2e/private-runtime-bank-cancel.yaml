@@ -2,13 +2,9 @@ appId: se.subtrack.app
 ---
 - stopApp
 - launchApp
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - extendedWaitUntil:
-          visible: ${MAESTRO_CREATE_ACCOUNT}
-          timeout: 120000
+- extendedWaitUntil:
+    visible: ${MAESTRO_CREATE_ACCOUNT}
+    timeout: 120000
 - openLink: subtrack:///personal
 - extendedWaitUntil:
     visible:
@@ -56,6 +52,12 @@ appId: se.subtrack.app
     timeout: 30000
 - assertNotVisible: ${MAESTRO_BANK_ACTIVE}
 - scrollUntilVisible:
+    element:
+      id: native-bank-options-0
+    direction: UP
+- tapOn:
+    id: native-bank-options-0
+- scrollUntilVisible:
     element: ${MAESTRO_BANK_PURGE}
     direction: DOWN
 - tapOn: ${MAESTRO_BANK_PURGE}
@@ -89,6 +91,22 @@ appId: se.subtrack.app
     visible: ${MAESTRO_BANK_LAST_SYNC_PRESENT}
     timeout: 30000
 - assertNotVisible: ${MAESTRO_BANK_ACTIVE}
+# Leave the contextual bank page; logout lives on Profile.
+- scrollUntilVisible:
+    element:
+      id: native-bank-title
+    direction: UP
+- tapOn: ${MAESTRO_BANK_MANAGE}
+- extendedWaitUntil:
+    visible:
+      id: native-nav-profile
+    timeout: 30000
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+    timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}
     direction: DOWN

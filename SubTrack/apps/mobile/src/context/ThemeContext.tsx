@@ -1,4 +1,5 @@
 import {androidFontFamily} from '@/utils/androidFontFamilies';
+import {iosFontFamily} from '@/utils/iosFontFamilies';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useColorScheme, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -58,7 +59,7 @@ export function ThemeProvider({ children, useSystemFonts = false, systemFontFami
     mode === 'system' ? colorScheme === 'dark' : mode === 'dark';
 
   const selectedTheme = (Platform.OS === 'android' || Platform.OS === 'ios' ? billingMonthTheme : themeData) as Theme;
-  const baseTheme: Theme = Platform.OS === 'android' ? {...selectedTheme,typography:{...selectedTheme.typography,fontFamily:Object.fromEntries(Object.entries(selectedTheme.typography.fontFamily).map(([role,family])=>[role,androidFontFamily(family)]))}} : selectedTheme;
+  const baseTheme: Theme = Platform.OS === 'android' || Platform.OS === 'ios' ? {...selectedTheme,typography:{...selectedTheme.typography,fontFamily:Object.fromEntries(Object.entries(selectedTheme.typography.fontFamily).map(([role,family])=>[role,Platform.OS === 'android' ? androidFontFamily(family) : iosFontFamily(family)]))}} : selectedTheme;
   const theme: Theme = useSystemFonts ? {
     ...baseTheme,
     typography: {

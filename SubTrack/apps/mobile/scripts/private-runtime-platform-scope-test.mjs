@@ -24,5 +24,7 @@ test('existing profile and explicit manual platform selections are preserved',()
  assert.deepEqual(platforms(other,'profile'),['android']);
  const manual={event_name:'workflow_dispatch'};
  assert.deepEqual(platforms(manual,'full',{platform:'android'}),['android']);
+ assert.deepEqual(platforms(manual,'full',{platform:'ios'}),['ios']);
+ assert.deepEqual(platforms(manual,'ios-driver',{platform:'ios'}),['ios']);
  assert.deepEqual(platforms(manual,'full',{platform:'all'}),['android','ios']);
 });

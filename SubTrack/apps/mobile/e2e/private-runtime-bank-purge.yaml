@@ -47,6 +47,12 @@ appId: se.subtrack.app
     timeout: 30000
 - assertNotVisible: ${MAESTRO_BANK_ACTIVE}
 - scrollUntilVisible:
+    element:
+      id: native-bank-options-0
+    direction: UP
+- tapOn:
+    id: native-bank-options-0
+- scrollUntilVisible:
     element: ${MAESTRO_BANK_PURGE}
     direction: DOWN
 - tapOn: ${MAESTRO_BANK_PURGE}
@@ -72,15 +78,38 @@ appId: se.subtrack.app
 - assertNotVisible: ${MAESTRO_BANK_REVOKED}
 - assertNotVisible: ${MAESTRO_BANK_TRANSACTIONS}
 - takeScreenshot: accepted-bank-purged
+# Pinned Maestro swipe.from selector: real read-only pull-to-refresh.
 - scrollUntilVisible:
-    element: ${MAESTRO_BANK_REFRESH}
+    element:
+      id: native-bank-title
+    direction: UP
+    centerElement: true
+- swipe:
+    from:
+      id: native-bank-scroll
     direction: DOWN
-- tapOn: ${MAESTRO_BANK_REFRESH}
+    duration: 700
 - scrollUntilVisible:
     element: ${MAESTRO_BANK_EMPTY}
     direction: UP
 - extendedWaitUntil:
     visible: ${MAESTRO_BANK_EMPTY}
+    timeout: 30000
+# Leave the contextual bank page; logout lives on Profile.
+- scrollUntilVisible:
+    element:
+      id: native-bank-title
+    direction: UP
+- tapOn: ${MAESTRO_BANK_MANAGE}
+- extendedWaitUntil:
+    visible:
+      id: native-nav-profile
+    timeout: 30000
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
     timeout: 30000
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}

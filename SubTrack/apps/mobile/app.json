@@ -42,6 +42,16 @@
               "./assets/fonts/BricolageGrotesque-Bold.ttf",
               "./assets/fonts/BricolageGrotesque-ExtraBold.ttf"
             ]
+          },
+          "ios": {
+            "fonts": [
+              "./assets/fonts/Geist-Regular.ttf",
+              "./assets/fonts/Geist-Medium.ttf",
+              "./assets/fonts/Geist-SemiBold.ttf",
+              "./assets/fonts/BricolageGrotesque-SemiBold.ttf",
+              "./assets/fonts/BricolageGrotesque-Bold.ttf",
+              "./assets/fonts/BricolageGrotesque-ExtraBold.ttf"
+            ]
           }
         }
       ],

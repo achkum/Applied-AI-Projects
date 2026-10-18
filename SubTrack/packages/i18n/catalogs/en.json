@@ -8,7 +8,8 @@
   },
   "actions": {
     "add": "Add",
-    "close": "Close"
+    "close": "Close",
+    "retry": "Try again"
   },
   "scope": {
     "personal": "Me",
@@ -330,6 +331,7 @@
       "invalidProfileEmoji": "Choose an avatar from the available options.",
       "saveProfile": "Save and continue",
       "savePreferences": "Save preferences",
+      "preferenceReadbackUnavailable": "Couldn't confirm that preference.",
       "profileSaved": "Profile saved.",
       "name": "Display name",
       "emoji": "Avatar emoji",
@@ -340,7 +342,7 @@
       "reload": "Read current subscriptions",
       "register": "Create an account",
       "invalid": "Review the fields and enter valid values.",
-      "amount": "Expected SEK amount",
+      "amount": "Amount (SEK)",
       "date": "Renewal date (optional)",
       "loginTitle": "Log in",
       "cancelVerification": "Cancel verification",
@@ -390,7 +392,9 @@
       "uncertain": "Result unconfirmed. Log in again before retrying.",
       "conflict": "Bank state changed. Review the refreshed details.",
       "updated": "Bank updated.",
-      "purged": "Bank data removed."
+      "purged": "Bank data removed.",
+      "options": "Options",
+      "reviewShort": "Review subscriptions"
     },
     "nativeDetection": {
       "title": "Review subscriptions",
@@ -427,7 +431,10 @@
         "AMOUNT_WITHIN_BAND": "Similar payment amounts",
         "SUBSCRIPTION_CATEGORY_PRIOR": "Subscription category match"
       },
-      "why": "Why?"
+      "why": "Why?",
+      "confirmShort": "Confirm",
+      "rejectShort": "Not a subscription",
+      "scanShort": "Scan"
     },
     "nativeHousehold": {
       "title": "Household",
@@ -472,7 +479,9 @@
       "payerUnknown": "Payer not set",
       "plannedPayer": "Planned payer: %{name}",
       "payerLabel": "Planned payer",
-      "usersLabel": "Used by"
+      "usersLabel": "Used by",
+      "perPerson": "%{amount} each",
+      "perPersonRange": "%{minimum}–%{maximum} each"
     },
     "datePicker": {
       "choose": "Choose date",
@@ -537,6 +546,7 @@
     "me": "Me",
     "overview": "Your subscriptions",
     "activePlans": "%{count} active plans",
+    "sharedPlans": "Shared plans",
     "findings": "%{count} things to review",
     "summary": "Summary",
     "method": "Costs follow saved billing cycles: 52 weeks per year. Each plan is rounded once. Currencies stay separate.",
@@ -584,14 +594,19 @@
     "less": "less · %{period}",
     "more": "more · %{period}",
     "sameCost": "same cost · %{period}",
-    "fixtureSource": "Synthetic bank persona catalogue · unverified sample price, not a live offer.",
+    "fixtureSource": "Sample prices, not live offers.",
     "noAlternatives": "No comparable plans in this category yet.",
     "openSubscriptions": "Subscriptions",
     "unnamed": "Subscription",
     "seeInsights": "See insights",
     "household": "Household",
     "connectBank": "Connect bank",
-    "addManually": "Add manually"
+    "addManually": "Add manually",
+    "summaryMonthly": "%{amount} per month across %{count} active plans.",
+    "summaryOverlap": "%{count} categories contain more than one active plan.",
+    "availableHistory": "Available bank history",
+    "openPlan": "Open %{name}",
+    "comparisonTitle": "%{name} · %{alternative}"
   },
   "nativeProductDetails": {
     "allCategories": "All",
@@ -600,6 +615,13 @@
     "annualCost": "Annual cost",
     "category": "Category",
     "schedule": "Billing schedule",
-    "status": "Status"
+    "status": "Status",
+    "settings": "Settings",
+    "shownTotal": "Shown total",
+    "chargeHistory": "Charge history",
+    "tomorrow": "Tomorrow",
+    "yesterday": "Yesterday",
+    "perPerson": "Per person",
+    "auto": "Auto"
   }
 }

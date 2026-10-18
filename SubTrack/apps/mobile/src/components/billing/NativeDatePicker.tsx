@@ -21,6 +21,15 @@ export function NativeDatePicker({value, onChange, label, disabled = false, opti
   const dates = billingMonthCalendarDates(month), offset = (first.getDay() + 6) % 7;
   const weekday = new Intl.DateTimeFormat(locale === 'sv' ? 'sv-SE' : 'en-SE', {weekday:'short'});
   const weekdays = Array.from({length:7}, (_, index) => weekday.format(new Date(2026, 0, 5 + index, 12)));
+  function fieldValue() {
+    if (!value) return t(optional ? 'onboarding.datePicker.clear' : 'onboarding.datePicker.choose');
+    const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!parts) return value;
+    const year = parseInt(parts[1]!, 10), month = parseInt(parts[2]!, 10), day = parseInt(parts[3]!, 10);
+    const date = new Date(0); date.setHours(12, 0, 0, 0); date.setFullYear(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return value;
+    return new Intl.DateTimeFormat(locale === 'sv' ? 'sv-SE' : 'en-SE', {dateStyle:'long'}).format(date);
+  }
   const choose = (date: string) => {onChange(date); setOpen(false);};
   function show() {
     if (disabled) return;
@@ -31,7 +40,7 @@ export function NativeDatePicker({value, onChange, label, disabled = false, opti
   }
   return <View style={styles.field}>
     {!compact?<Text style={text}>{label}</Text>:null}
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled, expanded:open}} disabled={disabled} onPress={show}
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityValue={{text:fieldValue()}} accessibilityState={{disabled, expanded:open}} disabled={disabled} onPress={show}
       style={[styles.input, {backgroundColor:color('bg.raised'), borderColor:color('line.hairline'), borderRadius:theme.radius.card}]}>
       {!compact?<Text style={[text, {flex:1}]}>{value || t('onboarding.datePicker.choose')}</Text>:null}<BillingIcon name="calendar" color={color('action.accent')}/>
     </Pressable>

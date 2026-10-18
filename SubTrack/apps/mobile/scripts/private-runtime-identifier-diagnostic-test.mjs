@@ -1,7 +1,9 @@
+import {flowEnvironment} from './private-runtime-flow-env.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   identifierToolDiagnostic,
+  billingMonthToolDiagnostic,
   restartToolDiagnostic,
   enrollmentToolDiagnostic,
   createEnrollmentExecution,
@@ -328,4 +330,37 @@ test('restart-family original failure projection is phase-bound, fixed and priva
  for(const [id,target] of [['native-subscription-name','subscription-name'],['native-subscription-date','date-field']]){assert.deepEqual(restartToolDiagnostic({...options,restart:`No visible element found: ${id}`}).targets,[target]);assert.deepEqual(restartToolDiagnostic({...options,restart:`No visible element found: ${id}-foreign`}).targets,[]);}
  assert.equal(restartToolDiagnostic({...options,restart:'private-canary only'}).withheld,'unknown-tool-diagnostic');
  for(const patch of [{restart:null},{restart:'x'.repeat(4_000_001)},{metro:null}])assert.equal(restartToolDiagnostic({...options,...patch}).withheld,'tool-input-unavailable');
+});
+
+
+function billingLabels(locale='en'){
+ const env=flowEnvironment(locale),date='2026-10-28';return {login:env.MAESTRO_VERIFY_BANKID,personalTitle:env.MAESTRO_PERSONAL_TITLE,profileTitle:env.MAESTRO_PROFILE_PAGE_TITLE,home:env.MAESTRO_MONTH_TITLE,nextMonth:env.MAESTRO_MONTH_NEXT,monthTarget:new Intl.DateTimeFormat(locale==='sv'?'sv-SE':'en-SE',{month:'long',year:'numeric'}).format(new Date(2026,9,1)),monthPrevious:new Intl.DateTimeFormat(locale==='sv'?'sv-SE':'en-SE',{month:'long',year:'numeric'}).format(new Date(2026,8,1)),monthEmpty:env.MAESTRO_MONTH_EMPTY,detail:env.MAESTRO_MONTH_DETAIL,amount:env.MAESTRO_MONTH_AMOUNT,detailPrice:env.MAESTRO_MONTH_DETAIL_PRICE,manual:env.MAESTRO_MONTH_MANUAL,close:env.MAESTRO_MONTH_CLOSE,logout:env.MAESTRO_LOGOUT,logoutConfirmed:env.MAESTRO_LOGOUT_CONFIRMED,date};
+}
+
+test('billing original-child diagnostics classify bilingual trusted targets without raw values or private excerpts',()=>{
+ for(const locale of ['en','sv'])for(const phase of ['flow-billing-month','flow-billing-month-empty']){
+  const labels=billingLabels(locale),base={phase,billingMonth:'',metro:'',labels};
+  const targets={login:'bankid-verify',personalTitle:'personal-title',profileTitle:'profile-title',home:'home-title',nextMonth:'next-month',monthTarget:'month-target',monthPrevious:'month-previous',monthEmpty:'month-empty',detail:'subscription-detail',amount:'expected-amount',detailPrice:'detail-price',manual:'manual-source',close:'close',logout:'logout',logoutConfirmed:'logout-confirmed',date:'expected-date'};
+  for(const [key,target]of Object.entries(targets)){
+   const result=billingMonthToolDiagnostic({...base,billingMonth:`FAILED Assert visible "${labels[key]}"\nAssertion is false: secret-token-canary`});assert.deepEqual(result.commands,['wait-visible']);assert.deepEqual(result.reasons,['assertion']);assert.deepEqual(result.targets,[target]);assert.equal(JSON.stringify(result).includes('secret-token-canary'),false);assert.equal(JSON.stringify(result).includes(labels.date),false);
+  }
+  for(const [id,target]of [['native-personal-login','bankid-verify'],['native-personal-title','personal-title'],['native-nav-month','home-title'],['native-home-overview','home-title'],['native-home-calendar','date-picker'],[`native-date-${labels.date}`,'date-cell'],['native-month-selected-date','selected-date'],['native-subscription-detail-close','close']]){
+   const known=billingMonthToolDiagnostic({...base,billingMonth:`No visible element found: ${id} secret-token-canary`});assert.deepEqual(known.targets,[target]);assert.equal(JSON.stringify(known).includes('secret-token-canary'),false);
+   assert.deepEqual(billingMonthToolDiagnostic({...base,billingMonth:`No visible element found: ${id}-private`}).targets,[]);
+  }
+  const row=phase==='flow-billing-month'?'Example streaming':'Example streaming Plus',result=billingMonthToolDiagnostic({...base,billingMonth:`Tap on "${row}" FAILED`});assert.deepEqual(result.commands,['tap']);assert.deepEqual(result.targets,['saved-row']);assert.equal(JSON.stringify(result).includes(row),false);
+ }
+});
+
+test('billing projection withholds foreign phases malformed labels or oversized original child output without evaluating accessors',()=>{
+ const base={phase:'flow-billing-month',billingMonth:'No visible element found: native-home-calendar private-canary',metro:'',labels:billingLabels()};
+ for(const phase of ['flow-identifier','flow-enroll-add','flow-restart','flow-edit-status','flow-renewals','other',undefined])assert.deepEqual(billingMonthToolDiagnostic({...base,phase}),{withheld:'outside-billing-month'});
+ const missing={...base.labels,foreign:'private-canary'};delete missing.home;
+ const hidden={...base.labels};Object.defineProperty(hidden,'home',{value:base.labels.home,enumerable:false});
+ for(const labels of [null,undefined,{},[],Object.assign(Object.create({}),base.labels),{...base.labels,unknown:'secret-canary'},missing,hidden,...Object.keys(base.labels).map(key=>({...base.labels,[key]:''})),{...base.labels,date:'2026-02-30'},{...base.labels,date:'0000-01-01'},{...base.labels,date:'2026-99-01'},{...base.labels,date:'2026-1-28'},{...base.labels,home:42},{...base.labels,home:'x'.repeat(501)},{...base.labels,home:'Home\nprivate-canary'}])assert.deepEqual(billingMonthToolDiagnostic({...base,labels}),{withheld:'trusted-target-unavailable'});
+ let reads=0;const accessor={...base.labels};Object.defineProperty(accessor,'home',{enumerable:true,get(){reads++;throw Error('secret-canary');}});assert.deepEqual(billingMonthToolDiagnostic({...base,labels:accessor}),{withheld:'trusted-target-unavailable'});assert.equal(reads,0);
+ for(const patch of [{billingMonth:null},{billingMonth:'x'.repeat(4_000_001)},{metro:null},{metro:'x'.repeat(4_000_001)}])assert.deepEqual(billingMonthToolDiagnostic({...base,...patch}),{withheld:'tool-input-unavailable'});
+ assert.deepEqual(billingMonthToolDiagnostic({...base,billingMonth:'secret-token-canary only'}),{withheld:'unknown-tool-diagnostic'});
+ const known=billingMonthToolDiagnostic({...base,metro:'Unable to resolve module "expo-router" private-canary'});assert.deepEqual(known.modules,['expo-router']);assert.equal(JSON.stringify(known).includes('private-canary'),false);
+ const leap=billingMonthToolDiagnostic({...base,labels:{...base.labels,date:'2028-02-29'},billingMonth:'Tap on "native-date-2028-02-29" FAILED'});assert.deepEqual(leap.targets,['date-cell']);
 });

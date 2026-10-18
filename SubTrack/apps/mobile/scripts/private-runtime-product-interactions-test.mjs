@@ -32,7 +32,8 @@ test('preferences and acknowledged primary-screen logout traverse the actual Pro
   const helper = read('open-profile'), add = read('enroll-add');
   assert.ok(helper.includes('- tapOn:\n    id: native-nav-profile\n- extendedWaitUntil:\n    visible:\n      id: native-personal-title\n      text: ${MAESTRO_PROFILE_PAGE_TITLE}\n    timeout: 30000'));
   assert.ok(add.includes('- takeScreenshot: accepted-add\n- runFlow: private-runtime-open-profile.yaml'));
-  assert.ok(add.includes('- tapOn:\n    id: native-nav-month\n- extendedWaitUntil:\n    visible: ${MAESTRO_SV_MONTH_TITLE}\n    timeout: 30000\n- tapOn:\n    id: native-nav-profile\n- extendedWaitUntil:\n    visible: ${MAESTRO_SV_SAVE_PREFERENCES}'));
+  assert.ok(add.includes('- tapOn:\n    id: native-nav-month\n- extendedWaitUntil:\n    visible: ${MAESTRO_SV_MONTH_TITLE}\n    timeout: 30000\n- tapOn:\n    id: native-nav-profile\n- extendedWaitUntil:\n    visible:\n      id: native-profile-language-sv\n      selected: true'));
+  assert.ok(!add.includes('SAVE_PREFERENCES'));for(const id of ['native-profile-language-sv','native-profile-theme-dark','native-profile-language-en'])assert.ok(add.includes(`id: ${id}\n      selected: true`));assert.ok(add.includes('visible: ${MAESTRO_SV_PROFILE_SAVED}'));assert.ok(add.includes('visible: ${MAESTRO_PROFILE_SAVED}'));
   for (const name of ['restart', 'edit-status-api-restart', 'renewals', 'renewals-empty', 'billing-month', 'billing-month-empty']) {
     const flow = read(name);
     assert.ok(flow.includes('- runFlow: private-runtime-open-profile.yaml\n- scrollUntilVisible:\n    element: ${MAESTRO_LOGOUT}\n    direction: DOWN\n- tapOn: ${MAESTRO_LOGOUT}'), name);
@@ -44,7 +45,7 @@ test('preferences and acknowledged primary-screen logout traverse the actual Pro
   for (const locale of ['en', 'sv']) {
     const c = JSON.parse(readFileSync(new URL(`../../../packages/i18n/catalogs/${locale}.json`, import.meta.url), 'utf8'));
     const env = flowEnvironment(locale);
-    assert.equal(env.MAESTRO_PROFILE_PAGE_TITLE, c.onboarding.productNav.profile);
+    assert.equal(env.MAESTRO_PROFILE_PAGE_TITLE,'Synthetic Native Proof');assert.ok(read('enroll-add').includes('- inputText: '+env.MAESTRO_PROFILE_PAGE_TITLE));
     assert.equal(env.MAESTRO_MONTH_TITLE, c.onboarding.productNav.home);
     assert.equal(env.MAESTRO_DATE_CLEAR, c.onboarding.datePicker.clear);
   }
@@ -94,4 +95,22 @@ test('actual recursive YAML directions use pinned Maestro enum literals rather t
  for(const name of ['setup','bank','manage','pages','restart'])for(const document of yaml.parseAllDocuments(readFileSync(new URL(`../e2e/sandbox-product-${name}.yaml`,import.meta.url),'utf8')))validate(document.toJSON());
  assert.throws(()=>validate({runFlow:{commands:[{scrollUntilVisible:{element:{id:'native-month-ribbon'},direction:'${MAESTRO_RIBBON_DIRECTION}'}}]}}),/enum literal/);
  for(const name of ['billing-month','billing-month-empty'])assert.equal(read(name).split('- runFlow: private-runtime-month-day.yaml').length-1,2);
+});
+
+test('edited saved rows open the actual detail once before status actions and close before leaving',()=>{
+ const mobile=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobile.resolve('expo/package.json'))('yaml');
+ const rows=name=>yaml.parseAllDocuments(read(name)).map(document=>document.toJSON())[1];
+ const edit=rows('edit-status'),save=edit.findIndex(step=>step.tapOn==='${MAESTRO_SAVE_EDIT}'),pause=edit.findIndex(step=>step.tapOn==='${MAESTRO_PAUSE}');
+ assert.equal(edit.filter(step=>step.tapOn==='Example streaming').length,1);
+ const postSave=edit.slice(save+1,pause),opened=postSave.filter(step=>step.tapOn==='Example streaming Plus');assert.equal(opened.length,1);
+ const statuses=['MAESTRO_PAUSE','MAESTRO_RESUME','MAESTRO_MARK_CANCELLED','MAESTRO_ARCHIVE'];for(const key of statuses)assert.equal(edit.filter(step=>step.tapOn==='${'+key+'}').length,1);
+ const archive=edit.findIndex(step=>step.tapOn==='${MAESTRO_ARCHIVE}'),stop=edit.indexOf('stopApp');assert.ok(edit.slice(archive+1,stop).some(step=>step.tapOn?.id==='native-subscription-detail-close'));
+ for(const name of ['edit-status','edit-status-api-restart']){
+  const flow=rows(name),capture=flow.findIndex(step=>step.takeScreenshot===(name==='edit-status'?'accepted-edited-restart':'accepted-edited-api-restart'));
+  assert.ok(capture>0);assert.deepEqual(flow[capture+1],{tapOn:{id:'native-subscription-detail-close'}});
+  if(name==='edit-status-api-restart')assert.deepEqual(flow[capture+2],{runFlow:'private-runtime-open-profile.yaml'});
+ }
+ const signed=yaml.parseAllDocuments(readFileSync(new URL('../e2e/sandbox-product-manage.yaml',import.meta.url),'utf8')).map(document=>document.toJSON())[1];
+ const saved=signed.findIndex(step=>step.tapOn==='${E_SAVE_EDIT}'),paused=signed.findIndex(step=>step.tapOn==='${E_PAUSE}');assert.equal(signed.filter(step=>step.tapOn==='Cedar Video').length,1);assert.equal(signed.slice(saved+1,paused).filter(step=>step.tapOn==='Cedar Video Plus').length,1);
+ assert.deepEqual(signed.at(-1),{tapOn:{id:'native-subscription-detail-close'}});
 });

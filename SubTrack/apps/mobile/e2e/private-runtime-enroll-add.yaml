@@ -112,16 +112,28 @@ appId: se.subtrack.app
 - takeScreenshot: accepted-add
 - runFlow: private-runtime-open-profile.yaml
 - scrollUntilVisible:
-    element: ${MAESTRO_SWEDISH}
+    element:
+      id: native-profile-language-sv
     direction: UP
-- tapOn: ${MAESTRO_SWEDISH}
-- tapOn: ${MAESTRO_DARK}
-- scrollUntilVisible:
-    element: ${MAESTRO_SAVE_PREFERENCES}
-    direction: DOWN
-- tapOn: ${MAESTRO_SAVE_PREFERENCES}
+- tapOn:
+    id: native-profile-language-sv
 - extendedWaitUntil:
-    visible: ${MAESTRO_SV_SAVE_PREFERENCES}
+    visible:
+      id: native-profile-language-sv
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ${MAESTRO_SV_PROFILE_SAVED}
+    timeout: 30000
+- tapOn:
+    id: native-profile-theme-dark
+- extendedWaitUntil:
+    visible:
+      id: native-profile-theme-dark
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ${MAESTRO_SV_PROFILE_SAVED}
     timeout: 30000
 - tapOn:
     id: native-nav-month
@@ -131,16 +143,17 @@ appId: se.subtrack.app
 - tapOn:
     id: native-nav-profile
 - extendedWaitUntil:
-    visible: ${MAESTRO_SV_SAVE_PREFERENCES}
+    visible:
+      id: native-profile-language-sv
+      selected: true
     timeout: 30000
-- scrollUntilVisible:
-    element: ${MAESTRO_SV_ENGLISH}
-    direction: UP
-- tapOn: ${MAESTRO_SV_ENGLISH}
-- scrollUntilVisible:
-    element: ${MAESTRO_SV_SAVE_PREFERENCES}
-    direction: DOWN
-- tapOn: ${MAESTRO_SV_SAVE_PREFERENCES}
+- tapOn:
+    id: native-profile-language-en
 - extendedWaitUntil:
-    visible: ${MAESTRO_SAVE_PREFERENCES}
+    visible:
+      id: native-profile-language-en
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ${MAESTRO_PROFILE_SAVED}
     timeout: 30000

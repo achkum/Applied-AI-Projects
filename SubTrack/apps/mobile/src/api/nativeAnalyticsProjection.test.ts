@@ -1,4 +1,4 @@
-import { compareNativePlans, projectNativeAnalytics, type AnalyticsCharge, type ComparisonPlan } from './nativeAnalyticsProjection';
+import { compareNativePlans, projectNativeAnalytics, scopeNativeAnalytics, type AnalyticsCharge, type ComparisonPlan } from './nativeAnalyticsProjection';
 import { syntheticComparisonCatalogue } from './syntheticComparisonCatalogue';
 import type { PrivateOwnerSubscriptionView } from '../../../../packages/contracts/generated/types.gen';
 jest.mock('./privateMobileApi', () => ({ readNativeProfile: jest.fn(), readNativeMode: jest.fn(), readNativeSubscriptions: jest.fn() }));
@@ -16,6 +16,12 @@ it('normalizes active saved cycles with exact per-currency totals and custom cyc
   expect(value.active).toHaveLength(3); expect(value.unknownCadenceCount).toBe(1);
   expect(value.totals).toEqual([{ monthly: { minorUnits: 8n, currency: 'EUR' }, annual: { minorUnits: 101n, currency: 'EUR' } }, { monthly: { minorUnits: 9007199254740993n, currency: 'SEK' }, annual: { minorUnits: 108086391056891916n, currency: 'SEK' } }]);
   expect(value.historyAvailable).toBe(false); expect(value.priceIncreases).toEqual([]);
+});
+it('retains a validated immutable owner roster for confirmed inactive detail without changing active projections',()=>{
+ const inactive={...second,status:'PAUSED' as const},input=[row,inactive],value=projectNativeAnalytics(input,[],now);
+ expect(value.subscriptions).toEqual(input);expect(value.active.map(item=>item.id)).toEqual([row.id]);expect(Object.isFrozen(value.subscriptions)).toBe(true);expect(value.subscriptions.every(Object.isFrozen)).toBe(true);
+ Object.assign(inactive,{revision:'2',customName:'Changed after read'});expect(value.subscriptions[1]).toMatchObject({revision:'1',customName:second.customName});
+ expect(scopeNativeAnalytics(value,new Set([inactive.id]),now).subscriptions).toEqual([]);
 });
 it('shows category overlap as a review finding without inventing duplicate-service savings', () => {
   const value = projectNativeAnalytics([row, second], [], now);
@@ -71,4 +77,18 @@ it('does not create synthetic active records or savings when the actual owner ha
   expect(value.plans.every(plan => plan.source === 'synthetic-persona-fixture')).toBe(true);
   const custom: ComparisonPlan = { id: 'saved:custom', name: 'Custom', categoryCode: 'OTHER_SUBSCRIPTION', cadence: 'CUSTOM', amountMinor: '100', currency: 'SEK', source: 'saved' };
   expect(compareNativePlans(custom, { ...custom, id: 'different' })).toBeNull();
+});
+it('scopes actual booked history to selected active subscription IDs without retaining foreign or unassigned evidence',()=>{
+ const secondCharges=charges(['-7000','-7000','-7000','-7000','-7000']).map(item=>({...item,id:`second-${item.id}`,subscriptionId:second.id}));
+ const archived={...row,id:'323e4567-e89b-42d3-a456-426614174000',status:'ARCHIVED' as const};
+ const other:AnalyticsCharge[]=[{...charges()[0]!,id:'archived',subscriptionId:archived.id},{...charges()[0]!,id:'unrelated',subscriptionId:null},{...charges()[0]!,id:'foreign',subscriptionId:'423e4567-e89b-42d3-a456-426614174000'}];
+ const source=projectNativeAnalytics([row,second,archived],[...charges(),...secondCharges,...other],now,[],true),selected=scopeNativeAnalytics(source,new Set([row.id]),now);
+ expect(selected.historyAvailable).toBe(true);expect(selected.historyTruncated).toBe(true);expect(selected.trend.map(month=>month.amount.minorUnits)).toEqual([0n,10000n,10000n,10000n,12000n,12000n]);expect(selected.attributedCharges.map(charge=>charge.id)).toEqual(charges().map(charge=>charge.id));expect(selected.priceIncreases.map(item=>item.subscriptionId)).toEqual([row.id]);
+ const disjoint=scopeNativeAnalytics(source,new Set([second.id]),now);expect(disjoint.trend.map(month=>month.amount.minorUnits)).toEqual([0n,7000n,7000n,7000n,7000n,7000n]);expect(disjoint.priceIncreases).toEqual([]);expect(disjoint.attributedCharges.every(charge=>charge.subscriptionId===second.id)).toBe(true);
+ const unknown=scopeNativeAnalytics(source,new Set([archived.id,'423e4567-e89b-42d3-a456-426614174000']),now);expect(unknown.active).toEqual([]);expect(unknown.attributedCharges).toEqual([]);expect(unknown.trend.every(month=>month.amount.minorUnits===0n&&month.chargeCount===0)).toBe(true);expect(unknown.priceIncreases).toEqual([]);
+});
+it('preserves unavailable versus available-empty scoped history and snapshots only eligible attributed charges',()=>{
+ const unavailable=scopeNativeAnalytics(projectNativeAnalytics([row],null,now),new Set([row.id]),now);expect(unavailable.historyAvailable).toBe(false);expect(unavailable.attributedCharges).toEqual([]);
+ const empty=scopeNativeAnalytics(projectNativeAnalytics([row],[],now,[],true),new Set([row.id]),now);expect(empty.historyAvailable).toBe(true);expect(empty.historyTruncated).toBe(true);expect(empty.attributedCharges).toEqual([]);
+ const input=charges(),source=projectNativeAnalytics([row],input,now);Object.assign(input[0]!,{amountMinor:'-999999',subscriptionId:second.id});expect(source.attributedCharges[0]).toEqual(charges()[0]);expect(Object.isFrozen(source.attributedCharges)).toBe(true);expect(Object.isFrozen(source.attributedCharges[0])).toBe(true);
 });

@@ -36,6 +36,9 @@ test('frozen live validator accepts real host-realm JSON Android binding through
  const android=JSON.parse(JSON.stringify({schema:'st250-android-download-binding-v1',artifactSourceHead:head,toolingSourceHead:head,apkRun:'123-1',toolsRun:'123-1',applicationId:'se.subtrack.app.sandbox',versionCode:2,signedSha256:digest('1'),bytes:123,signerCertificateSha256:digest('2'),embeddedConfigSha256:digest('3'),hermesSha256:digest('4'),signedReceiptSha256:digest('5')}));
  const records=Object.fromEntries(['database-data','certificate-data','gateway-config'].map(role=>[role,{Mountpoint:'/var/lib/docker/volumes/subtrack-sandbox-'+role+'/_data'}]));
  assert.equal(live(container,base,'api-live',root,records,head,identity,android),true);
+ // Preserve the frozen authenticated validator; creation uses the successful explicit-true spelling.
+ const security=limits().reduce((values,value,index,args)=>value==='--security-opt'?[...values,args[index+1]]:values,[]);assert.deepEqual(security,['no-new-privileges:true']);
+ for(const SecurityOpt of [undefined,null,[],['no-new-privileges'],['no-new-privileges:false'],['no-new-privileges:true','no-new-privileges:true'],['no-new-privileges:true','seccomp=unconfined']])assert.throws(()=>live({...container,HostConfig:{...container.HostConfig,SecurityOpt}},base,'api-live',root,records,head,identity,android));
  for(const tampered of [{...android,applicationId:'se.subtrack.production'},{...android,versionCode:0},{...android,signedSha256:'invalid'},{...android,extra:true}])assert.throws(()=>live(container,base,'api-live',root,records,head,identity,tampered));
  const timed=sourceValidator('// BEGIN LIVE VALIDATOR\nfunction validateLive(){while(true){}}\n// END LIVE VALIDATOR','LIVE');assert.throws(()=>timed(),/timed out/);
 });
@@ -57,7 +60,7 @@ test('gateway preflight invokes the authenticated frozen executable verifier and
  const actual=fs.readFileSync(path.join(__dirname,'upgrade-api.cjs'),'utf8'),check=actual.indexOf('\n gatewayCustody(helpers,source,binding);');assert.ok(check>actual.indexOf('helpers.sourceBinding(source,'));assert.ok(check<actual.indexOf("state='STOP_OLD_API'"));assert.match(actual,/function unchanged\(saved,includeApi=true\)\{gatewayCustody\(saved.helpers,saved.source,saved.binding\)/);
 });
 test('candidate argument builders provide exact least-privilege resources and only original read-only API secrets',()=>{
- const args=limits();for(const part of ['--read-only','1000:1000','--cap-drop','ALL','no-new-privileges','384m','0.75','64','/tmp:size=16m,uid=1000,gid=1000'])assert.ok(args.includes(part));for(const forbidden of ['--privileged','--publish','--volume','--cap-add','--pid'])assert.ok(!args.includes(forbidden));
+ const args=limits();for(const part of ['--read-only','1000:1000','--cap-drop','ALL','no-new-privileges:true','384m','0.75','64','/tmp:size=16m,uid=1000,gid=1000'])assert.ok(args.includes(part));for(const forbidden of ['--privileged','--publish','--volume','--cap-add','--pid'])assert.ok(!args.includes(forbidden));
  const secrets=secretArgs().join(' ');assert.match(secrets,/database-runtime,dst=\/run\/secrets\/database_runtime,readonly/);assert.match(secrets,/api-auth-material,dst=\/run\/secrets\/api_auth_material,readonly/);assert.doesNotMatch(secrets,/docker.sock|android-signing|database-bootstrap/);assert.ok(envArgs().includes('SUBTRACK_RUNTIME=sandbox'));assert.ok(envArgs().includes('SANDBOX_DATABASE_NAME=subtrack_sandbox'));
 });
 test('actual source gates archive/config probes before stop and marks irreversible boundary before bootstrap; it never rewrites original custody',()=>{

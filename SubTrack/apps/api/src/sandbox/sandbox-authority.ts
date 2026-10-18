@@ -3,10 +3,11 @@ import type {OwnerTx} from '../auth/sessions-v2/durable-current-web-authority.js
 import type {MobileOwner,PrivateMobilePrecommitGuard} from '../auth/mobile-private/durable-mobile-authority.js';
 import {SANDBOX_BANK_STATEMENTS} from './sandbox-bank-business.js';
 import {SANDBOX_HOUSEHOLD_STATEMENTS} from './sandbox-household.js';
+import {SANDBOX_PRODUCT_SEED_STATEMENTS} from './sandbox-product-seed.js';
 import {PRIVATE_MOBILE_BUSINESS_STATEMENTS} from '../profile/private-mobile-business.js';
 import {SandboxToken,type SandboxClaims} from './sandbox-token.js';
 import {SANDBOX_EPOCH,type SandboxConfig} from './sandbox-config.js';
-const SANDBOX_STATEMENTS=Object.freeze({...PRIVATE_MOBILE_BUSINESS_STATEMENTS,...SANDBOX_BANK_STATEMENTS,...SANDBOX_HOUSEHOLD_STATEMENTS});
+const SANDBOX_STATEMENTS=Object.freeze({...PRIVATE_MOBILE_BUSINESS_STATEMENTS,...SANDBOX_BANK_STATEMENTS,...SANDBOX_HOUSEHOLD_STATEMENTS,...SANDBOX_PRODUCT_SEED_STATEMENTS});
 export class SandboxError extends Error{constructor(readonly kind:'denied'|'unavailable'|'capacity'|'restart'){super('Sandbox request unavailable');}}
 const fail=(kind:SandboxError['kind']='unavailable'):never=>{throw new SandboxError(kind);};
 const time=(value:unknown):number=>{if(typeof value!=='string'||!/^[1-9][0-9]{0,15}$/.test(value))return fail();const now=Number(value);if(!Number.isSafeInteger(now)||now<1)return fail();return now;};

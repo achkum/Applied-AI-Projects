@@ -1,5 +1,5 @@
 import React from 'react';
-import {Pressable,ScrollView,Text} from 'react-native';
+import {Pressable,RefreshControl,ScrollView,Text} from 'react-native';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
 import {NativePersonalBankScreen} from './NativePersonalBankScreen';
 import {NativeSessionProvider,useNativeSession} from '@/state/NativeSession';
@@ -30,9 +30,11 @@ beforeEach(()=>{
  jest.mocked(api.bankRequestKey).mockResolvedValue(key);jest.mocked(api.readNativeBank).mockResolvedValue({kind:'ready',connections:[]});
  jest.mocked(api.mutateNativeBank).mockResolvedValue({operation:'connect',connection:active});
 });
-function mount(){const store:NativeBundleStore={read:jest.fn().mockResolvedValue(null),write:jest.fn().mockResolvedValue(undefined),clear:jest.fn().mockResolvedValue(undefined)};return render(<NativeSessionProvider store={store}><NativePersonalBankScreen/></NativeSessionProvider>);}
+function ProfileExit(){const session=useNativeSession();return <Pressable accessibilityRole="button" accessibilityLabel="External Profile exit" onPress={()=>{void session.logout().catch(()=>undefined);}}><Text>External Profile exit</Text></Pressable>;}
+function mount(){const store:NativeBundleStore={read:jest.fn().mockResolvedValue(null),write:jest.fn().mockResolvedValue(undefined),clear:jest.fn().mockResolvedValue(undefined)};return render(<NativeSessionProvider store={store}><NativePersonalBankScreen/><ProfileExit/></NativeSessionProvider>);}
 async function login(){await waitFor(()=>expect(screen.getByRole('button',{name:personal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:personal.verify}));}
-async function press(label:string){fireEvent.press(await screen.findByRole('button',{name:label}));}
+async function press(label:string){if((label===copy.purge||label===copy.disconnect)&&!screen.queryByRole('button',{name:label}))fireEvent.press((await screen.findAllByRole('button',{name:copy.options}))[0]!);fireEvent.press(await screen.findByRole('button',{name:label}));}
+async function pullRefresh(){await act(async()=>{screen.UNSAFE_getByType(RefreshControl).props.onRefresh();});}
 it('connects only the explicit Synthetic bank and presents actual post-mutation readback',async()=>{
  jest.mocked(api.readNativeBank).mockResolvedValueOnce({kind:'ready',connections:[]}).mockResolvedValueOnce({kind:'ready',connections:[active]});mount();expect(api.readNativeBank).not.toHaveBeenCalled();await login();await press(copy.connect);await screen.findByText(copy.active);
  expect(api.mutateNativeBank).toHaveBeenCalledWith({operation:'connect',institutionId:'synthetic-demo-v1'},key,credentials.accessToken,expect.any(AbortSignal));expect(api.readNativeBank).toHaveBeenCalledTimes(2);expect(screen.getByText('77')).toBeTruthy();expect(screen.queryByRole('button',{name:copy.connect})).toBeNull();
@@ -46,7 +48,7 @@ it('disconnects retaining counts, reconnects a fresh generation and keeps prior 
  const next={...active,connectionId:'223e4567-e89b-42d3-a456-426614174000',accountCount:0,transactionCount:0};
  jest.mocked(api.readNativeBank).mockResolvedValueOnce({kind:'ready',connections:[active]}).mockResolvedValueOnce({kind:'ready',connections:[retained]}).mockResolvedValueOnce({kind:'ready',connections:[retained,next]});
  jest.mocked(api.mutateNativeBank).mockResolvedValueOnce({operation:'disconnect',connection:retained}).mockResolvedValueOnce({operation:'connect',connection:next});mount();await login();await press(copy.disconnect);await screen.findByText(copy.revoked);expect(screen.getByText('77')).toBeTruthy();await press(copy.connect);await screen.findByText(copy.active);
- expect(screen.getByText(copy.revoked)).toBeTruthy();expect(screen.getAllByRole('button',{name:copy.purge})).toHaveLength(2);expect(jest.mocked(api.mutateNativeBank).mock.calls[0]![0]).toEqual({operation:'disconnect',connectionId:id,purge:false});
+ expect(screen.getByText(copy.revoked)).toBeTruthy();expect(screen.getAllByRole('button',{name:copy.options})).toHaveLength(2);expect(jest.mocked(api.mutateNativeBank).mock.calls[0]![0]).toEqual({operation:'disconnect',connectionId:id,purge:false});
 });
 it('requires explicit purge confirmation and supports cancellation without a mutation',async()=>{
  jest.mocked(api.readNativeBank).mockResolvedValueOnce({kind:'ready',connections:[retained]}).mockResolvedValueOnce({kind:'ready',connections:[]});jest.mocked(api.mutateNativeBank).mockResolvedValue({operation:'disconnect',connection:{...retained,disposition:'purged',accountCount:0,transactionCount:0}});
@@ -57,10 +59,10 @@ it('reads durable state after remount and fresh verification',async()=>{
 });
 it('refresh and focus restore reload current state and obsolete rejection cannot retire current authority',async()=>{
  let reject!:(error:Error)=>void;const waiting=new Promise<never>((_,fail)=>{reject=fail;});jest.mocked(api.readNativeBank).mockImplementationOnce(()=>waiting).mockResolvedValueOnce({kind:'ready',connections:[active]}).mockResolvedValueOnce({kind:'ready',connections:[retained]});
- mount();await login();await waitFor(()=>expect(api.readNativeBank).toHaveBeenCalledTimes(1));act(()=>{mockFocus.enabled=false;mockFocus.cleanup?.();});expect(jest.mocked(api.readNativeBank).mock.calls[0]![1].aborted).toBe(true);act(()=>{mockFocus.enabled=true;mockFocus.cleanup=mockFocus.start?.();});await act(async()=>reject(new Error('obsolete')));await screen.findByText(copy.active);await press(copy.refresh);await screen.findByText(copy.revoked);expect(screen.queryByText(copy.unavailable)).toBeNull();
+ mount();await login();await waitFor(()=>expect(api.readNativeBank).toHaveBeenCalledTimes(1));act(()=>{mockFocus.enabled=false;mockFocus.cleanup?.();});expect(jest.mocked(api.readNativeBank).mock.calls[0]![1].aborted).toBe(true);act(()=>{mockFocus.enabled=true;mockFocus.cleanup=mockFocus.start?.();});await act(async()=>reject(new Error('obsolete')));await screen.findByText(copy.active);await pullRefresh();await screen.findByText(copy.revoked);expect(screen.queryByText(copy.unavailable)).toBeNull();
 });
 it('current read error retires Core, hiding bank state and offering fresh verification',async()=>{
- jest.mocked(api.readNativeBank).mockResolvedValueOnce({kind:'ready',connections:[active]}).mockRejectedValueOnce(new Error('read unavailable'));mount();await login();await screen.findByText(copy.active);await press(copy.refresh);await screen.findByText(copy.unavailable);expect(screen.queryByText('77')).toBeNull();expect(screen.getByRole('button',{name:personal.verify})).toBeTruthy();
+ jest.mocked(api.readNativeBank).mockResolvedValueOnce({kind:'ready',connections:[active]}).mockRejectedValueOnce(new Error('read unavailable'));mount();await login();await screen.findByText(copy.active);await pullRefresh();await screen.findByText(copy.unavailable);expect(screen.queryByText('77')).toBeNull();expect(screen.getByRole('button',{name:personal.verify})).toBeTruthy();
 });
 it('uncertain sent mutation after blur retires authority and fresh verification reads durable state without retry',async()=>{
  let reject!:(error:Error)=>void;const waiting=new Promise<never>((_,fail)=>{reject=fail;});jest.mocked(api.readNativeBank).mockResolvedValueOnce({kind:'ready',connections:[]}).mockResolvedValueOnce({kind:'ready',connections:[retained]});jest.mocked(api.mutateNativeBank).mockImplementationOnce(()=>waiting);
@@ -75,8 +77,8 @@ it('known business conflict renders current read instead of a receipt',async()=>
 it('setup gate prevents bank actions and preserves management navigation',async()=>{
  jest.mocked(api.readNativeBank).mockResolvedValue({kind:'setup-required'});mount();await login();await screen.findByText(copy.setup);expect(screen.queryByRole('button',{name:copy.connect})).toBeNull();await press(copy.manage);expect(mockReplace).toHaveBeenCalledWith('/personal');expect(api.mutateNativeBank).not.toHaveBeenCalled();
 });
-it('logout clears retained data and preserves acknowledgement against old failures',async()=>{
- let reject!:(error:Error)=>void;const waiting=new Promise<never>((_,fail)=>{reject=fail;});jest.mocked(api.readNativeBank).mockImplementationOnce(()=>waiting);mount();await login();await waitFor(()=>expect(api.readNativeBank).toHaveBeenCalledTimes(1));await press(personal.logout);await act(async()=>reject(new Error('old result')));await screen.findByText(personal.logoutConfirmed);expect(screen.queryByRole('button',{name:personal.logout})).toBeNull();expect(screen.queryByRole('button',{name:copy.manage})).toBeNull();expect(screen.queryByText(copy.demo)).toBeNull();expect(screen.queryByText(copy.unavailable)).toBeNull();expect(screen.queryByText('77')).toBeNull();
+it('external Profile logout clears retained data and old failures cannot repaint the bank screen',async()=>{
+ let reject!:(error:Error)=>void;const waiting=new Promise<never>((_,fail)=>{reject=fail;});jest.mocked(api.readNativeBank).mockImplementationOnce(()=>waiting);mount();await login();await waitFor(()=>expect(api.readNativeBank).toHaveBeenCalledTimes(1));await press('External Profile exit');await act(async()=>reject(new Error('old result')));await screen.findByRole('button',{name:personal.verify});expect(screen.queryByRole('button',{name:personal.logout})).toBeNull();expect(screen.getByRole('button',{name:copy.manage})).toBeTruthy();expect(screen.queryByText(copy.demo)).toBeNull();expect(screen.queryByText(copy.unavailable)).toBeNull();expect(screen.queryByText('77')).toBeNull();
 });
 it('external retirement hides data and purge confirmation before focus cleanup',async()=>{
  let reject!:(error:Error)=>void;const waiting=new Promise<never>((_,fail)=>{reject=fail;});jest.mocked(sessionApi.rotateNativeSession).mockImplementation(()=>waiting);jest.mocked(api.readNativeBank).mockResolvedValue({kind:'ready',connections:[retained]});
@@ -90,3 +92,20 @@ it('uses the injected sandbox authority/transport and exposes review after commi
  render(<NativePersonalBankScreen useSession={()=>session} api={{readNativeBank:read,mutateNativeBank:mutate,bankRequestKey:async()=>key}} sandbox/>);
  await press(copy.connect);await screen.findByText(copy.active);expect(mutate).toHaveBeenCalledWith({operation:'connect',institutionId:'synthetic-demo-v1'},key,'sandbox-token',expect.any(AbortSignal));expect(api.readNativeBank).not.toHaveBeenCalled();await press(catalogs.en.onboarding.nativeDetection.open);expect(mockPush).toHaveBeenCalledWith('/personal-detections');
 });
+
+it('uses compact contextual actions, read-only pull refresh and hides removal until Options is opened',async()=>{
+ jest.mocked(api.readNativeBank).mockResolvedValue({kind:'ready',connections:[active]});mount();await login();await screen.findByText(copy.active);
+ expect(screen.queryByRole('button',{name:copy.refresh})).toBeNull();expect(screen.queryByRole('button',{name:personal.logout})).toBeNull();expect(screen.queryByRole('button',{name:copy.purge})).toBeNull();expect(screen.queryByRole('button',{name:copy.disconnect})).toBeNull();
+ await pullRefresh();expect(api.readNativeBank).toHaveBeenCalledTimes(2);expect(api.mutateNativeBank).not.toHaveBeenCalled();
+ await press(copy.options);expect(screen.getByRole('button',{name:copy.options}).props.accessibilityState.expanded).toBe(true);expect(screen.getByRole('button',{name:copy.purge})).toBeTruthy();expect(api.mutateNativeBank).not.toHaveBeenCalled();
+ await press(copy.purge);await press(copy.cancelPurge);expect(api.mutateNativeBank).not.toHaveBeenCalled();await press(copy.options);expect(screen.queryByRole('button',{name:copy.purge})).toBeNull();
+ await press(copy.manage);expect(mockReplace).toHaveBeenCalledWith('/personal');
+});
+it('offers a retry only for an active read failure, without issuing another bank mutation',async()=>{
+ const session={phase:'active' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:async<T,>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>work('sandbox-token',new AbortController().signal)};
+ const read=jest.fn().mockRejectedValueOnce(Error('read unavailable')).mockResolvedValue({kind:'ready',connections:[active]}),mutate=jest.fn();
+ render(<NativePersonalBankScreen useSession={()=>session} api={{readNativeBank:read,mutateNativeBank:mutate,bankRequestKey:async()=>key}} sandbox/>);
+ await screen.findByText(copy.unavailable);await press(copy.refresh);await screen.findByText(copy.active);expect(read).toHaveBeenCalledTimes(2);expect(mutate).not.toHaveBeenCalled();expect(screen.queryByRole('button',{name:copy.refresh})).toBeNull();
+});
+
+it('shows the current failed verification after session phase changes without retaining bank state',async()=>{jest.mocked(sessionApi.verifiedNativeLogin).mockRejectedValue(Error('verification unavailable'));mount();await login();await screen.findByText(copy.unavailable);expect(screen.queryByText('77')).toBeNull();expect(api.readNativeBank).not.toHaveBeenCalled();});

@@ -3,13 +3,9 @@ appId: se.subtrack.app
 # API has restarted; startup still requires fresh verified authority.
 - stopApp
 - launchApp
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - extendedWaitUntil:
-          visible: ${MAESTRO_CREATE_ACCOUNT}
-          timeout: 120000
+- extendedWaitUntil:
+    visible: ${MAESTRO_CREATE_ACCOUNT}
+    timeout: 120000
 - openLink: subtrack:///personal
 - extendedWaitUntil:
     visible:
@@ -38,6 +34,8 @@ appId: se.subtrack.app
 - assertNotVisible: ${MAESTRO_MARK_CANCELLED}
 - assertNotVisible: ${MAESTRO_ARCHIVE}
 - takeScreenshot: accepted-edited-api-restart
+- tapOn:
+    id: native-subscription-detail-close
 - runFlow: private-runtime-open-profile.yaml
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}

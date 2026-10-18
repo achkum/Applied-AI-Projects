@@ -67,6 +67,7 @@ appId: se.subtrack.app
     centerElement: true
 - assertVisible: Example streaming Plus
 - takeScreenshot: accepted-edit
+- tapOn: Example streaming Plus
 - scrollUntilVisible:
     element: ${MAESTRO_PAUSE}
     direction: DOWN
@@ -96,15 +97,13 @@ appId: se.subtrack.app
     notVisible: ${MAESTRO_ARCHIVE}
     timeout: 30000
 - takeScreenshot: accepted-archived
+- tapOn:
+    id: native-subscription-detail-close
 - stopApp
 - launchApp
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - extendedWaitUntil:
-          visible: ${MAESTRO_CREATE_ACCOUNT}
-          timeout: 120000
+- extendedWaitUntil:
+    visible: ${MAESTRO_CREATE_ACCOUNT}
+    timeout: 120000
 - openLink: subtrack:///personal
 - extendedWaitUntil:
     visible:
@@ -130,3 +129,5 @@ appId: se.subtrack.app
 - assertNotVisible: ${MAESTRO_ARCHIVE}
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
 - takeScreenshot: accepted-edited-restart
+- tapOn:
+    id: native-subscription-detail-close

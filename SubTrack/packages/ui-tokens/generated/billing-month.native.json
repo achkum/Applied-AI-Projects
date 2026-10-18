@@ -76,14 +76,27 @@
       "3xl": 36,
       "4xl": 48,
       "hero": 64,
-      "total": 48,
-      "detail": 36
+      "total": 64,
+      "detail": 46,
+      "nav": 10.5,
+      "control": 14,
+      "link": 13.5,
+      "summary": 14.5,
+      "cardTitle": 15.5,
+      "caption": 12.5,
+      "price": 16,
+      "badge": 11,
+      "stat": 20,
+      "statLabel": 11,
+      "chart": 10.5,
+      "chartValue": 11.5,
+      "avatarSmall": 10.5
     },
     "fontVariantNumeric": "tabular-nums"
   },
   "radius": {
     "card": 18,
-    "sheet": 28,
+    "sheet": 26,
     "pill": 9999
   },
   "motion": {

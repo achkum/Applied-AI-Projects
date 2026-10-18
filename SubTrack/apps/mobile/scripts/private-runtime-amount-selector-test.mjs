@@ -18,6 +18,7 @@ const {formatMinorUnits}=await import('data:text/javascript;base64,'+Buffer.from
 const cases=[];
 for(const locale of ['en','sv']){
  const env=flowEnvironment(locale),label=env.MAESTRO_EXPECTED_AMOUNT_LABEL;
+ const cadence=JSON.parse(readFileSync(new URL(`../../../packages/i18n/catalogs/${locale}.json`,import.meta.url),'utf8')).onboarding.ownerSubscriptions.cadence.MONTHLY;
  const actual=formatMinorUnits(12990n,'SEK',{locale,display:'code'});
  assert.ok(actual.includes('\u00a0'));
  // The old Node-only check succeeds while the actual Java engine rejects NBSP.
@@ -28,11 +29,14 @@ for(const locale of ['en','sv']){
  for(const space of [' ','\u00a0','\u202f']){
   cases.push([env.MAESTRO_EXPECTED_AMOUNT,'129,90'+space+'SEK',true]);
   cases.push([env.MAESTRO_MONTH_AMOUNT,'129,90'+space+'SEK',true]);
+  cases.push([env.MAESTRO_MONTH_DETAIL_PRICE,'129,90'+space+'SEK · '+cadence,true]);
  }
  for(const wrong of ['129,91 SEK','129,900 SEK','129,90 EUR','129,90\tSEK','129,90\nSEK','129,90SEK']){
   cases.push([env.MAESTRO_EXPECTED_AMOUNT,wrong,false]);
   cases.push([env.MAESTRO_MONTH_AMOUNT,wrong,false]);
+  cases.push([env.MAESTRO_MONTH_DETAIL_PRICE,wrong+' · '+cadence,false]);
  }
+ for(const wrong of ['129,90 SEK','129,90 SEK · wrong cadence','129,90 SEK · '+cadence+' extra','129,90 SEK · '+cadence+'\n','129,90 SEK · '+cadence+' · '+cadence])cases.push([env.MAESTRO_MONTH_DETAIL_PRICE,wrong,false]);
  cases.push([env.MAESTRO_EXPECTED_AMOUNT,'Wrong label: '+actual,false]);
  cases.push([env.MAESTRO_EXPECTED_AMOUNT,actual+' extra',false]);
 }

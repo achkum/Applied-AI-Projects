@@ -1,0 +1,690 @@
+appId: se.subtrack.app.sandbox
+---
+# Real signed app only. Captured views require a separate visual review.
+
+# en/light: persist preferences and wait for their authoritative selected state.
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-nav-profile
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-profile-language-en
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-profile-language-en
+    direction: UP
+- tapOn:
+    id: native-profile-language-en
+- extendedWaitUntil:
+    visible:
+      id: native-profile-language-en
+      selected: true
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-profile-theme-light
+    direction: UP
+- tapOn:
+    id: native-profile-theme-light
+- extendedWaitUntil:
+    visible:
+      id: native-profile-theme-light
+      selected: true
+    timeout: 30000
+- assertVisible:
+    id: native-profile-language-en
+    selected: true
+- tapOn:
+    id: native-nav-month
+- extendedWaitUntil:
+    visible:
+      id: native-nav-month
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-home-overview
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ${E_ACTIVE_TEN}
+    timeout: 30000
+- scrollUntilVisible:
+    element: QA Family
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-en-light-home
+- tapOn:
+    id: native-nav-manage
+- extendedWaitUntil:
+    visible:
+      id: native-nav-manage
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-personal-title
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-en-light-subscriptions
+- scrollUntilVisible:
+    element: Cedar Video Plus
+    direction: DOWN
+- tapOn: Cedar Video Plus
+- extendedWaitUntil:
+    visible:
+      id: native-subscription-detail-close
+    timeout: 30000
+- assertVisible: Cedar Video Plus
+- scrollUntilVisible:
+    element:
+      id: native-subscription-charge-history
+    direction: DOWN
+- extendedWaitUntil:
+    visible:
+      id: native-subscription-charge-history
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-subscription-detail-close
+    direction: UP
+- assertVisible: Cedar Video Plus
+- takeScreenshot: accepted-sandbox-visual-en-light-detail
+- tapOn:
+    id: native-subscription-detail-close
+- extendedWaitUntil:
+    visible:
+      id: native-nav-household
+    timeout: 30000
+- tapOn:
+    id: native-nav-household
+- extendedWaitUntil:
+    visible:
+      id: native-nav-household
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-household-title
+    timeout: 30000
+- extendedWaitUntil:
+    visible: QA Family
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-household-title
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-en-light-household
+- tapOn:
+    id: native-nav-insights
+- extendedWaitUntil:
+    visible:
+      id: native-nav-insights
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-insights-overview
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-insights-overview
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-en-light-insights
+- scrollUntilVisible:
+    element:
+      id: native-insights-trend
+    direction: DOWN
+- extendedWaitUntil:
+    visible:
+      id: native-insights-trend
+    timeout: 30000
+- takeScreenshot: accepted-sandbox-visual-en-light-trend
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-nav-profile
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-profile-language-en
+      selected: true
+    timeout: 30000
+- assertVisible:
+    id: native-profile-theme-light
+    selected: true
+- scrollUntilVisible:
+    element:
+      id: native-personal-title
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-en-light-profile
+
+# en/dark: persist preferences and wait for their authoritative selected state.
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-nav-profile
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-profile-language-en
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-profile-language-en
+    direction: UP
+- tapOn:
+    id: native-profile-language-en
+- extendedWaitUntil:
+    visible:
+      id: native-profile-language-en
+      selected: true
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-profile-theme-dark
+    direction: UP
+- tapOn:
+    id: native-profile-theme-dark
+- extendedWaitUntil:
+    visible:
+      id: native-profile-theme-dark
+      selected: true
+    timeout: 30000
+- assertVisible:
+    id: native-profile-language-en
+    selected: true
+- tapOn:
+    id: native-nav-month
+- extendedWaitUntil:
+    visible:
+      id: native-nav-month
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-home-overview
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ${E_ACTIVE_TEN}
+    timeout: 30000
+- scrollUntilVisible:
+    element: QA Family
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-en-dark-home
+- tapOn:
+    id: native-nav-manage
+- extendedWaitUntil:
+    visible:
+      id: native-nav-manage
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-personal-title
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-en-dark-subscriptions
+- scrollUntilVisible:
+    element: Cedar Video Plus
+    direction: DOWN
+- tapOn: Cedar Video Plus
+- extendedWaitUntil:
+    visible:
+      id: native-subscription-detail-close
+    timeout: 30000
+- assertVisible: Cedar Video Plus
+- scrollUntilVisible:
+    element:
+      id: native-subscription-charge-history
+    direction: DOWN
+- extendedWaitUntil:
+    visible:
+      id: native-subscription-charge-history
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-subscription-detail-close
+    direction: UP
+- assertVisible: Cedar Video Plus
+- takeScreenshot: accepted-sandbox-visual-en-dark-detail
+- tapOn:
+    id: native-subscription-detail-close
+- extendedWaitUntil:
+    visible:
+      id: native-nav-household
+    timeout: 30000
+- tapOn:
+    id: native-nav-household
+- extendedWaitUntil:
+    visible:
+      id: native-nav-household
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-household-title
+    timeout: 30000
+- extendedWaitUntil:
+    visible: QA Family
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-household-title
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-en-dark-household
+- tapOn:
+    id: native-nav-insights
+- extendedWaitUntil:
+    visible:
+      id: native-nav-insights
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-insights-overview
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-insights-overview
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-en-dark-insights
+- scrollUntilVisible:
+    element:
+      id: native-insights-trend
+    direction: DOWN
+- extendedWaitUntil:
+    visible:
+      id: native-insights-trend
+    timeout: 30000
+- takeScreenshot: accepted-sandbox-visual-en-dark-trend
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-nav-profile
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-profile-language-en
+      selected: true
+    timeout: 30000
+- assertVisible:
+    id: native-profile-theme-dark
+    selected: true
+- scrollUntilVisible:
+    element:
+      id: native-personal-title
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-en-dark-profile
+
+# sv/light: persist preferences and wait for their authoritative selected state.
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-nav-profile
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-profile-language-sv
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-profile-language-sv
+    direction: UP
+- tapOn:
+    id: native-profile-language-sv
+- extendedWaitUntil:
+    visible:
+      id: native-profile-language-sv
+      selected: true
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-profile-theme-light
+    direction: UP
+- tapOn:
+    id: native-profile-theme-light
+- extendedWaitUntil:
+    visible:
+      id: native-profile-theme-light
+      selected: true
+    timeout: 30000
+- assertVisible:
+    id: native-profile-language-sv
+    selected: true
+- tapOn:
+    id: native-nav-month
+- extendedWaitUntil:
+    visible:
+      id: native-nav-month
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-home-overview
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ${S_ACTIVE_TEN}
+    timeout: 30000
+- scrollUntilVisible:
+    element: QA Family
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-sv-light-home
+- tapOn:
+    id: native-nav-manage
+- extendedWaitUntil:
+    visible:
+      id: native-nav-manage
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-personal-title
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-sv-light-subscriptions
+- scrollUntilVisible:
+    element: Cedar Video Plus
+    direction: DOWN
+- tapOn: Cedar Video Plus
+- extendedWaitUntil:
+    visible:
+      id: native-subscription-detail-close
+    timeout: 30000
+- assertVisible: Cedar Video Plus
+- scrollUntilVisible:
+    element:
+      id: native-subscription-charge-history
+    direction: DOWN
+- extendedWaitUntil:
+    visible:
+      id: native-subscription-charge-history
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-subscription-detail-close
+    direction: UP
+- assertVisible: Cedar Video Plus
+- takeScreenshot: accepted-sandbox-visual-sv-light-detail
+- tapOn:
+    id: native-subscription-detail-close
+- extendedWaitUntil:
+    visible:
+      id: native-nav-household
+    timeout: 30000
+- tapOn:
+    id: native-nav-household
+- extendedWaitUntil:
+    visible:
+      id: native-nav-household
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-household-title
+    timeout: 30000
+- extendedWaitUntil:
+    visible: QA Family
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-household-title
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-sv-light-household
+- tapOn:
+    id: native-nav-insights
+- extendedWaitUntil:
+    visible:
+      id: native-nav-insights
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-insights-overview
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-insights-overview
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-sv-light-insights
+- scrollUntilVisible:
+    element:
+      id: native-insights-trend
+    direction: DOWN
+- extendedWaitUntil:
+    visible:
+      id: native-insights-trend
+    timeout: 30000
+- takeScreenshot: accepted-sandbox-visual-sv-light-trend
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-nav-profile
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-profile-language-sv
+      selected: true
+    timeout: 30000
+- assertVisible:
+    id: native-profile-theme-light
+    selected: true
+- scrollUntilVisible:
+    element:
+      id: native-personal-title
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-sv-light-profile
+
+# sv/dark: persist preferences and wait for their authoritative selected state.
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-nav-profile
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-profile-language-sv
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-profile-language-sv
+    direction: UP
+- tapOn:
+    id: native-profile-language-sv
+- extendedWaitUntil:
+    visible:
+      id: native-profile-language-sv
+      selected: true
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-profile-theme-dark
+    direction: UP
+- tapOn:
+    id: native-profile-theme-dark
+- extendedWaitUntil:
+    visible:
+      id: native-profile-theme-dark
+      selected: true
+    timeout: 30000
+- assertVisible:
+    id: native-profile-language-sv
+    selected: true
+- tapOn:
+    id: native-nav-month
+- extendedWaitUntil:
+    visible:
+      id: native-nav-month
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-home-overview
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ${S_ACTIVE_TEN}
+    timeout: 30000
+- scrollUntilVisible:
+    element: QA Family
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-sv-dark-home
+- tapOn:
+    id: native-nav-manage
+- extendedWaitUntil:
+    visible:
+      id: native-nav-manage
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-personal-title
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-sv-dark-subscriptions
+- scrollUntilVisible:
+    element: Cedar Video Plus
+    direction: DOWN
+- tapOn: Cedar Video Plus
+- extendedWaitUntil:
+    visible:
+      id: native-subscription-detail-close
+    timeout: 30000
+- assertVisible: Cedar Video Plus
+- scrollUntilVisible:
+    element:
+      id: native-subscription-charge-history
+    direction: DOWN
+- extendedWaitUntil:
+    visible:
+      id: native-subscription-charge-history
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-subscription-detail-close
+    direction: UP
+- assertVisible: Cedar Video Plus
+- takeScreenshot: accepted-sandbox-visual-sv-dark-detail
+- tapOn:
+    id: native-subscription-detail-close
+- extendedWaitUntil:
+    visible:
+      id: native-nav-household
+    timeout: 30000
+- tapOn:
+    id: native-nav-household
+- extendedWaitUntil:
+    visible:
+      id: native-nav-household
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-household-title
+    timeout: 30000
+- extendedWaitUntil:
+    visible: QA Family
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-household-title
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-sv-dark-household
+- tapOn:
+    id: native-nav-insights
+- extendedWaitUntil:
+    visible:
+      id: native-nav-insights
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-insights-overview
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-insights-overview
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-sv-dark-insights
+- scrollUntilVisible:
+    element:
+      id: native-insights-trend
+    direction: DOWN
+- extendedWaitUntil:
+    visible:
+      id: native-insights-trend
+    timeout: 30000
+- takeScreenshot: accepted-sandbox-visual-sv-dark-trend
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-nav-profile
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-profile-language-sv
+      selected: true
+    timeout: 30000
+- assertVisible:
+    id: native-profile-theme-dark
+    selected: true
+- scrollUntilVisible:
+    element:
+      id: native-personal-title
+    direction: UP
+- takeScreenshot: accepted-sandbox-visual-sv-dark-profile
+
+# Restore the baseline so the original restart flow still changes both preferences.
+- scrollUntilVisible:
+    element:
+      id: native-profile-language-en
+    direction: UP
+- tapOn:
+    id: native-profile-language-en
+- extendedWaitUntil:
+    visible:
+      id: native-profile-language-en
+      selected: true
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-profile-theme-light
+    direction: UP
+- tapOn:
+    id: native-profile-theme-light
+- extendedWaitUntil:
+    visible:
+      id: native-profile-theme-light
+      selected: true
+    timeout: 30000
+- assertVisible:
+    id: native-profile-language-en
+    selected: true

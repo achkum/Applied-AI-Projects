@@ -3,8 +3,24 @@ import {Keyboard,TextInput} from 'react-native';
 import {fireEvent,render,screen} from '@testing-library/react-native';
 import {NativeDatePicker} from './NativeDatePicker';
 import {catalogs} from '@subtrack/i18n';
+const mockLocale:{value:'en'|'sv'}={value:'en'};
 jest.mock('@/context/ThemeContext',()=>({useTheme:()=>jest.requireActual('../signature/testUtils/contextMocks').makeTheme(false)}));
-jest.mock('@/context/I18nContext',()=>({useI18n:()=>jest.requireActual('../signature/testUtils/contextMocks').makeI18n('en')}));
+jest.mock('@/context/I18nContext',()=>({useI18n:()=>jest.requireActual('../signature/testUtils/contextMocks').makeI18n(mockLocale.value)}));
+beforeEach(()=>{mockLocale.value='en';});
+it.each([['en','12 February 2024'],['sv','12 februari 2024']] as const)('announces the actual selected date and cleared optional state in %s without changing visible date text', (locale,spoken)=>{
+ mockLocale.value=locale;
+ function Field(){const [value,setValue]=React.useState('2024-02-12');return <NativeDatePicker label="Renewal" value={value} onChange={setValue}/>;}
+ render(<Field/>);
+ expect(screen.getByRole('button',{name:'Renewal'}).props.accessibilityValue).toEqual({text:spoken});
+ expect(screen.getByText('2024-02-12')).toBeTruthy();
+ fireEvent.press(screen.getByRole('button',{name:'Renewal'}));fireEvent.press(screen.getByRole('button',{name:catalogs[locale].onboarding.datePicker.clear}));
+ expect(screen.getByRole('button',{name:'Renewal'}).props.accessibilityValue).toEqual({text:catalogs[locale].onboarding.datePicker.clear});
+ expect(screen.getByText(catalogs[locale].onboarding.datePicker.choose)).toBeTruthy();
+});
+it('announces the choose state for an empty required date',()=>{
+ render(<NativeDatePicker label="Renewal" value="" onChange={jest.fn()} optional={false}/>);
+ expect(screen.getByRole('button',{name:'Renewal'}).props.accessibilityValue).toEqual({text:catalogs.en.onboarding.datePicker.choose});
+});
 it('dismisses the focused keyboard before opening the calendar modal',()=>{
  const dismiss=jest.spyOn(Keyboard,'dismiss').mockImplementation(()=>{expect(screen.queryByTestId('native-date-2026-10-17')).toBeNull();});
  try{render(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={jest.fn()}/>);fireEvent.press(screen.getByRole('button',{name:'Renewal'}));expect(dismiss).toHaveBeenCalledTimes(1);expect(screen.getByTestId('native-date-2026-10-17')).toBeTruthy();}finally{dismiss.mockRestore();}

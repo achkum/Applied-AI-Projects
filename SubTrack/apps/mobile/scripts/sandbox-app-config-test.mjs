@@ -5,11 +5,13 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import process from 'node:process';
 import test from 'node:test';
+import {sandboxIosBuildIntent} from './sandbox-ios-build-intent.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(path.join(root, 'package.json'));
 const expoRequire = createRequire(require.resolve('expo/package.json'));
 const { getConfig } = expoRequire('@expo/config');
+const { IOSConfig } = expoRequire('@expo/config-plugins');
 const staticConfig = JSON.parse(readFileSync(path.join(root, 'app.json'), 'utf8')).expo;
 const names = ['SUBTRACK_SANDBOX_VERSION_CODE', 'SUBTRACK_SANDBOX_RUNTIME_ENABLED', 'SUBTRACK_APP_VARIANT', 'SUBTRACK_SANDBOX_HTTPS_ORIGIN', 'SUBTRACK_PRIVATE_DEVICE_PROOF',
   'SUBTRACK_PRIVATE_CA_CERT', 'SUBTRACK_PRIVATE_FIXTURE_CONFIG', 'EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC',
@@ -71,4 +73,18 @@ test('explicit active flag is sandbox-only and remains disabled by default/false
   for(const value of ['true','false',''])assert.throws(()=>configured({SUBTRACK_SANDBOX_RUNTIME_ENABLED:value}),/Sandbox activation rejected/);
 });
 
-test('fresh native version is measured in generated config and active requires a bounded canonical value',()=>{assert.equal(configured({...sandbox,SUBTRACK_SANDBOX_RUNTIME_ENABLED:'true',SUBTRACK_SANDBOX_VERSION_CODE:'2'}).android.versionCode,2);assert.throws(()=>configured({...sandbox,SUBTRACK_SANDBOX_RUNTIME_ENABLED:'true'}),/version required/);for(const value of ['0','01','-1','1.5','2147483648','2\n',''])assert.throws(()=>configured({...sandbox,SUBTRACK_SANDBOX_VERSION_CODE:value}),/version rejected/);assert.throws(()=>configured({SUBTRACK_SANDBOX_VERSION_CODE:'2'}),/version rejected/);});
+test('fresh native version reaches actual Expo iOS CFBundleVersion and Android versionCode without changing defaults',()=>{
+ for(const counter of ['2','2147483647'])for(const active of ['true','false']){
+  const config=configured({...sandbox,SUBTRACK_SANDBOX_RUNTIME_ENABLED:active,SUBTRACK_SANDBOX_VERSION_CODE:counter});
+  assert.equal(config.android.versionCode,Number(counter));assert.equal(config.ios.buildNumber,counter);
+  assert.equal(IOSConfig.Version.setBuildNumber(config,{CFBundleVersion:'stale'}).CFBundleVersion,counter);
+  assert.deepEqual(sandboxIosBuildIntent(config),{runtimeIntent:active==='true'?'enabled':'disabled',buildNumber:counter});
+ }
+ const disabled=configured(sandbox);assert.equal(disabled.ios.buildNumber,staticConfig.ios.buildNumber);
+ assert.equal(IOSConfig.Version.setBuildNumber(disabled,{}).CFBundleVersion,'1');
+ assert.deepEqual(sandboxIosBuildIntent(disabled),{runtimeIntent:'disabled',buildNumber:'1'});
+ assert.deepEqual(configured({}).ios,staticConfig.ios);
+ assert.throws(()=>configured({...sandbox,SUBTRACK_SANDBOX_RUNTIME_ENABLED:'true'}),/version required/);
+ for(const value of ['0','01','-1','1.5','2147483648','2\n',''])assert.throws(()=>configured({...sandbox,SUBTRACK_SANDBOX_VERSION_CODE:value}),/version rejected/);
+ assert.throws(()=>configured({SUBTRACK_SANDBOX_VERSION_CODE:'2'}),/version rejected/);
+});

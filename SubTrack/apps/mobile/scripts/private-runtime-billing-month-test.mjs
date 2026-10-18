@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import {URL} from 'node:url';
+import {createRequire} from 'node:module';
 import {fixtureMonthLabels,ACCEPTED_NATIVE_MONTH_SCREENSHOTS,acceptedNativeMonthScreenshot,qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit} from './private-runtime-billing-month.mjs';
 import {flowEnvironment} from './private-runtime-flow-env.mjs';
 const original=(patch={})=>({version:1,markerHash:'a'.repeat(64),subscriptionCount:1,subscriptionIdentityHash:'b'.repeat(64),subscriptionDigest:'c'.repeat(64),activeSavedDateReadback:true,archivedEmptyReadback:false,...patch});
@@ -32,7 +33,7 @@ test('normal native month navigation/detail/refresh/logout uses trusted bilingua
  for(const locale of ['en','sv']){const env=flowEnvironment(locale),c=JSON.parse(readFileSync(new URL(`../../../packages/i18n/catalogs/${locale}.json`,import.meta.url),'utf8'));for(const [key,field] of [['NEXT','next'],['REFRESH','refresh'],['EMPTY','empty'],['DAY_TEMPLATE','day'],['MANUAL','manual']])assert.equal(env[`MAESTRO_MONTH_${key}`],c.onboarding.billingMonth[field]);assert.equal(env.MAESTRO_MONTH_SAVED_DATE_TEMPLATE,'%{date}');assert.equal(env.MAESTRO_MONTH_TITLE,c.onboarding.productNav.home);assert.equal(env.MAESTRO_MONTH_DETAIL,c.onboarding.billingMonth.details.replace('%{name}','Example streaming'));assert.equal(env.MAESTRO_MONTH_CLOSE,c.actions.close);assert.equal(env.MAESTRO_MONTH_AMOUNT,String.raw`129,90[ \u00a0\u202f]+SEK`);}
  const load=name=>readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8');const positive=load('billing-month'),empty=load('billing-month-empty');
  assert.equal((positive.match(/tapOn: \$\{MAESTRO_MONTH_NEXT\}/g)??[]).length,1);assert.match(positive,/when:\r?\n {6}visible: \$\{MAESTRO_MONTH_PREVIOUS\}/);assert.equal((positive.match(/private-runtime-month-day.yaml/g)??[]).length,2);assert.match(positive,/MAESTRO_MONTH_DETAIL/);assert.match(positive,/MAESTRO_MONTH_SAVED_DATE/);assert.match(positive,/takeScreenshot: accepted-billing-month-detail/);assert.match(empty,/MAESTRO_MONTH_EMPTY/);assert.match(empty,/takeScreenshot: accepted-billing-month-empty/);
- for(const flow of [positive,empty]){assert.match(flow,/MAESTRO_MONTH_REFRESH/);assert.match(flow,/MAESTRO_LOGOUT_CONFIRMED/);assert.match(flow,/assertNotVisible: Example streaming/);assert.doesNotMatch(flow,/inputText|clearState|setDate|MAESTRO_PRIVATE_OTP/);}
+ for(const flow of [positive,empty]){assert.match(flow,/id: native-month-scroll/);assert.doesNotMatch(flow,/- tapOn: \$\{MAESTRO_MONTH_REFRESH\}/);assert.match(flow,/MAESTRO_LOGOUT_CONFIRMED/);assert.match(flow,/assertNotVisible: Example streaming/);assert.doesNotMatch(flow,/inputText|clearState|setDate|MAESTRO_PRIVATE_OTP/);}
  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');for(const value of ['flow-billing-month','flow-billing-month-empty','billing-month-readback-before','billing-month-archived-readback'])assert.ok(driver.includes(`'${value}'`));assert.match(driver,/ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS,\.\.\.ACCEPTED_NATIVE_MONTH_SCREENSHOTS/);
 });
 
@@ -59,7 +60,7 @@ test('actual calendar picker selects the exact fixture date before and after emp
  assert.ok(helper.includes('- extendedWaitUntil:\n    visible:\n      id: native-month-selected-date\n      text: ${MAESTRO_MONTH_ISO}\n    timeout: 30000'));
  assert.ok(helper.endsWith('- assertVisible:\n    id: native-month-selected-date\n    text: ${MAESTRO_MONTH_ISO}\n'));
  assert.equal(helper.split('- tapOn:').length-1,2);assert.doesNotMatch(helper,/optional:|inputText|clearState|setDate|swipe:|repeat:|notVisible:/);
- const empty=readFileSync(new URL('../e2e/private-runtime-billing-month-empty.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');assert.equal(empty.split('- assertNotVisible: ${MAESTRO_MONTH_DAY_EMPTY}').length-1,2);assert.equal(empty.split('- runFlow: private-runtime-month-day.yaml\n- assertNotVisible: ${MAESTRO_MONTH_DAY_EMPTY}').length-1,2);assert.equal(empty.split('visible: ${MAESTRO_MONTH_EMPTY}\n    timeout: 30000').length-1,2);assert.ok(empty.indexOf('MAESTRO_MONTH_DAY_EMPTY')<empty.indexOf('- tapOn: ${MAESTRO_MONTH_REFRESH}'));
+ const empty=readFileSync(new URL('../e2e/private-runtime-billing-month-empty.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');assert.equal(empty.split('- assertNotVisible: ${MAESTRO_MONTH_DAY_EMPTY}').length-1,2);assert.equal(empty.split('- runFlow: private-runtime-month-day.yaml\n- assertNotVisible: ${MAESTRO_MONTH_DAY_EMPTY}').length-1,2);assert.equal(empty.split('visible: ${MAESTRO_MONTH_EMPTY}\n    timeout: 30000').length-1,2);assert.ok(empty.indexOf('MAESTRO_MONTH_DAY_EMPTY')<empty.indexOf('- swipe:'));
  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');assert.ok(driver.includes('labels.MAESTRO_MONTH_ISO=renewalDate;'));assert.ok(driver.includes("(name==='billing-month'||name==='billing-month-empty')?fixtureMonthLabels(renewalDate):{}"));assert.ok(driver.includes('{ ...labels, ...calendarEnv, ...extraEnv }'));
  for(const locale of ['en','sv']){const env=flowEnvironment(locale),c=JSON.parse(readFileSync(new URL(`../../../packages/i18n/catalogs/${locale}.json`,import.meta.url),'utf8'));assert.equal(env.MAESTRO_MONTH_DAY_EMPTY,c.onboarding.billingMonth.dayEmpty);}
 });
@@ -67,9 +68,16 @@ test('actual calendar picker selects the exact fixture date before and after emp
 test('detail date proof matches its standalone ISO value and remains absent after acknowledged logout',()=>{
  const flow=readFileSync(new URL('../e2e/private-runtime-billing-month.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
  const source=readFileSync(new URL('../src/components/billing/NativeBillingMonthScreen.tsx',import.meta.url),'utf8');
+ const wrapper=readFileSync(new URL('../src/components/billing/NativeSubscriptionDetail.tsx',import.meta.url),'utf8');
+ const detail=readFileSync(new URL('../src/components/billing/NativeSubscriptionDetailContent.tsx',import.meta.url),'utf8');
  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');
- assert.ok(source.includes("[t('nativeProductDetails.nextRenewal'),detail.nextChargeDate??"));
- assert.ok(source.includes('>{value}</Text>'));assert.ok(!source.includes("t('onboarding.billingMonth.savedDate'"));
+ assert.ok(source.includes("session.phase==='active'&&detail?<NativeSubscriptionDetail session={session} reader={overviewReader} now={now} item={detail}"));
+ assert.ok(wrapper.includes("if(session.phase!=='active')return null;"));
+ assert.ok(wrapper.includes('<NativeSubscriptionDetailContent {...detail}/>'));
+ assert.ok(wrapper.includes('<NativeSubscriptionDetailContent {...detail} metadataFields={fields} history='));
+ assert.ok(wrapper.includes('row.id===detail.item.id&&row.revision===detail.item.revision'));
+ assert.ok(detail.includes("[t('nativeProductDetails.nextRenewal'),item.nextChargeDate??"));
+ assert.ok(detail.includes('>{value}</Text>'));assert.ok(!detail.includes("t('onboarding.billingMonth.savedDate'"));
  assert.ok(driver.includes("labels.MAESTRO_MONTH_SAVED_DATE=labels.MAESTRO_MONTH_SAVED_DATE_TEMPLATE.replace('%{date}',renewalDate)"));
  for(const locale of ['en','sv']){
   const env=flowEnvironment(locale),date='2026-10-28',exact=env.MAESTRO_MONTH_SAVED_DATE_TEMPLATE.replace('%{date}',date);assert.equal(exact,date);assert.notEqual(exact,'2026-10-27');assert.equal(new RegExp(`^(?:${exact})$`).test('Saved expected date: '+date),false);
@@ -77,4 +85,39 @@ test('detail date proof matches its standalone ISO value and remains absent afte
  assert.ok(flow.includes('- extendedWaitUntil:\n    visible: ${MAESTRO_MONTH_SAVED_DATE}\n    timeout: 30000'));
  assert.ok(flow.includes('- assertNotVisible: ${MAESTRO_MONTH_SAVED_DATE}'));
  assert.ok(flow.indexOf('- assertNotVisible: ${MAESTRO_MONTH_SAVED_DATE}')>flow.indexOf('visible: ${MAESTRO_LOGOUT_CONFIRMED}'));
+});
+
+test('actual normal and empty Home flows perform one bounded pull gesture between unchanged exact-date assertions',()=>{
+ const mobile=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobile.resolve('expo/package.json'))('yaml');
+ for(const name of ['billing-month','billing-month-empty']){
+  const [,rows]=yaml.parseAllDocuments(readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8')).map(document=>document.toJSON());
+  const swipes=rows.flatMap((step,index)=>step.swipe?[index]:[]);assert.equal(swipes.length,1,name);const at=swipes[0];
+  assert.deepEqual(rows[at],{swipe:{from:{id:'native-month-scroll'},direction:'DOWN',duration:700}});
+  assert.deepEqual(rows[at-1],{scrollUntilVisible:{element:'${MAESTRO_MONTH_TITLE}',direction:'UP',centerElement:true}});
+  const picks=rows.flatMap((step,index)=>step.runFlow==='private-runtime-month-day.yaml'?[index]:[]);assert.equal(picks.length,2);assert.ok(picks[0]<at&&picks[1]>at);
+  assert.equal(rows.filter(step=>step.tapOn==='${MAESTRO_MONTH_REFRESH}').length,0);
+  assert.equal(rows.filter(step=>step.tapOn==='${MAESTRO_LOGOUT}').length,1);
+  assert.ok(rows.some(step=>step.extendedWaitUntil?.visible==='${MAESTRO_LOGOUT_CONFIRMED}'));
+  assert.ok(rows.some(step=>step.assertNotVisible==='${MAESTRO_MONTH_SAVED_DATE}'));
+ }
+});
+
+test('the actual detail flow asserts full exact accessible price with saved cadence and returns to the top Close control',()=>{
+ const mobile=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobile.resolve('expo/package.json'))('yaml');
+ const [,rows]=yaml.parseAllDocuments(readFileSync(new URL('../e2e/private-runtime-billing-month.yaml',import.meta.url),'utf8')).map(document=>document.toJSON());
+ const open=rows.findIndex(row=>row.tapOn==='${MAESTRO_MONTH_DETAIL}'),capture=rows.findIndex(row=>row.takeScreenshot==='accepted-billing-month-detail'),close=rows.findIndex(row=>row.tapOn==='${MAESTRO_MONTH_CLOSE}');
+ assert.ok(open>0&&capture>open&&close>capture);
+ const detail=rows.slice(open+1,capture);assert.ok(detail.some(row=>row.extendedWaitUntil?.visible==='${MAESTRO_MONTH_SAVED_DATE}'&&row.extendedWaitUntil.timeout===30000));
+ for(const exact of ['Example streaming','${MAESTRO_MONTH_DETAIL_PRICE}','${MAESTRO_MONTH_MANUAL}'])assert.ok(detail.some(row=>row.assertVisible===exact));
+ assert.ok(!detail.some(row=>row.assertVisible==='${MAESTRO_MONTH_AMOUNT}'));assert.equal(rows.slice(0,open).filter(row=>row.assertVisible==='${MAESTRO_MONTH_AMOUNT}').length,2);
+ assert.deepEqual(rows[close-1],{scrollUntilVisible:{element:'${MAESTRO_MONTH_CLOSE}',direction:'UP'}});
+ const content=readFileSync(new URL('../src/components/billing/NativeSubscriptionDetailContent.tsx',import.meta.url),'utf8');
+ assert.ok(content.includes('accessibilityLabel={`${price} · ${cadence}`}'));assert.ok(content.includes("cadence=t(`onboarding.ownerSubscriptions.cadence.${item.cadence}`)"));
+ for(const locale of ['en','sv']){
+  const env=flowEnvironment(locale),catalog=JSON.parse(readFileSync(new URL(`../../../packages/i18n/catalogs/${locale}.json`,import.meta.url),'utf8')),cadence=catalog.onboarding.ownerSubscriptions.cadence.MONTHLY;
+  assert.equal(typeof env.MAESTRO_MONTH_DETAIL_PRICE,'string');const pattern=new RegExp(`^(?:${env.MAESTRO_MONTH_DETAIL_PRICE})$`);
+  for(const space of [' ','\u00a0','\u202f'])assert.equal(pattern.test(`129,90${space}SEK · ${cadence}`),true);
+  for(const wrong of ['129,91 SEK','129,900 SEK','129,90 EUR','129,90SEK','129,90\tSEK'])assert.equal(pattern.test(`${wrong} · ${cadence}`),false);
+  for(const wrong of ['129,90 SEK',`129,90 SEK · ${cadence} extra`,'129,90 SEK · YEARLY'])assert.equal(pattern.test(wrong),false);
+ }
 });

@@ -36,7 +36,9 @@ export default function appConfig({ config }: ConfigContext): ExpoConfig {
     name: 'SubTrack Sandbox',
     slug: 'subtrack-sandbox',
     scheme: 'subtrack-sandbox',
-    ios: { ...config.ios, bundleIdentifier: 'se.subtrack.app.sandbox' },
+    // Expo maps ios.buildNumber to CFBundleVersion; keep the canonical counter as a string.
+    // https://docs.expo.dev/versions/latest/config/app/#buildnumber
+    ios: { ...config.ios, bundleIdentifier: 'se.subtrack.app.sandbox', ...(version === undefined ? {} : {buildNumber:version}) },
     android: { ...config.android, package: 'se.subtrack.app.sandbox', ...(version === undefined ? {} : {versionCode:Number(version)}) },
     plugins: (config.plugins ?? []).filter(plugin =>
       (typeof plugin === 'string' ? plugin : plugin[0]) !== PRIVATE_PLUGIN),

@@ -32,7 +32,7 @@ assert.ok(step('Save public Android Gradle inputs and library tasks').if.include
 assert.ok(step('Save public Android Gradle inputs and library tasks').run.includes("state.phase==='metro'&&state.exitCode===0"));
 assert.ok(cacheSteps[1].if.includes("env.SUBTRACK_ANDROID_GRADLE_CACHE_READY == 'true'"));
 assert.ok(steps.indexOf(step('Installed workflow, API restart, same database row and logout'))<steps.indexOf(cacheSteps[1]));
-assert.equal(step('Sanitized native evidence only').if,'success()');
+assert.equal(step('Sanitized native evidence only').if,"success() && needs.select-proof.outputs.scope != 'ios-driver'");
 const build=read('./private-runtime-build.sh');
 assert.ok(build.includes('./gradlew :app:assembleDebug --no-daemon'));
 assert.ok(build.includes('--build-cache --init-script ../scripts/private-runtime-gradle-cache.init.gradle'));
