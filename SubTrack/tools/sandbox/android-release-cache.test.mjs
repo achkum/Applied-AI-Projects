@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
+import {createHash} from 'node:crypto';
 const read=name=>readFileSync(new URL(name,import.meta.url),'utf8');
 const requireMobile=createRequire(new URL('../../apps/mobile/package.json',import.meta.url));
 const yaml=createRequire(requireMobile.resolve('expo/package.json'))('yaml');
@@ -46,6 +47,19 @@ test('new proof commits cancel obsolete runs while actual signing/delivery custo
  assert.equal(group(pr,{platform:'ios'}),'subtrack-native-device-304');assert.equal(group(pr,{platform:'android'}),group(pr,{platform:'ios'}));
  assert.notEqual(group({...pr,event:{pull_request:{number:305}}}),group(pr));assert.equal(native.concurrency['cancel-in-progress'],true);
  assert.ok(workflow.concurrency.group.includes('github.run_id'));assert.ok(workflow.concurrency['cancel-in-progress'].includes("inputs.delivery_mode != 'none'"));
+});
+
+test('native cache restores across wrapper edits only inside identical OS architecture dependency and exclusion policy',()=>{
+ const native=yaml.parse(read('../../../.github/workflows/subtrack-native-device-proof.yml')),steps=native.jobs['installed-native'].steps,restore=steps.find(step=>step.id==='android_gradle_cache'),save=steps.find(step=>step.name==='Persist verified public Android Gradle cache'),gate=steps.find(step=>step.name==='Save public Android Gradle inputs and library tasks');
+ const lock='SubTrack/pnpm-lock.yaml',policy='SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle',wrapper='SubTrack/apps/mobile/scripts/private-runtime-build.sh',files={[lock]:'locked dependencies',[policy]:'all app task outputs excluded',[wrapper]:'Android and iOS wrapper'};
+ const render=(template,contents=files,runner={os:'Linux',arch:'X64'})=>template.replace(/\$\{\{\s*(.*?)\s*\}\}/g,(_match,expression)=>Function('runner','hashFiles',`return (${expression});`)(runner,(...names)=>{const hash=createHash('sha256');for(const name of names){assert.equal(typeof contents[name],'string','unknown or broadened cache input');hash.update(createHash('sha256').update(contents[name]).digest());}return hash.digest('hex');}));
+ const prefixes=restore.with['restore-keys'].trim().split('\n');assert.equal(prefixes.length,1);const primary=render(restore.with.key),prefix=render(prefixes[0]);assert.match(primary,/^subtrack-android-gradle-v2-Linux-X64-[a-f0-9]{64}-[a-f0-9]{64}$/);assert.match(prefix,/^subtrack-android-gradle-v2-Linux-X64-[a-f0-9]{64}-$/);assert.ok(primary.startsWith(prefix));
+ const nextWrapper={...files,[wrapper]:'new iOS timing instrumentation'};assert.notEqual(render(restore.with.key,nextWrapper),primary);assert.equal(render(prefixes[0],nextWrapper),prefix);assert.ok(primary.startsWith(render(prefixes[0],nextWrapper)));
+ for(const name of [lock,policy]){const changed={...files,[name]:'changed '+files[name]};assert.notEqual(render(prefixes[0],changed),prefix);assert.ok(!primary.startsWith(render(prefixes[0],changed)));}
+ for(const runner of [{os:'Windows',arch:'X64'},{os:'Linux',arch:'ARM64'}])assert.ok(!primary.startsWith(render(prefixes[0],files,runner)));
+ const paths=['~/.gradle/caches/modules-2','~/.gradle/caches/*/transforms','~/.gradle/caches/transforms-*','~/.gradle/caches/build-cache-*','~/.gradle/wrapper'];for(const step of [restore,save])assert.deepEqual(step.with.path.trim().split('\n'),paths);
+ assert.equal(save.with.key,'${{ steps.android_gradle_cache.outputs.cache-primary-key }}');assert.equal(gate.if,"always() && matrix.platform == 'android' && steps.installed_proof.outcome != 'skipped' && steps.android_gradle_cache.outcome == 'success' && steps.android_gradle_cache.outputs.cache-hit != 'true'");assert.ok(gate.run.includes("state.phase==='metro'&&state.exitCode===0"));assert.equal(save.if,"always() && matrix.platform == 'android' && env.SUBTRACK_ANDROID_GRADLE_CACHE_READY == 'true'");
+ assert.ok(read('../../apps/mobile/scripts/private-runtime-gradle-cache.init.gradle').includes("doNotCacheIf('SubTrack application outputs remain runner-local') { true }"));
 });
 
 test('PR policy is honestly named and actual Release compilation happens once in retained delivery',()=>{

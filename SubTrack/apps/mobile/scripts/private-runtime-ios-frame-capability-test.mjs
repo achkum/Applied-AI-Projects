@@ -6,9 +6,10 @@ import test from 'node:test';
 import fs from 'node:fs';
 import {syncBuiltinESMExports} from 'node:module';
 import {tmpdir} from 'node:os';
-import {join,resolve} from 'node:path';
+import {join,dirname} from 'node:path';
 import {deflateSync,crc32} from 'node:zlib';
-import {captureIosFrame,openOwnedIosSimulator,iosFrameFailure,IOS_FRAME_FAILURES,runIosFrameCapability} from './private-runtime-ios-frame-capability.mjs';
+import {captureIosFrame,openOwnedIosSimulator,iosFrameFailure,IOS_FRAME_FAILURES,runIosFrameCapability,IOS_FRAME_FLOW,IOS_FRAME_CONFIG} from './private-runtime-ios-frame-capability.mjs';
+import {runIosDriverChild} from './private-runtime-ios-driver-preflight.mjs';
 
 const udid='123E4567-E89B-42D3-A456-426614174000',head='ab'.repeat(20);
 function chunk(kind,body=Buffer.alloc(0)){const h=Buffer.alloc(8),c=Buffer.alloc(4);h.writeUInt32BE(body.length);h.write(kind,4);c.writeUInt32BE(crc32(Buffer.concat([h.subarray(4),body])));return Buffer.concat([h,body,c]);}
@@ -21,19 +22,18 @@ async function fixture(work){
  // Windows lacks POSIX permission bits; virtualize only those bits on the test
  // filesystem while the actual production entrypoint still requires Darwin.
  if(process.platform==='win32')for(const name of ['lstatSync','fstatSync']){saved[name]=fs[name];fs[name]=(...args)=>{const s=saved[name](...args);return new Proxy(s,{get(t,key){if(key==='mode')return (t.mode&~511)|(t.isDirectory()?448:384);const value=t[key];return typeof value==='function'?value.bind(t):value;}});};}syncBuiltinESMExports();
- const calls=[];const ports={platform:'darwin',measure:id=>{assert.equal(id,udid);calls.push('measure');return{runtime:'iOS-26-2',udid,name:'SubTrack-proof',deviceType:'iPhone-17'};},openSimulator:async id=>{assert.equal(id,udid);calls.push('gui');},capture:async(id,file)=>{assert.equal(id,udid);calls.push('capture');fs.writeFileSync(file,png(),{mode:384,flag:'wx'});}};
+ const calls=[];const ports={platform:'darwin',measure:id=>{assert.equal(id,udid);calls.push('measure');return{runtime:'iOS-26-2',udid,name:'SubTrack-proof',deviceType:'iPhone-17'};},openSimulator:async id=>{assert.equal(id,udid);calls.push('gui');},capture:async(id,file)=>{assert.equal(id,udid);calls.push('capture');fs.mkdirSync(dirname(file),{recursive:true,mode:448});fs.writeFileSync(file,png(),{mode:384,flag:'wx'});}};
  try{return await work({root,environment,calls,ports});}finally{for(const [name,value]of Object.entries(saved))fs[name]=value;syncBuiltinESMExports();process.umask=originalUmask;process.umask(prior);fs.rmSync(temp,{recursive:true,force:true});}
 }
-test('original screenshot and pinned Maestro GUI commands keep exact owned UDID, single attempt and ten-second deadline',async()=>{
- const calls=[],execute=(binary,args,options,done)=>{calls.push({binary,args,options});done(null);};const file=resolve('frame.png');
- await captureIosFrame(udid,file,undefined,{execute});await openOwnedIosSimulator(udid,undefined,{execute});
- assert.deepEqual(calls[0].args,['simctl','io',udid,'screenshot',file]);assert.equal(calls[0].binary,'xcrun');assert.deepEqual(calls[1].args,['-a','/Applications/Xcode_26.2.app/Contents/Developer/Applications/Simulator.app','--args','-CurrentDeviceUDID',udid]);assert.equal(calls[1].binary,'/usr/bin/open');
- for(const call of calls)assert.deepEqual(call.options,{timeout:10000,killSignal:'SIGKILL',maxBuffer:65536,encoding:'utf8'});
- assert.throws(()=>captureIosFrame('booted',file));assert.throws(()=>captureIosFrame(udid,'relative.png'));assert.throws(()=>openOwnedIosSimulator('foreign'));
+test('pinned Maestro GUI launch keeps exact owned UDID and unchanged ten-second deadline',async()=>{
+ const calls=[],execute=(binary,args,options,done)=>{calls.push({binary,args,options});done(null);};await openOwnedIosSimulator(udid,undefined,{execute});
+ assert.deepEqual(calls[0].args,['-a','/Applications/Xcode_26.2.app/Contents/Developer/Applications/Simulator.app','--args','-CurrentDeviceUDID',udid]);assert.equal(calls[0].binary,'/usr/bin/open');assert.deepEqual(calls[0].options,{timeout:10000,killSignal:'SIGKILL',maxBuffer:65536,encoding:'utf8'});assert.throws(()=>openOwnedIosSimulator('foreign'));
+ await assert.rejects(captureIosFrame('booted','relative.png'));await assert.rejects(captureIosFrame(udid,'relative.png'));
 });
+
 test('command failures expose only closed categories, including terminated instead of an invented timeout cause',async()=>{
  for(const [error,want]of [[{code:'ENOENT'},'SPAWN'],[{code:'ERR_CHILD_PROCESS_STDIO_MAXBUFFER',killed:true},'OUTPUT_LIMIT'],[{killed:true,signal:'SIGKILL'},'TERMINATED'],[{code:1},'EXIT_NONZERO'],[new Proxy({},{get(){throw Error('private-canary');}}),'OTHER']]){
-  assert.equal(iosFrameFailure(error),want);const seen=[];await assert.rejects(captureIosFrame(udid,resolve('frame.png'),value=>seen.push(value),{execute:(_b,_a,_o,done)=>done(error)}),value=>value.iosFrameFailure===want&&!value.message.includes('private-canary'));assert.deepEqual(seen,[want]);
+  assert.equal(iosFrameFailure(error),want);const seen=[];await assert.rejects(openOwnedIosSimulator(udid,value=>seen.push(value),{execute:(_b,_a,_o,done)=>done(error)}),value=>value.iosFrameFailure===want&&!value.message.includes('private-canary'));assert.deepEqual(seen,[want]);
  }
  assert.ok(Object.isFrozen(IOS_FRAME_FAILURES));const seen=[];await assert.rejects(openOwnedIosSimulator(udid,value=>{seen.push(value);throw Error('private-canary');},{execute:()=>{throw Object.assign(Error('private-canary'),{code:'EACCES'});}}));assert.deepEqual(seen,['SPAWN']);
 });
@@ -59,7 +59,7 @@ test('unavailable inventory or GUI stops without capture and does not retry',asy
 });
 test('a replaced private output directory is retained and cannot authorize readiness or unsafe cleanup',()=>fixture(async f=>{
  const directory=join(f.root,'ios-frame-capability');const result=await runIosFrameCapability({...f,head},{...f.ports,capture:async(id,file)=>{await f.ports.capture(id,file);fs.renameSync(directory,directory+'-retained');fs.mkdirSync(directory,{mode:448});fs.writeFileSync(join(directory,'foreign-marker'),'retained');}});
- assert.equal(result.ready,false);assert.equal(result.stage,'CLEANUP');assert.equal(result.cleanupVerified,false);assert.equal(fs.readFileSync(join(directory,'foreign-marker'),'utf8'),'retained');assert.ok(fs.existsSync(directory+'-retained/frame.png'));
+ assert.equal(result.ready,false);assert.equal(result.stage,'CLEANUP');assert.equal(result.cleanupVerified,false);assert.equal(fs.readFileSync(join(directory,'foreign-marker'),'utf8'),'retained');assert.ok(fs.existsSync(join(directory+'-retained','output/ios-frame-capability/takeScreenshot/frame.png')));
  assert.equal(result.failureStage,'PNG');assert.equal(result.pngFailure,'READ_OR_IDENTITY');assert.equal(result.cleanupFailure,'DIRECTORY_CUSTODY');
 }));
 
@@ -70,7 +70,7 @@ test('cleanup failure preserves the original failed capture and closed command c
 
 test('a nonprivate screenshot is neither read nor deleted and reports both original PNG custody and cleanup failure',()=>fixture(async f=>{
  const original=fs.lstatSync;fs.lstatSync=(file,...args)=>{const value=original(file,...args);if(String(file).endsWith('frame.png'))return new Proxy(value,{get(target,key){if(key==='mode')return(target.mode&~511)|420;const got=target[key];return typeof got==='function'?got.bind(target):got;}});return value;};syncBuiltinESMExports();
- try{const result=await runIosFrameCapability({...f,head},f.ports);assert.equal(result.ready,false);assert.equal(result.stage,'CLEANUP');assert.equal(result.failureStage,'PNG');assert.equal(result.pngFailure,'PERMISSIONS');assert.equal(result.commandFailure,null);assert.equal(result.cleanupFailure,'FILE_CUSTODY');assert.equal(result.cleanupVerified,false);assert.ok(fs.existsSync(join(f.root,'ios-frame-capability','frame.png')));assert.deepEqual(f.calls,['measure','gui','capture']);}finally{fs.lstatSync=original;syncBuiltinESMExports();}
+ try{const result=await runIosFrameCapability({...f,head},f.ports);assert.equal(result.ready,false);assert.equal(result.stage,'CLEANUP');assert.equal(result.failureStage,'PNG');assert.equal(result.pngFailure,'PERMISSIONS');assert.equal(result.commandFailure,null);assert.equal(result.cleanupFailure,'ROSTER');assert.equal(result.cleanupVerified,false);assert.ok(fs.existsSync(join(f.root,'ios-frame-capability','output/ios-frame-capability/takeScreenshot/frame.png')));assert.deepEqual(f.calls,['measure','gui','capture']);}finally{fs.lstatSync=original;syncBuiltinESMExports();}
 }));
 
 test('cleanup-only failure is distinguished from any earlier capture or PNG failure',()=>fixture(async f=>{
@@ -80,6 +80,47 @@ test('cleanup-only failure is distinguished from any earlier capture or PNG fail
 test('existing owned driver-only and full authorities permit the same one fixture-free capability check',async()=>{
  for(const patch of [{SUBTRACK_NATIVE_PROOF_SCOPE:'ios-driver'},{GITHUB_EVENT_NAME:'pull_request',GITHUB_REF:'refs/pull/304/merge',GITHUB_HEAD_REF:'codex/sweden-data-native-followup',ST253_CAPTURE_BASE_REF:'st/native-synthetic-bank'}])await fixture(async f=>{const result=await runIosFrameCapability({...f,head,environment:{...f.environment,...patch}},f.ports);assert.equal(result.ready,true);assert.equal(f.calls.filter(value=>value==='capture').length,1);});
 });
+
+test('one generated SpringBoard screenshot command binds exact argv, private config, PNG path and bounded natural child result',()=>fixture(async f=>{
+ let calls=0;const capture=(id,file,report,options)=>captureIosFrame(id,file,report,{...options,runChild:async(log,args,environment,deadline,program)=>{
+  calls++;const directory=dirname(log);assert.equal(program,'maestro');assert.equal(deadline,180000);assert.deepEqual(args,['--device',udid,'--platform','ios','test','--config',join(directory,'config.yaml'),'--debug-output',join(directory,'output'),'--flatten-debug-output',join(directory,'flow.yaml')]);assert.equal(environment.XDG_STATE_HOME,join(directory,'state'));assert.equal(fs.readFileSync(args.at(-1),'utf8'),IOS_FRAME_FLOW);assert.equal(fs.readFileSync(join(directory,'config.yaml'),'utf8'),IOS_FRAME_CONFIG);assert.equal(IOS_FRAME_FLOW.split('\n').filter(line=>line.startsWith('- ')).length,1);for(const forbidden of ['launchApp','clearState','tapOn','inputText','onFlowStart','onFlowComplete','runScript'])assert.ok(!IOS_FRAME_FLOW.includes(forbidden));
+  fs.writeFileSync(log,'PRIVATE_PROCESS_CANARY',{mode:384,flag:'wx'});await f.ports.capture(id,file);const flow=dirname(dirname(file));fs.writeFileSync(join(flow,'commands.json'),'[]',{mode:384});fs.writeFileSync(join(flow,'manifest.json'),'{}',{mode:384});fs.writeFileSync(join(directory,'output','maestro.log'),'PRIVATE_LOG_CANARY',{mode:384});fs.writeFileSync(join(directory,'output','xctest_runner_2026-10-18_220000.log'),'PRIVATE_RUNNER_CANARY',{mode:384});fs.mkdirSync(join(flow,'logs'),{mode:448});fs.writeFileSync(join(flow,'logs','device-simulator.log'),'PRIVATE_DEVICE_CANARY',{mode:384});return {exitCode:0,complete:true,timedOut:false};
+ }});
+ const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(result.ready,true);assert.equal(result.cleanupVerified,true);assert.equal(calls,1);assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);assert.ok(!JSON.stringify(result).includes('PRIVATE_'));
+}));
+
+test('actual owned Node child exit and close produce only private bounded output before complete probe cleanup',()=>fixture(async f=>{
+ const capture=(id,file,report,options)=>captureIosFrame(id,file,report,{...options,runChild:async(log,_args,environment,deadline,program)=>{
+  assert.equal(program,'maestro');
+  const code=`const fs=require('node:fs'),path=require('node:path');fs.mkdirSync(path.dirname(process.argv[1]),{recursive:true,mode:448});fs.writeFileSync(process.argv[1],Buffer.from(process.argv[2],'base64'),{flag:'wx',mode:384});process.stdout.write('PRIVATE_CHILD_CANARY');`;
+  return runIosDriverChild(log,['-e',code,file,png().toString('base64')],{...process.env,...environment},deadline,process.execPath);
+ }});const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(result.ready,true);assert.equal(result.cleanupVerified,true);assert.ok(!JSON.stringify(result).includes('PRIVATE_CHILD_CANARY'));assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);
+}));
+
+test('nonzero incomplete timed-out and signalled child evidence never authorizes a valid-looking PNG or retry',async()=>{
+ for(const child of [{exitCode:1,complete:true,timedOut:false},{exitCode:0,complete:false,timedOut:false},{exitCode:0,complete:true,timedOut:true},{exitCode:0,complete:true,timedOut:false,closed:false},{exitCode:0,complete:true,timedOut:false,signal:'SIGTERM'},{exitCode:0,complete:true,timedOut:false,error:'PRIVATE_CANARY'},{exitCode:0,complete:'true',timedOut:false}])await fixture(async f=>{let calls=0;const capture=(id,file,report,options)=>captureIosFrame(id,file,report,{...options,runChild:async log=>{calls++;fs.writeFileSync(log,'PRIVATE_CANARY',{mode:384,flag:'wx'});await f.ports.capture(id,file);return child;}});const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(result.ready,false);assert.equal(result.failureStage,'CAPTURE');assert.equal(result.cleanupVerified,true);assert.equal(calls,1);assert.equal(f.calls.filter(value=>value==='measure').length,1);assert.ok(!JSON.stringify(result).includes('PRIVATE_CANARY'));});
+});
+
+test('changed generated inputs or unexpected child outputs withhold readiness without deleting unknown output',async()=>{
+ for(const kind of ['flow','config','foreign','duplicate-flow','extra-png'])await fixture(async f=>{const capture=(id,file,report,options)=>captureIosFrame(id,file,report,{...options,runChild:async log=>{const directory=dirname(log);fs.writeFileSync(log,'private',{mode:384,flag:'wx'});await f.ports.capture(id,file);if(kind==='flow')fs.appendFileSync(join(directory,'flow.yaml'),'\n- launchApp\n');if(kind==='config')fs.writeFileSync(join(directory,'config.yaml'),'onFlowStart: private');if(kind==='foreign')fs.writeFileSync(join(directory,'foreign-private'),'retain',{mode:384});if(kind==='duplicate-flow')fs.mkdirSync(join(directory,'output','ios-frame-capability-2'),{mode:448});if(kind==='extra-png')fs.writeFileSync(join(dirname(file),'foreign.png'),png(),{mode:384});return {exitCode:0,complete:true,timedOut:false};}});const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(result.ready,false);assert.equal(result.failureStage,['flow','config'].includes(kind)?'INPUT':'OUTPUT');assert.equal(result.cleanupVerified,['flow','config'].includes(kind));assert.ok(!JSON.stringify(result).includes('foreign-private'));if(!result.cleanupVerified)assert.ok(fs.existsSync(join(f.root,'ios-frame-capability')));});
+});
+
+test('oversized known logs and replaced output directories withhold without reading or deleting unknown custody',async()=>{
+ for(const kind of ['oversize','output-swap'])await fixture(async f=>{const capture=(id,file,report,options)=>captureIosFrame(id,file,report,{...options,runChild:async log=>{const directory=dirname(log);fs.writeFileSync(log,'private',{mode:384,flag:'wx'});await f.ports.capture(id,file);if(kind==='oversize')fs.writeFileSync(join(directory,'output','maestro.log'),Buffer.alloc(2097153),{mode:384});else{fs.renameSync(join(directory,'output'),join(directory,'output-retained'));fs.mkdirSync(join(directory,'output'),{mode:448});fs.writeFileSync(join(directory,'output','foreign-private'),'retain',{mode:384});}return {exitCode:0,complete:true,timedOut:false};}});const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(result.ready,false);assert.equal(result.failureStage,kind==='oversize'?'OUTPUT':'INPUT');assert.equal(result.cleanupVerified,false);assert.ok(fs.existsSync(join(f.root,'ios-frame-capability')));assert.ok(!JSON.stringify(result).includes('foreign-private'));});
+});
+
+test('successful child must produce exactly the commanded PNG; known failure frames remain cleanup-only',async()=>{
+ for(const suffix of ['.png','.png.tmp'])for(const exitCode of [0,1])await fixture(async f=>{
+  const capture=(id,file,report,options)=>captureIosFrame(id,file,report,{...options,runChild:async log=>{fs.writeFileSync(log,'private',{mode:384,flag:'wx'});await f.ports.capture(id,file);const screenshots=join(dirname(dirname(file)),'screenshots');fs.mkdirSync(screenshots,{mode:448});fs.writeFileSync(join(screenshots,'step-002-takeScreenshot'+suffix),png(),{mode:384});return {exitCode,complete:true,timedOut:false};}});
+  const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(result.ready,false);assert.equal(result.failureStage,exitCode===0?'OUTPUT':'CAPTURE');assert.equal(result.cleanupVerified,true);assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);assert.equal(f.calls.filter(value=>value==='measure').length,1);
+ });
+});
+
+test('concurrent PNG growth never allocates or reads beyond the original size plus one and clears its backing buffer',()=>fixture(async f=>{
+ const original=fs.readSync,frame=join(f.root,'ios-frame-capability','output/ios-frame-capability/takeScreenshot/frame.png');let backing,grew=false;
+ fs.readSync=(fd,buffer,...args)=>{if(!grew&&fs.existsSync(frame)&&fs.fstatSync(fd).size===png().length){grew=true;backing=buffer;assert.equal(buffer.length,png().length+1);fs.appendFileSync(frame,Buffer.alloc(1048576));}return original(fd,buffer,...args);};syncBuiltinESMExports();
+ try{const result=await runIosFrameCapability({...f,head},f.ports);assert.equal(grew,true);assert.equal(result.ready,false);assert.equal(result.failureStage,'PNG');assert.equal(result.pngFailure,'READ_OR_IDENTITY');assert.equal(result.cleanupVerified,true);assert.ok(backing.every(byte=>byte===0));assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);}finally{fs.readSync=original;syncBuiltinESMExports();}
+}));
 test('workflow gates one authorized driver-only or full capability check before database fixture and compilation',()=>{
  const workflow=fs.readFileSync(new URL('../../../../.github/workflows/subtrack-native-device-proof.yml',import.meta.url),'utf8');const name='- name: Fresh owned iOS screenshot capability before fixture or compilation',start=workflow.indexOf(name),end=workflow.indexOf('- name:',start+name.length),block=workflow.slice(start,end);
  const expression=block.match(/if: (.+)/)[1].replaceAll(' == ',' === ').replaceAll('needs.select-proof','needs.selectProof');const allow=(platform,scope,enabled)=>Function('matrix','needs','env',`return ${expression}`)({platform},{selectProof:{outputs:{scope}}},{ST253_CAPTURE_ENABLED:enabled});

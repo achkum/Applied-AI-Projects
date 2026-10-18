@@ -249,7 +249,12 @@ jobs:
             ~/.gradle/caches/transforms-*
             ~/.gradle/caches/build-cache-*
             ~/.gradle/wrapper
-          key: subtrack-android-gradle-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/apps/mobile/scripts/private-runtime-build.sh', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}
+          # Prefix restores stay within the identical dependency/exclusion policy;
+          # iOS-only wrapper edits need not discard public Android library tasks.
+          # https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#cache-key-matching
+          key: subtrack-android-gradle-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}-${{ hashFiles('SubTrack/apps/mobile/scripts/private-runtime-build.sh') }}
+          restore-keys: |
+            subtrack-android-gradle-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}-
       - name: Android startup orchestration checks
         if: matrix.platform == 'android'
         run: node apps/mobile/scripts/private-runtime-android-test.mjs
