@@ -1,5 +1,6 @@
 import React from 'react';
-import {AccessibilityInfo,Modal,Pressable,RefreshControl,ScrollView,Text} from 'react-native';
+import {AccessibilityInfo,Modal,Pressable,RefreshControl,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {NativeProductCard} from './NativeProductUI';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
 import {NativeBillingMonthScreen} from './NativeBillingMonthScreen';
 import {NativeSubscriptionDetailContent} from './NativeSubscriptionDetailContent';
@@ -146,7 +147,11 @@ it('keeps the Home household scope, calendar rows and exact totals consistent wi
  const active={phase:'active' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:async<T,>(operation:(token:string,signal:AbortSignal)=>Promise<T>)=>operation('scoped-owner',new AbortController().signal)};
  render(<NativeBillingMonthScreen now={now} useSession={()=>active} readProjection={readProjection} overviewReader={reader}/>);
  await screen.findByRole('header',{name:household.name});
+ expect(screen.getByTestId('native-home-title').props.children).toBe(household.name);expect(screen.getByTestId('native-home-calendar').props.accessibilityLabel).toContain('2026');
  const detail=(name:string)=>copy.billingMonth.details.replace('%{name}',name);
+ const weekCard=screen.UNSAFE_getAllByType(NativeProductCard).find(card=>card.findAllByProps({accessibilityLabel:detail(first.customName)}).length>0)!;
+ expect(StyleSheet.flatten(weekCard.props.style)).toMatchObject({paddingVertical:0,gap:0});expect(StyleSheet.flatten(weekCard.findAllByType(View)[0]!.props.style).backgroundColor).toBe(jest.requireActual('../../../../../packages/ui-tokens/generated/billing-month.native.json').color.light['bg.surface']);
+ expect(screen.getByText(`${copy.datePicker.today} · ${copy.nativeHousehold.plannedPayer.replace('%{name}','Example parent')}`)).toBeTruthy();expect(screen.getByRole('button',{name:detail(first.customName)}).props.accessibilityValue.text).toContain('2026-03-28');expect(screen.getByText(catalogs.en.nativeProductDetails.earlierDates)).toBeTruthy();
  expect(screen.getByRole('button',{name:detail(first.customName)})).toBeTruthy();expect(screen.getByRole('button',{name:detail(second.customName)})).toBeTruthy();
  fireEvent.press(screen.getByTestId(`native-home-scope-${memberId}`));
  expect(screen.queryByRole('button',{name:detail(first.customName)})).toBeNull();expect(screen.getByRole('button',{name:detail(second.customName)})).toBeTruthy();
@@ -171,6 +176,7 @@ it('keeps the compact Upcoming route available from an empty Home week',async()=
  const active={phase:'active' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:async<T,>(operation:(token:string,signal:AbortSignal)=>Promise<T>)=>operation('scoped-owner',new AbortController().signal)};
  render(<NativeBillingMonthScreen now={now} useSession={()=>active} readProjection={readProjection} overviewReader={reader}/>);
  const upcoming=await screen.findByRole('button',{name:copy.productNav.upcoming});
+ expect(screen.getByText(catalogs.en.nativeProductDetails.noRenewalsThisWeek)).toBeTruthy();
  fireEvent.press(upcoming);expect(mockReplace).toHaveBeenCalledWith('/personal-home');
  expect(screen.queryByRole('button',{name:copy.billingMonth.refresh})).toBeNull();
  expect(screen.getByTestId('native-month-scroll').props.refreshControl).toBeTruthy();

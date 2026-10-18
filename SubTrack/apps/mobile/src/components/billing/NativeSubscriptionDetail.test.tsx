@@ -1,5 +1,6 @@
 import React from 'react';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
+import {StyleSheet} from 'react-native';
 import {NativeSubscriptionDetail} from './NativeSubscriptionDetail';
 import {projectNativeAnalytics,type AnalyticsCharge} from '@/api/nativeAnalyticsProjection';
 import type {NativeAnalyticsRead,NativeAnalyticsReader} from '@/api/nativeAnalyticsReader';
@@ -24,6 +25,7 @@ beforeEach(()=>{jest.clearAllMocks();mockCleanup.current=undefined;});
 it('keeps the production view primary-only when no authorized metadata adapter is provided',()=>{
  const active=session();render(<NativeSubscriptionDetail session={active} item={row} onClose={jest.fn()}/>);
  expect(screen.getByRole('header',{name:row.customName})).toBeTruthy();expect(screen.queryByText(catalogs.en.onboarding.nativeHousehold.payerLabel)).toBeNull();expect(screen.queryByTestId('native-subscription-charge-history')).toBeNull();
+ expect(screen.queryByText(catalogs.en.nativeProductDetails.schedule)).toBeNull();expect(screen.queryByText(catalogs.en.nativeProductDetails.status)).toBeNull();expect(StyleSheet.flatten(screen.getByRole('header',{name:row.customName}).props.style)).toMatchObject({fontSize:22,lineHeight:22*1.15});
 });
 it('attaches only matching current household assignments and exact attributed charge history to the primary item',async()=>{
  const reader=jest.fn().mockResolvedValue(ready()),close=jest.fn();render(<NativeSubscriptionDetail session={session()} reader={reader} now={now} item={row} onClose={close}/>);
@@ -41,6 +43,11 @@ it.each(['PAUSED','CANCELLED','ARCHIVED'] as const)('retains real payer and book
  const item={...row,status},projection={...projectNativeAnalytics([item],history,now()),household};expect(projection.active).toEqual([]);
  const reader=jest.fn().mockResolvedValue({kind:'ready',projection});render(<NativeSubscriptionDetail session={session()} reader={reader} now={now} item={item} onClose={jest.fn()}/>);
  await screen.findByText(members[0]!.displayName);expect(screen.getByTestId('native-subscription-charge-history').props.accessibilityLabel).toContain('2026-10-03');expect(screen.getByRole('header',{name:item.customName})).toBeTruthy();
+ expect(screen.getByText(catalogs.en.onboarding.ownerSubscriptions.status[status])).toBeTruthy();
+});
+it('shows a previous-price badge only when actual confirmed charge evidence matches the saved current amount',async()=>{
+ const item={...row,expectedAmountMinor:'12000'},reader=jest.fn().mockResolvedValue({kind:'ready',projection:projectNativeAnalytics([item],history,now())});const view=render(<NativeSubscriptionDetail session={session()} reader={reader} now={now} item={item} onClose={jest.fn()}/>);
+ await screen.findByText(`${catalogs.en.nativeAnalytics.previous} ${formatMinorUnits(10000n,'SEK',{locale:'en',display:'code'})}`);view.unmount();render(<NativeSubscriptionDetail session={session()} reader={jest.fn().mockResolvedValue(ready())} now={now} item={row} onClose={jest.fn()}/>);await screen.findByTestId('native-subscription-charge-history');expect(screen.queryByText(new RegExp(`^${catalogs.en.nativeAnalytics.previous} `))).toBeNull();
 });
 it.each(['DETECTED','REJECTED'] as const)('withholds household and charge metadata for an unconfirmed %s subscription even if matching history is present',async status=>{
  const item={...row,status},projection={...projectNativeAnalytics([item],history,now()),household,attributedCharges:history};

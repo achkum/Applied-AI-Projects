@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { NativeProductBadge, NativeProductButton, NativeProductCard, NativeProductHeading, NativeProductLabel } from './NativeProductUI';
+import { NativeProductBadge, NativeProductButton, NativeProductCard, NativeProductHeading, NativeProductLabel, NativeProductSegmentedControl } from './NativeProductUI';
 
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({...jest.requireActual('../signature/testUtils/contextMocks').makeTheme(false),theme:jest.requireActual('../../../../../packages/ui-tokens/generated/billing-month.native.json')}) }));
 
@@ -35,4 +35,20 @@ it('exposes disabled and selected state without dispatching', () => {
   expect(button.props.accessibilityState).toEqual({ disabled: true, selected: true });
   fireEvent.press(button);
   expect(onPress).not.toHaveBeenCalled();
+});
+
+it('keeps compact segmented paint inside 44-point targets and only exposes the authoritative selection',()=>{
+ const onSelect=jest.fn(),options=[{value:'light',label:'Light',testID:'theme-light'},{value:'dark',label:'Dark',testID:'theme-dark'}] as const;
+ const view=render(<NativeProductSegmentedControl label="Theme" options={options} value="light" onSelect={onSelect}/>);
+ const flatten=jest.requireActual('react-native').StyleSheet.flatten;
+ expect(flatten(screen.getByLabelText('Theme').props.style).minWidth).toBe(150);
+ expect(flatten(screen.getByTestId('theme-light').props.style)).toMatchObject({minHeight:44,minWidth:44});
+ expect(screen.getByTestId('theme-light').props.accessibilityState).toEqual({selected:true,disabled:false});
+ expect(flatten(screen.getByTestId('theme-light-paint').props.style).minHeight).toBe(32);
+ fireEvent.press(screen.getByTestId('theme-dark'));expect(onSelect).toHaveBeenCalledWith('dark');
+ expect(screen.getByTestId('theme-light').props.accessibilityState.selected).toBe(true);
+ view.rerender(<NativeProductSegmentedControl label="Theme" options={[{value:'system',label:'Auto'},...options]} value="dark" disabled onSelect={onSelect}/>);
+ expect(flatten(screen.getByLabelText('Theme').props.style).minWidth).toBe(180);
+ expect(screen.getByTestId('theme-dark').props.accessibilityState).toEqual({selected:true,disabled:true});
+ fireEvent.press(screen.getByTestId('theme-light'));expect(onSelect).toHaveBeenCalledTimes(1);
 });

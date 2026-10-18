@@ -6,7 +6,7 @@ import { useI18n } from '@/context/I18nContext';
 import { getColorByTheme } from '@/utils/colors';
 import { formatMinorUnits } from '@/api/privateMobileMoney';
 import type { Money } from '../../../../../packages/money/src/money';
-import { multiply } from '../../../../../packages/money/src/money';
+import {add,multiply,subtract} from '../../../../../packages/money/src/money';
 import { chartPercent } from '../../../../../packages/money/src/recurring-cost';
 import type { AnalyticsTrendMonth } from '@/api/nativeAnalyticsProjection';
 
@@ -23,7 +23,10 @@ export function AnalyticsMoney({ value, kind = 'amount', heroPeriod, heroAction 
   const formatted = formatMinorUnits(value.minorUnits, value.currency, { locale, display: 'code' });
   if (kind === 'hero') {
     // Presentation only: preserve the exact bigint-formatted digits and locale separators.
-    const numeric = formatted.endsWith(value.currency) ? formatted.slice(0, -value.currency.length).trimEnd() : formatted.startsWith(value.currency) ? formatted.slice(value.currency.length).trimStart() : formatted;
+    let numeric = formatted.endsWith(value.currency) ? formatted.slice(0, -value.currency.length).trimEnd() : formatted.startsWith(value.currency) ? formatted.slice(value.currency.length).trimStart() : formatted;
+    // Only fixed Intl metadata is numeric; exact monetary digits stay strings.
+    const metadata=new Intl.NumberFormat(locale==='sv'?'sv-SE':'en-SE',{style:'currency',currency:value.currency,currencyDisplay:'code'}),decimal=metadata.formatToParts(1).find(part=>part.type==='decimal')?.value;
+    if(decimal){const at=numeric.lastIndexOf(decimal),fraction=numeric.slice(at+decimal.length);if(at>=0&&fraction.length===metadata.resolvedOptions().maximumFractionDigits&&Array.from(fraction).every(digit=>digit==='0'))numeric=numeric.slice(0,at);}
     return <View style={{width:'100%',flexDirection:'row',alignItems:'flex-end',flexWrap:'wrap',columnGap:12,rowGap:4}}><View accessible accessibilityLabel={formatted} accessibilityHint={heroPeriod} style={{flexDirection:'row',alignItems:'flex-end',gap:12,flexShrink:1,minWidth:0}}><View style={{flexShrink:1,minWidth:0}}><AnalyticsText kind="hero">{numeric}</AnalyticsText></View><View style={{paddingBottom:3,maxWidth:'40%'}}><AnalyticsText kind="unit">{heroPeriod ? `${value.currency} ${heroPeriod}` : value.currency}</AnalyticsText></View></View>{heroAction?<View style={{marginLeft:'auto'}}>{heroAction}</View>:null}</View>;
   }
   return <AnalyticsText kind={kind}>{formatted}</AnalyticsText>;
@@ -62,8 +65,9 @@ export function AnalyticsTrend({ months }: { months: readonly AnalyticsTrendMont
   const chartFont=theme.typography.fontFamily['ui.medium']!,chartStrongFont=theme.typography.fontFamily['ui.semibold']!,chartFontSize=theme.typography.fontSize.chart!;
   if(months.length===0)return null;
   const maximum = months.reduce((largest, row) => row.amount.minorUnits > largest.minorUnits ? row.amount : largest, months[0]!.amount);
+  const minimum=months.reduce((smallest,row)=>row.amount.minorUnits<smallest.minorUnits?row.amount:smallest,months[0]!.amount),span=subtract(maximum,minimum);
   const color = getColorByTheme(theme, isDark, 'action.accent'), muted=getColorByTheme(theme,isDark,'ink.secondary');
-  const x=(index:number)=>40+index*276/Math.max(1,months.length-1),y=(value:Money)=>142-chartPercent(value,maximum)*1.22;
+  const x=(index:number)=>40+index*276/Math.max(1,months.length-1),y=(value:Money)=>span.minorUnits===0n?maximum.minorUnits===0n?142:81:142-chartPercent(subtract(value,minimum),span)*1.22;
   const points = months.map((row, index) => `${x(index)},${y(row.amount)}`).join(' ');
   const monthLabel=(month:string)=>new Intl.DateTimeFormat(locale,{month:'short'}).format(new Date(Number(month.slice(0,4)),Number(month.slice(5,7))-1,1));
   const last=months[months.length-1]!;
@@ -71,7 +75,7 @@ export function AnalyticsTrend({ months }: { months: readonly AnalyticsTrendMont
   const numeric=(value:Money)=>formatMinorUnits(value.minorUnits,value.currency,{locale,display:'code'}).replace(value.currency,'').trim();
   return <View testID="native-insights-trend" accessible accessibilityLabel={`${t('nativeAnalytics.trend')}. ${values}`} style={styles.trend}>
     <Svg height={168} width="100%" viewBox="0 0 330 168" accessible={false}>
-      {(maximum.minorUnits===0n?[0n]:[0n,1n,2n,3n]).map(step=>{const tick=multiply(maximum,step,3n),label=numeric(tick);return <React.Fragment key={step.toString()}><Line x1={40} x2={316} y1={y(tick)} y2={y(tick)} stroke={getColorByTheme(theme,isDark,'line.hairline')}/><SvgText x={32} y={y(tick)+4} textAnchor="end" {...(label.length>4?{textLength:32,lengthAdjust:'spacingAndGlyphs' as const}:{})} fill={muted} fontFamily={chartFont} fontSize={chartFontSize}>{label}</SvgText></React.Fragment>;})}
+      {(span.minorUnits===0n?[0n]:[0n,1n,2n,3n]).map(step=>{const tick=add(minimum,multiply(span,step,3n)),label=numeric(tick);return <React.Fragment key={step.toString()}><Line x1={40} x2={316} y1={y(tick)} y2={y(tick)} stroke={getColorByTheme(theme,isDark,'line.hairline')}/><SvgText x={32} y={y(tick)+4} textAnchor="end" {...(label.length>4?{textLength:32,lengthAdjust:'spacingAndGlyphs' as const}:{})} fill={muted} fontFamily={chartFont} fontSize={chartFontSize}>{label}</SvgText></React.Fragment>;})}
       <Polygon points={`${x(0)},142 ${points} ${x(months.length-1)},142`} fill={color} fillOpacity={0.16}/>
       <Polyline points={points} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
       {months.map((row,index)=><React.Fragment key={row.month}><Circle cx={x(index)} cy={y(row.amount)} r={index===months.length-1?4.5:3} fill={index===months.length-1?color:getColorByTheme(theme,isDark,'bg.surface')} stroke={color} strokeWidth={2}/><SvgText x={x(index)} y={160} textAnchor="middle" fill={muted} fontFamily={chartFont} fontSize={chartFontSize}>{monthLabel(row.month)}</SvgText></React.Fragment>)}

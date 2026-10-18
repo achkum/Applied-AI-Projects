@@ -5,6 +5,27 @@ import { getColorByTheme } from '@/utils/colors';
 
 export type NativeProductButtonVariant = 'primary' | 'secondary' | 'quiet';
 
+export function NativeProductSegmentedControl<T extends string>({label,options,value,onSelect,disabled=false}:{
+  label:string;
+  options:readonly {value:T;label:string;testID?:string}[];
+  value:T;
+  onSelect:(value:T)=>void;
+  disabled?:boolean;
+}){
+  const {theme,isDark}=useTheme();
+  const color=(key:string)=>getColorByTheme(theme,isDark,key);
+  return <View accessibilityLabel={label} style={[styles.segment,{minWidth:options.length===2?150:180}]}>
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill,styles.segmentTrack,{backgroundColor:color('bg.raised')}]}/>
+    {options.map(option=><Pressable key={option.value} testID={option.testID} accessibilityRole="button" accessibilityLabel={option.label}
+      accessibilityState={{selected:option.value===value,disabled}} disabled={disabled} onPress={()=>onSelect(option.value)}
+      style={({pressed})=>[styles.segmentTouch,{opacity:disabled?0.5:pressed?0.78:1}]}>
+      <View testID={option.testID?`${option.testID}-paint`:undefined} style={[styles.segmentPaint,{backgroundColor:option.value===value?color('bg.surface'):'transparent'}]}>
+        <Text style={{color:color(option.value===value?'ink.primary':'ink.secondary'),fontFamily:theme.typography.fontFamily['ui.medium'],fontSize:theme.typography.fontSize.sm,textAlign:'center'}}>{option.label}</Text>
+      </View>
+    </Pressable>)}
+  </View>;
+}
+
 export function NativeProductButton({ label, onPress, variant = 'secondary', disabled = false, selected, accessibilityRole = 'button', style, testID, compact=false }: {
   label: string;
   onPress: () => void;
@@ -23,8 +44,8 @@ export function NativeProductButton({ label, onPress, variant = 'secondary', dis
   return <Pressable testID={testID} accessibilityRole={accessibilityRole} accessibilityLabel={label}
     accessibilityState={{ disabled, ...(selected === undefined ? {} : { selected }) }} disabled={disabled} onPress={onPress}
     style={({ pressed }) => [styles.button, {
-      backgroundColor: primary ? color('action.accent') : quiet ? color(selected===undefined?'bg.canvas':selected?'bg.surface':'bg.raised') : color(selected ? 'bg.raised' : 'bg.surface'),
-      borderColor: primary ? color('action.accent') : selected ? color('action.accent') : color('line.hairline'),
+      backgroundColor: primary ? color('action.accent') : quiet ? color(selected?'bg.surface':'bg.raised') : color(selected ? 'bg.raised' : 'bg.surface'),
+      borderColor: primary ? color('action.accent') : quiet ? 'transparent' : selected ? color('action.accent') : color('line.hairline'),
       opacity: disabled ? 0.5 : pressed ? 0.78 : 1,
     }, compact&&styles.compactButton, style]}>
     <Text style={{ color: primary ? color('ink.on-accent') : color('ink.primary'),
@@ -73,6 +94,10 @@ export function NativeProductBadge({ label }: { label: string }) {
 }
 
 const styles = StyleSheet.create({
+  segment:{flexDirection:'row',paddingHorizontal:3,flexShrink:1},
+  segmentTrack:{top:3,bottom:3,borderRadius:12},
+  segmentTouch:{minHeight:44,minWidth:44,flex:1,justifyContent:'center'},
+  segmentPaint:{minHeight:32,borderRadius:9,paddingHorizontal:8,paddingVertical:6,justifyContent:'center'},
   button: { minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 8 },
   compactButton:{alignSelf:'flex-start',paddingHorizontal:12,paddingVertical:8},
   heading: { flexDirection: 'row', alignItems: 'center', gap: 12 },

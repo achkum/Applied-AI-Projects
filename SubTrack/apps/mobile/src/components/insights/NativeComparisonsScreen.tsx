@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import {Pressable,RefreshControl,ScrollView,StyleSheet,Text,View} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useNativeSession } from '@/state/NativeSession';
@@ -38,15 +38,15 @@ export function NativeComparisonsScreen({ useSession = useNativeSession, reader 
         {saved.length === 0 ? <NativeProductCard><AnalyticsText>{t('nativeAnalytics.empty')}</AnalyticsText><NativeProductButton label={t('nativeAnalytics.openSubscriptions')} onPress={() => router.replace('/personal')} /></NativeProductCard> : <>
           <NativeProductHeading level="section" title={t('nativeAnalytics.yourPlans')}/>
           <ScrollView horizontal contentContainerStyle={styles.choices} showsHorizontalScrollIndicator={false}>
-            {saved.map(plan => <NativeProductButton compact style={{borderRadius:theme.radius.pill}} key={plan.id} testID={`native-comparison-select-${plan.subscriptionId}`} label={plan.name || t('nativeAnalytics.unnamed')} selected={selected?.id === plan.id} onPress={() => setSelection(plan.id)} />)}
+            {saved.map(plan=><Pressable key={plan.id} testID={`native-comparison-select-${plan.subscriptionId}`} accessibilityRole="button" accessibilityLabel={plan.name||t('nativeAnalytics.unnamed')} accessibilityState={{selected:selected?.id===plan.id}} onPress={()=>setSelection(plan.id)} style={styles.choiceHit}><View style={[styles.choice,{borderColor:getColorByTheme(theme,isDark,selected?.id===plan.id?'ink.primary':'line.hairline'),backgroundColor:getColorByTheme(theme,isDark,selected?.id===plan.id?'ink.primary':'bg.canvas'),borderRadius:theme.radius.pill}]}><Text style={{fontFamily:theme.typography.fontFamily['ui.medium'],fontSize:theme.typography.fontSize.link,color:getColorByTheme(theme,isDark,selected?.id===plan.id?'bg.canvas':'ink.secondary')}}>{plan.name||t('nativeAnalytics.unnamed')}</Text></View></Pressable>)}
           </ScrollView>
           <View style={[styles.choices,{backgroundColor:getColorByTheme(theme,isDark,'bg.raised'),borderRadius:12,padding:3,alignSelf:'flex-start'}]}><NativeProductButton compact variant="quiet" style={{borderWidth:0,borderRadius:9}} label={t('nativeAnalytics.monthly')} selected={period === 'monthly'} onPress={() => setPeriod('monthly')} /><NativeProductButton compact variant="quiet" style={{borderWidth:0,borderRadius:9}} label={t('nativeAnalytics.annual')} selected={period === 'annual'} onPress={() => setPeriod('annual')} /></View>
           <NativeProductCard><AnalyticsText kind="muted">{t('nativeAnalytics.currentPlan')}</AnalyticsText><AnalyticsText kind="title">{selected!.name || t('nativeAnalytics.unnamed')}</AnalyticsText>
-            {(() => { const cost = recurringCost(money(BigInt(selected!.amountMinor), selected!.currency), selected!.cadence); return cost ? <AnalyticsMoney value={cost[period]} /> : <AnalyticsText>{t('nativeAnalytics.customCycle')}</AnalyticsText>; })()}
-            <AnalyticsText kind="muted">{t('nativeAnalytics.estimate')}</AnalyticsText>
+            {(() => { const cost = recurringCost(money(BigInt(selected!.amountMinor), selected!.currency), selected!.cadence); return cost ? <View style={styles.delta}><AnalyticsMoney value={cost[period]}/><AnalyticsText kind="muted">{t(`nativeAnalytics.${period}`)}</AnalyticsText></View> : <AnalyticsText>{t('nativeAnalytics.customCycle')}</AnalyticsText>; })()}
           </NativeProductCard>
           <NativeProductHeading level="section" title={t('nativeAnalytics.sameCategory')} />
           <AnalyticsText kind="muted">{t('nativeAnalytics.comparisonLimit')}</AnalyticsText>
+          {alternatives.some(plan=>plan.source==='synthetic-persona-fixture')?<AnalyticsText kind="muted">{t('nativeAnalytics.fixtureSource')}</AnalyticsText>:null}
           {alternatives.map(plan => {
             const difference = compareNativePlans(selected!, plan);
             const currentCost = recurringCost(money(BigInt(selected!.amountMinor), selected!.currency), selected!.cadence);
@@ -58,7 +58,6 @@ export function NativeComparisonsScreen({ useSession = useNativeSession, reader 
                 <AnalyticsPriceBox positive={Boolean(delta&&delta.minorUnits>0n)}><AnalyticsText kind="label">{t('nativeAnalytics.alternative')}</AnalyticsText><AnalyticsMoney value={alternativeCost[period]} kind="price"/></AnalyticsPriceBox>
               </View> : <AnalyticsText kind="muted">{t('nativeAnalytics.customCycle')}</AnalyticsText>}
               {delta ? <View style={styles.delta}><AnalyticsMoney value={delta.minorUnits < 0n ? multiply(delta, -1n) : delta} /><AnalyticsText kind="muted">{t(delta.minorUnits > 0n ? 'nativeAnalytics.less' : delta.minorUnits < 0n ? 'nativeAnalytics.more' : 'nativeAnalytics.sameCost', { period: t(`nativeAnalytics.${period}`) })}</AnalyticsText></View> : null}
-              {plan.source === 'synthetic-persona-fixture' ? <AnalyticsText kind="muted">{t('nativeAnalytics.fixtureSource')}</AnalyticsText> : null}
             </NativeProductCard>;
           })}
           {alternatives.length === 0 ? <NativeProductCard><AnalyticsText kind="muted">{t('nativeAnalytics.noAlternatives')}</AnalyticsText></NativeProductCard> : null}
@@ -68,4 +67,4 @@ export function NativeComparisonsScreen({ useSession = useNativeSession, reader 
     </>}
   </ScrollView>{session.phase === 'active' ? <NativeProductNav active="insights" /> : null}</SafeAreaView>;
 }
-const styles = StyleSheet.create({ content: { paddingHorizontal:20,paddingTop:18,paddingBottom:32,gap:10 }, choices: { flexDirection:'row',gap:6 }, header: { flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10 }, pair: { flexDirection:'row',flexWrap:'wrap',gap:6 }, delta: {flexDirection:'row',alignItems:'baseline',flexWrap:'wrap',gap:6} });
+const styles = StyleSheet.create({ content: { paddingHorizontal:20,paddingTop:18,paddingBottom:32,gap:10 },choiceHit:{minHeight:44,justifyContent:'center'},choice:{minHeight:34,paddingHorizontal:14,paddingVertical:6,borderWidth:1,justifyContent:'center'}, choices: { flexDirection:'row',gap:6 }, header: { flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10 }, pair: { flexDirection:'row',flexWrap:'wrap',gap:6 }, delta: {flexDirection:'row',alignItems:'baseline',flexWrap:'wrap',gap:6} });

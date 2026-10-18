@@ -43,10 +43,11 @@ appId: se.subtrack.app
 - assertNotVisible: ${MAESTRO_MONTH_DAY_EMPTY}
 - assertNotVisible: Example streaming Plus
 # Real Home pull-to-refresh; no mutation or replacement projection.
+# The page title can be the household name; its stable ID identifies the scroll top.
 - scrollUntilVisible:
-    element: ${MAESTRO_MONTH_TITLE}
+    element:
+      id: native-home-title
     direction: UP
-    centerElement: true
 - swipe:
     from:
       id: native-month-scroll

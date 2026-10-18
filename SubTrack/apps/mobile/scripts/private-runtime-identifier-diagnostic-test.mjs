@@ -344,7 +344,7 @@ test('billing original-child diagnostics classify bilingual trusted targets with
   for(const [key,target]of Object.entries(targets)){
    const result=billingMonthToolDiagnostic({...base,billingMonth:`FAILED Assert visible "${labels[key]}"\nAssertion is false: secret-token-canary`});assert.deepEqual(result.commands,['wait-visible']);assert.deepEqual(result.reasons,['assertion']);assert.deepEqual(result.targets,[target]);assert.equal(JSON.stringify(result).includes('secret-token-canary'),false);assert.equal(JSON.stringify(result).includes(labels.date),false);
   }
-  for(const [id,target]of [['native-personal-login','bankid-verify'],['native-personal-title','personal-title'],['native-nav-month','home-title'],['native-home-overview','home-title'],['native-home-calendar','date-picker'],[`native-date-${labels.date}`,'date-cell'],['native-month-selected-date','selected-date'],['native-subscription-detail-close','close']]){
+  for(const [id,target]of [['native-personal-login','bankid-verify'],['native-personal-title','personal-title'],['native-nav-month','home-title'],['native-home-overview','home-title'],['native-home-title','home-title'],['native-home-calendar','date-picker'],[`native-date-${labels.date}`,'date-cell'],['native-month-selected-date','selected-date'],['native-subscription-detail-close','close']]){
    const known=billingMonthToolDiagnostic({...base,billingMonth:`No visible element found: ${id} secret-token-canary`});assert.deepEqual(known.targets,[target]);assert.equal(JSON.stringify(known).includes('secret-token-canary'),false);
    assert.deepEqual(billingMonthToolDiagnostic({...base,billingMonth:`No visible element found: ${id}-private`}).targets,[]);
   }

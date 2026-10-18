@@ -1,6 +1,6 @@
 import React from 'react';
 import {AccessibilityInfo,DeviceEventEmitter,Modal,RefreshControl,StyleSheet,Text} from 'react-native';
-import {Polygon,Text as SvgText} from 'react-native-svg';
+import {Circle,Polygon,Polyline,Text as SvgText} from 'react-native-svg';
 import {AnalyticsMoney,AnalyticsText,AnalyticsTrend} from './NativeAnalyticsUI';
 import {money} from '../../../../../packages/money/src/money';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
@@ -34,7 +34,7 @@ function ready(): NativeAnalyticsRead { return { kind: 'ready', projection: proj
 const facade = (phase: NativeFeatureSession['phase'] = 'active'): NativeFeatureSession => ({ phase, login: jest.fn(), refresh: jest.fn(), logout: jest.fn(), run: async work => work('isolated-token', new AbortController().signal) });
 const formatted = (minor: bigint) => formatMinorUnits(minor, 'SEK', { locale: 'en', display: 'code' }).replace(/[\u00a0\u202f]/g, ' ');
 const heroLabel = (minor: bigint) => formatMinorUnits(minor, 'SEK', { locale: 'en', display: 'code' });
-function expectHero(minor: bigint) { expect(screen.getByLabelText(heroLabel(minor))).toBeTruthy(); expect(screen.getByText(formatted(minor).replace('SEK', '').trim())).toBeTruthy(); }
+function expectHero(minor: bigint) { expect(screen.getByLabelText(heroLabel(minor))).toBeTruthy(); expect(screen.getByText(formatted(minor).replace('SEK', '').trim().replace(/,00$/,''))).toBeTruthy(); }
 beforeEach(() => { jest.clearAllMocks();jest.spyOn(AccessibilityInfo,'isReduceMotionEnabled').mockResolvedValue(false);jest.spyOn(AccessibilityInfo,'addEventListener').mockImplementation((event,handler)=>DeviceEventEmitter.addListener(event,handler)); mockFocus.cleanup = undefined;mockSearchParams={}; });
 async function realSession() {
   const credentials = { transport: 'mobile' as const, sessionId: row.id, accessToken: 'header.payload.signature', refreshToken: 'v2r.' + 'a'.repeat(43) };
@@ -72,6 +72,7 @@ it('renders actual findings, expandable category contributions, exact trend alte
   expect(screen.getByTestId('native-insights-trend').props.accessibilityLabel).toContain(`2026-10, ${formatMinorUnits(12000n, 'SEK', { locale: 'en', display: 'code' })}, ${copy.charges.replace('%{count}', '1')}`);
   expect(screen.getByText('May – October')).toBeTruthy();
   const overview = screen.getByRole('button', { name: `${copy.overview}. ${copy.activePlans.replace('%{count}', '2')}. ${copy.findings.replace('%{count}', '2')}` });
+  expect(StyleSheet.flatten(screen.getByTestId('native-insights-plan-ring').props.style)).toMatchObject({width:64,height:64});const neutralRing=screen.UNSAFE_getAllByType(Circle).find(node=>node.props.r===26);expect(neutralRing).toBeTruthy();expect(neutralRing!.props.strokeDasharray).toBeUndefined();
   expect(overview.props.accessibilityState.expanded).toBe(false); fireEvent.press(overview);
   expect(screen.getByText(copy.method)).toBeTruthy(); expect(overview.props.accessibilityState.expanded).toBe(true);
   fireEvent.press(screen.getAllByRole('button', { name: copy.openPlan.replace('%{name}',row.customName) })[0]!);await screen.findByRole('header',{name:row.customName});expect(screen.getByText(row.nextChargeDate)).toBeTruthy();expect(reader).toHaveBeenCalledTimes(2);expect(mockPush).not.toHaveBeenCalled();fireEvent.press(screen.getByTestId('native-subscription-detail-close'));expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false);
@@ -189,6 +190,17 @@ it('keeps every exact historical amount accessible while showing the reference a
  for(const month of projection.trend)expect(label).toContain(`${month.month}, ${formatMinorUnits(month.amount.minorUnits,month.amount.currency,{locale:'en',display:'code'})}, ${copy.charges.replace('%{count}',String(month.chargeCount))}`);
  expect(screen.UNSAFE_getAllByType(Polygon)).toHaveLength(1);expect(screen.UNSAFE_getAllByType(SvgText).some(node=>node.props.children==='Oct')).toBe(true);
  expect(screen.queryByText('2026-10')).toBeNull();
+});
+it('draws zero booked history on the baseline and a constant positive amount as an honest flat series',()=>{
+ const zero=projectNativeAnalytics([],[],now()).trend,view=render(<AnalyticsTrend months={zero}/>);const heights=()=>String(screen.UNSAFE_getByType(Polyline).props.points).split(' ').map(point=>Number(point.split(',')[1]));expect(new Set(heights())).toEqual(new Set([142]));
+ view.rerender(<AnalyticsTrend months={zero.map(month=>({...month,amount:money(10000n,'SEK'),chargeCount:1}))}/>);expect(new Set(heights()).size).toBe(1);expect(heights()[0]).toBeLessThan(142);expect(screen.getByTestId('native-insights-trend').props.accessibilityLabel).toContain(formatMinorUnits(10000n,'SEK',{locale:'en',display:'code'}));
+});
+it('omits only a whole hero zero-fraction suffix while retaining exact accessible money and nonzero minor units',()=>{
+ const view=render(<AnalyticsMoney value={money(124300n,'SEK')} kind="hero"/>);expect(screen.getByText('1 243')).toBeTruthy();expect(screen.getByLabelText(formatMinorUnits(124300n,'SEK',{locale:'en',display:'code'}))).toBeTruthy();
+ view.rerender(<AnalyticsMoney value={money(12990n,'SEK')} kind="hero"/>);expect(screen.getByText('129,90')).toBeTruthy();expect(screen.getByLabelText(formatMinorUnits(12990n,'SEK',{locale:'en',display:'code'}))).toBeTruthy();
+ view.rerender(<AnalyticsMoney value={money(1000n,'KWD')} kind="hero"/>);expect(screen.getByText('1')).toBeTruthy();expect(screen.getByLabelText(formatMinorUnits(1000n,'KWD',{locale:'en',display:'code'}))).toBeTruthy();
+ view.rerender(<AnalyticsMoney value={money(1001n,'KWD')} kind="hero"/>);expect(screen.getByText('1,001')).toBeTruthy();
+ view.rerender(<AnalyticsMoney value={money(1243n,'JPY')} kind="hero"/>);expect(screen.getByText('1 243')).toBeTruthy();
 });
 it('opens a comparison from its insight without using the route parameter as backend authority', async () => {
   const reader = jest.fn().mockResolvedValue(ready()), session = facade();

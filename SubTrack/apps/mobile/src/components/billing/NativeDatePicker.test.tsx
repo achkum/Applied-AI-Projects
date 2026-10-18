@@ -21,6 +21,10 @@ it('announces the choose state for an empty required date',()=>{
  render(<NativeDatePicker label="Renewal" value="" onChange={jest.fn()} optional={false}/>);
  expect(screen.getByRole('button',{name:'Renewal'}).props.accessibilityValue).toEqual({text:catalogs.en.onboarding.datePicker.choose});
 });
+it('opens the same exact-date calendar from an accessible compact month-heading trigger',()=>{
+ const change=jest.fn();render(<NativeDatePicker label="Choose date" value="2026-10-17" onChange={change} compact compactLabel="October 2026" testID="native-home-calendar"/>);
+ const trigger=screen.getByRole('button',{name:'October 2026'});expect(trigger.props.accessibilityHint).toBe('Choose date');expect(screen.getByTestId('native-home-calendar')).toBeTruthy();fireEvent.press(trigger);fireEvent.press(screen.getByTestId('native-date-2026-10-18'));expect(change).toHaveBeenCalledWith('2026-10-18');expect(screen.queryByTestId('native-date-2026-10-18')).toBeNull();
+});
 it('dismisses the focused keyboard before opening the calendar modal',()=>{
  const dismiss=jest.spyOn(Keyboard,'dismiss').mockImplementation(()=>{expect(screen.queryByTestId('native-date-2026-10-17')).toBeNull();});
  try{render(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={jest.fn()}/>);fireEvent.press(screen.getByRole('button',{name:'Renewal'}));expect(dismiss).toHaveBeenCalledTimes(1);expect(screen.getByTestId('native-date-2026-10-17')).toBeTruthy();}finally{dismiss.mockRestore();}

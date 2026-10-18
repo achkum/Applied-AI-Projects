@@ -9,8 +9,8 @@ import {NativeProductButton} from './NativeProductUI';
 import {BillingIcon} from './BillingIcon';
 
 /** Calendar-only local dates: no UTC conversion or free-form date parsing. */
-export function NativeDatePicker({value, onChange, label, disabled = false, optional = true, testID, compact = false}: {
-  value: string; onChange: (date: string) => void; label: string; disabled?: boolean; optional?: boolean; testID?: string; compact?:boolean;
+export function NativeDatePicker({value, onChange, label, disabled = false, optional = true, testID, compact = false,compactLabel}: {
+  value: string; onChange: (date: string) => void; label: string; disabled?: boolean; optional?: boolean; testID?: string; compact?:boolean;compactLabel?:string;
 }) {
   const {t, locale} = useI18n(), {theme, isDark} = useTheme();
   const color = (key: string) => getColorByTheme(theme, isDark, key);
@@ -38,11 +38,11 @@ export function NativeDatePicker({value, onChange, label, disabled = false, opti
     else setMonth(currentBillingMonth(new Date()));
     setOpen(true);
   }
-  return <View style={styles.field}>
+  return <View style={[styles.field,compact&&compactLabel?styles.labelField:null]}>
     {!compact?<Text style={text}>{label}</Text>:null}
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityValue={{text:fieldValue()}} accessibilityState={{disabled, expanded:open}} disabled={disabled} onPress={show}
-      style={[styles.input, {backgroundColor:color('bg.raised'), borderColor:color('line.hairline'), borderRadius:theme.radius.card}]}>
-      {!compact?<Text style={[text, {flex:1}]}>{value || t('onboarding.datePicker.choose')}</Text>:null}<BillingIcon name="calendar" color={color('action.accent')}/>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={compact&&compactLabel?compactLabel:label} accessibilityHint={compact&&compactLabel?label:undefined} accessibilityValue={{text:fieldValue()}} accessibilityState={{disabled, expanded:open}} disabled={disabled} onPress={show}
+      style={[styles.input, {backgroundColor:color(compact&&compactLabel?'bg.surface':'bg.raised'), borderColor:color('line.hairline'), borderRadius:theme.radius.card},compact&&compactLabel?styles.labelTrigger:null]}>
+      {compact&&compactLabel?<Text accessibilityRole="header" style={{...text,fontFamily:theme.typography.fontFamily.display,fontSize:theme.typography.fontSize.price,flexShrink:1,textAlign:'center'}}>{compactLabel}</Text>:<>{!compact?<Text style={[text, {flex:1}]}>{value || t('onboarding.datePicker.choose')}</Text>:null}<BillingIcon name="calendar" color={color('action.accent')}/></>}
     </Pressable>
     {open && !disabled?<Modal visible transparent animationType="none" onRequestClose={() => setOpen(false)}>
       <View style={[styles.scrim, {backgroundColor:color('sheet.scrim')}]}>
@@ -71,4 +71,4 @@ export function NativeDatePicker({value, onChange, label, disabled = false, opti
     </Modal>:null}
   </View>;
 }
-const styles=StyleSheet.create({field:{gap:8},input:{minHeight:48,padding:14,borderWidth:1,flexDirection:'row',alignItems:'center',gap:12},scrim:{flex:1,justifyContent:'flex-end'},sheet:{maxHeight:'90%'},content:{padding:20,gap:16},navigation:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},arrow:{minWidth:48,minHeight:48,alignItems:'center',justifyContent:'center'},title:{flex:1,textAlign:'center'},grid:{flexDirection:'row',flexWrap:'wrap'},weekday:{width:'14.2857%',textAlign:'center'},day:{width:'14.2857%',minHeight:48,alignItems:'center',justifyContent:'center'}});
+const styles=StyleSheet.create({field:{gap:8},labelField:{flexShrink:1},labelTrigger:{minHeight:44,padding:0,borderWidth:0,justifyContent:'center'},input:{minHeight:48,padding:14,borderWidth:1,flexDirection:'row',alignItems:'center',gap:12},scrim:{flex:1,justifyContent:'flex-end'},sheet:{maxHeight:'90%'},content:{padding:20,gap:16},navigation:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},arrow:{minWidth:48,minHeight:48,alignItems:'center',justifyContent:'center'},title:{flex:1,textAlign:'center'},grid:{flexDirection:'row',flexWrap:'wrap'},weekday:{width:'14.2857%',textAlign:'center'},day:{width:'14.2857%',minHeight:48,alignItems:'center',justifyContent:'center'}});

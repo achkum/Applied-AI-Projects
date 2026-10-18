@@ -93,7 +93,7 @@ test('actual normal and empty Home flows perform one bounded pull gesture betwee
   const [,rows]=yaml.parseAllDocuments(readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8')).map(document=>document.toJSON());
   const swipes=rows.flatMap((step,index)=>step.swipe?[index]:[]);assert.equal(swipes.length,1,name);const at=swipes[0];
   assert.deepEqual(rows[at],{swipe:{from:{id:'native-month-scroll'},direction:'DOWN',duration:700}});
-  assert.deepEqual(rows[at-1],{scrollUntilVisible:{element:'${MAESTRO_MONTH_TITLE}',direction:'UP',centerElement:true}});
+  assert.deepEqual(rows[at-1],{scrollUntilVisible:{element:{id:'native-home-title'},direction:'UP'}});
   const picks=rows.flatMap((step,index)=>step.runFlow==='private-runtime-month-day.yaml'?[index]:[]);assert.equal(picks.length,2);assert.ok(picks[0]<at&&picks[1]>at);
   assert.equal(rows.filter(step=>step.tapOn==='${MAESTRO_MONTH_REFRESH}').length,0);
   assert.equal(rows.filter(step=>step.tapOn==='${MAESTRO_LOGOUT}').length,1);

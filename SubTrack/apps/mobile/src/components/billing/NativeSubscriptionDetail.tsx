@@ -15,7 +15,7 @@ import {allocateEvenly,money,multiply,subtract,type Money} from '../../../../../
 import {chartPercent} from '../../../../../packages/money/src/recurring-cost';
 
 const clock=()=>new Date();
-type DetailProps=Omit<React.ComponentProps<typeof NativeSubscriptionDetailContent>,'metadataFields'|'history'>;
+type DetailProps=Omit<React.ComponentProps<typeof NativeSubscriptionDetailContent>,'metadataFields'|'history'|'previousPrice'>;
 type Props=DetailProps&{session:NativeFeatureSession;reader?:NativeAnalyticsReader|undefined;now?:()=>Date};
 
 /** Mounted only by the open sheet. The parent's exact item remains the primary display authority. */
@@ -36,17 +36,18 @@ function AuthorizedDetail({session,reader,now,detail}:{session:NativeFeatureSess
   if(users.length>1){const amounts=allocateEvenly(money(BigInt(detail.item.expectedAmountMinor),detail.item.currency),users.length).sort((a,b)=>a.minorUnits<b.minorUnits?-1:a.minorUnits>b.minorUnits?1:0),minimum=amounts[0]!,maximum=amounts[amounts.length-1]!;fields.push([t('nativeProductDetails.perPerson'),minimum.minorUnits===maximum.minorUnits?format(minimum):`${format(minimum)}–${format(maximum)}`]);}
  }
  const charges=ready&&value?.historyAvailable?value.attributedCharges.filter(row=>row.subscriptionId===detail.item.id&&row.currency===detail.item.currency).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id)).slice(-6):[];
- return <NativeSubscriptionDetailContent {...detail} metadataFields={fields} history={charges.length?<DetailChargeHistory charges={charges} truncated={value?.historyTruncated===true}/>:null}/>;
+ const increase=ready?value?.priceIncreases.find(row=>row.subscriptionId===detail.item.id&&row.current.currency===detail.item.currency&&row.current.minorUnits===BigInt(detail.item.expectedAmountMinor)):undefined;
+ return <NativeSubscriptionDetailContent {...detail} metadataFields={fields} history={charges.length?<DetailChargeHistory charges={charges} truncated={value?.historyTruncated===true}/>:null} previousPrice={increase?format(increase.previous):undefined}/>;
 }
 function DetailChargeHistory({charges,truncated}:{charges:readonly AnalyticsCharge[];truncated:boolean}){
  const {t,locale}=useI18n(),{theme,isDark}=useTheme(),amounts=charges.map(row=>multiply(money(BigInt(row.amountMinor),row.currency),-1n));
  const minimum=amounts.reduce((a,b)=>a.minorUnits<b.minorUnits?a:b),maximum=amounts.reduce((a,b)=>a.minorUnits>b.minorUnits?a:b),span=subtract(maximum,minimum);
- const x=(index:number)=>4+index*292/Math.max(1,charges.length-1),y=(amount:Money)=>span.minorUnits===0n?20:35-chartPercent(subtract(amount,minimum),span)*.29;
+ const x=(index:number)=>4+index*292/Math.max(1,charges.length-1),y=(amount:Money)=>span.minorUnits===0n?20:34-chartPercent(subtract(amount,minimum),span)*.28;
  const points=amounts.map((amount,index)=>`${x(index)},${y(amount)}`).join(' '),last=charges.length-1,color=getColorByTheme(theme,isDark,'action.accent');
  const formatted=(amount:Money)=>formatMinorUnits(amount.minorUnits,amount.currency,{locale,display:'code'});
  const label=charges.map((row,index)=>`${row.date}, ${formatted(amounts[index]!)}`).join('; ');
  return <NativeProductCard><View testID="native-subscription-charge-history" accessible accessibilityLabel={`${t('nativeProductDetails.chargeHistory')}. ${label}`} style={styles.history}>
-  <NativeProductLabel>{t('nativeProductDetails.chargeHistory')}</NativeProductLabel>
+  <NativeProductLabel style={{fontSize:theme.typography.fontSize.caption}}>{t('nativeProductDetails.chargeHistory')}</NativeProductLabel>
   <Svg width="100%" height={40} viewBox="0 0 300 40" accessible={false}><Polygon points={`${x(0)},40 ${points} ${x(last)},40`} fill={color} fillOpacity={.16}/><Polyline points={points} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round"/><Circle cx={x(last)} cy={y(amounts[last]!)} r={3.5} fill={color}/></Svg>
   <View style={styles.range}><NativeProductLabel>{`${charges[0]!.date} – ${charges[last]!.date}`}</NativeProductLabel><Text style={{color:getColorByTheme(theme,isDark,'ink.primary'),fontFamily:theme.typography.fontFamily['ui.semibold'],fontSize:theme.typography.fontSize.sm,fontVariant:['tabular-nums']}}>{formatted(amounts[last]!)}</Text></View>
  </View>{truncated?<NativeProductLabel>{t('nativeAnalytics.historyLimited')}</NativeProductLabel>:null}</NativeProductCard>;
