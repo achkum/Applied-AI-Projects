@@ -16,6 +16,8 @@ android_fix_handoff:
   tested_source_head: 05b39065ab6d06a714dd2d816835b7eadc4966c6
   delivery_source_head: 81420b1faa8dae3143bd18653ac5cae383e8a9bc
   version_code: 6
+  backend_source_head: 1c71ee5cd8b8d80ecbb3630b4043d4657db3840f
+  backend_dataset: "sweden-seed-v2 live: API run39150581836-1, no-DDL/data-retained successor. Trusted HTTPS two-owner 16plans/12active/4pending/min372history/household/repeat/logout PASS. Refresh or reopen existing APK; no reinstall. See sweden-backend-release-2026-10-18.md."
   issues:
     - "Current follow-up: Swedish versioned sample catalogue/no-DDL upgrade is PostgreSQL-qualified but not live. Profile Privacy bank-data controls and Help exist; actual OS notifications/authenticated data-rights lifecycle/production Household remain gaps. Shared member comparison/history/keyboard/date-focus/responsive fixes plus screenshot-driven axis/missing-value corrections are reviewed throughb226000b. Full782mobile tests pass; final axis constraint22tests/types/lint and four component previews pass. No corrected-source installed/signed acceptance or iPhone build delivery."
     - "HTML follow-up2026-10-18: additional visual/gesture corrections plus native failure collection prepared;741mobile tests pass and optional test-type error corrected. Exact installed parity plus Privacy/Notifications/Support remain open. See html-verification-followup-2026-10-18.md. V6 delivered bytes/backend unchanged."
