@@ -50,7 +50,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: subtrack-native-device-${{ github.event.pull_request.number || github.ref }}
+  group: subtrack-native-device-${{ github.event.pull_request.number || github.ref }}${{ github.event_name == 'workflow_dispatch' && format('-{0}', inputs.platform) || '' }}
   cancel-in-progress: true
 jobs:
   final-signed-authority:

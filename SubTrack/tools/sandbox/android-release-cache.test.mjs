@@ -36,7 +36,15 @@ test('release cache contains only public dependencies/library tasks and never ap
 });
 test('new proof commits cancel obsolete runs while actual signing/delivery custody remains uncancellable',()=>{
  const native=yaml.parse(read('../../../.github/workflows/subtrack-native-device-proof.yml'));
- assert.equal(native.concurrency.group,'subtrack-native-device-${{ github.event.pull_request.number || github.ref }}');assert.equal(native.concurrency['cancel-in-progress'],true);
+ const group=(github,inputs={})=>native.concurrency.group.replace(/\$\{\{\s*(.*?)\s*\}\}/g,(_match,expression)=>Function('github','inputs','format',`return (${expression});`)(github,inputs,(template,...values)=>template.replace(/\{(\d+)\}/g,(_m,index)=>String(values[Number(index)]))));
+ const manual={event_name:'workflow_dispatch',event:{pull_request:{}},ref:'refs/heads/codex/ios-startup-fixes',sha:'a'.repeat(40)},pr={event_name:'pull_request',event:{pull_request:{number:304}},ref:'refs/pull/304/merge'};
+ assert.equal(group(manual,{platform:'android'}),'subtrack-native-device-refs/heads/codex/ios-startup-fixes-android');
+ assert.equal(group(manual,{platform:'ios'}),'subtrack-native-device-refs/heads/codex/ios-startup-fixes-ios');
+ assert.equal(new Set(['android','ios','all'].map(platform=>group(manual,{platform}))).size,3);
+ assert.equal(group({...manual,sha:'b'.repeat(40)},{platform:'ios'}),group(manual,{platform:'ios'}));
+ assert.notEqual(group({...manual,ref:'refs/heads/other'},{platform:'ios'}),group(manual,{platform:'ios'}));
+ assert.equal(group(pr,{platform:'ios'}),'subtrack-native-device-304');assert.equal(group(pr,{platform:'android'}),group(pr,{platform:'ios'}));
+ assert.notEqual(group({...pr,event:{pull_request:{number:305}}}),group(pr));assert.equal(native.concurrency['cancel-in-progress'],true);
  assert.ok(workflow.concurrency.group.includes('github.run_id'));assert.ok(workflow.concurrency['cancel-in-progress'].includes("inputs.delivery_mode != 'none'"));
 });
 

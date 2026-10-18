@@ -90,6 +90,21 @@ sdk_packages_ready() {
   [[ -f "$system_images/system.img" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt2" && -x "$ANDROID_HOME/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" ]]
 }
 
+# Failed installer output stays private. These categories describe matched tool
+# signatures only; unknown output never authorizes a retry or a package change.
+sdk_install_failure() {
+  local log="$proof_private/sdk-install.log"
+  if grep -Eiq 'SSLHandshakeException|SSLPeerUnverifiedException|PKIX path building failed|unable to find valid certification path' "$log"; then fail sdk-tls-unavailable;
+  elif grep -Eiq 'No space left on device|Not enough (disk space|space)|ENOSPC' "$log"; then fail sdk-storage-unavailable;
+  elif grep -Eiq 'Permission denied|AccessDeniedException|Operation not permitted' "$log"; then fail sdk-permission-denied;
+  elif grep -Eiq 'Server returned HTTP response code: [45][0-9]{2}|HTTP (Error |error |status |response )?[45][0-9]{2}' "$log"; then fail sdk-http-unavailable;
+  elif grep -Eiq 'UnknownHostException|ConnectException|SocketTimeoutException|Connection reset|Network is unreachable' "$log"; then fail sdk-network-unavailable;
+  elif grep -Eiq 'Not in GZIP format|zip END header not found|invalid (zip|archive)|Unexpected end of (ZLIB input stream|file)|Checksum.*(failed|mismatch)' "$log"; then fail sdk-archive-invalid;
+  elif grep -Eiq 'Failed to find package|Package .* (not found|not available)' "$log"; then fail sdk-package-unavailable;
+  elif grep -Eiq 'Failed to download any source lists|Failed to fetch URL.*repository|Failed to read or create install properties file' "$log"; then fail sdk-repository-unavailable;
+  else fail sdk-no-known-error-signature; fi
+}
+
 case "$phase" in
   sdk)
     [[ -x "$sdk_bin/sdkmanager" ]] || fail sdkmanager-unavailable
@@ -111,7 +126,8 @@ case "$phase" in
       code=$?
       if [[ "$code" == 124 || "$code" == 137 ]]; then fail sdk-install-deadline; fi
       if grep -Eiq 'licenses?.*(not accepted|not been accepted)|license.*not.*accepted' "$proof_private/sdk-install.log"; then fail sdk-license-unaccepted; fi
-      fail "sdk-install-exit-$code"
+      diagnostic "sdk-install-exit-$code"
+      sdk_install_failure
     fi
     ;;
   avd)
