@@ -1,14 +1,20 @@
 import {Buffer} from 'node:buffer';
+import process from 'node:process';
 import {URL} from 'node:url';
 import test from 'node:test';
 import {crc32,deflateSync} from 'node:zlib';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
-import {dispatch,verifiedAuthority,signedDraft,bindPending,acceptedPng,productReceipt,PACKAGE,SIGNER,REPO,CHECKS,SCREENSHOTS,VISUAL_CASES,VISUAL_SCREENS,VISUAL_SCREENSHOTS,foregroundSandbox,diagnosticReceipt} from './sandbox-installed-android-contract.mjs';
+import {dispatch,verifiedAuthority,signedDraft,bindPending,acceptedPng,productReceipt,PACKAGE,SIGNER,REPO,CHECKS,SCREENSHOTS,VISUAL_CASES,VISUAL_SCREENS,VISUAL_SCREENSHOTS,foregroundSandbox,diagnosticReceipt,REUSABLE_APK_SOURCE,INSTALLED_TOOLING_PATHS} from './sandbox-installed-android-contract.mjs';
 import {flowLabels,maestroArgs} from './sandbox-installed-android.mjs';
+function productYaml(directory=process.env.ST_PRODUCT_YAML_ROOT){
+ const require=createRequire(import.meta.url);
+ if(directory){const pkg=require(`${directory}/package.json`);assert.equal(pkg.name,'yaml');assert.equal(pkg.version,'2.9.1');for(const key of ['dependencies','optionalDependencies','peerDependencies'])assert.equal(Object.keys(pkg[key]??{}).length,0);return require(directory);}
+ const mobile=createRequire(new URL('../package.json',import.meta.url));return createRequire(mobile.resolve('expo/package.json'))('yaml');
+}
 const source='a'.repeat(40),signed='c'.repeat(64),unsigned='b'.repeat(64),defaultHead='9'.repeat(40);
-const expected={sourceHead:source,releaseId:20,verificationRun:30,signedSha256:signed};
+const expected={sourceHead:source,toolingSourceHead:source,releaseId:20,verificationRun:30,signedSha256:signed};
 function actualPng(){
  const chunk=(kind,data)=>{const type=Buffer.from(kind),size=Buffer.alloc(4),crc=Buffer.alloc(4);size.writeUInt32BE(data.length);crc.writeUInt32BE(crc32(Buffer.concat([type,data])));return Buffer.concat([size,type,data,crc]);};
  const header=Buffer.alloc(13);header.writeUInt32BE(300);header.writeUInt32BE(600,4);header[8]=8;header[9]=6;
@@ -74,7 +80,7 @@ test('signed cold restart verifies the resumed same-owner household and saved va
 test('failure screenshot is diagnostic-only and requires verified fresh sandbox foreground fences',()=>{
  const png=actualPng();
  const guards={verifiedInstall:true,freshWorkspaceStarted:true,ownedDevice:true,foregroundBefore:true,foregroundAfter:true};
- const result=diagnosticReceipt(expected,'BANK',png,guards);assert.deepEqual(Object.keys(result),['schema','status','phase','sourceHead','signedSha256','applicationId','filename','sha256','bytes']);assert.equal(result.status,'diagnostic-only');assert.equal(result.filename,'failed-sandbox-product.png');assert.equal(result.bytes,png.length);assert.ok(!Object.hasOwn(result,'checks'));assert.ok(!Object.hasOwn(result,'accepted'));
+ const result=diagnosticReceipt(expected,'BANK',png,guards);assert.deepEqual(Object.keys(result),['schema','status','phase','sourceHead','toolingSourceHead','signedSha256','applicationId','filename','sha256','bytes']);assert.equal(result.status,'diagnostic-only');assert.equal(result.filename,'failed-sandbox-product.png');assert.equal(result.bytes,png.length);assert.ok(!Object.hasOwn(result,'checks'));assert.ok(!Object.hasOwn(result,'accepted'));
  for(const key of Object.keys(guards))assert.throws(()=>diagnosticReceipt(expected,'BANK',png,{...guards,[key]:false}));for(const phase of ['AUTHORITY','INSTALL','ACCEPTED','private'])assert.throws(()=>diagnosticReceipt(expected,phase,png,guards));assert.throws(()=>diagnosticReceipt(expected,'BANK',Buffer.alloc(32),guards));assert.throws(()=>diagnosticReceipt(expected,'BANK',png,{...guards,token:'private'}));
  const activity='  mResumedActivity: ActivityRecord{abc u0 se.subtrack.app.sandbox/.MainActivity t2}\r\n',windows='  mCurrentFocus=Window{def u0 se.subtrack.app.sandbox/se.subtrack.app.MainActivity}\r\n';assert.equal(foregroundSandbox(activity,windows),true);
  for(const [a,w]of [[activity.replace(PACKAGE,'se.subtrack.app'),windows],[activity,windows.replace(PACKAGE,'com.android.systemui')],['',windows],[activity,''],[activity+activity,windows],[activity,windows+windows]])assert.throws(()=>foregroundSandbox(a,w));
@@ -87,11 +93,11 @@ test('seeded product flow proves additive review, real household rename and exac
  assert.ok(setup.includes('- assertVisible: Demo family'));assert.ok(setup.includes('id: native-household-rename'));assert.ok(setup.includes('id: native-household-save'));assert.ok(!setup.includes('id: native-household-create'));assert.ok(setup.indexOf('id: native-household-member-add-open')<setup.indexOf('id: native-household-member-name'));
  assert.ok(bank.includes('- assertVisible: ${E_BANK_ACTIVE}'));assert.equal((bank.match(/- tapOn:\s+id: native-bank-sync-0/g)??[]).length,1);assert.ok(!bank.includes('native-bank-connect'));
  const labels=flowLabels(new Date('2026-10-17T12:00:00Z'));assert.equal(labels.E_ACTIVE_TEN,'10 active plans');assert.ok(pages.includes('- assertVisible: ${E_ACTIVE_TEN}'));assert.equal(CHECKS.includes('seededHouseholdReadAndRenamed'),true);assert.equal(CHECKS.includes('householdCreated'),false);
- assert.ok(!restart.includes('native-profile-save-preferences'));const language=restart.indexOf('id: native-profile-language-sv'),theme=restart.indexOf('- tapOn:\n    id: native-profile-theme-dark');assert.ok(language<theme);assert.ok(restart.slice(language,theme).includes('visible: ${S_PROFILE_SAVED}'));assert.ok(restart.slice(language,theme).includes('selected: true'));
+ assert.ok(!restart.includes('native-profile-save-preferences'));const language=restart.indexOf('id: native-profile-language-sv'),theme=restart.indexOf('- tapOn:\n    id: native-profile-theme-dark');assert.ok(language<theme);assert.ok(restart.slice(language,theme).includes('id: native-profile-language-sv\n      selected: true'));assert.ok(restart.slice(language,theme).includes('selected: true'));
 });
 
 test('actual signed visual flow captures all five tabs, real detail and chart in four saved locale/theme states before the original cold restart',()=>{
- const mobile=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobile.resolve('expo/package.json'))('yaml');
+ const yaml=productYaml();
  const source=readFileSync(new URL('../e2e/sandbox-product-visual.yaml',import.meta.url),'utf8'),documents=yaml.parseAllDocuments(source).map(document=>document.toJSON()),rows=documents[1];
  assert.deepEqual(documents[0],{appId:PACKAGE});assert.deepEqual(VISUAL_CASES,['en-light','en-dark','sv-light','sv-dark']);assert.deepEqual(VISUAL_SCREENS,['home','subscriptions','detail','household','insights','trend','profile']);
  const captures=rows.filter(row=>row.takeScreenshot).map(row=>`${row.takeScreenshot}.png`);assert.deepEqual(captures,[...VISUAL_SCREENSHOTS]);assert.equal(captures.length,28);
@@ -120,4 +126,30 @@ test('closed installed receipt requires every matrix image and describes capture
  for(const name of VISUAL_SCREENSHOTS)assert.throws(()=>productReceipt(expected,authority(),checks,images.filter(image=>image.name!==name),true),name);
  assert.throws(()=>productReceipt(expected,authority(),{...checks,visualMatrixCaptured:false},images,true));
  assert.throws(()=>productReceipt(expected,authority(),checks,[...images.slice(0,-1),{...images.at(-1),name:'accepted-sandbox-visual-en-system-profile.png'}],true));
+});
+
+test('only the fixed814 artifact may use a clean reviewed direct-child tooling portfolio while artifact verification remains separate',()=>{
+ const tooling='d'.repeat(40),env={GITHUB_ACTIONS:'true',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REPOSITORY:REPO,GITHUB_REF:'refs/heads/st/native-synthetic-bank',GITHUB_SHA:tooling,ST_PRODUCT_SOURCE:REUSABLE_APK_SOURCE,ST_PRODUCT_TOOLING_SOURCE:tooling,ST_PRODUCT_RELEASE:'20',ST_PRODUCT_VERIFICATION_RUN:'30',ST_PRODUCT_SIGNED_SHA256:signed};
+ const lineage={parents:[REUSABLE_APK_SOURCE],paths:[...INSTALLED_TOOLING_PATHS]};
+ const bound=dispatch(env,tooling,lineage);assert.equal(bound.sourceHead,REUSABLE_APK_SOURCE);assert.equal(bound.toolingSourceHead,tooling);
+ for(const changed of [undefined,{parents:[],paths:lineage.paths},{parents:[source],paths:lineage.paths},{parents:[REUSABLE_APK_SOURCE,source],paths:lineage.paths},{parents:lineage.parents,paths:[]},{parents:lineage.parents,paths:[lineage.paths[0],lineage.paths[0]]},{parents:lineage.parents,paths:['SubTrack/apps/mobile/src/components/onboarding/NativePersonalScreen.tsx']},{parents:lineage.parents,paths:['SubTrack/apps/mobile/app.config.ts']},{parents:lineage.parents,paths:['SubTrack/packages/i18n/catalogs/en.json']},{...lineage,extra:true}])assert.throws(()=>dispatch(env,tooling,changed));
+ for(const patch of [{ST_PRODUCT_SOURCE:source},{GITHUB_SHA:source},{ST_PRODUCT_TOOLING_SOURCE:source},{ST_PRODUCT_TOOLING_SOURCE:undefined}])assert.throws(()=>dispatch({...env,...patch},tooling,lineage));
+ const artifactExpected={...bound,sourceHead:source};const verified=verifiedAuthority(run(),jobs(),log(),artifactExpected);assert.equal(verified.receipt.sourceHead,source);assert.throws(()=>verifiedAuthority({...run(),head_sha:tooling},jobs(),log(),artifactExpected));
+ const checks=Object.fromEntries(CHECKS.map(key=>[key,true])),images=SCREENSHOTS.map(name=>({name,sha256:'d'.repeat(64),bytes:32}));const receipt=productReceipt(artifactExpected,verified,checks,images,true);assert.equal(receipt.sourceHead,source);assert.equal(receipt.toolingSourceHead,tooling);assert.throws(()=>productReceipt({...artifactExpected,toolingSourceHead:'unknown'},verified,checks,images,true));
+ const runner=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8');for(const guard of ["['rev-list','--parents','-n','1','HEAD']","['diff','--name-only','--no-renames','-z','HEAD^','HEAD']","['status','--porcelain','--untracked-files=no']","JSON.stringify(currentDispatch())!==JSON.stringify(expected)"])assert.ok(runner.includes(guard));
+});
+
+test('signed fixture navigation targets Profile bank entry, the bottom Compare and bounded horizontal plan-strip gestures before exact selection',()=>{
+ const yaml=productYaml();
+ const rows=name=>yaml.parseAllDocuments(readFileSync(new URL(`../e2e/sandbox-product-${name}.yaml`,import.meta.url),'utf8'))[1].toJSON();const bank=rows('bank'),pages=rows('pages'),restart=rows('restart');
+ assert.deepEqual(bank[0],{tapOn:{id:'native-nav-profile'}});assert.ok(bank.some(row=>row.tapOn?.text==='${E_BANK_OPEN}'&&row.tapOn.index===1));
+ assert.ok(pages.some(row=>row.tapOn?.text==='${E_COMPARE}'&&row.tapOn.below==='${E_TREND_EVIDENCE}'));
+ const loop=pages.find(row=>row.repeat);assert.equal(loop.repeat.times,12);assert.deepEqual(loop.repeat.commands,[{runFlow:{when:{notVisible:'Birch Cinema'},commands:[{swipe:{start:'90%, 24%',end:'10%, 24%',duration:500}}]}}]);assert.ok(pages.findIndex(row=>row.assertVisible==='Birch Cinema')<pages.findIndex(row=>row.tapOn==='Birch Cinema'));
+ for(const id of ['native-profile-language-sv','native-profile-theme-dark']){const tap=restart.findIndex(row=>row.tapOn?.id===id);assert.deepEqual(restart[tap+1],{extendedWaitUntil:{visible:{id,selected:true},timeout:30000}});}
+});
+
+test('hosted qualification supplies the exact locked dependency alone and local fallback parses the same actual YAML',()=>{
+ const mobile=createRequire(new URL('../package.json',import.meta.url)),directory=process.env.ST_PRODUCT_YAML_ROOT??createRequire(mobile.resolve('expo/package.json')).resolve('yaml').replace(/[\\/]dist[\\/]index\.js$/,'');
+ assert.deepEqual(productYaml(directory).parse('bound: true'),{bound:true});if(!process.env.ST_PRODUCT_YAML_ROOT)assert.deepEqual(productYaml(null).parse('bound: true'),{bound:true});assert.throws(()=>productYaml('/not-an-owned-yaml-package'));
+ const workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-sandbox-installed-android.yml',import.meta.url),'utf8');for(const required of ['ST_PRODUCT_YAML_ROOT','yaml-2.9.1.tgz','validateDependencyLock','validateDependencyArchive','--no-same-owner','--no-same-permissions','trap'])assert.ok(workflow.includes(required));assert.ok(workflow.indexOf('validateDependencyArchive(bytes)')<workflow.indexOf('node --test apps/mobile/scripts/sandbox-installed-android-test.mjs'));
 });

@@ -16,10 +16,21 @@ const sha=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
 const head=value=>typeof value==='string'&&/^[a-f0-9]{40}$/.test(value);
 const id=value=>typeof value==='string'&&/^[1-9][0-9]{0,15}$/.test(value)&&Number.isSafeInteger(Number(value));
 export const digest=value=>createHash('sha256').update(value).digest('hex');
-export function dispatch(env,checkout){
- if(env.GITHUB_ACTIONS!=='true'||env.GITHUB_EVENT_NAME!=='workflow_dispatch'||env.GITHUB_REPOSITORY!==REPO||env.GITHUB_REF!=='refs/heads/st/native-synthetic-bank'||!head(env.ST_PRODUCT_SOURCE)||checkout!==env.ST_PRODUCT_SOURCE||env.GITHUB_SHA!==checkout||!id(env.ST_PRODUCT_RELEASE)||!id(env.ST_PRODUCT_VERIFICATION_RUN)||!sha(env.ST_PRODUCT_SIGNED_SHA256))fail();
- return {sourceHead:checkout,releaseId:Number(env.ST_PRODUCT_RELEASE),verificationRun:Number(env.ST_PRODUCT_VERIFICATION_RUN),signedSha256:env.ST_PRODUCT_SIGNED_SHA256};
+export const REUSABLE_APK_SOURCE='81420b1faa8dae3143bd18653ac5cae383e8a9bc';
+export const INSTALLED_TOOLING_PATHS=Object.freeze([
+ '.github/workflows/subtrack-native-device-proof.yml','.github/workflows/subtrack-sandbox-installed-android.yml',
+ 'SubTrack/apps/mobile/scripts/sandbox-installed-android.mjs','SubTrack/apps/mobile/scripts/sandbox-installed-android-contract.mjs','SubTrack/apps/mobile/scripts/sandbox-installed-android-test.mjs',
+ ...['bank','pages','restart'].map(name=>`SubTrack/apps/mobile/e2e/sandbox-product-${name}.yaml`),
+]);
+export function dispatch(env,checkout,lineage){
+ if(env.GITHUB_ACTIONS!=='true'||env.GITHUB_EVENT_NAME!=='workflow_dispatch'||env.GITHUB_REPOSITORY!==REPO||env.GITHUB_REF!=='refs/heads/st/native-synthetic-bank'||!head(env.ST_PRODUCT_SOURCE)||!head(checkout)||env.GITHUB_SHA!==checkout||!id(env.ST_PRODUCT_RELEASE)||!id(env.ST_PRODUCT_VERIFICATION_RUN)||!sha(env.ST_PRODUCT_SIGNED_SHA256))fail();
+ const tooling=env.ST_PRODUCT_TOOLING_SOURCE??checkout;if(tooling!==checkout)fail();
+ if(checkout!==env.ST_PRODUCT_SOURCE){
+  if(env.ST_PRODUCT_SOURCE!==REUSABLE_APK_SOURCE||env.ST_PRODUCT_TOOLING_SOURCE!==checkout||!lineage||Object.getPrototypeOf(lineage)!==Object.prototype||Object.keys(lineage).sort().join(',')!=='parents,paths'||!Array.isArray(lineage.parents)||lineage.parents.length!==1||lineage.parents[0]!==REUSABLE_APK_SOURCE||!Array.isArray(lineage.paths)||lineage.paths.length<1||lineage.paths.length>INSTALLED_TOOLING_PATHS.length||new Set(lineage.paths).size!==lineage.paths.length||lineage.paths.some(value=>!INSTALLED_TOOLING_PATHS.includes(value)))fail();
+ }
+ return {sourceHead:env.ST_PRODUCT_SOURCE,toolingSourceHead:checkout,releaseId:Number(env.ST_PRODUCT_RELEASE),verificationRun:Number(env.ST_PRODUCT_VERIFICATION_RUN),signedSha256:env.ST_PRODUCT_SIGNED_SHA256};
 }
+
 export function verifiedAuthority(run,jobs,raw,expected){
  if(run?.id!==expected.verificationRun||run.repository?.full_name!==REPO||run.path!=='.github/workflows/subtrack-sandbox-android-build.yml'||run.event!=='workflow_dispatch'||run.head_sha!==expected.sourceHead||run.head_branch!=='st/native-synthetic-bank'||run.status!=='completed'||run.conclusion!=='success'||!Array.isArray(jobs)||jobs.length>100)fail();
  const selected=jobs.filter(job=>job.name==='signed-return-verification'&&job.status==='completed'&&job.conclusion==='success');if(selected.length!==1)fail();
@@ -48,8 +59,8 @@ export function bindPending(pending,authority){
 }
 export function acceptedPng(bytes){if(!Buffer.isBuffer(bytes)||bytes.length<24||bytes.length>16777216||!validAndroidPng(bytes)||bytes.readUInt32BE(16)<300||bytes.readUInt32BE(16)>4000||bytes.readUInt32BE(20)<600||bytes.readUInt32BE(20)>5000)fail();return {sha256:digest(bytes),bytes:bytes.length};}
 export function productReceipt(expected,authority,checks,images,cleanup){
- if(cleanup!==true||!checks||Object.keys(checks).length!==CHECKS.length||CHECKS.some(key=>checks[key]!==true)||!Array.isArray(images)||images.length!==SCREENSHOTS.length||new Set(images.map(image=>image.name)).size!==images.length||images.some(image=>!image||Object.getPrototypeOf(image)!==Object.prototype||Object.keys(image).sort().join(',')!=='bytes,name,sha256'||!SCREENSHOTS.includes(image.name)||!sha(image.sha256)||!Number.isSafeInteger(image.bytes)||image.bytes<24))fail();
- return {schema:'st253-installed-sandbox-android-v1',sourceHead:expected.sourceHead,signedSha256:expected.signedSha256,signedReleaseId:expected.releaseId,verificationRun:expected.verificationRun,applicationId:PACKAGE,versionCode:authority.receipt.versionCode,signerCertificateSha256:SIGNER,origin:'https://198.44.116.159',readback:'authoritative-app-refresh-and-cold-restart',backendSqlProofClaimed:false,checks:Object.fromEntries(CHECKS.map(key=>[key,true])),screenshots:images,visualMatrix:{status:'captured',cases:[...VISUAL_CASES],screens:[...VISUAL_SCREENS],captureCount:VISUAL_SCREENSHOTS.length,comparisonPerformed:false,parityPassed:false},privateCleanupConfirmed:true};
+ if(!head(expected?.sourceHead)||!head(expected?.toolingSourceHead)||cleanup!==true||!checks||Object.keys(checks).length!==CHECKS.length||CHECKS.some(key=>checks[key]!==true)||!Array.isArray(images)||images.length!==SCREENSHOTS.length||new Set(images.map(image=>image.name)).size!==images.length||images.some(image=>!image||Object.getPrototypeOf(image)!==Object.prototype||Object.keys(image).sort().join(',')!=='bytes,name,sha256'||!SCREENSHOTS.includes(image.name)||!sha(image.sha256)||!Number.isSafeInteger(image.bytes)||image.bytes<24))fail();
+ return {schema:'st253-installed-sandbox-android-v1',sourceHead:expected.sourceHead,toolingSourceHead:expected.toolingSourceHead,signedSha256:expected.signedSha256,signedReleaseId:expected.releaseId,verificationRun:expected.verificationRun,applicationId:PACKAGE,versionCode:authority.receipt.versionCode,signerCertificateSha256:SIGNER,origin:'https://198.44.116.159',readback:'authoritative-app-refresh-and-cold-restart',backendSqlProofClaimed:false,checks:Object.fromEntries(CHECKS.map(key=>[key,true])),screenshots:images,visualMatrix:{status:'captured',cases:[...VISUAL_CASES],screens:[...VISUAL_SCREENS],captureCount:VISUAL_SCREENSHOTS.length,comparisonPerformed:false,parityPassed:false},privateCleanupConfirmed:true};
 }
 
 export function foregroundSandbox(activity,windows){
@@ -60,6 +71,6 @@ export function foregroundSandbox(activity,windows){
  if(resumed.length!==1||focused.length!==1||resumed[0][1]!==PACKAGE||focused[0][1]!==PACKAGE)fail();return true;
 }
 export function diagnosticReceipt(expected,phase,png,guards){
- if(!head(expected?.sourceHead)||!sha(expected?.signedSha256)||!['SETUP','BANK','MANAGE','PAGES','RESTART'].includes(phase)||!guards||Object.keys(guards).sort().join(',')!=='foregroundAfter,foregroundBefore,freshWorkspaceStarted,ownedDevice,verifiedInstall'||Object.values(guards).some(value=>value!==true)||!validAndroidPng(png))fail();
- return {schema:'st253-installed-sandbox-diagnostic-v1',status:'diagnostic-only',phase,sourceHead:expected.sourceHead,signedSha256:expected.signedSha256,applicationId:PACKAGE,filename:'failed-sandbox-product.png',sha256:digest(png),bytes:png.length};
+ if(!head(expected?.sourceHead)||!head(expected?.toolingSourceHead)||!sha(expected?.signedSha256)||!['SETUP','BANK','MANAGE','PAGES','RESTART'].includes(phase)||!guards||Object.keys(guards).sort().join(',')!=='foregroundAfter,foregroundBefore,freshWorkspaceStarted,ownedDevice,verifiedInstall'||Object.values(guards).some(value=>value!==true)||!validAndroidPng(png))fail();
+ return {schema:'st253-installed-sandbox-diagnostic-v1',status:'diagnostic-only',phase,sourceHead:expected.sourceHead,toolingSourceHead:expected.toolingSourceHead,signedSha256:expected.signedSha256,applicationId:PACKAGE,filename:'failed-sandbox-product.png',sha256:digest(png),bytes:png.length};
 }
