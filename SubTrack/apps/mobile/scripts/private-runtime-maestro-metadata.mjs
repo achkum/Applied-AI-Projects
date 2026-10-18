@@ -214,13 +214,18 @@ function boundedInflate(bytes,max){const result=inflateSync(bytes,{maxOutputLeng
 /** Conservative PNG envelope: bounded chunks, CRC, truecolor scanline/decompression budget, no text/EXIF. */
 export function validPreinputPng(bytes){
  try{if(!Buffer.isBuffer(bytes)||bytes.length<57||bytes.length>PREINPUT_LIMIT||!bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))return false;
-  let at=8,width=0,height=0,bpp=0,ended=false,seenData=false,dataEnded=false,ancillary=0,count=0;const compressed=[];
+  let at=8,width=0,height=0,bpp=0,ended=false,seenData=false,dataEnded=false,seenDot=false,ancillary=0,count=0;const compressed=[];
   while(at<bytes.length){if(++count>128||at+12>bytes.length)return false;const length=bytes.readUInt32BE(at),end=at+12+length;if(end>bytes.length)return false;const kind=bytes.toString('ascii',at+4,at+8),body=bytes.subarray(at+8,at+8+length);if(crc32(bytes.subarray(at+4,at+8+length))!==bytes.readUInt32BE(at+8+length))return false;
    if(kind==='IHDR'){if(at!==8||length!==13)return false;width=body.readUInt32BE(0);height=body.readUInt32BE(4);if(width<1||height<1||width>4096||height>4096||width*height>16777216||body[8]!==8||![2,6].includes(body[9])||body[10]!==0||body[11]!==0||body[12]!==0)return false;bpp=body[9]===2?3:4;}
    else if(kind==='IDAT'){if(!bpp||dataEnded)return false;seenData=true;compressed.push(body);}
    else if(kind==='IEND'){if(length!==0||end!==bytes.length||!seenData)return false;ended=true;}
-   else{if(!bpp||!['gAMA','sRGB','cHRM','pHYs','iCCP'].includes(kind)||length>65536||(ancillary+=length)>262144)return false;if(seenData)dataEnded=true;
-    if(kind==='iCCP'){const separator=body.indexOf(0);if(separator<1||separator>79||body[separator+1]!==0)return false;boundedInflate(body.subarray(separator+2),65536);}
+   else{if(!bpp||!['gAMA','sRGB','cHRM','pHYs','iCCP','iDOT'].includes(kind)||length>65536||(ancillary+=length)>262144)return false;if(seenData)dataEnded=true;
+    // Documented Apple ancillary optimization; decode the complete IDAT stream
+    // normally, never follow its segment offsets. pngcheck v4.0.1 framing:
+    // https://github.com/pnggroup/pngcheck/blob/v4.0.1/pngcheck.c#L2164-L2191
+    // https://w3c.github.io/png/extensions/Overview.html#iDOT
+    if(kind==='iDOT'){if(!bytes.subarray(at+4,at+8).equals(Buffer.from('iDOT'))||seenDot||seenData||length<16||body.readUInt32BE(0)<1||length!==4+12*body.readUInt32BE(0))return false;seenDot=true;}
+    else if(kind==='iCCP'){const separator=body.indexOf(0);if(separator<1||separator>79||body[separator+1]!==0)return false;boundedInflate(body.subarray(separator+2),65536);}
     else if(length!==({gAMA:4,sRGB:1,cHRM:32,pHYs:9})[kind])return false;
    }at=end;
   }

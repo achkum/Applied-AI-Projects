@@ -164,6 +164,25 @@ test('PNG validation rejects malformed/chunk/CRC/dimension/filter/zip budgets wi
  for(const value of invalid)assert.equal(validPreinputPng(value),false);
 });
 
+test('documented Apple iDOT ancillary framing supports bounded one and multiple segment tables without changing image or sealed bytes',()=>{
+ const dot=count=>{const body=Buffer.alloc(4+12*count,255);body.writeUInt32BE(count);return pngChunk('iDOT',body);};
+ let image;
+ for(const color of [2,6])for(const count of [1,2,7,5461]){
+  const header=pngChunk('IHDR',pngHeader({color})),data=pngChunk('IDAT',deflateSync(Buffer.alloc(color===2?4:5)));image=pngBytes([header,dot(count),data,pngChunk('IEND')]);assert.equal(validPreinputPng(image),true);assert.equal(validAndroidPng(image),true);
+ }
+ const original=Buffer.from(image),actual=crypto.publicEncrypt,keys=[];
+ mock.method(crypto,'publicEncrypt',(options,key)=>{keys.push(Buffer.from(key));return actual(options,key);});syncBuiltinESMExports();
+ try{const sealed=sealPreinputPng(image,binding,recipientPem),n=sealed.readUInt32BE(10),aad=sealed.subarray(14,14+n),decrypt=crypto.createDecipheriv('aes-256-gcm',keys[0],sealed.subarray(14+n,26+n));decrypt.setAAD(aad);decrypt.setAuthTag(sealed.subarray(410+n,426+n));assert.deepEqual(Buffer.concat([decrypt.update(sealed.subarray(426+n)),decrypt.final()]),original);assert.deepEqual(image,original);assert.equal(validSealedPreinput(sealed,captureContext,binding.simulatorCustody),true);}finally{keys.forEach(key=>key.fill(0));mock.restoreAll();syncBuiltinESMExports();}
+});
+
+test('iDOT never relaxes exact chunk identity, order, CRC, budgets, full image decoding or private metadata refusal',()=>{
+ const header=pngChunk('IHDR',pngHeader()),data=pngChunk('IDAT',deflateSync(Buffer.alloc(4))),end=pngChunk('IEND'),body=Buffer.alloc(16);body.writeUInt32BE(1);const dot=pngChunk('iDOT',body);
+ const zero=Buffer.alloc(16),mismatch=Buffer.from(body);mismatch.writeUInt32BE(2);const huge=Buffer.from(body);huge.writeUInt32BE(4294967295);const badCrc=Buffer.from(dot);badCrc[badCrc.length-1]^=1;
+ const alias=Buffer.from(dot);alias[4]|=128;alias.writeUInt32BE(crc32(alias.subarray(4,alias.length-4)),alias.length-4);
+ for(const parts of [[dot,header,data,end],[header,dot,dot,data,end],[header,data,dot,end],[header,pngChunk('iDOT',Buffer.alloc(15)),data,end],[header,pngChunk('iDOT',zero),data,end],[header,pngChunk('iDOT',mismatch),data,end],[header,pngChunk('iDOT',huge),data,end],[header,pngChunk('iDOT',Buffer.alloc(65537)),data,end],[header,badCrc,data,end],[header,alias,data,end],[header,dot,pngChunk('IDAT',Buffer.from('bad')),end],[header,dot,pngChunk('IDAT',deflateSync(Buffer.alloc(3))),end],[header,dot,pngChunk('IDAT',deflateSync(Buffer.from([5,0,0,0]))),end],[header,dot,pngChunk('IDAT',Buffer.concat([deflateSync(Buffer.alloc(4)),Buffer.from('private')])),end],...['tEXt','zTXt','iTXt','eXIf','pRIV'].map(kind=>[header,dot,pngChunk(kind,Buffer.from('private-canary')),data,end])])assert.equal(validPreinputPng(pngBytes(parts)),false);
+ assert.equal(validPreinputPng(Buffer.concat([pngBytes([header,dot,data,end]),Buffer.from('private trailing')])),false);
+});
+
 test('real pinned-public-recipient sealing uses fresh AES-GCM/OAEP domain binding and never needs a private recipient key',()=>{
  const actual=crypto.publicEncrypt,wrapped=[],entropy=[];mock.method(crypto,'randomBytes',n=>{const b=Buffer.alloc(n,n);entropy.push(b);return b;});mock.method(crypto,'publicEncrypt',(options,key)=>{wrapped.push({padding:options.padding,hash:options.oaepHash,label:Buffer.from(options.oaepLabel),key:Buffer.from(key)});return actual(options,key);});syncBuiltinESMExports();
  try{const sealed=sealPreinputPng(samplePng(),binding,recipientPem),n=sealed.readUInt32BE(10),aad=sealed.subarray(14,14+n),iv=sealed.subarray(14+n,26+n),tag=sealed.subarray(410+n,426+n),ciphertext=sealed.subarray(426+n);assert.equal(validSealedPreinput(sealed,captureContext,binding.simulatorCustody),true);assert.equal(wrapped[0].padding,crypto.constants.RSA_PKCS1_OAEP_PADDING);assert.equal(wrapped[0].hash,'sha256');assert.equal(wrapped[0].label.toString(),'ST253_PREINPUT_IOS_FRAME_V1\0');assert.ok(entropy[0].every(b=>b===0));

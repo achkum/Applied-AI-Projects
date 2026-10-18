@@ -16,7 +16,7 @@ import {originalDriverToolDiagnostic} from './private-runtime-identifier-diagnos
 export const IOS_FRAME_FAILURES=Object.freeze(['SPAWN','OUTPUT_LIMIT','TERMINATED','EXIT_NONZERO','OTHER']);
 const ORIGINAL_REASONS=['assertion','element-not-found','launch','device-unavailable','tool-config','connection','UNKNOWN'];
 const ROSTER_FAILURES=['PATH','OWNER','PERMISSIONS','FILE_SHAPE','SIZE','UNEXPECTED_DIRECTORY','UNEXPECTED_FILE','ROSTER_LIMIT','READ_OR_IDENTITY'];
-const PNG_CHUNKS=['IHDR','IDAT','IEND','PLTE','cHRM','gAMA','iCCP','sBIT','sRGB','bKGD','hIST','tRNS','pHYs','sPLT','tIME','iTXt','tEXt','zTXt','eXIf','cICP','mDCV','cLLI','CgBI','acTL','fcTL','fdAT'];
+const PNG_CHUNKS=['IHDR','IDAT','IEND','PLTE','cHRM','gAMA','iCCP','sBIT','sRGB','bKGD','hIST','tRNS','pHYs','sPLT','tIME','iTXt','tEXt','zTXt','eXIf','cICP','mDCV','cLLI','CgBI','iDOT','acTL','fcTL','fdAT'];
 /** Diagnostic envelope facts only: no CRC, payload, text, pixels or acceptance. */
 export function iosFramePngFacts(bytes){
  const facts={signature:'OTHER',envelope:'UNAVAILABLE',width:null,height:null,bitDepth:null,colorType:null,compression:null,filter:null,interlace:null,chunkTypes:[]};
@@ -53,7 +53,7 @@ export function iosFrameFailure(error){
 function boundedCommand(binary,args,onFailure,execute){
  return new Promise((accept,reject)=>{
   const failed=error=>{const category=iosFrameFailure(error);try{onFailure?.(category);}catch{/* Observation cannot authorize readiness. */}reject(Object.assign(Error('iOS frame command unavailable'),{iosFrameFailure:category}));};
-  try{execute(binary,args,{timeout:10000,killSignal:'SIGKILL',maxBuffer:65536,encoding:'utf8'},error=>error?failed(error):accept());}catch(error){failed(error);}
+ try{execute(binary,args,{timeout:60000,killSignal:'SIGKILL',maxBuffer:65536,encoding:'utf8'},error=>error?failed(error):accept());}catch(error){failed(error);}
  });
 }
 export const IOS_FRAME_FLOW='appId: com.apple.springboard\nname: ios-frame-capability\n---\n- takeScreenshot: frame\n';
@@ -83,7 +83,9 @@ export async function captureIosFrame(udid,file,onFailure,{environment=process.e
 }
 export function openOwnedIosSimulator(udid,onFailure,{execute=execFile}={}){
  assert.match(udid,/^[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/);
- // Match pinned Maestro cli-2.11.0 LocalSimulatorUtils.launchSimulator; no renderer defaults changes.
+ // Match pinned Maestro cli-2.11.0 launch arguments; no renderer defaults changes.
+ // Run39173532433 returned GUI/TERMINATED under the former 10s bound; cause unproven.
+ // Allow one 60s setup call; no retries or partial readiness are accepted.
  // https://github.com/mobile-dev-inc/Maestro/blob/cli-2.11.0/maestro-ios-driver/src/main/kotlin/util/LocalSimulatorUtils.kt#L111-L125
  return boundedCommand('/usr/bin/open',['-a','/Applications/Xcode_26.2.app/Contents/Developer/Applications/Simulator.app','--args','-CurrentDeviceUDID',udid],onFailure,execute);
 }

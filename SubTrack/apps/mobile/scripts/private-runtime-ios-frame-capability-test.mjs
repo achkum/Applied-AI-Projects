@@ -28,9 +28,9 @@ async function fixture(work){
  const calls=[];const ports={platform:'darwin',measure:id=>{assert.equal(id,udid);calls.push('measure');return{runtime:'iOS-26-2',udid,name:'SubTrack-proof',deviceType:'iPhone-17'};},openSimulator:async id=>{assert.equal(id,udid);calls.push('gui');},capture:async(id,file)=>{assert.equal(id,udid);calls.push('capture');fs.mkdirSync(dirname(file),{recursive:true,mode:448});fs.writeFileSync(file,png(),{mode:384,flag:'wx'});}};
  try{return await work({root,environment,calls,ports});}finally{for(const [name,value]of Object.entries(saved))fs[name]=value;syncBuiltinESMExports();process.umask=originalUmask;process.umask(prior);fs.rmSync(temp,{recursive:true,force:true});}
 }
-test('pinned Maestro GUI launch keeps exact owned UDID and unchanged ten-second deadline',async()=>{
+test('pinned Maestro GUI launch keeps exact owned UDID and one bounded cold-start call',async()=>{
  const calls=[],execute=(binary,args,options,done)=>{calls.push({binary,args,options});done(null);};await openOwnedIosSimulator(udid,undefined,{execute});
- assert.deepEqual(calls[0].args,['-a','/Applications/Xcode_26.2.app/Contents/Developer/Applications/Simulator.app','--args','-CurrentDeviceUDID',udid]);assert.equal(calls[0].binary,'/usr/bin/open');assert.deepEqual(calls[0].options,{timeout:10000,killSignal:'SIGKILL',maxBuffer:65536,encoding:'utf8'});assert.throws(()=>openOwnedIosSimulator('foreign'));
+ assert.deepEqual(calls[0].args,['-a','/Applications/Xcode_26.2.app/Contents/Developer/Applications/Simulator.app','--args','-CurrentDeviceUDID',udid]);assert.equal(calls[0].binary,'/usr/bin/open');assert.deepEqual(calls[0].options,{timeout:60000,killSignal:'SIGKILL',maxBuffer:65536,encoding:'utf8'});assert.throws(()=>openOwnedIosSimulator('foreign'));
  await assert.rejects(captureIosFrame('booted','relative.png'));await assert.rejects(captureIosFrame(udid,'relative.png'));
 });
 
@@ -205,6 +205,12 @@ test('concurrent PNG growth never allocates or reads beyond the original size pl
  fs.readSync=(fd,buffer,...args)=>{if(!grew&&fs.existsSync(frame)&&fs.fstatSync(fd).size===png().length){grew=true;backing=buffer;assert.equal(buffer.length,png().length+1);fs.appendFileSync(frame,Buffer.alloc(1048576));}return original(fd,buffer,...args);};syncBuiltinESMExports();
  try{const result=await runIosFrameCapability({...f,head},f.ports);assert.equal(grew,true);assert.equal(result.ready,false);assert.equal(result.failureStage,'PNG');assert.equal(result.pngFailure,'READ_OR_IDENTITY');assert.equal(result.cleanupVerified,true);assert.ok(backing.every(byte=>byte===0));assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);}finally{fs.readSync=original;syncBuiltinESMExports();}
 }));
+test('the documented Apple iDOT token is observed without disclosing its payload',()=>{
+ const original=png(),canary=Buffer.from('PRIVATE_PAYLOAD_CANARY');
+ const file=Buffer.concat([original.subarray(0,33),chunk('iDOT',canary),original.subarray(33)]);
+ const facts=iosFramePngFacts(file);assert.deepEqual(facts.chunkTypes,['IHDR','iDOT','IDAT','IEND']);assert.ok(!JSON.stringify(facts).includes('PRIVATE_'));
+});
+
 test('workflow gates one authorized driver-only or full capability check before database fixture and compilation',()=>{
  const workflow=fs.readFileSync(new URL('../../../../.github/workflows/subtrack-native-device-proof.yml',import.meta.url),'utf8');const name='- name: Fresh owned iOS screenshot capability before fixture or compilation',start=workflow.indexOf(name),end=workflow.indexOf('- name:',start+name.length),block=workflow.slice(start,end);
  const expression=block.match(/if: (.+)/)[1].replaceAll(' == ',' === ').replaceAll('needs.select-proof','needs.selectProof');const allow=(platform,scope,enabled)=>Function('matrix','needs','env',`return ${expression}`)({platform},{selectProof:{outputs:{scope}}},{ST253_CAPTURE_ENABLED:enabled});
