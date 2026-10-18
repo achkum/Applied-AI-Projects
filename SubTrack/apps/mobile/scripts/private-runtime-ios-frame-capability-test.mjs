@@ -112,6 +112,32 @@ test('actual owned Node child exit and close produce only private bounded output
  }});const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(result.ready,true);assert.equal(result.cleanupVerified,true);assert.ok(!JSON.stringify(result).includes('PRIVATE_CHILD_CANARY'));assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);
 }));
 
+test('a successful command removes the pinned initial opt-out analytics state without ever reading its contents',()=>fixture(async f=>{
+ const original=fs.openSync;let reads=0;
+ fs.openSync=(file,flags,...args)=>{if(String(file).endsWith('analytics.json')&&flags===(fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW)){reads++;throw Error('ANALYTICS_MUST_NOT_BE_READ');}return original(file,flags,...args);};syncBuiltinESMExports();
+ try{
+  const capture=(id,file,report,options)=>captureIosFrame(id,file,report,{...options,runChild:async(log,_args,environment)=>{
+   const state=join(environment.XDG_STATE_HOME,'maestro');fs.mkdirSync(state,{mode:448});
+   // Pinned saveInitialState(granted=false): fixed CI identity, opted out,
+   // and no uploaded/authenticated user. These bytes are cleanup-only.
+   fs.writeFileSync(join(state,'analytics.json'),JSON.stringify({uuid:'PRIVATE_CI_CANARY',enabled:false,lastUploadedTime:null})+'\n',{mode:384,flag:'wx'});
+   fs.writeFileSync(log,'private',{mode:384,flag:'wx'});await f.ports.capture(id,file);return {exitCode:0,complete:true,timedOut:false};
+  }});
+  const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(result.ready,true);assert.equal(result.cleanupVerified,true);assert.equal(reads,0);assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);assert.ok(!JSON.stringify(result).includes('PRIVATE_'));
+ }finally{fs.openSync=original;syncBuiltinESMExports();}
+}));
+
+test('the exact analytics-state exception never admits other nested state files or directories',async()=>{
+ for(const directory of [false,true])await fixture(async f=>{
+  const capture=(id,file,report,options)=>captureIosFrame(id,file,report,{...options,runChild:async(log,_args,environment)=>{
+   const state=join(environment.XDG_STATE_HOME,'maestro');fs.mkdirSync(state,{mode:448});fs.writeFileSync(join(state,'analytics.json'),'PRIVATE_ANALYTICS_CANARY',{mode:384,flag:'wx'});
+   const unexpected=join(state,'PRIVATE_UNEXPECTED_CANARY');if(directory)fs.mkdirSync(unexpected,{mode:448});else fs.writeFileSync(unexpected,'retained',{mode:384,flag:'wx'});
+   fs.writeFileSync(log,'private',{mode:384,flag:'wx'});await f.ports.capture(id,file);return {exitCode:0,complete:true,timedOut:false};
+  }});
+  const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(result.ready,false);assert.equal(result.failureStage,'OUTPUT');assert.equal(result.cleanupVerified,false);assert.equal(result.cleanupRosterFailure,directory?'UNEXPECTED_DIRECTORY':'UNEXPECTED_FILE');assert.ok(fs.existsSync(join(f.root,'ios-frame-capability','state','maestro','PRIVATE_UNEXPECTED_CANARY')));assert.ok(!JSON.stringify(result).includes('PRIVATE_'));
+ });
+});
+
 test('nonzero incomplete timed-out and signalled child evidence never authorizes a valid-looking PNG or retry',async()=>{
  for(const child of [{exitCode:1,complete:true,timedOut:false},{exitCode:0,complete:false,timedOut:false},{exitCode:0,complete:true,timedOut:true},{exitCode:0,complete:true,timedOut:false,closed:false},{exitCode:0,complete:true,timedOut:false,signal:'SIGTERM'},{exitCode:0,complete:true,timedOut:false,error:'PRIVATE_CANARY'},{exitCode:0,complete:'true',timedOut:false}])await fixture(async f=>{let calls=0;const capture=(id,file,report,options)=>captureIosFrame(id,file,report,{...options,runChild:async log=>{calls++;fs.writeFileSync(log,'PRIVATE_CANARY',{mode:384,flag:'wx'});await f.ports.capture(id,file);return child;}});const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(result.ready,false);assert.equal(result.failureStage,'CAPTURE');assert.equal(result.cleanupVerified,true);assert.equal(calls,1);assert.equal(f.calls.filter(value=>value==='measure').length,1);assert.ok(!JSON.stringify(result).includes('PRIVATE_CANARY'));});
 });
