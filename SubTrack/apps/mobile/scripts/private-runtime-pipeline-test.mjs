@@ -19,8 +19,13 @@ assert.equal(cacheSteps.length,2);
 for(const item of cacheSteps){
   assert.match(item.uses,/@0057852bfaa89a56745cba8c7296529d2fc39830$/);
   assert.ok(item.if.includes("matrix.platform == 'android'"));
-  assert.equal(item.with['restore-keys'],undefined);
 }
+// Native v2 may reuse public libraries across wrapper-only edits, but never
+// across OS/architecture, dependency lock or application-output policy changes.
+const dependencyNamespace="subtrack-android-gradle-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}-";
+assert.equal(cacheSteps[0].with.key,dependencyNamespace+"${{ hashFiles('SubTrack/apps/mobile/scripts/private-runtime-build.sh') }}");
+assert.deepEqual(cacheSteps[0].with['restore-keys'].trim().split('\n'),[dependencyNamespace]);
+assert.equal(cacheSteps[1].with['restore-keys'],undefined);
 const gradlePaths = ['~/.gradle/caches/modules-2','~/.gradle/caches/*/transforms','~/.gradle/caches/transforms-*','~/.gradle/caches/build-cache-*','~/.gradle/wrapper'];
 for(const [restore,save,paths] of [[cacheSteps[0],cacheSteps[1],gradlePaths]]){
   assert.match(restore.uses,/cache\/restore@/);assert.match(save.uses,/cache\/save@/);
