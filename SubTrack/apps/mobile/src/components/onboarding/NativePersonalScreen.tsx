@@ -8,6 +8,8 @@ import { isCanonicalDisplayName, parseProfilePatch } from '@subtrack/contracts/p
 import { parsePrivateMobileManualEdit } from '@subtrack/contracts/private-mobile';
 import { parsePrivateManualCreate } from '@subtrack/contracts/private-onboarding';
 import {customCategoryLabel} from '@subtrack/contracts/subscription-category';
+import type {SandboxHouseholdView} from '@subtrack/contracts/sandbox-household';
+import {memberAccentForId} from '@subtrack/ui-tokens/member-accent';
 import { useNativeSession } from '@/state/NativeSession';
 import * as privateApi from '@/api/privateMobileApi';
 import { parsePositiveSekInput, formatMinorUnits, nativeSekDraft } from '@/api/privateMobileMoney';
@@ -57,8 +59,8 @@ export function validateManualDraft(draft: ManualDraft, locale: 'sv' | 'en'):
       expectedAmountMinor, nextChargeDate: draft.date || null }), error: null };
   } catch { return { body: null, error: 'invalidDate' }; }
 }
-export function NativePersonalScreen({ useSession = useNativeSession, api = privateApi, sandbox = false, inactiveContent, onSetupComplete, page:initialPage = 'subscriptions',detailReader,now=systemNow }: {
-  useSession?: () => NativeFeatureSession; api?: NativePersonalApi; sandbox?: boolean; inactiveContent?: React.ReactNode; onSetupComplete?: (reason: 'load' | 'mutation') => void; page?:'subscriptions'|'profile';detailReader?:NativeAnalyticsReader;now?:()=>Date;
+export function NativePersonalScreen({ useSession = useNativeSession, api = privateApi, sandbox = false, inactiveContent, onSetupComplete, page:initialPage = 'subscriptions',detailReader,readHousehold,now=systemNow }: {
+  useSession?: () => NativeFeatureSession; api?: NativePersonalApi; sandbox?: boolean; inactiveContent?: React.ReactNode; onSetupComplete?: (reason: 'load' | 'mutation') => void; page?:'subscriptions'|'profile';detailReader?:NativeAnalyticsReader;readHousehold?:(token:string,signal:AbortSignal)=>Promise<SandboxHouseholdView>;now?:()=>Date;
 } = {}) {
   const session = useSession(); const router = useRouter(); const { t, locale, setLocale } = useI18n(); const { theme, isDark, setMode: setThemeMode } = useTheme();
   const reducedMotion=useReducedMotion();
@@ -72,6 +74,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
   };
   const color = (key: string) => getColorByTheme(theme, isDark, key);
   const [profile, setProfile] = useState<ProfileView | null>(null); const [mode, setMode] = useState<'just-me' | null>(null);
+  const [household,setHousehold]=useState<SandboxHouseholdView['household']>(null);
   const [items, setItems] = useState<PrivateOwnerSubscriptionView[]>([]); const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [categoryFilter,setCategoryFilter]=useState<string|null>(null);
@@ -103,7 +106,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
     if (ticket !== generation.current) return;
     await setThemeMode(current.theme);
   }
-  function clear() { setPage(initialPage); setProfile(null); setMode(null); setItems([]); setQuery('');setCategoryFilter(null);setExpandedRow(null);request.current?.abort();request.current=null; setAdding(false); setEditing(null); setReview(null); setReviewBlocked(false); setName(''); setEmoji(''); setDraft({ customName: '', categoryCode: '', cadence: 'MONTHLY', amount: '', date: '' }); }
+  function clear() { setPage(initialPage); setProfile(null);setHousehold(null); setMode(null); setItems([]); setQuery('');setCategoryFilter(null);setExpandedRow(null);request.current?.abort();request.current=null; setAdding(false); setEditing(null); setReview(null); setReviewBlocked(false); setName(''); setEmoji(''); setDraft({ customName: '', categoryCode: '', cadence: 'MONTHLY', amount: '', date: '' }); }
   async function load() {
     if (pending.current || session.phase !== 'active') return;
     const ticket = ++generation.current; pending.current = true; setLoading(true); setMessage('');
@@ -111,12 +114,14 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
       const result = await runOwned(async (token, signal) => {
         const profile = await readNativeProfile(token, signal); const mode = await readNativeMode(token, signal);
         const page = profile.profileComplete && mode.mode === 'just-me' ? await rereadLoaded(token, signal) : null;
-        return { profile, mode: mode.mode, page };
+        // Inject only the current authenticated owner's household adapter. Production never falls back to sandbox.
+        const household=profile.profileComplete&&mode.mode==='just-me'&&readHousehold?await readHousehold(token,signal):null;
+        return { profile, mode: mode.mode, page,household:household?.household??null };
       }, true);
       if (ticket !== generation.current) return;
       await applyPreferences(result.profile, ticket);
       if (ticket !== generation.current) return;
-      setProfile(result.profile); setName(result.profile.displayName ?? ''); setEmoji(result.profile.avatarEmoji ?? '');
+      setProfile(result.profile);setHousehold(result.household); setName(result.profile.displayName ?? ''); setEmoji(result.profile.avatarEmoji ?? '');
       setLanguage(result.profile.language); setProfileTheme(result.profile.theme); setMode(result.mode); setItems(result.page?.items ?? []);
       if (result.profile.profileComplete && result.mode === 'just-me' && result.page && onSetupComplete && !setupCompletionNotified.current) {
         setupCompletionNotified.current = true; onSetupComplete('load');
@@ -169,6 +174,8 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
   const ready = profile?.profileComplete && mode === 'just-me';
   const setup = Boolean(profile && !profile.profileComplete);
   const text = { color: color('ink.primary'), fontFamily: theme.typography.fontFamily.ui, fontSize: theme.typography.fontSize.md };
+  const householdAdmin=household?.members.find(member=>member.role==='ADMIN');
+  const avatarSlot=householdAdmin?theme.memberAccent?.slots[memberAccentForId(householdAdmin.id)]:undefined;
   const input = [styles.input, text, { backgroundColor: color('bg.raised'), borderColor: color('line.hairline'), borderRadius: theme.radius.card }];
   const button = (label: string, onPress: () => void, disabled = loading, selected?: boolean, primary = false, testID?: string) => <NativeProductButton {...(testID?{testID}:{})} key={label} label={label}
     variant={primary ? 'primary' : 'secondary'} selected={Boolean(selected)} disabled={disabled} onPress={onPress} />;
@@ -261,12 +268,12 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
       });},loading) : null}
       {profile?.profileComplete && mode === 'just-me' ? <>
         {!adding && page==='profile' ? <>
-        <View style={[styles.subscriptionRow,styles.profileHeader]}><View style={[styles.avatar,{width:52,height:52,backgroundColor:color('bg.raised'),borderRadius:theme.radius.pill}]}><Text style={{...text,fontSize:theme.typography.fontSize['2xl']}}>{profile.avatarEmoji??profile.displayName?.slice(0,1)}</Text></View><NativeProductHeading testID="native-personal-title" style={{flex:1,minWidth:0}} title={profile.displayName??t('onboarding.productNav.profile')}/></View>
+        <View style={[styles.subscriptionRow,styles.profileHeader]}><View style={[styles.avatar,{width:52,height:52,backgroundColor:avatarSlot?(isDark?avatarSlot.dark:avatarSlot.light):color('bg.raised'),borderRadius:theme.radius.pill}]}><Text style={{...text,color:avatarSlot?color('ink.on-accent'):color('ink.primary'),fontFamily:theme.typography.fontFamily['ui.semibold'],fontSize:theme.typography.fontSize[profile.avatarEmoji?'xl':'md']}}>{profile.avatarEmoji??Array.from(profile.displayName??'')[0]?.toLocaleUpperCase(locale)}</Text></View><View style={styles.profileIdentity}><Text accessibilityRole="header" testID="native-personal-title" style={{...text,fontFamily:theme.typography.fontFamily.display,fontSize:theme.typography.fontSize.profileTitle}}>{household?.name??profile.displayName??t('onboarding.productNav.profile')}</Text>{household?<Text style={{...text,color:color('ink.secondary'),fontSize:theme.typography.fontSize.sm}}>{profile.displayName}{householdAdmin?` · ${t('onboarding.nativeHousehold.admin')}`:''}</Text>:null}</View></View>
         <NativeProductHeading level="section" title={t('nativeProductDetails.settings')}/><NativeProductCard style={{gap:0,paddingVertical:0}}>
         <View style={styles.settingRow}><View style={styles.settingLabel}><View style={[styles.settingIcon,{backgroundColor:color('bg.raised')}]}><BillingIcon name="theme" size={18} color={color('ink.secondary')}/></View><Text style={text}>{t('onboarding.nativePersonal.theme')}</Text></View>
         <NativeProductSegmentedControl label={t('onboarding.nativePersonal.theme')} value={profileTheme} disabled={loading} onSelect={value=>{if(profileTheme!==value)savePreference({theme:value});}} options={(['system','light','dark'] as const).map(value=>({value,label:t(value==='system'?'nativeProductDetails.auto':`preferences.themes.${value}`),testID:`native-profile-theme-${value}`}))}/></View>
         <View style={[styles.settingRow,styles.settingDivider,{borderColor:color('line.hairline')}]}><View style={styles.settingLabel}><View style={[styles.settingIcon,{backgroundColor:color('bg.raised')}]}><BillingIcon name="globe" size={18} color={color('ink.secondary')}/></View><Text style={text}>{t('onboarding.nativePersonal.language')}</Text></View>
-        <NativeProductSegmentedControl label={t('onboarding.nativePersonal.language')} value={language} disabled={loading} onSelect={value=>{if(language!==value)savePreference({language:value});}} options={(['sv','en'] as const).map(value=>({value,label:t(`preferences.languageName.${value}`),testID:`native-profile-language-${value}`}))}/></View>
+        <NativeProductSegmentedControl label={t('onboarding.nativePersonal.language')} value={language} disabled={loading} onSelect={value=>{if(language!==value)savePreference({language:value});}} options={(['sv','en'] as const).map(value=>({value,label:t(value==='sv'?'nativeProductDetails.languageSwedish':'nativeProductDetails.languageEnglish'),testID:`native-profile-language-${value}`}))}/></View>
         </NativeProductCard><NativeProductHeading level="section" title={t('onboarding.nativeBank.open')}/><NativeProductCard style={{paddingVertical:0}}><Pressable accessibilityRole="button" accessibilityLabel={t('onboarding.nativeBank.open')} disabled={loading} onPress={()=>router.push('/personal-bank')} style={styles.subscriptionRow}><View style={styles.subscriptionName}><Text style={text}>{t('onboarding.nativeBank.title')}</Text></View><BillingIcon name="next" size={18} color={color('ink.secondary')}/></Pressable></NativeProductCard>
         </> : null}
         {!adding && page==='subscriptions' ? <View style={styles.field}>
@@ -289,7 +296,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
         <View style={[styles.list,{backgroundColor:color('bg.surface'),borderRadius:theme.radius.card}]}>{group.items.map((item,index) => <View key={item.id} style={[index>0?styles.rowDivider:null,{borderColor:color('line.hairline')}]}>
           <Pressable ref={node=>{if(node)rowNodes.current.set(item.id,node);else rowNodes.current.delete(item.id);}} testID={`native-subscription-row-${item.id}`} accessibilityRole="button" accessibilityLabel={item.customName??item.merchantName??categoryLabel(item.categoryCode)} accessibilityState={{expanded:expandedRow===item.id,disabled:loading}} accessibilityValue={{text:[formatMinorUnits(BigInt(item.expectedAmountMinor),item.currency,{locale,display:'code'}),t(`onboarding.ownerSubscriptions.cadence.${item.cadence}`),t(`onboarding.ownerSubscriptions.status.${item.status}`),item.alwaysPrivate?t('onboarding.billingMonth.private'):'',item.nextChargeDate??''].filter(Boolean).join(' · ')}} disabled={loading} onPress={()=>setExpandedRow(item.id)} style={styles.subscriptionRow}>
             <View style={[styles.avatar,{backgroundColor:color('bg.raised'),borderRadius:theme.radius.pill}]}><Text style={{...text,fontFamily:theme.typography.fontFamily['ui.semibold']}}>{(item.customName??item.merchantName??group.label).slice(0,1)}</Text></View>
-            <View style={styles.subscriptionName}><Text style={{...text,fontFamily:theme.typography.fontFamily['ui.semibold']}}>{item.customName??item.merchantName??group.label}</Text><Text numberOfLines={1} style={{...text,color:color('ink.secondary'),fontSize:theme.typography.fontSize.sm}}>{t(`onboarding.ownerSubscriptions.cadence.${item.cadence}`)}{item.alwaysPrivate?` · ${t('onboarding.billingMonth.private')}`:''}{item.status==='ACTIVE'?'':` · ${t(`onboarding.ownerSubscriptions.status.${item.status}`)}`}</Text></View>
+            <View style={styles.subscriptionName}><Text numberOfLines={1} ellipsizeMode="tail" style={{...text,fontFamily:theme.typography.fontFamily['ui.medium']}}>{item.customName??item.merchantName??group.label}</Text><Text numberOfLines={1} style={{...text,color:color('ink.secondary'),fontSize:theme.typography.fontSize.sm}}>{t(`onboarding.ownerSubscriptions.cadence.${item.cadence}`)}{item.alwaysPrivate?` · ${t('onboarding.billingMonth.private')}`:''}{item.status==='ACTIVE'?'':` · ${t(`onboarding.ownerSubscriptions.status.${item.status}`)}`}</Text></View>
             <View style={styles.rowEnd}><Text style={[text,styles.amount]}>{formatMinorUnits(BigInt(item.expectedAmountMinor), item.currency, { locale, display: 'code' })}</Text>{item.nextChargeDate?<Text accessibilityLabel={item.nextChargeDate} style={{...text,fontSize:theme.typography.fontSize.sm,color:color('ink.secondary')}}>{compactDate(item.nextChargeDate)}</Text>:null}</View>
           </Pressable>
 </View>)}</View>
@@ -343,7 +350,7 @@ export function NativePersonalScreen({ useSession = useNativeSession, api = priv
       <View style={[styles.scrim,{backgroundColor:color('sheet.scrim')}]}><Pressable testID="native-subscription-detail-scrim" accessible={false} onPress={closeDetail} style={StyleSheet.absoluteFillObject}/><SafeAreaView accessibilityViewIsModal onAccessibilityEscape={closeDetail} style={[styles.sheet,{backgroundColor:color('bg.canvas'),borderTopLeftRadius:theme.radius.sheet,borderTopRightRadius:theme.radius.sheet}]}><ScrollView contentContainerStyle={styles.content}><View accessible={false} style={[styles.grip,{backgroundColor:color('line.hairline')}]} />{detailItem?<NativeSubscriptionDetail session={session} reader={detailReader} item={detailItem} headingRef={detailHeading} onClose={closeDetail} actions={<>{renderActions(detailItem)}{message?<Text accessibilityRole="alert" style={text}>{t(message.startsWith('edit.')?`onboarding.nativeSubscriptionEdit.${message.slice(5)}`:`onboarding.nativePersonal.${message}`)}</Text>:null}</>}/>:null}</ScrollView></SafeAreaView></View>
     </Modal></SafeAreaView>;
 }
-const styles = StyleSheet.create({detailActions:{flexDirection:'row',flexWrap:'wrap',gap:8},detailAction:{flexGrow:1,flexBasis:'45%',alignSelf:'stretch'},chipTouch:{minHeight:44,justifyContent:'center'},categoryChip:{minHeight:34,paddingHorizontal:14,paddingVertical:6,borderWidth:1,justifyContent:'center'}, content: { flexGrow: 1, paddingHorizontal:20,paddingTop:18,paddingBottom:32,gap:16 }, field: { gap: 8 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },settingIcon:{width:34,height:34,borderRadius:10,alignItems:'center',justifyContent:'center'},profileHeader:{minHeight:52,paddingVertical:0},settingRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:12,paddingVertical:9},settingLabel:{flexDirection:'row',alignItems:'center',gap:10,flexGrow:1},settingDivider:{borderTopWidth:1},
+const styles = StyleSheet.create({detailActions:{flexDirection:'row',flexWrap:'wrap',gap:8},detailAction:{flexGrow:1,flexBasis:'45%',alignSelf:'stretch'},chipTouch:{minHeight:44,justifyContent:'center'},categoryChip:{minHeight:34,paddingHorizontal:14,paddingVertical:6,borderWidth:1,justifyContent:'center'}, content: { flexGrow: 1, paddingHorizontal:20,paddingTop:18,paddingBottom:32,gap:16 }, field: { gap: 8 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },settingIcon:{width:34,height:34,borderRadius:10,alignItems:'center',justifyContent:'center'},profileHeader:{minHeight:52,paddingVertical:0,gap:14},profileIdentity:{flex:1,minWidth:0},settingRow:{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:12,paddingVertical:9},settingLabel:{flexDirection:'row',alignItems:'center',gap:10,flexGrow:1},settingDivider:{borderTopWidth:1},
   subscriptionRow:{flexDirection:'row',alignItems:'center',gap:12,minHeight:64,paddingVertical:12},subscriptionName:{flex:1,minWidth:0,gap:4},avatar:{width:38,height:38,alignItems:'center',justifyContent:'center'},
   search:{gap:8},searchControls:{flexDirection:'row',alignItems:'center',gap:10,paddingLeft:14},searchInput:{flex:1,minWidth:0,minHeight:46,paddingVertical:10,paddingRight:14},clearSearch:{minWidth:48,minHeight:48,alignItems:'center',justifyContent:'center'},group:{gap:10,marginTop:16},groupHeading:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:12},list:{paddingHorizontal:16},rowDivider:{borderTopWidth:1},rowEnd:{alignItems:'flex-end',gap:4,flexShrink:1},total:{flexDirection:'row',alignItems:'baseline',justifyContent:'space-between',gap:12,borderRadius:14,paddingVertical:14,paddingHorizontal:16,marginTop:10},chips:{flexDirection:'row',gap:6},iconButton:{minWidth:44,minHeight:44,alignItems:'center',justifyContent:'center'},scrim:{flex:1,justifyContent:'flex-end'},sheet:{maxHeight:'92%'},subtotals:{gap:4},amount:{textAlign:'right',fontVariant:['tabular-nums'],flexShrink:1},
   grip:{alignSelf:'center',width:36,height:4,borderRadius:2},input: { borderWidth: 1, padding: 12, minHeight: 44 }, button: { borderWidth: 1, borderRadius:12, padding: 12, minHeight: 44, justifyContent: 'center' } });

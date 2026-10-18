@@ -608,6 +608,7 @@
     "addManually": "Add manually",
     "summaryMonthly": "%{amount} per month across %{count} active plans.",
     "summaryOverlap": "%{count} categories contain more than one active plan.",
+    "summaryOverlapOne": "1 category contains more than one active plan.",
     "availableHistory": "Available bank history",
     "openPlan": "Open %{name}",
     "comparisonTitle": "%{name} · %{alternative}"
@@ -629,6 +630,8 @@
     "tomorrow": "Tomorrow",
     "yesterday": "Yesterday",
     "perPerson": "Per person",
-    "auto": "Auto"
+    "auto": "Auto",
+    "languageSwedish": "Svenska",
+    "languageEnglish": "English"
   }
 }

@@ -7,6 +7,7 @@ import { NativeSessionProvider, useNativeSession } from '@/state/NativeSession';
 import { NativeSessionCore } from '@/state/NativeSessionCore';
 import * as api from '@/api/privateMobileApi';
 import { catalogs } from '@subtrack/i18n';
+import {formatMinorUnits} from '@/api/privateMobileMoney';
 import type { NativeBundleStore } from '@/utils/secureSessionBundle';
 import {SandboxSessionProvider,useSandboxSession} from '@/state/SandboxSession';
 import {SandboxEntry} from './SandboxEntry';
@@ -609,6 +610,33 @@ it('persists each Profile segment immediately and applies only authoritative rer
  await waitFor(()=>expect(api.saveNativeProfile).toHaveBeenCalledWith({language:'sv'},credentials.accessToken,expect.any(AbortSignal)));expect(mockSetLocale).not.toHaveBeenCalledWith('sv');expect(screen.getByTestId('native-profile-language-en').props.accessibilityState.selected).toBe(true);expect(screen.getByTestId('native-profile-theme-dark').props.accessibilityState.disabled).toBe(true);
  await act(async()=>finish({...profile,language:'sv',theme:'light'}));await screen.findByText(copy.nativePersonal.profileSaved);expect(mockSetLocale).toHaveBeenLastCalledWith('sv');expect(mockSetMode).toHaveBeenLastCalledWith('light');expect(screen.getByTestId('native-profile-language-sv').props.accessibilityState.selected).toBe(true);expect(screen.getByTestId('native-profile-theme-light').props.accessibilityState.selected).toBe(true);
  fireEvent.press(screen.getByTestId('native-profile-theme-dark'));await waitFor(()=>expect(api.saveNativeProfile).toHaveBeenCalledTimes(2));await waitFor(()=>expect(screen.getByTestId('native-profile-theme-dark').props.accessibilityState.selected).toBe(true));expect(api.saveNativeProfile).toHaveBeenLastCalledWith({theme:'dark'},credentials.accessToken,expect.any(AbortSignal));expect(mockSetMode).toHaveBeenLastCalledWith('dark');
+});
+
+it.each(['en','sv'] as const)('keeps Profile language choices recognizable by their own language names in %s',async locale=>{
+ mockLocale.value=locale;jest.mocked(api.readNativeProfile).mockResolvedValue({...profile,language:locale});jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[row],nextCursor:null});mount();
+ const translated=catalogs[locale].onboarding;await waitFor(()=>expect(screen.getByRole('button',{name:translated.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:translated.nativePersonal.verify}));await screen.findByText(row.customName);openProfile();
+ expect(screen.getByTestId('native-profile-language-sv').props.accessibilityLabel).toBe(catalogs[locale].nativeProductDetails.languageSwedish);expect(screen.getByTestId('native-profile-language-en').props.accessibilityLabel).toBe(catalogs[locale].nativeProductDetails.languageEnglish);
+ expect(screen.getByTestId(`native-profile-language-${locale}`).props.accessibilityState.selected).toBe(true);expect(api.saveNativeProfile).not.toHaveBeenCalled();
+});
+
+it('uses the actual owner-scoped household name/admin role in Profile and clears it on session retirement',async()=>{
+ const readHousehold=jest.fn().mockResolvedValue({household:{id:credentials.sessionId,name:'Example family',members:[{id:credentials.sessionId,displayName:profile.displayName,role:'ADMIN'}],assignments:[]}});
+ jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});const session:{phase:'active'|'verification-required';run:<T>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>Promise<T>;login:()=>Promise<void>;refresh:()=>Promise<void>;logout:()=>Promise<true>}={phase:'active',run:work=>work(credentials.accessToken,new AbortController().signal),login:async()=>{},refresh:async()=>{},logout:async()=>true};
+ const view=render(<NativePersonalScreen page="profile" useSession={()=>session} readHousehold={readHousehold}/>);await screen.findByRole('header',{name:'Example family'});expect(screen.getByText(`${profile.displayName} · ${copy.nativeHousehold.admin}`)).toBeTruthy();expect(readHousehold).toHaveBeenCalledWith(credentials.accessToken,expect.any(AbortSignal));expect(screen.getByTestId('native-personal-title').props.children).toBe('Example family');
+ session.phase='verification-required';view.rerender(<NativePersonalScreen page="profile" useSession={()=>session} readHousehold={readHousehold}/>);expect(screen.queryByText('Example family')).toBeNull();expect(screen.queryByText(`${profile.displayName} · ${copy.nativeHousehold.admin}`)).toBeNull();expect(readHousehold).toHaveBeenCalledTimes(1);
+});
+
+it('never restores a stale household header when its optional Profile read finishes after leaving',async()=>{
+ type HouseholdResult=Awaited<ReturnType<NonNullable<NonNullable<React.ComponentProps<typeof NativePersonalScreen>>['readHousehold']>>>;
+ let resolve:(value:HouseholdResult)=>void=()=>undefined;const readHousehold=jest.fn().mockImplementation(()=>new Promise<HouseholdResult>(done=>{resolve=done;}));jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[],nextCursor:null});
+ const session:{phase:'active'|'verification-required';run:<T>(work:(token:string,signal:AbortSignal)=>Promise<T>)=>Promise<T>;login:()=>Promise<void>;refresh:()=>Promise<void>;logout:()=>Promise<true>}={phase:'active',run:work=>work(credentials.accessToken,new AbortController().signal),login:async()=>{},refresh:async()=>{},logout:async()=>true};const view=render(<NativePersonalScreen page="profile" useSession={()=>session} readHousehold={readHousehold}/>);
+ await waitFor(()=>expect(readHousehold).toHaveBeenCalledTimes(1));session.phase='verification-required';view.rerender(<NativePersonalScreen page="profile" useSession={()=>session} readHousehold={readHousehold}/>);await act(async()=>resolve({household:{id:credentials.sessionId,name:'Late private family',members:[{id:credentials.sessionId,displayName:profile.displayName,role:'ADMIN'}],assignments:[]}}));expect(screen.queryByText('Late private family')).toBeNull();expect(screen.queryByText(`${profile.displayName} · ${copy.nativeHousehold.admin}`)).toBeNull();
+});
+
+it('keeps long compact subscription names single-line while preserving full accessible identity and detail content',async()=>{
+ const fullName='A subscription name long enough to need truncation in the compact list';jest.mocked(api.readNativeSubscriptions).mockResolvedValue({items:[{...row,customName:fullName}],nextCursor:null});mount();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.nativePersonal.verify}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.nativePersonal.verify}));await screen.findByText(fullName);
+ expect(screen.getByText(fullName).props.numberOfLines).toBe(1);expect(screen.getByText(fullName).props.ellipsizeMode).toBe('tail');const item=screen.getByTestId(`native-subscription-row-${row.id}`);expect(item.props.accessibilityLabel).toBe(fullName);expect(item.props.accessibilityValue.text).toContain(formatMinorUnits(BigInt(row.expectedAmountMinor),row.currency,{locale:'en',display:'code'}));fireEvent.press(item);expect(screen.getByRole('header',{name:fullName})).toBeTruthy();expect(api.editNativeSubscription).not.toHaveBeenCalled();
 });
 
 it('does not announce a preference as saved when its authoritative reread did not retain the selection',async()=>{

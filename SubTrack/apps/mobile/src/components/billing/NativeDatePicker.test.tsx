@@ -21,6 +21,17 @@ it('announces the choose state for an empty required date',()=>{
  render(<NativeDatePicker label="Renewal" value="" onChange={jest.fn()} optional={false}/>);
  expect(screen.getByRole('button',{name:'Renewal'}).props.accessibilityValue).toEqual({text:catalogs.en.onboarding.datePicker.choose});
 });
+it('dismisses the date sheet from its backdrop or accessibility escape without changing the selection',()=>{
+ const change=jest.fn();render(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={change}/>);
+ const open=()=>fireEvent.press(screen.getByRole('button',{name:'Renewal'}));
+ open();fireEvent.press(screen.getByTestId('native-date-picker-scrim',{includeHiddenElements:true}));
+ expect(screen.queryByRole('button',{name:'2026-10-18'})).toBeNull();expect(change).not.toHaveBeenCalled();
+ open();const selected=screen.getByTestId('native-date-2026-10-17');expect(selected.props.accessibilityState.selected).toBe(true);
+ let sheet=selected.parent;while(sheet&&!sheet.props.accessibilityViewIsModal)sheet=sheet.parent;
+ expect(sheet).not.toBeNull();fireEvent(sheet!,'accessibilityEscape');
+ expect(screen.queryByRole('button',{name:'2026-10-18'})).toBeNull();expect(change).not.toHaveBeenCalled();
+ expect(screen.getByRole('button',{name:'Renewal'}).props.accessibilityValue.text).toContain('17');
+});
 it('opens the same exact-date calendar from an accessible compact month-heading trigger',()=>{
  const change=jest.fn();render(<NativeDatePicker label="Choose date" value="2026-10-17" onChange={change} compact compactLabel="October 2026" testID="native-home-calendar"/>);
  const trigger=screen.getByRole('button',{name:'October 2026'});expect(trigger.props.accessibilityHint).toBe('Choose date');expect(screen.getByTestId('native-home-calendar')).toBeTruthy();fireEvent.press(trigger);fireEvent.press(screen.getByTestId('native-date-2026-10-18'));expect(change).toHaveBeenCalledWith('2026-10-18');expect(screen.queryByTestId('native-date-2026-10-18')).toBeNull();

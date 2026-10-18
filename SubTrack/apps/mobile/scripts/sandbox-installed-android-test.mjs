@@ -6,7 +6,7 @@ import {crc32,deflateSync} from 'node:zlib';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
-import {dispatch,verifiedAuthority,signedDraft,bindPending,acceptedPng,productReceipt,PACKAGE,SIGNER,REPO,CHECKS,SCREENSHOTS,VISUAL_CASES,VISUAL_SCREENS,VISUAL_SCREENSHOTS,foregroundSandbox,diagnosticReceipt,REUSABLE_APK_SOURCE,INSTALLED_TOOLING_PATHS} from './sandbox-installed-android-contract.mjs';
+import {dispatch,verifiedAuthority,signedDraft,bindPending,acceptedPng,productReceipt,PACKAGE,SIGNER,REPO,CHECKS,SCREENSHOTS,VISUAL_CASES,VISUAL_SCREENS,VISUAL_SCREENSHOTS,foregroundSandbox,diagnosticReceipt,REUSABLE_APK_SOURCE,INSTALLED_TOOLING_PATHS,PRODUCT_STAGES,collectProductStages} from './sandbox-installed-android-contract.mjs';
 import {flowLabels,maestroArgs} from './sandbox-installed-android.mjs';
 function productYaml(directory=process.env.ST_PRODUCT_YAML_ROOT){
  const require=createRequire(import.meta.url);
@@ -84,7 +84,11 @@ test('failure screenshot is diagnostic-only and requires verified fresh sandbox 
  for(const key of Object.keys(guards))assert.throws(()=>diagnosticReceipt(expected,'BANK',png,{...guards,[key]:false}));for(const phase of ['AUTHORITY','INSTALL','ACCEPTED','private'])assert.throws(()=>diagnosticReceipt(expected,phase,png,guards));assert.throws(()=>diagnosticReceipt(expected,'BANK',Buffer.alloc(32),guards));assert.throws(()=>diagnosticReceipt(expected,'BANK',png,{...guards,token:'private'}));
  const activity='  mResumedActivity: ActivityRecord{abc u0 se.subtrack.app.sandbox/.MainActivity t2}\r\n',windows='  mCurrentFocus=Window{def u0 se.subtrack.app.sandbox/se.subtrack.app.MainActivity}\r\n';assert.equal(foregroundSandbox(activity,windows),true);
  for(const [a,w]of [[activity.replace(PACKAGE,'se.subtrack.app'),windows],[activity,windows.replace(PACKAGE,'com.android.systemui')],['',windows],[activity,''],[activity+activity,windows],[activity,windows+windows]])assert.throws(()=>foregroundSandbox(a,w));
- const driver=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8'),workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-sandbox-installed-android.yml',import.meta.url),'utf8');assert.ok(driver.includes("foreground('before');const png="));assert.ok(driver.includes("foreground('after');"));assert.ok(driver.includes("diagnostic&&!existsSync(w.privateDir)"));assert.ok(workflow.includes('if: failure()'));assert.ok(workflow.includes('diagnostic/failed-sandbox-product.png'));assert.ok(!workflow.includes('diagnostic/*.log'));assert.ok(!workflow.includes('private/'));
+ // API34's actual Task.dumpInner label; both independent observations must agree.
+ const api34=activity.replace('mResumedActivity: ','topResumedActivity=');assert.equal(foregroundSandbox(api34,windows),true);
+ for(const value of [api34.replace(PACKAGE,'com.android.systemui'),api34+activity,api34+api34,api34.replace('u0 ','u10 '),api34.replace('topResumedActivity=','notTopResumedActivity=')])assert.throws(()=>foregroundSandbox(value,windows));
+ assert.throws(()=>foregroundSandbox(api34+api34.replace('u0 ','u10 '),windows));assert.throws(()=>foregroundSandbox(api34,windows+windows.replace('u0 ','u10 ')));assert.throws(()=>foregroundSandbox(api34,windows.replace('u0 ','u10 ')));
+ const driver=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8'),workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-sandbox-installed-android.yml',import.meta.url),'utf8');assert.ok(driver.indexOf("foreground('before');")<driver.indexOf("'screencap','-p'"));assert.ok(driver.indexOf("'screencap','-p'")<driver.indexOf("foreground('after');"));assert.ok(driver.includes("diagnostic&&!existsSync(w.privateDir)"));assert.ok(driver.includes('if(!retained)png?.fill(0)'));assert.ok(workflow.includes('if: failure()'));assert.ok(workflow.includes('diagnostic/failed-sandbox-product.png'));assert.ok(!workflow.includes('diagnostic/*.log'));assert.ok(!workflow.includes('private/'));
 });
 
 
@@ -117,7 +121,7 @@ test('actual signed visual flow captures all five tabs, real detail and chart in
  }
  const restore=rows.slice(start);assert.ok(tapId(restore,'native-profile-language-en')<selected(restore,'native-profile-language-en'));assert.ok(tapId(restore,'native-profile-theme-light')<selected(restore,'native-profile-theme-light'));assert.deepEqual(restore.at(-1),{assertVisible:{id:'native-profile-language-en',selected:true}});
  assert.doesNotMatch(source,/stopApp|launchApp|clearState|runScript|evalScript|openLink|copyTextFrom|PROFILE_SAVED|inputText/);
- const driver=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8');assert.ok(driver.includes("['visual',['visualMatrixCaptured']],['restart',"));assert.ok(driver.includes("phase=name==='visual'?'PAGES':name.toUpperCase()"));
+ const driver=readFileSync(new URL('./sandbox-installed-android.mjs',import.meta.url),'utf8');assert.deepEqual(PRODUCT_STAGES.slice(-2).map(([name])=>name),['visual','restart']);assert.ok(driver.includes("phase=name==='visual'?'PAGES':name.toUpperCase()"));
 });
 
 test('closed installed receipt requires every matrix image and describes capture without claiming visual parity',()=>{
@@ -152,4 +156,22 @@ test('hosted qualification supplies the exact locked dependency alone and local 
  const mobile=createRequire(new URL('../package.json',import.meta.url)),directory=process.env.ST_PRODUCT_YAML_ROOT??createRequire(mobile.resolve('expo/package.json')).resolve('yaml').replace(/[\\/]dist[\\/]index\.js$/,'');
  assert.deepEqual(productYaml(directory).parse('bound: true'),{bound:true});if(!process.env.ST_PRODUCT_YAML_ROOT)assert.deepEqual(productYaml(null).parse('bound: true'),{bound:true});assert.throws(()=>productYaml('/not-an-owned-yaml-package'));
  const workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-sandbox-installed-android.yml',import.meta.url),'utf8');for(const required of ['ST_PRODUCT_YAML_ROOT','yaml-2.9.1.tgz','validateDependencyLock','validateDependencyArchive','--no-same-owner','--no-same-permissions','trap'])assert.ok(workflow.includes(required));assert.ok(workflow.indexOf('validateDependencyArchive(bytes)')<workflow.indexOf('node --test apps/mobile/scripts/sandbox-installed-android-test.mjs'));
+});
+
+test('natural page/visual failures collect independent restart results and cannot grant accepted receipt',()=>{
+ const attempted=[],passed={},failures=[];
+ const failed=collectProductStages({execute(name){attempted.push(name);return !['pages','visual'].includes(name);},onPassed(_name,flags){for(const flag of flags)passed[flag]=true;},onFailure(name){failures.push(name);}});
+ assert.deepEqual(attempted,['setup','bank','manage','pages','visual','restart']);assert.deepEqual(failed,['pages','visual']);assert.deepEqual(failures,failed);
+ assert.equal(passed.coldRestartSubscriptionReadback,true);assert.equal(passed.homePopulated,undefined);assert.equal(passed.visualMatrixCaptured,undefined);
+ const images=SCREENSHOTS.map(name=>({name,sha256:'d'.repeat(64),bytes:32}));assert.throws(()=>productReceipt(expected,authority(),{...passed,signedVerificationBound:true,signedBytesInstalled:true,sameSigner:true},images,true));
+ const yaml=productYaml(),restart=yaml.parseAllDocuments(readFileSync(new URL('../e2e/sandbox-product-restart.yaml',import.meta.url),'utf8'))[1].toJSON();assert.deepEqual(restart[0],{tapOn:{id:'native-nav-profile'}});
+});
+
+test('fixture prerequisite failure and unknown/interrupted execution stop dependent collection',()=>{
+ for(const prerequisite of ['setup','bank','manage']){
+  const seen=[];assert.deepEqual(collectProductStages({execute(name){seen.push(name);return name!==prerequisite;},onPassed(){},onFailure(){}}),[prerequisite]);assert.deepEqual(seen,['setup','bank','manage'].slice(0,['setup','bank','manage'].indexOf(prerequisite)+1));
+ }
+ const seen=[];assert.throws(()=>collectProductStages({execute(name){seen.push(name);if(name==='pages')throw Error('interrupted');return true;},onPassed(){},onFailure(){}}));assert.deepEqual(seen,['setup','bank','manage','pages']);
+ for(const invalid of [undefined,0,1,null,'true'])assert.throws(()=>collectProductStages({execute(){return invalid;},onPassed(){},onFailure(){}}));
+ const passed=[];assert.deepEqual(collectProductStages({execute(){return true;},onPassed(name,checks){passed.push([name,checks]);},onFailure(){assert.fail('unexpected failure');}}),[]);assert.deepEqual(passed,PRODUCT_STAGES);
 });

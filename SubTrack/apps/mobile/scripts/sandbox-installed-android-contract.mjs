@@ -16,6 +16,25 @@ const sha=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
 const head=value=>typeof value==='string'&&/^[a-f0-9]{40}$/.test(value);
 const id=value=>typeof value==='string'&&/^[1-9][0-9]{0,15}$/.test(value)&&Number.isSafeInteger(Number(value));
 export const digest=value=>createHash('sha256').update(value).digest('hex');
+export const PRODUCT_STAGES=Object.freeze([
+ ['setup',['isolatedEnrollment','seededHouseholdReadAndRenamed','dependantCreated']],
+ ['bank',['syntheticBankSynced','detectionConfirmedTwice','detectionRejectedAndUndone']],
+ ['manage',['confirmedPlanEdited','customCategorySaved','datePickerSaved','trackingReread']],
+ ['pages',['calendarOpened','homePopulated','insightsPopulated','comparisonOpened']],
+ ['visual',['visualMatrixCaptured']],
+ ['restart',['preferencesPersisted','coldRestartHouseholdReadback','coldRestartSubscriptionReadback','logoutClearedPrivateUi']],
+].map(([name,checks])=>Object.freeze([name,Object.freeze(checks)])));
+// Enrollment and mutations establish the shared fixture. Later suites each enter
+// their own tab; a natural assertion failure must not hide their independent results.
+// Tool interruption, timeout or an unknown exit throws and stops the collection.
+export function collectProductStages({execute,onPassed,onFailure}){
+ const failed=[];
+ for(const [index,[name,checks]] of PRODUCT_STAGES.entries()){
+  const passed=execute(name);if(typeof passed!=='boolean')fail();
+  if(passed)onPassed(name,checks);else{failed.push(name);onFailure(name);if(index<3)break;}
+ }
+ return failed;
+}
 export const REUSABLE_APK_SOURCE='81420b1faa8dae3143bd18653ac5cae383e8a9bc';
 export const INSTALLED_TOOLING_PATHS=Object.freeze([
  '.github/workflows/subtrack-native-device-proof.yml','.github/workflows/subtrack-sandbox-installed-android.yml',
@@ -66,9 +85,12 @@ export function productReceipt(expected,authority,checks,images,cleanup){
 export function foregroundSandbox(activity,windows){
  if(typeof activity!=='string'||typeof windows!=='string'||Buffer.byteLength(activity)>1048576||Buffer.byteLength(windows)>1048576)fail();
  activity=activity.replaceAll('\r','');windows=windows.replaceAll('\r','');
- const resumed=[...activity.matchAll(/^\s*mResumedActivity: ActivityRecord\{[^\r\n]* u0 ([a-zA-Z0-9_.]+)\/[^\r\n]*\}$/gm)];
- const focused=[...windows.matchAll(/^\s*mCurrentFocus=Window\{[^\r\n]* u0 ([a-zA-Z0-9_.]+)\/[^\r\n]*\}$/gm)];
- if(resumed.length!==1||focused.length!==1||resumed[0][1]!==PACKAGE||focused[0][1]!==PACKAGE)fail();return true;
+ // API34 Task.dumpInner emits topResumedActivity=; retain the historical field
+ // without accepting multiple/contradictory activities. Android14 source checked2026-10-18:
+ // https://android.googlesource.com/platform/frameworks/base/+/android-14.0.0_r1/services/core/java/com/android/server/wm/Task.java
+ const resumed=[...activity.matchAll(/^[\t ]*(?:mResumedActivity:[\t ]+|topResumedActivity=)ActivityRecord\{[^\r\n]* u([0-9]+) ([a-zA-Z0-9_.]+)\/[^\r\n]*\}$/gm)];
+ const focused=[...windows.matchAll(/^[\t ]*mCurrentFocus=Window\{[^\r\n]* u([0-9]+) ([a-zA-Z0-9_.]+)\/[^\r\n]*\}$/gm)];
+ if(resumed.length!==1||focused.length!==1||resumed[0][1]!=='0'||focused[0][1]!=='0'||resumed[0][2]!==PACKAGE||focused[0][2]!==PACKAGE)fail();return true;
 }
 export function diagnosticReceipt(expected,phase,png,guards){
  if(!head(expected?.sourceHead)||!head(expected?.toolingSourceHead)||!sha(expected?.signedSha256)||!['SETUP','BANK','MANAGE','PAGES','RESTART'].includes(phase)||!guards||Object.keys(guards).sort().join(',')!=='foregroundAfter,foregroundBefore,freshWorkspaceStarted,ownedDevice,verifiedInstall'||Object.values(guards).some(value=>value!==true)||!validAndroidPng(png))fail();

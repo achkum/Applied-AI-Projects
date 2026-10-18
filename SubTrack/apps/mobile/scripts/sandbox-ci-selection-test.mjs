@@ -29,8 +29,10 @@ test('registered native entry point calls the exact signed install-only workflow
  const target=caller.jobs['final-signed-product'];assert.equal(target.needs,'final-signed-authority');assert.equal(target.if,"github.event_name == 'workflow_dispatch' && inputs.signed_product == true");
  assert.equal(target.uses,'./.github/workflows/subtrack-sandbox-installed-android.yml');assert.equal(target.permissions.contents,'write');
  const guard=caller.jobs['final-signed-authority'].steps[0].run;
- for(const value of ['achkum/Applied-AI-Projects','refs/heads/st/native-synthetic-bank','"$ST_FINAL_SOURCE" = "$GITHUB_SHA"'])assert.ok(guard.includes(value));
+ for(const value of ['achkum/Applied-AI-Projects','refs/heads/st/native-synthetic-bank','test "$ST_FINAL_TOOLING" = "$GITHUB_SHA"','if test "$ST_FINAL_SOURCE" != "$GITHUB_SHA"; then','test "$ST_FINAL_SOURCE" = 81420b1faa8dae3143bd18653ac5cae383e8a9bc'])assert.ok(guard.includes(value));
  assert.deepEqual(Object.keys(target.with).sort(),Object.keys(child.on.workflow_call.inputs).sort());
- for(const input of Object.values(child.on.workflow_call.inputs)){assert.equal(input.required,true);assert.equal(input.type,'string');}
+ for(const name of ['source_head','signed_release_id','signed_sha256','verification_run']){const input=child.on.workflow_call.inputs[name];assert.equal(input.required,true);assert.equal(input.type,'string');}
+ assert.deepEqual(child.on.workflow_call.inputs.tooling_head,{description:'Exact reviewed test-tooling commit (same source or immediate tooling-only child of814)',type:'string',default:''});
+ assert.equal(caller.jobs['final-signed-authority'].env.ST_FINAL_TOOLING,'${{ inputs.tooling_head || github.sha }}');assert.equal(target.with.tooling_head,'${{ inputs.tooling_head || github.sha }}');
  assert.equal(caller.jobs['installed-native'].needs,'select-proof');
 });

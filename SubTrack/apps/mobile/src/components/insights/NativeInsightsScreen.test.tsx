@@ -1,7 +1,8 @@
 import React from 'react';
 import {AccessibilityInfo,DeviceEventEmitter,Modal,RefreshControl,StyleSheet,Text} from 'react-native';
 import {Circle,Polygon,Polyline,Text as SvgText} from 'react-native-svg';
-import {AnalyticsMoney,AnalyticsText,AnalyticsTrend} from './NativeAnalyticsUI';
+import {AnalyticsMoney,AnalyticsPriceBox,AnalyticsText,AnalyticsTrend} from './NativeAnalyticsUI';
+import {getColorByTheme} from '@/utils/colors';
 import {money} from '../../../../../packages/money/src/money';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { NativeInsightsScreen } from './NativeInsightsScreen';
@@ -184,12 +185,27 @@ it('keeps inline sample comparisons in Insights truthful and opens the actual se
  fireEvent.press(screen.getAllByRole('button',{name:copy.compare})[0]!);expect(mockPush).toHaveBeenLastCalledWith({pathname:'/personal-comparisons',params:{subscriptionId:row.id}});
  expect(screen.queryByText(/market average|live offer today|score.*100/i)).toBeNull();
 });
+it.each([1,2])('uses the actual category-overlap count for singular and plural summary copy (%s)',async count=>{
+ const music=[{...row,id:'323e4567-e89b-42d3-a456-426614174000',categoryCode:'MUSIC_AUDIO'},{...second,id:'423e4567-e89b-42d3-a456-426614174000',categoryCode:'MUSIC_AUDIO'}];
+ const projection=projectNativeAnalytics(count===1?[row,second]:[row,second,...music],null,now());
+ render(<NativeInsightsScreen useSession={()=>facade()} reader={jest.fn().mockResolvedValue({kind:'ready',projection})} now={now}/>);
+ await screen.findByText(count===1?copy.summaryOverlapOne:copy.summaryOverlap.replace('%{count}',String(count)));
+ expect(screen.queryByText(count===1?copy.summaryOverlap.replace('%{count}','1'):copy.summaryOverlapOne)).toBeNull();
+ expect(catalogs.sv.nativeAnalytics.summaryOverlapOne).toBe('1 kategori innehåller fler än ett aktivt abonnemang.');
+});
 it('keeps every exact historical amount accessible while showing the reference area chart and in-chart month labels',()=>{
  const projection=projectNativeAnalytics([row],history,now());render(<AnalyticsTrend months={projection.trend}/>);
  const label=screen.getByTestId('native-insights-trend').props.accessibilityLabel;
  for(const month of projection.trend)expect(label).toContain(`${month.month}, ${formatMinorUnits(month.amount.minorUnits,month.amount.currency,{locale:'en',display:'code'})}, ${copy.charges.replace('%{count}',String(month.chargeCount))}`);
  expect(screen.UNSAFE_getAllByType(Polygon)).toHaveLength(1);expect(screen.UNSAFE_getAllByType(SvgText).some(node=>node.props.children==='Oct')).toBe(true);
  expect(screen.queryByText('2026-10')).toBeNull();
+});
+it('distinguishes a lower-cost comparison with semantic positive text without recoloring the current saved price',()=>{
+ render(<><AnalyticsPriceBox><AnalyticsText kind="label">Current</AnalyticsText><AnalyticsMoney value={money(10000n,'SEK')} kind="price"/></AnalyticsPriceBox><AnalyticsPriceBox positive><AnalyticsText kind="label">Alternative</AnalyticsText><AnalyticsMoney value={money(7000n,'SEK')} kind="price"/></AnalyticsPriceBox></>);
+ const theme=jest.requireActual('../../../../../packages/ui-tokens/generated/billing-month.native.json');
+ expect(StyleSheet.flatten(screen.getByText('Alternative').props.style).color).toBe(getColorByTheme(theme,false,'status.positive'));
+ expect(StyleSheet.flatten(screen.getByText(formatMinorUnits(7000n,'SEK',{locale:'en',display:'code'})).props.style).color).toBe(getColorByTheme(theme,false,'status.positive'));
+ expect(StyleSheet.flatten(screen.getByText(formatMinorUnits(10000n,'SEK',{locale:'en',display:'code'})).props.style).color).toBe(getColorByTheme(theme,false,'ink.primary'));
 });
 it('draws zero booked history on the baseline and a constant positive amount as an honest flat series',()=>{
  const zero=projectNativeAnalytics([],[],now()).trend,view=render(<AnalyticsTrend months={zero}/>);const heights=()=>String(screen.UNSAFE_getByType(Polyline).props.points).split(' ').map(point=>Number(point.split(',')[1]));expect(new Set(heights())).toEqual(new Set([142]));

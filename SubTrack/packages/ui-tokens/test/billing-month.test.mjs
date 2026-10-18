@@ -10,6 +10,7 @@ test('native billing palette/font roles are additive and all declared text contr
  const read=path=>JSON.parse(readFileSync(new URL(path,root),'utf8'));const source=read('src/billing-month.native.json'),generated=read('generated/billing-month.native.json');assert.deepEqual(generated,source);assert.deepEqual(validateContrast(generated),[]);
  assert.equal(generated.color.dark['bg.canvas'],'#0D1214');assert.equal(generated.color.light['action.accent'],'#9C640A');assert.equal(generated.color.dark['action.accent'],'#EDB24E');
  assert.deepEqual(generated.typography.fontFamily,{ui:'Geist400','ui.medium':'Geist500','ui.semibold':'Geist600',display:'Bricolage700','display.semibold':'Bricolage600','display.bold':'Bricolage700','display.extraBold':'Bricolage800',mono:'Geist400'});
+ assert.equal(generated.typography.fontSize.profileTitle,23);
  const baseline=JSON.parse(readFileSync(new URL('../../../.sdlc/evidence/ST-247/legacy-token-baseline.json',import.meta.url),'utf8'));
  const checkoutBaseline=JSON.parse(readFileSync(new URL('../../../.sdlc/evidence/ST-247/legacy-token-checkout-baseline.json',import.meta.url),'utf8'));
  const expectedDigest=bytes=>{assert.equal(bytes.length,32);for(const byte of bytes)assert.ok(Number.isInteger(byte)&&byte>=0&&byte<=255);return Buffer.from(bytes);};
