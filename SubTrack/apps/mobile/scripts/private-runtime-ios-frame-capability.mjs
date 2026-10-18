@@ -92,7 +92,7 @@ export async function runIosFrameCapability({environment,head,root},{platform=pr
   assert.equal(platform,'darwin');assert.equal(environment.CI,'true');assert.ok(['full','ios-driver'].includes(environment.SUBTRACK_NATIVE_PROOF_SCOPE));assert.equal(environment.SUBTRACK_PRIVATE_FIXTURE_CONFIG,undefined);assert.equal(process.umask()&63,63);
   const context=preinputCaptureContext(environment,head);assert.ok(context);assert.equal(root,join(environment.RUNNER_TEMP,'subtrack-native-proof','private'));stage='CUSTODY';privateState(root,true);const original=custody(root,context);
   writeFileSync(join(root,'ios-frame-capability-claim.json'),JSON.stringify({schema:'st253-ios-frame-capability-claim-v1',...context}),{flag:'wx',mode:384});
-  stage='BEFORE';const before=measure(context.udid);stage='GUI';await openSimulator(context.udid,observe);
+  stage='GUI';await openSimulator(context.udid,observe);stage='BEFORE';const before=measure(context.udid);
   stage='CUSTODY';directory=join(root,'ios-frame-capability');mkdirSync(directory,{mode:448});cleanupVerified=false;ownedDirectory=privateState(directory,true);
   const file=join(directory,frameRelative);assert.equal(existsSync(file),false);stage='CAPTURE';await capture(context.udid,file,observe,{environment});
   stage='PNG';directoryIdentity(directory,ownedDirectory);const png=privateBytes(file,8388608);try{custodyCheck(validPreinputPng(png),'PNG_FORMAT');}finally{png.fill(0);}
