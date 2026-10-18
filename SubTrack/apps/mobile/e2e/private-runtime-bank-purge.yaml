@@ -19,12 +19,17 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: Example streaming Plus
     timeout: 30000
+- runFlow: private-runtime-open-profile.yaml
 - scrollUntilVisible:
-    element: ${MAESTRO_BANK_OPEN}
-    direction: UP
-- tapOn: ${MAESTRO_BANK_OPEN}
+    element:
+      id: native-profile-bank
+    direction: DOWN
+- tapOn:
+    id: native-profile-bank
 - extendedWaitUntil:
-    visible: ${MAESTRO_BANK_TITLE}
+    visible:
+      id: native-bank-title
+      text: ${MAESTRO_BANK_TITLE}
     timeout: 30000
 - assertVisible: ${MAESTRO_BANK_DEMO}
 - scrollUntilVisible:
@@ -83,7 +88,6 @@ appId: se.subtrack.app
     element:
       id: native-bank-title
     direction: UP
-    centerElement: true
 - swipe:
     from:
       id: native-bank-scroll

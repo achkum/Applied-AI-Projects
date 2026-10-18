@@ -53,7 +53,7 @@ test('actual bank source flows use one pull gesture, contextual Options and Prof
   assert.deepEqual(rows[logout[0]+1],{extendedWaitUntil:{visible:'${MAESTRO_LOGOUT_CONFIRMED}',timeout:30000}},name);
   for(const target of ['MAESTRO_LOGOUT','MAESTRO_BANK_ACTIVE','MAESTRO_BANK_REVOKED','MAESTRO_BANK_TRANSACTIONS','MAESTRO_BANK_LAST_SYNC_PRESENT'])assert.ok(rows.slice(logout[0]+1).some(row=>row.assertNotVisible==='${'+target+'}'),name+target);
   const swipes=rows.filter(row=>row.swipe);assert.equal(swipes.length,['repeat','retain','purge'].includes(name)?1:0,name);
-  if(swipes.length){assert.deepEqual(swipes[0],{swipe:{from:{id:'native-bank-scroll'},direction:'DOWN',duration:700}});const at=rows.indexOf(swipes[0]);assert.deepEqual(rows[at-1],{scrollUntilVisible:{element:{id:'native-bank-title'},direction:'UP',centerElement:true}});assert.ok(at<back[0]);}
+  if(swipes.length){assert.deepEqual(swipes[0],{swipe:{from:{id:'native-bank-scroll'},direction:'DOWN',duration:700}});const at=rows.indexOf(swipes[0]);assert.deepEqual(rows[at-1],{scrollUntilVisible:{element:{id:'native-bank-title'},direction:'UP'}});assert.ok(at<back[0]);}
   assert.equal(tap(rows,'${MAESTRO_BANK_REFRESH}').length,0,name);
   assert.equal(byId(rows,'native-bank-options-0').length,['retain','cancel','purge'].includes(name)?1:0,name);
  }
@@ -64,4 +64,30 @@ test('actual bank source flows use one pull gesture, contextual Options and Prof
  const sandbox=yaml.parseAllDocuments(readFileSync(new URL('../e2e/sandbox-product-bank.yaml',import.meta.url),'utf8')).map(document=>document.toJSON())[1];
  const at=sandbox.findIndex(row=>row.tapOn==='${E_MANAGE}');assert.ok(at>0);assert.deepEqual(sandbox[at-1],{scrollUntilVisible:{element:'${E_MANAGE}',direction:'UP'}});
  for(const id of ['native-detection-confirm-spotify-premium-individual','native-detection-confirm-disney-premium','native-detection-reject-icloud-50-gb','native-detection-undo'])assert.equal(byId(sandbox,id).length,1,id);
+});
+
+test('all bank entry flows retain the saved row before using the real Profile bank link; sync and repeat remain on the owned bank page',()=>{
+ const mobile=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobile.resolve('expo/package.json'))('yaml');
+ const steps=name=>yaml.parseAllDocuments(readFileSync(new URL(`../e2e/private-runtime-bank-${name}.yaml`,import.meta.url),'utf8'))[1].toJSON();
+ for(const name of ['connect','retain','cancel','purge','final']){
+  const rows=steps(name),profile=rows.findIndex(row=>row.runFlow==='private-runtime-open-profile.yaml'),entry=rows.findIndex(row=>row.tapOn?.id==='native-profile-bank');
+  assert.ok(profile>0&&entry===profile+2,name);assert.deepEqual(rows[profile-1],{extendedWaitUntil:{visible:'Example streaming Plus',timeout:30000}},name);
+  assert.deepEqual(rows[profile+1],{scrollUntilVisible:{element:{id:'native-profile-bank'},direction:'DOWN'}},name);
+  assert.deepEqual(rows[entry+1],{extendedWaitUntil:{visible:{id:'native-bank-title',text:'${MAESTRO_BANK_TITLE}'},timeout:30000}},name);
+  assert.deepEqual(rows[entry+2],{assertVisible:'${MAESTRO_BANK_DEMO}'},name);
+  assert.equal(rows.filter(row=>row.runFlow==='private-runtime-open-profile.yaml').length,1,name);
+  assert.equal(rows.filter(row=>row.tapOn?.id==='native-profile-bank').length,1,name);
+  assert.equal(rows.filter(row=>row.tapOn==='${MAESTRO_BANK_OPEN}').length,0,name);
+  if(name!=='connect'){
+   const back=rows.findIndex(row=>row.tapOn==='${MAESTRO_BANK_MANAGE}'),logout=rows.findIndex(row=>row.tapOn==='${MAESTRO_LOGOUT}');assert.ok(back>entry&&logout>back,name);
+   assert.ok(rows.slice(back+1,logout).some(row=>row.tapOn?.id==='native-nav-profile'),name);
+  }
+ }
+ for(const name of ['sync','repeat']){
+  const rows=steps(name);assert.deepEqual(rows[0],{scrollUntilVisible:{element:'${MAESTRO_BANK_SYNC}',direction:'DOWN'}});assert.deepEqual(rows[1],{tapOn:'${MAESTRO_BANK_SYNC}'});
+  assert.equal(rows.filter(row=>row.runFlow==='private-runtime-open-profile.yaml'||row.tapOn?.id==='native-profile-bank').length,0,name);
+ }
+ const personal=readFileSync(new URL('../src/components/onboarding/NativePersonalScreen.tsx',import.meta.url),'utf8'),bank=readFileSync(new URL('../src/components/banks/NativePersonalBankScreen.tsx',import.meta.url),'utf8');
+ assert.ok(personal.includes("!adding && page==='profile'"));assert.ok(personal.includes('testID="native-profile-bank"'));assert.ok(personal.includes("onPress={()=>router.push('/personal-bank')}"));
+ assert.ok(bank.includes("onPress={()=>router.replace('/personal')}"));assert.ok(bank.includes('testID="native-bank-title"'));assert.ok(bank.includes("copy('demo')"));assert.ok(bank.includes("copy('lastSync',{date:connection.lastSyncAt===null?copy('never')"));
 });
