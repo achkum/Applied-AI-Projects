@@ -608,6 +608,7 @@
     "addManually": "Lägg till manuellt",
     "summaryMonthly": "%{amount} per månad för %{count} aktiva abonnemang.",
     "summaryOverlap": "%{count} kategorier innehåller fler än ett aktivt abonnemang.",
+    "summaryOverlapOne": "1 kategori innehåller fler än ett aktivt abonnemang.",
     "availableHistory": "Tillgänglig bankhistorik",
     "openPlan": "Öppna %{name}",
     "comparisonTitle": "%{name} · %{alternative}"
@@ -629,6 +630,8 @@
     "tomorrow": "I morgon",
     "yesterday": "I går",
     "perPerson": "Per person",
-    "auto": "Auto"
+    "auto": "Auto",
+    "languageSwedish": "Svenska",
+    "languageEnglish": "English"
   }
 }

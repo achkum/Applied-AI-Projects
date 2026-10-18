@@ -83,9 +83,12 @@ it('shows unknown planned payer until explicit saved attribution, then renders t
  f.subscriptions.mockResolvedValue({items:[{id:subscription,visibility:'owner',source:'MANUAL',revision:'1',customName:'Example plan',merchantId:null,merchantName:null,categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',status:'ACTIVE',expectedAmountMinor:'101',currency:'SEK',nextChargeDate:null,alwaysPrivate:true}],nextCursor:null});
  await refresh();
  await screen.findByTestId('native-household-payer-band-unknown');expect(screen.queryByTestId(`native-household-payer-band-${admin}`)).toBeNull();
+ const exact=formatMinorUnits(101n,'SEK',{locale:'en',display:'code'});expect(screen.getAllByText(copy.payerUnknown)).toHaveLength(2);expect(screen.getByTestId('native-household-payer-distribution').props.accessibilityValue.text).toContain(`${copy.payerUnknown} · ${exact}`);
  jest.mocked(f.api.read).mockResolvedValue(parseSandboxHouseholdView({household:{...household().household,assignments:[{subscriptionId:subscription,memberIds:[admin,child],payerMemberId:child}]}}));
  await refresh();
  await screen.findByTestId(`native-household-payer-band-${child}`);expect(screen.queryByTestId('native-household-payer-band-unknown')).toBeNull();expect(screen.queryByTestId(`native-household-payer-band-${admin}`)).toBeNull();
+ expect(screen.queryByText(copy.payerUnknown)).toBeNull();expect(screen.getByTestId('native-household-payer-distribution').props.accessibilityValue.text).toContain(`Example child · ${exact}`);
+ fireEvent.press(screen.getByTestId(`native-household-scope-${child}`));expect(screen.getByTestId('native-household-payer-distribution').props.accessibilityValue.text).toBe(`Example child · ${exact}`);expect(f.api.mutate).not.toHaveBeenCalled();
 });
 it('keeps rename and member editors closed until requested and Cancel performs no mutation',async()=>{
  const f=fixture(household());await screen.findAllByText('Example parent');

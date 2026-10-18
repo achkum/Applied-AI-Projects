@@ -17,6 +17,7 @@ android_fix_handoff:
   delivery_source_head: 81420b1faa8dae3143bd18653ac5cae383e8a9bc
   version_code: 6
   issues:
+    - "HTML follow-up2026-10-18: additional visual/gesture corrections plus native failure collection prepared;741mobile tests pass and optional test-type error corrected. Exact installed parity plus Privacy/Notifications/Support remain open. See html-verification-followup-2026-10-18.md. V6 delivered bytes/backend unchanged."
     - "V6: SubTrack-Android-v6-20261018-TEST.apk,65648113bytes,SHA25677e400676d67fa4d638172f969cda7c74ccf87e13772a1d41458b9f6fc3d4ad1. Signed build delivered; PAGES failure and exact native visual parity unresolved. No successful complete-product claim."
     - "V5 private test delivery: SubTrack-Android-v5-20261017-UNVALIDATED.apk,65611249 bytes,SHA2567b951487d4a22f261fe534991b79e68c97424eb2358be2510fad6a14ab7dec18. Android build39058274305 and API39058276540 succeed; full device/signed-product validation explicitly waived. Source reviews retained."
     - "ST-253 deployment follow-up: upgrade-api.cjs limits uses no-new-privileges while frozen live validator requires explicit no-new-privileges:true. Actual failure recovered without DDL/rebuild using same image and independently reviewed execution-only script; persist exact option in future helper before reuse. Original failure, backup and recovery receipts retained."

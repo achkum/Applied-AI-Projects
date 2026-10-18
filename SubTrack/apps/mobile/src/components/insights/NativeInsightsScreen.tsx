@@ -76,7 +76,7 @@ export function NativeInsightsScreen({ useSession = useNativeSession, reader = d
           </NativeProductCard>
           <NativeProductCard><Text style={{color:color('action.accent'),fontFamily:theme.typography.fontFamily['ui.semibold'],fontSize:theme.typography.fontSize.xs,textTransform:'uppercase',letterSpacing:0.7}}>{t('nativeAnalytics.summary')}</Text>
             {value.totals.map(row => <AnalyticsText kind="summary" key={row.monthly.currency}>{t('nativeAnalytics.summaryMonthly',{amount:formatMinorUnits(row.monthly.minorUnits,row.monthly.currency,{locale,display:'code'}),count:costs.filter(item=>item.row.currency===row.monthly.currency).length})}</AnalyticsText>)}
-            {value.overlaps.length>0?<AnalyticsText kind="summary">{t('nativeAnalytics.summaryOverlap',{count:value.overlaps.length})}</AnalyticsText>:null}
+            {value.overlaps.length>0?<AnalyticsText kind="summary">{t(value.overlaps.length===1?'nativeAnalytics.summaryOverlapOne':'nativeAnalytics.summaryOverlap',{count:value.overlaps.length})}</AnalyticsText>:null}
             {value.unknownCadenceCount > 0 ? <AnalyticsText kind="muted">{t('nativeAnalytics.unknownCadence', { count: value.unknownCadenceCount })}</AnalyticsText> : null}
             {value.active.length === 0 ? <AnalyticsText>{t('nativeAnalytics.empty')}</AnalyticsText> : null}
           </NativeProductCard>

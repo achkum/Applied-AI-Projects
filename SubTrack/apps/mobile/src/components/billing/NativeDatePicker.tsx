@@ -46,7 +46,8 @@ export function NativeDatePicker({value, onChange, label, disabled = false, opti
     </Pressable>
     {open && !disabled?<Modal visible transparent animationType="none" onRequestClose={() => setOpen(false)}>
       <View style={[styles.scrim, {backgroundColor:color('sheet.scrim')}]}>
-        <SafeAreaView accessibilityViewIsModal style={[styles.sheet, {backgroundColor:color('bg.surface'), borderTopLeftRadius:theme.radius.card, borderTopRightRadius:theme.radius.card}]}>
+        <Pressable testID="native-date-picker-scrim" accessible={false} onPress={()=>setOpen(false)} style={StyleSheet.absoluteFillObject}/>
+        <SafeAreaView accessibilityViewIsModal onAccessibilityEscape={()=>setOpen(false)} style={[styles.sheet, {backgroundColor:color('bg.surface'), borderTopLeftRadius:theme.radius.card, borderTopRightRadius:theme.radius.card}]}>
           <ScrollView contentContainerStyle={styles.content}>
             <Text accessibilityRole="header" style={[text, {fontFamily:theme.typography.fontFamily.display}]}>{label}</Text>
             <View style={styles.navigation}>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {createContext, useContext} from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Polyline, Polygon, Line, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '@/context/ThemeContext';
@@ -9,11 +9,13 @@ import type { Money } from '../../../../../packages/money/src/money';
 import {add,multiply,subtract} from '../../../../../packages/money/src/money';
 import { chartPercent } from '../../../../../packages/money/src/recurring-cost';
 import type { AnalyticsTrendMonth } from '@/api/nativeAnalyticsProjection';
+const AnalyticsTone=createContext<'positive'|null>(null);
 
 export function AnalyticsText({ children, kind = 'body' }: { children: React.ReactNode; kind?: 'body' | 'muted' | 'title' | 'amount' | 'hero' | 'label' | 'summary' | 'price' | 'unit' }) {
   const { theme, isDark } = useTheme();
+  const tone=useContext(AnalyticsTone);
   const size=theme.typography.fontSize[kind==='title'?'cardTitle':kind==='summary'?'summary':kind==='muted'?'caption':kind==='label'?'chart':kind==='price'?'price':kind==='hero'?typeof children==='string'&&children.length>18?'2xl':'total':kind==='amount'?'2xl':'md']!;
-  return <Text {...(kind === 'hero' ? { numberOfLines: 1, adjustsFontSizeToFit: true, minimumFontScale: 0.4, allowFontScaling: true } : {})} style={{ color: getColorByTheme(theme, isDark, kind === 'muted'||kind==='unit'||kind==='label' ? 'ink.secondary' : 'ink.primary'),
+  return <Text {...(kind === 'hero' ? { numberOfLines: 1, adjustsFontSizeToFit: true, minimumFontScale: 0.4, allowFontScaling: true } : {})} style={{ color: getColorByTheme(theme, isDark, tone==='positive'?'status.positive':kind === 'muted'||kind==='unit'||kind==='label' ? 'ink.secondary' : 'ink.primary'),
     fontFamily: theme.typography.fontFamily[kind === 'hero' || kind === 'amount' ? 'display.extraBold' : kind === 'title' || kind === 'label' || kind==='price' ? 'ui.semibold' : 'ui'],fontSize:size,
     ...(kind==='summary'?{lineHeight:size*1.55}:kind==='body'?{lineHeight:size*1.45}:kind==='unit'?{lineHeight:size*1.2}:kind==='amount'?{lineHeight:size*1.1,letterSpacing:size*-.03,fontVariant:['tabular-nums' as const]}:kind==='label'?{textTransform:'uppercase' as const,letterSpacing:size*.05}:{}),
     ...(kind === 'hero' ? {lineHeight:size*.9,letterSpacing:size*-.045,textAlign: 'left' as const, fontVariant: ['tabular-nums' as const], alignSelf: 'stretch' as const, minWidth: 0 } : {}) }}>{children}</Text>;
@@ -27,7 +29,7 @@ export function AnalyticsMoney({ value, kind = 'amount', heroPeriod, heroAction 
     // Only fixed Intl metadata is numeric; exact monetary digits stay strings.
     const metadata=new Intl.NumberFormat(locale==='sv'?'sv-SE':'en-SE',{style:'currency',currency:value.currency,currencyDisplay:'code'}),decimal=metadata.formatToParts(1).find(part=>part.type==='decimal')?.value;
     if(decimal){const at=numeric.lastIndexOf(decimal),fraction=numeric.slice(at+decimal.length);if(at>=0&&fraction.length===metadata.resolvedOptions().maximumFractionDigits&&Array.from(fraction).every(digit=>digit==='0'))numeric=numeric.slice(0,at);}
-    return <View style={{width:'100%',flexDirection:'row',alignItems:'flex-end',flexWrap:'wrap',columnGap:12,rowGap:4}}><View accessible accessibilityLabel={formatted} accessibilityHint={heroPeriod} style={{flexDirection:'row',alignItems:'flex-end',gap:12,flexShrink:1,minWidth:0}}><View style={{flexShrink:1,minWidth:0}}><AnalyticsText kind="hero">{numeric}</AnalyticsText></View><View style={{paddingBottom:3,maxWidth:'40%'}}><AnalyticsText kind="unit">{heroPeriod ? `${value.currency} ${heroPeriod}` : value.currency}</AnalyticsText></View></View>{heroAction?<View style={{marginLeft:'auto'}}>{heroAction}</View>:null}</View>;
+    return <View style={{width:'100%',flexDirection:'row',alignItems:'flex-end',columnGap:12}}><View accessible accessibilityLabel={formatted} accessibilityHint={heroPeriod} style={{flexDirection:'row',alignItems:'flex-end',gap:12,flex:1,minWidth:0}}><View style={{flexShrink:1,minWidth:0}}><AnalyticsText kind="hero">{numeric}</AnalyticsText></View><View style={{paddingBottom:3,maxWidth:72,flexShrink:0}}><AnalyticsText kind="unit">{heroPeriod ? `${value.currency} ${heroPeriod}` : value.currency}</AnalyticsText></View></View>{heroAction?<View style={{flexShrink:0}}>{heroAction}</View>:null}</View>;
   }
   return <AnalyticsText kind={kind}>{formatted}</AnalyticsText>;
 }
@@ -46,7 +48,7 @@ export function AnalyticsBadge({label,tone='review'}:{label:string;tone?:'review
 }
 export function AnalyticsPriceBox({ children, positive = false }: { children: React.ReactNode; positive?: boolean }) {
   const { theme, isDark } = useTheme();
-  return <View style={[styles.priceBox, { borderRadius: 10, backgroundColor: getColorByTheme(theme, isDark, 'bg.raised'), ...(positive ? {borderWidth:1,borderColor:getColorByTheme(theme,isDark,'status.positive')} : {}) }]}>{children}</View>;
+  return <AnalyticsTone.Provider value={positive?'positive':null}><View style={[styles.priceBox, { borderRadius: 10, overflow:'hidden',backgroundColor:positive?'transparent':getColorByTheme(theme,isDark,'bg.raised') }]}>{positive?<View accessible={false} pointerEvents="none" style={[StyleSheet.absoluteFillObject,{backgroundColor:getColorByTheme(theme,isDark,'status.positive'),opacity:.14}]}/>:null}{children}</View></AnalyticsTone.Provider>;
 }
 export function AnalyticsBar({ value, maximum }: { value: Money; maximum: Money }) {
   const { theme, isDark } = useTheme();

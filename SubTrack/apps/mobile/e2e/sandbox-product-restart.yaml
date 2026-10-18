@@ -1,5 +1,7 @@
 appId: se.subtrack.app.sandbox
 ---
+- tapOn:
+    id: native-nav-profile
 - extendedWaitUntil:
     visible:
       id: native-profile-language-sv

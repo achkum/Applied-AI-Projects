@@ -5,7 +5,7 @@ import {readFileSync,writeFileSync,mkdirSync,lstatSync,realpathSync,existsSync,r
 import path from 'node:path';
 import {URL,fileURLToPath,pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
-import {dispatch,verifiedAuthority,signedDraft,bindPending,acceptedPng,productReceipt,digest,PACKAGE,SIGNER,SCREENSHOTS,REPO,foregroundSandbox,diagnosticReceipt} from './sandbox-installed-android-contract.mjs';
+import {dispatch,verifiedAuthority,signedDraft,bindPending,acceptedPng,productReceipt,digest,PACKAGE,SIGNER,SCREENSHOTS,REPO,foregroundSandbox,diagnosticReceipt,collectProductStages} from './sandbox-installed-android-contract.mjs';
 import {inspectActiveApk} from '../../../tools/sandbox/android-transfer-receipt.mjs';
 const app=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),root=path.resolve(app,'../..');
 const fail=()=>{throw Error('Sandbox installed Android unavailable');};
@@ -72,7 +72,21 @@ function run(){
  const w=workspace();const {expected,authority}=JSON.parse(readFileSync(path.join(w.privateDir,'authority.json'),'utf8'));
  if(JSON.stringify(currentDispatch())!==JSON.stringify(expected))fail();
  const apk=path.join(w.privateDir,'signed.apk');if(digest(readFileSync(apk))!==expected.signedSha256)fail();
- const checks={signedVerificationBound:true};let complete=false,freshWorkspaceStarted=false,diagnostic;
+ const checks={signedVerificationBound:true};let complete=false,freshWorkspaceStarted=false,diagnostic,collectionComplete=false,diagnosticAttempt=0;
+ function captureCurrentFailure(){
+  if(diagnostic)return;
+  let captureStage='ELIGIBILITY',png,retained=false;const attempt=++diagnosticAttempt;
+  try{
+   if(!checks.signedBytesInstalled||!freshWorkspaceStarted||!['SETUP','BANK','MANAGE','PAGES','RESTART'].includes(phase))fail();
+   captureStage='OWNED_DEVICE';command('bash',['scripts/private-runtime-android.sh','owned-device'],w.privateDir,`diagnostic-${attempt}-owned-device`);
+   const foreground=label=>foregroundSandbox(command('adb',['-s','emulator-5554','shell','dumpsys','activity','activities'],w.privateDir,`diagnostic-${attempt}-${label}-activity`).toString('utf8'),command('adb',['-s','emulator-5554','shell','dumpsys','window','windows'],w.privateDir,`diagnostic-${attempt}-${label}-windows`).toString('utf8'));
+   captureStage='FOREGROUND_BEFORE';foreground('before');
+   captureStage='CAPTURE';png=command('adb',['-s','emulator-5554','exec-out','screencap','-p'],w.privateDir,`diagnostic-${attempt}-original-png`);
+   captureStage='FOREGROUND_AFTER';foreground('after');
+   captureStage='RECEIPT';diagnostic={png,receipt:diagnosticReceipt(expected,phase,png,{verifiedInstall:true,freshWorkspaceStarted:true,ownedDevice:true,foregroundBefore:true,foregroundAfter:true})};retained=true;
+  }catch{console.log(`ST253_SANDBOX_ANDROID diagnostic=withheld category=${captureStage}`);}
+  finally{if(!retained)png?.fill(0);}
+ }
  try{
   phase='SIGNATURE';const tools=path.join(process.env.ANDROID_HOME??'','build-tools/36.0.0');
   const cert=command(path.join(tools,'apksigner'),['verify','--verbose','--print-certs',apk],w.privateDir,'signature').toString('utf8');
@@ -84,20 +98,14 @@ function run(){
   const deviceDate=command('adb',['-s','emulator-5554','shell','date','+%Y-%m-%d'],w.privateDir,'device-date').toString('utf8').trim();if(!/^\d{4}-\d{2}-\d{2}$/.test(deviceDate))fail();
   const labels=flowLabels(new Date(`${deviceDate}T12:00:00Z`)),environment={...process.env,...labels};delete environment.GITHUB_TOKEN;delete environment.GH_TOKEN;
   if(command('adb',['-s','emulator-5554','shell','pm','clear',PACKAGE],w.privateDir,'fresh-sandbox-clear').toString('utf8').trim()!=='Success')fail();
-  const stages=[['setup',['isolatedEnrollment','seededHouseholdReadAndRenamed','dependantCreated']],['bank',['syntheticBankSynced','detectionConfirmedTwice','detectionRejectedAndUndone']],['manage',['confirmedPlanEdited','customCategorySaved','datePickerSaved','trackingReread']],['pages',['calendarOpened','homePopulated','insightsPopulated','comparisonOpened']],['visual',['visualMatrixCaptured']],['restart',['preferencesPersisted','coldRestartHouseholdReadback','coldRestartSubscriptionReadback','logoutClearedPrivateUi']]];
-  for(const [name,flags]of stages){phase=name==='visual'?'PAGES':name.toUpperCase();if(name==='setup')freshWorkspaceStarted=true;const log=openSync(path.join(w.privateDir,`${name}.log`),'wx',0o600);let result;try{result=spawnSync('maestro',maestroArgs(labels,path.join(w.privateDir,name),path.join(app,'e2e',`sandbox-product-${name}.yaml`)),{cwd:app,env:environment,stdio:['ignore',log,log],timeout:600000,killSignal:'SIGKILL'});}finally{closeSync(log);}if(result.status!==0||result.error)fail();for(const key of flags)checks[key]=true;console.log(`ST253_SANDBOX_ANDROID phase=${phase} status=passed`);}
+  const failed=collectProductStages({execute(name){phase=name==='visual'?'PAGES':name.toUpperCase();if(name==='setup')freshWorkspaceStarted=true;const log=openSync(path.join(w.privateDir,`${name}.log`),'wx',0o600);let result;try{result=spawnSync('maestro',maestroArgs(labels,path.join(w.privateDir,name),path.join(app,'e2e',`sandbox-product-${name}.yaml`)),{cwd:app,env:environment,stdio:['ignore',log,log],timeout:600000,killSignal:'SIGKILL'});}finally{closeSync(log);}if(result.error||result.signal!==null||![0,1].includes(result.status))fail();return result.status===0;},onPassed(name,flags){for(const key of flags)checks[key]=true;console.log(`ST253_SANDBOX_ANDROID phase=${phase} suite=${name} status=passed`);},onFailure(name){console.log(`ST253_SANDBOX_ANDROID phase=${phase} suite=${name} status=failed`);captureCurrentFailure();}});
+  collectionComplete=true;if(failed.length){phase=failed[0]==='visual'?'PAGES':failed[0].toUpperCase();fail();}
   phase='SCREENSHOTS';const found=new Map();function walk(directory){for(const entry of readdirSync(directory,{withFileTypes:true})){const file=path.join(directory,entry.name);if(entry.isSymbolicLink())fail();if(entry.isDirectory())walk(file);else if(SCREENSHOTS.includes(entry.name)){if(found.has(entry.name))fail();const bytes=readFileSync(file);found.set(entry.name,{file,...acceptedPng(bytes)});}}}walk(w.privateDir);
   if(found.size!==SCREENSHOTS.length)fail();mkdirSync(w.publicDir,{mode:0o700});const images=SCREENSHOTS.map(name=>{const image=found.get(name);copyFileSync(image.file,path.join(w.publicDir,name),1);return {name,sha256:image.sha256,bytes:image.bytes};});
   phase='CLEANUP';rmSync(w.privateDir,{recursive:true});if(existsSync(w.privateDir))fail();
   const receipt=productReceipt(expected,authority,checks,images,true);write(path.join(w.publicDir,'installed-sandbox-android-receipt.json'),receipt);complete=true;console.log('ST253_SANDBOX_ANDROID phase=ACCEPTED status=passed');
  }catch(error){
-  try{
-   if(!checks.signedBytesInstalled||!freshWorkspaceStarted||!['SETUP','BANK','MANAGE','PAGES','RESTART'].includes(phase))fail();
-   command('bash',['scripts/private-runtime-android.sh','owned-device'],w.privateDir,'diagnostic-owned-device');
-   const foreground=label=>foregroundSandbox(command('adb',['-s','emulator-5554','shell','dumpsys','activity','activities'],w.privateDir,`diagnostic-${label}-activity`).toString('utf8'),command('adb',['-s','emulator-5554','shell','dumpsys','window','windows'],w.privateDir,`diagnostic-${label}-windows`).toString('utf8'));
-   foreground('before');const png=command('adb',['-s','emulator-5554','exec-out','screencap','-p'],w.privateDir,'diagnostic-original-png');foreground('after');
-   diagnostic={png,receipt:diagnosticReceipt(expected,phase,png,{verifiedInstall:true,freshWorkspaceStarted:true,ownedDevice:true,foregroundBefore:true,foregroundAfter:true})};
-  }catch{/* Withhold diagnostics unless every independent fence passes. */}
+  if(!collectionComplete)captureCurrentFailure();
   throw error;
  }finally{
   if(existsSync(w.privateDir)&&realpathSync(w.privateDir)===path.join(w.directory,'private'))rmSync(w.privateDir,{recursive:true});if(!complete&&existsSync(w.publicDir))rmSync(w.publicDir,{recursive:true});

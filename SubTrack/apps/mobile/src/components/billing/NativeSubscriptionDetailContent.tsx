@@ -40,7 +40,7 @@ export function NativeSubscriptionDetailContent({item,onClose,onManage,actions,h
   <View accessible accessibilityLabel={`${price} · ${cadence}`} style={styles.price}>
    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={.4} style={{...text,fontFamily:theme.typography.fontFamily['display.extraBold'],fontSize:theme.typography.fontSize.detail,lineHeight:theme.typography.fontSize.detail,letterSpacing:theme.typography.fontSize.detail!*-.045,fontVariant:['tabular-nums'],flexShrink:1}}>{price.replace(item.currency,'').trim()}</Text>
    <Text style={{...text,color:color('ink.secondary')}}>{item.currency} · {cadence}</Text>
-   {previousPrice?<View style={[styles.previous,{backgroundColor:color('bg.raised'),borderRadius:8}]}><Text style={{...strong,fontSize:theme.typography.fontSize.xs,color:color('status.warning')}}>{t('nativeAnalytics.previous')} {previousPrice}</Text></View>:null}
+   {previousPrice?<View style={[styles.previous,{borderRadius:8,overflow:'hidden'}]}><View accessible={false} pointerEvents="none" style={[StyleSheet.absoluteFillObject,{backgroundColor:color('status.warning'),opacity:.14}]}/><Text style={{...strong,fontSize:theme.typography.fontSize.xs,color:color('status.warning')}}>{t('nativeAnalytics.previous')} {previousPrice}</Text></View>:null}
   </View>
   <NativeProductCard style={styles.facts}>{fields.map(([label,value],index)=><View key={label} style={[styles.fact,index>0?styles.divider:null,{borderColor:color('line.hairline')}]}><Text style={{...text,fontSize:theme.typography.fontSize.control,color:color('ink.secondary'),flexShrink:1}}>{label}</Text><Text style={[strong,styles.value]}>{value}</Text></View>)}</NativeProductCard>
   {history}
