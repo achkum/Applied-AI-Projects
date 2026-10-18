@@ -38,7 +38,7 @@ test('command failures expose only closed categories, including terminated inste
  assert.ok(Object.isFrozen(IOS_FRAME_FAILURES));const seen=[];await assert.rejects(openOwnedIosSimulator(udid,value=>{seen.push(value);throw Error('private-canary');},{execute:()=>{throw Object.assign(Error('private-canary'),{code:'EACCES'});}}));assert.deepEqual(seen,['SPAWN']);
 });
 test('one fixture-free capability check opens exact Simulator, validates a complete PNG and removes all raw output before readiness',()=>fixture(async f=>{
- const result=await runIosFrameCapability({...f,head},f.ports);assert.deepEqual(f.calls,['measure','gui','capture','measure']);assert.deepEqual(result,{schema:'st253-ios-frame-capability-v1',ready:true,stage:'COMPLETE',failureStage:null,commandFailure:null,pngFailure:null,cleanupFailure:null,cleanupVerified:true});assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);assert.deepEqual(fs.readdirSync(f.root).sort(),['ios-frame-capability-claim.json','preinput-ios-custody.json']);
+ const result=await runIosFrameCapability({...f,head},f.ports);assert.deepEqual(f.calls,['measure','gui','capture','measure']);assert.deepEqual(result,{schema:'st253-ios-frame-capability-v1',ready:true,stage:'COMPLETE',failureStage:null,commandFailure:null,originalReasons:null,pngFailure:null,cleanupFailure:null,cleanupRosterFailure:null,cleanupVerified:true});assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);assert.deepEqual(fs.readdirSync(f.root).sort(),['ios-frame-capability-claim.json','preinput-ios-custody.json']);
  const repeated=await runIosFrameCapability({...f,head},f.ports);assert.equal(repeated.ready,false);assert.equal(repeated.stage,'CUSTODY');assert.deepEqual(f.calls,['measure','gui','capture','measure']);
 }));
 test('wrong source/scope/platform/fixture/custody prevents every GUI or frame command',async()=>{
@@ -65,12 +65,12 @@ test('a replaced private output directory is retained and cannot authorize readi
 
 test('cleanup failure preserves the original failed capture and closed command category without exposing errors',()=>fixture(async f=>{
  const result=await runIosFrameCapability({...f,head},{...f.ports,capture:async(id,file,report)=>{await f.ports.capture(id,file);fs.writeFileSync(join(f.root,'ios-frame-capability','private-canary'),'retained');report('TERMINATED');throw Error('private-canary');}});
- assert.equal(result.ready,false);assert.equal(result.stage,'CLEANUP');assert.equal(result.failureStage,'CAPTURE');assert.equal(result.commandFailure,'TERMINATED');assert.equal(result.pngFailure,null);assert.equal(result.cleanupFailure,'ROSTER');assert.equal(result.cleanupVerified,false);assert.ok(!JSON.stringify(result).includes('private-canary'));
+ assert.equal(result.ready,false);assert.equal(result.stage,'CLEANUP');assert.equal(result.failureStage,'CAPTURE');assert.equal(result.commandFailure,'TERMINATED');assert.equal(result.pngFailure,null);assert.equal(result.cleanupFailure,'ROSTER');assert.equal(result.cleanupRosterFailure,'UNEXPECTED_FILE');assert.equal(result.cleanupVerified,false);assert.ok(!JSON.stringify(result).includes('private-canary'));
 }));
 
 test('a nonprivate screenshot is neither read nor deleted and reports both original PNG custody and cleanup failure',()=>fixture(async f=>{
  const original=fs.lstatSync;fs.lstatSync=(file,...args)=>{const value=original(file,...args);if(String(file).endsWith('frame.png'))return new Proxy(value,{get(target,key){if(key==='mode')return(target.mode&~511)|420;const got=target[key];return typeof got==='function'?got.bind(target):got;}});return value;};syncBuiltinESMExports();
- try{const result=await runIosFrameCapability({...f,head},f.ports);assert.equal(result.ready,false);assert.equal(result.stage,'CLEANUP');assert.equal(result.failureStage,'PNG');assert.equal(result.pngFailure,'PERMISSIONS');assert.equal(result.commandFailure,null);assert.equal(result.cleanupFailure,'ROSTER');assert.equal(result.cleanupVerified,false);assert.ok(fs.existsSync(join(f.root,'ios-frame-capability','output/ios-frame-capability/takeScreenshot/frame.png')));assert.deepEqual(f.calls,['measure','gui','capture']);}finally{fs.lstatSync=original;syncBuiltinESMExports();}
+ try{const result=await runIosFrameCapability({...f,head},f.ports);assert.equal(result.ready,false);assert.equal(result.stage,'CLEANUP');assert.equal(result.failureStage,'PNG');assert.equal(result.pngFailure,'PERMISSIONS');assert.equal(result.commandFailure,null);assert.equal(result.cleanupFailure,'ROSTER');assert.equal(result.cleanupRosterFailure,'PERMISSIONS');assert.equal(result.cleanupVerified,false);assert.ok(fs.existsSync(join(f.root,'ios-frame-capability','output/ios-frame-capability/takeScreenshot/frame.png')));assert.deepEqual(f.calls,['measure','gui','capture']);}finally{fs.lstatSync=original;syncBuiltinESMExports();}
 }));
 
 test('cleanup-only failure is distinguished from any earlier capture or PNG failure',()=>fixture(async f=>{
@@ -100,6 +100,30 @@ test('actual owned Node child exit and close produce only private bounded output
 test('nonzero incomplete timed-out and signalled child evidence never authorizes a valid-looking PNG or retry',async()=>{
  for(const child of [{exitCode:1,complete:true,timedOut:false},{exitCode:0,complete:false,timedOut:false},{exitCode:0,complete:true,timedOut:true},{exitCode:0,complete:true,timedOut:false,closed:false},{exitCode:0,complete:true,timedOut:false,signal:'SIGTERM'},{exitCode:0,complete:true,timedOut:false,error:'PRIVATE_CANARY'},{exitCode:0,complete:'true',timedOut:false}])await fixture(async f=>{let calls=0;const capture=(id,file,report,options)=>captureIosFrame(id,file,report,{...options,runChild:async log=>{calls++;fs.writeFileSync(log,'PRIVATE_CANARY',{mode:384,flag:'wx'});await f.ports.capture(id,file);return child;}});const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(result.ready,false);assert.equal(result.failureStage,'CAPTURE');assert.equal(result.cleanupVerified,true);assert.equal(calls,1);assert.equal(f.calls.filter(value=>value==='measure').length,1);assert.ok(!JSON.stringify(result).includes('PRIVATE_CANARY'));});
 });
+
+test('only a naturally completed nonzero original child reads its exact process log once and emits existing closed reasons',async()=>{
+ for(const kind of ['natural','unknown','timeout','incomplete','unclosed','signal','error','bad-exit'])await fixture(async f=>{
+  const original=fs.openSync;let reads=0,calls=0;
+  fs.openSync=(file,flags,...args)=>{if(String(file)===join(f.root,'ios-frame-capability','process.log')&&flags===(fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW))reads++;return original(file,flags,...args);};syncBuiltinESMExports();
+  try{
+   const capture=(id,file,report,options)=>captureIosFrame(id,file,report,{...options,runChild:async log=>{
+    calls++;fs.writeFileSync(log,kind==='unknown'?'PRIVATE_CANARY':'failed to connect PRIVATE_CANARY',{mode:384,flag:'wx'});
+    return {exitCode:kind==='bad-exit'?256:1,complete:kind!=='incomplete',timedOut:kind==='timeout',...(kind==='unclosed'?{closed:false}:{}),...(kind==='signal'?{signal:'SIGTERM'}:{}),...(kind==='error'?{error:'PRIVATE_CANARY'}:{})};
+   }});
+   const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(result.ready,false);assert.equal(calls,1);assert.equal(result.failureStage,'CAPTURE');assert.equal(result.cleanupVerified,true);assert.equal(fs.existsSync(join(f.root,'ios-frame-capability')),false);
+   const natural=['natural','unknown'].includes(kind);assert.equal(reads,natural?1:0);assert.deepEqual(result.originalReasons,natural?[kind==='natural'?'connection':'UNKNOWN']:null);assert.ok(!JSON.stringify(result).includes('PRIVATE_CANARY'));
+  }finally{fs.openSync=original;syncBuiltinESMExports();}
+ });
+});
+
+test('a known process read failure stays UNKNOWN and unexpected directories retain custody without disclosing names',()=>fixture(async f=>{
+ const original=fs.openSync;let reads=0;
+ fs.openSync=(file,flags,...args)=>{if(String(file)===join(f.root,'ios-frame-capability','process.log')&&flags===(fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW)){reads++;throw Error('PRIVATE_READ_CANARY');}return original(file,flags,...args);};syncBuiltinESMExports();
+ try{
+  const capture=(id,file,report,options)=>captureIosFrame(id,file,report,{...options,runChild:async log=>{fs.writeFileSync(log,'failed to connect PRIVATE_CONTENT_CANARY',{mode:384,flag:'wx'});fs.mkdirSync(join(dirname(log),'state','PRIVATE_DIRECTORY_CANARY'),{mode:448});return {exitCode:1,complete:true,timedOut:false};}});
+  const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(reads,1);assert.equal(result.ready,false);assert.deepEqual(result.originalReasons,['UNKNOWN']);assert.equal(result.cleanupFailure,'ROSTER');assert.equal(result.cleanupRosterFailure,'UNEXPECTED_DIRECTORY');assert.equal(result.cleanupVerified,false);assert.ok(fs.existsSync(join(f.root,'ios-frame-capability','state','PRIVATE_DIRECTORY_CANARY')));assert.ok(!JSON.stringify(result).includes('PRIVATE_'));
+ }finally{fs.openSync=original;syncBuiltinESMExports();}
+}));
 
 test('changed generated inputs or unexpected child outputs withhold readiness without deleting unknown output',async()=>{
  for(const kind of ['flow','config','foreign','duplicate-flow','extra-png'])await fixture(async f=>{const capture=(id,file,report,options)=>captureIosFrame(id,file,report,{...options,runChild:async log=>{const directory=dirname(log);fs.writeFileSync(log,'private',{mode:384,flag:'wx'});await f.ports.capture(id,file);if(kind==='flow')fs.appendFileSync(join(directory,'flow.yaml'),'\n- launchApp\n');if(kind==='config')fs.writeFileSync(join(directory,'config.yaml'),'onFlowStart: private');if(kind==='foreign')fs.writeFileSync(join(directory,'foreign-private'),'retain',{mode:384});if(kind==='duplicate-flow')fs.mkdirSync(join(directory,'output','ios-frame-capability-2'),{mode:448});if(kind==='extra-png')fs.writeFileSync(join(dirname(file),'foreign.png'),png(),{mode:384});return {exitCode:0,complete:true,timedOut:false};}});const result=await runIosFrameCapability({...f,head},{...f.ports,capture});assert.equal(result.ready,false);assert.equal(result.failureStage,['flow','config'].includes(kind)?'INPUT':'OUTPUT');assert.equal(result.cleanupVerified,['flow','config'].includes(kind));assert.ok(!JSON.stringify(result).includes('foreign-private'));if(!result.cleanupVerified)assert.ok(fs.existsSync(join(f.root,'ios-frame-capability')));});
