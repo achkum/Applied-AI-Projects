@@ -16,6 +16,8 @@ android_fix_handoff:
   tested_source_head: ccac41571127ef97acb46728a57c67da691bd120
   delivery_source_head: 81420b1faa8dae3143bd18653ac5cae383e8a9bc
   version_code: 6
+  backend_source_head: 1c71ee5cd8b8d80ecbb3630b4043d4657db3840f
+  backend_dataset: "sweden-seed-v2 live: API run39150581836-1, no-DDL/data-retained successor. Trusted HTTPS two-owner 16plans/12active/4pending/min372history/household/repeat/logout PASS. Refresh or reopen existing APK; no reinstall. See sweden-backend-release-2026-10-18.md."
   issues:
     - "HTML follow-up2026-10-18: additional visual/gesture corrections plus native failure collection prepared;741mobile tests pass and optional test-type error corrected. Exact installed parity plus Privacy/Notifications/Support remain open. See html-verification-followup-2026-10-18.md. V6 delivered bytes/backend unchanged."
     - "V6: SubTrack-Android-v6-20261018-TEST.apk,65648113bytes,SHA25677e400676d67fa4d638172f969cda7c74ccf87e13772a1d41458b9f6fc3d4ad1. Signed build delivered; PAGES failure and exact native visual parity unresolved. No successful complete-product claim."
