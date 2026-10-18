@@ -9,6 +9,7 @@ import test,{mock} from 'node:test';
 import fs from 'node:fs';
 import {syncBuiltinESMExports,createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
+import {TextDecoder} from 'node:util';
 import {join,resolve,dirname,basename} from 'node:path';
 import {projectEnrollmentMetadata,prepareEnrollmentMetadata,prepareHomeEnrollmentMetadata,prepareEditStatusMetadata,enrollmentMetadataLines,preinputWelcomeMetadata,preparePreinputMetadata,preinputOriginalScreenshotMetadata,PREINPUT_ORIGINAL_SCREENSHOT,preinputCaptureContext,recordPreinputSimulator,zeroAllApi,validPreinputPng,validAndroidPng,sealPreinputPng,validSealedPreinput,validatedPreinputArtifact,captureSealedPreinput,captureSealedOriginalPreinput,PREINPUT_RECIPIENT_SHA256,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS,ENROLLMENT_HEADER_OCCURRENCES,androidCaptureContext,androidAvdStage,verifyAndroidDevice,measureAndroidApp,recordAndroidApp,prepareAndroidEntryMetadata,androidFixtureBinding,sealAndroidEntryPng,validSealedAndroid,validatedAndroidArtifact,captureSealedAndroidEntry} from './private-runtime-maestro-metadata.mjs';
 import {createEnrollmentExecution} from './private-runtime-identifier-diagnostic.mjs';
@@ -223,6 +224,43 @@ test('failed original-source cleanup or source reappearance never permits cipher
   if(kind==='after-readback')replace('writeFileSync',(file,...args)=>{const result=write(file,...args);if(typeof file==='string'&&file.endsWith('.st253sealed'))write(f.source,samplePng(),{mode:0o600});return result;});
   assert.equal(await captureSealedOriginalPreinput(f.options),false,kind);assert.equal(validatedPreinputArtifact(root,captureContext),false);assert.equal(fs.existsSync(join(root,'preinput-ios-frame/frame.png')),false);assert.equal(sourceRemoved,kind!=='unlink');
  });
+});
+
+test('original image rejects decoder failure between attribution reads without exposing the error',()=>temporary(()=>{
+ const rows=initialRecords();rows[3].metadata.artifacts=[{type:'SCREENSHOT',path:PREINPUT_ORIGINAL_SCREENSHOT}];
+ const decode=TextDecoder.prototype.decode;let calls=0;
+ mock.method(TextDecoder.prototype,'decode',function(input,options){if(++calls===2)throw Error('private-decoder-canary');return decode.call(this,input,options);});
+ assert.equal(preinputOriginalScreenshotMetadata(bytes(rows)),false);assert.equal(calls,2);
+}));
+
+test('original image withholds after owner, private-directory, source-read and raw-cleanup races',async()=>{
+ for(const kind of ['directory-mode','source-owner','after-read-replacement','after-copy-replacement','cleanup-read-corruption','cleanup-residue']){
+  const uidDescriptor=Object.getOwnPropertyDescriptor(process,'getuid');
+  try{await privateTemporary(async({root})=>{
+   const f=originalScreenshot(root),copy=join(root,'preinput-ios-frame/frame.png'),stat=fs.lstatSync,open=fs.openSync,read=fs.readSync,write=fs.writeFileSync,unlink=fs.unlinkSync;
+   let sourceFd=-1,changed=false,removing=false,corruptedReads=0;
+   if(kind==='source-owner'){
+    const uid=typeof process.getuid==='function'?process.getuid():Number(stat(root,{bigint:true}).uid);
+    Object.defineProperty(process,'getuid',{configurable:true,writable:true,value:()=>uid});
+    replace('lstatSync',(file,options)=>{const value=stat(file,options);return file===f.source&&options?.bigint?Object.assign(Object.create(Object.getPrototypeOf(value)),value,{uid:BigInt(uid+1)}):value;});
+   }
+   if(kind==='directory-mode')replace('lstatSync',(file,options)=>{const value=stat(file,options);return file===dirname(f.source)&&options?.bigint?Object.assign(Object.create(Object.getPrototypeOf(value)),value,{mode:(value.mode&~0o777n)|0o500n}):value;});
+   replace('openSync',(file,...args)=>{const fd=open(file,...args);sourceFd=file===f.source?fd:-1;return fd;});
+   replace('readSync',(fd,...args)=>{
+    const count=read(fd,...args);
+    if(fd===sourceFd&&count>0&&kind==='after-read-replacement'&&!changed){changed=true;fs.renameSync(f.source,join(root,'retained-original'));write(f.source,samplePng(),{mode:0o600});}
+    if(fd===sourceFd&&count>0&&kind==='cleanup-read-corruption'&&removing){args[0][0]^=1;corruptedReads++;}
+    return count;
+   });
+   if(kind==='after-copy-replacement')replace('writeFileSync',(file,...args)=>{const result=write(file,...args);if(file===copy&&!changed){changed=true;fs.renameSync(f.source,join(root,'retained-original'));write(f.source,samplePng(),{mode:0o600});}return result;});
+   replace('unlinkSync',file=>{if(file===copy)removing=true;const result=unlink(file);if(file===f.source&&kind==='cleanup-residue')write(join(dirname(f.source),'unexpected.png'),samplePng(),{mode:0o600});return result;});
+   assert.equal(await captureSealedOriginalPreinput(f.options),false,kind);
+   assert.equal(validatedPreinputArtifact(root,captureContext),false,kind);
+   assert.equal(fs.existsSync(copy),false,kind);
+   if(kind==='after-read-replacement'||kind==='after-copy-replacement')assert.equal(changed,true);
+   if(kind==='cleanup-read-corruption')assert.ok(corruptedReads>0);
+  });}finally{if(uidDescriptor)Object.defineProperty(process,'getuid',uidDescriptor);else delete process.getuid;}
+ }
 });
 
 test('first-flow reader requires its own exact tree, exit then close and one consumed failure only',async()=>{

@@ -129,3 +129,26 @@ it('keeps bank facts and compact actions within narrow large-text bounds and han
  fireEvent(screen.getByTestId('native-bank-screen'),'accessibilityEscape');
  expect(mockReplace.mock.calls).toEqual([['/personal']]);expect(api.mutateNativeBank).not.toHaveBeenCalled();expect(screen.getByText('77')).toBeTruthy();
 });
+
+it.each(['connect-missing','connect-other','sync-revoked','sync-count','sync-time','retained-active','retained-missing','purge-retained','wrong-connection','wrong-operation'] as const)('withholds success for %s while preserving current authoritative bank details without retrying the mutation',async kind=>{
+ const other={...active,connectionId:'223e4567-e89b-42d3-a456-426614174000'},purged={...retained,disposition:'purged' as const,accountCount:0,transactionCount:0};
+ let initial:typeof active|typeof retained=active,read:readonly(typeof active|typeof retained)[]=[active],receipt:Awaited<ReturnType<typeof api.mutateNativeBank>>={operation:'sync',connection:active};
+ if(kind.startsWith('connect')){receipt={operation:'connect',connection:active};read=kind==='connect-missing'?[]:[other];}
+ if(kind==='sync-revoked')read=[retained];if(kind==='sync-count')read=[{...active,transactionCount:78}];if(kind==='sync-time')receipt={operation:'sync',connection:{...active,lastSyncAt:'2026-10-18T10:00:00Z'}};
+ if(kind.startsWith('retained')){receipt={operation:'disconnect',connection:retained};read=kind==='retained-active'?[active]:[];}
+ if(kind==='purge-retained'){initial=retained;receipt={operation:'disconnect',connection:purged};read=[retained];}
+ if(kind==='wrong-connection')receipt={operation:'sync',connection:other};if(kind==='wrong-operation')receipt={operation:'connect',connection:active};
+ jest.mocked(api.readNativeBank).mockResolvedValueOnce({kind:'ready',connections:kind.startsWith('connect')?[]:[initial]}).mockResolvedValue({kind:'ready',connections:read});jest.mocked(api.mutateNativeBank).mockResolvedValue(receipt);
+ mount();await login();if(kind.startsWith('connect'))await press(copy.connect);else if(kind.startsWith('retained'))await press(copy.disconnect);else if(kind==='purge-retained'){await press(copy.purge);await press(copy.confirmPurge);}else await press(copy.sync);
+ await screen.findByText(copy.readback);expect(screen.queryByText(copy.updated)).toBeNull();expect(screen.queryByText(copy.purged)).toBeNull();expect(api.mutateNativeBank).toHaveBeenCalledTimes(1);expect(api.readNativeBank).toHaveBeenCalledTimes(2);expect(screen.queryByRole('button',{name:personal.verify})).toBeNull();
+ if(read.length)expect(screen.getByText(read[0]!.status==='ACTIVE'?copy.active:copy.revoked)).toBeTruthy();else expect(screen.getByText(copy.empty)).toBeTruthy();
+ if(kind==='purge-retained'){expect(screen.getByText(copy.purgeWarning)).toBeTruthy();await press(copy.cancelPurge);expect(api.mutateNativeBank).toHaveBeenCalledTimes(1);}
+ await pullRefresh();expect(api.mutateNativeBank).toHaveBeenCalledTimes(1);expect(api.readNativeBank).toHaveBeenCalledTimes(3);expect(screen.queryByText(copy.readback)).toBeNull();
+});
+
+it('waits for the exact connected snapshot including counts and last-sync before acknowledging Sync',async()=>{
+ const synced={...active,lastSyncAt:'2026-10-18T10:00:00Z'};let finish!:(value:Awaited<ReturnType<typeof api.readNativeBank>>)=>void;
+ jest.mocked(api.readNativeBank).mockResolvedValueOnce({kind:'ready',connections:[active]}).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));jest.mocked(api.mutateNativeBank).mockResolvedValue({operation:'sync',connection:synced});
+ mount();await login();await press(copy.sync);await waitFor(()=>expect(api.readNativeBank).toHaveBeenCalledTimes(2));expect(screen.queryByText(copy.updated)).toBeNull();expect(screen.queryByText(copy.readback)).toBeNull();
+ await act(async()=>finish({kind:'ready',connections:[synced]}));await screen.findByText(copy.updated);expect(screen.getByText('77')).toBeTruthy();expect(screen.queryByText(copy.readback)).toBeNull();expect(api.mutateNativeBank).toHaveBeenCalledTimes(1);
+});

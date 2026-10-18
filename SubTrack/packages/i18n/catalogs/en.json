@@ -394,6 +394,7 @@
       "uncertain": "Result unconfirmed. Log in again before retrying.",
       "conflict": "Bank state changed. Review the refreshed details.",
       "updated": "Bank updated.",
+      "readback": "Update not confirmed. Review the current bank details.",
       "purged": "Bank data removed.",
       "options": "Options",
       "reviewShort": "Review subscriptions"
@@ -440,6 +441,7 @@
     },
     "nativeHousehold": {
       "title": "Household",
+      "readbackUnavailable": "Couldn't confirm the change. Your draft is kept.",
       "householdName": "Household name",
       "create": "Create household",
       "members": "Members",
@@ -638,6 +640,9 @@
     "familyAnswer": "No. Family profiles organize your plans and their cost shares; they do not receive access to your bank transactions."
   },
   "nativeProductDetails": {
+    "activeCount": "%{count} active",
+    "plannedUseOne": "For %{name}",
+    "plannedUseMany": "%{count} people",
     "allCategories": "All",
     "thisWeek": "This week",
     "daysAway": "In %{count} days",

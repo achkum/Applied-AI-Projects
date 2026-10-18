@@ -394,6 +394,7 @@
       "uncertain": "Resultatet är obekräftat. Logga in igen innan du försöker på nytt.",
       "conflict": "Bankuppgifterna har ändrats. Granska de uppdaterade uppgifterna.",
       "updated": "Banken uppdaterades.",
+      "readback": "Uppdateringen kunde inte bekräftas. Kontrollera de aktuella bankuppgifterna.",
       "purged": "Bankdata togs bort.",
       "options": "Alternativ",
       "reviewShort": "Granska prenumerationer"
@@ -440,6 +441,7 @@
     },
     "nativeHousehold": {
       "title": "Hushåll",
+      "readbackUnavailable": "Kunde inte bekräfta ändringen. Ditt utkast finns kvar.",
       "householdName": "Hushållets namn",
       "create": "Skapa hushåll",
       "members": "Medlemmar",
@@ -638,6 +640,9 @@
     "familyAnswer": "Nej. Familjeprofiler organiserar dina prenumerationer och deras kostnadsandelar; de får inte tillgång till dina banktransaktioner."
   },
   "nativeProductDetails": {
+    "activeCount": "%{count} aktiva",
+    "plannedUseOne": "För %{name}",
+    "plannedUseMany": "%{count} personer",
     "allCategories": "Alla",
     "thisWeek": "Denna vecka",
     "daysAway": "Om %{count} dagar",

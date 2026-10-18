@@ -12,7 +12,8 @@ import { scopeNativeAnalytics } from '@/api/nativeAnalyticsProjection';
 import { useNativeAnalytics } from './useNativeAnalytics';
 import { AnalyticsComparisonBars, AnalyticsLink, AnalyticsMoney, AnalyticsText } from './NativeAnalyticsUI';
 import {chartPercent} from '../../../../../packages/money/src/recurring-cost';
-export type NativeHomeContext=Readonly<{plannedPayers:ReadonlyMap<string,string>}>;
+import {selectNativeRenewals,type NativeRenewalGroup} from '@/api/privateMobileRenewals';
+export type NativeHomeContext=Readonly<{plannedPayers:ReadonlyMap<string,string>;renewals:readonly NativeRenewalGroup[]}>;
 const clock = () => new Date();
 function HomeScopeChip({ label, selected, onPress, testID, memberId }: { label: string; selected: boolean; onPress: () => void; testID: string; memberId?: string }) {
   const { theme, isDark } = useTheme();
@@ -27,8 +28,8 @@ function HomeScopeChip({ label, selected, onPress, testID, memberId }: { label: 
 }
 
 /** The same authorized projection as Insights. No new backend authority or fixture totals. */
-export function NativeHomeOverview({ session, reader, now = clock, children, headerAction }: { session: NativeFeatureSession; reader: NativeAnalyticsReader; now?: () => Date; children?: React.ReactNode | ((ids: ReadonlySet<string> | null,context:NativeHomeContext) => React.ReactNode); headerAction?: React.ReactNode }) {
-  const { value: all, state, reload } = useNativeAnalytics(session, reader, now), { t, locale } = useI18n(), router = useRouter(), { theme, isDark } = useTheme();
+export function NativeHomeOverview({ session, reader, now = clock, children, headerAction,refreshKey=0 }: { session: NativeFeatureSession; reader: NativeAnalyticsReader; now?: () => Date; children?: React.ReactNode | ((ids: ReadonlySet<string> | null,context:NativeHomeContext) => React.ReactNode); headerAction?: React.ReactNode;refreshKey?:number }) {
+  const { value: all, state, reload } = useNativeAnalytics(session, reader, now,refreshKey), { t, locale } = useI18n(), router = useRouter(), { theme, isDark } = useTheme();
   const [period, setPeriod] = useState<'monthly' | 'annual'>('monthly');
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
   if (session.phase !== 'active') return null;
@@ -41,7 +42,7 @@ export function NativeHomeOverview({ session, reader, now = clock, children, hea
   const value = scopedIds === null ? all : scopeNativeAnalytics(all, scopedIds, now());
   const findings = value.priceIncreases.length + value.overlaps.length;
   const sharedPlans=household?.assignments.filter(assignment=>value.active.some(plan=>plan.id===assignment.subscriptionId)&&household.members.filter(member=>assignment.memberIds.includes(member.id)).length>1).length??0;
-  const context:NativeHomeContext={plannedPayers:new Map(household?.assignments.flatMap(assignment=>{const payer=household.members.find(member=>member.id===assignment.payerMemberId);return payer?[[assignment.subscriptionId,payer.displayName] as const]:[]})??[])};
+  const context:NativeHomeContext={plannedPayers:new Map(household?.assignments.flatMap(assignment=>{const payer=household.members.find(member=>member.id===assignment.payerMemberId);return payer?[[assignment.subscriptionId,payer.displayName] as const]:[]})??[]),renewals:selectNativeRenewals(value.active,now())};
   const share=selected&&all.totals.length===1&&value.totals.length===1&&all.unknownCadenceCount===0&&all.totals[0]!.monthly.minorUnits>0n?chartPercent(value.totals[0]!.monthly,all.totals[0]!.monthly):null;
   const openInsights=()=>router.push(selected?{pathname:'/personal-insights',params:{memberId:selected}}:'/personal-insights');
   const increase = value.priceIncreases[0];

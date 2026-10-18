@@ -3,7 +3,7 @@ import { useFocusEffect } from 'expo-router';
 import type { NativeFeatureSession } from '../onboarding/NativePersonalScreen';
 import type { NativeAnalyticsReader, NativeAnalyticsView } from '@/api/nativeAnalyticsReader';
 
-export function useNativeAnalytics(session: NativeFeatureSession, reader: NativeAnalyticsReader, now: () => Date) {
+export function useNativeAnalytics(session: NativeFeatureSession, reader: NativeAnalyticsReader, now: () => Date, refreshKey = 0) {
   const live = useRef({ session, reader, now }); live.current = { session, reader, now };
   const generation = useRef(0), focused = useRef(false), request = useRef<AbortController | null>(null);
   const [value, setValue] = useState<NativeAnalyticsView | null>(null);
@@ -36,6 +36,6 @@ export function useNativeAnalytics(session: NativeFeatureSession, reader: Native
   useFocusEffect(useCallback(() => {
     focused.current = true; void load();
     return () => { focused.current = false; invalidate(); setValue(null); };
-  }, [load, invalidate, session.phase]));
+  }, [load, invalidate, session.phase, refreshKey]));
   return { value, state, reload: load };
 }

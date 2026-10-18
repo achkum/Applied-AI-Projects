@@ -30,17 +30,28 @@ export function NativePersonalBankScreen({useSession=useNativeSession,api=privat
    const result=await current.current.run(async(token,signal)=>{
     const abort=()=>controller.abort();if(signal.aborted)controller.abort();signal.addEventListener('abort',abort,{once:true});
     try{
-     let conflict=false;
-     if(intent){const key=await bankRequestKey();if(controller.signal.aborted)throw new Error('obsolete');const receipt=await mutateNativeBank(intent,key,token,controller.signal);conflict='conflict' in receipt;}
-     const read=await readNativeBank(token,controller.signal);return {read,conflict};
+     let receipt:Awaited<ReturnType<typeof mutateNativeBank>>|null=null;
+     if(intent){const key=await bankRequestKey();if(controller.signal.aborted)throw new Error('obsolete');receipt=await mutateNativeBank(intent,key,token,controller.signal);}
+     const read=await readNativeBank(token,controller.signal);return {read,receipt};
     }catch(error){if(!intent&&controller.signal.aborted&&ticket!==generation.current)return null;throw error;}
     finally{signal.removeEventListener('abort',abort);}
    });
    if(ticket!==generation.current||!focused.current||current.current.phase!=='active'||result===null)return;
    if(result.read.kind==='ready'){
     setConnections(result.read.connections);setState('ready');
-    if(intent){const purgeRequested=intent.operation==='disconnect'&&intent.purge;
-     setMessage(result.conflict?'conflict':purgeRequested?result.read.connections.some(connection=>connection.connectionId===intent.connectionId)?'conflict':'purged':'updated');}
+    if(intent){
+     if(result.receipt&&'conflict'in result.receipt)setMessage('conflict');
+     else{
+      const expected=result.receipt?.connection,actual=result.read.connections.find(connection=>connection.connectionId===expected?.connectionId),purgeRequested=intent.operation==='disconnect'&&intent.purge;
+      const requested=result.receipt?.operation===intent.operation&&expected!==undefined&&('connectionId'in intent?expected.connectionId===intent.connectionId:expected.institutionId===intent.institutionId);
+      const matches=requested&&(purgeRequested?expected.disposition==='purged'&&expected.status==='REVOKED'&&expected.accountCount===0&&expected.transactionCount===0&&actual===undefined:
+       actual!==undefined&&expected.status===(intent.operation==='disconnect'?'REVOKED':'ACTIVE')&&expected.disposition==='retained'&&(['provider','institutionId','status','disposition','accountCount','transactionCount','lastSyncAt'] as const).every(key=>actual[key]===expected[key]));
+      setMessage(matches?purgeRequested?'purged':'updated':'readback');
+      // Preserve the current confirmation when removal is not authoritatively
+      // observed; no repeat mutation is sent and fresh readback remains visible.
+      if(!matches&&purgeRequested&&result.read.connections.some(connection=>connection.connectionId===intent.connectionId)){setOptions(intent.connectionId);setPurge(intent.connectionId);}
+     }
+    }
    }
    else{setState('setup-required');setMessage('');}
   }catch{if(notice===feedback.current){setConnections([]);setPurge(null);setState('error');setMessage(intent?'uncertain':'unavailable');}}

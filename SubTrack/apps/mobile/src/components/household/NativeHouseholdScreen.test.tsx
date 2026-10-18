@@ -1,5 +1,5 @@
 import React from 'react';
-import {Keyboard,Platform,RefreshControl,ScrollView,StyleSheet} from 'react-native';
+import {Keyboard,Modal,Platform,RefreshControl,ScrollView,StyleSheet} from 'react-native';
 import {act,fireEvent,render,screen,waitFor} from '@testing-library/react-native';
 import {NativeHouseholdScreen} from './NativeHouseholdScreen';
 import {parseSandboxHouseholdView,type SandboxHouseholdView} from '@subtrack/contracts/sandbox-household';
@@ -8,8 +8,12 @@ import type {SandboxHouseholdApi} from '@/api/sandboxHouseholdApi';
 import {catalogs} from '@subtrack/i18n';
 import {SandboxSessionCore} from '@/state/SandboxSessionCore';
 import {formatMinorUnits} from '@/api/privateMobileMoney';
+import type {NativeAnalyticsReader} from '@/api/nativeAnalyticsReader';
+import {projectNativeAnalytics} from '@/api/nativeAnalyticsProjection';
+import {getRandomBytesAsync} from 'expo-crypto';
+jest.mock('@/hooks/useReducedMotion',()=>({useReducedMotion:()=>false}));
 jest.mock('expo-secure-store',()=>({WHEN_UNLOCKED_THIS_DEVICE_ONLY:6}));
-jest.mock('expo-crypto',()=>({getRandomBytesAsync:jest.fn(async()=>new Uint8Array(16))}));
+jest.mock('expo-crypto',()=>({getRandomBytesAsync:jest.fn(async()=>Uint8Array.from([0x12,0x3e,0x45,0x67,0xe8,0x9b,0x42,0xd3,0xa4,0x56,0x42,0x66,0x14,0x17,0x40,0x01]))}));
 jest.mock('@/api/sandboxMobileApi',()=>({sandboxMobileApi:{householdBusiness:jest.fn(),readNativeSubscriptions:jest.fn()}}));
 jest.mock('react-native-safe-area-context',()=>jest.requireActual('react-native-safe-area-context/jest/mock').default);
 jest.mock('expo-router',()=>({useRouter:()=>({replace:jest.fn()}),useFocusEffect:(callback:()=>void|(()=>void))=>{const React=jest.requireActual('react');React.useEffect(callback,[callback]);}}));
@@ -35,11 +39,11 @@ it('a genuine focused Household read failure still retires real sandbox authorit
  await expect(f.core.run(async()=>true)).rejects.toThrow('Sandbox session unavailable');expect(f.store.write).toHaveBeenLastCalledWith({version:1,installationCapability:f.capability,session:null});
 });
 function household(children=true):SandboxHouseholdView{return parseSandboxHouseholdView({household:{id:admin,name:'Example family',members:[{id:admin,displayName:'Example parent',role:'ADMIN'},...(children?[{id:child,displayName:'Example child',role:'DEPENDANT'}]:[])],assignments:[]}});}
-function fixture(initial:SandboxHouseholdView={household:null}){
+function fixture(initial:SandboxHouseholdView={household:null},detailReader?:NativeAnalyticsReader){
  const api:SandboxHouseholdApi={read:jest.fn().mockResolvedValue(initial),mutate:jest.fn().mockResolvedValue({household:null})};
  const session:NativeFeatureSession={phase:'active',run:jest.fn().mockImplementation(work=>work('access',new AbortController().signal)),login:jest.fn(),refresh:jest.fn(),logout:jest.fn()};
  const subscriptions=jest.fn().mockResolvedValue({items:[],nextCursor:null});
- return {api,session,subscriptions,view:render(<NativeHouseholdScreen useSession={()=>session} api={api} readSubscriptions={subscriptions}/>)};
+ return {api,session,subscriptions,view:render(<NativeHouseholdScreen useSession={()=>session} api={api} readSubscriptions={subscriptions} {...(detailReader?{detailReader}:{})}/>)};
 }
 async function openMemberEditor(){await waitFor(()=>expect(screen.getByTestId('native-household-member-add-open').props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByTestId('native-household-member-add-open'));}
 async function refresh(){await waitFor(()=>expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false));fireEvent(screen.UNSAFE_getByType(RefreshControl),'refresh');}
@@ -98,9 +102,15 @@ it('keeps rename and member editors closed until requested and Cancel performs n
  for(const id of ['native-household-rename','native-household-member-add-open',`native-household-member-edit-${child}`,`native-household-member-remove-${child}`])expect(StyleSheet.flatten(screen.getByTestId(id).props.style)).toMatchObject({minHeight:44,minWidth:44,maxWidth:'100%'});
  expect(screen.queryByTestId('native-household-name')).toBeNull();expect(screen.queryByTestId('native-household-member-name')).toBeNull();
  fireEvent.press(screen.getByTestId('native-household-rename'));fireEvent.changeText(screen.getByTestId('native-household-name'),'Unsaved household');fireEvent.press(screen.getByRole('button',{name:copy.cancel}));
- expect(screen.queryByTestId('native-household-name')).toBeNull();await openMemberEditor();fireEvent.changeText(screen.getByTestId('native-household-member-name'),'Unsaved member');fireEvent.press(screen.getByRole('button',{name:copy.cancel}));
+ expect(screen.queryByTestId('native-household-name')).toBeNull();fireEvent.press(screen.getByTestId('native-household-rename'));expect(screen.getByTestId('native-household-name').props.value).toBe('Example family');fireEvent.press(screen.getByRole('button',{name:copy.cancel}));await openMemberEditor();fireEvent.changeText(screen.getByTestId('native-household-member-name'),'Unsaved member');fireEvent.press(screen.getByRole('button',{name:copy.cancel}));
  expect(screen.queryByTestId('native-household-member-name')).toBeNull();fireEvent.press(screen.getByTestId(`native-household-member-edit-${child}`));expect(screen.getByTestId('native-household-member-name').props.value).toBe('Example child');fireEvent.press(screen.getByRole('button',{name:copy.cancel}));
  expect(f.api.mutate).not.toHaveBeenCalled();expect(screen.queryByTestId('native-household-member-name')).toBeNull();
+});
+
+it('bounds the avatar strip for the supported twenty-member roster while retaining the Rename action',async()=>{
+ const members=[household().household!.members[0]!,...Array.from({length:19},(_,index)=>({id:`123e4567-e89b-42d3-a456-${String(index+1).padStart(12,'0')}`,displayName:`Member ${index+1}`,role:'DEPENDANT'}))];
+ fixture(parseSandboxHouseholdView({household:{...household().household!,members}}));await screen.findAllByText('Member 19');
+ expect(StyleSheet.flatten(screen.getByTestId('native-household-avatars').props.style)).toMatchObject({flex:1,minWidth:0,flexWrap:'wrap'});expect(screen.getByTestId('native-household-rename')).toBeTruthy();
 });
 it('opens attribution from a compact plan row and shows exact unequal per-person allocations without rounding',async()=>{
  const subscription='123e4567-e89b-42d3-a456-426614174002',initial=parseSandboxHouseholdView({household:{...household().household!,assignments:[{subscriptionId:subscription,memberIds:[admin,child],payerMemberId:child}]}}),f=fixture(initial);
@@ -111,10 +121,83 @@ it('opens attribution from a compact plan row and shows exact unequal per-person
  expect(screen.queryByTestId(`native-household-assignment-save-${subscription}`)).toBeNull();
  await waitFor(()=>expect(screen.getByTestId(`native-household-assignment-${subscription}`).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByTestId(`native-household-assignment-${subscription}`));
  expect(screen.getByTestId(`native-household-user-${child}`).props.accessibilityState.selected).toBe(true);
- fireEvent.press(screen.getByTestId(`native-household-user-${child}`));fireEvent.press(screen.getByTestId(`native-household-assignment-save-${subscription}`));
+ fireEvent.press(screen.getByTestId(`native-household-user-${child}`));jest.mocked(f.api.read).mockResolvedValue(parseSandboxHouseholdView({household:{...initial.household!,assignments:[{subscriptionId:subscription,memberIds:[admin],payerMemberId:child}]}}));fireEvent.press(screen.getByTestId(`native-household-assignment-save-${subscription}`));
  await waitFor(()=>expect(f.api.mutate).toHaveBeenCalledWith({operation:'household-assign',subscriptionId:subscription,memberIds:[admin],payerMemberId:child},'access',expect.any(AbortSignal)));
  await waitFor(()=>expect(screen.queryByTestId(`native-household-assignment-save-${subscription}`)).toBeNull());
  expect(f.api.read).toHaveBeenCalledTimes(3);
+});
+
+it.each(['create','rename','add','edit','remove','assign'] as const)('keeps the %s intent until the exact authoritative state is read back, without a false Saved or automatic retry',async operation=>{
+ const subscription='123e4567-e89b-42d3-a456-426614174002',base=household(operation!=='add');
+ const initial=operation==='create'?{household:null}:operation==='assign'?parseSandboxHouseholdView({household:{...base.household!,assignments:[{subscriptionId:subscription,memberIds:[admin,child],payerMemberId:child}]}}):base;
+ const f=fixture(initial);let save:string,fieldId:string|undefined;
+ const entropyBefore=jest.mocked(getRandomBytesAsync).mock.calls.length;
+ if(operation==='create'){
+  await screen.findByTestId('native-household-name');fieldId='native-household-name';fireEvent.changeText(screen.getByTestId(fieldId),'New family');save='native-household-create';
+ }else{
+  await screen.findAllByText('Example parent');
+  if(operation==='rename'){fireEvent.press(screen.getByTestId('native-household-rename'));fieldId='native-household-name';fireEvent.changeText(screen.getByTestId(fieldId),'New family');save='native-household-save';}
+  else if(operation==='add'){await openMemberEditor();fieldId='native-household-member-name';fireEvent.changeText(screen.getByTestId(fieldId),'New child');save='native-household-member-add';}
+  else if(operation==='edit'){fireEvent.press(screen.getByTestId(`native-household-member-edit-${child}`));fieldId='native-household-member-name';fireEvent.changeText(screen.getByTestId(fieldId),'New child');save='native-household-save';}
+  else if(operation==='remove'){fireEvent.press(screen.getByTestId(`native-household-member-remove-${child}`));save='native-household-confirmRemove';}
+  else{
+   f.subscriptions.mockResolvedValue({items:[{id:subscription,visibility:'owner',source:'MANUAL',revision:'1',customName:'Example plan',merchantId:null,merchantName:null,categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',status:'ACTIVE',expectedAmountMinor:'101',currency:'SEK',nextChargeDate:null,alwaysPrivate:true}],nextCursor:null});
+   await refresh();await screen.findByTestId(`native-household-assignment-${subscription}`);fireEvent.press(screen.getByTestId(`native-household-assignment-${subscription}`));fireEvent.press(screen.getByTestId(`native-household-user-${child}`));fireEvent.press(screen.getByTestId(`native-household-payer-${admin}`));save=`native-household-assignment-save-${subscription}`;
+  }
+ }
+ await waitFor(()=>expect(screen.getByTestId(save).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByTestId(save));
+ await screen.findByText(copy.readbackUnavailable);expect(screen.queryByText(copy.saved)).toBeNull();expect(f.api.mutate).toHaveBeenCalledTimes(1);expect(screen.getByTestId(save)).toBeTruthy();
+ if(fieldId)expect(screen.getByTestId(fieldId).props.value).toBe(operation==='create'||operation==='rename'?'New family':'New child');
+ if(operation==='assign'){expect(screen.getByTestId(`native-household-user-${child}`).props.accessibilityState.selected).toBe(false);expect(screen.getByTestId(`native-household-payer-${admin}`).props.accessibilityState.selected).toBe(true);}
+ const confirmed=operation==='create'||operation==='rename'?parseSandboxHouseholdView({household:{...household().household!,name:'New family'}}):operation==='add'||operation==='edit'?parseSandboxHouseholdView({household:{...household().household!,members:household().household!.members.map(member=>member.id===child?{...member,displayName:'New child'}:member)}}):operation==='remove'?household(false):parseSandboxHouseholdView({household:{...base.household!,assignments:[{subscriptionId:subscription,memberIds:[admin],payerMemberId:admin}]}});
+ jest.mocked(f.api.read).mockResolvedValue(confirmed);await waitFor(()=>expect(screen.getByTestId(save).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByTestId(save));
+ await screen.findByText(copy.saved);expect(f.api.mutate).toHaveBeenCalledTimes(2);expect(screen.queryByTestId(save)).toBeNull();
+ if(operation==='add'){expect(jest.mocked(getRandomBytesAsync).mock.calls.length-entropyBefore).toBe(1);expect(jest.mocked(f.api.mutate).mock.calls[1]![0]).toEqual(jest.mocked(f.api.mutate).mock.calls[0]![0]);}
+});
+
+it('opens the actual owner plan detail from the row and keeps assignment editing a separate nonmutating action',async()=>{
+ const subscription='123e4567-e89b-42d3-a456-426614174002',row={id:subscription,visibility:'owner' as const,source:'MANUAL' as const,revision:'1',customName:'Example plan',merchantId:null,merchantName:null,categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY' as const,status:'ACTIVE' as const,expectedAmountMinor:'101',currency:'SEK',nextChargeDate:null,alwaysPrivate:true as const},initial=parseSandboxHouseholdView({household:{...household().household!,assignments:[{subscriptionId:subscription,memberIds:[admin,child],payerMemberId:child}]}});
+ const reader=jest.fn().mockResolvedValue({kind:'ready',projection:{...projectNativeAnalytics([row],null,new Date(2026,9,17)),household:initial.household}}),f=fixture(initial,reader);
+ f.subscriptions.mockResolvedValue({items:[row],nextCursor:null});await refresh();await screen.findByTestId(`native-household-plan-${subscription}`);expect(reader).not.toHaveBeenCalled();
+ await waitFor(()=>expect(screen.getByTestId(`native-household-plan-${subscription}`).props.accessibilityState.disabled).toBe(false));await act(async()=>fireEvent.press(screen.getByTestId(`native-household-plan-${subscription}`)));await waitFor(()=>expect(reader).toHaveBeenCalledTimes(1));expect(screen.getByRole('header',{name:'Example plan'})).toBeTruthy();
+ const modal=screen.UNSAFE_getByType(Modal);expect(modal.props.visible).toBe(true);expect(modal.props.onShow).toEqual(expect.any(Function));expect(modal.props.onDismiss).toEqual(expect.any(Function));expect(screen.queryByTestId('native-household-scroll')).toBeNull();expect(screen.queryByTestId('native-product-navigation')).toBeNull();expect(f.api.mutate).not.toHaveBeenCalled();
+ fireEvent.press(screen.getByTestId('native-household-detail-assignment'));expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false);expect(screen.getByTestId(`native-household-user-${child}`).props.accessibilityState.selected).toBe(true);expect(screen.getByTestId(`native-household-payer-${child}`).props.accessibilityState.selected).toBe(true);expect(f.api.mutate).not.toHaveBeenCalled();
+ await act(async()=>fireEvent.press(screen.getByTestId(`native-household-plan-${subscription}`)));fireEvent.press(screen.getByTestId('native-household-detail-assignment'));expect(screen.getByTestId(`native-household-assignment-save-${subscription}`)).toBeTruthy();expect(f.api.mutate).not.toHaveBeenCalled();
+ fireEvent.press(screen.getByTestId(`native-household-assignment-cancel-${subscription}`));await act(async()=>fireEvent.press(screen.getByTestId(`native-household-plan-${subscription}`)));fireEvent.press(screen.getByTestId('native-household-detail-scrim',{includeHiddenElements:true}));expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false);expect(screen.getByTestId('native-household-scroll')).toBeTruthy();
+ await act(async()=>fireEvent.press(screen.getByTestId(`native-household-plan-${subscription}`)));f.session.phase='verification-required';f.view.rerender(<NativeHouseholdScreen useSession={()=>f.session} api={f.api} readSubscriptions={f.subscriptions} detailReader={reader}/>);expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false);expect(screen.queryByRole('header',{name:'Example plan'})).toBeNull();
+});
+
+it('keeps a creation draft visible when authoritative readback discovers an already-created household, then requires an explicit rename',async()=>{
+ const f=fixture();await screen.findByTestId('native-household-name');jest.mocked(f.api.read).mockResolvedValue(household(false));fireEvent.changeText(screen.getByTestId('native-household-name'),'Requested family');fireEvent.press(screen.getByTestId('native-household-create'));
+ await screen.findByText(copy.readbackUnavailable);expect(screen.queryByText(copy.saved)).toBeNull();expect(screen.getByTestId('native-household-name').props.value).toBe('Requested family');expect(f.api.mutate).toHaveBeenCalledTimes(1);expect(jest.mocked(f.api.mutate).mock.calls[0]![0]).toEqual({operation:'household-create',name:'Requested family'});
+ jest.mocked(f.api.read).mockResolvedValue(parseSandboxHouseholdView({household:{...household(false).household!,name:'Requested family'}}));await waitFor(()=>expect(screen.getByTestId('native-household-save').props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByTestId('native-household-save'));
+ await screen.findByText(copy.saved);expect(f.api.mutate).toHaveBeenCalledTimes(2);expect(jest.mocked(f.api.mutate).mock.calls[1]![0]).toEqual({operation:'household-rename',name:'Requested family'});expect(screen.queryByTestId('native-household-name')).toBeNull();
+});
+
+it.each(['create','rename'] as const)('preserves an edited %s name through pull refresh and explicit Refresh after a mismatching mutation readback',async operation=>{
+ const f=fixture(operation==='create'?{household:null}:household());
+ if(operation==='rename'){await screen.findAllByText('Example parent');fireEvent.press(screen.getByTestId('native-household-rename'));}
+ else await screen.findByTestId('native-household-name');
+ fireEvent.changeText(screen.getByTestId('native-household-name'),'Retained draft');await refresh();
+ await waitFor(()=>expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false));expect(screen.getByTestId('native-household-name').props.value).toBe('Retained draft');expect(f.api.mutate).not.toHaveBeenCalled();
+ fireEvent.press(screen.getByTestId(operation==='create'?'native-household-create':'native-household-save'));await screen.findByText(copy.readbackUnavailable);
+ await waitFor(()=>expect(screen.getByTestId('native-household-refresh').props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByTestId('native-household-refresh'));
+ await waitFor(()=>expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false));expect(screen.getByTestId('native-household-name').props.value).toBe('Retained draft');expect(screen.queryByText(copy.saved)).toBeNull();expect(f.api.mutate).toHaveBeenCalledTimes(1);expect(f.api.read).toHaveBeenCalledTimes(4);
+});
+
+it('refreshes untouched and inactive names from authoritative state and discards an edited rename on Cancel',async()=>{
+ const f=fixture(household());await screen.findAllByText('Example parent');fireEvent.press(screen.getByTestId('native-household-rename'));
+ jest.mocked(f.api.read).mockResolvedValue(parseSandboxHouseholdView({household:{...household().household!,name:'Changed elsewhere'}}));await refresh();
+ await waitFor(()=>expect(screen.getByTestId('native-household-name').props.value).toBe('Changed elsewhere'));
+ fireEvent.changeText(screen.getByTestId('native-household-name'),'Discarded draft');fireEvent.press(screen.getByRole('button',{name:copy.cancel}));
+ jest.mocked(f.api.read).mockResolvedValue(parseSandboxHouseholdView({household:{...household().household!,name:'Latest family'}}));await refresh();await screen.findByText('Latest family');
+ await waitFor(()=>expect(screen.getByTestId('native-household-rename').props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByTestId('native-household-rename'));expect(screen.getByTestId('native-household-name').props.value).toBe('Latest family');expect(f.api.mutate).not.toHaveBeenCalled();
+});
+
+it('retains a Create draft when a refresh discovers an existing household, exposing explicit Rename without writing',async()=>{
+ const f=fixture();await screen.findByTestId('native-household-name');fireEvent.changeText(screen.getByTestId('native-household-name'),'Requested family');jest.mocked(f.api.read).mockResolvedValue(household());await refresh();
+ await screen.findAllByText('Example parent');expect(screen.getByTestId('native-household-name').props.value).toBe('Requested family');expect(screen.getByTestId('native-household-save')).toBeTruthy();expect(screen.queryByTestId('native-household-create')).toBeNull();expect(f.api.mutate).not.toHaveBeenCalled();
+ await waitFor(()=>expect(screen.getByRole('button',{name:copy.cancel}).props.accessibilityState.disabled).toBe(false));fireEvent.press(screen.getByRole('button',{name:copy.cancel}));fireEvent.press(screen.getByTestId('native-household-rename'));expect(screen.getByTestId('native-household-name').props.value).toBe('Example family');expect(f.api.mutate).not.toHaveBeenCalled();
 });
 
 it('uses the actual pull gesture to reread and exposes Retry only after a current read failure',async()=>{
