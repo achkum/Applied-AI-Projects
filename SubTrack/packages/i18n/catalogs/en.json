@@ -312,6 +312,8 @@
       "owner": "Your subscription"
     },
     "nativePersonal": {
+      "editProfile": "Edit profile",
+      "profileReadbackUnavailable": "Couldn't confirm the profile changes.",
       "title": "Your personal subscriptions",
       "introduction": "Set up your private profile to get started.",
       "manageDescription": "Your subscriptions are private to you. Add or update expected amounts and dates here.",

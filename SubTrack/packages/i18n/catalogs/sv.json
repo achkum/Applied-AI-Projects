@@ -312,6 +312,8 @@
       "owner": "Ditt abonnemang"
     },
     "nativePersonal": {
+      "editProfile": "Redigera profil",
+      "profileReadbackUnavailable": "Kunde inte bekräfta profiländringarna.",
       "title": "Dina personliga abonnemang",
       "introduction": "Skapa din privata profil för att komma igång.",
       "manageDescription": "Dina abonnemang är privata. Lägg till eller ändra förväntade belopp och datum här.",
