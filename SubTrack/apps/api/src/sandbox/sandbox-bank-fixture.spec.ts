@@ -1,60 +1,18 @@
 import {describe,it,expect} from 'vitest';
 import {createRequire} from 'node:module';
 import {pathToFileURL} from 'node:url';
-import {SANDBOX_BANK_PERSONA,SANDBOX_DETECTION_MERCHANTS,sandboxBankTransactions} from './sandbox-bank-fixture.js';
+import {SANDBOX_BANK_PERSONA,SANDBOX_DETECTION_MERCHANTS,SANDBOX_BANK_FIXTURE_VERSION,sandboxBankTransactions} from './sandbox-bank-fixture.js';
+import {productSeedTransactionsForAccount} from './sandbox-product-seed-fixture.js';
 const runtime=createRequire(__filename);
-describe('synthetic showcase inputs exercise the accepted ingestion and detector',()=>{
- it('generates broad replay-stable histories, real recurring candidates and excluded pending/refund/nonmerchant rows',async()=>{
-  const {SyntheticBankProvider}=await import(pathToFileURL(runtime.resolve('@subtrack/synthetic/bank-runtime')).href) as typeof import('@subtrack/synthetic/bank-runtime');
-  const domain=await import(pathToFileURL(runtime.resolve('@subtrack/domain/detection-runtime')).href) as typeof import('@subtrack/domain/detection-runtime');
-  const provider=new SyntheticBankProvider([SANDBOX_BANK_PERSONA]),[account]=await provider.getAccounts('showcase');
-  const until=new Date('2026-10-17T12:00:00.000Z'),from=new Date('2024-10-17T12:00:00.000Z');
-  const original=await provider.getTransactions(account!.id,from,until),items=sandboxBankTransactions(original,until.getTime());
-  expect(items.length).toBeGreaterThan(250);expect(sandboxBankTransactions(await provider.getTransactions(account!.id,from,until),until.getTime())).toEqual(items);
-  expect(new Set(items.map(x=>x.externalId)).size).toBe(items.length);
-  expect(items.some(x=>x.pending)).toBe(true);expect(items.some(x=>x.direction==='CREDIT')).toBe(true);
-  const candidates=[];
-  for(const merchant of SANDBOX_DETECTION_MERCHANTS){
-   const matching=items.filter(row=>domain.matchMerchantDescriptor(row.description,SANDBOX_DETECTION_MERCHANTS)?.key===merchant.key);
-   const detected=domain.detectRecurringBigint({ownerId:'showcase',accountId:account!.id,merchantKey:merchant.key,currency:'SEK',categoryCode:merchant.category,
-    transactions:matching.map(row=>({...row,amountMinor:BigInt(row.amountMinor)}))});
-   expect(detected.some(x=>x.cadence===(merchant.key==='focus-suite'?'ANNUAL':'MONTHLY'))).toBe(true);candidates.push(...detected);
-  }
-  expect(new Set(candidates.map(x=>x.merchantKey)).size).toBe(12);
-  const sourceIds=new Set(candidates.flatMap(x=>x.transactionIds));
-  for(const row of items.filter(x=>x.pending||x.direction==='CREDIT'||/GROCERY|ONE OFF/.test(x.description)))expect(sourceIds.has(row.id)).toBe(false);
-  const recent=items.filter(x=>/aurora video/i.test(x.description)&&x.direction==='DEBIT'&&x.date>=new Date('2026-08-01'));
-  expect(recent.length).toBeGreaterThanOrEqual(2);expect(recent.every(x=>x.amountMinor===-15900)).toBe(true);
+describe('Swedish sandbox bank input',()=>{
+ it('uses the same namespaced sample plans as initialization and excludes actual refund/pending/one-off controls from detection',async()=>{
+  const {SyntheticBankProvider}=await import(pathToFileURL(runtime.resolve('@subtrack/synthetic/bank-runtime')).href) as typeof import('@subtrack/synthetic/bank-runtime'),domain=await import(pathToFileURL(runtime.resolve('@subtrack/domain/detection-runtime')).href) as typeof import('@subtrack/domain/detection-runtime');
+  const provider=new SyntheticBankProvider([SANDBOX_BANK_PERSONA]),[account]=await provider.getAccounts('showcase'),until=new Date('2026-10-17T12:00:00Z'),from=new Date('2024-10-17T12:00:00Z'),original=await provider.getTransactions(account!.id,from,until),snapshot=structuredClone(original),items=sandboxBankTransactions(original,until.getTime());
+  expect(original).toEqual(snapshot);expect(items.length).toBeGreaterThan(350);expect(sandboxBankTransactions(original,until.getTime())).toEqual(items);expect(new Set(items.map(row=>row.externalId)).size).toBe(items.length);const expected=productSeedTransactionsForAccount(account!.id,until.getTime());for(const row of expected)expect(items.find(item=>item.externalId===row.externalId)).toEqual(row);
+  const candidates=[];for(const merchant of SANDBOX_DETECTION_MERCHANTS){const matching=items.filter(row=>domain.matchMerchantDescriptor(row.description,SANDBOX_DETECTION_MERCHANTS)?.key===merchant.key),detected=domain.detectRecurringBigint({ownerId:'showcase',accountId:account!.id,merchantKey:merchant.key,currency:'SEK',categoryCode:merchant.category,transactions:matching.map(row=>({...row,amountMinor:BigInt(row.amountMinor)}))});expect(detected.length).toBeGreaterThan(0);candidates.push(...detected);}
+  expect(new Set(candidates.map(row=>row.merchantKey)).size).toBe(16);const sourceIds=new Set(candidates.flatMap(row=>row.transactionIds));for(const row of items.filter(row=>row.pending||row.direction==='CREDIT'||/ICA|Swish|Apotek/.test(row.description)))expect(sourceIds.has(row.id)).toBe(false);expect(items.some(row=>row.pending)).toBe(true);expect(items.some(row=>row.direction==='CREDIT')).toBe(true);expect(SANDBOX_BANK_FIXTURE_VERSION).toBe('showcase-v2');
  });
-});
-
-
-it('keeps the fictional August price epoch and overlapping booked grocery history stable across later sync months',()=>{
- const input=['2026-07-31','2026-08-01','2026-09-01','2026-10-01'].map((stamp,index)=>({id:`aurora-${stamp}`,externalId:`aurora-${stamp}`,accountId:'showcase-account',date:new Date(`${stamp}T00:00:00.000Z`),description:index%2?'AURORA VIDEO AB':'Aurora Video',amountMinor:-14900,currency:'SEK',direction:'DEBIT' as const,pending:false}));
- const original=sandboxBankTransactions(input,Date.parse('2026-10-17T12:00:00.000Z'));
- expect(original.slice(0,input.length).map(row=>row.amountMinor)).toEqual([-14900,-15900,-15900,-15900]);
- for(const now of ['2026-11-17T12:00:00.000Z','2027-01-17T12:00:00.000Z','2027-10-17T12:00:00.000Z']){
-  const later=sandboxBankTransactions(input,Date.parse(now));
-  expect(later.slice(0,input.length)).toEqual(original.slice(0,input.length));
-  const originalGroceries=new Map(original.filter(row=>row.description==='CORNER GROCERY').map(row=>[row.externalId,row]));
-  for(const row of later.filter(row=>originalGroceries.has(row.externalId)))expect(row).toEqual(originalGroceries.get(row.externalId));
-  expect(later.filter(row=>row.description==='CORNER GROCERY').every(row=>row.amountMinor<0&&row.direction==='DEBIT'&&!row.pending)).toBe(true);
- }
- expect(original.find(row=>row.externalId==='showcase-grocery-2026-10-08')?.amountMinor).toBe(-4500);
- expect(original.find(row=>row.externalId==='showcase-grocery-2026-09-08')?.amountMinor).toBe(-5213);
- expect(original.find(row=>row.externalId==='showcase-refund-2026-10-12')?.amountMinor).toBe(14900);
- expect(original.find(row=>row.externalId==='showcase-pending-2026-10-12')?.pending).toBe(true);
- expect(original.find(row=>row.externalId==='showcase-oneoff-2026-10-12')?.amountMinor).toBe(-169900);
- expect(SANDBOX_BANK_PERSONA.seed).toBe('showcase-v2');
-});
-
-
-it('preserves incoming Aurora credits, refunds and pending records across the fictional price epoch',()=>{
- const common={accountId:'showcase-account',date:new Date('2026-09-01T00:00:00.000Z'),currency:'SEK',pending:false};
- const input=[
-  {...common,id:'refund',externalId:'refund',description:'AURORA VIDEO REFUND',amountMinor:14900,direction:'CREDIT' as const},
-  {...common,id:'pending',externalId:'pending',description:'AURORA VIDEO',amountMinor:-14900,direction:'DEBIT' as const,pending:true},
-  {...common,id:'positive',externalId:'positive',description:'Aurora Video',amountMinor:14900,direction:'DEBIT' as const},
- ];
- expect(sandboxBankTransactions(input,Date.parse('2026-10-17T12:00:00.000Z')).slice(0,input.length)).toEqual(input);
+ it('keeps overlapping booked transactions and negative controls stable without reusing or rewriting fictional cohort IDs',()=>{
+  const input=[{id:'old-aurora',externalId:'old-aurora',accountId:'sample-account',date:new Date('2026-09-01'),description:'Aurora Video',amountMinor:-15900,currency:'SEK',direction:'DEBIT' as const,pending:false}],now=Date.parse('2026-10-17T12:00:00Z'),initial=sandboxBankTransactions(input,now),byId=new Map(initial.filter(row=>!row.pending).map(row=>[row.externalId,row]));for(const when of ['2026-11-17','2027-01-17','2027-10-17'])for(const row of sandboxBankTransactions(input,Date.parse(`${when}T12:00:00Z`)))if(byId.has(row.externalId))expect(row).toEqual(byId.get(row.externalId));expect(initial.some(row=>row.externalId==='old-aurora')).toBe(false);expect(input[0]!.amountMinor).toBe(-15900);expect(sandboxBankTransactions([],now)).toEqual([]);
+ });
 });

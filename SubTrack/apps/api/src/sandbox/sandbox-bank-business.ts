@@ -1,3 +1,4 @@
+import {SANDBOX_SAMPLE_RETIREMENT_STATEMENTS} from './sandbox-sample-retirement.js';
 import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
 import {createPrivateMobileBank} from '../banks/private-mobile-bank.js';
@@ -12,6 +13,7 @@ const {parseSandboxBankHistory}=createRequire(__filename)('@subtrack/contracts/s
 export const SANDBOX_BANK_STATEMENTS=Object.freeze({
  ...Object.fromEntries(Object.entries(PRIVATE_MOBILE_BANK_STATEMENTS).map(([name,sql])=>[name,sql.replaceAll("'solberg-v1'","'showcase-v2'")])),
  ...PRIVATE_MOBILE_DETECTION_STATEMENTS,
+ ...SANDBOX_SAMPLE_RETIREMENT_STATEMENTS,
  manualEditTargetLock:PRIVATE_MOBILE_LIFECYCLE_STATEMENTS.manualEditTargetLock.replace('source=$3::public.subscription_source',"(source=$3::public.subscription_source OR (source='DETECTED' AND status IN('ACTIVE','PAUSED','CANCELLED','ARCHIVED')))"),
  manualEditCompareUpdate:PRIVATE_MOBILE_LIFECYCLE_STATEMENTS.manualEditCompareUpdate.replace('source=$9::public.subscription_source',"(source=$9::public.subscription_source OR (source='DETECTED' AND status IN('ACTIVE','PAUSED','CANCELLED','ARCHIVED')))"),
  mobileStatusLock:PRIVATE_MOBILE_LIFECYCLE_STATEMENTS.mobileStatusLock.replace('source=$3::public.subscription_source',"(source=$3::public.subscription_source OR (source='DETECTED' AND status IN('ACTIVE','PAUSED','CANCELLED','ARCHIVED')))"),
