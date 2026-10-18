@@ -10,13 +10,14 @@ delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
 android_fix_handoff:
   updated: "2026-10-18"
-  execution: "V6 known-issues private APK delivered at source81420b1f, original signer/data retained. Rich per-owner backend seed update deployed once; independent signed-binary verification39111619704 PASS. Exact signed installed run39111679544 passes SETUP/BANK/MANAGE, then PAGES fails without retained screen; visual/preferences/cold-restart stages not reached. Complete native acceptance and exact HTML parity remain unproven. No app rebuild or redeploy after test-tooling-only PR301. See android-v6-private-delivery-2026-10-18.md."
+  execution: "V6 delivered APK/live backend remain unchanged. Full private-development Android run39125234969/job117668898346 PASS at05b39065 with28 true receipt checks and18 inspected PNGs: save/edit/status/calendar/bank/app+API restart/logout. Later reviewed shared interaction/HTML corrections throughb226000b pass782mobile tests but are not installed-qualified. Unsigned iOS preparation archive39126807052 PASS atfeb30ade/Xcode26.2, runtime_intent=disabled/build1/no installableIPA; installed iOS remains blocked before app compilation by the original driver timeout. Original signing memory floor remains unmet on final read12:35:46UTC. Required CI/reviews and signed successor delivery remain open; exact HTML parity is not claimed. See ios-shared-interaction-followup-2026-10-18.md."
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
-  tested_source_head: ccac41571127ef97acb46728a57c67da691bd120
+  tested_source_head: 05b39065ab6d06a714dd2d816835b7eadc4966c6
   delivery_source_head: 81420b1faa8dae3143bd18653ac5cae383e8a9bc
   version_code: 6
   issues:
+    - "Current follow-up: Swedish versioned sample catalogue/no-DDL upgrade is PostgreSQL-qualified but not live. Profile Privacy bank-data controls and Help exist; actual OS notifications/authenticated data-rights lifecycle/production Household remain gaps. Shared member comparison/history/keyboard/date-focus/responsive fixes plus screenshot-driven axis/missing-value corrections are reviewed throughb226000b. Full782mobile tests pass; final axis constraint22tests/types/lint and four component previews pass. No corrected-source installed/signed acceptance or iPhone build delivery."
     - "HTML follow-up2026-10-18: additional visual/gesture corrections plus native failure collection prepared;741mobile tests pass and optional test-type error corrected. Exact installed parity plus Privacy/Notifications/Support remain open. See html-verification-followup-2026-10-18.md. V6 delivered bytes/backend unchanged."
     - "V6: SubTrack-Android-v6-20261018-TEST.apk,65648113bytes,SHA25677e400676d67fa4d638172f969cda7c74ccf87e13772a1d41458b9f6fc3d4ad1. Signed build delivered; PAGES failure and exact native visual parity unresolved. No successful complete-product claim."
     - "V5 private test delivery: SubTrack-Android-v5-20261017-UNVALIDATED.apk,65611249 bytes,SHA2567b951487d4a22f261fe534991b79e68c97424eb2358be2510fad6a14ab7dec18. Android build39058274305 and API39058276540 succeed; full device/signed-product validation explicitly waived. Source reviews retained."
