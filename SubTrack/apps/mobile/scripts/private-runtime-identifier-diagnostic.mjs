@@ -4,11 +4,11 @@ const commands = [
   ['tap', /tap on/i],
   ['input', /input text/i],
   ['hide-keyboard', /hide keyboard/i],
-  ['scroll', /scroll until|scroll (?:up|down)|scrollUntilVisible/i],
+  ['scroll', /scroll until|scroll (?:up|down)|scrollUntilVisible|no visible element found/i],
 ];
 const toolReasons = [
   ['assertion', /assertion is false|assertion failed/i],
-  ['element-not-found', /element.*not found|no.*matching.*element/i],
+  ['element-not-found', /element.*not found|no.*matching.*element|no visible element found/i],
   ['launch', /failed to launch|unable to launch/i],
   ['device-unavailable', /no devices found|device.*not found|device.*offline/i],
   [
@@ -47,6 +47,12 @@ const moduleRoster = new Set([
   '@subtrack/ui-tokens',
 ]);
 
+/** Original owned driver text only; reuse the accepted tool patterns, never return excerpts. */
+export function originalDriverToolDiagnostic(text){
+ const result=closedToolDiagnostic(text,'',[]);
+ return Object.freeze(result.withheld===null&&result.reasons.length?[...result.reasons]:['UNKNOWN']);
+}
+
 /** Closed enums only; never excerpts or dynamic values from device/tool output. */
 export function identifierToolDiagnostic({ phase, identifier, metro, labels }) {
   const unavailable = (reason) => ({ withheld: reason });
@@ -56,12 +62,17 @@ export function identifierToolDiagnostic({ phase, identifier, metro, labels }) {
     typeof labels.createAccount !== 'string' ||
     !labels.createAccount ||
     typeof labels.otp !== 'string' ||
-    !labels.otp
+    !labels.otp ||
+    typeof labels.email !== 'string' ||
+    !labels.email
   )
     return unavailable('trusted-target-unavailable');
   return closedToolDiagnostic(identifier, metro, [
     ['welcome-create-account', labels.createAccount],
     ['otp-field', labels.otp],
+    ['otp-field', 'native-registration-otp'],
+    ['email-field', labels.email],
+    ['email-field', 'native-identifier-input'],
   ]);
 }
 
@@ -82,6 +93,7 @@ const enrollmentRoster = [
   ['personal-title', 'personalTitle'],
   ['expected-amount', 'expectedAmount'],
 ];
+const fixedInputIds=new Set(['native-identifier-input','native-registration-otp','native-profile-name','native-subscription-name','native-subscription-amount','native-subscription-date']);
 
 export function enrollmentToolDiagnostic({ phase, enrollment, metro, labels }) {
   if (phase !== 'flow-enroll-add') return { withheld: 'outside-enrollment' };
@@ -95,8 +107,34 @@ export function enrollmentToolDiagnostic({ phase, enrollment, metro, labels }) {
   return closedToolDiagnostic(
     enrollment,
     metro,
-    [...enrollmentRoster.map(([name, key]) => [name, labels[key]]), ['saved-row', 'Native restart proof']],
+    [...enrollmentRoster.map(([name, key]) => [name, labels[key]]),
+      ['otp-field', 'native-registration-otp'], ['profile-name', 'native-profile-name'],
+      ['subscription-name', 'native-subscription-name'], ['subscription-amount', 'native-subscription-amount'],
+      ['date-field', 'native-subscription-date'], ['saved-row', 'Example streaming']],
   );
+}
+
+const restartRoster=[['welcome-create-account','createAccount'],['bankid-verify','verifyBankId'],['expected-amount','expectedAmount'],['logout','logout'],['logout-confirmed','logoutConfirmed'],['edit','edit'],['save-edit','saveEdit'],['edit-saved','editSaved'],['pause','pause'],['resume','resume'],['cancelled','cancelled'],['archive','archive']];
+/** Original restart-family child output only; no new tool invocation or UI capture. */
+export function restartToolDiagnostic({phase,restart,metro,labels}){
+ if(!['flow-restart','flow-edit-status','flow-edit-status-api-restart'].includes(phase))return {withheld:'outside-restart'};
+ if(!labels||!restartRoster.every(([,key])=>typeof labels[key]==='string'&&labels[key].length>0))return {withheld:'trusted-target-unavailable'};
+ return closedToolDiagnostic(restart,metro,[...restartRoster.map(([name,key])=>[name,labels[key]]),['edited-row','Example streaming Plus'],['saved-row','Example streaming'],['subscription-name','native-subscription-name'],['date-field','native-subscription-date']]);
+}
+
+const billingMonthRoster=[['bankid-verify','login'],['personal-title','personalTitle'],['profile-title','profileTitle'],['home-title','home'],['next-month','nextMonth'],['month-target','monthTarget'],['month-previous','monthPrevious'],['month-empty','monthEmpty'],['subscription-detail','detail'],['expected-amount','amount'],['detail-price','detailPrice'],['manual-source','manual'],['close','close'],['logout','logout'],['logout-confirmed','logoutConfirmed']];
+/** Original billing child output only. Target values are caller-owned catalog/date labels; none are emitted. */
+export function billingMonthToolDiagnostic({phase,billingMonth,metro,labels}){
+ if(!['flow-billing-month','flow-billing-month-empty'].includes(phase))return {withheld:'outside-billing-month'};
+ const keys=[...billingMonthRoster.map(([,key])=>key),'date'];
+ if(!labels||Object.getPrototypeOf(labels)!==Object.prototype)return {withheld:'trusted-target-unavailable'};
+ const descriptors=Object.getOwnPropertyDescriptors(labels);
+ if(Reflect.ownKeys(labels).length!==keys.length||keys.some(key=>{const d=descriptors[key];return !d||!('value'in d)||!d.enumerable||typeof d.value!=='string'||d.value.length<1||d.value.length>500||/[\p{Cc}]/u.test(d.value);}))return {withheld:'trusted-target-unavailable'};
+ const date=descriptors.date.value;
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date.startsWith('0000')||!Number.isFinite(Date.parse(`${date}T00:00:00Z`))||new Date(`${date}T00:00:00Z`).toISOString().slice(0,10)!==date)return {withheld:'trusted-target-unavailable'};
+ return closedToolDiagnostic(billingMonth,metro,[...billingMonthRoster.map(([name,key])=>[name,labels[key],true]),
+  ['bankid-verify','native-personal-login',true],['personal-title','native-personal-title',true],['home-title','native-nav-month',true],['home-title','native-home-overview',true],['home-title','native-home-title',true],
+  ['saved-row',phase==='flow-billing-month'?'Example streaming':'Example streaming Plus',true],['date-picker','native-home-calendar',true],['date-cell',`native-date-${date}`,true],['selected-date','native-month-selected-date',true],['subscription-detail','native-month-detail-row',true],['expected-date',date,true],['close','native-subscription-detail-close',true]]);
 }
 
 /** One exact enrollment invocation owns the event latch. No process values escape. */
@@ -148,7 +186,7 @@ function closedToolDiagnostic(identifier, metro, targetRoster) {
   const tool = identifier.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '');
   const failedLines = tool
     .split(/\r?\n/)
-    .filter((line) => /FAILED|ERROR|assertion is false|not found/i.test(line));
+    .filter((line) => /FAILED|ERROR|assertion is false|not found|no visible element found/i.test(line));
   const failedCommands = commands
     .filter(([, pattern]) => failedLines.some((line) => pattern.test(line)))
     .map(([name]) => name);
@@ -160,7 +198,7 @@ function closedToolDiagnostic(identifier, metro, targetRoster) {
     (a, b) => b[1].length - a[1].length,
   );
   for (const line of failedLines) {
-    const target = sortedTargets.find(([, label]) => line.includes(label));
+    const target = sortedTargets.find(([name, label, exact=false]) => exact||fixedInputIds.has(label)||name==='email-field'?new RegExp(`(^|[^\\w-])${label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}(?![\\w-])`).test(line):line.includes(label));
     if (target) targets.add(target[0]);
   }
   const bundler = metroReasons

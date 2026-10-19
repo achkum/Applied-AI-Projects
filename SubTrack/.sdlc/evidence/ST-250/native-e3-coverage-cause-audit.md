@@ -1,0 +1,13 @@
+# Native e3be79a precompile coverage cause audit
+
+2026-10-14 read-only reviewer sandbox_delivery_audit. Actual run38536218993 Android/iOS failed Locked dependencies and proof tools before native compile. No source changes, tests, Git, remote or repeated workflow dispatch performed.
+
+Ignored Android private log was inspected with bounded extraction of known source markers/coverage numeric metadata only. Actual target coverage row ending re-observer.ts exactly matches global tuple: statements19.39, branches12.44, functions33.33, lines36.36. Actual command contains `--coverage.include=test/private-mobile-owned-fixture-observer.ts`; no evidence of omitted CLI propagation or Expo template failure. No private log/message/value was published.
+
+Actual source explains the regression: ST249 commit1cf9176 added OwnedDetectionController/scenario/boundary logic at lines5–90 to the same previously OTP-only observer module. Existing native workflow still runs only `test/private-mobile-owned-fixture-observer.spec.ts`, which imports/tests createOwnedOtpStartObserver and never the controller. Required100% whole-file gate correctly fails on the newly unexercised controller.
+
+The already reviewed `test/private-mobile-detection-fixture.spec.ts` imports and meaningfully exercises this same OwnedDetectionController: exact-target/scope binding, actual query-dispatch ordering, fourth-await/fifth-sync microtask timing, rollback/commit before-after, stale queued ticks and closed source boundaries. ST249 postgresql-source-handoff.md records the combined three original observer/detection-fixture/receipt specs27tests at100% statements/branches/functions/lines, and explicit observer+receipt coverage entries. This is prior evidence supporting the finite repair, not a claim this native command has been rerun.
+
+Smallest proposed exact source repair: in `.github/workflows/subtrack-native-device-proof.yml`, add `test/private-mobile-detection-fixture.spec.ts` to the SAME existing observer Vitest invocation. Preserve `--coverage.include=test/private-mobile-owned-fixture-observer.ts` and all four100% thresholds, every other step/test/authority/cleanup guard. No new helper/source split/coverage exclusion/test bypass or SDK/template alteration. Root must freeze/authorize this concrete one-line amendment; actual focused two-spec observer100% coverage should validate it before independent source review and one new-head CI execution.
+
+Actual macOS unsigned sandbox run38536219212 reaching Release compiler is a separate product toolchain stream; this native private-tools failure supplies no evidence against that SDK54 archive yet. No installed native app or public sandbox acceptance follows from this audit.

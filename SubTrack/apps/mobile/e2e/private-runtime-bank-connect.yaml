@@ -1,0 +1,67 @@
+appId: se.subtrack.app
+---
+- openLink: subtrack:///personal
+- extendedWaitUntil:
+    visible:
+      id: native-personal-login
+    timeout: 30000
+- tapOn:
+    id: native-personal-login
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
+- scrollUntilVisible:
+    element: Example streaming Plus
+    direction: DOWN
+    centerElement: true
+- extendedWaitUntil:
+    visible: Example streaming Plus
+    timeout: 30000
+- runFlow: private-runtime-open-profile.yaml
+- scrollUntilVisible:
+    element:
+      id: native-profile-bank
+    direction: DOWN
+- tapOn:
+    id: native-profile-bank
+- extendedWaitUntil:
+    visible:
+      id: native-bank-title
+      text: ${MAESTRO_BANK_TITLE}
+    timeout: 30000
+- assertVisible: ${MAESTRO_BANK_DEMO}
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_EMPTY}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_CONNECT}
+    direction: DOWN
+- tapOn: ${MAESTRO_BANK_CONNECT}
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_ACTIVE}
+    direction: UP
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_ACTIVE}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_LAST_SYNC_NEVER}
+    direction: DOWN
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_LAST_SYNC_NEVER}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_ACCOUNTS}
+    direction: DOWN
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_ACCOUNTS}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_TRANSACTIONS}
+    direction: DOWN
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_TRANSACTIONS}
+    timeout: 30000
+- assertVisible: "1"
+- assertVisible: "0"

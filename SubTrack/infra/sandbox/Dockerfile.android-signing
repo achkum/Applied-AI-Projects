@@ -1,0 +1,14 @@
+# Tools-only image, build outside VPS from checksum-qualified official build-tools36.
+# No context secrets, auto-download, key generation or public signer entrypoint.
+ARG SANDBOX_JDK17_IMAGE
+FROM ${SANDBOX_JDK17_IMAGE}
+COPY --chown=996:996 android-build-tools/36.0.0/ /opt/android/build-tools/36.0.0/
+RUN java -version 2>&1 | grep -Eq 'version "17\.' && \
+    command -v keytool && \
+    test -x /opt/android/build-tools/36.0.0/apksigner && \
+    test -x /opt/android/build-tools/36.0.0/zipalign && \
+    test -f /opt/android/build-tools/36.0.0/lib/apksigner.jar
+USER 996:996
+WORKDIR /out
+ENTRYPOINT ["/opt/android/build-tools/36.0.0/apksigner"]
+CMD ["version"]

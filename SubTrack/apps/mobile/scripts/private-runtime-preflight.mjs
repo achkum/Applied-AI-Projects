@@ -5,10 +5,11 @@ import process from 'node:process';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const app = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const config = JSON.parse(fs.readFileSync(path.join(app, 'app.json'), 'utf8')).expo;
-for (const [file, size] of [['icon.png',1024],['splash.png',512],['adaptive-icon.png',1024]]) {
+for (const [file, size] of [['icon.png',1024],['splash.png',1024],['adaptive-icon.png',1024]]) {
   const bytes = fs.readFileSync(path.join(app, 'assets', file));
   assert.equal(bytes.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
   assert.equal(bytes.subarray(12,16).toString('ascii'),'IHDR');
@@ -27,7 +28,14 @@ for (const profile of ['preview','production']) {
   assert.equal(eas.build[profile].env.EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL,undefined);
 }
 const pkg = JSON.parse(fs.readFileSync(path.join(app, 'package.json'), 'utf8'));
-assert.equal(pkg.dependencies.expo,'~51.0.0');assert.equal(pkg.dependencies['react-native'],'0.74.5');
+assert.equal(pkg.dependencies.expo,'54.0.37');assert.equal(pkg.dependencies['react-native'],'0.81.5');
+assert.equal(pkg.dependencies.react,'19.1.0');assert.equal(pkg.dependencies['react-native-reanimated'],'3.19.1');
+assert.equal(config.newArchEnabled,false);
+assert.deepEqual(pkg.expo?.install?.exclude,['react-native-reanimated']);
+const require=createRequire(import.meta.url);
+for (const [name,version] of [['expo','54.0.37'],['react-native','0.81.5'],['react','19.1.0'],['react-native-reanimated','3.19.1']]) {
+  assert.equal(require(`${name}/package.json`).version,version);
+}
 process.stdout.write('PASS ST244_NATIVE_CONFIG_AND_ASSET_INPUTS\n');
 for (const [name,args] of [['java',['-version']],['adb',['version']],['emulator',['-version']],['xcodebuild',['-version']]]) {
   const result = spawnSync(name,args,{windowsHide:true,stdio:'ignore',timeout:5000});

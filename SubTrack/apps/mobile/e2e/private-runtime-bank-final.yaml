@@ -1,0 +1,72 @@
+appId: se.subtrack.app
+---
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: ${MAESTRO_CREATE_ACCOUNT}
+    timeout: 120000
+- openLink: subtrack:///personal
+- extendedWaitUntil:
+    visible:
+      id: native-personal-login
+    timeout: 30000
+- tapOn:
+    id: native-personal-login
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
+- scrollUntilVisible:
+    element: Example streaming Plus
+    direction: DOWN
+    centerElement: true
+- extendedWaitUntil:
+    visible: Example streaming Plus
+    timeout: 30000
+- runFlow: private-runtime-open-profile.yaml
+- scrollUntilVisible:
+    element:
+      id: native-profile-bank
+    direction: DOWN
+- tapOn:
+    id: native-profile-bank
+- extendedWaitUntil:
+    visible:
+      id: native-bank-title
+      text: ${MAESTRO_BANK_TITLE}
+    timeout: 30000
+- assertVisible: ${MAESTRO_BANK_DEMO}
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_EMPTY}
+    timeout: 30000
+- assertNotVisible: ${MAESTRO_BANK_REVOKED}
+- assertNotVisible: ${MAESTRO_BANK_TRANSACTIONS}
+# Leave the contextual bank page; logout lives on Profile.
+- scrollUntilVisible:
+    element:
+      id: native-bank-title
+    direction: UP
+- tapOn: ${MAESTRO_BANK_MANAGE}
+- extendedWaitUntil:
+    visible:
+      id: native-nav-profile
+    timeout: 30000
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_LOGOUT}
+    direction: DOWN
+- tapOn: ${MAESTRO_LOGOUT}
+- extendedWaitUntil:
+    visible: ${MAESTRO_LOGOUT_CONFIRMED}
+    timeout: 30000
+- assertNotVisible: ${MAESTRO_LOGOUT}
+- assertNotVisible: ${MAESTRO_BANK_ACTIVE}
+- assertNotVisible: ${MAESTRO_BANK_REVOKED}
+- assertNotVisible: ${MAESTRO_BANK_TRANSACTIONS}
+- assertNotVisible: ${MAESTRO_BANK_LAST_SYNC_PRESENT}

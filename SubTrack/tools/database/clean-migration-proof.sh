@@ -59,7 +59,7 @@ export BUG_008B_IDENTITY_URL="postgresql://proof_identity:$identity_pass@127.0.0
 export BUG_008B_OTP_URL="postgresql://proof_otp:$otp_pass@127.0.0.1:$port/clean_migration_proof?connection_limit=1"
 export BUG_008B_CATALOGUE_URL="postgresql://proof_catalogue:$catalogue_pass@127.0.0.1:$port/clean_migration_proof?connection_limit=1"
 export DATABASE_URL="$BUG_008B_OWNER_URL"
-if ! (cd apps/api && corepack pnpm exec prisma migrate deploy --schema=prisma/schema.prisma) > "$tmp/migrate.log" 2>&1; then
+if ! (cd apps/api && pnpm exec prisma migrate deploy --schema=prisma/schema.prisma) > "$tmp/migrate.log" 2>&1; then
   fail migrate "$tmp/migrate.log"
 fi
 expected=$(printf '0001_canonical_schema|%s\n0002_privacy_constraints|%s\n0003_enrollment_profile|%s\n0004_just_me_mode|%s' \
@@ -79,7 +79,7 @@ if ! docker exec -i "$cid" psql --username fixture_owner --dbname clean_migratio
   --no-psqlrc --set ON_ERROR_STOP=1 --set VERBOSITY=sqlstate --quiet < "$tmp/runtime.sql" > "$tmp/role.log" 2>&1; then
   fail roles "$tmp/role.log"
 fi
-if ! (cd apps/api && corepack pnpm exec prisma migrate diff --from-url "$BUG_008B_OWNER_URL" \
+if ! (cd apps/api && pnpm exec prisma migrate diff --from-url "$BUG_008B_OWNER_URL" \
   --to-schema-datamodel prisma/schema.prisma --script) > "$tmp/drift.sql" 2> "$tmp/drift.log"; then
   fail modeled-drift "$tmp/drift.log"
 fi
@@ -96,10 +96,10 @@ for statement in statements:
     if not match or match.group(1) not in allowed:
         raise SystemExit('Modeled-schema drift outside SQL-only partial indexes')
 PY
-if ! (cd apps/api && corepack pnpm exec prisma generate --schema=prisma/schema.prisma) > "$tmp/generate.log" 2>&1; then
+if ! (cd apps/api && pnpm exec prisma generate --schema=prisma/schema.prisma) > "$tmp/generate.log" 2>&1; then
   fail prisma-generate "$tmp/generate.log"
 fi
-if ! (cd apps/api && corepack pnpm exec vitest run --config vitest.clean-migration.config.ts) > "$tmp/test.log" 2>&1; then
+if ! (cd apps/api && pnpm exec vitest run --config vitest.clean-migration.config.ts) > "$tmp/test.log" 2>&1; then
   phase=$(grep -Eo 'BUG-008b disposable PostgreSQL proof failed: (endpoint|role and catalog invariants|fixture|principal isolation and visibility|concurrent source and admin guards|mutation boundaries|service invitation lifecycle|owner departure and revocation|context failure and rollback cleanup)' "$tmp/test.log" | head -1 || true)
   [[ -n "$phase" ]] || phase=startup
   step=$(grep -Eo 'step=(none|(rc|rr)-(source-seed|capture|source-await-block|source-edit-assert|admin-seed|admin-first|admin-await-block|admin-second-assert)|lifecycle-(identity|transitions|effects|replay))' "$tmp/test.log" | head -1 || true)

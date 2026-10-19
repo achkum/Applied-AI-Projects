@@ -15,13 +15,14 @@ trap 'exit 130' INT TERM
 set_build_phase prebuild
 pnpm exec expo prebuild --platform "$platform" --no-install > "$proof_root/private/prebuild.log" 2>&1
 if [[ "$platform" == android ]]; then
-  # SDK51 template's pluginManagement bare lookup fails under existing isolated
-  # pnpm. Match its already-scoped final includeBuild; no dependency/SDK change.
+  # SDK54 is already scoped. Recognize the locked template and refuse unknown rewrites.
   node --input-type=module -e "import {readFileSync,writeFileSync} from 'node:fs'; import {scopeGradlePluginResolution} from './scripts/private-runtime-native-resolve.mjs'; const file='android/settings.gradle'; writeFileSync(file,scopeGradlePluginResolution(readFileSync(file,'utf8')));"
   set_build_phase android-compile
   # C9 JetifyTransform exhausted the template's 2GiB heap. Bound concurrency
-  # while allocating 4GiB for this hosted debug compile; transforms/ABIs intact.
+  # while allocating 4GiB for this hosted debug compile. Only the owned x86_64
+  # emulator ABI is compiled here; signed handset Release builds are separate.
   (cd android && ./gradlew :app:assembleDebug --no-daemon --stacktrace --max-workers=2 \
+    --build-cache --init-script ../scripts/private-runtime-gradle-cache.init.gradle -PreactNativeArchitectures=x86_64 \
     '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m') > "$proof_root/private/build.log" 2>&1
   set_build_phase android-install
   bash scripts/private-runtime-android.sh owned-device > "$proof_root/private/owned-device.log" 2>&1
@@ -36,18 +37,39 @@ if [[ "$platform" == android ]]; then
   printf '%s' '<map><string name="debug_http_host">localhost:8081</string></map>' | \
     adb -s emulator-5554 shell "run-as se.subtrack.app sh -c 'cat > shared_prefs/se.subtrack.app_preferences.xml'"
 else
-  # Expo SDK51 officially maps to Xcode15.4. Never upgrade silently.
+  # SDK54 maintenance qualifies explicit Xcode26.2; never inherit the runner default.
   set_build_phase ios-toolchain
-  [[ -d /Applications/Xcode_15.4.app ]]
-  [[ "$(xcodebuild -version | head -1)" == 'Xcode 15.4' ]]
+  [[ -d /Applications/Xcode_26.2.app ]]
+  [[ "$(xcodebuild -version | head -1)" == 'Xcode 26.2' ]]
+  # ST253_IOS_BUILD_TIMING_BEGIN
+  timed_ios_build_phase() {
+    local timing_phase="$1" timing_log timing_started="$SECONDS" timing_exit=0 timing_elapsed
+    shift
+    case "$timing_phase" in
+      ios-pods) timing_log="$proof_root/private/pods.log" ;;
+      ios-compile) timing_log="$proof_root/private/build.log" ;;
+      *) return 2 ;;
+    esac
+    "$@" > "$timing_log" 2>&1 || timing_exit=$?
+    timing_elapsed=$((SECONDS - timing_started))
+    (( timing_elapsed >= 0 )) || return 1
+    printf 'ST253_IOS_BUILD_TIMING phase=%s elapsed_seconds=%s exit_code=%s\n' "$timing_phase" "$timing_elapsed" "$timing_exit"
+    return "$timing_exit"
+  }
+  install_ios_pods() { (cd ios && pod install --verbose); }
+  compile_ios_app() {
+    xcodebuild -workspace ios/SubTrack.xcworkspace -scheme SubTrack -configuration Debug \
+      -sdk iphonesimulator -destination "id=${SUBTRACK_SIMULATOR_UDID:?}" \
+      -derivedDataPath "$proof_root/private/derived" CODE_SIGNING_ALLOWED=NO \
+      -showBuildTimingSummary build
+  }
+  # ST253_IOS_BUILD_TIMING_END
   set_build_phase ios-pods
-  (cd ios && pod install --verbose) > "$proof_root/private/pods.log" 2>&1
+  timed_ios_build_phase ios-pods install_ios_pods
   set_build_phase ios-compile
-  xcodebuild -workspace ios/SubTrack.xcworkspace -scheme SubTrack -configuration Debug \
-    -sdk iphonesimulator -destination "id=${SUBTRACK_SIMULATOR_UDID:?}" \
-    -derivedDataPath "$proof_root/private/derived" CODE_SIGNING_ALLOWED=NO \
-    build > "$proof_root/private/build.log" 2>&1
+  timed_ios_build_phase ios-compile compile_ios_app
   set_build_phase ios-install
+  node scripts/private-runtime-ios-font-bundle.mjs "$proof_root/private/derived/Build/Products/Debug-iphonesimulator/SubTrack.app"
   xcrun simctl install "$SUBTRACK_SIMULATOR_UDID" "$proof_root/private/derived/Build/Products/Debug-iphonesimulator/SubTrack.app"
   set_build_phase ios-ca-trust
   xcrun simctl keychain "$SUBTRACK_SIMULATOR_UDID" add-root-cert "$SUBTRACK_PRIVATE_CA_CERT"

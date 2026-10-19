@@ -5,10 +5,15 @@ import {renewalDateDay} from './privateMobileRenewals';
 import {readNativeProfile,readNativeMode,readNativeSubscriptions} from './privateMobileApi';
 export type BillingMonth=Readonly<{year:number;month:number}>;
 export type BillingDay=Readonly<{date:string;items:readonly PrivateOwnerSubscriptionView[]}>;
-export type BillingProjection=Readonly<{month:BillingMonth;days:readonly BillingDay[];totals:readonly Money[]}>;
+export type BillingProjection=Readonly<{month:BillingMonth;days:readonly BillingDay[];totals:readonly Money[];undatedDetections:readonly PrivateOwnerSubscriptionView[]}>;
 const fail=()=>new Error('Private billing month unavailable');
 export function checkBillingMonth(month:BillingMonth):BillingMonth{
  if(!month||!Number.isInteger(month.year)||month.year<1||month.year>9999||!Number.isInteger(month.month)||month.month<1||month.month>12)throw fail();return month;
+}
+export function billingMonthCalendarDates(input:BillingMonth):readonly string[]{
+ const {year,month}=checkBillingMonth(input),daysByMonth=[31,0,31,30,31,30,31,31,30,31,30,31];
+ const days=month===2?(year%4===0&&(year%100!==0||year%400===0)?29:28):daysByMonth[month-1]!;
+ return Array.from({length:days},(_,index)=>`${String(year).padStart(4,'0')}-${String(month).padStart(2,'0')}-${String(index+1).padStart(2,'0')}`);
 }
 export function currentBillingMonth(now:Date):BillingMonth{if(!(now instanceof Date)||!Number.isFinite(now.getTime()))throw fail();return checkBillingMonth({year:now.getFullYear(),month:now.getMonth()+1});}
 export function shiftBillingMonth(input:BillingMonth,direction:-1|1):BillingMonth{
@@ -17,9 +22,10 @@ export function shiftBillingMonth(input:BillingMonth,direction:-1|1):BillingMont
 }
 export function selectBillingMonth(rows:readonly PrivateOwnerSubscriptionView[],input:BillingMonth):BillingProjection{
  const month=checkBillingMonth(input),prefix=`${String(month.year).padStart(4,'0')}-${String(month.month).padStart(2,'0')}-`;
- const ids=new Set<string>(),selected:PrivateOwnerSubscriptionView[]=[];
+ const ids=new Set<string>(),selected:PrivateOwnerSubscriptionView[]=[],undatedDetections:PrivateOwnerSubscriptionView[]=[];
  for(const input of rows){const row=parsePrivateOwnerView(input);if(ids.has(row.id))throw fail();ids.add(row.id);
   if(row.nextChargeDate!==null)renewalDateDay(row.nextChargeDate);
+  if(row.status==='ACTIVE'&&row.source==='DETECTED'&&row.nextChargeDate===null)undatedDetections.push(row);
   if(row.status==='ACTIVE'&&row.nextChargeDate!==null&&row.nextChargeDate.startsWith(prefix))selected.push(row);
  }
  selected.sort((a,b)=>a.nextChargeDate!.localeCompare(b.nextChargeDate!)||a.id.localeCompare(b.id));
@@ -27,7 +33,7 @@ export function selectBillingMonth(rows:readonly PrivateOwnerSubscriptionView[],
  for(const item of selected){const last=days[days.length-1];if(last?.date===item.nextChargeDate)last.items.push(item);else days.push({date:item.nextChargeDate!,items:[item]});
   const value=money(BigInt(item.expectedAmountMinor),item.currency);totals.set(item.currency,add(totals.get(item.currency)??money(0n,item.currency),value));
  }
- return {month,days,totals:[...totals.values()].sort((a,b)=>a.currency.localeCompare(b.currency))};
+ return {month,days,undatedDetections:undatedDetections.sort((a,b)=>a.id.localeCompare(b.id)),totals:[...totals.values()].sort((a,b)=>a.currency.localeCompare(b.currency))};
 }
 export async function readBillingMonth(token:string,signal:AbortSignal,month:BillingMonth):Promise<Readonly<{kind:'ready';projection:BillingProjection}|{kind:'setup-required'}>>{
  checkBillingMonth(month);if(signal.aborted)throw fail();const profile=await readNativeProfile(token,signal),mode=await readNativeMode(token,signal);if(!profile.profileComplete||mode.mode!=='just-me')return {kind:'setup-required'};

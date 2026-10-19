@@ -1,4 +1,4 @@
-import {checkBillingMonth,currentBillingMonth,shiftBillingMonth,selectBillingMonth,readBillingMonth} from './privateMobileBillingMonth';
+import {checkBillingMonth,currentBillingMonth,shiftBillingMonth,billingMonthCalendarDates,selectBillingMonth,readBillingMonth} from './privateMobileBillingMonth';
 import * as api from './privateMobileApi';
 jest.mock('./privateMobileApi',()=>({readNativeProfile:jest.fn(),readNativeMode:jest.fn(),readNativeSubscriptions:jest.fn()}));
 const row={id:'123e4567-e89b-42d3-a456-426614174000',revision:'1',source:'MANUAL' as const,visibility:'owner' as const,customName:'Saved month service',merchantId:null,merchantName:null,categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY' as const,status:'ACTIVE' as const,expectedAmountMinor:'9007199254740993',currency:'SEK',nextChargeDate:'2026-10-01',alwaysPrivate:true};
@@ -8,6 +8,14 @@ it('uses real local calendar month and guarded year/month navigation',()=>{
  expect(currentBillingMonth(new Date(2026,9,1))).toEqual(month);expect(shiftBillingMonth({year:2026,month:12},1)).toEqual({year:2027,month:1});expect(shiftBillingMonth({year:2026,month:1},-1)).toEqual({year:2025,month:12});
  for(const bad of [null,{year:0,month:1},{year:10000,month:1},{year:2026.5,month:1},{year:2026,month:0},{year:2026,month:13},{year:2026,month:1.5}])expect(()=>checkBillingMonth(bad as typeof month)).toThrow();
  expect(()=>currentBillingMonth(new Date('bad'))).toThrow();expect(()=>currentBillingMonth(null as unknown as Date)).toThrow();expect(()=>shiftBillingMonth(month,0 as 1)).toThrow();expect(()=>shiftBillingMonth({year:1,month:1},-1)).toThrow();expect(()=>shiftBillingMonth({year:9999,month:12},1)).toThrow();
+});
+it('builds every validated calendar date across month lengths, leap centuries and year bounds',()=>{
+ const dates=billingMonthCalendarDates({year:2026,month:2});expect(dates).toHaveLength(28);expect(dates[0]).toBe('2026-02-01');expect(dates[dates.length-1]).toBe('2026-02-28');
+ for(const year of [2024,2000])expect(billingMonthCalendarDates({year,month:2})).toHaveLength(29);
+ for(const year of [1900,2100])expect(billingMonthCalendarDates({year,month:2})).toHaveLength(28);
+ expect(billingMonthCalendarDates({year:2026,month:1})).toHaveLength(31);expect(billingMonthCalendarDates({year:2026,month:4})).toHaveLength(30);
+ expect(billingMonthCalendarDates({year:1,month:1})[0]).toBe('0001-01-01');const maximumYear=billingMonthCalendarDates({year:9999,month:12});expect(maximumYear[maximumYear.length-1]).toBe('9999-12-31');
+ expect(()=>billingMonthCalendarDates({year:0,month:1})).toThrow();expect(()=>billingMonthCalendarDates({year:2026,month:13})).toThrow();
 });
 it('shows all ACTIVE saved dates in the calendar month, including earlier dates, sorted day and ID',()=>{
  const second={...row,id:'123e4567-e89b-42d3-a456-426614174001',expectedAmountMinor:'7'},later={...row,id:'123e4567-e89b-42d3-a456-426614174002',nextChargeDate:'2026-10-31'};
@@ -28,4 +36,8 @@ it('terminal owner pagination rejects duplicates/cycles and never projects parti
  const before=new AbortController();before.abort();await expect(readBillingMonth('a.b.c',before.signal,month)).rejects.toThrow();
  const during=new AbortController();jest.mocked(api.readNativeSubscriptions).mockImplementationOnce(async()=>{during.abort();return {items:[row],nextCursor:null};});await expect(readBillingMonth('a.b.c',during.signal,month)).rejects.toThrow();
  const gated=new AbortController();jest.mocked(api.readNativeMode).mockImplementationOnce(async()=>{gated.abort();return {mode:'just-me'};});await expect(readBillingMonth('a.b.c',gated.signal,month)).rejects.toThrow();
+});
+
+it('keeps confirmed undated detections outside dated ribbons and Money totals',()=>{
+ const detected={...row,source:'DETECTED' as const,nextChargeDate:null};const projection=selectBillingMonth([detected,{...row,id:'123e4567-e89b-42d3-a456-426614174001',nextChargeDate:null}],month);expect(projection.undatedDetections).toEqual([detected]);expect(projection.days).toEqual([]);expect(projection.totals).toEqual([]);expect(projection.undatedDetections[0]?.expectedAmountMinor).toBe('9007199254740993');for(const status of ['DETECTED','REJECTED','PAUSED','CANCELLED','ARCHIVED','TRIAL'] as const)expect(selectBillingMonth([{...detected,status}],month).undatedDetections).toEqual([]);
 });

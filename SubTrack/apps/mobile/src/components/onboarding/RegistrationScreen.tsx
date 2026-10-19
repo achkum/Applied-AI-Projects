@@ -5,9 +5,9 @@ import { useI18n } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getColorByTheme } from '@/utils/colors';
 import { IdentifierEntry } from './IdentifierEntry';
-import { useEnrollment } from '@/state/EnrollmentFlow';
-import { useNativeSession } from '@/state/NativeSession';
+import { useOnboarding } from '@/state/OnboardingAdapter';
 import {calibrateEnrollmentDiagnostic} from '@/utils/privateRuntimeEnrollmentDiagnostic';
+import { NativeProductButton, NativeProductCard, NativeProductHeading } from '@/components/billing/NativeProductUI';
 
 export type RegistrationMode = 'register' | 'login';
 
@@ -17,32 +17,37 @@ export function RegistrationScreen({
   mode?: RegistrationMode;
 }) {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { theme, isDark } = useTheme();
-  const { flow, start, reset } = useEnrollment();
-  const session = useNativeSession(); const generation = useRef(0); const pending = useRef(false);
+  const onboarding = useOnboarding();
+  const {flow, start, reset, provider} = onboarding;
+  const generation = useRef(0); const pending = useRef(false);
+  const currentProvider = useRef(provider); currentProvider.current = provider;
+  const currentLogout = useRef(onboarding.logout); currentLogout.current = onboarding.logout;
   const [loginError, setLoginError] = useState(false);
   const color = (key: string) => getColorByTheme(theme, isDark, key);
 
   useEffect(()=>mode==='register'?calibrateEnrollmentDiagnostic():undefined,[mode]);
   useEffect(() => {
     if (mode === 'login') {
-      if (flow.phase !== 'identifier') reset();
-    } else if (flow.phase === 'otp') router.replace('/register-otp');
+      if (provider === 'production' && flow.phase !== 'identifier') reset();
+    }
+    if (flow.phase === 'otp') router.replace('/register-otp');
     else if (flow.phase === 'bankid') router.replace('/register-bankid');
-  }, [flow.phase, mode, router]);
-  useEffect(() => () => { generation.current++; if (pending.current) void session.logout().catch(() => undefined); }, []);
+  }, [flow.phase, mode, provider, router]);
+  useEffect(() => () => { generation.current++; if (pending.current && currentProvider.current === 'production') void currentLogout.current().catch(() => undefined); }, []);
 
   return (
     <ScrollView
       style={{ backgroundColor: color('bg.canvas') }}
       contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
     >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('onboarding.registration.backLabel')}
         onPress={() => {
-          generation.current++; pending.current = false; if (mode === 'login') void session.logout().catch(() => undefined);
+          generation.current++; pending.current = false; if (mode === 'login' && provider === 'production') void onboarding.logout().catch(() => undefined);
           reset();
           router.back();
         }}
@@ -57,56 +62,20 @@ export function RegistrationScreen({
           {t('onboarding.registration.backLabel')}
         </Text>
       </Pressable>
-      <Text
-        accessibilityRole="header"
-        style={{
-          color: color('ink.primary'),
-          fontFamily: theme.typography.fontFamily.display,
-          fontSize: theme.typography.fontSize['2xl'],
-        }}
-      >
-        {t('onboarding.registration.title')}
-      </Text>
-      <Text
-        style={{
-          color: color('ink.secondary'),
-          fontFamily: theme.typography.fontFamily.ui,
-          fontSize: theme.typography.fontSize.md,
-        }}
-      >
-        {t('onboarding.registration.introduction')}
-      </Text>
+      <NativeProductHeading title={t(mode==='login'?'onboarding.nativePersonal.loginTitle':'onboarding.registration.title')} />
 
+      {mode!=='login'&&loginError?<Text accessibilityRole="alert" style={{color:color('ink.primary')}}>{t('onboarding.nativePersonal.unavailable')}</Text>:null}
       {mode === 'login' ? (
-        <View
-          accessible
-          accessibilityRole="alert"
-          style={[
-            styles.notice,
-            {
-              backgroundColor: color('bg.raised'),
-              borderRadius: theme.radius.card,
-            },
-          ]}
-        >
-          <Text
-            style={{
-              color: color('ink.primary'),
-              fontFamily: theme.typography.fontFamily.ui,
-            }}
-          >
-            {t('onboarding.nativePersonal.demo')}
-          </Text>
-          <Text style={{ color: color('ink.secondary') }}>{t('onboarding.nativePersonal.restart')}</Text>
+        <NativeProductCard>
           {loginError ? <Text accessibilityRole="alert" style={{ color: color('ink.primary') }}>{t('onboarding.nativePersonal.unavailable')}</Text> : null}
-          <Pressable accessibilityRole="button" disabled={session.phase === 'busy'} style={styles.back}
+          <NativeProductButton label={t('onboarding.nativePersonal.verify')} variant="primary" disabled={onboarding.sessionPhase === 'busy' || pending.current}
             onPress={async () => {
               if (pending.current) return;
               const ticket = ++generation.current; pending.current = true; setLoginError(false);
-              try { await session.login(); if (ticket !== generation.current) return; pending.current = false; router.replace('/personal'); }
+              try { await onboarding.login(locale); if (ticket !== generation.current) return; pending.current = false; router.replace('/personal'); }
               catch { if (ticket === generation.current) { pending.current = false; setLoginError(true); } }
-            }}><Text style={{ color: color('ink.primary') }}>{t('onboarding.nativePersonal.verify')}</Text></Pressable>
-        </View>
+            }} />
+        </NativeProductCard>
       ) : (
         <>
           {flow.phase === 'identifier' && flow.error && (
@@ -143,7 +112,8 @@ export function RegistrationScreen({
             >
               <IdentifierEntry
                 onValidIdentifier={(identifier) => {
-                  void start(identifier);
+                  const ticket=++generation.current;setLoginError(false);
+                  void (provider==='sandbox'?start(identifier,locale):start(identifier)).then(()=>{if(provider==='sandbox'&&ticket===generation.current)router.replace('/personal');}).catch(()=>{if(ticket===generation.current)setLoginError(true);});
                 }}
               />
             </View>
@@ -155,13 +125,12 @@ export function RegistrationScreen({
 }
 
 const styles = StyleSheet.create({
-  content: { flexGrow: 1, gap: 16, padding: 24 },
+  content: { flexGrow: 1, gap: 16, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 24 },
   back: {
     alignSelf: 'flex-start',
     minHeight: 48,
     justifyContent: 'center',
     paddingHorizontal: 8,
   },
-  notice: { gap: 12, padding: 16 },
-  card: { padding: 24 },
+  card: { padding: 16 },
 });

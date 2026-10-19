@@ -94,7 +94,7 @@ fail() {
   printf 'ST-081c disposable proof: FAIL phase=%s code=%s\n' "$phase" "${code:-unavailable}" | tee "$receipt" >&2
   exit 1
 }
-if ! (cd apps/api && corepack pnpm exec prisma migrate deploy --schema=prisma/schema.prisma) >"$tmp/migrate.log" 2>&1; then fail "$tmp/migrate.log"; fi
+if ! (cd apps/api && pnpm exec prisma migrate deploy --schema=prisma/schema.prisma) >"$tmp/migrate.log" 2>&1; then fail "$tmp/migrate.log"; fi
 phase=reader-role
 printf "CREATE ROLE st081c_runtime LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_runtime TO st081c_runtime WITH INHERIT TRUE, SET FALSE;\n" \
   "$reader_pass" > "$tmp/reader.sql"
@@ -104,11 +104,11 @@ if ! docker exec "$cid" psql --username fixture_owner --dbname subscription_life
   --set ON_ERROR_STOP=1 --tuples-only --no-align --command \
   "SELECT CASE WHEN r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolbypassrls AND pg_has_role(r.oid, 'subtrack_runtime', 'MEMBER') AND (SELECT count(*) FROM pg_auth_members WHERE member=r.oid)=1 THEN 'ok' ELSE 'bad' END FROM pg_roles r WHERE r.rolname='st081c_runtime'" | grep -qx ok; then fail; fi
 phase=generate
-if ! (cd apps/api && corepack pnpm exec prisma generate --schema=prisma/schema.prisma) >"$tmp/generate.log" 2>&1; then fail "$tmp/generate.log"; fi
+if ! (cd apps/api && pnpm exec prisma generate --schema=prisma/schema.prisma) >"$tmp/generate.log" 2>&1; then fail "$tmp/generate.log"; fi
 phase=domain-build
-if ! corepack pnpm --filter @subtrack/domain build:lifecycle >"$tmp/domain-build.log" 2>&1; then fail "$tmp/domain-build.log"; fi
+if ! pnpm --filter @subtrack/domain build:lifecycle >"$tmp/domain-build.log" 2>&1; then fail "$tmp/domain-build.log"; fi
 phase=storage-integration
-if ! (cd apps/api && corepack pnpm exec vitest run --config vitest.subscription-lifecycle.config.ts) >"$tmp/test.log" 2>&1; then
+if ! (cd apps/api && pnpm exec vitest run --config vitest.subscription-lifecycle.config.ts) >"$tmp/test.log" 2>&1; then
   code=$(grep -Eo 'P[0-9]{4}|SQLSTATE[ =:]+[A-Z0-9]{5}|ERROR:[[:space:]]*[A-Z0-9]{5}' "$tmp/test.log" | head -1 || true)
   detail=$(grep -Eo 'Disposable subscription lifecycle proof failed: [A-Za-z -]+' "$tmp/test.log" | head -1 | sed 's/.*: //' | tr ' ' '-' || true)
   printf 'ST-081c disposable proof: FAIL phase=storage-integration detail=%s code=%s\n' \

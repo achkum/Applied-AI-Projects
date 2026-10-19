@@ -4,13 +4,296 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type SandboxProblem = {
+    type: 'about:blank';
+    title: 'Sandbox request unavailable';
+    status: 400 | 401 | 404 | 409 | 429 | 500;
+    code: 'INVALID_SANDBOX_REQUEST' | 'SANDBOX_AUTHENTICATION_REQUIRED' | 'SUBSCRIPTION_NOT_FOUND' | 'SANDBOX_RESTART_REQUIRED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_CONFLICT' | 'LIFECYCLE_CONFLICT' | 'SANDBOX_CAPACITY_EXHAUSTED' | 'SANDBOX_UNAVAILABLE';
+};
+
+export type SandboxBootstrapBody = {
+    transport: 'sandbox-mobile';
+    locale: 'sv' | 'en';
+};
+
+export type SandboxTransportBody = {
+    transport: 'sandbox-mobile';
+};
+
+export type SandboxCredentials = {
+    transport: 'sandbox-mobile';
+    sessionId: string;
+    accessToken: string;
+    refreshToken: string;
+    sessionExpiresAt: number;
+};
+
+export type SandboxBootstrapCredentials = {
+    transport: 'sandbox-mobile';
+    sessionId: string;
+    accessToken: string;
+    refreshToken: string;
+    sessionExpiresAt: number;
+    installationCapability: string;
+};
+
+export type SandboxBusinessBody = {
+    operation: 'profile-read';
+    body: SandboxEmptyBody;
+} | {
+    operation: 'profile';
+    body: ProfilePatch;
+} | {
+    operation: 'mode-read';
+    body: SandboxEmptyBody;
+} | {
+    operation: 'mode';
+    body: JustMeChoice;
+} | {
+    operation: 'owner-read';
+    body: PrivateOwnerPageRequest;
+} | {
+    operation: 'manual';
+    body: PrivateManualCreate;
+} | {
+    operation: 'manual-edit';
+    body: PrivateMobileManualEdit;
+} | {
+    operation: 'status';
+    body: PrivateMobileStatusRequest;
+} | {
+    operation: 'bank-read';
+    body: PrivateMobileBankRead;
+} | {
+    operation: 'bank-connect';
+    body: PrivateMobileBankConnect;
+} | {
+    operation: 'bank-sync';
+    body: PrivateMobileBankSync;
+} | {
+    operation: 'bank-disconnect';
+    body: PrivateMobileBankDisconnect;
+} | {
+    operation: 'detection-read';
+    body: PrivateMobileDetectionRead;
+} | {
+    operation: 'detection-scan';
+    body: PrivateMobileDetectionScan;
+} | {
+    operation: 'detection-confirm';
+    body: PrivateMobileDetectionReview;
+} | {
+    operation: 'detection-reject';
+    body: PrivateMobileDetectionReview;
+} | {
+    operation: 'detection-undo';
+    body: PrivateMobileDetectionUndo;
+} | {
+    operation: 'household-read';
+    body: SandboxEmptyBody;
+} | {
+    operation: 'household-create';
+    body: SandboxHouseholdName;
+} | {
+    operation: 'household-rename';
+    body: SandboxHouseholdName;
+} | {
+    operation: 'dependant-add';
+    body: SandboxDependantAdd;
+} | {
+    operation: 'dependant-edit';
+    body: SandboxDependantEdit;
+} | {
+    operation: 'dependant-remove';
+    body: SandboxDependantRemove;
+} | {
+    operation: 'bank-history';
+    body: SandboxEmptyBody;
+} | {
+    operation: 'household-assign';
+    body: SandboxHouseholdAssign;
+} | {
+    operation: 'subscription-edit';
+    body: PrivateMobileManualEdit;
+} | {
+    operation: 'subscription-status';
+    body: PrivateMobileStatusRequest;
+};
+
+export type SandboxHouseholdAssign = {
+    subscriptionId: string;
+    /**
+     * User-entered planned payer; null means unknown. Never confirmed payment evidence.
+     */
+    payerMemberId: string | null;
+    memberIds: Array<string>;
+};
+
+export type SandboxBankHistory = {
+    nextCursor: null;
+    items: Array<{
+        id: string;
+        subscriptionId: string | null;
+        displayName: string;
+        date: string;
+        amountMinor: CanonicalMinorUnits;
+        currency: 'SEK';
+    }>;
+};
+
+export type SandboxHouseholdView = {
+    household: null | {
+        id: string;
+        name: string;
+        members: Array<{
+            id: string;
+            displayName: string;
+            role: 'ADMIN' | 'DEPENDANT';
+        }>;
+        assignments: Array<SandboxHouseholdAssign>;
+    };
+};
+
+export type SandboxHouseholdName = {
+    name: string;
+};
+
+export type SandboxDependantAdd = {
+    requestId: string;
+    displayName: string;
+};
+
+export type SandboxDependantEdit = {
+    memberId: string;
+    displayName: string;
+};
+
+export type SandboxDependantRemove = {
+    memberId: string;
+};
+
+export type SandboxEmptyBody = {
+    [key: string]: never;
+};
+
+export type PrivateMobileDetectionScan = {
+    [key: string]: never;
+};
+
+export type PrivateMobileDetectionRead = {
+    cursor?: string;
+};
+
+export type PrivateMobileDetectionReview = {
+    candidateId: string;
+    /**
+     * Canonical positive signed-int64 revision.
+     */
+    expectedRevision: string;
+};
+
+export type PrivateMobileDetectionUndo = {
+    receiptId: string;
+};
+
+export type PrivateMobileDetectionScanResult = {
+    scan: 'complete';
+};
+
+export type PrivateMobileDetectionCandidate = {
+    id: string;
+    revision: string;
+    /**
+     * Unambiguous trusted canonical merchant name only.
+     */
+    displayName: string;
+    categoryCode: string;
+    cadence: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
+    /**
+     * Positive canonical base10 minor units at most signed-int64 max.
+     */
+    expectedAmountMinor: string;
+    currency: string;
+    confidence: number;
+    reasons: Array<'MERCHANT_RESOLVED' | 'CADENCE_MATCHED' | 'MIN_OCCURRENCES_MET' | 'DATE_PATTERN_STABLE' | 'AMOUNT_WITHIN_BAND' | 'SUBSCRIPTION_CATEGORY_PRIOR'>;
+    status: 'DETECTED';
+};
+
+export type PrivateMobileDetectionReadResult = {
+    items: Array<PrivateMobileDetectionCandidate>;
+    nextCursor: string | null;
+};
+
+export type PrivateMobileDetectionReviewResult = {
+    candidateId: string;
+    status: 'ACTIVE' | 'REJECTED' | 'DETECTED';
+    revision: string;
+    receiptId: string;
+    /**
+     * Canonical millisecond UTC original deadline; null for Undo.
+     */
+    undoUntil: string | null;
+};
+
+export type PrivateMobileBankRead = {
+    [key: string]: never;
+};
+
+export type PrivateMobileBankConnect = {
+    institutionId: 'synthetic-demo-v1';
+};
+
+export type PrivateMobileBankSync = {
+    connectionId: string;
+};
+
+export type PrivateMobileBankDisconnect = {
+    connectionId: string;
+    purge: boolean;
+};
+
+/**
+ * Counts are nonnegative safe integers capped at 1000000. A purged generation must be REVOKED with both counts zero. No money values or private banking rows.
+ *
+ */
+export type PrivateMobileBankSummary = unknown & {
+    connectionId: string;
+    provider: 'SYNTHETIC';
+    institutionId: 'synthetic-demo-v1';
+    status: 'ACTIVE' | 'REVOKED';
+    disposition: 'retained' | 'purged';
+    accountCount: number;
+    transactionCount: number;
+    /**
+     * Nullable canonical real UTC instant, millisecond precision, years 0001-9999.
+     */
+    lastSyncAt: string | null;
+};
+
+/**
+ * All retained generations, at most one ACTIVE, unique connection UUIDs. Purged generations excluded; empty is truthful.
+ */
+export type PrivateMobileBankReadResult = {
+    connections: Array<PrivateMobileBankSummary & {
+        disposition?: 'retained';
+    }>;
+};
+
+/**
+ * Immutable receipt snapshot. Connect/sync require ACTIVE; disconnect requires REVOKED. Fresh read gives current truth after replay.
+ */
+export type PrivateMobileBankMutationResult = unknown & {
+    operation: 'connect' | 'sync' | 'disconnect';
+    connection: PrivateMobileBankSummary;
+};
+
 export type PrivateMobileManualEdit = {
     id: string;
     /**
      * After trimming 1-120 UTF16 units; valid Unicode without Cc/Cf/unpaired surrogates. Canonical trimmed name stored and hashed.
      */
     customName: string;
-    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION';
+    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION' | string;
     cadence: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
     /**
      * Positive canonical minor-unit text, maximum 9223372036854775807; BigInt only.
@@ -53,7 +336,7 @@ export type PrivateMobileError = {
     type: 'about:blank';
     title: 'Bad Request' | 'Unauthorized' | 'Forbidden' | 'Not Found' | 'Conflict' | 'Too Many Requests' | 'Internal Server Error';
     status: 400 | 401 | 403 | 404 | 409 | 429 | 500;
-    code: 'INVALID_MOBILE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MOBILE_REQUEST_REJECTED' | 'MOBILE_UNAVAILABLE' | 'AUTH_RESTART_REQUIRED' | 'ENROLLMENT_LOGIN_REQUIRED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'SUBSCRIPTION_NOT_FOUND' | 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_CONFLICT' | 'LIFECYCLE_CONFLICT' | 'INTERNAL_ERROR';
+    code: 'INVALID_MOBILE_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'MOBILE_REQUEST_REJECTED' | 'MOBILE_UNAVAILABLE' | 'AUTH_RESTART_REQUIRED' | 'ENROLLMENT_LOGIN_REQUIRED' | 'MODE_CONFLICT' | 'MANUAL_IDEMPOTENCY_CONFLICT' | 'SUBSCRIPTION_NOT_FOUND' | 'MANUAL_EDIT_IDEMPOTENCY_CONFLICT' | 'MANUAL_EDIT_CONFLICT' | 'LIFECYCLE_CONFLICT' | 'BANK_STATE_CONFLICT' | 'BANK_IDEMPOTENCY_CONFLICT' | 'DETECTION_UNAVAILABLE' | 'DETECTION_STATE_CONFLICT' | 'DETECTION_IDEMPOTENCY_CONFLICT' | 'UNDO_EXPIRED' | 'INTERNAL_ERROR';
 };
 
 /**
@@ -126,7 +409,7 @@ export type PrivateManualCreate = {
      * After trimming 1-120 UTF16 units; valid Unicode without Cc/Cf/unpaired surrogates. Canonical trimmed name stored and hashed.
      */
     customName: string;
-    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION';
+    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION' | string;
     cadence: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
     /**
      * Positive canonical minor-unit text, maximum 9223372036854775807; BigInt only.
@@ -148,7 +431,7 @@ export type PrivateManualEdit = {
      * After trimming 1-120 UTF16 units; valid Unicode without Cc/Cf/unpaired surrogates. Canonical trimmed name stored and hashed.
      */
     customName: string;
-    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION';
+    categoryCode: 'VIDEO_STREAMING' | 'MUSIC_AUDIO' | 'AUDIOBOOKS_EBOOKS' | 'NEWS_MAGAZINES' | 'GAMING' | 'SOFTWARE_PRODUCTIVITY' | 'CLOUD_STORAGE' | 'AI_TOOLS' | 'MOBILE_PLAN' | 'BROADBAND_TV' | 'FITNESS_WELLNESS' | 'FOOD_MEALKITS' | 'TRANSPORT_MOBILITY' | 'HOME_SECURITY' | 'EDUCATION_KIDS' | 'PETS' | 'SHOPPING_MEMBERSHIPS' | 'VPN_SECURITY' | 'DONATIONS' | 'DATING_SOCIAL' | 'APP_STORE_BILLING' | 'OTHER_SUBSCRIPTION' | string;
     cadence: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
     /**
      * Positive canonical minor-unit text, maximum 9223372036854775807; BigInt only.
@@ -925,6 +1208,8 @@ export type V2Problem = Problem & {
     code: string;
 };
 
+export type SandboxRequestKey = string;
+
 /**
  * Defaults to me. Household means rows currently visible through any of the caller's active households; no owner selector.
  */
@@ -988,6 +1273,147 @@ export type SessionCsrf = string;
  * Required current session CSRF for the verified browser identity and session; separate from browser nonce.
  */
 export type BrowserSessionCsrf = string;
+
+export type BootstrapSandboxMobileData = {
+    body: SandboxBootstrapBody;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/sandbox/mobile/bootstrap';
+};
+
+export type BootstrapSandboxMobileErrors = {
+    /**
+     * Closed sandbox-only error without credentials or private input.
+     */
+    default: SandboxProblem;
+};
+
+export type BootstrapSandboxMobileError = BootstrapSandboxMobileErrors[keyof BootstrapSandboxMobileErrors];
+
+export type BootstrapSandboxMobileResponses = {
+    /**
+     * Known committed workspace and credentials, with one-time installation capability.
+     */
+    201: SandboxBootstrapCredentials;
+};
+
+export type BootstrapSandboxMobileResponse = BootstrapSandboxMobileResponses[keyof BootstrapSandboxMobileResponses];
+
+export type ResumeSandboxMobileData = {
+    body: SandboxTransportBody;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/sandbox/mobile/resume';
+};
+
+export type ResumeSandboxMobileErrors = {
+    /**
+     * Closed sandbox-only error without credentials or private input.
+     */
+    default: SandboxProblem;
+};
+
+export type ResumeSandboxMobileError = ResumeSandboxMobileErrors[keyof ResumeSandboxMobileErrors];
+
+export type ResumeSandboxMobileResponses = {
+    /**
+     * Known committed new session, without redisclosing installation capability.
+     */
+    201: SandboxCredentials;
+};
+
+export type ResumeSandboxMobileResponse = ResumeSandboxMobileResponses[keyof ResumeSandboxMobileResponses];
+
+export type RefreshSandboxMobileData = {
+    body?: never;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/sandbox/mobile/refresh';
+};
+
+export type RefreshSandboxMobileErrors = {
+    /**
+     * Closed sandbox-only error without credentials or private input.
+     */
+    default: SandboxProblem;
+};
+
+export type RefreshSandboxMobileError = RefreshSandboxMobileErrors[keyof RefreshSandboxMobileErrors];
+
+export type RefreshSandboxMobileResponses = {
+    /**
+     * Known committed rotated sandbox credentials.
+     */
+    200: SandboxCredentials;
+};
+
+export type RefreshSandboxMobileResponse = RefreshSandboxMobileResponses[keyof RefreshSandboxMobileResponses];
+
+export type LogoutSandboxMobileData = {
+    body: SandboxTransportBody;
+    path?: never;
+    query?: never;
+    url: '/v2/sandbox/mobile/logout';
+};
+
+export type LogoutSandboxMobileErrors = {
+    /**
+     * Closed sandbox-only error without credentials or private input.
+     */
+    default: SandboxProblem;
+};
+
+export type LogoutSandboxMobileError = LogoutSandboxMobileErrors[keyof LogoutSandboxMobileErrors];
+
+export type LogoutSandboxMobileResponses = {
+    /**
+     * Known committed workspace-wide revocation.
+     */
+    204: void;
+};
+
+export type LogoutSandboxMobileResponse = LogoutSandboxMobileResponses[keyof LogoutSandboxMobileResponses];
+
+export type ExecuteSandboxMobileBusinessData = {
+    body: SandboxBusinessBody;
+    headers?: {
+        'Idempotency-Key'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/sandbox/mobile/business';
+};
+
+export type ExecuteSandboxMobileBusinessErrors = {
+    /**
+     * Closed sandbox-only error without credentials or private input.
+     */
+    default: SandboxProblem;
+};
+
+export type ExecuteSandboxMobileBusinessError = ExecuteSandboxMobileBusinessErrors[keyof ExecuteSandboxMobileBusinessErrors];
+
+export type ExecuteSandboxMobileBusinessResponses = {
+    /**
+     * Known committed current owner business result.
+     */
+    200: ProfileView | ModeView | PrivateOwnerPage | PrivateManualEdited | SubscriptionLifecycleResult | PrivateMobileBankReadResult | PrivateMobileBankMutationResult | PrivateMobileDetectionReadResult | PrivateMobileDetectionScanResult | PrivateMobileDetectionReviewResult | SandboxBankHistory | SandboxHouseholdView;
+    /**
+     * Known committed manual subscription.
+     */
+    201: PrivateManualCreated;
+};
+
+export type ExecuteSandboxMobileBusinessResponse = ExecuteSandboxMobileBusinessResponses[keyof ExecuteSandboxMobileBusinessResponses];
 
 export type GetHealthzData = {
     body?: never;
@@ -3393,3 +3819,465 @@ export type ChangePrivateMobileSubscriptionStatusResponses = {
 };
 
 export type ChangePrivateMobileSubscriptionStatusResponse = ChangePrivateMobileSubscriptionStatusResponses[keyof ChangePrivateMobileSubscriptionStatusResponses];
+
+export type ReadPrivateMobileSyntheticBankData = {
+    body: PrivateMobileBankRead;
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/banks/synthetic/read';
+};
+
+export type ReadPrivateMobileSyntheticBankErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ReadPrivateMobileSyntheticBankError = ReadPrivateMobileSyntheticBankErrors[keyof ReadPrivateMobileSyntheticBankErrors];
+
+export type ReadPrivateMobileSyntheticBankResponses = {
+    /**
+     * Known current read or immutable committed mutation result.
+     */
+    200: PrivateMobileBankReadResult;
+};
+
+export type ReadPrivateMobileSyntheticBankResponse = ReadPrivateMobileSyntheticBankResponses[keyof ReadPrivateMobileSyntheticBankResponses];
+
+export type ConnectPrivateMobileSyntheticBankData = {
+    body: PrivateMobileBankConnect;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/banks/synthetic/connect';
+};
+
+export type ConnectPrivateMobileSyntheticBankErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ConnectPrivateMobileSyntheticBankError = ConnectPrivateMobileSyntheticBankErrors[keyof ConnectPrivateMobileSyntheticBankErrors];
+
+export type ConnectPrivateMobileSyntheticBankResponses = {
+    /**
+     * Known current read or immutable committed mutation result.
+     */
+    200: PrivateMobileBankMutationResult;
+};
+
+export type ConnectPrivateMobileSyntheticBankResponse = ConnectPrivateMobileSyntheticBankResponses[keyof ConnectPrivateMobileSyntheticBankResponses];
+
+export type SyncPrivateMobileSyntheticBankData = {
+    body: PrivateMobileBankSync;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/banks/synthetic/sync';
+};
+
+export type SyncPrivateMobileSyntheticBankErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type SyncPrivateMobileSyntheticBankError = SyncPrivateMobileSyntheticBankErrors[keyof SyncPrivateMobileSyntheticBankErrors];
+
+export type SyncPrivateMobileSyntheticBankResponses = {
+    /**
+     * Known current read or immutable committed mutation result.
+     */
+    200: PrivateMobileBankMutationResult;
+};
+
+export type SyncPrivateMobileSyntheticBankResponse = SyncPrivateMobileSyntheticBankResponses[keyof SyncPrivateMobileSyntheticBankResponses];
+
+export type DisconnectPrivateMobileSyntheticBankData = {
+    body: PrivateMobileBankDisconnect;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/banks/synthetic/disconnect';
+};
+
+export type DisconnectPrivateMobileSyntheticBankErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type DisconnectPrivateMobileSyntheticBankError = DisconnectPrivateMobileSyntheticBankErrors[keyof DisconnectPrivateMobileSyntheticBankErrors];
+
+export type DisconnectPrivateMobileSyntheticBankResponses = {
+    /**
+     * Known current read or immutable committed mutation result.
+     */
+    200: PrivateMobileBankMutationResult;
+};
+
+export type DisconnectPrivateMobileSyntheticBankResponse = DisconnectPrivateMobileSyntheticBankResponses[keyof DisconnectPrivateMobileSyntheticBankResponses];
+
+export type ScanPrivateMobileDetectionData = {
+    body: PrivateMobileDetectionScan;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/detections/scan';
+};
+
+export type ScanPrivateMobileDetectionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ScanPrivateMobileDetectionError = ScanPrivateMobileDetectionErrors[keyof ScanPrivateMobileDetectionErrors];
+
+export type ScanPrivateMobileDetectionResponses = {
+    /**
+     * Current bounded owner projection or immutable committed receipt.
+     */
+    200: PrivateMobileDetectionScanResult;
+};
+
+export type ScanPrivateMobileDetectionResponse = ScanPrivateMobileDetectionResponses[keyof ScanPrivateMobileDetectionResponses];
+
+export type ReadPrivateMobileDetectionData = {
+    body: PrivateMobileDetectionRead;
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/detections/read';
+};
+
+export type ReadPrivateMobileDetectionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ReadPrivateMobileDetectionError = ReadPrivateMobileDetectionErrors[keyof ReadPrivateMobileDetectionErrors];
+
+export type ReadPrivateMobileDetectionResponses = {
+    /**
+     * Current bounded owner projection or immutable committed receipt.
+     */
+    200: PrivateMobileDetectionReadResult;
+};
+
+export type ReadPrivateMobileDetectionResponse = ReadPrivateMobileDetectionResponses[keyof ReadPrivateMobileDetectionResponses];
+
+export type ConfirmPrivateMobileDetectionData = {
+    body: PrivateMobileDetectionReview;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/detections/confirm';
+};
+
+export type ConfirmPrivateMobileDetectionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type ConfirmPrivateMobileDetectionError = ConfirmPrivateMobileDetectionErrors[keyof ConfirmPrivateMobileDetectionErrors];
+
+export type ConfirmPrivateMobileDetectionResponses = {
+    /**
+     * Current bounded owner projection or immutable committed receipt.
+     */
+    200: PrivateMobileDetectionReviewResult;
+};
+
+export type ConfirmPrivateMobileDetectionResponse = ConfirmPrivateMobileDetectionResponses[keyof ConfirmPrivateMobileDetectionResponses];
+
+export type RejectPrivateMobileDetectionData = {
+    body: PrivateMobileDetectionReview;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/detections/reject';
+};
+
+export type RejectPrivateMobileDetectionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type RejectPrivateMobileDetectionError = RejectPrivateMobileDetectionErrors[keyof RejectPrivateMobileDetectionErrors];
+
+export type RejectPrivateMobileDetectionResponses = {
+    /**
+     * Current bounded owner projection or immutable committed receipt.
+     */
+    200: PrivateMobileDetectionReviewResult;
+};
+
+export type RejectPrivateMobileDetectionResponse = RejectPrivateMobileDetectionResponses[keyof RejectPrivateMobileDetectionResponses];
+
+export type UndoPrivateMobileDetectionData = {
+    body: PrivateMobileDetectionUndo;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/private/mobile/detections/undo';
+};
+
+export type UndoPrivateMobileDetectionErrors = {
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    400: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    401: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    403: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    404: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    409: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    429: PrivateMobileError;
+    /**
+     * Closed private mobile problem; no credentials, subject, SQL or provider detail.
+     */
+    500: PrivateMobileError;
+};
+
+export type UndoPrivateMobileDetectionError = UndoPrivateMobileDetectionErrors[keyof UndoPrivateMobileDetectionErrors];
+
+export type UndoPrivateMobileDetectionResponses = {
+    /**
+     * Current bounded owner projection or immutable committed receipt.
+     */
+    200: PrivateMobileDetectionReviewResult;
+};
+
+export type UndoPrivateMobileDetectionResponse = UndoPrivateMobileDetectionResponses[keyof UndoPrivateMobileDetectionResponses];

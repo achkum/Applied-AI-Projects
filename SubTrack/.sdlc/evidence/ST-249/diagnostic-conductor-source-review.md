@@ -1,0 +1,5 @@
+# Closed baseline diagnostic source review
+
+Conductor platform SOURCE GO2026-10-14, independently inspected actual two-file diff and source handoff. Pure reexport uses the existing bank diagnostic implementation; original proof functions/assertions/order/results are unchanged. Qualifier accepts only complete existing bank/parent fixed grammars and fixed detection enum, refuses multiline or non-data-property errors, and emits fixed setup/unknown categories otherwise. Synchronous setup catch cannot turn failure into success. Shell retains the identical inherited grammar before the detection branch. Original failure exit, private cleanup, closed receipt and artifact gates remain unchanged. Author actual extracted-code checks499 cases passed; independent privacy source GO is separately recorded.
+
+This restores already-safe failure observability omitted by the new combined qualifier. It does not repair or infer the failed runtime cause, introduce a public endpoint, or accept a receipt without actual execution. One new exact-head hosted disposable qualification is justified by changed source; no unchanged native build. Required full-history scan precedes push.

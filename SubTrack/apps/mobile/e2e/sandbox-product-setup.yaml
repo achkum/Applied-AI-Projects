@@ -1,0 +1,91 @@
+appId: se.subtrack.app.sandbox
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: native-welcome-createAccount
+    timeout: 120000
+- takeScreenshot: accepted-sandbox-welcome
+- tapOn:
+    id: native-welcome-createAccount
+- extendedWaitUntil:
+    visible:
+      id: native-identifier-input
+    timeout: 30000
+- tapOn:
+    id: native-identifier-input
+- inputText: android-product@subtrack.invalid
+- hideKeyboard
+- tapOn: ${E_CONTINUE}
+- extendedWaitUntil:
+    visible:
+      id: native-profile-name
+    timeout: 30000
+- tapOn:
+    id: native-profile-name
+- inputText: QA Product
+- hideKeyboard
+- tapOn:
+    id: native-profile-avatar-smile
+- takeScreenshot: accepted-sandbox-profile
+- scrollUntilVisible:
+    element: ${E_SAVE_PROFILE}
+    direction: DOWN
+- tapOn: ${E_SAVE_PROFILE}
+- extendedWaitUntil:
+    visible: ${E_MY_HOUSEHOLD}
+    timeout: 30000
+- tapOn: ${E_MY_HOUSEHOLD}
+- extendedWaitUntil:
+    visible:
+      id: native-household-rename
+    timeout: 30000
+- assertVisible: Demo family
+- tapOn:
+    id: native-household-rename
+- extendedWaitUntil:
+    visible:
+      id: native-household-name
+    timeout: 30000
+- tapOn:
+    id: native-household-name
+- eraseText
+- inputText: QA Family
+- hideKeyboard
+- tapOn:
+    id: native-household-save
+- extendedWaitUntil:
+    visible: QA Family
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-household-member-add-open
+    direction: DOWN
+- tapOn:
+    id: native-household-member-add-open
+- scrollUntilVisible:
+    element:
+      id: native-household-member-name
+    direction: DOWN
+- tapOn:
+    id: native-household-member-name
+- inputText: QA Member
+- hideKeyboard
+- tapOn:
+    id: native-household-member-add
+- scrollUntilVisible:
+    element:
+      id: native-household-title
+    direction: UP
+- extendedWaitUntil:
+    visible: ${E_HOUSEHOLD_SAVED}
+    timeout: 30000
+- scrollUntilVisible:
+    element: QA Member
+    direction: DOWN
+- assertVisible: QA Member
+- scrollUntilVisible:
+    element:
+      id: native-household-title
+    direction: UP
+- takeScreenshot: accepted-sandbox-household

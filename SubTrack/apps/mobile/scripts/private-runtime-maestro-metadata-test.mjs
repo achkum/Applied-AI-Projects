@@ -1,18 +1,25 @@
+import {URL} from 'node:url';
+import process from 'node:process';
+import crypto from 'node:crypto';
+import childProcess from 'node:child_process';
+import {deflateSync,crc32} from 'node:zlib';
 import {Buffer} from 'node:buffer';
 import assert from 'node:assert/strict';
 import test,{mock} from 'node:test';
 import fs from 'node:fs';
-import {syncBuiltinESMExports} from 'node:module';
+import {syncBuiltinESMExports,createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
+import {TextDecoder} from 'node:util';
 import {join,resolve,dirname,basename} from 'node:path';
-import {projectEnrollmentMetadata,prepareEnrollmentMetadata,enrollmentMetadataLines} from './private-runtime-maestro-metadata.mjs';
+import {projectEnrollmentMetadata,prepareEnrollmentMetadata,prepareHomeEnrollmentMetadata,prepareEditStatusMetadata,enrollmentMetadataLines,preinputWelcomeMetadata,preparePreinputMetadata,preinputOriginalScreenshotMetadata,PREINPUT_ORIGINAL_SCREENSHOT,preinputCaptureContext,recordPreinputSimulator,zeroAllApi,validPreinputPng,validAndroidPng,sealPreinputPng,validSealedPreinput,validatedPreinputArtifact,captureSealedPreinput,captureSealedOriginalPreinput,PREINPUT_RECIPIENT_SHA256,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS,ENROLLMENT_HEADER_OCCURRENCES,androidCaptureContext,androidAvdStage,verifyAndroidDevice,measureAndroidApp,recordAndroidApp,prepareAndroidEntryMetadata,androidFixtureBinding,sealAndroidEntryPng,validSealedAndroid,validatedAndroidArtifact,captureSealedAndroidEntry} from './private-runtime-maestro-metadata.mjs';
 import {createEnrollmentExecution} from './private-runtime-identifier-diagnostic.mjs';
+const IOS_RUNNER_CHECKS=Object.freeze(['RUNNER_NAME','RUNNER_ENTRY_TYPE','RUNNER_STAT','RUNNER_TYPE','RUNNER_CANONICAL','FINAL_PORTFOLIO_LIST','FINAL_PORTFOLIO_LIMIT','FINAL_PORTFOLIO_SET','FINAL_RUNNER_STAT','FINAL_RUNNER_TYPE','FINAL_RUNNER_CANONICAL','FINAL_RUNNER_IDENTITY']);
 const kinds=['tapOnElement','inputTextCommand','hideKeyboardCommand','assertConditionCommand','scrollUntilVisible','takeScreenshotCommand','applyConfigurationCommand'];
 const row=(kind='tapOnElement',patch={})=>({command:{[kind]:{}},metadata:{status:'FAILED',sequenceNumber:1,depth:0,...patch}});
 const bytes=value=>Buffer.from(JSON.stringify(value));
 const prefix=(patch={})=>({command:{defineVariablesCommand:{env:{private:'private-canary'}}},metadata:{status:'COMPLETED',sequenceNumber:0,depth:0,...patch}});
 const flowBytes=rows=>bytes([prefix(),...rows]);
-const invalid=value=>assert.deepEqual(projectEnrollmentMetadata(value),{metadata:'INVALID',command:'UNKNOWN',errorClass:'UNKNOWN'});
+const invalid=value=>assert.deepEqual(projectEnrollmentMetadata(value),{metadata:'INVALID',command:'UNKNOWN',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'});
 function temporary(action){const base=fs.realpathSync(tmpdir()),root=fs.mkdtempSync(join(base,'st-c22-'));try{return action(root);}finally{mock.restoreAll();syncBuiltinESMExports();assert.equal(dirname(resolve(root)),base);assert.ok(basename(root).startsWith('st-c22-'));fs.rmSync(root,{recursive:true,force:true});}}
 function fixture(root){const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution),flow=join(root,'enroll-add','2026-10-14_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});const file=join(flow,'commands.json');fs.writeFileSync(file,flowBytes([row()]));execution.record('exit',1,null);return {execution,reader,flow,file};}
 function replace(name,implementation){mock.method(fs,name,implementation);syncBuiltinESMExports();}
@@ -45,9 +52,9 @@ test('fresh invocation reader is failure-only, bounded and refuses missing/ambig
  temporary(root=>{const {reader}=fixture(root);for(let i=0;i<33;i++)fs.writeFileSync(join(root,'enroll-add','private-'+i),'');assert.equal(reader.read('flow-enroll-add').metadata,'UNAVAILABLE');});
 });
 test('exact line grammar cannot upgrade malformed/duplicate/injected status; error class always UNKNOWN',()=>{
- assert.deepEqual(enrollmentMetadataLines(projectEnrollmentMetadata(flowBytes([row()]))),['enrollment-structured-metadata=AVAILABLE','enrollment-failed-command=TAP','enrollment-error-class=UNKNOWN']);
- for(const value of [null,[],{metadata:'AVAILABLE',command:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'UNAVAILABLE',command:'TAP',errorClass:'UNKNOWN'},{metadata:'INVALID',command:'private-canary',errorClass:'UNKNOWN'},{metadata:'private-canary',command:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'INVALID',command:'UNKNOWN',errorClass:'AssertionFailure'},{metadata:'INVALID',command:'UNKNOWN',errorClass:'UNKNOWN',extra:true}])assert.equal(enrollmentMetadataLines(value),null);
- assert.deepEqual(enrollmentMetadataLines(projectEnrollmentMetadata(Buffer.from('private-canary'))),['enrollment-structured-metadata=INVALID','enrollment-failed-command=UNKNOWN','enrollment-error-class=UNKNOWN']);
+ assert.deepEqual(enrollmentMetadataLines(projectEnrollmentMetadata(flowBytes([row()]))),['enrollment-structured-metadata=AVAILABLE','enrollment-failed-command=TAP','enrollment-failed-target=UNKNOWN','enrollment-failed-occurrence=UNKNOWN','enrollment-error-class=UNKNOWN']);
+ for(const value of [null,[],{metadata:'AVAILABLE',command:'UNKNOWN',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'UNAVAILABLE',command:'TAP',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'INVALID',command:'private-canary',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'private-canary',command:'UNKNOWN',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'},{metadata:'INVALID',command:'UNKNOWN',target:'UNKNOWN',errorClass:'AssertionFailure'},{metadata:'INVALID',command:'UNKNOWN',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN',extra:true}])assert.equal(enrollmentMetadataLines(value),null);
+ assert.deepEqual(enrollmentMetadataLines(projectEnrollmentMetadata(Buffer.from('private-canary'))),['enrollment-structured-metadata=INVALID','enrollment-failed-command=UNKNOWN','enrollment-failed-target=UNKNOWN','enrollment-failed-occurrence=UNKNOWN','enrollment-error-class=UNKNOWN']);
 });
 test('actual bounded tree symlinks and changed inode/path/open/read fences never upgrade ownership',()=>{
  temporary(root=>{const file=join(root,'not-directory');fs.writeFileSync(file,'');const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(file,execution);execution.record('error');assert.equal(reader.read('flow-enroll-add').metadata,'UNAVAILABLE');});
@@ -61,7 +68,7 @@ test('actual bounded tree symlinks and changed inode/path/open/read fences never
 test('pinned producer requires exactly one completed initial top-level private definition prelude',()=>{
  const completed=prefix({timestamp:1,duration:2,evaluatedCommand:{defineVariablesCommand:{env:{private:'private-canary'}}},error:{message:'private-canary',debugMessage:'private-canary'},artifacts:[{type:'SCREENSHOT',path:'private-canary'}]});
  const production=[completed,row('applyConfigurationCommand',{status:'COMPLETED'}),row('inputTextCommand',{status:'COMPLETED',sequenceNumber:2}),row('assertConditionCommand',{sequenceNumber:3})];
- assert.deepEqual(projectEnrollmentMetadata(bytes(production)),{metadata:'AVAILABLE',command:'ASSERT_CONDITION',errorClass:'UNKNOWN'});
+ assert.deepEqual(projectEnrollmentMetadata(bytes(production)),{metadata:'AVAILABLE',command:'ASSERT_CONDITION',target:'UNKNOWN',occurrence:'UNKNOWN',errorClass:'UNKNOWN'});
  assert.equal(JSON.stringify(enrollmentMetadataLines(projectEnrollmentMetadata(bytes(production)))).includes('canary'),false);
  for(const value of [[],[row()],[row('applyConfigurationCommand',{status:'COMPLETED'}),row('tapOnElement',{sequenceNumber:2})],
   [prefix({status:'FAILED'}),row()], [prefix({status:'PENDING'}),row()], [prefix({status:'RUNNING'}),row()], [prefix({status:'WARNED'}),row()], [prefix({status:'SKIPPED'}),row()], [prefix({status:'unknown'}),row()],
@@ -75,4 +82,491 @@ test('pinned producer requires exactly one completed initial top-level private d
  const missingDepth=prefix();delete missingDepth.metadata.depth;invalid(bytes([missingDepth,row()]));
  invalid(Buffer.from('[{"command":{"defineVariablesCommand":{},"defineVariablesCommand":{}},"metadata":{"status":"COMPLETED","sequenceNumber":0,"depth":0}}]'));
  invalid(bytes([prefix(),row('defineVariablesCommand')]));
+});
+
+test('failed scroll targets come only from exact original source selectors and expected direction',()=>{
+ const project=(selector,direction='DOWN',patch={})=>projectEnrollmentMetadata(flowBytes([{...row('scrollUntilVisible',{evaluatedCommand:{scrollUntilVisible:{selector:{textRegex:'private-canary'}}},error:{message:'native-personal-title'}}),command:{scrollUntilVisible:{selector,direction,...patch}}}]));
+ for(const [id,target]of [['native-personal-title','personal-title'],['native-subscription-name','subscription-name'],['native-subscription-amount','subscription-amount'],['native-subscription-date','date-field']])assert.equal(project({idRegex:id,optional:false,textRegex:null,size:null},id==='native-personal-title'?'UP':'DOWN').target,target);
+ for(const [text,target]of [['${MAESTRO_SAVE_PROFILE}','profile-save'],['${MAESTRO_ADD}','add-open'],['${MAESTRO_CATEGORY}','subscription-category'],['${MAESTRO_SAVE_SUBSCRIPTION}','subscription-save'],['Example streaming','saved-row']])assert.equal(project({textRegex:text}).target,target);
+ for(const selector of [null,[],{}, {idRegex:42},{textRegex:42},{idRegex:'private-canary'}, {textRegex:'private-canary'}, {idRegex:'native-personal-title',textRegex:'${MAESTRO_ADD}'}, {idRegex:'native-personal-title',enabled:true}, {idRegex:'native-personal-title',optional:true}, {idRegex:'native-personal-title',extra:null}])assert.equal(project(selector,'UP').target,'UNKNOWN');
+ for(const direction of ['DOWN','private-canary',null])assert.equal(project({idRegex:'native-personal-title'},direction).target,'UNKNOWN');
+ assert.equal(project({idRegex:'native-subscription-name'},'UP').target,'UNKNOWN');assert.equal(project({},'DOWN',{selector:null}).target,'UNKNOWN');
+ const result=project({idRegex:'native-personal-title'},'UP');assert.deepEqual(enrollmentMetadataLines(result),['enrollment-structured-metadata=AVAILABLE','enrollment-failed-command=SCROLL_UNTIL_VISIBLE','enrollment-failed-target=personal-title','enrollment-failed-occurrence=UNKNOWN','enrollment-error-class=UNKNOWN']);
+ for(const patch of [{target:'private-canary'},{command:'TAP'},{metadata:'UNAVAILABLE'},{extra:'private-canary'}])assert.equal(enrollmentMetadataLines({...result,...patch}),null);
+ assert.equal(JSON.stringify(project({textRegex:'private-canary'})).includes('canary'),false);
+});
+
+const captureHead='ab'.repeat(20),captureId='123e4567-e89b-42d3-a456-426614174000';
+const captureEnv={ST253_CAPTURE_ENABLED:'true',ST253_CAPTURE_PLATFORM:'ios',ST253_CAPTURE_HEAD_REPOSITORY:'achkum/Applied-AI-Projects',NODE_ENV:'development',SUBTRACK_PRIVATE_DEVICE_PROOF:'true',EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL:'https://localhost:3443',GITHUB_REPOSITORY:'achkum/Applied-AI-Projects',GITHUB_EVENT_NAME:'pull_request',GITHUB_REF:'refs/pull/293/merge',GITHUB_HEAD_REF:'codex/native-owner-search',ST253_CAPTURE_SOURCE_HEAD:captureHead,GITHUB_RUN_ID:'1234',GITHUB_RUN_ATTEMPT:'1',SUBTRACK_SIMULATOR_UDID:'123E4567-E89B-42D3-A456-426614174000'};
+const captureContext=preinputCaptureContext(captureEnv,captureHead),zeroApi={state:'active',arrivals:'zero'};
+test('integration preinput capture is restricted to the same-repository PR292 full proof and exact base/head',()=>{
+ const integration={...captureEnv,GITHUB_REF:'refs/pull/292/merge',GITHUB_HEAD_REF:'st/native-synthetic-bank',ST253_CAPTURE_BASE_REF:'st/native-billing-month',SUBTRACK_NATIVE_PROOF_SCOPE:'full'};
+ assert.deepEqual(preinputCaptureContext(integration,captureHead),captureContext);
+ for(const key of Object.keys(integration))assert.equal(preinputCaptureContext({...integration,[key]:'private-canary'},captureHead),null,key);
+ for(const patch of [{GITHUB_REF:'refs/pull/291/merge'},{ST253_CAPTURE_BASE_REF:undefined},{SUBTRACK_NATIVE_PROOF_SCOPE:'profile'},{ST253_CAPTURE_HEAD_REPOSITORY:'foreign/repo'},{GITHUB_EVENT_NAME:'pull_request_target'}])assert.equal(preinputCaptureContext({...integration,...patch},captureHead),null);
+ assert.equal(preinputCaptureContext(integration,'cd'.repeat(20)),null);
+});
+test('first follow-up PR preinput capture requires the exact authorized head/base and a positive original PR merge ref',()=>{
+ const followup={...captureEnv,GITHUB_REF:'refs/pull/305/merge',GITHUB_HEAD_REF:'codex/sweden-data-native-followup',ST253_CAPTURE_BASE_REF:'st/native-synthetic-bank',SUBTRACK_NATIVE_PROOF_SCOPE:'full'};
+ assert.deepEqual(preinputCaptureContext(followup,captureHead),captureContext);
+ for(const key of Object.keys(followup))assert.equal(preinputCaptureContext({...followup,[key]:'private-canary'},captureHead),null,key);
+ for(const ref of ['refs/pull/0/merge','refs/pull/0305/merge','refs/pull/-1/merge','refs/pull/305/head','refs/heads/codex/sweden-data-native-followup','refs/pull/999999999999999999999/merge'])assert.equal(preinputCaptureContext({...followup,GITHUB_REF:ref},captureHead),null);
+ for(const patch of [{ST253_CAPTURE_BASE_REF:undefined},{SUBTRACK_NATIVE_PROOF_SCOPE:'profile'},{ST253_CAPTURE_PLATFORM:'android'},{ST253_CAPTURE_HEAD_REPOSITORY:'foreign/repo'},{GITHUB_EVENT_NAME:'pull_request_target'}])assert.equal(preinputCaptureContext({...followup,...patch},captureHead),null);
+ assert.equal(preinputCaptureContext(followup,'cd'.repeat(20)),null);
+});
+test('explicit iOS repair dispatch binds the exact source without broadening original preinput eligibility',()=>{
+ const manual={...captureEnv,GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/codex/ios-startup-fixes',GITHUB_HEAD_REF:'',GITHUB_SHA:captureHead,ST253_CAPTURE_DISPATCH_SOURCE:captureHead};
+ assert.deepEqual(preinputCaptureContext(manual,captureHead),captureContext);
+ for(const key of Object.keys(manual))assert.equal(preinputCaptureContext({...manual,[key]:'private-canary'},captureHead),null,key);
+ assert.equal(preinputCaptureContext({...manual,GITHUB_HEAD_REF:undefined},captureHead)?.sourceHead,captureHead);
+ assert.equal(preinputCaptureContext({...manual,GITHUB_EVENT_NAME:'pull_request'},captureHead),null);
+});
+function initialRecords(){return [prefix(),{command:{applyConfigurationCommand:{config:{appId:'se.subtrack.app'}}},metadata:{status:'COMPLETED',sequenceNumber:1,depth:0}},{command:{launchAppCommand:{appId:'se.subtrack.app',clearState:true,optional:false}},metadata:{status:'COMPLETED',sequenceNumber:2,depth:0}},{command:{assertConditionCommand:{condition:{visible:{textRegex:'${MAESTRO_CREATE_ACCOUNT}',optional:false}},timeout:'120000',optional:false}},metadata:{status:'FAILED',sequenceNumber:3,depth:0}}];}
+function pngChunk(kind,body=Buffer.alloc(0)){const header=Buffer.alloc(8),crc=Buffer.alloc(4);header.writeUInt32BE(body.length);header.write(kind,4);crc.writeUInt32BE(crc32(Buffer.concat([header.subarray(4),body])));return Buffer.concat([header,body,crc]);}
+function pngHeader(patch={}){const b=Buffer.alloc(13);b.writeUInt32BE(patch.width??1);b.writeUInt32BE(patch.height??1,4);b[8]=patch.bits??8;b[9]=patch.color??2;b[10]=patch.compression??0;b[11]=patch.filter??0;b[12]=patch.interlace??0;return b;}
+const pngBytes=chunks=>Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),...chunks]);
+const samplePng=()=>pngBytes([pngChunk('IHDR',pngHeader()),pngChunk('IDAT',deflateSync(Buffer.from([0,0,0,0]))),pngChunk('IEND')]);
+
+test('Android Skia sBIT PNGs validate without relaxing the iOS parser or changing pixel bytes',()=>{
+ const parts=color=>[pngChunk('IHDR',pngHeader({color})),pngChunk('IDAT',deflateSync(Buffer.alloc(color===2?4:5))),pngChunk('IEND')];
+ for(const color of [2,6]){const [header,data,end]=parts(color),bits=pngChunk('sBIT',Buffer.alloc(color===2?3:4,8)),png=pngBytes([header,bits,data,end]);assert.equal(validAndroidPng(png),true);assert.equal(validPreinputPng(png),false);}
+ assert.equal(validAndroidPng(samplePng()),true);
+ const [header,data,end]=parts(2),bits=pngChunk('sBIT',Buffer.from([8,8,8])),badCrc=Buffer.from(bits);badCrc[badCrc.length-1]^=1;
+ const badLength=samplePng();badLength.writeUInt32BE(9999,8);
+ for(const value of [null,Buffer.alloc(1),Buffer.alloc(8388609),Buffer.concat([samplePng(),Buffer.from([0])]),badLength,pngBytes([bits,header,data,end]),pngBytes([header,bits,bits,data,end]),pngBytes([header,data,bits,end]),pngBytes([header,pngChunk('sBIT',Buffer.from([8,8])),data,end]),pngBytes([header,pngChunk('sBIT',Buffer.from([0,8,8])),data,end]),pngBytes([header,pngChunk('sBIT',Buffer.from([8,9,8])),data,end]),pngBytes([header,badCrc,data,end]),pngBytes([header,...Array.from({length:128},()=>pngChunk('IDAT')),end])])assert.equal(validAndroidPng(value),false);
+ assert.equal(validAndroidPng(new Proxy(samplePng(),{get(){throw Error('private');}})),false);
+});
+const recipientPem=fs.readFileSync(new URL('../../../.sdlc/evidence/ST-253/native-diagnostic-recipient.pem',import.meta.url));
+const binding={version:1,sourceHead:captureHead,runId:'1234',attempt:'1',invocation:captureId,simulatorCustody:'cd'.repeat(32),recipient:PREINPUT_RECIPIENT_SHA256};
+
+test('preinput eligibility accepts only the complete original first Welcome failure and refuses any input or ambiguity',()=>{
+ assert.equal(preinputWelcomeMetadata(bytes(initialRecords())),true);
+ for(const value of [null,Buffer.from('private-canary'),bytes({}),bytes([]),bytes([...initialRecords(),row()])])assert.equal(preinputWelcomeMetadata(value),false);
+ for(const patch of [r=>r[0]=null,r=>r[1].extra=true,r=>r[1].metadata.status='FAILED',r=>r[1].metadata.depth=1,r=>r[1].metadata.sequenceNumber=0,r=>r[1].command={tapOnElement:{}},r=>r[1].command.applyConfigurationCommand=null,r=>r[1].command.applyConfigurationCommand.config=null,r=>r[1].command.applyConfigurationCommand.config.appId='foreign',r=>r[1].command.applyConfigurationCommand.config.onFlowStart={commands:[]},r=>r[1].command.applyConfigurationCommand.config.onFlowComplete={commands:[]},r=>r[2].command.launchAppCommand.clearState=false,r=>r[2].command.launchAppCommand.extra=true,r=>r[2].command.launchAppCommand.launchArguments={private:'canary'},r=>r[3].command.assertConditionCommand.timeout='1',r=>r[3].command.assertConditionCommand.optional=true,r=>r[3].command.assertConditionCommand.condition=null,r=>r[3].command.assertConditionCommand.condition.scriptCondition='private',r=>r[3].command.assertConditionCommand.condition.visible.textRegex='private-canary',r=>r[3].command.assertConditionCommand.condition.visible.idRegex='native-identifier-input',r=>r[3].command.assertConditionCommand.condition.visible.enabled=true,r=>delete r[3].command.assertConditionCommand.condition]){const r=initialRecords();patch(r);assert.equal(preinputWelcomeMetadata(bytes(r)),false);}
+ const malformed=initialRecords();malformed[1].metadata.error={class:'private'};assert.equal(preinputWelcomeMetadata(bytes(malformed)),false);
+});
+
+test('capture authority requires exact PR/repository/source/iOS/proof/run/simulator inputs and total API evidence',()=>{
+ assert.deepEqual(captureContext,{sourceHead:captureHead,runId:'1234',attempt:'1',udid:captureEnv.SUBTRACK_SIMULATOR_UDID});
+ for(const key of Object.keys(captureEnv))assert.equal(preinputCaptureContext({...captureEnv,[key]:'private-canary'},captureHead),null);
+ assert.equal(preinputCaptureContext(captureEnv,'cd'.repeat(20)),null);assert.equal(preinputCaptureContext(new Proxy({},{get(){throw Error('private');}}),captureHead),null);
+ assert.equal(zeroAllApi(zeroApi),true);for(const value of [null,[],{}, {state:'unavailable',arrivals:'zero'},{state:'active',arrivals:'one'},{...zeroApi,extra:true},Object.defineProperty({},'state',{enumerable:true,get(){throw Error('private');}}),new Proxy({},{ownKeys(){throw Error('private');}})])assert.equal(zeroAllApi(value),false);
+});
+
+test('PNG validation rejects malformed/chunk/CRC/dimension/filter/zip budgets with no pixel output',()=>{
+ assert.equal(validPreinputPng(samplePng()),true);const rgba=pngBytes([pngChunk('IHDR',pngHeader({color:6})),pngChunk('IDAT',deflateSync(Buffer.alloc(5))),pngChunk('IEND')]);assert.equal(validPreinputPng(rgba),true);
+ const profile=Buffer.concat([Buffer.from('profile\0\0'),deflateSync(Buffer.from('profile'))]);
+ assert.equal(validPreinputPng(pngBytes([pngChunk('IHDR',pngHeader()),pngChunk('gAMA',Buffer.alloc(4)),pngChunk('sRGB',Buffer.alloc(1)),pngChunk('cHRM',Buffer.alloc(32)),pngChunk('pHYs',Buffer.alloc(9)),pngChunk('iCCP',profile),pngChunk('IDAT',deflateSync(Buffer.alloc(4))),pngChunk('IEND')])),true);
+ const invalid=[null,Buffer.alloc(1),Buffer.alloc(8388609),Buffer.alloc(60),Buffer.concat([samplePng(),Buffer.alloc(1)]),samplePng().subarray(0,60)];const crc=samplePng();crc[29]^=1;invalid.push(crc);
+ for(const h of [{width:0},{height:0},{width:4097},{height:4097},{bits:16},{color:3},{compression:1},{filter:1},{interlace:1}])invalid.push(pngBytes([pngChunk('IHDR',pngHeader(h)),pngChunk('IDAT',deflateSync(Buffer.alloc(4))),pngChunk('IEND')]));
+ for(const chunks of [[pngChunk('IDAT',Buffer.alloc(0)),pngChunk('IEND')],[pngChunk('IHDR',Buffer.alloc(12)),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('IHDR',pngHeader()),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('IDAT',Buffer.from('bad')),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('IDAT',deflateSync(Buffer.alloc(3))),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('IDAT',deflateSync(Buffer.from([5,0,0,0]))),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('IDAT',deflateSync(Buffer.alloc(1000))),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('IDAT',Buffer.concat([deflateSync(Buffer.alloc(4)),Buffer.from('private')])),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('tEXt',Buffer.from('private')),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('gAMA',Buffer.alloc(3)),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('gAMA',Buffer.alloc(65537)),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('IDAT',deflateSync(Buffer.alloc(4))),pngChunk('gAMA',Buffer.alloc(4)),pngChunk('IDAT'),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('IDAT',deflateSync(Buffer.alloc(4))),pngChunk('IEND',Buffer.alloc(1))],[pngChunk('IHDR',pngHeader()),...Array.from({length:128},()=>pngChunk('IDAT')),pngChunk('IEND')],[pngChunk('gAMA',Buffer.alloc(4)),pngChunk('IHDR',pngHeader()),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('IDAT',deflateSync(Buffer.alloc(4)))],[pngChunk('IHDR',pngHeader()),pngChunk('iCCP',Buffer.from('x')),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('iCCP',Buffer.concat([Buffer.alloc(80,65),Buffer.from([0,0])])),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('iCCP',Buffer.from([65,0,1])),pngChunk('IEND')],[pngChunk('IHDR',pngHeader()),pngChunk('iCCP',Buffer.concat([Buffer.from([65,0,0]),deflateSync(Buffer.alloc(65537))])),pngChunk('IEND')]])invalid.push(pngBytes(chunks));
+ const truncated=samplePng().subarray(0,57);truncated.writeUInt32BE(999999,8);invalid.push(truncated);
+ for(const value of invalid)assert.equal(validPreinputPng(value),false);
+});
+
+test('documented Apple iDOT ancillary framing supports bounded one and multiple segment tables without changing image or sealed bytes',()=>{
+ const dot=count=>{const body=Buffer.alloc(4+12*count,255);body.writeUInt32BE(count);return pngChunk('iDOT',body);};
+ let image;
+ for(const color of [2,6])for(const count of [1,2,7,5461]){
+  const header=pngChunk('IHDR',pngHeader({color})),data=pngChunk('IDAT',deflateSync(Buffer.alloc(color===2?4:5)));image=pngBytes([header,dot(count),data,pngChunk('IEND')]);assert.equal(validPreinputPng(image),true);assert.equal(validAndroidPng(image),true);
+ }
+ const original=Buffer.from(image),actual=crypto.publicEncrypt,keys=[];
+ mock.method(crypto,'publicEncrypt',(options,key)=>{keys.push(Buffer.from(key));return actual(options,key);});syncBuiltinESMExports();
+ try{const sealed=sealPreinputPng(image,binding,recipientPem),n=sealed.readUInt32BE(10),aad=sealed.subarray(14,14+n),decrypt=crypto.createDecipheriv('aes-256-gcm',keys[0],sealed.subarray(14+n,26+n));decrypt.setAAD(aad);decrypt.setAuthTag(sealed.subarray(410+n,426+n));assert.deepEqual(Buffer.concat([decrypt.update(sealed.subarray(426+n)),decrypt.final()]),original);assert.deepEqual(image,original);assert.equal(validSealedPreinput(sealed,captureContext,binding.simulatorCustody),true);}finally{keys.forEach(key=>key.fill(0));mock.restoreAll();syncBuiltinESMExports();}
+});
+
+test('iDOT never relaxes exact chunk identity, order, CRC, budgets, full image decoding or private metadata refusal',()=>{
+ const header=pngChunk('IHDR',pngHeader()),data=pngChunk('IDAT',deflateSync(Buffer.alloc(4))),end=pngChunk('IEND'),body=Buffer.alloc(16);body.writeUInt32BE(1);const dot=pngChunk('iDOT',body);
+ const zero=Buffer.alloc(16),mismatch=Buffer.from(body);mismatch.writeUInt32BE(2);const huge=Buffer.from(body);huge.writeUInt32BE(4294967295);const badCrc=Buffer.from(dot);badCrc[badCrc.length-1]^=1;
+ const alias=Buffer.from(dot);alias[4]|=128;alias.writeUInt32BE(crc32(alias.subarray(4,alias.length-4)),alias.length-4);
+ for(const parts of [[dot,header,data,end],[header,dot,dot,data,end],[header,data,dot,end],[header,pngChunk('iDOT',Buffer.alloc(15)),data,end],[header,pngChunk('iDOT',zero),data,end],[header,pngChunk('iDOT',mismatch),data,end],[header,pngChunk('iDOT',huge),data,end],[header,pngChunk('iDOT',Buffer.alloc(65537)),data,end],[header,badCrc,data,end],[header,alias,data,end],[header,dot,pngChunk('IDAT',Buffer.from('bad')),end],[header,dot,pngChunk('IDAT',deflateSync(Buffer.alloc(3))),end],[header,dot,pngChunk('IDAT',deflateSync(Buffer.from([5,0,0,0]))),end],[header,dot,pngChunk('IDAT',Buffer.concat([deflateSync(Buffer.alloc(4)),Buffer.from('private')])),end],...['tEXt','zTXt','iTXt','eXIf','pRIV'].map(kind=>[header,dot,pngChunk(kind,Buffer.from('private-canary')),data,end])])assert.equal(validPreinputPng(pngBytes(parts)),false);
+ assert.equal(validPreinputPng(Buffer.concat([pngBytes([header,dot,data,end]),Buffer.from('private trailing')])),false);
+});
+
+test('real pinned-public-recipient sealing uses fresh AES-GCM/OAEP domain binding and never needs a private recipient key',()=>{
+ const actual=crypto.publicEncrypt,wrapped=[],entropy=[];mock.method(crypto,'randomBytes',n=>{const b=Buffer.alloc(n,n);entropy.push(b);return b;});mock.method(crypto,'publicEncrypt',(options,key)=>{wrapped.push({padding:options.padding,hash:options.oaepHash,label:Buffer.from(options.oaepLabel),key:Buffer.from(key)});return actual(options,key);});syncBuiltinESMExports();
+ try{const sealed=sealPreinputPng(samplePng(),binding,recipientPem),n=sealed.readUInt32BE(10),aad=sealed.subarray(14,14+n),iv=sealed.subarray(14+n,26+n),tag=sealed.subarray(410+n,426+n),ciphertext=sealed.subarray(426+n);assert.equal(validSealedPreinput(sealed,captureContext,binding.simulatorCustody),true);assert.equal(wrapped[0].padding,crypto.constants.RSA_PKCS1_OAEP_PADDING);assert.equal(wrapped[0].hash,'sha256');assert.equal(wrapped[0].label.toString(),'ST253_PREINPUT_IOS_FRAME_V1\0');assert.ok(entropy[0].every(b=>b===0));
+  const decrypt=crypto.createDecipheriv('aes-256-gcm',wrapped[0].key,iv);decrypt.setAAD(aad);decrypt.setAuthTag(tag);assert.deepEqual(Buffer.concat([decrypt.update(ciphertext),decrypt.final()]),samplePng());const wrong=crypto.createDecipheriv('aes-256-gcm',wrapped[0].key,iv);wrong.setAAD(Buffer.from('tampered'));wrong.setAuthTag(tag);assert.throws(()=>{wrong.update(ciphertext);wrong.final();});
+  for(const value of [null,Buffer.alloc(10),Buffer.alloc(8392705),Buffer.alloc(600),Buffer.concat([sealed.subarray(0,10),Buffer.from([255,255,255,255]),sealed.subarray(14)])])assert.equal(validSealedPreinput(value,captureContext,binding.simulatorCustody),false);
+  assert.equal(validSealedPreinput(sealed,{...captureContext,sourceHead:'cd'.repeat(20)},binding.simulatorCustody),false);assert.equal(validSealedPreinput(sealed,captureContext,'ef'.repeat(32)),false);
+ }finally{mock.restoreAll();syncBuiltinESMExports();}
+ const first=sealPreinputPng(samplePng(),binding,recipientPem),second=sealPreinputPng(samplePng(),binding,recipientPem);assert.notDeepEqual(first,second);
+ assert.throws(()=>sealPreinputPng(Buffer.alloc(1),binding,recipientPem));for(const patch of [{extra:true},{version:2},{sourceHead:'bad'},{runId:'bad'},{attempt:'bad'},{invocation:'bad'},{simulatorCustody:'bad'},{recipient:'00'.repeat(32)}])assert.throws(()=>sealPreinputPng(samplePng(),{...binding,...patch},recipientPem));assert.throws(()=>sealPreinputPng(samplePng(),binding,'invalid-public-key'));
+ for(const fake of [{asymmetricKeyType:'ec'},{asymmetricKeyType:'rsa',asymmetricKeyDetails:{modulusLength:2048}},{asymmetricKeyType:'rsa',asymmetricKeyDetails:{modulusLength:3072},export:()=>Buffer.from('different-public-key')}]){mock.method(crypto,'createPublicKey',()=>fake);syncBuiltinESMExports();try{assert.throws(()=>sealPreinputPng(samplePng(),binding,recipientPem));}finally{mock.restoreAll();syncBuiltinESMExports();}}
+});
+
+async function privateTemporary(action){const base=fs.realpathSync(tmpdir()),temp=fs.mkdtempSync(join(base,'st-preinput-'));const root=join(temp,'subtrack-native-proof','private');fs.mkdirSync(root,{recursive:true,mode:0o700});const originals={lstatSync:fs.lstatSync,fstatSync:fs.fstatSync};
+ // Model the POSIX privacy metadata required by the macOS-only capture, including on Windows test hosts.
+ // Windows path/FD ctime use different domains; this macOS-only fixture models
+ // matching POSIX ctime while production compares the actual nanosecond fields.
+ const privacy=stat=>Object.assign(Object.create(Object.getPrototypeOf(stat)),stat,{mode:(stat.mode&~0o077n)|(process.platform==='win32'&&stat.isDirectory()?0o100n:0n),...(process.platform==='win32'?{ctimeNs:stat.mtimeNs,ctimeMs:stat.mtimeMs}:{})});
+ replace('lstatSync',(path,options)=>{const stat=originals.lstatSync(path,options);return options?.bigint?privacy(stat):stat;});replace('fstatSync',(fd,options)=>{const stat=originals.fstatSync(fd,options);return options?.bigint?privacy(stat):stat;});mock.method(process,'umask',()=>0o077);
+ try{recordPreinputSimulator(root,captureContext);return await action({root,temp,originals});}finally{mock.restoreAll();syncBuiltinESMExports();assert.equal(dirname(temp),base);assert.ok(basename(temp).startsWith('st-preinput-'));fs.rmSync(temp,{recursive:true,force:true});}}
+function initialReader(root,events=[['exit',1,null],['close',1,null]],records=initialRecords()){const reader=preparePreinputMetadata(root),flow=join(root,'identifier','2026-10-15_120000','private-runtime-identifier');fs.mkdirSync(flow,{recursive:true});fs.writeFileSync(join(flow,'commands.json'),bytes(records));for(const event of events)reader.record(...event);return reader;}
+const captureOptions=(root,patch={})=>({privateRoot:root,reader:{take:()=>({invocation:captureId})},context:captureContext,observe:()=>zeroApi,capture:async(file,udid)=>{assert.equal(udid,captureContext.udid);fs.writeFileSync(file,samplePng(),{mode:0o600,flag:'wx'});},recipientPem,...patch});
+
+function originalScreenshot(root,{events,records,paired=true}={}){
+ const rows=records??initialRecords();rows[3].metadata.artifacts=[{type:'SCREENSHOT',path:PREINPUT_ORIGINAL_SCREENSHOT},...(paired?[{type:'SCREEN_HIERARCHY',path:PREINPUT_ORIGINAL_SCREENSHOT.replace('screenshots/','screen-hierarchy/').replace(/\.png$/,'.json')}]:[])];
+ const reader=initialReader(root,events,rows),flow=join(root,'identifier','2026-10-15_120000','private-runtime-identifier'),source=join(flow,PREINPUT_ORIGINAL_SCREENSHOT);fs.mkdirSync(dirname(source),{mode:0o700});fs.writeFileSync(source,samplePng(),{mode:0o600});
+ return {reader,rows,flow,source,commands:join(flow,'commands.json'),options:captureOptions(root,{reader,capture:async(_file,udid)=>assert.equal(udid,captureContext.udid)})};
+}
+test('original failed screenshot attribution requires the exact pinned raw-command path and four-row prefix',()=>{
+ const rows=initialRecords();rows[3].metadata.artifacts=[{type:'SCREENSHOT',path:PREINPUT_ORIGINAL_SCREENSHOT}];assert.equal(preinputOriginalScreenshotMetadata(bytes(rows)),true);
+ // Literal raw source selector has length41 with type prefix; pinned slug takes40.
+ const slug=('assertCondition-'+'${MAESTRO_CREATE_ACCOUNT}').slice(0,40);assert.equal(PREINPUT_ORIGINAL_SCREENSHOT,`screenshots/step-004-${slug}.png`);
+ for(const mutate of [r=>delete r[3].metadata.artifacts,r=>r[3].metadata.artifacts[0].path='screenshots/final.png',r=>r[3].metadata.artifacts[0].path='../outside.png',r=>r[3].metadata.artifacts[0].path='screenshots/step-004-assertCondition-Create_account.png',r=>r[3].metadata.artifacts.push({...r[3].metadata.artifacts[0]}),r=>r[0].metadata.artifacts=[{type:'SCREENSHOT',path:PREINPUT_ORIGINAL_SCREENSHOT}],r=>r[3].metadata.artifacts[0].type='TAKE_SCREENSHOT',r=>r[3].metadata.artifacts.push({type:'SCREEN_HIERARCHY',path:'screen-hierarchy/foreign.json'}),r=>r.push(row())]){const value=JSON.parse(bytes(rows));mutate(value);assert.equal(preinputOriginalScreenshotMetadata(bytes(value)),false);}
+});
+test('original XCTest failure image is reused without another device capture and both raw copies vanish before publication',async()=>{
+ for(const paired of [true,false])await privateTemporary(async({root})=>{const f=originalScreenshot(root,{paired}),write=fs.writeFileSync;let appChecks=0,sealedWrites=0;replace('writeFileSync',(file,...args)=>{if(typeof file==='string'&&file.endsWith('.st253sealed')){sealedWrites++;assert.equal(fs.existsSync(f.source),false);assert.equal(fs.existsSync(join(root,'preinput-ios-frame')),false);}return write(file,...args);});f.options.capture=async()=>{appChecks++;};assert.equal(await captureSealedOriginalPreinput(f.options),true);assert.equal(appChecks,1);assert.equal(sealedWrites,1);assert.equal(fs.existsSync(f.source),false);assert.equal(validatedPreinputArtifact(root,captureContext),true);assert.equal(fs.readFileSync(join(dirname(root),'sealed/preinput-ios.st253sealed')).includes(samplePng()),false);assert.equal(await captureSealedOriginalPreinput(f.options),false);assert.equal(appChecks,1);});
+});
+test('original source capability copies once and verifies the authenticated source removal',async()=>privateTemporary(async({root})=>{
+ const f=originalScreenshot(root),copy=join(root,'preinput-ios-frame/frame.png');assert.throws(()=>f.reader.copyOriginalFrame(copy));assert.throws(()=>f.reader.verifyOriginalFrameBytes(samplePng()));assert.ok(f.reader.take());fs.mkdirSync(join(root,'preinput-ios-frame'),{mode:0o700});assert.throws(()=>f.reader.copyOriginalFrame(join(root,'foreign.png')));f.reader.copyOriginalFrame(copy);assert.ok(fs.readFileSync(copy).equals(samplePng()));assert.equal(f.reader.verifyOriginalFrameBytes(samplePng()),true);assert.throws(()=>f.reader.verifyOriginalFrameBytes(Buffer.from('private-canary')));assert.throws(()=>f.reader.verifyOriginalFrameAbsent());assert.throws(()=>f.reader.copyOriginalFrame(copy));f.reader.removeOriginalFrame();assert.equal(f.reader.verifyOriginalFrameAbsent(),true);f.reader.removeOriginalFrame();assert.throws(()=>f.reader.verifyOriginalFrameBytes(samplePng()));
+}));
+test('original image rejects ambiguous, corrupt, nonprivate, linked and unstable filesystem evidence',async()=>{
+ for(const kind of ['missing','extra','corrupt','oversize','link','hardlink','mode','inode','growth','command-change','late-invocation'])await privateTemporary(async({root})=>{const f=originalScreenshot(root),stat=fs.lstatSync,open=fs.openSync,read=fs.readSync;let changed=false;
+  if(kind==='missing')fs.unlinkSync(f.source);if(kind==='extra')fs.writeFileSync(join(dirname(f.source),'other.png'),samplePng());if(kind==='corrupt')fs.writeFileSync(f.source,'private-canary');if(kind==='oversize')fs.writeFileSync(f.source,Buffer.alloc(8388609));
+  if(['link','hardlink','mode'].includes(kind))replace('lstatSync',(file,options)=>{const s=stat(file,options);return file===f.source&&options?.bigint?Object.assign(Object.create(Object.getPrototypeOf(s)),s,kind==='link'?{isSymbolicLink:()=>true}:kind==='hardlink'?{nlink:2n}:{mode:(s.mode&~0o777n)|0o644n}):s;});
+  if(kind==='inode')replace('openSync',(file,...args)=>{if(file===f.source&&!changed){changed=true;fs.renameSync(file,join(root,'retained-source'));fs.writeFileSync(file,samplePng());}return open(file,...args);});
+  if(kind==='growth')replace('readSync',(fd,...args)=>{if(!changed){changed=true;fs.appendFileSync(f.source,Buffer.alloc(8388609));}assert.ok(args[0].length<=8388609);return read(fd,...args);});
+  f.options.capture=async()=>{if(kind==='command-change')fs.appendFileSync(f.commands,' ');if(kind==='late-invocation')f.reader.record('exit',1,null);};assert.equal(await captureSealedOriginalPreinput(f.options),false,kind);assert.equal(validatedPreinputArtifact(root,captureContext),false,kind);assert.equal(fs.existsSync(join(root,'preinput-ios-frame/frame.png')),false,kind);
+ });
+});
+test('original image authority needs natural exit and close, unchanged source context and zero API throughout',async()=>{
+ for(const events of [[],[['exit',1,null]],[['exit',0,null],['close',0,null]],[['exit',null,'SIGKILL'],['close',null,'SIGKILL']],[['exit',1,null],['close',1,null],['error']]])await privateTemporary(async({root})=>{const f=originalScreenshot(root,{events});let checked=false;f.options.capture=async()=>{checked=true;};assert.equal(await captureSealedOriginalPreinput(f.options),false);assert.equal(checked,false);assert.equal(fs.existsSync(f.source),true);});
+ for(const kind of ['api-before','api-after','app','context'])await privateTemporary(async({root})=>{const f=originalScreenshot(root);let reads=0;if(kind==='context')f.options.context={...captureContext,udid:'FOREIGN'};f.options.observe=()=>++reads===(kind==='api-before'?1:kind==='api-after'?2:-1)?{state:'active',arrivals:'one'}:zeroApi;f.options.capture=async()=>{if(kind==='app')throw Error('private-canary');};assert.equal(await captureSealedOriginalPreinput(f.options),false,kind);assert.equal(validatedPreinputArtifact(root,captureContext),false);assert.equal(fs.existsSync(join(root,'preinput-ios-frame/frame.png')),false);});
+});
+test('failed original-source cleanup or source reappearance never permits ciphertext publication',async()=>{
+ for(const kind of ['unlink','reappears','copy-exists','copy-substitution','after-readback'])await privateTemporary(async({root})=>{const f=originalScreenshot(root),unlink=fs.unlinkSync,write=fs.writeFileSync;let sourceRemoved=false;
+  replace('unlinkSync',file=>{if(file===f.source){if(kind==='unlink')throw Error('private-canary');const result=unlink(file);sourceRemoved=true;if(kind==='reappears')write(file,samplePng(),{mode:0o600});return result;}return unlink(file);});
+  if(kind==='copy-exists')f.options.capture=async file=>write(file,'private-canary',{flag:'wx',mode:0o600});
+  if(kind==='copy-substitution')replace('writeFileSync',(file,value,...args)=>write(file,file===join(root,'preinput-ios-frame/frame.png')?pngBytes([pngChunk('IHDR',pngHeader()),pngChunk('IDAT',deflateSync(Buffer.from([0,1,2,3]))),pngChunk('IEND')]):value,...args));
+  if(kind==='after-readback')replace('writeFileSync',(file,...args)=>{const result=write(file,...args);if(typeof file==='string'&&file.endsWith('.st253sealed'))write(f.source,samplePng(),{mode:0o600});return result;});
+  assert.equal(await captureSealedOriginalPreinput(f.options),false,kind);assert.equal(validatedPreinputArtifact(root,captureContext),false);assert.equal(fs.existsSync(join(root,'preinput-ios-frame/frame.png')),false);assert.equal(sourceRemoved,kind!=='unlink');
+ });
+});
+
+test('original image rejects decoder failure between attribution reads without exposing the error',()=>temporary(()=>{
+ const rows=initialRecords();rows[3].metadata.artifacts=[{type:'SCREENSHOT',path:PREINPUT_ORIGINAL_SCREENSHOT}];
+ const decode=TextDecoder.prototype.decode;let calls=0;
+ mock.method(TextDecoder.prototype,'decode',function(input,options){if(++calls===2)throw Error('private-decoder-canary');return decode.call(this,input,options);});
+ assert.equal(preinputOriginalScreenshotMetadata(bytes(rows)),false);assert.equal(calls,2);
+}));
+
+test('original image withholds after owner, private-directory, source-read and raw-cleanup races',async()=>{
+ for(const kind of ['directory-mode','source-owner','after-read-replacement','after-copy-replacement','cleanup-read-corruption','cleanup-residue']){
+  const uidDescriptor=Object.getOwnPropertyDescriptor(process,'getuid');
+  try{await privateTemporary(async({root})=>{
+   const f=originalScreenshot(root),copy=join(root,'preinput-ios-frame/frame.png'),stat=fs.lstatSync,open=fs.openSync,read=fs.readSync,write=fs.writeFileSync,unlink=fs.unlinkSync;
+   let sourceFd=-1,changed=false,removing=false,corruptedReads=0;
+   if(kind==='source-owner'){
+    const uid=typeof process.getuid==='function'?process.getuid():Number(stat(root,{bigint:true}).uid);
+    Object.defineProperty(process,'getuid',{configurable:true,writable:true,value:()=>uid});
+    replace('lstatSync',(file,options)=>{const value=stat(file,options);return file===f.source&&options?.bigint?Object.assign(Object.create(Object.getPrototypeOf(value)),value,{uid:BigInt(uid+1)}):value;});
+   }
+   if(kind==='directory-mode')replace('lstatSync',(file,options)=>{const value=stat(file,options);return file===dirname(f.source)&&options?.bigint?Object.assign(Object.create(Object.getPrototypeOf(value)),value,{mode:(value.mode&~0o777n)|0o500n}):value;});
+   replace('openSync',(file,...args)=>{const fd=open(file,...args);sourceFd=file===f.source?fd:-1;return fd;});
+   replace('readSync',(fd,...args)=>{
+    const count=read(fd,...args);
+    if(fd===sourceFd&&count>0&&kind==='after-read-replacement'&&!changed){changed=true;fs.renameSync(f.source,join(root,'retained-original'));write(f.source,samplePng(),{mode:0o600});}
+    if(fd===sourceFd&&count>0&&kind==='cleanup-read-corruption'&&removing){args[0][0]^=1;corruptedReads++;}
+    return count;
+   });
+   if(kind==='after-copy-replacement')replace('writeFileSync',(file,...args)=>{const result=write(file,...args);if(file===copy&&!changed){changed=true;fs.renameSync(f.source,join(root,'retained-original'));write(f.source,samplePng(),{mode:0o600});}return result;});
+   replace('unlinkSync',file=>{if(file===copy)removing=true;const result=unlink(file);if(file===f.source&&kind==='cleanup-residue')write(join(dirname(f.source),'unexpected.png'),samplePng(),{mode:0o600});return result;});
+   assert.equal(await captureSealedOriginalPreinput(f.options),false,kind);
+   assert.equal(validatedPreinputArtifact(root,captureContext),false,kind);
+   assert.equal(fs.existsSync(copy),false,kind);
+   if(kind==='after-read-replacement'||kind==='after-copy-replacement')assert.equal(changed,true);
+   if(kind==='cleanup-read-corruption')assert.ok(corruptedReads>0);
+  });}finally{if(uidDescriptor)Object.defineProperty(process,'getuid',uidDescriptor);else delete process.getuid;}
+ }
+});
+
+test('first-flow reader requires its own exact tree, exit then close and one consumed failure only',async()=>{
+ await privateTemporary(async({root})=>{const reader=initialReader(root);const ticket=reader.take();assert.match(ticket.invocation,/^[a-f0-9-]{36}$/);assert.ok(Object.isFrozen(ticket));assert.equal(reader.take(),null);});
+ for(const events of [[],[['exit',0,null],['close',0,null]],[['error']],[['exit',1,'SIGTERM'],['close',1,null]],[['other',1,null]],[['exit',1,null],['exit',1,null],['close',1,null]],[['close',1,null],['exit',1,null]],[['exit',1,null],['close',1,null],['close',1,null]]])await privateTemporary(async({root})=>{const reader=initialReader(root,events);assert.equal(reader.take(),null);assert.equal(reader.take(),null);});
+ await privateTemporary(async({root})=>{const reader=initialReader(root,undefined,[]);assert.equal(reader.take(),null);});
+});
+
+test('actual fixed private filesystem publishes only ciphertext after raw absence and never captures twice',async()=>{
+ await privateTemporary(async({root})=>{const reader=initialReader(root);assert.equal(validatedPreinputArtifact(root,captureContext),false);let calls=0;const options=captureOptions(root,{reader,capture:async(file)=>{calls++;assert.equal(validatedPreinputArtifact(root,captureContext),false);fs.writeFileSync(file,samplePng(),{mode:0o600,flag:'wx'});}});assert.equal(await captureSealedPreinput(options),true);assert.equal(calls,1);assert.equal(fs.existsSync(join(root,'preinput-ios-frame')),false);assert.equal(validatedPreinputArtifact(root,captureContext),true);const sealed=fs.readFileSync(join(dirname(root),'sealed','preinput-ios.st253sealed'));assert.equal(sealed.includes(samplePng()),false);assert.equal(await captureSealedPreinput(options),false);assert.equal(calls,1);});
+});
+
+test('capture eligibility and all-request observations fail closed before/after capture with raw cleanup',async()=>{
+ for(const patch of [{context:null},{reader:{take:()=>null}},{observe:()=>({state:'unavailable',arrivals:'zero'})},{observe:()=>({state:'active',arrivals:'one'})},{observe:()=>{throw Error('private-canary');}}])await privateTemporary(async({root})=>{let called=false;assert.equal(await captureSealedPreinput(captureOptions(root,{...patch,capture:async()=>{called=true;}})),false);assert.equal(called,false);});
+ await privateTemporary(async({root})=>{mock.method(process,'umask',()=>0o022);assert.equal(await captureSealedPreinput(captureOptions(root)),false);});
+ for(const action of ['request','unavailable','invalid-png','throw-after-write','missing','extra-file','invalid-key'])await privateTemporary(async({root})=>{let observed=0;const options=captureOptions(root,{observe:()=>{observed++;return observed===1?zeroApi:action==='request'?{state:'active',arrivals:'one'}:action==='unavailable'?{state:'unavailable',arrivals:'zero'}:zeroApi;},capture:async(file)=>{if(action==='missing')return;fs.writeFileSync(file,action==='invalid-png'?Buffer.from('private-canary'):samplePng(),{mode:0o600});if(action==='extra-file')fs.writeFileSync(join(dirname(file),'extra'),'private-canary');if(action==='throw-after-write')throw Error('private-canary');},...(action==='invalid-key'?{recipientPem:'invalid'}:{})});assert.equal(await captureSealedPreinput(options),false);assert.equal(fs.existsSync(join(root,'preinput-ios-frame','frame.png')),false);assert.equal(validatedPreinputArtifact(root,captureContext),false);});
+});
+
+test('private custody rejects wrong namespace, public metadata, wrong owner, symlinks, replacement and mutated records',async()=>{
+ await privateTemporary(async({root})=>{assert.throws(()=>recordPreinputSimulator(dirname(root),captureContext));assert.throws(()=>recordPreinputSimulator(root,{}));assert.throws(()=>recordPreinputSimulator(root,captureContext));});
+ for(const action of ['public-directory','public-file','wrong-file-owner','wrong-directory-owner','empty','oversize','directory','realpath','open-inode','read-inode','read-size','symlink-after','wrong-record','unknown-record','missing-record'])await privateTemporary(async({root,originals})=>{const file=join(root,'preinput-ios-custody.json');
+  const base=fs.lstatSync;if(action==='public-directory'||action==='public-file')replace('lstatSync',(path,options)=>{const stat=base(path,options);return (action==='public-directory'?path===root:path===file)&&options?.bigint?Object.assign(Object.create(Object.getPrototypeOf(stat)),stat,{mode:stat.mode|0o004n}):stat;});
+  if(action==='wrong-file-owner'||action==='wrong-directory-owner'){const uid=typeof process.getuid==='function'?process.getuid():0;const descriptor=Object.getOwnPropertyDescriptor(process,'getuid');Object.defineProperty(process,'getuid',{value:()=>uid,configurable:true});replace('lstatSync',(path,options)=>{const stat=base(path,options);return (action==='wrong-file-owner'?path===file:path===root)&&options?.bigint?Object.assign(Object.create(Object.getPrototypeOf(stat)),stat,{uid:BigInt(uid)+1n}):stat;});try{assert.equal(await captureSealedPreinput(captureOptions(root)),false);}finally{if(descriptor)Object.defineProperty(process,'getuid',descriptor);else delete process.getuid;}return;}
+  if(action==='empty')fs.writeFileSync(file,'');if(action==='oversize')fs.writeFileSync(file,Buffer.alloc(4097));if(action==='directory'){fs.unlinkSync(file);fs.mkdirSync(file);}if(action==='missing-record')fs.unlinkSync(file);
+  if(action==='wrong-record'||action==='unknown-record'){const value=JSON.parse(fs.readFileSync(file));if(action==='wrong-record')value.fresh=false;else value.extra='private-canary';fs.writeFileSync(file,JSON.stringify(value));}
+  if(action==='realpath'){const actual=fs.realpathSync;replace('realpathSync',path=>path===file?join(root,'foreign'):actual(path));}
+  if(action==='open-inode'){const actual=fs.fstatSync;replace('fstatSync',(fd,options)=>{const stat=actual(fd,options);return Object.assign(Object.create(Object.getPrototypeOf(stat)),stat,{ino:stat.ino+1n});});}
+  if(['read-inode','read-size','symlink-after'].includes(action)){let reads=0;replace('lstatSync',(path,options)=>{const stat=base(path,options);if(path!==file||++reads<2)return stat;return Object.assign(Object.create(Object.getPrototypeOf(stat)),stat,action==='read-inode'?{ino:stat.ino+1n}:action==='read-size'?{size:stat.size+1n}:{isSymbolicLink:()=>true});});}
+  assert.equal(await captureSealedPreinput(captureOptions(root)),false);assert.equal(validatedPreinputArtifact(root,captureContext),false);assert.equal(typeof originals.lstatSync,'function');
+ });
+});
+
+test('cleanup failures never publish ciphertext, and invalid sealed readback removes the just-created output',async()=>{
+ for(const action of ['raw-unlink','raw-rmdir','raw-reappears','seal-corrupt','sealed-unlink'])await privateTemporary(async({root})=>{const unlink=fs.unlinkSync,rmdir=fs.rmdirSync,exists=fs.existsSync,write=fs.writeFileSync;let rawDeleted=false;
+  if(action==='raw-unlink')replace('unlinkSync',path=>{if(path.endsWith('frame.png'))throw Error('private');return unlink(path);});
+  if(action==='raw-rmdir')replace('rmdirSync',path=>{if(path.endsWith('preinput-ios-frame'))throw Error('private');return rmdir(path);});
+  if(action==='raw-reappears'){replace('unlinkSync',path=>{const value=unlink(path);if(path.endsWith('frame.png'))rawDeleted=true;return value;});replace('existsSync',path=>rawDeleted&&path.endsWith('frame.png')?true:exists(path));}
+  if(action==='seal-corrupt'||action==='sealed-unlink')replace('writeFileSync',(path,data,options)=>write(path,path.endsWith('.st253sealed')?Buffer.from('invalid ciphertext'):data,options));
+  if(action==='sealed-unlink')replace('unlinkSync',path=>{if(path.endsWith('.st253sealed'))throw Error('private');return unlink(path);});
+  assert.equal(await captureSealedPreinput(captureOptions(root)),false);assert.equal(validatedPreinputArtifact(root,captureContext),false);
+ });
+});
+
+test('sealed format rejects zero/truncated AAD, malformed canonical metadata and impossible wrapping output',async()=>{
+ const sealed=sealPreinputPng(samplePng(),binding,recipientPem);for(const n of [0,2048]){const value=Buffer.from(sealed);value.writeUInt32BE(n,10);assert.equal(validSealedPreinput(value,captureContext,binding.simulatorCustody),false);}
+ const malformed=Buffer.from(sealed);malformed[14]=0;assert.equal(validSealedPreinput(malformed,captureContext,binding.simulatorCustody),false);
+ await privateTemporary(async({root})=>{mock.method(crypto,'publicEncrypt',()=>Buffer.alloc(0));syncBuiltinESMExports();assert.equal(await captureSealedPreinput(captureOptions(root)),false);assert.equal(fs.existsSync(join(root,'preinput-ios-frame')),false);});
+});
+
+
+test('closed withheld stage locates reader/guard failures without upgrading eligibility or exposing private values',async()=>{
+ assert.deepEqual(PREINPUT_WITHHELD_STAGES,['CHILD_LIFECYCLE','METADATA_OWNERSHIP','METADATA_SHAPE','CUSTODY','API_BEFORE','APP_CUSTODY','CAPTURE','PNG','API_AFTER','SEAL','RAW_CLEANUP','SEALED_OUTPUT','SEALED_READBACK']);assert.ok(Object.isFrozen(PREINPUT_WITHHELD_STAGES));
+ for(const kind of ['lifecycle','ownership','shape','oversize'])await privateTemporary(async({root})=>{const reader=initialReader(root,kind==='lifecycle'?[]:undefined);const file=join(root,'identifier','2026-10-15_120000','private-runtime-identifier','commands.json');if(kind==='ownership')fs.unlinkSync(file);if(kind==='shape')fs.writeFileSync(file,'private-canary');if(kind==='oversize')fs.writeFileSync(file,Buffer.alloc(4*1024*1024+1));let stage;assert.equal(await captureSealedPreinput(captureOptions(root,{reader,onStage:value=>{stage=value;}})),false);assert.equal(stage,kind==='lifecycle'?'CHILD_LIFECYCLE':kind==='ownership'?'METADATA_OWNERSHIP':'METADATA_SHAPE');assert.equal(reader.take(),null);});
+ for(const [kind,expected]of [['context','CUSTODY'],['api-before','API_BEFORE'],['app','APP_CUSTODY'],['capture','CAPTURE'],['png','PNG'],['api-after','API_AFTER'],['seal','SEAL'],['cleanup','RAW_CLEANUP'],['output','SEALED_OUTPUT'],['readback','SEALED_READBACK'],['sealed-cleanup','RAW_CLEANUP'],['success','SEALED_READBACK']])await privateTemporary(async({root})=>{let last,calls=0;const report=value=>{assert.ok(PREINPUT_WITHHELD_STAGES.includes(value));last=value;};const options=captureOptions(root,{onStage:report,observe:()=>{calls++;return kind==='api-before'||kind==='api-after'&&calls>1?{state:'active',arrivals:'one'}:zeroApi;},capture:async file=>{if(kind==='app')throw Error('private app');report('CAPTURE');if(kind==='capture')throw Error('private capture');fs.writeFileSync(file,kind==='png'?Buffer.from('private-canary'):samplePng());}});
+  if(kind==='context')options.context=null;if(kind==='seal')options.recipientPem='private-canary';if(kind==='output')fs.mkdirSync(join(dirname(root),'sealed'));if(kind==='cleanup'){const original=fs.rmdirSync;replace('rmdirSync',path=>{if(path.endsWith('preinput-ios-frame'))throw Error('private cleanup');return original(path);});}
+  if(kind==='readback'||kind==='sealed-cleanup'){const original=fs.writeFileSync;replace('writeFileSync',(path,value,settings)=>original(path,path.endsWith('.st253sealed')?Buffer.from('invalid sealed data'):value,settings));}
+  if(kind==='sealed-cleanup'){const original=fs.unlinkSync;replace('unlinkSync',path=>{if(path.endsWith('.st253sealed'))throw Error('private cleanup');return original(path);});}
+  assert.equal(await captureSealedPreinput(options),kind==='success');assert.equal(last,expected);
+ });
+ await privateTemporary(async({root})=>{assert.equal(await captureSealedPreinput(captureOptions(root,{onStage:()=>{throw Error('private diagnostic consumer');}})),true);});
+ await privateTemporary(async({root})=>{let last;assert.equal(await captureSealedPreinput(captureOptions(root,{reader:{take:()=>null,failureStage:()=> 'private-canary'},onStage:value=>{last=value;}})),false);assert.equal(last,'CHILD_LIFECYCLE');});
+});
+
+
+test('pinned cli2.11 producer layout is read through exact original ownership checks despite ordinary artifact siblings',async()=>{
+ // TestDebugReporter timestamp + createFlowDir; ArtifactsGenerator writes commands.json inside it.
+ await privateTemporary(async({root})=>{const reader=initialReader(root),flow=join(root,'identifier','2026-10-15_120000','private-runtime-identifier');for(const directory of ['logs','screenshots','screen-hierarchy'])fs.mkdirSync(join(flow,directory),{mode:0o700});fs.writeFileSync(join(flow,'manifest.json'),'{}');fs.writeFileSync(join(flow,'logs','maestro.log'),'private-canary');fs.writeFileSync(join(flow,'screenshots','step-3-assert.png'),samplePng());assert.ok(reader.take());assert.equal(reader.ownershipCheck(),'UNKNOWN');});
+});
+
+test('complete first-failed ownership enum covers every existing boundary without paths or metadata values',async()=>{
+ const observed=new Set();assert.ok(Object.isFrozen(PREINPUT_METADATA_CHECKS));assert.equal(new Set(PREINPUT_METADATA_CHECKS).size,PREINPUT_METADATA_CHECKS.length);
+ const originalChecks=PREINPUT_METADATA_CHECKS.filter(check=>!IOS_RUNNER_CHECKS.includes(check));assert.equal(originalChecks.length,65);for(const check of originalChecks)await privateTemporary(async({root})=>{
+  const output=join(root,'identifier'),stamp=join(output,'2026-10-15_120000'),flow=join(stamp,'private-runtime-identifier'),file=join(flow,'commands.json');
+  const directories={CAPTURE_PARENT:[root,1],CAPTURE_ROOT:[output,1],READ_PARENT:[root,2],READ_ROOT:[output,2],TIMESTAMP:[stamp,1],FLOW:[flow,1],FINAL_ROOT:[output,3],FINAL_PARENT:[root,3],FINAL_TIMESTAMP:[stamp,2],FINAL_FLOW:[flow,2]};
+  const originals={lstat:fs.lstatSync,realpath:fs.realpathSync,readdir:fs.readdirSync,mkdir:fs.mkdirSync,open:fs.openSync,fstat:fs.fstatSync,read:fs.readFileSync,close:fs.closeSync};
+  let taking=false;const statCounts=new Map(),canonicalCounts=new Map();const alter=(stat,patch)=>Object.assign(Object.create(Object.getPrototypeOf(stat)),stat,patch);
+  replace('lstatSync',(path,options)=>{const key=String(path),n=(statCounts.get(key)??0)+1;statCounts.set(key,n);
+   for(const [prefix,[target,ordinal]]of Object.entries(directories))if(key===target&&n===ordinal){if(check===`${prefix}_STAT`)throw Error('private stat');const stat=originals.lstat(path,options);if(check===`${prefix}_TYPE`)return alter(stat,{isSymbolicLink:()=>true});if(check===`${prefix}_IDENTITY`)return alter(stat,{ino:stat.ino+1n});return stat;}
+   if(key===file){if(check===(n===1?'COMMAND_STAT':'COMMAND_AFTER_STAT'))throw Error('private stat');const stat=originals.lstat(path,options);if(n===1&&check==='COMMAND_TYPE')return alter(stat,{isFile:()=>false});if(n===1&&check==='COMMAND_EMPTY')return alter(stat,{size:0n});if(n===2&&check==='COMMAND_AFTER_TYPE')return alter(stat,{isSymbolicLink:()=>true});if(n===2&&check==='COMMAND_AFTER_IDENTITY')return alter(stat,{ino:stat.ino+1n});if(n===2&&check==='COMMAND_AFTER_SIZE')return alter(stat,{size:stat.size+1n});return stat;}
+   return originals.lstat(path,options);
+  });
+  replace('realpathSync',path=>{const key=String(path),n=(canonicalCounts.get(key)??0)+1;canonicalCounts.set(key,n);for(const [prefix,[target,ordinal]]of Object.entries(directories))if(key===target&&n===ordinal&&check===`${prefix}_CANONICAL`)return join(root,'private-canary');return key===file&&check==='COMMAND_CANONICAL'?join(root,'private-canary'):originals.realpath(path);});
+  replace('mkdirSync',(path,options)=>{if(String(path)===output&&check==='CREATE_ROOT')throw Error('private mkdir');return originals.mkdir(path,options);});
+  replace('readdirSync',(path,options)=>{const prefix=String(path)===output?'TIMESTAMP':String(path)===stamp?'FLOW':'BUNDLE';if(check===`${prefix}_LIST`)throw Error('private list');const entries=originals.readdir(path,options);if(check===`${prefix}_LIMIT`)return Array.from({length:33},()=>entries[0]);if(check===`${prefix}_COUNT`)return [];if(check===`${prefix}_ENTRY_TYPE`)return [{...entries[0],isSymbolicLink:()=>false,isDirectory:()=>false}];if(check===`${prefix}_NAME`)return [{...entries[0],name:'private-canary',isSymbolicLink:()=>false,isDirectory:()=>true}];if(check==='BUNDLE_SYMLINK'&&prefix==='BUNDLE')return [{...entries[0],isSymbolicLink:()=>true}];return entries;});
+  replace('openSync',(path,flags,...rest)=>{if(taking){assert.equal(flags,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);if(check==='COMMAND_OPEN')throw Error('private open');}return originals.open(path,flags,...rest);});
+  replace('fstatSync',(fd,options)=>{if(check==='COMMAND_OPEN_STAT')throw Error('private fstat');const stat=originals.fstat(fd,options);return check==='COMMAND_OPEN_TYPE'?alter(stat,{isFile:()=>false}):check==='COMMAND_OPEN_IDENTITY'?alter(stat,{ino:stat.ino+1n}):check==='COMMAND_OPEN_SIZE'?alter(stat,{size:stat.size+1n}):stat;});
+  replace('readFileSync',(...args)=>{if(check==='COMMAND_READ')throw Error('private read');return originals.read(...args);});
+  replace('closeSync',fd=>{const result=originals.close(fd);if(taking&&check==='CLOSE')throw Error('private close');return result;});
+  const reader=preparePreinputMetadata(root);originals.mkdir(flow,{recursive:true});fs.writeFileSync(file,bytes(initialRecords()));reader.record('exit',1,null);reader.record('close',1,null);taking=true;
+  assert.equal(reader.take(),null,check);assert.equal(reader.failureStage(),'METADATA_OWNERSHIP',check);assert.equal(reader.ownershipCheck(),check,check);assert.equal(reader.take(),null);assert.equal(JSON.stringify({stage:reader.failureStage(),check:reader.ownershipCheck()}).includes('private-canary'),false);observed.add(reader.ownershipCheck());
+ });assert.deepEqual([...observed].sort(),originalChecks.sort());
+});
+
+test('ownership records first failure even when close fails later; diagnostic rejection never authorizes capture',async()=>{
+ await privateTemporary(async({root})=>{const reader=initialReader(root),actualRead=fs.readFileSync,actualClose=fs.closeSync;replace('readFileSync',(...args)=>{if(typeof args[0]==='number')throw Error('private first error');return actualRead(...args);});replace('closeSync',fd=>{actualClose(fd);throw Error('private later close');});assert.equal(reader.take(),null);assert.equal(reader.ownershipCheck(),'COMMAND_READ');assert.equal(reader.failureStage(),'METADATA_OWNERSHIP');assert.equal(await captureSealedPreinput(captureOptions(root,{reader})),false);});
+});
+
+
+test('a non-directory private root remains ineligible before consuming the diagnostic ticket',async()=>{
+ await privateTemporary(async({root})=>{fs.unlinkSync(join(root,'preinput-ios-custody.json'));fs.rmdirSync(root);fs.writeFileSync(root,'private-canary');let consumed=false;assert.equal(await captureSealedPreinput(captureOptions(root,{reader:{take:()=>{consumed=true;return null;}}})),false);assert.equal(consumed,false);});
+});
+
+
+function sourceEnrollmentRecords(override){
+ const mobileRequire=createRequire(new URL('../package.json',import.meta.url)),yaml=createRequire(mobileRequire.resolve('expo/package.json'))('yaml');
+ const [config,flow]=yaml.parseAllDocuments(fs.readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml',import.meta.url),'utf8')).map(document=>document.toJSON());assert.equal(config.appId,'se.subtrack.app');
+ const selector=value=>typeof value==='string'?{textRegex:value}:{...(value.id?{idRegex:value.id}:{}),...(value.text?{textRegex:value.text}:{}),...(value.enabled===undefined?{}:{enabled:value.enabled})};
+  // Pinned cli2.11 RunFlowCommand is a composite, not a flattened top-level prefix.
+ // https://github.com/mobile-dev-inc/Maestro/blob/cli-2.11.0/maestro-orchestra-models/src/main/java/maestro/orchestra/Commands.kt
+ const helpers=new Set(['private-runtime-pick-renewal-date.yaml','private-runtime-open-profile.yaml']);
+ const convert=(step,depth=0)=>{assert.ok(depth<=2);const object=typeof step==='string'?{[step]:null}:step;const [kind,value]=Object.entries(object)[0];assert.equal(Object.keys(object).length,1);switch(kind){
+  case 'tapOn':return {tapOnElement:{selector:selector(value)}};
+  case 'inputText':return {inputTextCommand:{text:String(value)}};
+  case 'hideKeyboard':return {hideKeyboardCommand:{}};
+  case 'extendedWaitUntil':return {assertConditionCommand:{condition:{visible:selector(value.visible)},timeout:String(value.timeout)}};
+  case 'assertVisible':return {assertConditionCommand:{condition:{visible:selector(value)}}};
+  case 'scrollUntilVisible':return {scrollUntilVisible:{selector:selector(value.element),direction:value.direction}};
+  case 'takeScreenshot':return {takeScreenshotCommand:{path:value}};
+  case 'runFlow':{
+   if(typeof value==='string'){
+    assert.ok(helpers.has(value),'Unexpected helper file');const [subconfig,subflow]=yaml.parseAllDocuments(fs.readFileSync(new URL(`../e2e/${value}`,import.meta.url),'utf8')).map(document=>document.toJSON());assert.deepEqual(subconfig,{appId:'se.subtrack.app'});
+    return {runFlowCommand:{commands:subflow.map(child=>convert(child,depth+1)),config:subconfig,condition:null,sourceDescription:value,optional:false}};
+   }
+   assert.deepEqual(Object.keys(value).sort(),['commands','when']);assert.deepEqual(value.when,{notVisible:{id:'native-date-${MAESTRO_RENEWAL_DATE}'}});assert.deepEqual(value.commands,[{tapOn:'${MAESTRO_MONTH_NEXT}'}]);
+   return {runFlowCommand:{commands:value.commands.map(child=>convert(child,depth+1)),condition:{notVisible:selector(value.when.notVisible)},config:null,optional:false}};
+  }
+  default:throw Error('Unexpected source flow command');
+ }};
+ const commands=(override??flow).map(step=>convert(step));
+ return [prefix(),{command:{applyConfigurationCommand:{config}},metadata:{}},...commands.map(command=>({command,metadata:{}}))].map((record,index)=>({...record,metadata:{...record.metadata,status:'COMPLETED',sequenceNumber:index,depth:0}}));
+}
+function sourceHeaderFailure(which){const records=sourceEnrollmentRecords(),headers=records.flatMap((record,index)=>record.command.scrollUntilVisible?.selector.idRegex==='native-personal-title'?[index]:[]);assert.equal(headers.length,2);const at=headers[which];assert.deepEqual(records[at-1].command.tapOnElement.selector,which===0?{idRegex:'native-nav-manage'}:{textRegex:'${MAESTRO_SAVE_SUBSCRIPTION}'});const result=records.slice(0,at+1);result.at(-1).metadata.status='FAILED';result.at(-1).metadata.evaluatedCommand={scrollUntilVisible:{selector:{idRegex:'private-canary'},direction:'DOWN'}};result.at(-1).metadata.error={message:'private-canary SAVED_HEADER ENTRY_HEADER'};return result;}
+
+test('actual source keeps entry header exact and post-datepicker subflow occurrence conservative',async()=>{
+ assert.deepEqual(ENROLLMENT_HEADER_OCCURRENCES,['ENTRY_HEADER','SAVED_HEADER','UNKNOWN']);assert.ok(Object.isFrozen(ENROLLMENT_HEADER_OCCURRENCES));
+ for(const [index,occurrence]of ['ENTRY_HEADER','UNKNOWN'].entries()){
+  const records=sourceHeaderFailure(index),result=projectEnrollmentMetadata(bytes(records));assert.equal(result.metadata,'AVAILABLE');assert.equal(result.command,'SCROLL_UNTIL_VISIBLE');assert.equal(result.target,'personal-title');assert.equal(result.occurrence,occurrence);assert.ok(enrollmentMetadataLines(result).includes(`enrollment-failed-occurrence=${occurrence}`));assert.equal(JSON.stringify(result).includes('private-canary'),false);
+  await privateTemporary(async({root})=>{const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution),flow=join(root,'enroll-add','2026-10-16_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});fs.writeFileSync(join(flow,'commands.json'),bytes(records));execution.record('exit',1,null);assert.equal(reader.read('flow-enroll-add').occurrence,occurrence);});
+ }
+});
+
+test('known subflows never authorize capture or guess saved occurrence; legacy flat prefixes remain distinguishable',()=>{
+ const records=sourceHeaderFailure(1);assert.ok(records.some(record=>record.command.runFlowCommand));assert.equal(projectEnrollmentMetadata(bytes(records)).occurrence,'UNKNOWN');
+ const flat=records.filter(record=>!record.command.runFlowCommand).map((record,index)=>({...record,metadata:{...record.metadata,sequenceNumber:index}}));assert.equal(projectEnrollmentMetadata(bytes(flat)).occurrence,'SAVED_HEADER');
+ const repeated=[...flat.slice(0,-1),flat.find(record=>record.command.scrollUntilVisible?.selector.idRegex==='native-personal-title'),flat.at(-1)].map((record,index)=>({...record,metadata:{...record.metadata,sequenceNumber:index}}));assert.equal(projectEnrollmentMetadata(bytes(repeated)).occurrence,'UNKNOWN');
+ const failed=flowBytes([row('runFlowCommand')]);assert.equal(projectEnrollmentMetadata(failed).command,'SUBFLOW');assert.equal(projectEnrollmentMetadata(failed).target,'UNKNOWN');
+ assert.throws(()=>sourceEnrollmentRecords([{runFlow:'../private.yaml'}]),/Unexpected helper file/);
+ assert.throws(()=>sourceEnrollmentRecords([{runFlow:{commands:[],when:{visible:'private'}}}]));
+ assert.throws(()=>sourceEnrollmentRecords([{runFlow:{commands:[{tapOn:'private'}],when:{notVisible:{id:'native-date-${MAESTRO_RENEWAL_DATE}'}}}}]));
+ assert.throws(()=>sourceEnrollmentRecords([{unknown:'private'}]),/Unexpected source flow command/);
+});
+
+test('unknown, mixed, skipped, gapped, nested, repeated or continued original portfolios never guess a header occurrence',()=>{
+ const mutations=[
+  rows=>{rows[0].metadata.sequenceNumber=1;for(let i=1;i<rows.length;i++)rows[i].metadata.sequenceNumber=i+1;},
+  rows=>{rows[2].metadata.sequenceNumber=rows[2].metadata.sequenceNumber+1;for(let i=3;i<rows.length;i++)rows[i].metadata.sequenceNumber++;},
+  rows=>{rows[2].metadata.depth=1;},rows=>{rows[2].metadata.status='SKIPPED';},rows=>{rows[2].metadata.status='WARNED';},rows=>{rows[2].metadata.status='RUNNING';},
+  rows=>{delete rows[1].command.applyConfigurationCommand.config;},rows=>{rows[1].command.applyConfigurationCommand.config=null;},rows=>{rows[1].command.applyConfigurationCommand.config.appId='private-canary';},rows=>{rows[1].command.applyConfigurationCommand.config.onFlowStart={commands:[]};},rows=>{rows[1].command.applyConfigurationCommand.config.onFlowComplete={commands:[]};},
+  rows=>{rows[2].command={applyConfigurationCommand:{config:{appId:'se.subtrack.app'}}};},
+  rows=>{const scroll=rows.find(record=>record.command.scrollUntilVisible);scroll.command.scrollUntilVisible.selector={idRegex:'native-personal-title',textRegex:'private-canary'};},
+  rows=>{const scroll=rows.find(record=>record.command.scrollUntilVisible);scroll.command.scrollUntilVisible.direction='private-canary';},
+  rows=>{const scroll=rows.find(record=>record.command.scrollUntilVisible);scroll.command.scrollUntilVisible.selector={idRegex:'private-canary'};scroll.metadata.evaluatedCommand={scrollUntilVisible:{selector:{idRegex:'native-personal-title'},direction:'UP'}};},
+  rows=>{rows[2].command={scrollUntilVisible:{selector:{idRegex:'native-personal-title'},direction:'UP'}};rows[3].command={scrollUntilVisible:{selector:{idRegex:'native-personal-title'},direction:'UP'}};},
+  rows=>{rows.push({command:{tapOnElement:{}},metadata:{status:'COMPLETED',depth:0,sequenceNumber:rows.length}});},
+ ];for(const mutate of mutations){const records=sourceHeaderFailure(1);mutate(records);const result=projectEnrollmentMetadata(bytes(records));assert.equal(result.metadata,'AVAILABLE');assert.equal(result.target,'personal-title');assert.equal(result.occurrence,'UNKNOWN');}
+ const mixed=sourceHeaderFailure(0);mixed.at(-1).command.scrollUntilVisible.selector.textRegex='private-canary';assert.equal(projectEnrollmentMetadata(bytes(mixed)).occurrence,'UNKNOWN');
+ const multiple=sourceHeaderFailure(1);multiple[2].metadata.status='FAILED';assert.equal(projectEnrollmentMetadata(bytes(multiple)).metadata,'UNAVAILABLE');
+ const base=projectEnrollmentMetadata(bytes(sourceHeaderFailure(0)));for(const patch of [{occurrence:'private-canary'},{occurrence:undefined},{target:'add-open'},{command:'TAP'},{metadata:'UNAVAILABLE'},{extra:'private-canary'}])assert.equal(enrollmentMetadataLines({...base,...patch}),null);
+ const missing={...base};delete missing.occurrence;assert.equal(enrollmentMetadataLines(missing),null);
+});
+
+
+const runnerName='xctest_runner_2026-10-16_120000.log';
+function addRunnerLog(root,flow='identifier',name=runnerName){const stamp=join(root,flow,'2026-10-15_120000'),file=join(stamp,name);fs.writeFileSync(file,'private runner canary',{mode:0o600});return {stamp,file};}
+
+test('pinned iOS timestamp runner logs coexist with one exact flow, grow without content reads and preserve occurrence',async()=>{
+ // MaestroSessionManager419 -> LocalXCTestInstaller -> XCRunnerCLIUtils.xctestLogFile13-15.
+ await privateTemporary(async({root})=>{const reader=initialReader(root),{stamp,file}=addRunnerLog(root);fs.writeFileSync(join(stamp,'xctest_runner_2026-10-16_120001.log'),'private second log');const actual=fs.readFileSync;let grew=false;replace('readFileSync',(...args)=>{assert.equal(typeof args[0]==='string'&&args[0].endsWith('.log'),false);const value=actual(...args);if(!grew){fs.appendFileSync(file,' private append');grew=true;}return value;});assert.equal(await captureSealedPreinput(captureOptions(root,{reader})),true);assert.equal(reader.ownershipCheck(),'UNKNOWN');assert.equal(grew,true);});
+ await privateTemporary(async({root})=>{const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution,'ios'),flow=join(root,'enroll-add','2026-10-15_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});fs.writeFileSync(join(flow,'commands.json'),bytes(sourceHeaderFailure(1)));addRunnerLog(root,'enroll-add');execution.record('exit',1,null);const result=reader.read('flow-enroll-add');assert.equal(result.metadata,'AVAILABLE');assert.equal(result.occurrence,'UNKNOWN');});
+ for(const platform of [undefined,'android'])await privateTemporary(async({root})=>{const execution=createEnrollmentExecution('enroll-add'),reader=prepareEnrollmentMetadata(root,execution,platform),flow=join(root,'enroll-add','2026-10-15_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});fs.writeFileSync(join(flow,'commands.json'),flowBytes([row()]));addRunnerLog(root,'enroll-add');execution.record('exit',1,null);assert.equal(reader.read('flow-enroll-add').metadata,'UNAVAILABLE');assert.equal(reader.metadataCheck(),'FLOW_COUNT');});
+ for(const platform of [null,'web',true,{},['ios']])temporary(root=>assert.throws(()=>prepareEnrollmentMetadata(root,{},platform),/Invalid metadata platform/));
+});
+
+test('every new iOS runner/final-set guard is closed and never reads runner contents',async()=>{
+ assert.deepEqual(PREINPUT_METADATA_CHECKS.slice(-IOS_RUNNER_CHECKS.length),IOS_RUNNER_CHECKS);const observed=[];
+ for(const check of IOS_RUNNER_CHECKS)await privateTemporary(async({root})=>{const reader=initialReader(root),{stamp,file}=addRunnerLog(root),actualStat=fs.lstatSync,actualCanonical=fs.realpathSync,actualList=fs.readdirSync,actualRead=fs.readFileSync;let stats=0,canonical=0,lists=0;
+  const alter=(stat,patch)=>Object.assign(Object.create(Object.getPrototypeOf(stat)),stat,patch);
+  replace('lstatSync',(path,options)=>{const stat=actualStat(path,options);if(path!==file)return stat;stats++;const prefix=stats===1?'RUNNER':'FINAL_RUNNER';if(check===`${prefix}_STAT`)throw Error('private stat');if(check===`${prefix}_TYPE`)return alter(stat,{isSymbolicLink:()=>true});if(check==='FINAL_RUNNER_IDENTITY'&&stats===2)return alter(stat,{ino:stat.ino+1n});return stat;});
+  replace('realpathSync',path=>{if(path===file){canonical++;if(check===`${canonical===1?'RUNNER':'FINAL_RUNNER'}_CANONICAL`)return join(root,'private-canary');}return actualCanonical(path);});
+  replace('readdirSync',(path,options)=>{const entries=actualList(path,options);if(path!==stamp)return entries;lists++;
+   if(lists===1&&check==='RUNNER_NAME')return entries.map(entry=>entry.name===runnerName?{...entry,name:'private-canary',isSymbolicLink:()=>false,isFile:()=>true}:entry);
+   if(lists===1&&check==='RUNNER_ENTRY_TYPE')return entries.map(entry=>entry.name===runnerName?{...entry,isSymbolicLink:()=>true,isFile:()=>true}:entry);
+   if(lists===2){if(check==='FINAL_PORTFOLIO_LIST')throw Error('private list');if(check==='FINAL_PORTFOLIO_LIMIT')return Array.from({length:33},()=>entries[0]);if(check==='FINAL_PORTFOLIO_SET')return entries.filter(entry=>entry.name!==runnerName);}
+   return entries;
+  });replace('readFileSync',(...args)=>{assert.equal(typeof args[0]==='string'&&args[0].endsWith('.log'),false);return actualRead(...args);});
+  assert.equal(reader.take(),null,check);assert.equal(reader.failureStage(),'METADATA_OWNERSHIP',check);assert.equal(reader.ownershipCheck(),check,check);assert.equal(reader.take(),null);observed.push(reader.ownershipCheck());
+ });assert.deepEqual(observed,IOS_RUNNER_CHECKS);
+});
+
+test('unknown siblings, extra flows, log directories and changes to accepted iOS siblings stay rejected',async()=>{
+ for(const kind of ['unknown','lookalike','log-directory','extra-flow','many','add-final','replace-final','alias-final','flow-alias-final'])await privateTemporary(async({root})=>{const reader=initialReader(root),{stamp,file}=addRunnerLog(root);let expected;
+  if(kind==='unknown'){fs.writeFileSync(join(stamp,'private-canary'),'private');expected='RUNNER_NAME';}
+  if(kind==='lookalike'){fs.renameSync(file,join(stamp,'xctest_runner_2026-10-16_120000.log.extra'));expected='RUNNER_NAME';}
+  if(kind==='log-directory'){fs.unlinkSync(file);fs.mkdirSync(file);expected='RUNNER_ENTRY_TYPE';}
+  if(kind==='extra-flow'){fs.mkdirSync(join(stamp,'private-runtime-identifier-2'));expected='RUNNER_NAME';}
+  if(kind==='many'){for(let i=0;i<31;i++)fs.writeFileSync(join(stamp,`xctest_runner_2026-10-16_1201${String(i).padStart(2,'0')}.log`),'private');expected='FLOW_LIMIT';}
+  if(kind==='add-final'||kind==='replace-final'){const actual=fs.readFileSync;let changed=false;replace('readFileSync',(...args)=>{const result=actual(...args);if(!changed&&typeof args[0]==='number'){changed=true;if(kind==='add-final')fs.writeFileSync(join(stamp,'private-canary'),'private');else{fs.renameSync(file,join(root,'retained-private-log'));fs.writeFileSync(file,'different inode');}}return result;});expected=kind==='add-final'?'FINAL_PORTFOLIO_SET':'FINAL_RUNNER_IDENTITY';}
+  if(kind==='alias-final'){const actual=fs.lstatSync;let n=0;replace('lstatSync',(path,options)=>{const stat=actual(path,options);if(path===file&&++n===2)return Object.assign(Object.create(Object.getPrototypeOf(stat)),stat,{isSymbolicLink:()=>true});return stat;});expected='FINAL_RUNNER_TYPE';}
+  if(kind==='flow-alias-final'){const actual=fs.readdirSync;let n=0;replace('readdirSync',(path,options)=>{const entries=actual(path,options);if(path===stamp&&++n===2)return entries.map(entry=>entry.name==='private-runtime-identifier'?{...entry,isSymbolicLink:()=>true,isDirectory:()=>true}:entry);return entries;});expected='FINAL_PORTFOLIO_SET';}
+  assert.equal(reader.take(),null,kind);assert.equal(reader.ownershipCheck(),expected,kind);
+ });
+});
+
+
+const androidEnv={...captureEnv,CI:'true',ST253_ANDROID_CAPTURE_ENABLED:'true',ST253_CAPTURE_PLATFORM:'android'},androidContext=androidCaptureContext(androidEnv,captureHead);
+const emptyManual={arrivals:'zero',finished201:'zero',rejected4xx:'zero',failed5xx:'zero',other:'zero',incomplete:'zero'};
+const syntheticReceipt={version:1,markerHash:'ab'.repeat(32),identityCount:1,profileCompleteCount:1,justMeCount:1,subscriptionCount:0,subscriptionDigest:'cd'.repeat(32)};
+const androidBinding={version:1,purpose:'android-entry-header',...androidContext,invocation:binding.invocation,emulatorCustody:'ef'.repeat(32),installedApkSha256:'12'.repeat(32),fixtureCustody:'34'.repeat(32),recipient:PREINPUT_RECIPIENT_SHA256};
+function androidSource(root,events=[['exit',1,null],['close',1,null]]){const execution=createEnrollmentExecution('enroll-add'),reader=prepareAndroidEntryMetadata(root,execution),flow=join(root,'enroll-add','2026-10-15_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});fs.writeFileSync(join(flow,'commands.json'),bytes(sourceHeaderFailure(0)));for(const event of events){execution.record(...event);reader.record(...event);}return {reader,metadata:reader.read('flow-enroll-add')};}
+function androidDeviceFixture(root,useDefault=false){const avd=join(dirname(root),'avd'),sdk=join(dirname(root),'sdk'),emulator=join(sdk,'emulator','emulator'),exe=join(dirname(emulator),'qemu/linux-x86_64/qemu-system-x86_64-headless');fs.mkdirSync(avd,{mode:0o700});fs.mkdirSync(dirname(exe),{recursive:true});fs.writeFileSync(exe,'synthetic pinned process');const env={ANDROID_HOME:sdk,...(useDefault?{}:{SUBTRACK_PRIVATE_EMULATOR_BIN:emulator})};androidAvdStage(root,androidContext,'begin',env);const data=join(avd,'subtrack-proof.avd');fs.mkdirSync(data,{mode:0o700});fs.writeFileSync(join(avd,'subtrack-proof.ini'),`path=${data}\n`,{mode:0o600});fs.writeFileSync(join(data,'config.ini'),'synthetic config',{mode:0o600});androidAvdStage(root,androidContext,'created',env);fs.writeFileSync(join(root,'emulator.pid'),'23456',{mode:0o600});fs.writeFileSync(join(root,'emulator.start'),'777',{mode:0o600});const args=[exe,'-avd','subtrack-proof','-sysdir',join(sdk,'system-images/android-34/google_apis/x86_64'),'-port','5554','-no-window','-no-audio','-no-boot-anim','-no-snapshot','-gpu','swiftshader_indirect'];const originalRead=fs.readFileSync;const state={pid:'23456',start:'777',status:'S',exe:fs.realpathSync(exe),args,adb:{},appHash:null};replace('readFileSync',(...values)=>{if(values[0]===`/proc/23456/stat`)return `23456 (synthetic emulator) ${state.status} ${Array(18).fill('0').join(' ')} ${state.start} 0`;if(values[0]===`/proc/23456/cmdline`)return Buffer.from(state.args.join('\0')+'\0');return originalRead(...values);});replace('readlinkSync',()=>state.exe);mock.method(childProcess,'execFileSync',(file,args,options)=>{assert.equal(file,join(sdk,'platform-tools/adb'));assert.deepEqual(args.slice(0,2),['-s','emulator-5554']);assert.equal(options.timeout,10000);const command=args.slice(2).join(' ');if(Object.hasOwn(state.adb,command))return state.adb[command];if(command==='get-state')return 'device\n';if(command==='emu avd name')return 'subtrack-proof\r\nOK\r\n';if(command==='shell getprop ro.kernel.qemu'||command==='shell getprop sys.boot_completed')return '1\n';if(command==='shell pm path se.subtrack.app')return 'package:/data/app/~~synthetic=/se.subtrack.app-synthetic=/base.apk\n';assert.equal(command,'shell sha256sum /data/app/~~synthetic=/se.subtrack.app-synthetic=/base.apk');return `${state.appHash}  /data/app/~~synthetic=/se.subtrack.app-synthetic=/base.apk\n`;});syncBuiltinESMExports();androidAvdStage(root,androidContext,'boot',env);const built=join(root,'synthetic-built.apk');fs.writeFileSync(built,'synthetic current APK');state.appHash=crypto.createHash('sha256').update('synthetic current APK').digest('hex');const measured=measureAndroidApp(root,androidContext,env,built);const checkpoint=recordAndroidApp(root,androidContext,measured);return {env,built,state,measured,avd,data,exe,checkpoint};}
+function androidOptions(root,device,extra={}){return {privateRoot:root,context:androidContext,checkpoint:device.checkpoint,...androidSource(root),measure:()=>measureAndroidApp(root,androidContext,device.env,device.built),observe:async()=>({receipt:syntheticReceipt,manual:emptyManual}),markerHash:syntheticReceipt.markerHash,capture:async file=>fs.writeFileSync(file,samplePng(),{mode:0o600,flag:'wx'}),recipientPem,...extra};}
+
+test('Android custody uses the launcher SDK default when no emulator override is configured',async()=>{
+ await privateTemporary(async({root})=>{const d=androidDeviceFixture(root,true);assert.equal(Object.hasOwn(d.env,'SUBTRACK_PRIVATE_EMULATOR_BIN'),false);assert.deepEqual(measureAndroidApp(root,androidContext,d.env,d.built),d.measured);assert.match(verifyAndroidDevice(root,androidContext,{...d.env,SUBTRACK_PRIVATE_EMULATOR_BIN:''}),/^[a-f0-9]{64}$/);d.state.exe='/foreign/qemu-system-x86_64-headless';assert.throws(()=>verifyAndroidDevice(root,androidContext,d.env));});
+});
+
+test('emulator startup may replace config once before boot binding, but later identity or content changes reject custody',async()=>{
+ for(const after of ['identity','contents'])await privateTemporary(async({root})=>{const d=androidDeviceFixture(root,true),file=join(d.data,'config.ini');fs.unlinkSync(join(root,'android-avd-boot.json'));fs.renameSync(file,file+'-created');fs.writeFileSync(file,'synthetic emulator startup config',{mode:0o600});androidAvdStage(root,androidContext,'boot',d.env);assert.match(verifyAndroidDevice(root,androidContext,d.env),/^[a-f0-9]{64}$/);if(after==='identity'){fs.renameSync(file,file+'-boot');fs.writeFileSync(file,'synthetic emulator startup config',{mode:0o600});}else fs.writeFileSync(file,'unexpected later config');assert.throws(()=>verifyAndroidDevice(root,androidContext,d.env));});
+});
+
+test('boot preflight reports only fixed guard stages and keeps foreign arguments rejected',async()=>{
+ await privateTemporary(async({root})=>{const d=androidDeviceFixture(root,true),stages=[];fs.unlinkSync(join(root,'android-avd-boot.json'));androidAvdStage(root,androidContext,'boot',d.env,value=>stages.push(value));assert.deepEqual(stages,['CREATION','AVD_HOME','AVD_RECEIPTS','AVD_INTENT','AVD_DATA','AVD_INDEX','AVD_CONFIG','AVD_SCHEMA','AVD_INTENT_BINDING','AVD_DATA_BINDING','AVD_INDEX_BINDING','AVD_PATH','PROCESS','EXECUTABLE','ARGUMENTS','ADB','RECEIPT']);fs.unlinkSync(join(root,'android-avd-boot.json'));d.state.args.push('private-canary');stages.length=0;assert.throws(()=>androidAvdStage(root,androidContext,'boot',d.env,value=>stages.push(value)));assert.deepEqual(stages,['CREATION','AVD_HOME','AVD_RECEIPTS','AVD_INTENT','AVD_DATA','AVD_INDEX','AVD_CONFIG','AVD_SCHEMA','AVD_INTENT_BINDING','AVD_DATA_BINDING','AVD_INDEX_BINDING','AVD_PATH','PROCESS','EXECUTABLE','ARGUMENTS']);assert.equal(fs.existsSync(join(root,'android-avd-boot.json')),false);});
+});
+
+test('separate Android authority preserves exact PR/source guards and never accepts iOS/foreign contexts',()=>{assert.deepEqual(androidContext,{sourceHead:captureHead,runId:'1234',attempt:'1'});for(const key of Object.keys(androidEnv))if(!['ST253_CAPTURE_ENABLED','SUBTRACK_SIMULATOR_UDID'].includes(key))assert.equal(androidCaptureContext({...androidEnv,[key]:'private-canary'},captureHead),null);assert.equal(androidCaptureContext(androidEnv,'cd'.repeat(20)),null);assert.equal(androidCaptureContext(new Proxy({},{get(){throw Error('private');}}),captureHead),null);});
+
+test('actual source YAML producer prefix and owned lifecycle issue one Android ticket only after matching exit and close',async()=>{
+ await privateTemporary(async({root})=>{const {reader,metadata}=androidSource(root);assert.equal(metadata.occurrence,'ENTRY_HEADER');assert.ok(reader.take(metadata));assert.equal(reader.take(metadata),null);});
+ for(const events of [[],[['exit',1,null]],[['close',1,null]],[['exit',0,null],['close',0,null]],[['error']],[['exit',1,'SIGTERM'],['close',1,'SIGTERM']],[['exit',1,null],['exit',1,null],['close',1,null]],[['exit',1,null],['close',1,null],['close',1,null]]])await privateTemporary(async({root})=>{const {reader,metadata}=androidSource(root,events);assert.throws(()=>reader.take(metadata));assert.equal(reader.take(metadata),null);});
+ for(const change of ['substituted','saved','unknown'])await privateTemporary(async({root})=>{const {reader,metadata}=androidSource(root);if(change==='saved'){const file=join(root,'enroll-add','2026-10-15_120000','private-runtime-enroll-add','commands.json');fs.writeFileSync(file,bytes(sourceHeaderFailure(1)));assert.throws(()=>reader.take(reader.read('flow-enroll-add')));}else assert.throws(()=>reader.take(change==='substituted'?{...metadata}:{...metadata,occurrence:'UNKNOWN'}));});
+});
+
+test('fresh producer emits exclusive nonce/create/boot receipts and measured exact current base APK custody',async()=>{await privateTemporary(async({root})=>{const d=androidDeviceFixture(root);assert.match(verifyAndroidDevice(root,androidContext,d.env),/^[a-f0-9]{64}$/);assert.match(d.measured.installedApkSha256,/^[a-f0-9]{64}$/);for(const phase of ['begin','created','boot','unknown'])assert.throws(()=>androidAvdStage(root,androidContext,phase,d.env));assert.throws(()=>verifyAndroidDevice(root,{...androidContext,attempt:'2'},d.env));});
+ for(const change of ['pid','start','zombie','proc-start','exe','args','serial','avd','qemu','boot','base-count','app-hash','app-bytes','built-link','created','intent','index','data','boot-receipt','intent-replaced','created-replaced','boot-replaced','index-replaced','config-replaced'])await privateTemporary(async({root})=>{const d=androidDeviceFixture(root);if(change==='pid')fs.writeFileSync(join(root,'emulator.pid'),'1');if(change==='start')fs.writeFileSync(join(root,'emulator.start'),'bad');if(change==='zombie')d.state.status='Z';if(change==='proc-start')d.state.start='778';if(change==='exe')d.state.exe+='foreign';if(change==='args')d.state.args=[...d.state.args,'-snapshot','old'];if(change==='serial')d.state.adb['get-state']='offline';if(change==='avd')d.state.adb['emu avd name']='foreign\nOK';if(change==='qemu')d.state.adb['shell getprop ro.kernel.qemu']='0';if(change==='boot')d.state.adb['shell getprop sys.boot_completed']='0';if(change==='base-count')d.state.adb['shell pm path se.subtrack.app']='package:/data/app/a/base.apk\npackage:/data/app/a/split.apk';if(change==='app-hash')d.state.appHash='00'.repeat(32);if(change==='app-bytes')fs.writeFileSync(d.built,'substituted');if(change==='built-link'){fs.unlinkSync(d.built);fs.symlinkSync(d.data,d.built,'junction');}if(change==='created')fs.writeFileSync(join(root,'android-avd-created.json'),'{}');if(change==='intent')fs.writeFileSync(join(root,'android-avd-intent.json'),'{}');if(change==='index')fs.writeFileSync(join(d.avd,'subtrack-proof.ini'),'path=foreign');if(change==='data'){fs.renameSync(d.data,d.data+'-old');fs.mkdirSync(d.data,{mode:0o700});fs.writeFileSync(join(d.data,'config.ini'),'synthetic config');}if(change==='boot-receipt')fs.writeFileSync(join(root,'android-avd-boot.json'),'{}');if(change.endsWith('-replaced')){const file={'intent-replaced':join(root,'android-avd-intent.json'),'created-replaced':join(root,'android-avd-created.json'),'boot-replaced':join(root,'android-avd-boot.json'),'index-replaced':join(d.avd,'subtrack-proof.ini'),'config-replaced':join(d.data,'config.ini')}[change],original=fs.readFileSync(file);fs.renameSync(file,file+'-old');fs.writeFileSync(file,original,{mode:0o600});}if(change==='boot-replaced')assert.notEqual(measureAndroidApp(root,androidContext,d.env,d.built).emulatorCustody,d.measured.emulatorCustody);else assert.throws(()=>measureAndroidApp(root,androidContext,d.env,d.built));});
+});
+
+test('fixture admission is exact synthetic profile/JustMe/zero subscriptions and all manual buckets zero, no getters',()=>{assert.match(androidFixtureBinding(syntheticReceipt,emptyManual,syntheticReceipt.markerHash),/^[a-f0-9]{64}$/);for(const key of Object.keys(syntheticReceipt))assert.throws(()=>androidFixtureBinding({...syntheticReceipt,[key]:'private-canary'},emptyManual,syntheticReceipt.markerHash));for(const key of Object.keys(emptyManual))assert.throws(()=>androidFixtureBinding(syntheticReceipt,{...emptyManual,[key]:'one'},syntheticReceipt.markerHash));for(const value of [null,{},Object.defineProperty({...syntheticReceipt},'identityCount',{get(){throw Error('must not run');}})])assert.throws(()=>androidFixtureBinding(value,emptyManual,syntheticReceipt.markerHash));assert.throws(()=>androidFixtureBinding(syntheticReceipt,{},syntheticReceipt.markerHash));});
+
+test('Android protocol has independent magic, canonical AAD, OAEP label and real GCM authentication with pinned public recipient',()=>{const actual=crypto.publicEncrypt,keys=[];mock.method(crypto,'publicEncrypt',(options,key)=>{assert.equal(options.oaepHash,'sha256');assert.ok(['ST253_ANDROID_ENTRY_HEADER_FRAME_V1\0','ST253_PREINPUT_IOS_FRAME_V1\0'].includes(options.oaepLabel.toString()));keys.push(Buffer.from(key));return actual(options,key);});syncBuiltinESMExports();try{const sealed=sealAndroidEntryPng(samplePng(),androidBinding,recipientPem);assert.equal(sealed.subarray(0,10).toString(),'ST253AEN1\n');assert.equal(validSealedAndroid(sealed,androidContext,androidBinding),true);assert.equal(validSealedPreinput(sealed,captureContext,binding.simulatorCustody),false);assert.equal(validSealedAndroid(sealPreinputPng(samplePng(),binding,recipientPem),androidContext,androidBinding),false);const n=sealed.readUInt32BE(10),aad=sealed.subarray(14,14+n),cipher=crypto.createDecipheriv('aes-256-gcm',keys[0],sealed.subarray(14+n,26+n));cipher.setAAD(aad);cipher.setAuthTag(sealed.subarray(410+n,426+n));assert.deepEqual(Buffer.concat([cipher.update(sealed.subarray(426+n)),cipher.final()]),samplePng());assert.deepEqual(Object.keys(JSON.parse(aad)),['version','purpose','sourceHead','runId','attempt','invocation','emulatorCustody','installedApkSha256','fixtureCustody','recipient']);assert.notDeepEqual(sealed,sealAndroidEntryPng(samplePng(),androidBinding,recipientPem));for(const bytes of [null,Buffer.alloc(600),Buffer.alloc(8392705),Buffer.concat([sealed.subarray(0,10),Buffer.from([0,0,0,0]),sealed.subarray(14)])])assert.equal(validSealedAndroid(bytes,androidContext,androidBinding),false);assert.equal(validSealedAndroid(sealed,{...androidContext,attempt:'2'},androidBinding),false);assert.equal(validSealedAndroid(sealed,androidContext,{...androidBinding,installedApkSha256:'00'.repeat(32)}),false);}finally{mock.restoreAll();syncBuiltinESMExports();}
+ for(const patch of [{purpose:'ios-preinput'},{extra:true},{installedApkSha256:'bad'},{fixtureCustody:'bad'}])assert.throws(()=>sealAndroidEntryPng(samplePng(),{...androidBinding,...patch},recipientPem));assert.throws(()=>sealAndroidEntryPng(Buffer.alloc(1),androidBinding,recipientPem));assert.throws(()=>sealAndroidEntryPng(samplePng(),androidBinding,'invalid'));for(const fake of [{asymmetricKeyType:'ec'},{asymmetricKeyType:'rsa',asymmetricKeyDetails:{modulusLength:2048}},{asymmetricKeyType:'rsa',asymmetricKeyDetails:{modulusLength:3072},export:()=>Buffer.from('foreign')}]){mock.method(crypto,'createPublicKey',()=>fake);syncBuiltinESMExports();assert.throws(()=>sealAndroidEntryPng(samplePng(),androidBinding,recipientPem));mock.restoreAll();syncBuiltinESMExports();}
+});
+
+test('Android capture remeasures app and fenced fixture before/after, removes every raw byte before exact ciphertext publication',async()=>{
+ await privateTemporary(async({root})=>{const d=androidDeviceFixture(root),skia=pngBytes([pngChunk('IHDR',pngHeader()),pngChunk('sBIT',Buffer.from([8,8,8])),pngChunk('IDAT',deflateSync(Buffer.alloc(4))),pngChunk('IEND')]);assert.equal(await captureSealedAndroidEntry(androidOptions(root,d,{capture:async file=>fs.writeFileSync(file,skia,{flag:'wx',mode:0o600})})),true);assert.equal(fs.existsSync(join(root,'android-entry-frame')),false);assert.equal(validatedAndroidArtifact(root,androidContext),true);assert.equal(validatedAndroidArtifact(root,{...androidContext,attempt:'2'}),false);});
+ for(const change of ['context','ticket','measure','app-custody','app-replaced','boot-replaced','fixture','manual','capture','png','after-fixture','after-app','recipient','cleanup','output','readback','sealed-cleanup'])await privateTemporary(async({root})=>{const d=androidDeviceFixture(root),options=androidOptions(root,d);let reads=0;if(change==='capture'||change==='cleanup')options.onWithheld=value=>assert.equal(value,change==='capture'?'CAPTURE':'RAW_CLEANUP');if(change==='context')options.context=null;if(change==='ticket')options.metadata={...options.metadata};if(change==='measure')options.measure=()=>{throw Error('private');};if(change==='app-custody')fs.writeFileSync(join(root,'android-app-custody.json'),'{}');if(change==='app-replaced'){const file=join(root,'android-app-custody.json'),original=fs.readFileSync(file);fs.renameSync(file,file+'-old');fs.writeFileSync(file,original,{mode:0o600});}if(change==='boot-replaced'){const file=join(root,'android-avd-boot.json'),original=fs.readFileSync(file);fs.renameSync(file,file+'-old');fs.writeFileSync(file,original,{mode:0o600});}if(change==='fixture')options.markerHash='00'.repeat(32);if(change==='manual')options.observe=async()=>({receipt:syntheticReceipt,manual:{...emptyManual,arrivals:'one'}});if(change==='capture')options.capture=async()=>{throw Error('private');};if(change==='png')options.capture=async file=>fs.writeFileSync(file,'private invalid PNG');if(change==='after-fixture')options.observe=async()=>({receipt:{...syntheticReceipt,subscriptionDigest:++reads>1?'00'.repeat(32):syntheticReceipt.subscriptionDigest},manual:emptyManual});if(change==='after-app'){const measure=options.measure;options.measure=()=>++reads>1?{...d.measured,installedApkSha256:'00'.repeat(32)}:measure();}if(change==='recipient')options.recipientPem='private invalid key';if(change==='cleanup'){const rmdir=fs.rmdirSync;replace('rmdirSync',path=>{if(path.endsWith('android-entry-frame'))throw Error('private');return rmdir(path);});}if(change==='output')fs.mkdirSync(join(dirname(root),'sealed-android'),{mode:0o700});if(change==='readback'||change==='sealed-cleanup'){const write=fs.writeFileSync;replace('writeFileSync',(file,value,settings)=>write(file,file.endsWith('.st253sealed')?'invalid sealed':value,settings));}if(change==='sealed-cleanup'){const unlink=fs.unlinkSync;replace('unlinkSync',file=>{if(file.endsWith('.st253sealed'))throw Error('private');return unlink(file);});}assert.equal(await captureSealedAndroidEntry(options),false);assert.equal(validatedAndroidArtifact(root,androidContext),false);});
+});
+
+test('assertion diagnostics project only fixed original selectors and never qualify header capture',()=>{
+ const known=[
+  [{textRegex:'${MAESTRO_VERIFY_BANKID}'},'verification-entry'],[{textRegex:'${MAESTRO_PROFILE_NAME}'},'profile-name'],[{idRegex:'native-profile-name'},'profile-name'],
+  [{idRegex:'native-personal-title',textRegex:'${MAESTRO_PROFILE_TITLE}'},'profile-title'],[{idRegex:'native-personal-title',textRegex:'${MAESTRO_PERSONAL_TITLE}'},'personal-title'],
+  [{textRegex:'${MAESTRO_JUST_ME}'},'mode-choice'],[{textRegex:'${MAESTRO_MONTH_TITLE}'},'home-en'],[{textRegex:'${MAESTRO_SV_MONTH_TITLE}'},'home-sv'],
+  [{textRegex:'${MAESTRO_ADD}'},'add-open'],[{textRegex:'${MAESTRO_SAVE_SUBSCRIPTION}',enabled:true},'subscription-save'],
+  [{textRegex:'${MAESTRO_SAVED}'},'saved-ack'],[{textRegex:'Example streaming'},'saved-row'],[{textRegex:'${MAESTRO_EXPECTED_AMOUNT}'},'saved-amount'],
+  [{textRegex:'${MAESTRO_SV_PROFILE_SAVED}'},'preferences-sv'],[{textRegex:'${MAESTRO_PROFILE_SAVED}'},'preferences-en']];
+ const project=(condition,evaluated)=>projectEnrollmentMetadata(flowBytes([{command:{assertConditionCommand:{condition}},metadata:{status:'FAILED',sequenceNumber:1,depth:0,...(evaluated?{evaluatedCommand:evaluated}:{})}}]));
+ for(const [selector,target]of known){const result=project({visible:{optional:false,...selector,idRegex:selector.idRegex??null},notVisible:null});assert.equal(result.command,'ASSERT_CONDITION');assert.equal(result.target,target);assert.equal(result.occurrence,'UNKNOWN');assert.ok(enrollmentMetadataLines(result));assert.equal(enrollmentMetadataLines({...result,occurrence:'ENTRY_HEADER'}),null);}
+ for(const condition of [null,{},[],{visible:null},{visible:[]},{visible:{textRegex:'private-canary'}},{visible:{textRegex:'${MAESTRO_SAVED}',idRegex:'private-canary'}},{visible:{textRegex:'${MAESTRO_SAVED}',optional:true}},{visible:{textRegex:'${MAESTRO_SAVED}',enabled:true}},{visible:{textRegex:'${MAESTRO_SAVED}'},notVisible:{}},{visible:{textRegex:'${MAESTRO_SAVED}'},private:'canary'}]){const result=project(condition,{assertConditionCommand:{condition:{visible:{textRegex:'${MAESTRO_SAVED}'}}}});assert.equal(result.metadata,'AVAILABLE');assert.equal(result.target,'UNKNOWN');assert.ok(!JSON.stringify(result).includes('canary'));}
+ const actual=sourceEnrollmentRecords(),assertions=actual.filter(record=>record.command.assertConditionCommand);assert.ok(assertions.length>10);for(const record of assertions){const value=record.command.assertConditionCommand.condition.visible;if(value?.textRegex==='${MAESTRO_MONTH_TITLE}')assert.equal(project({visible:value}).target,'home-en');}
+});
+
+test('separate Home reader requires a fixed original Home assertion and its admitted current prefix',async()=>{
+ for(const scenario of ['accepted','non-home','wrong-command','unavailable','reject-prefix'])await privateTemporary(async({root})=>{
+  const execution=createEnrollmentExecution('enroll-add'),admit=()=>scenario!=='reject-prefix',reader=prepareHomeEnrollmentMetadata(root,execution,admit),flow=join(root,'enroll-add','2026-10-15_120000','private-runtime-enroll-add');fs.mkdirSync(flow,{recursive:true});
+  const record={command:{assertConditionCommand:{condition:{visible:{textRegex:scenario==='non-home'?'${MAESTRO_SAVED}':'${MAESTRO_MONTH_TITLE}'}}}},metadata:{status:'FAILED',sequenceNumber:1,depth:0}};if(scenario==='wrong-command')record.command={tapOnElement:{}};
+  fs.writeFileSync(join(flow,'commands.json'),scenario==='unavailable'?flowBytes([]):flowBytes([record]));execution.record('exit',1,null);assert.equal(reader.read('flow-enroll-add').metadata,scenario==='accepted'?'AVAILABLE':'UNAVAILABLE');
+ });
+});
+
+
+test('separate Edit reader rejects malformed portfolios and only admits the original pre-Save source prefix',async()=>{
+ for(const scenario of ['accepted','rejected-prefix','not-array','short','too-many','wrong-shape','duplicate-key','invalid-metadata'])await privateTemporary(async({root})=>{
+  const execution={snapshot:()=>({outcome:'exit-nonzero'})},reader=prepareEditStatusMetadata(root,execution,()=>scenario!=='rejected-prefix'),flow=join(root,'edit-status','2026-10-17_120000','private-runtime-edit-status');fs.mkdirSync(flow,{recursive:true});
+  const rows=[prefix(),{command:{applyConfigurationCommand:{config:{appId:'se.subtrack.app'}}},metadata:{status:'COMPLETED',sequenceNumber:1,depth:0}},{command:{scrollUntilVisible:{selector:{textRegex:'${MAESTRO_SAVE_EDIT}'},direction:'DOWN'}},metadata:{status:'FAILED',sequenceNumber:2,depth:0}}];
+  let payload=bytes(rows);
+  if(scenario==='not-array')payload=bytes({});if(scenario==='short')payload=bytes([]);if(scenario==='too-many')payload=bytes(Array.from({length:129},()=>prefix()));
+  if(scenario==='wrong-shape'){rows[2].extra=true;payload=bytes(rows);}if(scenario==='duplicate-key')payload=Buffer.from('[{"command":{},"command":{},"metadata":{}}]');if(scenario==='invalid-metadata'){rows[2].metadata.status='foreign';payload=bytes(rows);}
+  fs.writeFileSync(join(flow,'commands.json'),payload);const result=reader.read('flow-edit-status');assert.equal(result.metadata,scenario==='accepted'?'AVAILABLE':scenario==='rejected-prefix'?'UNAVAILABLE':'INVALID');
+ });
 });

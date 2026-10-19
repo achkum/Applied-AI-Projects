@@ -1,0 +1,543 @@
+import { createHash } from 'node:crypto';
+import {createRequire} from 'node:module';
+import {createReadStream,promises as fsAsync} from 'node:fs';
+import {createGunzip} from 'node:zlib';
+import { readFileSync, writeFileSync, lstatSync, unlinkSync, openSync, closeSync, existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { gunzipSync, inflateRawSync } from 'node:zlib';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+export const JDK_IMAGE = 'eclipse-temurin@sha256:8d242405506ad1085e39f1ca80ec76f0812f61073efe76129607e39f043ccbb9';
+export const SDK_URL = 'https://dl.google.com/android/repository/build-tools_r36_linux.zip';
+export const SDK_SHA256 = '5d9ac77fb6ff43d9da518a337b4fcf8f9097113df531d99ccefe80ef7ce8250b';
+export const TOOLS_DOCKERFILE_SHA256 = 'd2867b142a15cb44ce58361baa188e93da1c8c95fda7f7f5c41c6a00f0813e31';
+const unavailable = () => { throw Error('ST250_ANDROID_TRANSFER_UNAVAILABLE'); };
+const sha = x => typeof x === 'string' && /^[a-f0-9]{64}$/.test(x);
+const head = x => typeof x === 'string' && /^[a-f0-9]{40}$/.test(x);
+const bounded = (x, max) => Number.isSafeInteger(x) && x > 0 && x <= max;
+export const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+export function closed(value, fields) {
+  if (!value || Object.getPrototypeOf(value) !== Object.prototype || Reflect.ownKeys(value).length !== fields.length) unavailable();
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  if (fields.some(key => !descriptors[key] || !('value' in descriptors[key]) || descriptors[key].enumerable !== true)) unavailable();
+  return value;
+}
+const common = ['schema','sourceHead','runId','defaultTargetHead','draftTag'];
+const apkFields = [...common,'unsignedSha256','bytes','applicationId','versionCode','variant','origin','buildType','debuggable','privateCaIncluded','hermesBundled','runtimeEnabled','zipAligned','buildScriptSha256','receiptModuleSha256'];
+const toolFields = [...common,'imageId','baseImage','dockerfileSha256','sdkArchiveSha256','apksignerJarSha256','zipalignSha256','archiveSha256','rawTarSha256','archiveBytes','rawTarBytes','runtimeUid','runtimeGid','buildToolsVersion','toolsQualified'];
+const apkReceiptFields = [...common,'releaseId','draft','unsignedSha256','bytes','applicationId','apkAssetId','manifestSha256','manifestBytes','manifestAssetId','manifestSchema','unsignedQualified','uploadVerified','localCleanupConfirmed','remoteCustody'];
+const toolReceiptFields = [...common,'releaseId','draft','imageId','archiveSha256','archiveBytes','archiveAssetId','manifestSha256','manifestBytes','manifestAssetId','manifestSchema','toolsQualified','uploadVerified','localCleanupConfirmed','remoteCustody'];
+
+export function dataField(value,key){const d=value&&typeof value==='object'?Object.getOwnPropertyDescriptor(value,key):undefined;return d&&'value'in d?d.value:undefined;}
+export function crc32(bytes){let crc=0xffffffff;for(const value of bytes){crc^=value;for(let i=0;i<8;i++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}return (crc^0xffffffff)>>>0;}
+/** Read selected native bytes from a bounded APK, never from a metadata sidecar. */
+const apkFailures=new WeakMap();
+export function apkDiagnostic(error){return apkFailures.get(error)??null;}
+function apkBoundary(action){let step='APK_INPUT';const checkpoint=next=>{step=next;};try{return action(checkpoint);}catch(error){const failure=Error('ST250_ANDROID_TRANSFER_UNAVAILABLE');apkFailures.set(failure,apkDiagnostic(error)??step);throw failure;}}
+export function apkAssets(apk){return apkBoundary(checkpoint=>apkAssetsBody(apk,checkpoint));}
+function apkAssetsBody(apk,checkpoint){
+ if(!Buffer.isBuffer(apk)||!bounded(apk.length,200*1024*1024))unavailable();
+ checkpoint('ZIP_DIRECTORY');
+ let end=-1;for(let p=apk.length-22;p>=Math.max(0,apk.length-65557);p--)if(apk.readUInt32LE(p)===0x06054b50&&p+22+apk.readUInt16LE(p+20)===apk.length){end=p;break;}
+ if(end<0)unavailable();checkpoint('ZIP_DISK');if(apk.readUInt16LE(end+4)!==0||apk.readUInt16LE(end+6)!==0)unavailable();
+ const count=apk.readUInt16LE(end+10),size=apk.readUInt32LE(end+12),start=apk.readUInt32LE(end+16);checkpoint('ZIP_ENTRY_COUNT');if(!bounded(count,4096)||count!==apk.readUInt16LE(end+8))unavailable();checkpoint('ZIP_DIRECTORY_BOUNDS');if(size>1048576||start+size!==end)unavailable();
+ const entries=new Map(),ranges=[];let p=start;
+ for(let i=0;i<count;i++){
+  checkpoint('ZIP_ENTRY_HEADER');
+  if(p+46>end||apk.readUInt32LE(p)!==0x02014b50)unavailable();
+  const flags=apk.readUInt16LE(p+8),method=apk.readUInt16LE(p+10),crc=apk.readUInt32LE(p+16),compressed=apk.readUInt32LE(p+20),plain=apk.readUInt32LE(p+24),nl=apk.readUInt16LE(p+28),el=apk.readUInt16LE(p+30),cl=apk.readUInt16LE(p+32),offset=apk.readUInt32LE(p+42);
+  checkpoint('ZIP_ENTRY_FLAGS');if(flags&~0x808)unavailable();checkpoint('ZIP_ENTRY_METHOD');if(![0,8].includes(method))unavailable();checkpoint('ZIP_ENTRY_DISK');if(apk.readUInt16LE(p+34)!==0)unavailable();checkpoint('ZIP_ENTRY_ZIP64');if(compressed===0xffffffff||plain===0xffffffff||offset===0xffffffff)unavailable();checkpoint('ZIP_ENTRY_BOUNDS');if(p+46+nl+el+cl>end||plain>200*1024*1024)unavailable();
+  checkpoint('ZIP_ENTRY_NAMES');
+  const nameBytes=apk.subarray(p+46,p+46+nl),name=nameBytes.toString('utf8');if(!nameBytes.equals(Buffer.from(name))||!name||name.includes('\0')||name.includes('\\')||name.startsWith('/')||name.split('/').includes('..')||entries.has(name))unavailable();
+  checkpoint('ZIP_ENTRY_EXTRAS');const extras=apk.subarray(p+46+nl,p+46+nl+el);for(let x=0;x<extras.length;){if(x+4>extras.length)unavailable();const id=extras.readUInt16LE(x),n=extras.readUInt16LE(x+2);if(id===1||id===0x9901||x+4+n>extras.length)unavailable();x+=4+n;}
+  checkpoint('ZIP_ENTRY_LOCAL');
+  if(offset+30>start||apk.readUInt32LE(offset)!==0x04034b50||apk.readUInt16LE(offset+6)!==flags||apk.readUInt16LE(offset+8)!==method)unavailable();
+  const ln=apk.readUInt16LE(offset+26),le=apk.readUInt16LE(offset+28),data=offset+30+ln+le;if(data+compressed>start||!apk.subarray(offset+30,offset+30+ln).equals(nameBytes))unavailable();
+  let stop=data+compressed;
+  checkpoint('ZIP_DESCRIPTOR');if(flags&8){let d=stop;if(d+4>start)unavailable();if(apk.readUInt32LE(d)===0x08074b50)d+=4;if(d+12>start||apk.readUInt32LE(d)!==crc||apk.readUInt32LE(d+4)!==compressed||apk.readUInt32LE(d+8)!==plain)unavailable();stop=d+12;}
+  else if(apk.readUInt32LE(offset+14)!==crc||apk.readUInt32LE(offset+18)!==compressed||apk.readUInt32LE(offset+22)!==plain)unavailable();
+  checkpoint('ZIP_RANGES');if(ranges.some(([a,b])=>offset<b&&stop>a))unavailable();ranges.push([offset,stop]);entries.set(name,{data,compressed,plain,crc,method});p+=46+nl+el+cl;
+ }
+ checkpoint('ZIP_DIRECTORY_END');if(p!==end)unavailable();
+ const selected={};for(const [name,key,max]of [['assets/app.config','config',1048576],['assets/index.android.bundle','hermes',200*1024*1024],['AndroidManifest.xml','manifest',1048576]]){checkpoint(key==='config'?'CONFIG_ASSET':key==='hermes'?'HERMES_ASSET':'MANIFEST_ASSET');const e=entries.get(name);if(!e||!bounded(e.plain,max))unavailable();const raw=apk.subarray(e.data,e.data+e.compressed);checkpoint('ZIP_ASSET_CODEC');const bytes=e.method===0?Buffer.from(raw):inflateRawSync(raw,{maxOutputLength:max});checkpoint('ZIP_ASSET_CRC');if(bytes.length!==e.plain||crc32(bytes)!==e.crc)unavailable();selected[key]=bytes;}
+ return selected;
+}
+export function inspectApkRuntime(apk,versionCode,runtimeEnabled){return apkBoundary(checkpoint=>{const assets=apkAssets(apk);checkpoint('RUNTIME_HERMES');if(!bounded(versionCode,2147483647)||!assets.hermes.subarray(0,8).equals(Buffer.from('c61fbc03c103191f','hex')))unavailable();checkpoint('CONFIG_UTF8');const text=assets.config.toString('utf8');if(!assets.config.equals(Buffer.from(text)))unavailable();checkpoint('CONFIG_JSON');const config=JSON.parse(text);if(JSON.stringify(config)!==text)unavailable();checkpoint('CONFIG_SCHEMA');const marker=closed(config?.extra?.subtrackSandbox,['variant','apiBaseUrl','runtimeEnabled','publicationEnabled','privateDiagnosticsEnabled']);checkpoint('CONFIG_MARKER');if(marker.variant!=='sandbox'||marker.apiBaseUrl!=='https://198.44.116.159'||marker.runtimeEnabled!==runtimeEnabled||![true,false].includes(runtimeEnabled)||marker.publicationEnabled!==false||marker.privateDiagnosticsEnabled!==false)unavailable();checkpoint('CONFIG_IDS');if(config.android?.package!=='se.subtrack.app.sandbox'||config.ios?.bundleIdentifier!=='se.subtrack.app.sandbox')unavailable();checkpoint('CONFIG_VERSION');if(config.android?.versionCode!==versionCode&&!(runtimeEnabled===false&&config.android?.versionCode===undefined&&versionCode===1))unavailable();return {embeddedConfigSha256:digest(assets.config),hermesSha256:digest(assets.hermes)};});}
+export function inspectActiveApk(apk,versionCode){return inspectApkRuntime(apk,versionCode,true);}
+export function validateSignedPending(v,manifest,certificate,signed,unsigned){validateManifest(manifest,'apk');const active=manifest.runtimeEnabled===true;closed(v,['schema','sourceHead','signerCertificateSha256','unsignedSha256','signedSha256','bytes','runtimeEnabled',...(active?['embeddedConfigSha256','hermesSha256']:[])]);if(v.schema!==(active?'st250-android-signed-pending-v2':'st250-android-signed-pending-v1')||v.sourceHead!==manifest.sourceHead||v.signerCertificateSha256!==certificate||v.unsignedSha256!==manifest.unsignedSha256||v.signedSha256!==digest(signed)||v.bytes!==signed.length||v.runtimeEnabled!==active)unavailable();if(active){const a=inspectActiveApk(signed,manifest.versionCode),u=inspectActiveApk(unsigned,manifest.versionCode);for(const k of ['embeddedConfigSha256','hermesSha256'])if(v[k]!==manifest[k]||a[k]!==manifest[k]||u[k]!==manifest[k])unavailable();if(!apkAssets(signed).manifest.equals(apkAssets(unsigned).manifest))unavailable();}return Object.freeze({...v});}
+
+export function validateBackupBinding(v) {
+  closed(v,['schema','signerCertificateSha256','ciphertextSha256','ciphertextBytes','protection','backupGeneration','decryptVerified','signingRestoreVerified','temporaryCustodyRemoved','backupConfirmed']);
+  if(v.schema!=='st250-android-signer-backup-v1'||!sha(v.signerCertificateSha256)||!sha(v.ciphertextSha256)||!bounded(v.ciphertextBytes,131072)||v.protection!=='windows-dpapi-current-user'||v.backupGeneration!==1||v.decryptVerified!==true||v.signingRestoreVerified!==true||v.temporaryCustodyRemoved!==true||v.backupConfirmed!==true)unavailable();
+  return Object.freeze({...v});
+}
+export function validateSignerIdentity(v) {
+  closed(v,['schema','signerCertificateSha256','imageId','sourceHead','alias','storeType','keyAlgorithm','generation']);
+  if(v.schema!=='st250-android-signer-identity-v1'||!sha(v.signerCertificateSha256)||!/^sha256:[a-f0-9]{64}$/.test(v.imageId)||!head(v.sourceHead)||v.alias!=='subtrack-sandbox'||v.storeType!=='PKCS12'||v.keyAlgorithm!=='RSA3072'||v.generation!==1)unavailable();
+  return Object.freeze({...v});
+}
+export function assertSignedUpdate(manifest,certificate,history) {
+  validateManifest(manifest,'apk');if(!sha(certificate))unavailable();
+  if(history===null)return true;
+  const priorActive=dataField(history,'schema')==='st250-android-signed-history-v2';closed(history,['schema','signerCertificateSha256','versionCode','sourceHead','unsignedSha256','signedSha256','apkRun','runtimeEnabled',...(priorActive?['embeddedConfigSha256','hermesSha256']:[])]);
+  if(history.schema!==(priorActive?'st250-android-signed-history-v2':'st250-android-signed-history-v1')||history.signerCertificateSha256!==certificate||!head(history.sourceHead)||!sha(history.unsignedSha256)||!sha(history.signedSha256)||!bounded(history.versionCode,2147483647)||!/^[1-9][0-9]*-[1-9][0-9]*$/.test(history.apkRun)||history.runtimeEnabled!==priorActive||(priorActive&&(!sha(history.embeddedConfigSha256)||!sha(history.hermesSha256))))unavailable();
+  if(manifest.runtimeEnabled===true&&manifest.versionCode<=history.versionCode)unavailable();
+  if(manifest.versionCode<history.versionCode||(manifest.versionCode===history.versionCode&&(manifest.sourceHead!==history.sourceHead||manifest.unsignedSha256!==history.unsignedSha256)))unavailable();
+  return true;
+}
+/** Exact immutable run facts, distinct from the monotonic latest signer history. */
+export function validateRunSignedHistory(value,manifest,certificate,signedSha256,apkRun){
+ validateManifest(manifest,'apk');if(!sha(certificate)||!sha(signedSha256)||apkRun!==manifest.runId)unavailable();
+ const active=manifest.runtimeEnabled===true,expected={schema:active?'st250-android-signed-history-v2':'st250-android-signed-history-v1',signerCertificateSha256:certificate,versionCode:manifest.versionCode,sourceHead:manifest.sourceHead,unsignedSha256:manifest.unsignedSha256,signedSha256,apkRun,runtimeEnabled:active,...(active?{embeddedConfigSha256:manifest.embeddedConfigSha256,hermesSha256:manifest.hermesSha256}:{})};
+ closed(value,Object.keys(expected));for(const key of Object.keys(expected))if(value[key]!==expected[key])unavailable();return Object.freeze({...value});
+}
+export function names(kind, sourceHead) {
+  if (!head(sourceHead) || !['apk','tools','signed'].includes(kind)) unavailable();
+  return kind === 'tools' ? [`subtrack-sandbox-signing-tools-${sourceHead}.tar.gz`, `st250-android-tools-${sourceHead}.json`] :
+    kind === 'signed' ? [`subtrack-sandbox-signed-${sourceHead}.apk`, `st250-android-signed-${sourceHead}.json`] :
+      [`subtrack-sandbox-unsigned-${sourceHead}.apk`, `st250-android-transfer-${sourceHead}.json`];
+}
+export function tag(kind, sourceHead, runId) {
+  if (!['apk','tools','signed'].includes(kind) || !head(sourceHead) || !/^[1-9][0-9]*-[1-9][0-9]*$/.test(runId)) unavailable();
+  return `st250-android-${kind === 'apk' ? '' : `${kind}-`}stage-${sourceHead}-${runId}`;
+}
+function base(v, kind) {
+  if (!head(v.sourceHead) || !head(v.defaultTargetHead) || v.draftTag !== tag(kind,v.sourceHead,v.runId)) unavailable();
+}
+export function validateManifest(v, kind) {
+  if (!['apk','tools'].includes(kind)) unavailable();
+  const active=kind==='apk'&&dataField(v,'schema')==='st250-android-transfer-manifest-v2';closed(v,kind === 'apk' ? [...apkFields,...(active?['embeddedConfigSha256','hermesSha256']:[])] : toolFields); base(v,kind);
+  if (kind === 'apk') {
+    if (v.schema !== (active?'st250-android-transfer-manifest-v2':'st250-android-transfer-manifest-v1') || !sha(v.unsignedSha256) || !bounded(v.bytes,200*1024*1024) ||
+      v.applicationId !== 'se.subtrack.app.sandbox' || !bounded(v.versionCode,2147483647) || v.variant !== 'sandbox' ||
+      v.origin !== 'https://198.44.116.159' || v.buildType !== 'release' || v.debuggable !== false || v.privateCaIncluded !== false ||
+      v.hermesBundled !== true || v.runtimeEnabled !== active || (active&&(!sha(v.embeddedConfigSha256)||!sha(v.hermesSha256))) || v.zipAligned !== true || !sha(v.buildScriptSha256) || !sha(v.receiptModuleSha256)) unavailable();
+  } else if (v.schema !== 'st250-android-tools-manifest-v1' || !/^sha256:[a-f0-9]{64}$/.test(v.imageId) || v.baseImage !== JDK_IMAGE ||
+    !sha(v.dockerfileSha256) || v.sdkArchiveSha256 !== SDK_SHA256 || !sha(v.apksignerJarSha256) || !sha(v.zipalignSha256) ||
+    !sha(v.archiveSha256) || !sha(v.rawTarSha256) || !bounded(v.archiveBytes,1073741824) || !bounded(v.rawTarBytes,2147483648) ||
+    v.runtimeUid !== 996 || v.runtimeGid !== 996 || v.buildToolsVersion !== '36.0.0' || v.toolsQualified !== true) unavailable();
+  return Object.freeze({...v});
+}
+export function validateTransfer(v, kind) {
+  if(!['apk','tools'].includes(kind))unavailable();
+  closed(v,kind === 'apk' ? apkReceiptFields : toolReceiptFields); base(v,kind);
+  const tools = kind === 'tools', active=!tools&&dataField(v,'schema')==='st250-android-draft-transfer-receipt-v2';
+  if (v.schema !== (tools ? 'st250-android-tools-draft-transfer-receipt-v1' : active?'st250-android-draft-transfer-receipt-v2':'st250-android-draft-transfer-receipt-v1') ||
+    !bounded(v.releaseId,Number.MAX_SAFE_INTEGER) || v.draft !== true || !sha(v.manifestSha256) || !bounded(v.manifestBytes,16384) ||
+    !bounded(v.manifestAssetId,Number.MAX_SAFE_INTEGER) || v.uploadVerified !== true || v.localCleanupConfirmed !== true || v.remoteCustody !== 'draft-retained' ||
+    v.manifestSchema !== (tools ? 'st250-android-tools-manifest-v1' : active?'st250-android-transfer-manifest-v2':'st250-android-transfer-manifest-v1')) unavailable();
+  if (tools ? (!/^sha256:[a-f0-9]{64}$/.test(v.imageId) || !sha(v.archiveSha256) || !bounded(v.archiveBytes,1073741824) || !bounded(v.archiveAssetId,Number.MAX_SAFE_INTEGER) || v.toolsQualified !== true) :
+    (!sha(v.unsignedSha256) || !bounded(v.bytes,200*1024*1024) || v.applicationId !== 'se.subtrack.app.sandbox' || !bounded(v.apkAssetId,Number.MAX_SAFE_INTEGER) || v.unsignedQualified !== true)) unavailable();
+  return Object.freeze({...v});
+}
+export function closeTransferCandidate(v,kind) {
+  closed(v,kind==='tools'?toolReceiptFields:apkReceiptFields);
+  const active=kind==='apk'&&dataField(v,'schema')==='st250-android-upload-candidate-v2';if(v.schema!==(kind==='tools'?'st250-android-tools-upload-candidate-v1':active?'st250-android-upload-candidate-v2':'st250-android-upload-candidate-v1')||v.localCleanupConfirmed!==false)unavailable();
+  return validateTransfer({...v,schema:kind==='tools'?'st250-android-tools-draft-transfer-receipt-v1':active?'st250-android-draft-transfer-receipt-v2':'st250-android-draft-transfer-receipt-v1',localCleanupConfirmed:true},kind);
+}
+export function canonical(bytes, validator) {
+  if (!Buffer.isBuffer(bytes) || bytes.length > 16384) unavailable();
+  const text = bytes.toString('utf8'); const value = JSON.parse(text);
+  if (JSON.stringify(value) !== text) unavailable();
+  return validator(value);
+}
+export function bind(manifest, receipt, payload, manifestBytes, kind) {
+  bindMeasured(manifest,receipt,digest(payload),payload.length,manifestBytes,kind);
+  if(kind==='apk'&&manifest.runtimeEnabled===true){const measured=inspectActiveApk(payload,manifest.versionCode);for(const k of ['embeddedConfigSha256','hermesSha256'])if(measured[k]!==manifest[k])unavailable();}return true;
+}
+function bindMeasured(manifest,receipt,hash,bytes,manifestBytes,kind){
+  validateManifest(manifest,kind); validateTransfer(receipt,kind);
+  const hashField = kind === 'tools' ? 'archiveSha256' : 'unsignedSha256', sizeField = kind === 'tools' ? 'archiveBytes' : 'bytes';
+  for (const field of ['sourceHead','runId','defaultTargetHead','draftTag',hashField,sizeField]) if (manifest[field] !== receipt[field]) unavailable();
+  if (kind === 'tools' && manifest.imageId !== receipt.imageId) unavailable();
+  if(hash!==manifest[hashField]||bytes!==manifest[sizeField]||digest(manifestBytes)!==receipt.manifestSha256||manifestBytes.length!==receipt.manifestBytes||receipt.manifestSchema!==manifest.schema)unavailable();return true;
+}
+export function validateRemote(release, manifest, receipt, kind, allowExpired=false) {
+  validateManifest(manifest,kind); validateTransfer(receipt,kind);
+  const assetNames = names(kind,manifest.sourceHead), hash = kind === 'tools' ? receipt.archiveSha256 : receipt.unsignedSha256;
+  const bytes = kind === 'tools' ? receipt.archiveBytes : receipt.bytes, id = kind === 'tools' ? receipt.archiveAssetId : receipt.apkAssetId;
+  if (release.id !== receipt.releaseId || release.draft !== true || release.prerelease !== true || release.tag_name !== manifest.draftTag || release.target_commitish !== manifest.defaultTargetHead ||
+    !Array.isArray(release.assets) || release.assets.length !== 2 || typeof release.created_at !== 'string' || !Number.isFinite(Date.parse(release.created_at)) ||
+    (!allowExpired && Date.now()-Date.parse(release.created_at) > 7*86400000) || Date.parse(release.created_at) > Date.now()+60000) unavailable();
+  for (const [index,assetId,assetSha,assetBytes] of [[0,id,hash,bytes],[1,receipt.manifestAssetId,receipt.manifestSha256,receipt.manifestBytes]]) {
+    const asset = release.assets.find(a=>a.id===assetId);
+    if (!asset || asset.name!==assetNames[index] || asset.state!=='uploaded' || asset.size!==assetBytes || asset.digest!==`sha256:${assetSha}` ||
+      asset.content_type!==(index===1?'application/json':kind==='tools'?'application/gzip':'application/vnd.android.package-archive')) unavailable();
+  }
+  return true;
+}
+function runGh(args, input) {
+  const env = {...process.env}; if (env.GITHUB_TOKEN) env.GH_TOKEN=env.GITHUB_TOKEN;
+  const result = spawnSync('gh',args,{encoding:'utf8',input,env,maxBuffer:1024*1024,timeout:60000});
+  if (result.status!==0) unavailable();
+  return result.stdout;
+}
+function api(endpoint, method='GET', body) {
+  const args=['api','--hostname','github.com',endpoint,'--method',method];
+  if (body) args.push('--input','-');
+  const output=runGh(args,body?JSON.stringify(body):undefined);return output.trim()?JSON.parse(output):null;
+}
+const repo='repos/achkum/Applied-AI-Projects';
+export function readRegular(file,max) {
+  const stat=lstatSync(file); if(!stat.isFile()||stat.isSymbolicLink()||!bounded(stat.size,max))unavailable();
+  return readFileSync(file);
+}
+const importTools=createRequire(import.meta.url)('./image-import-binding.cjs');
+async function streamDigest(file,maximum){const st=lstatSync(file);if(!st.isFile()||st.isSymbolicLink()||!bounded(st.size,maximum))unavailable();const hash=createHash('sha256');let bytes=0;for await(const chunk of createReadStream(file,{highWaterMark:65536})){bytes+=chunk.length;if(bytes>maximum)unavailable();hash.update(chunk);}if(bytes!==st.size)unavailable();return {sha256:hash.digest('hex'),bytes};}
+export async function toolsCustody(directory){const manifestBytes=readRegular(path.join(directory,'manifest.json'),16384),receiptBytes=readRegular(path.join(directory,'receipt.json'),16384),manifest=canonical(manifestBytes,v=>validateManifest(v,'tools')),receipt=canonical(receiptBytes,v=>validateTransfer(v,'tools')),payload=await streamDigest(path.join(directory,'tools-image.tar.gz'),1073741824);bindMeasured(manifest,receipt,payload.sha256,payload.bytes,manifestBytes,'tools');return {manifest,receipt,manifestBytes,receiptBytes};}
+export async function inspectToolTarFile(file,manifest){
+  let step='MANIFEST_FIELDS';const checkpoint=next=>{step=next;};let handle;
+  try{
+    validateManifest(manifest,'tools');checkpoint('RAW_BINDING');const raw=await streamDigest(file,2147483648);if(raw.bytes!==manifest.rawTarBytes||raw.sha256!==manifest.rawTarSha256)unavailable();
+    handle=await fsAsync.open(file,'r');const files=new Map(),measurements=new Map();let offset=0;
+    const read=async(position,length)=>{const bytes=Buffer.alloc(length);let p=0;while(p<length){const result=await handle.read(bytes,p,length-p,position+p);if(result.bytesRead<1)unavailable();p+=result.bytesRead;}return bytes;};
+    while(offset+512<=raw.bytes){checkpoint('TAR_HEADER');const header=await read(offset,512);if(header.every(b=>b===0))break;const name=header.subarray(0,100).toString('utf8').split('\0')[0],prefix=header.subarray(345,500).toString('utf8').split('\0')[0],full=prefix?`${prefix}/${name}`:name,size=parseInt(header.subarray(124,136).toString('ascii').replace(/\0.*$/,''),8),type=header[156],checksum=parseInt(header.subarray(148,156).toString('ascii').replace(/\0.*$/,''),8),observed=header.reduce((sum,b,i)=>sum+(i>=148&&i<156?32:b),0);if(checksum!==observed||!Number.isSafeInteger(size)||size<0||offset+512+size>raw.bytes||! /^[a-zA-Z0-9._/-]+$/.test(full)||full.startsWith('/')||full.split('/').includes('..')||files.has(full)||![0,48,53].includes(type)||files.size>128)unavailable();
+      if(type!==53){const sha=createHash('sha256'),chunks=[],start=offset+512;let retained=0;for(let p=0;p<size;p+=65536){const chunk=await read(start+p,Math.min(65536,size-p));sha.update(chunk);if(size<=1048576){chunks.push(chunk);retained+=chunk.length;}}files.set(full,size<=1048576?Buffer.concat(chunks,retained):null);measurements.set(full,{bytes:size,sha256:sha.digest('hex'),start});}
+      offset+=512+Math.ceil(size/512)*512;
+    }
+    checkpoint('TAR_TRAILER');for(let p=offset;p<raw.bytes;p+=65536)if(!(await read(p,Math.min(65536,raw.bytes-p))).every(b=>b===0))unavailable();
+    checkpoint('DOCKER_MANIFEST');const docker=JSON.parse(files.get('manifest.json')?.toString('utf8')??'null');if(!Array.isArray(docker)||docker.length!==1||!Array.isArray(docker[0].Layers))unavailable();
+    for(const name of docker[0].Layers){const measured=measurements.get(name);if(!measured)unavailable();checkpoint('LAYER_DECOMPRESS');const hash=createHash('sha256');let bytes=0;const prefix=measured.bytes>=2?await read(measured.start,2):Buffer.alloc(0),source=measured.bytes?createReadStream(file,{start:measured.start,end:measured.start+measured.bytes-1,highWaterMark:65536}):null;const gzip=prefix[0]===31&&prefix[1]===139,stream=source&&(gzip?source.pipe(createGunzip()):source);if(gzip)source.on('error',error=>stream.destroy(error));try{if(stream)for await(const chunk of stream){bytes+=chunk.length;if(gzip&&bytes>512*1024*1024)unavailable();hash.update(chunk);}}finally{stream?.destroy();source?.destroy();}measured.diffId=`sha256:${hash.digest('hex')}`;}
+    inspectToolMembers(files,manifest,checkpoint,measurements);checkpoint('RAW_BINDING');const final=await streamDigest(file,2147483648);if(final.bytes!==raw.bytes||final.sha256!==raw.sha256)unavailable();const configBytes=files.get(docker[0].Config);return {configBytes,diffIds:JSON.parse(configBytes).rootfs.diff_ids};
+  }catch{const error=Error('ST250_ANDROID_TRANSFER_UNAVAILABLE');toolFailures.set(error,`ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=${step} category=ASSERTION`);throw error;}finally{await handle?.close();}
+}
+const toolsImportFields=['schema','artifactSourceHead','toolingSourceHead','toolsRun','transferReceiptSha256','transferManifestSha256','archiveSha256','rawTarSha256','exportedConfigId','importedImageId','configPortfolioSha256','rootfsSha256'];
+function importInspection(value){const data=v=>{if(!v||Object.getPrototypeOf(v)!==Object.prototype)unavailable();const d=Object.getOwnPropertyDescriptors(v);for(const key of Reflect.ownKeys(v))if(typeof key!=='string'||!d[key].enumerable||!('value'in d[key]))unavailable();};data(value);data(value.RootFS);importTools.imageConfigPortfolio(value.Config);}
+export function toolsImportBinding(configBytes,inspected,manifest,receiptBytes,manifestBytes,loadLog,toolingHead){validateManifest(manifest,'tools');bindMeasured(manifest,canonical(receiptBytes,v=>validateTransfer(v,'tools')),manifest.archiveSha256,manifest.archiveBytes,manifestBytes,'tools');if(!head(toolingHead))unavailable();importInspection(inspected);const imported=importTools.loadIdentity(loadLog);if(inspected.Id!==imported||inspected.Config?.User!=='996:996'||inspected.Config?.Labels?.['se.subtrack.android.source']!==manifest.sourceHead||inspected.Config?.Labels?.['se.subtrack.android.run']!==manifest.runId)unavailable();const config=JSON.parse(configBytes),binding=importTools.configBinding(configBytes,inspected,manifest.imageId,config.rootfs.diff_ids);return {schema:'st250-android-tools-import-binding-v1',artifactSourceHead:manifest.sourceHead,toolingSourceHead:toolingHead,toolsRun:manifest.runId,transferReceiptSha256:digest(receiptBytes),transferManifestSha256:digest(manifestBytes),archiveSha256:manifest.archiveSha256,rawTarSha256:manifest.rawTarSha256,exportedConfigId:manifest.imageId,importedImageId:imported,configPortfolioSha256:binding.runtimeConfigSha256,rootfsSha256:binding.rootfsSha256};}
+function toolsImportCandidate(value,custody,toolingHead){closed(value,toolsImportFields);const {manifest,receiptBytes,manifestBytes}=custody;if(!head(toolingHead)||value.schema!=='st250-android-tools-import-binding-v1'||value.artifactSourceHead!==manifest.sourceHead||value.toolingSourceHead!==toolingHead||value.toolsRun!==manifest.runId||value.transferReceiptSha256!==digest(receiptBytes)||value.transferManifestSha256!==digest(manifestBytes)||value.archiveSha256!==manifest.archiveSha256||value.rawTarSha256!==manifest.rawTarSha256||value.exportedConfigId!==manifest.imageId||typeof value.importedImageId!=='string'||! /^sha256:[a-f0-9]{64}$/.test(value.importedImageId)||!sha(value.configPortfolioSha256)||!sha(value.rootfsSha256))unavailable();return value.importedImageId;}
+export function validateToolsImport(value,custody,toolingHead,inspected){const imported=toolsImportCandidate(value,custody,toolingHead),{manifest}=custody;importInspection(inspected);if(inspected.Os!=='linux'||inspected.Architecture!=='amd64'||inspected.RootFS?.Type!=='layers'||inspected.Id!==imported||inspected.Config?.User!=='996:996'||inspected.Config?.Labels?.['se.subtrack.android.source']!==manifest.sourceHead||inspected.Config?.Labels?.['se.subtrack.android.run']!==manifest.runId||digest(JSON.stringify(importTools.imageConfigPortfolio(inspected.Config)))!==value.configPortfolioSha256||digest(JSON.stringify(inspected.RootFS?.Layers))!==value.rootfsSha256)unavailable();return imported;}
+const toolsReuseFields=['schema','apkSourceHead','toolsSourceHead','signerExecutionHead','signingToolingHead','toolsRun','dockerfileSha256','toolsImportBindingSha256','toolsManifestSha256','toolsReceiptSha256','importedImageId'];
+function toolsReuseExpected(custody,importBytes,apkSourceHead,signerExecutionHead,signingToolingHead){
+ if(!head(apkSourceHead)||!head(signerExecutionHead)||!head(signingToolingHead))unavailable();
+ const manifest=canonical(custody.manifestBytes,v=>validateManifest(v,'tools')),receipt=canonical(custody.receiptBytes,v=>validateTransfer(v,'tools'));
+ bindMeasured(manifest,receipt,manifest.archiveSha256,manifest.archiveBytes,custody.manifestBytes,'tools');
+ if(JSON.stringify(manifest)!==JSON.stringify(custody.manifest)||manifest.dockerfileSha256!==TOOLS_DOCKERFILE_SHA256)unavailable();
+ const imported=canonical(importBytes,v=>{toolsImportCandidate(v,custody,signingToolingHead);return v;});
+ return {schema:'st252-android-tool-reuse-v1',apkSourceHead,toolsSourceHead:manifest.sourceHead,signerExecutionHead,signingToolingHead,toolsRun:manifest.runId,dockerfileSha256:TOOLS_DOCKERFILE_SHA256,toolsImportBindingSha256:digest(importBytes),toolsManifestSha256:digest(custody.manifestBytes),toolsReceiptSha256:digest(custody.receiptBytes),importedImageId:imported.importedImageId};
+}
+export function toolsReuseBinding(custody,importBytes,apkSourceHead,signerExecutionHead,signingToolingHead,apkDockerfileBytes,toolsDockerfileBytes){
+ for(const bytes of [apkDockerfileBytes,toolsDockerfileBytes])if(!Buffer.isBuffer(bytes)||bytes.length<1||bytes.length>65536||digest(bytes)!==TOOLS_DOCKERFILE_SHA256)unavailable();
+ return Object.freeze(toolsReuseExpected(custody,importBytes,apkSourceHead,signerExecutionHead,signingToolingHead));
+}
+export function validateToolsReuse(value,custody,importBytes,apkSourceHead,signerExecutionHead,signingToolingHead){
+ closed(value,toolsReuseFields);const expected=toolsReuseExpected(custody,importBytes,apkSourceHead,signerExecutionHead,signingToolingHead);for(const key of toolsReuseFields)if(value[key]!==expected[key])unavailable();return Object.freeze({...value});
+}
+
+const toolFailures=new WeakMap();
+export function toolsArchiveDiagnostic(error){return toolFailures.get(error)??null;}
+function inspectToolsBoundary(action){
+  let step='INPUT_RAW',category='IO',classes,shapeFlags;
+  const checkpoint=(next,kind='ASSERTION',graph)=>{step=next;category=kind;classes=graph?.classes;shapeFlags=graph?.shapeFlags;};
+  try{return action(checkpoint);}catch{
+    const error=Error('ST250_ANDROID_TRANSFER_UNAVAILABLE');
+    toolFailures.set(error,`ST250_ANDROID_TOOLS_DIAGNOSTIC operation=INSPECT_TOOLS_TAR step=${step} category=${category}${classes?` classes=${classes}`:''}${shapeFlags?` shapeFlags=${shapeFlags}`:''}`);
+    throw error;
+  }
+}
+export function inspectToolTarFiles(rawFile,manifestFile){return inspectToolsBoundary(checkpoint=>{
+  const bytes=readRegular(rawFile,2147483648);
+  checkpoint('INPUT_MANIFEST','IO');const input=readRegular(manifestFile,16384);
+  checkpoint('INPUT_MANIFEST','JSON');const manifest=canonical(input,v=>v);
+  return inspectToolTarBody(bytes,manifest,checkpoint);
+});}
+export function inspectToolTar(bytes,manifest){return inspectToolsBoundary(checkpoint=>inspectToolTarBody(bytes,manifest,checkpoint));}
+function inspectToolTarBody(bytes, manifest, checkpoint) {
+  checkpoint('MANIFEST_FIELDS');
+  validateManifest(manifest,'tools');
+  checkpoint('RAW_BINDING');
+  if (!Buffer.isBuffer(bytes) || bytes.length!==manifest.rawTarBytes || digest(bytes)!==manifest.rawTarSha256) unavailable();
+  const files=new Map();let offset=0;
+  while(offset+512<=bytes.length) {
+    checkpoint('TAR_HEADER');
+    const header=bytes.subarray(offset,offset+512);if(header.every(b=>b===0))break;
+    const name=header.subarray(0,100).toString('utf8').split('\0')[0],prefix=header.subarray(345,500).toString('utf8').split('\0')[0];
+    const full=prefix?`${prefix}/${name}`:name,size=parseInt(header.subarray(124,136).toString('ascii').replace(/\0.*$/,''),8),type=header[156];
+    const checksum=parseInt(header.subarray(148,156).toString('ascii').replace(/\0.*$/,''),8),observedChecksum=header.reduce((sum,b,index)=>sum+(index>=148&&index<156?32:b),0);
+    if(checksum!==observedChecksum||!Number.isSafeInteger(size)||size<0||offset+512+size>bytes.length||! /^[a-zA-Z0-9._/-]+$/.test(full)||full.startsWith('/')||full.split('/').includes('..')||files.has(full)||![0,48,53].includes(type)||files.size>128)unavailable();
+    if(type!==53)files.set(full,bytes.subarray(offset+512,offset+512+size));
+    offset+=512+Math.ceil(size/512)*512;
+  }
+  checkpoint('TAR_TRAILER');if(!bytes.subarray(offset).every(b=>b===0))unavailable();
+  return inspectToolMembers(files,manifest,checkpoint);
+}
+function inspectToolMembers(files,manifest,checkpoint,measurements){
+  const info=name=>measurements?.get(name)??(Buffer.isBuffer(files.get(name))?{bytes:files.get(name).length,sha256:digest(files.get(name))}:undefined);
+  checkpoint('DOCKER_MANIFEST','JSON');
+  const entries=JSON.parse(files.get('manifest.json')?.toString('utf8')??'null');
+  checkpoint('DOCKER_MANIFEST');
+  if(!Array.isArray(entries)||entries.length!==1||entries[0].RepoTags?.length||!Array.isArray(entries[0].Layers)||entries[0].Layers.length<1)unavailable();
+  checkpoint('CONFIG_DIGEST');const configBytes=files.get(entries[0].Config);if(!configBytes||`sha256:${digest(configBytes)}`!==manifest.imageId)unavailable();
+  checkpoint('CONFIG_POLICY','JSON');
+  const config=JSON.parse(configBytes.toString('utf8'));
+  checkpoint('CONFIG_POLICY');
+  if((config.config?.Env??[]).some(value=>/(?:token|password|secret|credential|private.?key|ssh_auth_sock)/i.test(value.split('=')[0])))unavailable();
+  if(config.os!=='linux'||config.architecture!=='amd64'||config.config?.User!=='996:996'||JSON.stringify(config.config?.Entrypoint)!=='["/opt/android/build-tools/36.0.0/apksigner"]'||config.config?.Labels?.['se.subtrack.android.source']!==manifest.sourceHead||config.config?.Labels?.['se.subtrack.android.run']!==manifest.runId)unavailable();
+  checkpoint('ROOTFS');if(config.rootfs?.diff_ids?.length!==entries[0].Layers.length)unavailable();
+  for(const [index,name]of entries[0].Layers.entries()){
+    checkpoint('ROOTFS');
+    const layer=files.get(name),measured=measurements?.get(name);if(!layer&&!measured)unavailable();
+    checkpoint('LAYER_DECOMPRESS','DECOMPRESSION');
+    const raw=measured?null:layer[0]===31&&layer[1]===139?gunzipSync(layer,{maxOutputLength:512*1024*1024}):layer;
+    checkpoint('LAYER_DIFFID');
+    if((measured?.diffId??`sha256:${digest(raw)}`)!==config.rootfs.diff_ids[index])unavailable();
+  }
+  // Export only one tool image: reject unrelated object members outside its layers/config.
+  const allowed=new Set(['manifest.json','repositories',entries[0].Config,...entries[0].Layers]);
+  let verifiedIndex,verifiedOci,indexBytes;
+  if(files.has('index.json')||files.has('oci-layout')){
+    checkpoint('OCI_INDEX','JSON');
+    const layout=JSON.parse(files.get('oci-layout')?.toString('utf8')??'null'),index=JSON.parse(files.get('index.json')?.toString('utf8')??'null');
+    checkpoint('OCI_INDEX');
+    if(layout?.imageLayoutVersion!=='1.0.0'||index?.schemaVersion!==2||index.manifests?.length!==1)unavailable();
+    checkpoint('OCI_DESCRIPTOR');const descriptor=index.manifests[0];
+    if(!/^sha256:[a-f0-9]{64}$/.test(descriptor.digest)||descriptor.annotations?.['org.opencontainers.image.ref.name']||descriptor.annotations?.['io.containerd.image.name'])unavailable();
+    const name=`blobs/sha256/${descriptor.digest.slice(7)}`,blob=files.get(name);if(!blob||blob.length!==descriptor.size||`sha256:${digest(blob)}`!==descriptor.digest)unavailable();
+    checkpoint('OCI_CONFIG','JSON');const oci=JSON.parse(blob.toString('utf8'));
+    checkpoint('OCI_CONFIG');
+    if(oci.schemaVersion!==2||oci.config?.digest!==manifest.imageId||entries[0].Config!==`blobs/sha256/${manifest.imageId.slice(7)}`||oci.config.size!==configBytes.length||oci.layers?.length!==entries[0].Layers.length)unavailable();
+    checkpoint('OCI_LAYER');for(const [i,layer]of oci.layers.entries()){const name=`blobs/sha256/${layer.digest?.slice(7)}`,blob=info(name);if(!/^sha256:[a-f0-9]{64}$/.test(layer.digest)||name!==entries[0].Layers[i]||!blob||blob.bytes!==layer.size||`sha256:${blob.sha256}`!==layer.digest)unavailable();}
+    allowed.add('index.json');allowed.add('oci-layout');allowed.add(name);
+    verifiedIndex=index;verifiedOci=oci;indexBytes=files.get('index.json');
+  }
+  checkpoint('EXTRA_MEMBER','JSON');if(files.has('repositories')&&JSON.stringify(JSON.parse(files.get('repositories').toString('utf8')))!=='{}')unavailable();
+  checkpoint('EXTRA_MEMBER');
+  const extras=[...files.keys()].filter(name=>!allowed.has(name)&&!entries[0].Layers.some(layer=>name===layer.replace(/layer\.tar$/,'json')||name===layer.replace(/layer\.tar$/,'VERSION')));
+  if(extras.length){const graph=inspectExtraToolGraph(files,extras,verifiedIndex,manifest.imageId,config.rootfs.diff_ids,config);if(!graph.legacyCompatible){const name=extras[0];checkpoint(extraToolMemberClass(name,files.get(name),verifiedIndex,verifiedOci,indexBytes,config.rootfs.diff_ids),'ASSERTION',graph);unavailable();}}
+  return true;
+}
+function inspectExtraToolGraph(files,extras,index,imageId,diffIds,verifiedImage){
+  const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.prototype.hasOwnProperty.call(v,k));
+  const objects=new Map();for(const [name,bytes]of files){if(!Buffer.isBuffer(bytes)||!/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)||bytes.length>1048576||digest(bytes)!==name.slice(13))continue;try{const text=bytes.toString('utf8'),value=JSON.parse(text);if(bytes.equals(Buffer.from(text))&&JSON.stringify(value)===text)objects.set(`sha256:${name.slice(13)}`,value);}catch{/* Never expose private parser failures. */}}
+  const target=index?.manifests?.[0],known=new Set([imageId,...(Array.isArray(diffIds)?diffIds:[]),...(target?[target.digest]:[])]),boundLayers=new Set(),boundConfigs=new Set(),boundLegacyConfigs=new Set();
+  const legacyConfig=value=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).every(k=>['os','architecture','rootfs','config'].includes(k))&&value.os==='unknown'&&value.architecture==='unknown'&&exact(value.rootfs,['type','diff_ids'])&&value.rootfs.type==='layers'&&(value.rootfs.diff_ids===null||(Array.isArray(value.rootfs.diff_ids)&&value.rootfs.diff_ids.length<=16&&value.rootfs.diff_ids.every(d=>typeof d==='string'&&/^sha256:[a-f0-9]{64}$/.test(d))))&&(!Object.prototype.hasOwnProperty.call(value,'config')||exact(value.config,[]));
+  const descriptor=d=>d&&typeof d==='object'&&!Array.isArray(d)&&Object.keys(d).every(k=>['mediaType','digest','size','data','annotations','platform'].includes(k))&&typeof d.mediaType==='string'&&/^sha256:[a-f0-9]{64}$/.test(d.digest)&&Number.isSafeInteger(d.size)&&d.size>=0;
+  const actual=d=>descriptor(d)&&files.get(`blobs/sha256/${d.digest.slice(7)}`)?.length===d.size&&objects.has(d.digest);
+  const sameTarget=d=>descriptor(d)&&target&&['digest','size','mediaType'].every(k=>d[k]===target[k]);
+  const subjectsBound=value=>exact(value,['_type','subject','predicateType','predicate'])&&value.predicate&&typeof value.predicate==='object'&&!Array.isArray(value.predicate)&&['https://in-toto.io/Statement/v0.1','https://in-toto.io/Statement/v1'].includes(value._type)&&['https://slsa.dev/provenance/v0.2','https://slsa.dev/provenance/v1','https://spdx.dev/Document'].includes(value.predicateType)&&Array.isArray(value.subject)&&value.subject.length>0&&value.subject.length<=16&&value.subject.every(s=>exact(s,['name','digest'])&&typeof s.name==='string'&&s.name.length<=1024&&exact(s.digest,['sha256'])&&known.has(`sha256:${s.digest.sha256}`));
+  const legacyTargets=new Set();for(const value of objects.values())if(value?.schemaVersion===2&&Array.isArray(value.manifests))for(const d of value.manifests){if(descriptor(d)&&d.platform?.os==='unknown'&&d.platform?.architecture==='unknown'&&d.annotations?.['vnd.docker.reference.type']==='attestation-manifest'&&d.annotations?.['vnd.docker.reference.digest']===target?.digest&&actual(d))legacyTargets.add(d.digest);}
+  for(const [hash,value]of objects){const artifact=exact(value,['schemaVersion','mediaType','artifactType','config','layers','subject'])&&value.artifactType==='application/vnd.docker.attestation.manifest.v1+json'&&sameTarget(value.subject),legacy=exact(value,['schemaVersion','mediaType','config','layers'])&&legacyTargets.has(hash);if(!(artifact||legacy)||value.schemaVersion!==2||value.mediaType!=='application/vnd.oci.image.manifest.v1+json'||!actual(value.config)||!Array.isArray(value.layers)||value.layers.length<1||value.layers.length>16||!value.layers.every(d=>actual(d)&&d.mediaType==='application/vnd.in-toto+json'&&subjectsBound(objects.get(d.digest))))continue;if(value.config.mediaType==='application/vnd.oci.empty.v1+json'&&value.config.size===2&&value.config.data==='e30=')boundConfigs.add(value.config.digest);const config=objects.get(value.config.digest);if(value.config.mediaType==='application/vnd.oci.image.config.v1+json'&&legacyConfig(config)&&Array.isArray(config.rootfs.diff_ids)&&JSON.stringify(config.rootfs.diff_ids)===JSON.stringify(value.layers.map(d=>`sha256:${digest(files.get(`blobs/sha256/${d.digest.slice(7)}`))}`)))boundLegacyConfigs.add(value.config.digest);for(const d of value.layers)boundLayers.add(d.digest);}
+  const fields=['os','architecture','rootfs','config','created','history','_type','predicateType','subject','predicate','schemaVersion','manifests','layers','artifactType'],flags=new Set();
+  const v1=inspectLegacyV1Chain(objects,diffIds,verifiedImage);
+  for(const stage of v1.stages)flags.add(`V1_STAGE_${stage}`);
+  const unknown=value=>{found.add('UNRECOGNIZED');flags.add(value===undefined?'TOP_UNAVAILABLE':value===null?'TOP_NULL':Array.isArray(value)?'TOP_ARRAY':`TOP_${typeof value==='object'?'OBJECT':typeof value==='string'?'STRING':typeof value==='number'?'NUMBER':'BOOLEAN'}`);if(!value||typeof value!=='object'||Array.isArray(value))return;for(const key of fields){const v=value[key],kind=!Object.prototype.hasOwnProperty.call(value,key)?'ABSENT':v===null?'NULL':Array.isArray(v)?'ARRAY':typeof v==='object'?'OBJECT':typeof v==='string'?'STRING':typeof v==='number'?'NUMBER':'BOOLEAN';flags.add(`FIELD_${key.toUpperCase()}_${kind}`);}if(Object.keys(value).some(k=>!fields.includes(k)))flags.add('UNKNOWN_TOP_KEYS');if(value.os==='unknown')flags.add('OS_UNKNOWN');if(value.architecture==='unknown')flags.add('ARCH_UNKNOWN');if(value.rootfs?.type==='layers')flags.add('ROOTFS_LAYERS');};
+  const found=new Set();for(const name of extras){if(!/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)){unknown();continue;}const hash=`sha256:${name.slice(13)}`,value=objects.get(hash);if(!objects.has(hash)){unknown();continue;}if(v1.candidates.has(hash)){found.add(v1.bound.has(hash)?'V1_CONFIG_CHAIN_BOUND':'V1_CONFIG_UNBOUND');continue;}if(exact(value,[])){found.add(boundConfigs.has(hash)?'EMPTY_JSON_ATTESTATION_CONFIG_BOUND':'EMPTY_JSON_UNBOUND');continue;}if(legacyConfig(value)){found.add(boundLegacyConfigs.has(hash)?'LEGACY_ATTESTATION_CONFIG_BOUND':'LEGACY_ATTESTATION_CONFIG_UNBOUND');continue;}
+    if(exact(value,['_type','subject','predicateType','predicate'])&&['https://in-toto.io/Statement/v0.1','https://in-toto.io/Statement/v1'].includes(value._type)&&value.predicate&&typeof value.predicate==='object'&&!Array.isArray(value.predicate)&&Array.isArray(value.subject)&&value.subject.length>0&&value.subject.length<=16){const kind=['https://slsa.dev/provenance/v0.2','https://slsa.dev/provenance/v1'].includes(value.predicateType)?'PROVENANCE':value.predicateType==='https://spdx.dev/Document'?'SBOM':null;if(kind){const subjects=value.subject.every(s=>exact(s,['name','digest'])&&typeof s.name==='string'&&s.name.length<=1024&&exact(s.digest,['sha256'])&&known.has(`sha256:${s.digest.sha256}`));found.add(`INTOTO_${kind}_${subjects&&boundLayers.has(hash)?'BOUND':'UNBOUND'}`);continue;}}
+    unknown(value);
+  }
+  if(v1.candidates.size)found.add(v1.complete?'V1_CONFIG_CHAIN_COMPLETE':'V1_CONFIG_CHAIN_INCOMPLETE');
+  return {classes:['EMPTY_JSON_ATTESTATION_CONFIG_BOUND','EMPTY_JSON_UNBOUND','LEGACY_ATTESTATION_CONFIG_BOUND','LEGACY_ATTESTATION_CONFIG_UNBOUND','INTOTO_PROVENANCE_BOUND','INTOTO_PROVENANCE_UNBOUND','INTOTO_SBOM_BOUND','INTOTO_SBOM_UNBOUND','V1_CONFIG_CHAIN_BOUND','V1_CONFIG_UNBOUND','V1_CONFIG_CHAIN_COMPLETE','V1_CONFIG_CHAIN_INCOMPLETE','UNRECOGNIZED'].filter(c=>found.has(c)).join(','),shapeFlags:[...flags].sort().join(','),legacyCompatible:v1.complete&&extras.every(name=>/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)&&v1.bound.has(`sha256:${name.slice(13)}`))};
+}
+function inspectLegacyV1Chain(objects,diffIds,image){
+  const fields=['id','parent','comment','created','container','container_config','docker_version','author','config','architecture','variant','os','Size'],candidates=new Map(),bound=new Set();
+  for(const [hash,value]of objects)if(value&&typeof value==='object'&&!Array.isArray(value)&&Object.prototype.hasOwnProperty.call(value,'id')&&Object.prototype.hasOwnProperty.call(value,'created')&&Object.prototype.hasOwnProperty.call(value,'os'))candidates.set(hash,value);
+  const zero={Hostname:'',Domainname:'',User:'',AttachStdin:false,AttachStdout:false,AttachStderr:false,Tty:false,OpenStdin:false,StdinOnce:false,Env:null,Cmd:null,Image:'',Volumes:null,WorkingDir:'',Entrypoint:null,OnBuild:null,Labels:null};
+  const zeroConfig=value=>JSON.stringify(value)===JSON.stringify(zero);
+  const configOrder=['Hostname','Domainname','User','AttachStdin','AttachStdout','AttachStderr','ExposedPorts','Tty','OpenStdin','StdinOnce','Env','Cmd','Healthcheck','ArgsEscaped','Image','Volumes','WorkingDir','Entrypoint','NetworkDisabled','MacAddress','OnBuild','Labels','StopSignal','StopTimeout','Shell'];
+  const object=v=>v&&typeof v==='object'&&!Array.isArray(v),strings=v=>v===null||(Array.isArray(v)&&v.every(x=>typeof x==='string'));
+  const fieldType=(k,v)=>{
+    if(['Hostname','Domainname','User','Image','WorkingDir','MacAddress','StopSignal'].includes(k))return typeof v==='string';
+    if(['AttachStdin','AttachStdout','AttachStderr','Tty','OpenStdin','StdinOnce','ArgsEscaped','NetworkDisabled'].includes(k))return typeof v==='boolean';
+    if(['Env','Cmd','Entrypoint','OnBuild','Shell'].includes(k))return strings(v);
+    if(['Labels','Volumes','ExposedPorts'].includes(k))return v===null||(object(v)&&Object.keys(v).every(key=>! /^(0|[1-9][0-9]*)$/.test(key))&&Object.values(v).every(x=>k==='Labels'?typeof x==='string':object(x)&&Object.keys(x).length===0));
+    if(k==='StopTimeout')return v===null||Number.isSafeInteger(v);
+    // Non-null health structs need their own Go omitempty projection: diagnostic
+    // proof conservatively withholds binding rather than approximate that codec.
+    if(k==='Healthcheck')return v===null;
+    return false;
+  };
+  const typedConfig=value=>{if(!object(value)||Object.keys(value).some(k=>!configOrder.includes(k)||!fieldType(k,value[k])))return undefined;return Object.fromEntries(configOrder.flatMap(k=>{let v=Object.prototype.hasOwnProperty.call(value,k)?value[k]:zero[k];if(!Object.prototype.hasOwnProperty.call(zero,k)&&(v===undefined||v===null||(k!=='StopTimeout'&&(v===false||v===''||(typeof v==='object'&&Object.keys(v).length===0)))))return [];if(['Labels','Volumes','ExposedPorts'].includes(k)&&v&&typeof v==='object'&&!Array.isArray(v))v=Object.fromEntries(Object.keys(v).sort().map(key=>[key,v[key]]));return [[k,v]];}));};
+  const goMap=value=>'{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+JSON.stringify(value[k]).replace(/[<>&\u2028\u2029]/g,c=>'\\u'+c.charCodeAt(0).toString(16).padStart(4,'0'))).join(',')+'}';
+  const stages=new Set(),diagnose=()=>{
+    if(!image||typedConfig(image.config)===undefined){stages.add('IMAGE_CONFIG_TYPE');if(image&&object(image.config))for(const key of Object.keys(image.config)){if(!configOrder.includes(key))stages.add('CONFIG_UNKNOWN_FIELDS');else if(!fieldType(key,image.config[key]))stages.add(`CONFIG_FIELD_${key.toUpperCase()}_UNSUPPORTED`);}return;}
+    if(!Array.isArray(diffIds)||diffIds.length<1){stages.add('CHAINID');return;}
+    const records=[...candidates.values()],roots=records.filter(v=>v.parent===undefined);if(roots.length!==1||new Set(records.map(v=>v.id)).size!==records.length){stages.add('TOPOLOGY');return;}
+    const ordered=[],visited=new Set();let value=roots[0];while(value&&!visited.has(value)){ordered.push(value);visited.add(value);const children=records.filter(v=>v.parent===value.id);if(children.length>1){stages.add('TOPOLOGY');return;}value=children[0];}if(value||ordered.length!==records.length||ordered.length!==diffIds.length){stages.add('TOPOLOGY');return;}
+    let chain,parent='';for(const [i,v]of ordered.entries()){
+      chain=i===0?diffIds[i]:`sha256:${digest(Buffer.from(chain+' '+diffIds[i]))}`;const final=i===diffIds.length-1;
+      let failure;if(Object.keys(v).some(k=>!fields.includes(k)))failure='UNKNOWN_FIELD';
+      else if(Object.entries(v).some(([k,x])=>(['id','parent','comment','container','docker_version','author','architecture','variant','os'].includes(k)&&typeof x!=='string')||(k==='Size'&&!Number.isSafeInteger(x))||(k==='created'&&x!==null&&(typeof x!=='string'||! /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/.test(x)))||! /^[a-f0-9]{64}$/.test(v.id)))failure='V1_FIELD_TYPE';
+      else if(v.os!==image.os)failure='OS';else if(v.parent!==(parent||undefined))failure='PARENT';
+      else if(!final&&(v.created!=='1970-01-01T00:00:00Z'||Object.keys(v).some(k=>!['id','parent','created','container_config','os'].includes(k))))failure='INTERMEDIATE_FIELDS';
+      else if(!final&&!zeroConfig(v.container_config))failure='ZERO_CONTAINER_CONFIG';
+      else if(final&&fields.filter(k=>!['id','parent','container_config'].includes(k)).some(k=>JSON.stringify(v[k])!==JSON.stringify(k==='created'?image.created??null:k==='config'?typedConfig(image.config):image[k]===''||image[k]===0?undefined:image[k])))failure='FINAL_PROJECTION';
+      else if(final&&(image.container_config===undefined?!zeroConfig(v.container_config):JSON.stringify(v.container_config)!==JSON.stringify(typedConfig(image.container_config))))failure='FINAL_CONTAINER_CONFIG';
+      else if(/[<>&\u2028\u2029]/.test(JSON.stringify(v)))failure='ENCODING';
+      else {const transcript=Object.fromEntries(Object.entries(v).filter(([k])=>!['id','parent'].includes(k)&&!(k==='os'&&!final)));transcript.layer_id=chain;if(parent)transcript.parent=`sha256:${parent}`;const matches=body=>digest(Buffer.from(goMap(body)))===v.id;if(!matches(transcript)){failure='ID_TRANSCRIPT';const without={...transcript};delete without.os;stages.add(matches(without)?'ID_OS_OMITTED_MATCH':'ID_OS_OMITTED_NO_MATCH');stages.add(matches({...transcript,os:v.os})?'ID_OS_RETAINED_MATCH':'ID_OS_RETAINED_NO_MATCH');stages.add(matches(transcript)?'ID_RAW_CONFIG_MATCH':'ID_RAW_CONFIG_NO_MATCH');const projected=typedConfig(v.config);stages.add(projected&&matches({...transcript,config:projected})?'ID_PROJECTED_CONFIG_MATCH':'ID_PROJECTED_CONFIG_NO_MATCH');}}
+      if(failure)stages.add(failure);parent=v.id;
+    }
+    if(stages.size===0)stages.add('COMPLETE');
+  };if(candidates.size)diagnose();
+  if(!image||typedConfig(image.config)===undefined||!Array.isArray(diffIds)||diffIds.length<1)return {candidates,bound,complete:false,stages};
+  let chain,parent='';for(const [i,diff]of diffIds.entries()){
+    chain=i===0?diff:`sha256:${digest(Buffer.from(chain+' '+diff))}`;
+    const matches=[];for(const [hash,value]of candidates){if(bound.has(hash)||Object.keys(value).some(k=>!fields.includes(k)||(['id','parent','comment','container','docker_version','author','architecture','variant','os'].includes(k)&&typeof value[k]!=='string')||(k==='Size'&&!Number.isSafeInteger(value[k]))||(k==='created'&&value[k]!==null&&(typeof value[k]!=='string'||! /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/.test(value[k]))))||/[<>&\u2028\u2029]/.test(JSON.stringify(value))||! /^[a-f0-9]{64}$/.test(value.id)||value.os!==image.os||value.parent!==(parent||undefined))continue;
+      const final=i===diffIds.length-1;
+      if(!final){if(value.created!=='1970-01-01T00:00:00Z'||Object.keys(value).some(k=>!['id','parent','created','container_config','os'].includes(k))||!zeroConfig(value.container_config))continue;}
+      else {let equal=true;for(const k of fields.filter(k=>!['id','parent','container_config'].includes(k))){const expected=k==='created'?image.created??null:k==='config'?typedConfig(image.config):image[k]===''||image[k]===0?undefined:image[k];if(JSON.stringify(value[k])!==JSON.stringify(expected))equal=false;}if(!equal||((image.container_config===undefined&&!zeroConfig(value.container_config))||(image.container_config!==undefined&&JSON.stringify(value.container_config)!==JSON.stringify(typedConfig(image.container_config)))))continue;}
+      const transcript=Object.fromEntries(Object.entries(value).filter(([k])=>!['id','parent'].includes(k)&&!(k==='os'&&!final)));transcript.layer_id=chain;if(parent)transcript.parent=`sha256:${parent}`;
+      if(digest(Buffer.from(goMap(transcript)))===value.id)matches.push([hash,value.id]);
+    }
+    if(matches.length!==1)return {candidates,bound,complete:false,stages};bound.add(matches[0][0]);parent=matches[0][1];
+  }
+  return {candidates,bound,complete:bound.size===candidates.size,stages};
+}
+function extraToolMemberClass(name,bytes,index,oci,indexBytes,diffIds){
+  if(!Buffer.isBuffer(bytes))return 'EXTRA_BLOB_OVERSIZED_OTHER';
+  const hash=digest(bytes);if(!/^blobs\/sha256\/[a-f0-9]{64}$/.test(name)||hash!==name.slice(13))return 'EXTRA_OTHER';
+  const verifiedLayer=value=>Array.isArray(diffIds)&&diffIds.includes(`sha256:${value}`);
+  if(verifiedLayer(hash))return 'RAW_SAME_VERIFIED_LAYER';
+  const magic=bytes[0]===31&&bytes[1]===139?'GZIP':bytes.subarray(0,4).equals(Buffer.from('28b52ffd','hex'))?'ZSTD':bytes.subarray(257,262).equals(Buffer.from('ustar'))?'TAR':'OTHER';
+  if(bytes.length>1048576)return `EXTRA_BLOB_OVERSIZED_${magic}`;
+  if(magic==='GZIP'){try{if(verifiedLayer(digest(gunzipSync(bytes,{maxOutputLength:512*1024*1024}))))return 'GZIP_SAME_VERIFIED_LAYER';}catch{/* A diagnostic codec failure never changes archive rejection. */}}
+  if(magic!=='OTHER')return `EXTRA_BLOB_JSON_INVALID_${magic}`;
+  const text=bytes.toString('utf8');if(!bytes.equals(Buffer.from(text)))return 'EXTRA_BLOB_UTF8_INVALID';
+  let value;try{value=JSON.parse(text);}catch{return `EXTRA_BLOB_JSON_INVALID_${magic}`;}
+  const shape=value&&typeof value==='object'&&!Array.isArray(value)?value.schemaVersion===2&&Array.isArray(value.manifests)?'INDEX':value.schemaVersion===2&&value.config&&Array.isArray(value.layers)?'MANIFEST':value.rootfs&&value.config&&typeof value.os==='string'&&typeof value.architecture==='string'?'CONFIG':'OTHER':'OTHER';
+  if(JSON.stringify(value)!==text)return `EXTRA_BLOB_NONCANONICAL_${shape}`;
+  if(!value||typeof value!=='object'||Array.isArray(value))return 'EXTRA_BLOB_UNRECOGNIZED';
+  const exact=(object,keys)=>object&&typeof object==='object'&&!Array.isArray(object)&&Object.keys(object).length===keys.length&&keys.every(k=>Object.prototype.hasOwnProperty.call(object,k));
+  if(value.schemaVersion===2&&Array.isArray(value.manifests)){
+    if(indexBytes&&bytes.equals(indexBytes))return 'ROOT_INDEX_IDENTICAL_BYTES';
+    const descriptor=value.manifests[0],existing=index?.manifests?.[0];
+    const annotationKeys=object=>object===undefined||(object&&typeof object==='object'&&!Array.isArray(object)&&Object.entries(object).every(([key,v])=>typeof v==='string'&&(key==='org.opencontainers.image.ref.name'||key==='io.containerd.image.name'||key.startsWith('containerd.io/distribution.source.'))));
+    const descriptorShape=d=>d&&typeof d==='object'&&!Array.isArray(d)&&Object.keys(d).every(k=>['mediaType','digest','size','platform','annotations'].includes(k))&&['mediaType','digest','size'].every(k=>Object.prototype.hasOwnProperty.call(d,k))&&annotationKeys(d.annotations);
+    if(exact(value,['schemaVersion','mediaType','manifests'])&&value.manifests.length===1&&value.mediaType===index?.mediaType&&descriptorShape(descriptor)&&descriptorShape(existing)&&['mediaType','digest','size'].every(k=>descriptor[k]===existing[k])&&JSON.stringify(descriptor.platform)===JSON.stringify(existing.platform))return 'ROOT_INDEX_SAME_DESCRIPTOR';
+    return 'EXTRA_BLOB_INDEX';
+  }
+  if(value.schemaVersion===2&&value.config&&Array.isArray(value.layers)){
+    const descriptor=d=>exact(d,['mediaType','digest','size']);
+    if(exact(value,['schemaVersion','mediaType','config','layers'])&&value.mediaType===oci?.mediaType&&descriptor(value.config)&&value.layers.every(descriptor)&&descriptor(oci?.config)&&oci.layers.every(descriptor)&&JSON.stringify(value.config)===JSON.stringify(oci.config)&&JSON.stringify(value.layers)===JSON.stringify(oci.layers))return 'MANIFEST_SAME_GRAPH';
+    return 'EXTRA_BLOB_MANIFEST';
+  }
+  if(value.rootfs&&value.config&&typeof value.os==='string'&&typeof value.architecture==='string')return 'EXTRA_BLOB_CONFIG';
+  return 'EXTRA_BLOB_UNRECOGNIZED';
+}
+function downloadAsset(assetId, file, maximum) {
+  if(!bounded(assetId,Number.MAX_SAFE_INTEGER)||existsSync(file))unavailable();
+  const fd=openSync(file,'wx',0o600),env={...process.env};if(env.GITHUB_TOKEN)env.GH_TOKEN=env.GITHUB_TOKEN;
+  try {const result=spawnSync('gh',['api',`${repo}/releases/assets/${assetId}`,'--header','Accept: application/octet-stream'],{stdio:['ignore',fd,'pipe'],env,timeout:600000,maxBuffer:1024*1024});if(result.status!==0)unavailable();} finally{closeSync(fd);}
+  readRegular(file,maximum);
+}
+function download(kind,receiptFile,dir) {
+  const receipt=canonical(readRegular(receiptFile,16384),v=>validateTransfer(v,kind)),release=api(`${repo}/releases/${receipt.releaseId}`);names(kind,receipt.sourceHead);
+  if(!lstatSync(dir).isDirectory()||lstatSync(dir).isSymbolicLink())unavailable();
+  downloadAsset(receipt.manifestAssetId,path.join(dir,'manifest.json'),16384);
+  const mb=readRegular(path.join(dir,'manifest.json'),16384),manifest=canonical(mb,v=>validateManifest(v,kind));
+  validateRemote(release,manifest,receipt,kind);
+  const id=kind==='tools'?receipt.archiveAssetId:receipt.apkAssetId,payloadName=kind==='tools'?'tools-image.tar.gz':'unsigned.apk';
+  downloadAsset(id,path.join(dir,payloadName),kind==='tools'?1073741824:200*1024*1024);
+  bind(manifest,receipt,readRegular(path.join(dir,payloadName),kind==='tools'?1073741824:200*1024*1024),mb,kind);
+  validateRemote(api(`${repo}/releases/${receipt.releaseId}`),manifest,receipt,kind);
+  writeFileSync(path.join(dir,'receipt.json'),JSON.stringify(receipt),{flag:'wx',mode:0o600});
+}
+function receiveSigned(receiptFile,releaseId,certificate,dir) {
+  if(!bounded(Number(releaseId),Number.MAX_SAFE_INTEGER)||!sha(certificate))unavailable();
+  const receipt=canonical(readRegular(receiptFile,16384),v=>validateTransfer(v,'apk'));
+  download('apk',receiptFile,dir);
+  const release=api(`${repo}/releases/${releaseId}`),assetNames=names('signed',receipt.sourceHead);
+  if(release.id!==Number(releaseId)||release.draft!==true||release.prerelease!==true||release.tag_name!==tag('signed',receipt.sourceHead,receipt.runId)||release.target_commitish!==receipt.defaultTargetHead||release.assets?.length!==2||!Number.isFinite(Date.parse(release.created_at))||Date.parse(release.created_at)>Date.now()+60000||Date.now()-Date.parse(release.created_at)>7*86400000)unavailable();
+  for(const [i,name]of assetNames.entries()) {
+    const asset=release.assets.find(a=>a.name===name);if(!asset||asset.state!=='uploaded'||asset.content_type!==(i===0?'application/vnd.android.package-archive':'application/json')||!/^sha256:[a-f0-9]{64}$/.test(asset.digest)||!bounded(asset.size,i===0?200*1024*1024:16384))unavailable();
+    const file=path.join(dir,i===0?'signed.apk':'signed-pending.json');downloadAsset(asset.id,file,i===0?200*1024*1024:16384);
+    const bytes=readRegular(file,i===0?200*1024*1024:16384);if(bytes.length!==asset.size||`sha256:${digest(bytes)}`!==asset.digest)unavailable();
+  }
+  const pendingBytes=readRegular(path.join(dir,'signed-pending.json'),16384),signed=readRegular(path.join(dir,'signed.apk'),200*1024*1024),manifest=canonical(readRegular(path.join(dir,'manifest.json'),16384),v=>validateManifest(v,'apk'));canonical(pendingBytes,v=>validateSignedPending(v,manifest,certificate,signed,readRegular(path.join(dir,'unsigned.apk'),200*1024*1024)));
+  if((process.env.SUBTRACK_SANDBOX_RUNTIME_ENABLED==='true')!==manifest.runtimeEnabled||(manifest.runtimeEnabled&&String(manifest.versionCode)!==process.env.SUBTRACK_SANDBOX_VERSION_CODE))unavailable();
+  const again=api(`${repo}/releases/${releaseId}`);if(JSON.stringify(again.assets)!==JSON.stringify(release.assets)||again.id!==release.id||again.draft!==true||again.prerelease!==true||again.tag_name!==release.tag_name||again.target_commitish!==release.target_commitish)unavailable();
+}
+function dispose(kind,receiptFile) {
+  const receipt=canonical(readRegular(receiptFile,16384),v=>validateTransfer(v,kind)),release=api(`${repo}/releases/${receipt.releaseId}`);
+  const mb=Buffer.from(runGh(['api',`${repo}/releases/assets/${receipt.manifestAssetId}`,'--header','Accept: application/octet-stream']),'utf8'),manifest=canonical(mb,v=>validateManifest(v,kind));
+  // Disposal may occur after seven days; exact ownership remains required then.
+  validateRemote(release,manifest,receipt,kind,true);
+  if(digest(mb)!==receipt.manifestSha256||mb.length!==receipt.manifestBytes)unavailable();
+  api(`${repo}/releases/${receipt.releaseId}`,'DELETE');
+  const absent=spawnSync('gh',['api',`${repo}/releases/${receipt.releaseId}`],{encoding:'utf8',env:{...process.env,...(process.env.GITHUB_TOKEN?{GH_TOKEN:process.env.GITHUB_TOKEN}:{})},timeout:60000});
+  if(absent.status===0||!absent.stderr.includes('HTTP 404'))unavailable();
+  console.log('ST250_ANDROID_OWNED_DRAFT_REMOVED');
+}
+// Only publisher modes mutate remote custody; ordinary validators have no effects.
+function publish(kind,payloadFile,candidateFile,outputFile) {
+  if(!['apk','tools'].includes(kind)||process.env.GITHUB_REPOSITORY!=='achkum/Applied-AI-Projects'||process.env.GITHUB_EVENT_NAME!=='workflow_dispatch'||process.env.GITHUB_REF!=='refs/heads/st/native-synthetic-bank'||process.env.ST250_FREE_DRAFT_CONFIRMED!=='true')unavailable();
+  const sourceHead=process.env.ST250_SOURCE_HEAD,runId=`${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`;
+  if(sourceHead!==process.env.GITHUB_SHA)unavailable();
+  const checkout=spawnSync('git',['rev-parse','HEAD'],{encoding:'utf8'});if(checkout.status!==0||checkout.stdout.trim()!==sourceHead)unavailable();
+  const ownerDir=path.dirname(path.resolve(payloadFile));
+  if(path.dirname(path.resolve(candidateFile))!==ownerDir||path.dirname(path.resolve(outputFile))!==ownerDir)unavailable();
+  const payload=readRegular(payloadFile,kind==='tools'?1073741824:200*1024*1024),candidate=JSON.parse(readRegular(candidateFile,16384));
+  const repository=api(repo),branch=api(`${repo}/commits/${encodeURIComponent(repository.default_branch)}`),defaultTargetHead=branch.sha;
+  const baseFields={sourceHead,runId,defaultTargetHead,draftTag:tag(kind,sourceHead,runId)};
+  const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
+  let manifest;
+  if(kind==='apk') {
+    const active=dataField(candidate,'schemaVersion')===2;closed(candidate,['schemaVersion','sourceHead','unsignedSha256','applicationId','versionCode','variant','origin','buildType','debuggable','privateCaIncluded','hermesBundled','runtimeEnabled','bytes','signatureVerified','zipAligned',...(active?['embeddedConfigSha256','hermesSha256']:[])]);
+    if(candidate.schemaVersion!==(active?2:1)||candidate.runtimeEnabled!==active||candidate.sourceHead!==sourceHead||candidate.signatureVerified!==false||candidate.unsignedSha256!==digest(payload)||candidate.bytes!==payload.length)unavailable();
+    const values=Object.fromEntries(Object.entries(candidate).filter(([key])=>!['schemaVersion','signatureVerified'].includes(key)));
+    manifest={schema:active?'st250-android-transfer-manifest-v2':'st250-android-transfer-manifest-v1',...values,...baseFields,buildScriptSha256:digest(readFileSync(path.join(root,'tools/sandbox/build-android.sh'))),receiptModuleSha256:digest(readFileSync(path.join(root,'tools/sandbox/android-release-receipt.mjs')))};
+  } else {if(candidate.dockerfileSha256!==digest(readFileSync(path.join(root,'infra/sandbox/Dockerfile.android-signing'))))unavailable();manifest={...candidate,...baseFields};}
+  validateManifest(manifest,kind);
+  const hashField=kind==='tools'?'archiveSha256':'unsignedSha256',sizeField=kind==='tools'?'archiveBytes':'bytes';
+  if(manifest[hashField]!==digest(payload)||manifest[sizeField]!==payload.length)unavailable();
+  const assetNames=names(kind,sourceHead);if(path.basename(payloadFile)!==assetNames[0])unavailable();
+  const manifestFile=path.join(ownerDir,assetNames[1]),manifestBytes=Buffer.from(JSON.stringify(manifest));
+  writeFileSync(manifestFile,manifestBytes,{flag:'wx',mode:0o600});
+  // Collision cannot be overwritten, and default head is rechecked after upload.
+  const existing=spawnSync('gh',['api',`${repo}/releases/tags/${manifest.draftTag}`],{encoding:'utf8',env:{...process.env,GH_TOKEN:process.env.GITHUB_TOKEN},timeout:60000});
+  if(existing.status===0||!existing.stderr.includes('HTTP 404'))unavailable();
+  const existingTag=spawnSync('gh',['api',`${repo}/git/ref/tags/${manifest.draftTag}`],{encoding:'utf8',env:{...process.env,GH_TOKEN:process.env.GITHUB_TOKEN},timeout:60000});
+  if(existingTag.status===0||!existingTag.stderr.includes('HTTP 404'))unavailable();
+  let release;
+  try {
+    release=api(`${repo}/releases`,'POST',{tag_name:manifest.draftTag,target_commitish:defaultTargetHead,name:manifest.draftTag,body:`Private Android ${kind} staging. sourceHead=${sourceHead}; retention<=7days; never publish.`,draft:true,prerelease:true,make_latest:'false'});
+    if(!bounded(release.id,Number.MAX_SAFE_INTEGER)||release.draft!==true||release.tag_name!==manifest.draftTag)unavailable();
+    const token=process.env.GITHUB_TOKEN; if(!token)unavailable();
+    // Single native binary POST per asset: no gh release upload's implicit retry loop.
+    for(const [index,file]of[payloadFile,manifestFile].entries()) {
+      runGh(['api',`https://uploads.github.com/${repo}/releases/${release.id}/assets?name=${encodeURIComponent(assetNames[index])}`,'--method','POST','--header',`Content-Type: ${index===1?'application/json':kind==='tools'?'application/gzip':'application/vnd.android.package-archive'}`,'--input',file]);
+    }
+    const observed=api(`${repo}/releases/${release.id}`);
+    const receipt={schema:kind==='tools'?'st250-android-tools-draft-transfer-receipt-v1':manifest.runtimeEnabled===true?'st250-android-draft-transfer-receipt-v2':'st250-android-draft-transfer-receipt-v1',...baseFields,releaseId:release.id,draft:true,
+      ...(kind==='tools'?{imageId:manifest.imageId,archiveSha256:manifest.archiveSha256,archiveBytes:manifest.archiveBytes,archiveAssetId:observed.assets.find(a=>a.name===assetNames[0])?.id}:{unsignedSha256:manifest.unsignedSha256,bytes:manifest.bytes,applicationId:manifest.applicationId,apkAssetId:observed.assets.find(a=>a.name===assetNames[0])?.id}),
+      manifestSha256:digest(manifestBytes),manifestBytes:manifestBytes.length,manifestAssetId:observed.assets.find(a=>a.name===assetNames[1])?.id,manifestSchema:manifest.schema,
+      ...(kind==='tools'?{toolsQualified:true}:{unsignedQualified:true}),uploadVerified:true,localCleanupConfirmed:true,remoteCustody:'draft-retained'};
+    validateRemote(observed,manifest,receipt,kind);bind(manifest,receipt,payload,manifestBytes,kind);
+    if(api(`${repo}/commits/${encodeURIComponent(repository.default_branch)}`).sha!==defaultTargetHead)unavailable();
+    // Candidate/payload/upload manifest belong exclusively to this publisher.
+    for(const file of [payloadFile,candidateFile,manifestFile])unlinkSync(file);
+    // Parent still owns logs/output; only its successful directory removal can close this.
+    const candidate={...receipt,schema:kind==='tools'?'st250-android-tools-upload-candidate-v1':manifest.runtimeEnabled===true?'st250-android-upload-candidate-v2':'st250-android-upload-candidate-v1',localCleanupConfirmed:false};
+    closeTransferCandidate(candidate,kind);
+    writeFileSync(outputFile,JSON.stringify(candidate),{flag:'wx',mode:0o600});
+  } catch {
+    if(release?.id) {
+      const observed=api(`${repo}/releases/${release.id}`);
+      if(observed.draft!==true||observed.tag_name!==baseFields.draftTag||observed.target_commitish!==defaultTargetHead)unavailable();
+      api(`${repo}/releases/${release.id}`,'DELETE');
+    }
+    unavailable();
+  }
+}
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href) {
+  try {
+    const [mode,...args]=process.argv.slice(2);
+    if(mode==='validate'&&args.length===2)console.log(JSON.stringify(canonical(readRegular(args[1],16384),v=>validateManifest(v,args[0]))));
+    else if(mode==='publish'&&args.length===4)publish(args[0],args[1],args[2],args[3]);
+    else if(mode==='validate-pending'&&args.length===5)validateSignedPending(canonical(readRegular(args[0],16384),v=>v),canonical(readRegular(args[1],16384),v=>validateManifest(v,'apk')),args[2],readRegular(args[3],200*1024*1024),readRegular(args[4],200*1024*1024));
+    else if(mode==='pins'&&args.length===0)console.log(JSON.stringify({jdk:JDK_IMAGE,sdkUrl:SDK_URL,sdkSha256:SDK_SHA256}));
+    else if(mode==='download'&&args.length===3)download(args[0],args[1],args[2]);
+    else if(mode==='receive-signed'&&args.length===4)receiveSigned(args[0],args[1],args[2],args[3]);
+    else if(mode==='inspect-tools-tar'&&args.length===2)inspectToolTarFiles(args[0],args[1]);
+    else if(mode==='tools-custody'&&args.length===1)await toolsCustody(args[0]);
+    else if(mode==='tools-reuse'&&args.length===8){const [directory,importFile,apkHead,executionHead,importHead,apkDockerfile,toolsDockerfile,output]=args,value=toolsReuseBinding(await toolsCustody(directory),readRegular(importFile,16384),apkHead,executionHead,importHead,readRegular(apkDockerfile,65536),readRegular(toolsDockerfile,65536));writeFileSync(output,JSON.stringify(value),{flag:'wx',mode:0o600});}
+    else if(mode==='tools-stage-archive'&&args.length===2){const {manifest}=await toolsCustody(args[0]);const measured=await importTools.streamArchive(path.join(args[0],'tools-image.tar.gz'),1073741824,2147483648,args[1]);for(const key of ['archiveSha256','archiveBytes','rawTarSha256','rawTarBytes'])if(measured[key]!==manifest[key])unavailable();await inspectToolTarFile(args[1],manifest);}
+    else if(mode==='tools-import-bind'&&args.length===6){const [directory,raw,load,inspection,toolingHead,output]=args,custody=await toolsCustody(directory),facts=await inspectToolTarFile(raw,custody.manifest),value=toolsImportBinding(facts.configBytes,JSON.parse(readRegular(inspection,1048576)),custody.manifest,custody.receiptBytes,custody.manifestBytes,readRegular(load,16384).toString('utf8'),toolingHead);writeFileSync(output,JSON.stringify(value),{flag:'wx',mode:0o600});}
+    else if(mode==='tools-import-reference'&&args.length===4){const [directory,toolingHead,inspection,record]=args,custody=await toolsCustody(directory);process.stdout.write(validateToolsImport(canonical(readRegular(record,16384),v=>v),custody,toolingHead,JSON.parse(readRegular(inspection,1048576))));}
+    else if(mode==='tools-import-id'&&args.length===3){const [directory,toolingHead,record]=args;process.stdout.write(toolsImportCandidate(canonical(readRegular(record,16384),v=>v),await toolsCustody(directory),toolingHead));}
+    else if(mode==='close-transfer'&&args.length===1){let text='';for await(const chunk of process.stdin){text+=chunk;if(text.length>16384)unavailable();}console.log(JSON.stringify(closeTransferCandidate(JSON.parse(text),args[0])));}
+    else if(mode==='validate-backup'&&args.length===1)canonical(readRegular(args[0],16384),validateBackupBinding);
+    else if(mode==='validate-identity'&&args.length===1)canonical(readRegular(args[0],16384),validateSignerIdentity);
+    else if(mode==='dispose'&&args.length===2)dispose(args[0],args[1]);
+    else unavailable();
+  } catch(error) {const diagnostic=toolsArchiveDiagnostic(error);if(diagnostic)process.stderr.write(diagnostic+'\n');process.stderr.write('ST250_ANDROID_TRANSFER_UNAVAILABLE\n');process.exitCode=1;}
+}

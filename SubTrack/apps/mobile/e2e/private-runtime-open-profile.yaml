@@ -1,0 +1,9 @@
+appId: se.subtrack.app
+---
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PROFILE_PAGE_TITLE}
+    timeout: 30000

@@ -1,0 +1,7 @@
+# Android APK predicate diagnostic independent source review
+
+Disposition: **SOURCE GO** for the four-path diagnostic slice. Actual SHA256 matches release module `fb705503cbe7d9678eb631775eb1488dc2398b52677a946468256f31a013b3c9`, release test `ebf7459281123b3c0628182fb0794d65c28567be169683091107ad13ad5aa36c`, transfer module `c2dd75493f3fe0e0cf5a93330d7f2cc1d89fb6352487f93a20cbec1fa8ab212c`, and transfer test `01a992cd98504297366d666e9937b2479d6a93cac4d985a7dd056a62bd355365`.
+
+The bounded diff wraps existing unsigned/APK checks and splits their conjunctions into fixed checkpoints without removing or relaxing predicates. ZIP flags/method/disk/bounds/name/codec/CRC, runtime marker/IDs/version, unsigned signature and bundle parity checks retain their original conditions. Nested WeakMap diagnostics preserve fixed predicate labels while discarding raw exception content; CLI output contains only fixed operation/stage/predicate and generic failure text. No path, URL, config value, APK entry name, signature output or exception property is emitted.
+
+Added fixtures identify concrete first failures, retain rejection, test malicious error-property access without evaluation, and assert exact private CLI output. Existing assertions remain. No material privacy/platform defect found. No tests or remote/runtime actions were performed; these diagnostics do not qualify a binary or relax signed-candidate eligibility.

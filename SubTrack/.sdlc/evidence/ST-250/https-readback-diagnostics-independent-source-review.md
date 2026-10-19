@@ -1,0 +1,11 @@
+# HTTPS readback diagnostics and operator probe review
+
+Disposition: **SOURCE GO / bounded operator execution GO**. Actual SHA256 matches deploy `7e31d09fe556eb4c8aec0cfa321d660d0ce0acbdabc07a4883213594a94cc87a`, test `6492856426d08b061774476e815068f848b0d5b30c6bce4a7a43defd1c768d92`, extracted diagnostic `4a47dab74660bf8044b8ab776cac7d7be0eccb617d467e11b38e2daf043a6697`, and wrapper `980bfa09c268dbc869dc08468d3c1acbacabf0d9cc56f629602155512735fd92`.
+
+The source delta retains all original requests, expected statuses, body/no-store bounds, owner isolation, exact container custody, restart, durable readback, refresh and logout assertions/order. Added operation/predicate labels are closed sets; unknown labels normalize to fixed defaults. Original exception properties, response values, headers, capabilities, IDs and paths are not emitted. Added tests cover actual extracted-program failure paths and hostile thrown Proxy handling with exact sanitized stderr and empty stdout.
+
+Independently compared the standalone UTF8/LF/no-final-newline extraction with the embedded program: exact text equality. It runs the same synthetic two-owner journey and intentional owned API restart under the existing timeout, without editing live source/ledger. It is a diagnostic execution, not an acceptance repair.
+
+The wrapper authenticates current1655 runtime and full service portfolios, requires the exact gateway stopped and DB/API live, and authenticates the private regular probe/hash before START. It starts only that existing verified gateway, checks unchanged three container IDs and actual live portfolios, requires trusted no-SNI HTTPS404, supplies actual owned API/measured image/source inputs, then invokes unchanged live deploy resume. On failure it stops only the exact identity-checked gateway it started. Keys, bootstrap marker, schema, volumes and custody ledgers are not rewritten. The journey intentionally restarts API to test durability; API replacement is not authorized.
+
+No material defect found in this bounded review. No tests, requests, Docker, CI or remote actions were performed. Actual failing predicate and final full qualification remain runtime evidence, not a consequence of source approval. Any API state affected by a failed restart stays held for diagnosis rather than initialization/reset.

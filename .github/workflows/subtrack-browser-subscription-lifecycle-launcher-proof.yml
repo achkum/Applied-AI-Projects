@@ -41,10 +41,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: corepack enable && corepack prepare pnpm@12.6.0 --activate
-      - run: corepack pnpm install --frozen-lockfile
+      - run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = '12.6.0'
+      - run: pnpm install --frozen-lockfile
       - name: Install lockfile-pinned Chromium
-        run: corepack pnpm --filter @subtrack/ui exec playwright install --with-deps chromium
+        run: pnpm --filter @subtrack/ui exec playwright install --with-deps chromium
       - name: Missing ownership record denies proof PASS
         run: bash tools/database/test-browser-subscription-lifecycle-launcher-proof.sh
       - name: Owned PG16, compiled Node HTTPS persistence proof

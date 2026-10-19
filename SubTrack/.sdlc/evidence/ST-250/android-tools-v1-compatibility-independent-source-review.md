@@ -1,0 +1,9 @@
+# Android tools V1 compatibility independent source review
+
+Disposition: **SOURCE GO** for the narrow V1 compatibility allowance. Actual SHA256 matches module `1ff1055a2d3ac08513fedbb1b903553c7b33c3bbb9e989bdd49bb1eade8767ed` and test `b3bf6261cabca8fb0774af5be2d1f831bd9be688c1871cb9db9b9add671839c6`. Read the bounded source handoff and changed allowance/test sections against the previously reviewed proof.
+
+Passing the extra-member gate now requires both a complete V1 chain and every extra name to be an exact content-addressed blob in that proof's bound set. Bound membership originates only from the existing UTF8-roundtripped, compact canonical, size-bounded, actual-digest-matched JSON collection and exact ordered layer/config/parent/ID transcript proof. A complete chain alone cannot admit another object. Attestation graph labels are not consulted for acceptance. Partial chains, changed metadata, unknown members and noncanonical sideconfigs remain rejecting.
+
+Meaningful positive fixtures independently construct both ID transcripts and require actual acceptance, including a verified main config with newline. Added hostile fixtures mix a complete chain with unknown JSON, an arbitrary named member, a noncanonical sideconfig and an attestation. Existing parent/id/OS/config/epoch/type/numeric-map and incomplete-chain negatives remain. Private diagnostics and prior manifest/image/runtime/rootfs/archive checks are unchanged. No material defect found in this delta.
+
+The root-reported diagnostic run 38605130188 established COMPLETE while still rejecting; it did not qualify or upload this newly allowed archive. This source approval does not establish the next actual tools qualification, upload custody, signing or native runtime acceptance. No tests or remote/runtime actions were performed by this reviewer.

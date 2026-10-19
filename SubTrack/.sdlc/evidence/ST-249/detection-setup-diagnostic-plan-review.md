@@ -1,0 +1,3 @@
+# Detection initial setup diagnostic plan review
+
+2026-10-14 root independent PLATFORM PLAN GO for detection-setup-diagnostic-plan.md. Actual49e7166 DETECTION_SETUP ASSERTION locates initialsetupoutsideproofphasecatch, not exact HTTP call. Four fixed verify-login/session/bankconnect/banksync steps and derived expectedstatus, actualfiniteHTTPstatusorOTHER are nonprivate protocolmetadata. Strict step/expected pairs and anchored labels, no arbitrary body/error/status text. Preserve existingguard/assertion/order/baseline/clock/receipt/cleanup behavior. Independentprivacy source review precedes dispatch; no blind unchangedrerun. ExactexistingST249 paths only.

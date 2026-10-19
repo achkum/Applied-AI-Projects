@@ -1,0 +1,3 @@
+# Native observer coverage command independent review
+
+2026-10-14 root SOURCE GO for workflowac6b00084dae71973249415f55b521593b458541ab1ad3c5ff4248fb0f082dbd. Actuale3failurecoverageincludedexpandedobserver butonlyOTPspec; rootreadexactone-argumentdiff addingrevieweddetectionfixture spec tosamecommand. Originalinclude/allfour100%gates/toolchain/privateproofretained. Actualdirecttool affectedtwo specs23tests pass100metrics andeverycounterpositive, notvacuous. This onlyqualifiescorrecttestselection; actualnativecompile/install nextheadrequired. No mask/exclusion/thresholdlowering.

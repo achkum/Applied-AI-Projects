@@ -1,0 +1,97 @@
+appId: se.subtrack.app.sandbox
+---
+- tapOn:
+    id: native-nav-profile
+- extendedWaitUntil:
+    visible:
+      id: native-profile-bank
+    timeout: 30000
+- tapOn:
+    id: native-profile-bank
+- extendedWaitUntil:
+    visible:
+      id: native-bank-sync-0
+    timeout: 30000
+- assertVisible: ${E_BANK_ACTIVE}
+- tapOn:
+    id: native-bank-sync-0
+- extendedWaitUntil:
+    visible: ${E_BANK_UPDATED}
+    timeout: 60000
+- extendedWaitUntil:
+    visible: ${E_BANK_ACTIVE}
+    timeout: 60000
+- assertVisible:
+    id: native-bank-sync-0
+- takeScreenshot: accepted-sandbox-bank
+- scrollUntilVisible:
+    element:
+      id: native-bank-review
+    direction: DOWN
+- tapOn:
+    id: native-bank-review
+- extendedWaitUntil:
+    visible:
+      id: native-detection-title
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-detection-confirm-spotify-premium-individual
+    direction: DOWN
+- takeScreenshot: accepted-sandbox-detections
+- tapOn:
+    id: native-detection-confirm-spotify-premium-individual
+- scrollUntilVisible:
+    element:
+      id: native-detection-title
+    direction: UP
+- extendedWaitUntil:
+    visible: ${E_REVIEWED}
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-detection-confirm-disney-premium
+    direction: DOWN
+- tapOn:
+    id: native-detection-confirm-disney-premium
+- scrollUntilVisible:
+    element:
+      id: native-detection-title
+    direction: UP
+- extendedWaitUntil:
+    visible: ${E_REVIEWED}
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-detection-reject-icloud-50-gb
+    direction: DOWN
+- tapOn:
+    id: native-detection-reject-icloud-50-gb
+- scrollUntilVisible:
+    element:
+      id: native-detection-title
+    direction: UP
+- extendedWaitUntil:
+    visible:
+      id: native-detection-undo
+    timeout: 5000
+- tapOn:
+    id: native-detection-undo
+- extendedWaitUntil:
+    visible: ${E_UNDONE}
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: native-detection-confirm-icloud-50-gb
+    direction: DOWN
+- assertVisible:
+    id: native-detection-confirm-icloud-50-gb
+- takeScreenshot: accepted-sandbox-reviewed
+- scrollUntilVisible:
+    element: ${E_MANAGE}
+    direction: UP
+- tapOn: ${E_MANAGE}
+- extendedWaitUntil:
+    visible:
+      id: native-nav-manage
+    timeout: 30000

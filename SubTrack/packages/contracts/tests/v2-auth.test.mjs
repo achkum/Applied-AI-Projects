@@ -36,6 +36,14 @@ const privatePostPaths = [
 ];
 const privateMobilePostPaths = ['enrollment/complete','login/verify','session','refresh','logout','profile/read','profile','mode/read','mode','subscriptions/owner/read','subscriptions/owner/manual','subscriptions/owner/manual/edit','subscriptions/owner/status'].map(path=>`/v2/private/mobile/${path}`);
 
+const privateMobileBankReadPaths = ['/v2/private/mobile/banks/synthetic/read'];
+const privateMobileBankMutationPaths = ['connect','sync','disconnect'].map(operation=>`/v2/private/mobile/banks/synthetic/${operation}`);
+const privateMobileDetectionReadPaths = ['/v2/private/mobile/detections/read'];
+const privateMobileDetectionMutationPaths = ['scan', 'confirm', 'reject', 'undo'].map(operation => `/v2/private/mobile/detections/${operation}`);
+const sandboxIssuancePaths = ['bootstrap', 'resume', 'refresh'].map(operation => `/v2/sandbox/mobile/${operation}`);
+const sandboxLogoutPaths = ['/v2/sandbox/mobile/logout'];
+const sandboxBusinessPaths = ['/v2/sandbox/mobile/business'];
+
 function assertRequiredBrowserHeaders(operation, label) {
   const origin = operation.parameters.find((parameter) => parameter.name === 'Origin');
   const csrf = operation.parameters.find((parameter) => parameter.name === 'X-Session-CSRF');
@@ -48,10 +56,66 @@ function classifiedPosts(document) {
   const paths = Object.entries(document.paths)
     .filter(([path, item]) => path.startsWith('/v2/') && item.post)
     .map(([path]) => path);
-  assert.deepEqual(paths.sort(), [...idempotentPostPaths, ...privatePostPaths, ...privateBusinessIdempotentPostPaths, ...privateMobilePostPaths].sort(),
+  assert.deepEqual(paths.sort(), [...idempotentPostPaths, ...privatePostPaths, ...privateBusinessIdempotentPostPaths, ...privateMobilePostPaths, ...privateMobileBankReadPaths, ...privateMobileBankMutationPaths,
+    ...privateMobileDetectionReadPaths, ...privateMobileDetectionMutationPaths, ...sandboxIssuancePaths, ...sandboxLogoutPaths, ...sandboxBusinessPaths].sort(),
     'every v2 POST must have an explicit reviewed idempotency classification');
   return idempotentPostPaths.map((path) => [path, document.paths[path].post]);
 }
+
+test('detection and sandbox POSTs have explicit distinct key and closed business classifications', () => {
+  const { dir, document } = bundle();
+  try {
+    assert.equal(classifiedPosts(document).length, 11, 'original authentication recovery group remains unchanged');
+    const browserHeaders = ['Origin', 'Cookie', 'X-Session-CSRF', 'X-Browser-Nonce'];
+    for (const path of [...privateMobileDetectionReadPaths, ...privateMobileDetectionMutationPaths]) {
+      const op = document.paths[path].post, parameters = op.parameters ?? [];
+      assert.equal(op['x-runtime-availability'], 'unavailable-default');
+      for (const browser of browserHeaders) assert.equal(parameters.some(p => p.name === browser), false);
+      const keys = parameters.filter(p => p.name === 'Idempotency-Key');
+      assert.equal(keys.length, privateMobileDetectionMutationPaths.includes(path) ? 1 : 0, `${path} has exact key classification`);
+      if (keys.length) {
+        assert.equal(keys[0].in, 'header'); assert.equal(keys[0].required, true);
+        assert.equal(keys[0].schema.minLength, 16); assert.equal(keys[0].schema.maxLength, 255);
+        assert.match(op.description, /immutable receipt replay after fresh current authority/);
+      } else assert.match(op.description, /Idempotency-Key forbidden/);
+      assert.equal(op.requestBody.content['application/json'].schema.additionalProperties, false);
+    }
+    for (const path of [...sandboxIssuancePaths, ...sandboxLogoutPaths, ...sandboxBusinessPaths]) {
+      const op = document.paths[path].post, parameters = op.parameters ?? [];
+      for (const browser of browserHeaders) assert.equal(parameters.some(p => p.name === browser), false);
+      const keys = parameters.filter(p => p.name === 'Idempotency-Key');
+      assert.equal(keys.length, sandboxLogoutPaths.includes(path) ? 0 : 1, `${path} has exact sandbox key classification`);
+      if (keys.length) {
+        assert.equal(keys[0].in, 'header'); assert.equal(keys[0].required, sandboxIssuancePaths.includes(path));
+        assert.equal(keys[0].schema.format, 'uuid');
+        const pattern = new RegExp(keys[0].schema.pattern);
+        assert.equal(pattern.test('123e4567-e89b-42d3-a456-426614174000'), true);
+        assert.equal(pattern.test('123e4567-e89b-12d3-a456-426614174000'), false);
+      }
+    }
+    assert.deepEqual(document.paths[sandboxIssuancePaths[0]].post.security, []);
+    assert.deepEqual(document.paths[sandboxIssuancePaths[1]].post.security, [{ SandboxCapability: [] }]);
+    assert.deepEqual(document.paths[sandboxIssuancePaths[2]].post.security, [{ SandboxRefresh: [] }]);
+    for (const path of [...sandboxLogoutPaths, ...sandboxBusinessPaths]) assert.deepEqual(document.paths[path].post.security, [{ SandboxAccess: [] }]);
+    const business = document.paths[sandboxBusinessPaths[0]].post;
+    assert.match(business.description, /bank mutations and detection mutations require Idempotency-Key/);
+    assert.match(business.description, /Owner identifiers cannot be supplied/);
+    const choices = business.requestBody.content['application/json'].schema.oneOf;
+    assert.deepEqual(choices.map(choice => choice.properties.operation.const), ['profile-read', 'profile', 'mode-read', 'mode', 'owner-read', 'manual', 'manual-edit', 'status', 'bank-read', 'bank-connect', 'bank-sync', 'bank-disconnect', 'detection-read', 'detection-scan', 'detection-confirm', 'detection-reject', 'detection-undo', 'household-read', 'household-create', 'household-rename', 'dependant-add', 'dependant-edit', 'dependant-remove', 'bank-history', 'household-assign', 'subscription-edit', 'subscription-status']);
+    for (const choice of choices) {
+      assert.equal(choice.additionalProperties, false); assert.deepEqual(choice.required, ['operation', 'body']);
+      assert.deepEqual(Object.keys(choice.properties).sort(), ['body', 'operation']);
+      assert.equal(choice.properties.body.additionalProperties, false);
+    }
+    assert.deepEqual(choices.find(choice => choice.properties.operation.const === 'manual').properties.body.required,
+      ['customName', 'categoryCode', 'cadence', 'expectedAmountMinor']);
+    assert.ok(choices.find(choice => choice.properties.operation.const === 'manual').properties.body.properties.nextChargeDate);
+    assert.deepEqual(choices.find(choice => choice.properties.operation.const === 'manual-edit').properties.body.required,
+      ['id', 'customName', 'categoryCode', 'cadence', 'expectedAmountMinor', 'nextChargeDate', 'expectedRevision']);
+    assert.equal(document.paths[sandboxIssuancePaths[2]].post.requestBody, undefined);
+    assert.equal(document.paths[sandboxLogoutPaths[0]].post.requestBody.content['application/json'].schema.properties.transport.const, 'sandbox-mobile');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
 
 test('v1 route and schema baseline remains present and unchanged in the candidate', () => {
   const { dir, document } = bundle();
@@ -213,6 +277,39 @@ test('v2 POST recovery contract stays generic and explains restart after referen
         `${path} describes a recovery action`);
     }
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('native Synthetic bank reads and immutable mutations have separate current-owner classification', () => {
+  const {dir,document}=bundle();
+  try {
+    assert.equal(classifiedPosts(document).length,11,'authentication recovery remains unchanged');
+    for(const path of [...privateMobileBankReadPaths,...privateMobileBankMutationPaths]) {
+      const operation=document.paths[path].post;
+      assert.equal(operation['x-runtime-availability'],'unavailable-default');
+      assert.deepEqual(operation.security,[{V2AccessBearer:[]}]);
+      const parameters=operation.parameters??[];
+      assert.equal(parameters.some(parameter=>['Origin','X-Session-CSRF','X-Browser-Nonce','X-Caller-Id'].includes(parameter.name)),false);
+      const keys=parameters.filter(parameter=>parameter.name==='Idempotency-Key');
+      if(privateMobileBankReadPaths.includes(path)) {
+        assert.equal(keys.length,0);
+        assert.match(operation.description,/Idempotency-Key is forbidden/);
+        assert.equal(operation.requestBody.content['application/json'].schema.maxProperties,0);
+      } else {
+        assert.equal(keys.length,1);
+        assert.equal(keys[0].required,true);
+        const pattern=new RegExp(keys[0].schema.pattern);
+        assert.ok(pattern.test('123e4567-e89b-42d3-a456-426614174000'));
+        assert.equal(pattern.test('123e4567-e89b-72d3-a456-426614174000'),false);
+        assert.match(operation.description,/immutable result snapshot/);
+        assert.match(operation.description,/never automatic retry/);
+      }
+      assert.deepEqual(Object.keys(operation.responses),['200','400','401','403','404','409','429','500']);
+      assert.equal(operation.responses['200'].headers['Cache-Control'].schema.const,'no-store');
+      assert.equal(operation.responses['200'].headers.Pragma.schema.const,'no-cache');
+      assert.match(operation.description,/Current verified session, complete profile and Just me/);
+      assert.equal(operation.requestBody.content['application/json'].schema.additionalProperties,false);
+    }
+  } finally {rmSync(dir,{recursive:true,force:true});}
 });
 
 test('generated v2 Zod schemas validate transport envelopes and reject mixed or extra fields', () => {

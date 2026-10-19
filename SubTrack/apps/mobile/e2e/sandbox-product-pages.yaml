@@ -1,0 +1,85 @@
+appId: se.subtrack.app.sandbox
+---
+- tapOn:
+    id: native-nav-month
+- extendedWaitUntil:
+    visible:
+      id: native-home-overview
+    timeout: 30000
+- assertVisible: ${E_ACTIVE_FOURTEEN}
+- takeScreenshot: accepted-sandbox-home-top
+- tapOn:
+    id: native-home-calendar
+- extendedWaitUntil:
+    visible:
+      id: native-date-${TODAY}
+    timeout: 30000
+- takeScreenshot: accepted-sandbox-calendar
+- tapOn:
+    id: native-date-${TODAY}
+- assertVisible:
+    id: native-month-selected-date
+    text: ${TODAY}
+- scrollUntilVisible:
+    element: ${E_DETAIL_NETFLIX}
+    direction: DOWN
+- assertVisible: ${E_DETAIL_NETFLIX}
+- takeScreenshot: accepted-sandbox-home
+- tapOn:
+    id: native-nav-insights
+- extendedWaitUntil:
+    visible:
+      id: native-insights-overview
+    timeout: 30000
+- takeScreenshot: accepted-sandbox-insights-top
+- tapOn:
+    id: native-insights-overview
+- assertVisible: ${E_ANALYTICS_SUMMARY}
+- scrollUntilVisible:
+    element: ${E_PRICE_RISE}
+    direction: DOWN
+- assertVisible: Netflix household
+- takeScreenshot: accepted-sandbox-insights
+- scrollUntilVisible:
+    element: ${E_TREND_EVIDENCE}
+    direction: DOWN
+- takeScreenshot: accepted-sandbox-trend
+- tapOn:
+    id: native-nav-insights
+- extendedWaitUntil:
+    visible:
+      id: native-insights-overview
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: ${E_COMPARE}
+      below: ${E_TREND_EVIDENCE}
+    direction: DOWN
+- tapOn:
+    text: ${E_COMPARE}
+    below: ${E_TREND_EVIDENCE}
+- extendedWaitUntil:
+    visible: ${E_YOUR_PLANS}
+    timeout: 30000
+# The fourteen-plan strip is horizontal; bounded real fragment swipes reveal the owned plan.
+# Fixed disposable emulator/normal font fixture: this is the plan-strip row, not screen centre.
+- repeat:
+    times: 12
+    commands:
+      - runFlow:
+          when:
+            notVisible: Disney[+] Standard
+          commands:
+            - swipe:
+                start: 90%, 24%
+                end: 10%, 24%
+                duration: 500
+- assertVisible: Disney[+] Standard
+- tapOn: Disney[+] Standard
+- tapOn: ${E_ANNUAL}
+- scrollUntilVisible:
+    element: ${E_SAMPLE_PRICE}
+    direction: DOWN
+- takeScreenshot: accepted-sandbox-comparisons
+- tapOn:
+    id: native-nav-profile

@@ -1,0 +1,7 @@
+# ST250 PostgreSQL workflow install substrate diagnosis
+
+2026-10-14. Read-only diagnosis of failed run38534048140 at source4f55fc1. Failed before application dependency resolution, compilation or SQL; no qualification artifact exists. Private ignored log inspected without emitting raw contents, keys or paths.
+
+Corepack activation selected pnpm12.6.0 but its launch attempted the obsolete distribution-relative `12.6.0/bin/pnpm.cjs`, which is absent. Official https://registry.npmjs.org/pnpm/12.6.0 metadata declares root pnpm/pn/pnx/pnpx executables and optional @pnpm/exe.linux-x6412.6.0 for the native distribution. This is runner package-manager entrypoint incompatibility; the Bun mentions are distribution substrate, not a SubTrack business failure.
+
+Recommended narrow correction is only the qualification workflow: install pinned pnpm12.6.0 through npm global, assert exact pnpm version, invoke direct pnpm for frozen install and all existing build/exec steps. This matches actual successful same-head image build38534047954 using Node22.18 and globally npm-installed pnpm12.6.0. Existing domain/Synthetic build scripts invoke tsc/Node, so direct workflow calls do not require Corepack. No new dependency/version, lock rewrite, Bun install, authority/runtime/data change or retry of an unchanged failing launcher is needed. Refresh workflow hash and independent source review before one causal new-head qualification.

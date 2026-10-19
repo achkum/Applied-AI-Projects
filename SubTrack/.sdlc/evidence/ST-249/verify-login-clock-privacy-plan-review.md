@@ -1,0 +1,9 @@
+# ST249 independent simulator clock privacy PLAN review
+
+2026-10-14. **PLAN GO for exactly four existing simulator/verifier source/spec paths in verify-login-clock-causal-plan.md.** Read actual timestamp issuance, verifier trusted clock/readTime/future-freshness checks and owned graph wiring. No fifth path required by this review, source edits, tests, SQL or execution.
+
+The existing private graph intentionally supplies a controlled trusted clock to its development verifier, while its actual simulator independently stamps real wall time. Source deterministically explains future-evidence rejection before login SQL under the one-hour-back qualification clock. Correcting timestamp issuance at the trusted source is appropriate; bypassing verifier checks, posthoc rewriting evidence or changing clocks/epoch/response expectations is not.
+
+Constructor-only simulator clock with default ()=>Date.now() preserves ordinary wall callers. Development verifier passes only ()=>this.readTime(), retaining finite/nonnegative/Date-safe/monotonic validation before/during/after issuance and exact future/age/freshness checks. Invalid/throwing/regressing clock must deny without output. HMAC/key copy, fixed selectors/names/method, identity subject/TTL, development-only environment gates and all session/commit/epoch assertions stay unchanged. No client/env/API clock knob, alternate provider or public sandbox/production change is permitted.
+
+Required regression uses the real unmocked simulator/verifier with trusted time behind unchanged host Date.now and asserts exact issued timestamp/identity/HMAC shape; default wall bracket and malformed/future/stale/throwing/regressing cases retain rejection. Focused affected tests/types/lint and independent source review precede one causal new-head PG qualification. No new founder security-model decision is needed: the boundary remains existing trusted graph configuration. No privacy PLAN blocker.

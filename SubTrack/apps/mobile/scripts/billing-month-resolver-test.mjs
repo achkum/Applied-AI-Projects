@@ -8,8 +8,10 @@ import {fileURLToPath} from 'node:url';
 const require=createRequire(import.meta.url),root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..');
 const {createNativeMoneyResolver,createJestMoneyResolver}=require('./billing-month-resolver.cjs');
 const origin=path.join(root,'packages/money/src/money.ts'),target=path.join(root,'packages/money/src/formatter.ts');
-const native=require(path.join(root,'node_modules/.pnpm/metro-resolver@0.80.12/node_modules/metro-resolver/src/resolve.js'));
-const context={originModulePath:origin,resolveRequest:native,sourceExts:['js','jsx','json','ts','tsx'],assetExts:new Set(['ttf','png']),preferNativePlatform:true,redirectModulePath:p=>p,doesFileExist:p=>existsSync(p)&&statSync(p).isFile(),getPackageForModule:()=>null,getPackage:()=>null,unstable_enablePackageExports:true,unstable_fileSystemLookup:p=>{try{const s=statSync(p);return {exists:true,type:s.isFile()?'f':'d',realPath:realpathSync(p)};}catch{return {exists:false};}}};
+const expoConfig=require.resolve('@expo/metro-config/package.json',{paths:[require.resolve('expo/package.json')]});
+const metroRequire=createRequire(expoConfig),native=metroRequire('metro-resolver').resolve;
+assert.equal(metroRequire('metro-resolver/package.json').version,'0.83.3');
+const context={originModulePath:origin,resolveRequest:native,sourceExts:['js','jsx','json','ts','tsx'],assetExts:new Set(['ttf','png']),preferNativePlatform:true,redirectModulePath:p=>p,doesFileExist:p=>existsSync(p)&&statSync(p).isFile(),getPackageForModule:()=>null,getPackage:()=>null,unstable_enablePackageExports:true,fileSystemLookup:p=>{try{const s=statSync(p);return {exists:true,type:s.isFile()?'f':'d',realPath:realpathSync(p)};}catch{return {exists:false};}}};
 test('actual pinned native resolver fails original explicit JS edge and resolves only fixed native bridge',()=>{
  const bridge=createNativeMoneyResolver({origin,target});
  for(const platform of ['ios','android']){assert.throws(()=>native(context,'./formatter.js',platform),error=>error.constructor.name==='FailedToResolvePathError');assert.equal(native(context,'./formatter',platform).filePath,target);assert.equal(bridge(context,'./formatter.js',platform).filePath,target);}
@@ -25,6 +27,21 @@ test('all other origins/requests/platforms preserve existing captured and contex
 test('Jest only resolves the exact formatter specifier from Money source directory',()=>{
  const seen=[],options={basedir:path.dirname(origin),defaultResolver:(name,ctx)=>{seen.push([name,ctx]);return name;}};const resolve=createJestMoneyResolver({directory:path.dirname(origin),target});
  assert.equal(resolve('./formatter.js',options),target);assert.equal(resolve('./other.js',options),'./other.js');const other={...options,basedir:path.dirname(origin)+'other'};assert.equal(resolve('./formatter.js',other),'./formatter.js');assert.deepEqual(seen.at(-1),['./formatter.js',other]);
+});
+
+test('new analytics imports resolve the real Money implementation only from the two approved source files',()=>{
+ const bridge=createNativeMoneyResolver({origin,target});
+ for(const platform of ['android','ios'])for(const file of ['recurring-cost.ts','price-increase.ts']){
+  const ctx={...context,originModulePath:path.join(path.dirname(origin),file)};
+  assert.equal(bridge(ctx,'./money.js',platform).filePath,origin);
+  assert.equal(bridge({...ctx,originModulePath:origin},'./formatter.js',platform).filePath,target);
+ }
+ const calls=[],prior=createNativeMoneyResolver({origin,target,previous:(...args)=>{calls.push(args);return 'prior';}});
+ const unknown={originModulePath:path.join(path.dirname(origin),'unreviewed.ts')};
+ assert.equal(prior(unknown,'./money.js','android'),'prior');assert.equal(calls[0][1],'./money.js');
+ const resolve=createJestMoneyResolver({directory:path.dirname(origin),target}),options={basedir:path.dirname(origin),defaultResolver:name=>name};
+ assert.equal(resolve('./money.js',options),origin);
+ assert.equal(resolve('./money.js',{...options,basedir:path.dirname(origin)+'other'}),'./money.js');
 });
 
 test('actual Expo Metro config resolves the complete Money source dependency graph for both native platforms',()=>{

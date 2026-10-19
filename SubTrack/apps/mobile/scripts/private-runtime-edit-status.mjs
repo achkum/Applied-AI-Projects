@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 export const ACCEPTED_NATIVE_SCREENSHOTS=Object.freeze(['accepted-add.png','accepted-restart.png','accepted-logout.png','accepted-edit.png','accepted-paused.png','accepted-archived.png','accepted-edited-restart.png','accepted-edited-api-restart.png']);
 export const EDITED_TRACKING_RECEIPT_KEYS=Object.freeze(['version','markerHash','subscriptionCount','subscriptionIdentityHash','subscriptionDigest','manualEditReadback','archivedReadback','revisionSixReadback']);
-export function acceptedNativeScreenshot(name){return ACCEPTED_NATIVE_SCREENSHOTS.includes(name);}
+export const ACCEPTED_ANDROID_SETUP_SCREENSHOTS=Object.freeze(['accepted-welcome.png','accepted-signup.png','accepted-profile.png']);
+export function acceptedNativeScreenshot(name,platform){return ACCEPTED_NATIVE_SCREENSHOTS.includes(name)||platform==='android'&&ACCEPTED_ANDROID_SETUP_SCREENSHOTS.includes(name);}
 export function assertTrackingReceipt(receipt){
  assert.ok(receipt&&typeof receipt==='object'&&!Array.isArray(receipt)&&Object.getPrototypeOf(receipt)===Object.prototype);
  assert.deepEqual(Reflect.ownKeys(receipt).sort(),[...EDITED_TRACKING_RECEIPT_KEYS].sort());

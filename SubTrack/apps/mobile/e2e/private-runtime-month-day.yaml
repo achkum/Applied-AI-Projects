@@ -1,0 +1,39 @@
+appId: se.subtrack.app
+---
+- scrollUntilVisible:
+    element:
+      id: native-home-calendar
+    direction: UP
+- tapOn:
+    id: native-home-calendar
+- extendedWaitUntil:
+    visible:
+      id: native-date-picker-month
+    timeout: 30000
+# Only the exact previous header inside the open picker permits one Next.
+- runFlow:
+    when:
+      visible:
+        id: native-date-picker-month
+        text: ${MAESTRO_MONTH_PREVIOUS}
+    commands:
+      - tapOn: ${MAESTRO_MONTH_NEXT}
+- extendedWaitUntil:
+    visible:
+      id: native-date-picker-month
+      text: ${MAESTRO_MONTH_TARGET}
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: native-date-${MAESTRO_MONTH_ISO}
+    timeout: 30000
+- tapOn:
+    id: native-date-${MAESTRO_MONTH_ISO}
+- extendedWaitUntil:
+    visible:
+      id: native-month-selected-date
+      text: ${MAESTRO_MONTH_ISO}
+    timeout: 30000
+- assertVisible:
+    id: native-month-selected-date
+    text: ${MAESTRO_MONTH_ISO}

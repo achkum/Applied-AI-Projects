@@ -9,6 +9,6 @@ export function privateMobileRenewalsReceipt(marker:string,rows:readonly Record<
  const projection={id:row.id,customName:row.custom_name,categoryCode:row.category_code,cadence:row.cadence,expectedAmountMinor:row.expected_amount_minor,currency:row.currency,status:row.status,source:row.source,nextChargeDate:row.next_charge_date,alwaysPrivate:row.always_private,revision:row.revision};
  const common=row.source==='MANUAL'&&row.currency==='SEK'&&row.category_code==='VIDEO_STREAMING'&&row.cadence==='MONTHLY'&&row.expected_amount_minor==='12990'&&row.always_private===true;
  return Object.freeze({version:1,markerHash:hash(marker),subscriptionCount:1,subscriptionIdentityHash:hash(row.id),subscriptionDigest:hash(JSON.stringify(projection)),
-  activeSavedDateReadback:common&&row.custom_name==='Native restart proof'&&row.status==='ACTIVE'&&row.revision==='1'&&row.next_charge_date===candidate,
-  archivedEmptyReadback:common&&row.custom_name==='Native edited restart proof'&&row.status==='ARCHIVED'&&row.revision==='6'&&row.next_charge_date===null});
+  activeSavedDateReadback:common&&row.custom_name==='Example streaming'&&row.status==='ACTIVE'&&row.revision==='1'&&row.next_charge_date===candidate,
+  archivedEmptyReadback:common&&row.custom_name==='Example streaming Plus'&&row.status==='ARCHIVED'&&row.revision==='6'&&row.next_charge_date===null});
 }

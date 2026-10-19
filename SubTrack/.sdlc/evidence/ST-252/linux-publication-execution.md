@@ -1,0 +1,10 @@
+# Linux publication filesystem execution
+
+Root executed the frozen successor-publisher test on the existing VPS in a separate ephemeral Docker container using the already-imported API image sha256:c4f9a4a250cc3ec9eeec40937185012ede3b2d7e84d6aeed33ab496fbb39cbef. No image pull, network, backend/key mounts or running-service mutation. Container readonly, all capabilities dropped, no-new-privileges, 128MiB/32PID limits, 16MiB temporary filesystem. Only three fixture files mounted readonly: test, image-import-binding, unchanged bootstrap.
+
+Source SHA256: image-import-binding.cjs 3d94ed4c5a855e6681de146efdbc1afb51aae825ef3a528c129d1c82791e8552; activation-contract.test.cjs 3fdb0c9b7b7c88872bce4d31c095c586fcb51a89cfdd15c44a23ec077d5bbde4.
+
+Actual command: node --test --test-name-pattern="successor publisher" /fixture/activation-contract.test.cjs
+Result: 1/1 PASS, 0 failures/skips; actual Linux branch proves an open predecessor file descriptor retains old bytes after atomic replacement of the read-only published file. Also covers injected promotion failure restoration, successful rollback, exact known partial states and stale metadata rejection. Fixture uses synthetic bytes and ownership projection, not real APK signature evidence. This proves the mutation mechanism; actual qualified APK publication remains pending.
+
+History validation correction: the extracted Bash block contained eight CRLF lines from the Windows checkout. The test now normalizes only its source read before extraction. Production signing logic is unchanged. Root reran the actual history snapshot test in a fresh four-file readonly fixture using the same existing image and isolation controls: 1/1 PASS, zero failures/skips. Linux executes real mkdir700/chmod600/cp/cmp/mv and refuses an already-existing run. Source test hash 300d5586b1c95c65a0721b7fea9fd85007825a9f36ef9c46c3cd39e201dfbb7b; sign c216e05a / transfer fb48fba5 / gateway 3d94ed4 unchanged. This resolves the prior shell-fixture failure, not actual signing acceptance.

@@ -2,9 +2,37 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
-import { probeResult, identifierProbes } from './private-runtime-identifier-probe.mjs';
+import childProcess, {spawn as realSpawn} from 'node:child_process';
+import {syncBuiltinESMExports} from 'node:module';
+import {EventEmitter} from 'node:events';
+import process from 'node:process';
+import vm from 'node:vm';
+import {prepareAndroidEntryMetadata} from './private-runtime-maestro-metadata.mjs';
+import {setTimeout,clearTimeout} from 'node:timers';
+import { probeResult, identifierProbes, runIdentifierProbe } from './private-runtime-identifier-probe.mjs';
+test('identifier navigation waits for the actual input and requires enabled Continue before one tap',()=>{
+  for(const name of ['identifier','identifier-android']){
+    const flow=readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8');
+    assert.match(flow,/visible: \$\{MAESTRO_CREATE_ACCOUNT\}\r?\n {4}timeout: 120000/);
+    const navigationFlow=name==='identifier-android'?flow.replace(/- takeScreenshot: accepted-signup\r?\n/,''):flow;
+    assert.match(navigationFlow,/- tapOn: \$\{MAESTRO_CREATE_ACCOUNT\}\r?\n- extendedWaitUntil:\r?\n {4}visible:\r?\n {6}id: native-identifier-input\r?\n {4}timeout: 30000\r?\n- tapOn:\r?\n {4}id: native-identifier-input\r?\n- inputText: [^\r\n]+\r?\n- hideKeyboard\r?\n- assertVisible:\r?\n {4}text: \$\{MAESTRO_CONTINUE\}\r?\n {4}enabled: true\r?\n- tapOn: \$\{MAESTRO_CONTINUE\}/);
+    assert.equal(flow.match(/- tapOn: \$\{MAESTRO_CREATE_ACCOUNT\}/g).length,1);assert.equal(flow.match(/- tapOn: \$\{MAESTRO_CONTINUE\}/g).length,1);
+    assert.match(flow,/visible: \$\{MAESTRO_OTP_LABEL\}\r?\n {4}timeout: 30000/);
+  }
+  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');assert.ok(driver.includes('email: labels.MAESTRO_EMAIL_LABEL,'));
+});
+test('editable native flow targets select fixed input IDs while keeping single actions and visible acceptance',()=>{
+  const read=name=>readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n');
+  for(const name of ['identifier','identifier-android']){const flow=read(name);assert.equal(flow.match(/- tapOn:\n {4}id: native-identifier-input/g).length,1);assert.equal(flow.includes('- tapOn: ${MAESTRO_EMAIL_LABEL}'),false);assert.ok(flow.includes('visible: ${MAESTRO_CREATE_ACCOUNT}'));assert.ok(flow.includes('visible: ${MAESTRO_OTP_LABEL}\n    timeout: 30000'));assert.equal(flow.match(/^- inputText:/gm).length,1);}
+  const add=read('enroll-add');for(const id of ['native-registration-otp','native-profile-name','native-subscription-name','native-subscription-amount','native-subscription-date','native-subscription-category'])assert.equal(add.split(`- tapOn:\n    id: ${id}`).length-1,1);
+  for(const id of ['native-subscription-name','native-subscription-amount','native-subscription-date'])assert.ok(add.includes(`element:\n      id: ${id}\n    direction: DOWN`));
+  assert.ok(add.includes('visible: ${MAESTRO_PROFILE_NAME}\n    timeout: 30000'));assert.equal(add.match(/^- inputText:/gm).length,5);
+  const edit=read('edit-status');for(const [id,direction] of [['native-subscription-name','UP'],['native-subscription-date','DOWN']]){assert.equal(edit.split(`- tapOn:\n    id: ${id}`).length-1,1);assert.ok(edit.includes(`element:\n      id: ${id}\n    direction: ${direction}`));}assert.equal(edit.match(/^- inputText:/gm).length,1);assert.ok(edit.includes('visible: ${MAESTRO_EDIT_SAVED}\n    timeout: 30000'));
+  for(const [flow,names] of [[add,['MAESTRO_OTP_LABEL','MAESTRO_PROFILE_NAME','MAESTRO_SUBSCRIPTION_NAME','MAESTRO_AMOUNT','MAESTRO_DATE']],[edit,['MAESTRO_SUBSCRIPTION_NAME','MAESTRO_DATE']]])for(const name of names)assert.equal(flow.includes(`- tapOn: \u0024{${name}}`),false);
+});
 
 const labels = {
+  MAESTRO_CREATE_ACCOUNT: 'Create account',
   MAESTRO_REQUEST_UNAVAILABLE: 'Could not continue. Restart verification.',
   MAESTRO_IDENTIFIER_LOADING: 'Please wait…',
   MAESTRO_EMAIL_LABEL: 'Email address',
@@ -57,12 +85,13 @@ test('fixed sequential roster, inconclusive child errors, and private data never
     },
   });
   assert.deepEqual(calls, [
+    ['welcome-create-account', labels.MAESTRO_CREATE_ACCOUNT],
     ['request-unavailable', labels.MAESTRO_REQUEST_UNAVAILABLE],
     ['loading', labels.MAESTRO_IDENTIFIER_LOADING],
     ['email-field', labels.MAESTRO_EMAIL_LABEL],
     ['otp-field', labels.MAESTRO_OTP_LABEL],
   ]);
-  assert.deepEqual(observations, { 'request-unavailable': 'visible', loading: 'launch-error', 'email-field': 'timeout', 'otp-field': 'not-confirmed' });
+  assert.deepEqual(observations, { 'welcome-create-account': 'not-confirmed', 'request-unavailable': 'visible', loading: 'launch-error', 'email-field': 'timeout', 'otp-field': 'not-confirmed' });
   assert.equal(/private-canary|123456|person@example/.test(JSON.stringify(observations)), false);
 });
 
@@ -70,14 +99,167 @@ test('runtime integration uses only bounded read-only probe and retains failure 
   const yaml = readFileSync(new URL('../e2e/private-runtime-identifier-probe.yaml', import.meta.url), 'utf8');
   assert.equal(yaml.replace(/\r\n/g, '\n'), 'appId: se.subtrack.app\n---\n- assertVisible: ${MAESTRO_IDENTIFIER_PROBE_LABEL}\n');
   const source = readFileSync(new URL('./private-runtime-device.mjs', import.meta.url), 'utf8');
-  assert.ok(source.includes("spawn('timeout', ["));
-  assert.ok(source.includes("'--signal=TERM', '--kill-after=5s', '20s'"));
+  assert.equal(source.includes('await identifierProbes('),false);
+  assert.equal(source.includes('await runIdentifierProbe('),false);
+  assert.ok(source.includes('startupStageDiagnostic({phase:currentPhase,log:readTool(\'metro.log\')})'));
+  assert.ok(source.includes('startup_stage_diagnostic=unavailable'));
   assert.ok(source.includes('const syntheticOtpIssued = code !== null;'));
-  assert.ok(source.includes('issued: syntheticOtpIssued'));
   assert.ok(source.includes('harness.otpStartObservation()'));
-  const addFlow = readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml', import.meta.url), 'utf8');
-  assert.ok(addFlow.includes('- tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}\n- scrollUntilVisible:\n    element: ${MAESTRO_PERSONAL_TITLE}\n    direction: UP\n- extendedWaitUntil:\n    visible: ${MAESTRO_SAVED}\n    timeout: 30000'));
+  const addFlow = readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml', import.meta.url), 'utf8').replace(/\r\n/g,'\n');
+  assert.ok(addFlow.includes('- tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- assertVisible:\n    id: native-personal-title\n    text: ${MAESTRO_PERSONAL_TITLE}\n- extendedWaitUntil:\n    visible: ${MAESTRO_SAVED}\n    timeout: 30000'));
   assert.equal(addFlow.match(/tapOn: \$\{MAESTRO_SAVE_SUBSCRIPTION\}/g).length, 1);
   assert.ok(source.includes('process.exitCode = 1;'));
   assert.ok(source.includes('await harness.dispose();'));
+});
+
+test('authoritative setup hands off through Month and real Manage before the unchanged mandatory Add',()=>{
+ const read=name=>readFileSync(new URL(`../e2e/private-runtime-${name}.yaml`,import.meta.url),'utf8').replace(/\r\n/g,'\n');const add=read('enroll-add');
+ assert.ok(add.includes('- tapOn: ${MAESTRO_JUST_ME}\n- extendedWaitUntil:\n    visible: ${MAESTRO_MONTH_TITLE}\n    timeout: 30000\n- tapOn:\n    id: native-nav-manage\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- extendedWaitUntil:\n    visible:\n      id: native-personal-title\n      text: ${MAESTRO_PERSONAL_TITLE}\n    timeout: 30000\n- scrollUntilVisible:\n    element: ${MAESTRO_ADD}\n    direction: DOWN\n- extendedWaitUntil:\n    visible: ${MAESTRO_ADD}\n    timeout: 30000\n- tapOn: ${MAESTRO_ADD}'));
+ const originalAdd=add.slice(0,add.indexOf('- takeScreenshot: accepted-add'));assert.equal(originalAdd.split('- tapOn:\n    id: native-nav-manage').length-1,1);assert.equal(add.slice(originalAdd.length).split('- tapOn:\n    id: native-nav-profile').length-1,1);assert.ok(add.includes('id: native-personal-title\n    text: ${MAESTRO_PROFILE_TITLE}'));
+ assert.equal(read('save-header'),'appId: se.subtrack.app\n---\n- scrollUntilVisible:\n    element:\n      id: native-personal-title\n    direction: UP\n- assertVisible:\n    id: native-personal-title\n    text: ${MAESTRO_PERSONAL_TITLE}\n');
+});
+
+test('after create feedback at the exact header, persisted row below it is searched DOWN with original amount acceptance',()=>{
+ const flow=readFileSync(new URL('../e2e/private-runtime-enroll-add.yaml',import.meta.url),'utf8').replace(/\r\n/g,'\n');assert.ok(flow.includes('text: ${MAESTRO_PERSONAL_TITLE}\n- extendedWaitUntil:\n    visible: ${MAESTRO_SAVED}\n    timeout: 30000\n- scrollUntilVisible:\n    element: Example streaming\n    direction: DOWN\n    centerElement: true\n- assertVisible: Example streaming\n- assertVisible: ${MAESTRO_EXPECTED_AMOUNT}\n- takeScreenshot: accepted-add'));assert.equal(flow.split('- tapOn: ${MAESTRO_ADD}').length-1,1);assert.equal(flow.split('- tapOn: ${MAESTRO_SAVE_SUBSCRIPTION}').length-1,1);
+});
+
+function childFixture({pid=24680,platform='darwin',throwSpawn=false,signalError=false}={}) {
+  const child=new EventEmitter();child.pid=pid;
+  const timers=[],signals=[],spawned=[];
+  const schedule=(action,ms)=>{const timer={action,ms,cancelled:false};timers.push(timer);return timer;};
+  const cancel=timer=>{if(timer)timer.cancelled=true;};
+  const ports={platform,parentPid:13579,schedule,cancel,spawn:(command,args,options)=>{
+    spawned.push({command,args,options});if(throwSpawn)throw Error('private-canary');return child;
+  },kill:(pid,signal)=>{signals.push([pid,signal]);if(signalError)throw Error('private-canary');}};
+  const result=runIdentifierProbe(['test','owned-flow.yaml'],{cwd:'owned',stdio:'ignore',env:{PUBLIC:'test'}},ports);
+  return {child,timers,signals,spawned,result,ports};
+}
+
+test('portable child port fixes invocation, owns successful spawn only and latches normal completion',async()=>{
+  const f=childFixture();assert.deepEqual(f.spawned,[{command:'maestro',args:['test','owned-flow.yaml'],options:{cwd:'owned',stdio:'ignore',env:{PUBLIC:'test'},detached:true}}]);
+  assert.equal(f.timers[0].ms,20000);f.child.emit('spawn');f.child.emit('close',0,null);assert.deepEqual(await f.result,{exitCode:0,timedOut:false});assert.ok(f.timers.every(t=>t.cancelled));
+  f.timers[0].action();f.child.emit('error',Error('private-canary'));assert.deepEqual(f.signals,[]);
+  for(const code of [null,-1,256,'private-canary']){const g=childFixture();g.child.emit('spawn');g.child.emit('close',code,'SIGTERM');assert.deepEqual(await g.result,{exitCode:-1,timedOut:false});assert.equal(probeResult({...await g.result,log:''}),'exit-other');}
+});
+
+test('spawn failures and invalid PID custody never send a signal',async()=>{
+  const thrown=childFixture({throwSpawn:true});assert.deepEqual(await thrown.result,{exitCode:null,timedOut:false});assert.deepEqual(thrown.signals,[]);
+  const failure=childFixture();failure.child.emit('error',Error('private-canary'));failure.child.emit('close',-1,null);failure.child.emit('spawn');assert.deepEqual(await failure.result,{exitCode:null,timedOut:false});assert.deepEqual(failure.signals,[]);
+  for(const pid of [undefined,NaN,1,0,-1,13579,1.5]){const f=childFixture({pid});if(pid===undefined)f.child.pid=undefined;f.child.emit('spawn');assert.deepEqual(await f.result,{exitCode:null,timedOut:false});f.timers[0].action();assert.deepEqual(f.signals,[]);assert.ok(f.timers[0].cancelled);}
+  const missing=childFixture();missing.child.emit('close',0,null);assert.deepEqual(await missing.result,{exitCode:null,timedOut:false});
+  const owned=childFixture();owned.child.emit('spawn');owned.child.emit('error',Error('private-canary'));assert.deepEqual(await owned.result,{exitCode:null,timedOut:false});assert.deepEqual(owned.signals,[[-24680,'SIGKILL']]);
+});
+
+test('timeout keeps POSIX group cleanup after leader close, then escalates exactly once at five seconds',async()=>{
+  const f=childFixture();f.child.emit('spawn');f.timers[0].action();assert.deepEqual(f.signals,[[-24680,'SIGTERM']]);assert.equal(f.timers[1].ms,5000);
+  let settled=false;void f.result.then(()=>{settled=true;});f.child.emit('close',0,null);f.child.emit('error',Error('private-canary'));await Promise.resolve();assert.equal(settled,false);assert.equal(f.timers[1].cancelled,false);
+  f.timers[1].action();assert.deepEqual(await f.result,{exitCode:0,timedOut:true});assert.deepEqual(f.signals,[[-24680,'SIGTERM'],[-24680,'SIGKILL']]);assert.ok(f.timers.every(t=>t.cancelled));f.timers[1].action();assert.equal(f.signals.length,2);assert.equal(probeResult({...await f.result,log:'private-canary'}),'timeout');
+  const open=childFixture({signalError:true});open.child.emit('spawn');open.timers[0].action();open.timers[1].action();assert.deepEqual(await open.result,{exitCode:-1,timedOut:true});assert.equal(open.signals.length,2);open.child.emit('close',1,null);
+  const notSpawned=childFixture();notSpawned.timers[0].action();notSpawned.child.emit('close',1,null);notSpawned.timers[1].action();assert.deepEqual(await notSpawned.result,{exitCode:1,timedOut:true});assert.deepEqual(notSpawned.signals,[]);
+});
+
+test('Windows uses only the captured positive child PID and clears cleanup on its terminal close',async()=>{
+  const f=childFixture({platform:'win32'});assert.equal(f.spawned[0].options.detached,false);f.child.emit('spawn');f.timers[0].action();f.child.emit('close',null,'SIGTERM');assert.deepEqual(await f.result,{exitCode:-1,timedOut:true});assert.deepEqual(f.signals,[[24680,'SIGTERM']]);f.timers[1].action();assert.equal(f.signals.length,1);
+  const child=new EventEmitter();child.pid=24680;const timers=[];const result=runIdentifierProbe([],{stdio:'ignore'},{platform:'win32',parentPid:13579,spawn:()=>child,kill:(_pid,signal)=>child.emit('close',null,signal),schedule:(action,ms)=>{const t={action,ms};timers.push(t);return t;},cancel:()=>{}});child.emit('spawn');timers[0].action();assert.deepEqual(await result,{exitCode:-1,timedOut:true});assert.equal(timers.length,1);
+  const raced=new EventEmitter();raced.pid=24680;const raceTimers=[],raceSignals=[];
+  const race=runIdentifierProbe([],{stdio:'ignore'},{platform:'win32',parentPid:13579,spawn:()=>raced,kill:(pid,signal)=>{raceSignals.push([pid,signal]);if(signal==='SIGKILL')raced.emit('close',9,null);},schedule:(action,ms)=>{const timer={action,ms};raceTimers.push(timer);return timer;},cancel:()=>{}});
+  raced.emit('spawn');raceTimers[0].action();raceTimers[1].action();assert.deepEqual(await race,{exitCode:9,timedOut:true});assert.deepEqual(raceSignals,[[24680,'SIGTERM'],[24680,'SIGKILL']]);
+
+});
+
+test('real Node spawn port reports actual process exit, missing executable and signal termination',async(t)=>{
+  const capture=[];
+  const adapt=(program,script)=>({spawn:(command,args,options)=>{capture.push([command,args,options.detached]);return realSpawn(program,script,options);}});
+  const done=await runIdentifierProbe(['test','owned'],{stdio:'ignore'},adapt(process.execPath,['-e','process.exit(7)']));assert.deepEqual(done,{exitCode:7,timedOut:false});assert.equal(capture[0][0],'maestro');assert.deepEqual(capture[0][1],['test','owned']);
+  assert.deepEqual(await runIdentifierProbe([],{stdio:'ignore'},adapt('subtrack-no-such-executable-private-probe',[])),{exitCode:null,timedOut:false});
+  const live=adapt(process.execPath,['-e','setInterval(()=>{},1000)']);const stopped=await runIdentifierProbe([],{stdio:'ignore'},{...live,schedule:(action,ms)=>setTimeout(action,ms===20000?100:25),cancel:clearTimeout});assert.equal(stopped.timedOut,true);assert.equal(probeResult({...stopped,log:''}),'timeout');
+  const child=new EventEmitter();child.pid=24680;
+  t.mock.method(childProcess,'spawn',()=>child);syncBuiltinESMExports();
+  try{const defaults=runIdentifierProbe([],{stdio:'ignore'});child.emit('spawn');child.emit('close',0,null);assert.deepEqual(await defaults,{exitCode:0,timedOut:false});}finally{t.mock.restoreAll();syncBuiltinESMExports();}
+});
+
+
+test('pre-input frame remains exact-source iOS authority, first-flow/zero-total gated and ciphertext-only upload',()=>{
+ const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');
+ const workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-native-device-proof.yml',import.meta.url),'utf8');
+ const expression=workflow.match(/ST253_CAPTURE_ENABLED: \$\{\{ (.+) \}\}/)?.[1];assert.ok(expression);
+ const enabled=(github,inputs={},platform='ios',scope='full')=>vm.runInNewContext(expression.replaceAll('needs.select-proof',"needs['select-proof']"),{github,inputs,matrix:{platform},needs:{'select-proof':{outputs:{scope}}}});
+ const pr={event_name:'pull_request',repository:'achkum/Applied-AI-Projects',event:{pull_request:{number:293,head:{repo:{full_name:'achkum/Applied-AI-Projects'},ref:'codex/native-owner-search'}}}};
+ assert.equal(enabled(pr),'true');assert.equal(enabled(pr,{},'android'),'false');
+ const integration={...pr,event:{pull_request:{number:292,head:{repo:{full_name:pr.repository},ref:'st/native-synthetic-bank'},base:{ref:'st/native-billing-month'}}}};
+ assert.equal(enabled(integration),'true');assert.equal(enabled(integration,{},'android'),'false');assert.equal(enabled(integration,{},'ios','profile'),'false');
+ for(const patch of [{number:291},{head:{...integration.event.pull_request.head,ref:'other'}},{head:{...integration.event.pull_request.head,repo:{full_name:'foreign/repo'}}},{base:{ref:'main'}}])assert.equal(enabled({...integration,event:{pull_request:{...integration.event.pull_request,...patch}}}),'false');
+ assert.equal(enabled({...integration,repository:'foreign/repo'}),'false');
+ const followup={...integration,event:{pull_request:{number:305,head:{repo:{full_name:pr.repository},ref:'codex/sweden-data-native-followup'},base:{ref:'st/native-synthetic-bank'}}}};
+ assert.equal(enabled(followup),'true');assert.equal(enabled(followup,{},'android'),'false');assert.equal(enabled(followup,{},'ios','profile'),'false');
+ for(const patch of [{number:0},{number:-1},{head:{...followup.event.pull_request.head,ref:'other'}},{head:{...followup.event.pull_request.head,repo:{full_name:'foreign/repo'}}},{base:{ref:'main'}}])assert.equal(enabled({...followup,event:{pull_request:{...followup.event.pull_request,...patch}}}),'false');
+ assert.equal(enabled({...followup,repository:'foreign/repo'}),'false');assert.equal(enabled({...followup,event_name:'pull_request_target'}),'false');
+ assert.ok(workflow.includes('ST253_CAPTURE_BASE_REF: ${{ github.event.pull_request.base.ref }}'));
+ const manual={event_name:'workflow_dispatch',repository:pr.repository,ref:'refs/heads/codex/ios-startup-fixes',sha:'ab'.repeat(20)};
+ const inputs={platform:'ios',proof_scope:'full',source_head:manual.sha};assert.equal(enabled(manual,inputs),'true');
+ for(const patch of [{platform:'android'},{proof_scope:'profile'},{source_head:'cd'.repeat(20)}])assert.equal(enabled(manual,{...inputs,...patch}),'false');
+ for(const patch of [{repository:'foreign/repository'},{ref:'refs/heads/main'},{sha:'cd'.repeat(20)}])assert.equal(enabled({...manual,...patch},inputs),'false');
+ assert.ok(workflow.includes('ST253_CAPTURE_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}'));assert.ok(workflow.includes('ref: ${{ github.event.pull_request.head.sha || github.sha }}'));
+ assert.ok(driver.includes("const captureContext=platform==='ios'?preinputCaptureContext(process.env,head):null"));assert.ok(driver.includes("currentPhase === 'flow-identifier' && captureContext && preinputMetadata"));assert.ok(driver.includes("label==='identifier'&&args.at(-1)===join(app,'e2e/private-runtime-identifier.yaml')"));assert.ok(driver.includes('observe:()=>harness.allApiObservation()'));
+ for(const command of ["['simctl','list','devices','booted','--json']","['simctl','get_app_container',udid,'se.subtrack.app','app']"])assert.ok(driver.includes(command));assert.ok(driver.includes('captureSealedOriginalPreinput('));assert.equal(driver.includes('captureIosFrame('),false);assert.ok(driver.includes('validIosAppContainer(installed,udid)'));assert.ok(driver.includes('verifyIosAppFiles(built,installed,checkApp,'));
+ const validation=workflow.slice(workflow.indexOf('- name: Validate sealed pre-input'),workflow.indexOf('- name: Owned fixture and debug server cleanup'));
+ assert.ok(validation.includes('validatedPreinputArtifact'));assert.ok(validation.includes("steps.sealed_preinput.outputs.ready == 'true'"));assert.ok(validation.includes('path: ${{ runner.temp }}/subtrack-native-proof/sealed/preinput-ios.st253sealed'));assert.equal(/path:.*(?:\*|\.png|private\/)/.test(validation),false);assert.ok(validation.includes('retention-days: 1'));
+ assert.equal(workflow.includes('pull_request_target'),false);assert.equal(driver.includes('await identifierProbes('),false);
+});
+
+
+test('encrypted frame failure projection is a fixed stage only after the capture helper settles and cleanup completes',()=>{
+ const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');const start=driver.indexOf("if (currentPhase === 'flow-identifier' && captureContext && preinputMetadata)");const end=driver.indexOf("if (currentPhase === 'flow-identifier')",start+1);const block=driver.slice(start,end);
+ assert.ok(block.includes("let sealed=false,withheldStage='CUSTODY'"));assert.ok(block.includes('if(PREINPUT_WITHHELD_STAGES.includes(value))withheldStage=value'));assert.ok(block.includes('onStage:captureStage'));assert.ok(block.includes("captureStage('CAPTURE');"));assert.equal(block.includes('captureIosFrame'),false);assert.ok(block.indexOf('await captureSealedOriginalPreinput')<block.indexOf('console.error(`ST244_NATIVE preinput_frame='));assert.ok(block.includes("preinput_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}"));assert.equal(/console\.(?:error|log)\([^`]/.test(block),false);
+ assert.equal(block.includes('frame_command_failure='),false);
+});
+
+
+test('ownership detail is fixed, withheld-only and emitted after cleanup; legacy text targets are explicitly unobserved',()=>{
+ const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');
+ assert.ok(driver.includes("if(!sealed&&withheldStage==='METADATA_OWNERSHIP')try{const check=preinputMetadata.ownershipCheck();if(PREINPUT_METADATA_CHECKS.includes(check))metadataCheck=check;}"));
+ assert.ok(driver.includes("let metadataCheck='UNKNOWN'"));assert.ok(driver.includes("withheldStage==='METADATA_OWNERSHIP'?` metadata_check=${metadataCheck}`:''"));
+ const originalCapture=driver.indexOf('await captureSealedOriginalPreinput');assert.ok(originalCapture>=0&&originalCapture<driver.indexOf("let metadataCheck='UNKNOWN'"));
+ assert.ok(driver.includes('identifier_diagnostic=fixed source=legacy-text target_observation=unobserved'));assert.ok(driver.includes("legacy_targets=${diagnostic.targets.join(',') || 'none'}"));
+});
+
+
+test('header occurrence shares the owned original metadata formatter and never uses the legacy log projection',()=>{
+ const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');const start=driver.indexOf("if (currentPhase === 'flow-enroll-add')");const block=driver.slice(start,driver.indexOf('let enrollmentLogSize',start));assert.ok(block.includes('const metadata=enrollmentMetadata?.read(currentPhase)'));assert.ok(block.includes('for(const line of enrollmentMetadataLines(metadata))'));assert.equal(block.includes('readTool'),false);assert.equal(block.includes('identifierToolDiagnostic'),false);
+});
+
+
+test('runtime passes the already validated installed platform to enrollment metadata custody',()=>{
+ const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');assert.ok(driver.includes('prepareEnrollmentMetadata(privateDir,execution,platform)'));assert.ok(driver.indexOf("assert.ok(platform === 'android' || platform === 'ios')")<driver.indexOf('prepareEnrollmentMetadata(privateDir,execution,platform)'));
+});
+
+
+test('actual driver child lifecycle defers only owned authorized Android enrollment until close, records before fd cleanup',async()=>{
+ const source=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8'),start=source.indexOf('  async function run('),end=source.indexOf("\n  markPhase('fixture-bundle');",start),block=source.slice(start,end);
+ for(const scenario of ['failure','error','throw','ordinary','success','signal','home','edit']){
+  const child=new EventEmitter(),records=[],events=[],owned={record:(...args)=>records.push(args)};
+  const ports={app:'/owned/app',privateDir:'/owned/private',platform:'android',androidContext:['ordinary','home','edit'].includes(scenario)?null:{},homeContext:scenario==='home'?{}:null,editContext:scenario==='edit'?{}:null,captureContext:null,join:(...parts)=>parts.join('/'),process:{env:{}},createEnrollmentExecution:()=>({record:(...args)=>events.push(args)}),prepareAndroidEntryMetadata:()=>owned,prepareAndroidHomeMetadata:()=>owned,prepareAndroidEditMetadata:()=>owned,prepareEnrollmentMetadata:()=>({}),preparePreinputMetadata:()=>null,openSync:()=>17,closeSync:fd=>events.push(['fd-close',fd]),spawn:()=>{if(scenario==='throw')throw Error('private tool');return child;}};
+  const make=new Function('ports',`const {app,privateDir,platform,androidContext,homeContext,editContext,captureContext,join,process,createEnrollmentExecution,prepareAndroidEntryMetadata,prepareAndroidHomeMetadata,prepareAndroidEditMetadata,prepareEnrollmentMetadata,preparePreinputMetadata,openSync,closeSync,spawn}=ports;let enrollmentExecution=null,enrollmentMetadata=null,androidMetadata=null,preinputMetadata=null,editMetadata=null;${block};return run;`),run=make(ports);
+  let settled=false;const label=scenario==='edit'?'edit-status':'enroll-add',pending=run('maestro',['test',`/owned/app/e2e/private-runtime-${label}.yaml`],label).then(()=>{settled=true;return 'ok';},()=>{settled=true;return 'failed';});
+  if(scenario==='throw'){assert.equal(await pending,'failed');assert.deepEqual(records,[['error']]);continue;}
+  if(scenario==='error'){child.emit('error',Error('private tool'));assert.equal(await pending,'failed');assert.deepEqual(records,[['error']]);child.emit('exit',1,null);child.emit('close',1,null);continue;}
+  const code=scenario==='success'?0:1,signal=scenario==='signal'?'SIGTERM':null;child.emit('exit',code,signal);await Promise.resolve();await Promise.resolve();assert.equal(settled,scenario==='ordinary');assert.equal(events.some(event=>event[0]==='fd-close'),scenario==='ordinary');
+  child.emit('close',code,signal);assert.equal(await pending,scenario==='success'?'ok':'failed');if(scenario!=='ordinary')assert.deepEqual(records,[['exit',code,signal],['close',code,signal]]);if(scenario!=='ordinary')assert.deepEqual(events.at(-1),['fd-close',17]);else assert.ok(events.some(event=>event[0]==='fd-close')); 
+ }
+ assert.equal(typeof prepareAndroidEntryMetadata,'function');
+});
+
+test('Android frame is separate exact PR293 authority, original terminal metadata and private sealed-only artifact',()=>{
+ const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8'),workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-native-device-proof.yml',import.meta.url),'utf8');
+ assert.ok(workflow.includes("ST253_ANDROID_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 293"));assert.ok(driver.includes("platform==='android'?androidCaptureContext(process.env,head):null"));
+ assert.ok(driver.indexOf('recordAndroidApp(privateDir,androidContext,measureAndroid())')<driver.indexOf("await flow('identifier')"));assert.ok(driver.includes('reader:androidMetadata,metadata,measure:measureAndroid'));assert.ok(driver.includes('receipt:await harness.readbackReceipt(),manual:harness.manualSaveObservation()'));assert.ok(driver.indexOf('await captureSealedAndroidEntry')<driver.indexOf('const manualBefore = harness.manualSaveObservation()'));
+ assert.ok(driver.includes("['-s','emulator-5554','exec-out','screencap','-p']"));assert.ok(driver.includes("writeFileSync(file,png,{flag:'wx',mode:0o600})"));assert.ok(driver.includes('finally{png.fill(0);}'));
+ const upload=workflow.slice(workflow.indexOf('- name: Validate separate sealed Android'),workflow.indexOf('- name: Owned fixture and debug server cleanup'));assert.ok(upload.includes('validatedAndroidArtifact'));assert.ok(upload.includes("steps.sealed_android.outputs.ready == 'true'"));assert.ok(upload.includes('path: ${{ runner.temp }}/subtrack-native-proof/sealed-android/entry-header.st253sealed'));assert.ok(upload.includes('retention-days: 1'));assert.equal(/path:.*(?:\*|\.png|private\/)/.test(upload),false);
+});
+
+test('restart diagnostic reads only the current original flow log and projects fixed categories',()=>{
+ const source=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');
+ assert.ok(source.includes("if(['flow-restart','flow-edit-status','flow-edit-status-api-restart'].includes(currentPhase))"));
+ assert.ok(source.includes("restart:readOwned(`${currentPhase.slice(5)}.log`),metro:readOwned('metro.log')"));
+ assert.ok(source.includes("restart_diagnostic=fixed commands=${diagnostic.commands.join(',')"));
 });

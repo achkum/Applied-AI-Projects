@@ -1,0 +1,3 @@
+# Detection setup diagnostic platform source review
+
+2026-10-14 root independent PLATFORM SOURCE GO for exactfourhashes in detection-setup-diagnostic-source-handoff.md; separateprivacyallfourGO. Root inspected actualpurehelper/pairrecognizer and four-call binding, integrationpreservation and anchoredshell roster. OnlyinitialHTTPstatusmismatch emits closedstep and derivedexpected/finiteactualorOTHER; cache/DTO/assertions remain unchanged, laterlogin/restart phases keep originalguards. No errorbody/keys/resources/SQLvalues, rawstatuses or privateclasses disclosed. Existingcleanup/order/baseline/clock/receipts retained. Focused6tests/types/lint/Bashpass. One causalactualnewheadrun required; noactualoperation inferred until that runs.

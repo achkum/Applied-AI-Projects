@@ -1,0 +1,88 @@
+import React from 'react';
+import {AccessibilityInfo,Keyboard,Modal,Platform,TextInput} from 'react-native';
+import {act,fireEvent,render,screen} from '@testing-library/react-native';
+import {NativeDatePicker} from './NativeDatePicker';
+import {catalogs} from '@subtrack/i18n';
+const mockLocale:{value:'en'|'sv'}={value:'en'};
+jest.mock('@/context/ThemeContext',()=>({useTheme:()=>jest.requireActual('../signature/testUtils/contextMocks').makeTheme(false)}));
+jest.mock('@/context/I18nContext',()=>({useI18n:()=>jest.requireActual('../signature/testUtils/contextMocks').makeI18n(mockLocale.value)}));
+beforeEach(()=>{mockLocale.value='en';});
+it.each([['en','12 February 2024'],['sv','12 februari 2024']] as const)('announces the actual selected date and cleared optional state in %s without changing visible date text', (locale,spoken)=>{
+ mockLocale.value=locale;
+ function Field(){const [value,setValue]=React.useState('2024-02-12');return <NativeDatePicker label="Renewal" value={value} onChange={setValue}/>;}
+ render(<Field/>);
+ expect(screen.getByRole('button',{name:'Renewal'}).props.accessibilityValue).toEqual({text:spoken});
+ expect(screen.getByText('2024-02-12')).toBeTruthy();
+ fireEvent.press(screen.getByRole('button',{name:'Renewal'}));fireEvent.press(screen.getByRole('button',{name:catalogs[locale].onboarding.datePicker.clear}));
+ expect(screen.getByRole('button',{name:'Renewal'}).props.accessibilityValue).toEqual({text:catalogs[locale].onboarding.datePicker.clear});
+ expect(screen.getByText(catalogs[locale].onboarding.datePicker.choose)).toBeTruthy();
+});
+it('announces the choose state for an empty required date',()=>{
+ render(<NativeDatePicker label="Renewal" value="" onChange={jest.fn()} optional={false}/>);
+ expect(screen.getByRole('button',{name:'Renewal'}).props.accessibilityValue).toEqual({text:catalogs.en.onboarding.datePicker.choose});
+});
+it('dismisses the date sheet from its backdrop or accessibility escape without changing the selection',()=>{
+ const change=jest.fn();render(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={change}/>);
+ const open=()=>fireEvent.press(screen.getByRole('button',{name:'Renewal'}));
+ open();fireEvent.press(screen.getByTestId('native-date-picker-scrim',{includeHiddenElements:true}));
+ expect(screen.queryByRole('button',{name:'2026-10-18'})).toBeNull();expect(change).not.toHaveBeenCalled();
+ open();const selected=screen.getByTestId('native-date-2026-10-17');expect(selected.props.accessibilityState.selected).toBe(true);
+ let sheet=selected.parent;while(sheet&&!sheet.props.accessibilityViewIsModal)sheet=sheet.parent;
+ expect(sheet).not.toBeNull();fireEvent(sheet!,'accessibilityEscape');
+ expect(screen.queryByRole('button',{name:'2026-10-18'})).toBeNull();expect(change).not.toHaveBeenCalled();
+ expect(screen.getByRole('button',{name:'Renewal'}).props.accessibilityValue.text).toContain('17');
+});
+it('opens the same exact-date calendar from an accessible compact month-heading trigger',()=>{
+ const change=jest.fn();render(<NativeDatePicker label="Choose date" value="2026-10-17" onChange={change} compact compactLabel="October 2026" testID="native-home-calendar"/>);
+ const trigger=screen.getByRole('button',{name:'October 2026'});expect(trigger.props.accessibilityHint).toBe('Choose date');expect(screen.getByTestId('native-home-calendar')).toBeTruthy();fireEvent.press(trigger);fireEvent.press(screen.getByTestId('native-date-2026-10-18'));expect(change).toHaveBeenCalledWith('2026-10-18');expect(screen.queryByTestId('native-date-2026-10-18')).toBeNull();
+});
+it('dismisses the focused keyboard before opening the calendar modal',()=>{
+ const dismiss=jest.spyOn(Keyboard,'dismiss').mockImplementation(()=>{expect(screen.queryByTestId('native-date-2026-10-17')).toBeNull();});
+ try{render(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={jest.fn()}/>);fireEvent.press(screen.getByRole('button',{name:'Renewal'}));expect(dismiss).toHaveBeenCalledTimes(1);expect(screen.getByTestId('native-date-2026-10-17')).toBeTruthy();}finally{dismiss.mockRestore();}
+});
+it('selects actual leap-day without exposing a free-form date input',()=>{
+ const change=jest.fn();render(<NativeDatePicker label="Renewal" value="2024-02-12" onChange={change}/>);
+ expect(screen.UNSAFE_queryByType(TextInput)).toBeNull();fireEvent.press(screen.getByRole('button',{name:'Renewal'}));
+ expect(screen.getByRole('button',{name:'2024-02-29'})).toBeTruthy();expect(screen.queryByRole('button',{name:'2024-02-30'})).toBeNull();
+ expect(screen.getByTestId('native-date-picker-month').props.children).toBe('February 2024');
+ fireEvent.press(screen.getByRole('button',{name:'2024-02-29'}));expect(change).toHaveBeenCalledWith('2024-02-29');
+ expect(screen.queryByRole('button',{name:'2024-02-29'})).toBeNull();
+});
+it('navigates month boundaries and clears an optional date explicitly',()=>{
+ const change=jest.fn();render(<NativeDatePicker label="Renewal" value="2026-12-12" onChange={change}/>);
+ fireEvent.press(screen.getByRole('button',{name:'Renewal'}));fireEvent.press(screen.getByRole('button',{name:catalogs.en.onboarding.billingMonth.next}));
+ expect(screen.getByRole('button',{name:'2027-01-01'})).toBeTruthy();fireEvent.press(screen.getByRole('button',{name:catalogs.en.onboarding.datePicker.clear}));expect(change).toHaveBeenCalledWith('');
+});
+it('does not open or mutate when disabled',()=>{
+ const dismiss=jest.spyOn(Keyboard,'dismiss').mockImplementation(()=>{});
+ try{const change=jest.fn();render(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={change} disabled/>);
+ fireEvent.press(screen.getByRole('button',{name:'Renewal'}));expect(screen.queryByRole('button',{name:'2026-10-18'})).toBeNull();expect(change).not.toHaveBeenCalled();expect(dismiss).not.toHaveBeenCalled();}finally{dismiss.mockRestore();}
+});
+
+it('moves VoiceOver into the shown calendar and restores its trigger only after iOS dismissal',()=>{
+ const os=jest.replaceProperty(Platform,'OS','ios'),native=jest.requireActual<typeof import('react-native')>('react-native');
+ const node=jest.spyOn(native,'findNodeHandle').mockReturnValue(42),focus=jest.spyOn(AccessibilityInfo,'setAccessibilityFocus').mockImplementation(()=>{});
+ try{
+  const change=jest.fn();render(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={change}/>);
+  fireEvent.press(screen.getByRole('button',{name:'Renewal'}));
+  act(()=>screen.UNSAFE_getByType(Modal).props.onShow());expect(focus).toHaveBeenCalledWith(42);focus.mockClear();
+  fireEvent.press(screen.getByRole('button',{name:'2026-10-18'}));expect(change).toHaveBeenCalledWith('2026-10-18');
+  expect(focus).not.toHaveBeenCalled();expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false);
+  act(()=>screen.UNSAFE_getByType(Modal).props.onDismiss());expect(focus).toHaveBeenCalledWith(42);focus.mockClear();
+  act(()=>screen.UNSAFE_getByType(Modal).props.onDismiss());expect(focus).not.toHaveBeenCalled();
+ }finally{os.restore();node.mockRestore();focus.mockRestore();}
+});
+
+it('does not send delayed calendar focus to a disabled trigger or a reopened sheet',()=>{
+ const os=jest.replaceProperty(Platform,'OS','ios'),native=jest.requireActual<typeof import('react-native')>('react-native');
+ const node=jest.spyOn(native,'findNodeHandle').mockReturnValue(42),focus=jest.spyOn(AccessibilityInfo,'setAccessibilityFocus').mockImplementation(()=>{});
+ try{
+  const view=render(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={jest.fn()}/>);
+  fireEvent.press(screen.getByRole('button',{name:'Renewal'}));fireEvent.press(screen.getByRole('button',{name:catalogs.en.actions.close}));
+  view.rerender(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={jest.fn()} disabled/>);
+  act(()=>screen.UNSAFE_getByType(Modal).props.onDismiss());act(()=>screen.UNSAFE_getByType(Modal).props.onShow());expect(focus).not.toHaveBeenCalled();
+  view.rerender(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={jest.fn()}/>);
+  fireEvent.press(screen.getByRole('button',{name:'Renewal'}));fireEvent.press(screen.getByRole('button',{name:catalogs.en.actions.close}));fireEvent.press(screen.getByRole('button',{name:'Renewal'}));
+  act(()=>screen.UNSAFE_getByType(Modal).props.onDismiss());expect(focus).not.toHaveBeenCalled();expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(true);
+ }finally{os.restore();node.mockRestore();focus.mockRestore();}
+});

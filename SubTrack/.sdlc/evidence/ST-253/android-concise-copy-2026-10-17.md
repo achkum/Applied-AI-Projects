@@ -1,0 +1,9 @@
+# Android concise copy and session controls — 2026-10-17
+
+The founder identified excessive explanatory copy throughout the app and an installed signed-out screen which still displayed Log out. This batch removes repeated signup/profile introductions, restart/database prose, the contact-method instruction, OTP introduction, and tracking tutorial. All currently supported shared production/sandbox product screens use concise labels and action feedback. English and Swedish copy are updated together. Simulator identification and destructive bank-data warnings remain explicit and brief.
+
+Manage, Bank and Review now offer Log out only during an active session, Cancel verification during verification, and Clear session for a storage failure. Signed-out Month/Upcoming screens hide private navigation/calendar controls. Bank retained-data status is shown only for revoked connections. Existing private-state invalidation, abort/generation guards, mutation/readback, money handling and backend data are preserved.
+
+Local validation: all 151 affected screen/route tests pass after updating the four obsolete expectations; 10 new session-exit cases pass. Five affected bank/review logout tests passed after adding explicit assertions that logout, demo text and protected navigation disappear. Seven existing flow/restart consumer checks pass. Mobile typecheck, scoped ESLint and en/sv nested key/shape/placeholder parity pass. No tests were disabled. Eleven installed flows retain their existing confirmation/readback assertions and additionally require Log out to be absent after confirmed logout.
+
+Installed Android validation of this batch is pending; the previous full proof at 3bc8ae65 predates these UX changes. One consolidated Android-only proof will validate this candidate. No APK is represented as corrected before installed validation and the applicable independent review/signing gates.

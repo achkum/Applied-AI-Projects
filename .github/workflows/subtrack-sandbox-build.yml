@@ -1,0 +1,102 @@
+name: SubTrack sandbox iPhone policy and manual unsigned archive
+on:
+  workflow_dispatch:
+    inputs:
+      source_head:
+        description: Exact reviewed source commit matching the dispatch ref
+        required: true
+        type: string
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - .github/workflows/subtrack-sandbox-build.yml
+      - SubTrack/tools/sandbox/build-ios.sh
+      - SubTrack/apps/mobile/**
+      - SubTrack/packages/**
+      - SubTrack/package.json
+      - SubTrack/pnpm-lock.yaml
+      - SubTrack/pnpm-workspace.yaml
+      - SubTrack/.npmrc
+      - SubTrack/tsconfig.base.json
+permissions:
+  contents: read
+concurrency:
+  group: subtrack-sandbox-unsigned-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ios-archive-policy:
+    name: iPhone configuration and archive recipe policy
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: SubTrack
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.14.0"
+      - name: Locked configuration dependencies
+        run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = "12.6.0"
+          pnpm install --frozen-lockfile
+      - name: Actual Expo configuration, iOS intent and archive recipe policy
+        run: |
+          bash -n tools/sandbox/build-ios.sh
+          node --test apps/mobile/scripts/sandbox-app-config-test.mjs apps/mobile/scripts/private-runtime-native-resolve-test.mjs apps/mobile/scripts/sandbox-ios-build-intent-test.mjs apps/mobile/scripts/sandbox-ios-ci-policy-test.mjs
+      # Policy does not compile an archive, sign or qualify installed runtime.
+      # Actual installed iOS simulator compilation remains in subtrack-native-device-proof.yml.
+  unsigned-ios:
+    name: Manual unsigned iPhone archive preparation
+    if: github.event_name == 'workflow_dispatch'
+    # Standard public-repository runner: no larger/paid/EAS service.
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: SubTrack
+    env:
+      CI: "true"
+      EXPO_NO_TELEMETRY: "1"
+      SUBTRACK_APP_VARIANT: sandbox
+      SUBTRACK_SANDBOX_HTTPS_ORIGIN: https://198.44.116.159
+    steps:
+      - name: Require the exact reviewed manual source
+        working-directory: ${{ runner.temp }}
+        env:
+          ST_IOS_SOURCE: ${{ inputs.source_head }}
+        run: |
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REPOSITORY" = achkum/Applied-AI-Projects
+          [[ "$ST_IOS_SOURCE" =~ ^[a-f0-9]{40}$ ]]
+          test "$ST_IOS_SOURCE" = "$GITHUB_SHA"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.source_head }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.14.0"
+      - name: Frozen dependencies without signing secrets
+        run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = "12.6.0"
+          pnpm install --frozen-lockfile
+      - name: SDK54 config and guarded native template tests
+        run: |
+          node apps/mobile/scripts/sandbox-app-config-test.mjs
+          node apps/mobile/scripts/private-runtime-native-resolve-test.mjs
+      - name: Verify checked-out source before archive preparation
+        env:
+          ST_IOS_SOURCE: ${{ inputs.source_head }}
+        run: test "$(git rev-parse HEAD)" = "$ST_IOS_SOURCE"
+      - name: Release-mode unsigned archive only
+        run: bash tools/sandbox/build-ios.sh unsigned-archive
+      # No IPA/archive/private-log artifact uploads, store operation or external credential access.

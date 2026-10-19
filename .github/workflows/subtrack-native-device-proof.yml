@@ -6,28 +6,145 @@ on:
       - "SubTrack/apps/api/**"
       - "SubTrack/packages/contracts/**"
       - "SubTrack/packages/i18n/**"
+      - "SubTrack/packages/money/**"
+      - "SubTrack/packages/domain/**"
+      - "SubTrack/packages/synthetic/**"
+      - "SubTrack/packages/ui-tokens/**"
+      - "SubTrack/packages/config/**"
+      - "SubTrack/package.json"
+      - "SubTrack/pnpm-lock.yaml"
+      - "SubTrack/pnpm-workspace.yaml"
       - "SubTrack/tools/database/private-mobile*"
       - ".github/workflows/subtrack-native-device-proof.yml"
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Installed proof platform (PRs retain both except approved PR297 Android acceptance)
+        type: choice
+        options: [android, ios, all]
+        default: android
+      proof_scope:
+        description: Profile feedback, complete qualification, or isolated iOS driver diagnostic
+        type: choice
+        options: [profile, full, ios-driver]
+        default: profile
+      signed_product:
+        description: Install the exact verified signed successor, without rebuilding
+        type: boolean
+        default: false
+      source_head:
+        type: string
+        default: ""
+      tooling_head:
+        type: string
+        default: ""
+      signed_release_id:
+        type: string
+        default: ""
+      signed_sha256:
+        type: string
+        default: ""
+      verification_run:
+        type: string
+        default: ""
 permissions:
   contents: read
 concurrency:
-  group: subtrack-native-device-${{ github.ref }}-${{ github.event.pull_request.head.sha || github.sha }}
+  group: subtrack-native-device-${{ github.event.pull_request.number || github.ref }}${{ github.event_name == 'workflow_dispatch' && format('-{0}', inputs.platform) || '' }}
   cancel-in-progress: true
 jobs:
+  final-signed-authority:
+    if: github.event_name == 'workflow_dispatch' && inputs.signed_product == true
+    runs-on: ubuntu-24.04
+    env:
+      ST_FINAL_SOURCE: ${{ inputs.source_head }}
+      ST_FINAL_TOOLING: ${{ inputs.tooling_head || github.sha }}
+      ST_FINAL_SCOPE: ${{ inputs.proof_scope }}
+    steps:
+      - name: Bind explicit install-only source authority
+        shell: bash
+        run: |
+          test "$GITHUB_REPOSITORY" = achkum/Applied-AI-Projects
+          test "$ST_FINAL_SCOPE" != ios-driver
+          test "$GITHUB_REF" = refs/heads/st/native-synthetic-bank
+          [[ "$ST_FINAL_SOURCE" =~ ^[a-f0-9]{40}$ ]]
+          test "$ST_FINAL_TOOLING" = "$GITHUB_SHA"
+          if test "$ST_FINAL_SOURCE" != "$GITHUB_SHA"; then
+            test "$ST_FINAL_SOURCE" = 81420b1faa8dae3143bd18653ac5cae383e8a9bc
+          fi
+  final-signed-product:
+    needs: final-signed-authority
+    if: github.event_name == 'workflow_dispatch' && inputs.signed_product == true
+    permissions:
+      contents: write
+      actions: read
+    # Same-commit reuse permits this registered entry point to invoke the new
+    # install-only workflow without a main-branch publication or second APK build.
+    # https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows
+    uses: ./.github/workflows/subtrack-sandbox-installed-android.yml
+    with:
+      source_head: ${{ inputs.source_head }}
+      tooling_head: ${{ inputs.tooling_head || github.sha }}
+      signed_release_id: ${{ inputs.signed_release_id }}
+      signed_sha256: ${{ inputs.signed_sha256 }}
+      verification_run: ${{ inputs.verification_run }}
+  select-proof:
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.signed_product == true) }}
+    name: Select affected native proof
+    runs-on: ubuntu-24.04
+    outputs:
+      scope: ${{ steps.select.outputs.scope }}
+      selection: ${{ steps.select.outputs.selection }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.14.0"
+      - id: select
+        env:
+          ST_PROOF_BASE: ${{ github.event.pull_request.base.sha }}
+          ST_PROOF_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          ST_PROOF_EVENT: ${{ github.event_name }}
+          ST_PROOF_REQUESTED: ${{ inputs.proof_scope }}
+          ST_PROOF_PLATFORM: ${{ inputs.platform }}
+          ST_PROOF_SOURCE: ${{ inputs.source_head }}
+        run: |
+          if [ "$ST_PROOF_EVENT" = pull_request ]; then
+            git fetch --no-tags --depth=1 origin "$ST_PROOF_BASE"
+            node SubTrack/apps/mobile/scripts/private-runtime-change-scope.mjs
+          else
+            case "$ST_PROOF_REQUESTED" in profile|full|ios-driver) ;; *) exit 1;; esac
+            if [ "$ST_PROOF_REQUESTED" = ios-driver ]; then
+              test "$ST_PROOF_EVENT" = workflow_dispatch
+              test "$ST_PROOF_PLATFORM" = ios
+            fi
+            if [ "$ST_PROOF_PLATFORM" = ios ]; then
+              [[ "$ST_PROOF_REQUESTED" == full || "$ST_PROOF_REQUESTED" == ios-driver ]]
+              test "$GITHUB_REPOSITORY" = achkum/Applied-AI-Projects
+              test "$GITHUB_REF" = refs/heads/codex/ios-startup-fixes
+              test "$ST_PROOF_SOURCE" = "$GITHUB_SHA"
+              test "$(git rev-parse HEAD)" = "$ST_PROOF_SOURCE"
+            fi
+            printf 'scope=%s\nselection=manual\n' "$ST_PROOF_REQUESTED" >> "$GITHUB_OUTPUT"
+          fi
   installed-native:
-    name: Installed ${{ matrix.platform }} restart readback
+    needs: select-proof
+    name: ${{ needs.select-proof.outputs.scope == 'ios-driver' && 'iOS driver diagnostic (no app build)' || needs.select-proof.outputs.scope == 'profile' && 'Android profile and restart (scoped)' || format('Installed {0} restart readback', matrix.platform) }}
     strategy:
       fail-fast: false
       max-parallel: 2
       matrix:
-        include:
-          - platform: android
-            runner: ubuntu-24.04
-            database_mode: docker
-          - platform: ios
-            runner: macos-14
-            database_mode: local
+        # Founder-approved Android-only acceptance for this exact same-repository PR.
+        # iOS remains unqualified; all other full PRs retain both installed targets.
+        # Controlled host comparison after ad83 CAPTURE/TERMINATED; no inferred app/timeout cause.
+        # macos-15 retains standard ARM64 M1/7GB and exact Xcode26.2/iOS26.2/iPhone17 (checked 2026-10-18):
+        # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md
+        # Related upstream screenshot report, not proof of this run: https://github.com/actions/runner-images/issues/13830
+        # https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.platform == 'ios' && '[{"platform":"ios","runner":"macos-15","database_mode":"local"}]' || (needs.select-proof.outputs.scope == 'profile' || github.event_name == 'workflow_dispatch' && inputs.platform == 'android' || github.event_name == 'pull_request' && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.number == 297 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank') && '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"}]' || '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"},{"platform":"ios","runner":"macos-15","database_mode":"local"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     defaults:
@@ -35,10 +152,21 @@ jobs:
         shell: bash
         working-directory: SubTrack
     env:
+      SUBTRACK_NATIVE_PROOF_SCOPE: ${{ needs.select-proof.outputs.scope }}
+      SUBTRACK_NATIVE_PROOF_SELECTION: ${{ needs.select-proof.outputs.selection }}
       CI: "true"
       EXPO_NO_TELEMETRY: "1"
       MAESTRO_CLI_NO_ANALYTICS: "true"
       SUBTRACK_PRIVATE_DEVICE_PROOF: "true"
+      ST253_CAPTURE_ENABLED: ${{ matrix.platform == 'ios' && github.repository == 'achkum/Applied-AI-Projects' && (github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' || github.event_name == 'pull_request' && github.event.pull_request.number == 292 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'st/native-synthetic-bank' && github.event.pull_request.base.ref == 'st/native-billing-month' && needs.select-proof.outputs.scope == 'full' || github.event_name == 'pull_request' && github.event.pull_request.number > 0 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/sweden-data-native-followup' && github.event.pull_request.base.ref == 'st/native-synthetic-bank' && needs.select-proof.outputs.scope == 'full' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/ios-startup-fixes' && inputs.platform == 'ios' && (inputs.proof_scope == 'full' || inputs.proof_scope == 'ios-driver') && inputs.source_head == github.sha) && 'true' || 'false' }}
+      ST253_ANDROID_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' && 'true' || 'false' }}
+      ST253_ANDROID_HOME_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 297 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank' && 'true' || 'false' }}
+      ST253_ANDROID_EDIT_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 297 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank' && 'true' || 'false' }}
+      ST253_CAPTURE_PLATFORM: ${{ matrix.platform }}
+      ST253_CAPTURE_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+      ST253_CAPTURE_BASE_REF: ${{ github.event.pull_request.base.ref }}
+      ST253_CAPTURE_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      ST253_CAPTURE_DISPATCH_SOURCE: ${{ inputs.source_head }}
       EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC: "true"
       EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED: "true"
       EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL: https://localhost:3443
@@ -55,10 +183,26 @@ jobs:
           java-version: "17"
       - name: Locked dependencies and proof tools
         run: |
-          corepack enable
-          corepack pnpm install --frozen-lockfile
-          corepack pnpm --filter @subtrack/domain build:lifecycle
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = '12.6.0'
+          pnpm install --frozen-lockfile
+          pnpm --filter @subtrack/domain build:lifecycle
+          pnpm --filter @subtrack/domain build:bank
+          pnpm --filter @subtrack/domain build:detection
+          pnpm --filter @subtrack/synthetic build:bank
+          node --test apps/mobile/scripts/private-runtime-preconditions.test.mjs apps/mobile/scripts/private-runtime-proof-scope-test.mjs
           bash apps/mobile/scripts/private-runtime-tools.sh
+          node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-restart-ui.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-restart-ui-test.mjs
+          node --test apps/mobile/scripts/private-runtime-android-home-diagnostic-test.mjs apps/mobile/scripts/private-runtime-android-edit-diagnostic-test.mjs
+          node --test apps/mobile/scripts/native-text-host-test.mjs
+          node --test apps/mobile/scripts/private-runtime-platform-scope-test.mjs
+          node --test apps/mobile/scripts/private-runtime-ios-driver-only-test.mjs
+          node apps/mobile/scripts/private-runtime-amount-selector-test.mjs
+          node apps/mobile/scripts/private-runtime-pipeline-test.mjs
+          node --test apps/mobile/scripts/private-runtime-font-bundle-test.mjs apps/mobile/scripts/private-runtime-ios-font-bundle-test.mjs
+          node --test apps/mobile/scripts/private-runtime-maestro-device-test.mjs apps/mobile/scripts/private-runtime-ios-driver-seal-test.mjs apps/mobile/scripts/private-runtime-ios-driver-preflight-test.mjs apps/mobile/scripts/private-runtime-ios-driver-stack-test.mjs apps/mobile/scripts/private-runtime-ios-frame-capability-test.mjs
+          node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-ios-simulator-measurement.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-ios-simulator-measurement-test.mjs
+          node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-ios-app-custody.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-ios-app-custody-test.mjs
           node apps/mobile/scripts/private-runtime-ca-test.mjs
           node apps/mobile/scripts/private-runtime-loader-diagnostics-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-flow-policy.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-flow-policy-test.mjs
@@ -68,15 +212,16 @@ jobs:
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-identifier-diagnostic.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-identifier-diagnostic-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-identifier-probe.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-identifier-probe-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-save-probe.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-save-probe-test.mjs
-          corepack pnpm --filter @subtrack/api exec vitest run test/private-mobile-owned-fixture-observer.spec.ts --coverage --coverage.include=test/private-mobile-owned-fixture-observer.ts --coverage.thresholds.lines=100 --coverage.thresholds.statements=100 --coverage.thresholds.functions=100 --coverage.thresholds.branches=100
+          pnpm --filter @subtrack/api exec vitest run test/private-mobile-owned-fixture-observer.spec.ts test/private-mobile-detection-fixture.spec.ts --coverage --coverage.include=test/private-mobile-owned-fixture-observer.ts --coverage.thresholds.lines=100 --coverage.thresholds.statements=100 --coverage.thresholds.functions=100 --coverage.thresholds.branches=100
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-native-resolve.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-native-resolve-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-pods-fatal.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-pods-fatal-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-fatal-excerpt.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-fatal-excerpt-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-edit-status.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-edit-status-test.mjs
-          corepack pnpm --filter @subtrack/api exec vitest run test/private-mobile-tracking-receipt.spec.ts --coverage --coverage.include=test/private-mobile-tracking-receipt.ts --coverage.thresholds.lines=100 --coverage.thresholds.statements=100 --coverage.thresholds.functions=100 --coverage.thresholds.branches=100
+          pnpm --filter @subtrack/api exec vitest run test/private-mobile-tracking-receipt.spec.ts --coverage --coverage.include=test/private-mobile-tracking-receipt.ts --coverage.thresholds.lines=100 --coverage.thresholds.statements=100 --coverage.thresholds.functions=100 --coverage.thresholds.branches=100
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-renewals.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-renewals-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-billing-month.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-billing-month-test.mjs
-          corepack pnpm --filter @subtrack/api exec vitest run test/private-mobile-renewals-receipt.spec.ts --coverage --coverage.include=test/private-mobile-renewals-receipt.ts --coverage.thresholds.lines=100 --coverage.thresholds.statements=100 --coverage.thresholds.functions=100 --coverage.thresholds.branches=100
+          pnpm --filter @subtrack/api exec vitest run test/private-mobile-renewals-receipt.spec.ts --coverage --coverage.include=test/private-mobile-renewals-receipt.ts --coverage.thresholds.lines=100 --coverage.thresholds.statements=100 --coverage.thresholds.functions=100 --coverage.thresholds.branches=100
+          node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-bank.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-bank-test.mjs
           bash tools/database/private-mobile-descriptor.spec.sh
       - name: Android emulator verified shared-library prerequisite
         if: matrix.platform == 'android'
@@ -89,9 +234,27 @@ jobs:
         if: matrix.platform == 'android'
         run: bash apps/mobile/scripts/private-runtime-emulator.sh
       - name: Android SDK package installation (bounded)
+        id: android_sdk
         if: matrix.platform == 'android'
         run: |
           bash apps/mobile/scripts/private-runtime-android.sh sdk
+      - name: Restore public Android Gradle inputs and library tasks
+        id: android_gradle_cache
+        if: matrix.platform == 'android'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/*/transforms
+            ~/.gradle/caches/transforms-*
+            ~/.gradle/caches/build-cache-*
+            ~/.gradle/wrapper
+          # Prefix restores stay within the identical dependency/exclusion policy;
+          # iOS-only wrapper edits need not discard public Android library tasks.
+          # https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#cache-key-matching
+          key: subtrack-android-gradle-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}-${{ hashFiles('SubTrack/apps/mobile/scripts/private-runtime-build.sh') }}
+          restore-keys: |
+            subtrack-android-gradle-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}-
       - name: Android startup orchestration checks
         if: matrix.platform == 'android'
         run: node apps/mobile/scripts/private-runtime-android-test.mjs
@@ -103,36 +266,210 @@ jobs:
         run: |
           sudo setfacl -m "u:$(id -un):rw" /dev/kvm
           bash apps/mobile/scripts/private-runtime-android.sh boot
-      - name: iOS 17.5 / Xcode 15.4 simulator (Expo SDK51)
+      - name: iOS 26.2 / Xcode 26.2 simulator (Expo SDK54)
         if: matrix.platform == 'ios'
         run: |
-          test -d /Applications/Xcode_15.4.app
-          sudo xcode-select --switch /Applications/Xcode_15.4.app
-          test "$(xcodebuild -version | head -1)" = 'Xcode 15.4'
-          proof_udid="$(xcrun simctl create SubTrack-proof com.apple.CoreSimulator.SimDeviceType.iPhone-15 com.apple.CoreSimulator.SimRuntime.iOS-17-5)"
+          test -d /Applications/Xcode_26.2.app
+          sudo xcode-select --switch /Applications/Xcode_26.2.app
+          test "$(xcodebuild -version | head -1)" = 'Xcode 26.2'
+          proof_udid="$(xcrun simctl create SubTrack-proof com.apple.CoreSimulator.SimDeviceType.iPhone-17 com.apple.CoreSimulator.SimRuntime.iOS-26-2)"
           xcrun simctl boot "$proof_udid"
           xcrun simctl bootstatus "$proof_udid" -b
           printf 'SUBTRACK_SIMULATOR_UDID=%s\n' "$proof_udid" >> "$GITHUB_ENV"
-          brew install postgresql@16
-          printf '%s\n' "$(brew --prefix postgresql@16)/bin" >> "$GITHUB_PATH"
-      - name: Owned PostgreSQL16 and ephemeral TLS fixture
+          SUBTRACK_SIMULATOR_UDID="$proof_udid" NODE_ENV=development node --input-type=module <<'NODE'
+          import {mkdirSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {preinputCaptureContext,recordPreinputSimulator} from './apps/mobile/scripts/private-runtime-maestro-metadata.mjs';
+          const context=preinputCaptureContext(process.env,process.env.ST253_CAPTURE_SOURCE_HEAD);
+          if(context){const root=join(process.env.RUNNER_TEMP,'subtrack-native-proof','private');mkdirSync(root,{recursive:true,mode:0o700});recordPreinputSimulator(root,context);}
+          NODE
+      - name: Fresh owned iOS screenshot capability before fixture or compilation
+        if: github.event_name == 'workflow_dispatch' && matrix.platform == 'ios' && env.ST253_CAPTURE_ENABLED == 'true' && needs.select-proof.outputs.scope == 'ios-driver'
+        env:
+          NODE_ENV: development
         run: |
+          umask 077
+          node apps/mobile/scripts/private-runtime-ios-frame-capability.mjs
+      - name: Owned iOS driver readiness before native compilation
+        id: ios_driver_preflight
+        if: matrix.platform == 'ios'
+        env:
+          NODE_ENV: development
+        run: |
+          umask 077
+          node apps/mobile/scripts/private-runtime-ios-driver-preflight.mjs
+      - name: Owned PostgreSQL16 and ephemeral TLS fixture
+        if: needs.select-proof.outputs.scope != 'ios-driver'
+        run: |
+          if [ '${{ matrix.platform }}' = ios ]; then
+            brew install postgresql@16
+            postgres_bin="$(brew --prefix postgresql@16)/bin"
+            export PATH="$postgres_bin:$PATH"
+            printf '%s\n' "$postgres_bin" >> "$GITHUB_PATH"
+          fi
           fixture_ready="$(bash tools/database/private-mobile-proof.sh start --mode '${{ matrix.database_mode }}')"
           case "$fixture_ready" in ST244_FIXTURE_READY\ config=/*) ;; *) exit 1 ;; esac
           config_path="${fixture_ready#ST244_FIXTURE_READY config=}"
           printf 'SUBTRACK_PRIVATE_FIXTURE_CONFIG=%s\n' "$config_path" >> "$GITHUB_ENV"
       - name: Installed workflow, API restart, same database row and logout
+        id: installed_proof
+        if: needs.select-proof.outputs.scope != 'ios-driver'
         env:
           NODE_ENV: development
-        run: node apps/mobile/scripts/private-runtime-device.mjs '${{ matrix.platform }}'
+        run: |
+          umask 077
+          node apps/mobile/scripts/private-runtime-device.mjs '${{ matrix.platform }}'
+      - name: Save public Android Gradle inputs and library tasks
+        if: always() && matrix.platform == 'android' && steps.installed_proof.outcome != 'skipped' && steps.android_gradle_cache.outcome == 'success' && steps.android_gradle_cache.outputs.cache-hit != 'true'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          let ready=false;
+          try {const state=JSON.parse(readFileSync(join(process.env.RUNNER_TEMP,'subtrack-native-proof/private/build-phase.json'),'utf8'));ready=state.phase==='metro'&&state.exitCode===0;}catch{}
+          if(ready)appendFileSync(process.env.GITHUB_ENV,'SUBTRACK_ANDROID_GRADLE_CACHE_READY=true\n');
+          NODE
+      - name: Persist verified public Android Gradle cache
+        if: always() && matrix.platform == 'android' && env.SUBTRACK_ANDROID_GRADLE_CACHE_READY == 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/*/transforms
+            ~/.gradle/caches/transforms-*
+            ~/.gradle/caches/build-cache-*
+            ~/.gradle/wrapper
+          key: ${{ steps.android_gradle_cache.outputs.cache-primary-key }}
       - name: Sanitized native evidence only
-        if: success()
+        if: success() && needs.select-proof.outputs.scope != 'ios-driver'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: st244-installed-${{ matrix.platform }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/subtrack-native-proof/public/
           if-no-files-found: error
           retention-days: 7
+      - name: Validate separate encrypted pre-app iOS tool diagnostic
+        id: sealed_ios_driver
+        if: failure() && steps.ios_driver_preflight.outcome == 'failure' && env.ST253_CAPTURE_ENABLED == 'true' && github.event_name == 'workflow_dispatch'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {execFileSync} from 'node:child_process';
+          import {preinputCaptureContext} from './apps/mobile/scripts/private-runtime-maestro-metadata.mjs';
+          import {validatedIosDriverArtifact} from './apps/mobile/scripts/private-runtime-ios-driver-preflight.mjs';
+          const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),context=preinputCaptureContext(process.env,head);
+          const ready=validatedIosDriverArtifact(join(process.env.RUNNER_TEMP,'subtrack-native-proof','private'),context);
+          appendFileSync(process.env.GITHUB_OUTPUT,`ready=${ready?'true':'false'}\n`);
+          NODE
+      - name: Recipient-encrypted pre-app iOS tool failure only
+        if: failure() && steps.sealed_ios_driver.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sealed-ios-driver-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/subtrack-native-proof/sealed/ios-driver-preflight.st253sealed
+          if-no-files-found: error
+          retention-days: 1
+      - name: Validate sealed pre-input diagnostic only
+        id: sealed_preinput
+        if: failure() && matrix.platform == 'ios' && env.ST253_CAPTURE_ENABLED == 'true'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {execFileSync} from 'node:child_process';
+          import {preinputCaptureContext,validatedPreinputArtifact} from './apps/mobile/scripts/private-runtime-maestro-metadata.mjs';
+          const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),context=preinputCaptureContext(process.env,head);
+          const ready=context&&validatedPreinputArtifact(join(process.env.RUNNER_TEMP,'subtrack-native-proof','private'),context);
+          appendFileSync(process.env.GITHUB_OUTPUT,`ready=${ready===true?'true':'false'}\n`);
+          NODE
+      - name: Recipient-encrypted pre-input diagnostic
+        if: failure() && steps.sealed_preinput.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sealed-ios-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/subtrack-native-proof/sealed/preinput-ios.st253sealed
+          if-no-files-found: error
+          retention-days: 1
+      - name: Validate separate sealed Android entry diagnostic only
+        id: sealed_android
+        if: failure() && matrix.platform == 'android' && env.ST253_ANDROID_CAPTURE_ENABLED == 'true'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {execFileSync} from 'node:child_process';
+          import {androidCaptureContext,validatedAndroidArtifact} from './apps/mobile/scripts/private-runtime-maestro-metadata.mjs';
+          const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),context=androidCaptureContext(process.env,head);
+          const ready=context&&validatedAndroidArtifact(join(process.env.RUNNER_TEMP,'subtrack-native-proof','private'),context);
+          appendFileSync(process.env.GITHUB_OUTPUT,`ready=${ready===true?'true':'false'}\n`);
+          NODE
+      - name: Recipient-encrypted synthetic Android entry diagnostic
+        if: failure() && steps.sealed_android.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sealed-android-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/subtrack-native-proof/sealed-android/entry-header.st253sealed
+          if-no-files-found: error
+          retention-days: 1
+      - name: Validate separate recipient-encrypted Home diagnostic
+        id: sealed_home
+        if: failure() && matrix.platform == 'android' && env.ST253_ANDROID_HOME_CAPTURE_ENABLED == 'true'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {execFileSync} from 'node:child_process';
+          import {homeCaptureContext,validatedHomeArtifact} from './apps/mobile/scripts/private-runtime-android-home-diagnostic.mjs';
+          const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),context=homeCaptureContext(process.env,head);
+          const ready=context&&validatedHomeArtifact(join(process.env.RUNNER_TEMP,'subtrack-native-proof','private'),context);
+          appendFileSync(process.env.GITHUB_OUTPUT,`ready=${ready===true?'true':'false'}\n`);
+          NODE
+      - name: Recipient-encrypted current synthetic Home failure only
+        if: failure() && steps.sealed_home.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sealed-home-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/subtrack-native-proof/sealed-android-home/home-assertion.st253sealed
+            ${{ runner.temp }}/subtrack-native-proof/sealed-android-home/home-diagnostic-receipt.json
+          if-no-files-found: error
+          retention-days: 1
+      - name: Validate separate recipient-encrypted Edit pre-Save diagnostic
+        id: sealed_edit
+        if: failure() && matrix.platform == 'android' && env.ST253_ANDROID_EDIT_CAPTURE_ENABLED == 'true'
+        env:
+          NODE_ENV: development
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          import {execFileSync} from 'node:child_process';
+          import {editCaptureContext,validatedEditArtifact} from './apps/mobile/scripts/private-runtime-android-edit-diagnostic.mjs';
+          const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),context=editCaptureContext(process.env,head);
+          const ready=context&&validatedEditArtifact(join(process.env.RUNNER_TEMP,'subtrack-native-proof','private'),context);
+          appendFileSync(process.env.GITHUB_OUTPUT,`ready=${ready===true?'true':'false'}\n`);
+          NODE
+      - name: Recipient-encrypted current synthetic Edit pre-Save failure only
+        if: failure() && steps.sealed_edit.outputs.ready == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: st253-sealed-edit-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/subtrack-native-proof/sealed-android-edit/edit-presave.st253sealed
+            ${{ runner.temp }}/subtrack-native-proof/sealed-android-edit/edit-diagnostic-receipt.json
+          if-no-files-found: error
+          retention-days: 1
       - name: Owned fixture and debug server cleanup
         if: always()
         run: |

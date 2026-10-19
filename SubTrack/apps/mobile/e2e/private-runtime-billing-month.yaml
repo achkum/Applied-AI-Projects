@@ -2,62 +2,66 @@ appId: se.subtrack.app
 ---
 - openLink: subtrack:///personal
 - extendedWaitUntil:
-    visible: ${MAESTRO_VERIFY_BANKID}
+    visible:
+      id: native-personal-login
     timeout: 30000
-- tapOn: ${MAESTRO_VERIFY_BANKID}
+- tapOn:
+    id: native-personal-login
 - extendedWaitUntil:
-    visible: Native restart proof
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
     timeout: 30000
 - scrollUntilVisible:
-    element: ${MAESTRO_MONTH_OPEN}
-    direction: UP
-- tapOn: ${MAESTRO_MONTH_OPEN}
+    element: Example streaming
+    direction: DOWN
+    centerElement: true
+- extendedWaitUntil:
+    visible: Example streaming
+    timeout: 30000
+- tapOn:
+    id: native-nav-month
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_TITLE}
     timeout: 30000
-# Wait for the single real saved row or a genuinely empty current local month.
-- extendedWaitUntil:
-    visible: "${MAESTRO_MONTH_DAY}|${MAESTRO_MONTH_EMPTY}"
-    timeout: 30000
-# UTC tomorrow can be in the adjacent local month. One ordinary navigation only.
-- runFlow:
-    when:
-      notVisible: ${MAESTRO_MONTH_DAY}
-    commands:
-      - tapOn: ${MAESTRO_MONTH_NEXT}
-- extendedWaitUntil:
-    visible: ${MAESTRO_MONTH_DAY}
-    timeout: 30000
-- tapOn: ${MAESTRO_MONTH_DAY}
-- assertVisible: ${MAESTRO_RENEWAL_DATE}
-- assertVisible: Native restart proof
+- runFlow: private-runtime-month-day.yaml
+- assertVisible: Example streaming
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}
+# Real Home pull-to-refresh; no mutation or replacement projection.
+# The page title can be the household name; its stable ID identifies the scroll top.
 - scrollUntilVisible:
-    element: ${MAESTRO_MONTH_REFRESH}
-    direction: DOWN
-- tapOn: ${MAESTRO_MONTH_REFRESH}
-- scrollUntilVisible:
-    element: ${MAESTRO_MONTH_DAY}
+    element:
+      id: native-home-title
     direction: UP
-- extendedWaitUntil:
-    visible: ${MAESTRO_MONTH_DAY}
-    timeout: 30000
-- tapOn: ${MAESTRO_MONTH_DAY}
-- assertVisible: ${MAESTRO_RENEWAL_DATE}
-- assertVisible: Native restart proof
+- swipe:
+    from:
+      id: native-month-scroll
+    direction: DOWN
+    duration: 700
+- runFlow: private-runtime-month-day.yaml
+- assertVisible: Example streaming
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}
-- tapOn: ${MAESTRO_MONTH_DETAIL}
+- tapOn:
+    id: native-month-detail-row
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_SAVED_DATE}
     timeout: 30000
-- assertVisible: Native restart proof
-- assertVisible: ${MAESTRO_MONTH_AMOUNT}
+- assertVisible: Example streaming
+- assertVisible: ${MAESTRO_MONTH_DETAIL_PRICE}
 - assertVisible: ${MAESTRO_MONTH_MANUAL}
 - takeScreenshot: accepted-billing-month-detail
 - scrollUntilVisible:
     element: ${MAESTRO_MONTH_CLOSE}
-    direction: DOWN
+    direction: UP
 - tapOn: ${MAESTRO_MONTH_CLOSE}
+- tapOn:
+    id: native-nav-manage
+- extendedWaitUntil:
+    visible:
+      id: native-personal-title
+      text: ${MAESTRO_PERSONAL_TITLE}
+    timeout: 30000
+- runFlow: private-runtime-open-profile.yaml
 - scrollUntilVisible:
     element: ${MAESTRO_LOGOUT}
     direction: DOWN
@@ -65,5 +69,6 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_LOGOUT_CONFIRMED}
     timeout: 30000
-- assertNotVisible: Native restart proof
+- assertNotVisible: ${MAESTRO_LOGOUT}
+- assertNotVisible: Example streaming
 - assertNotVisible: ${MAESTRO_MONTH_SAVED_DATE}

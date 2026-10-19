@@ -6,6 +6,7 @@ import themeData from '@subtrack/ui-tokens';
 import billingMonthTheme from '@subtrack/ui-tokens/billing-month';
 import { useTheme } from './ThemeContext';
 import { RootProvider } from '../providers/RootProvider';
+import {iosFontFamily} from '@/utils/iosFontFamilies';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(), setItem: jest.fn() }));
 jest.mock('@/context/I18nContext', () => ({ I18nProvider: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
@@ -29,10 +30,19 @@ describe('font fallback context integration', () => {
   it('uses bundled native Billing Month roles for existing ThemeProvider callers', async () => {
     const screen = render(<RootProvider><ThemeProbe /></RootProvider>);
     await act(async () => Promise.resolve());
-    expect(JSON.parse(screen.getByTestId('theme-probe').props.children).theme).toEqual(billingMonthTheme);
+    expect(JSON.parse(screen.getByTestId('theme-probe').props.children).theme).toEqual({...billingMonthTheme,typography:{...billingMonthTheme.typography,fontFamily:Object.fromEntries(Object.entries(billingMonthTheme.typography.fontFamily).map(([role,family])=>[role,iosFontFamily(family)]))}});
   });
   it('preserves web defaults and the established web fallback roles',async()=>{
     Object.defineProperty(Platform,'OS',{configurable:true,value:'web'});const first=render(<RootProvider><ThemeProbe/></RootProvider>);await act(async()=>Promise.resolve());expect(JSON.parse(first.getByTestId('theme-probe').props.children).theme).toEqual(themeData);first.unmount();
     const fallback=render(<RootProvider useSystemFonts systemFontFamily="sans-serif"><ThemeProbe/></RootProvider>);await act(async()=>Promise.resolve());const output=JSON.parse(fallback.getByTestId('theme-probe').props.children).theme;expect(output.color).toEqual(themeData.color);expect(output.typography.fontFamily).toEqual({...themeData.typography.fontFamily,ui:'sans-serif',display:'sans-serif'});
   });
+  it('uses Android asset basenames and preserves explicit system fallback',async()=>{
+    Object.defineProperty(Platform,'OS',{configurable:true,value:'android'});
+    const first=render(<RootProvider><ThemeProbe/></RootProvider>);await act(async()=>Promise.resolve());
+    const theme=JSON.parse(first.getByTestId('theme-probe').props.children).theme;
+    expect(theme.typography.fontFamily.ui).toBe('Geist-Regular');expect(theme.typography.fontFamily.display).toBe('BricolageGrotesque-Bold');expect(theme.color).toEqual(billingMonthTheme.color);first.unmount();
+    const second=render(<RootProvider useSystemFonts systemFontFamily="sans-serif"><ThemeProbe/></RootProvider>);await act(async()=>Promise.resolve());
+    expect(Object.values(JSON.parse(second.getByTestId('theme-probe').props.children).theme.typography.fontFamily).every(family=>family==='sans-serif')).toBe(true);
+  });
+
 });

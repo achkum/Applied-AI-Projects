@@ -122,7 +122,8 @@ test('manual wire is closed and default unavailable with exact success/error mat
  assert.equal(op['x-runtime-availability'],'unavailable-default');assert.deepEqual(Object.keys(op.responses),['201','400','401','403','409','500']);
  assert.equal(op.responses['201'].$ref,'#/components/responses/PrivateManualCreated');
  const schema=doc.components.schemas.PrivateManualCreate;assert.equal(schema.additionalProperties,false);
- assert.deepEqual(schema.required,['customName','categoryCode','cadence','expectedAmountMinor']);assert.equal(schema.properties.categoryCode.enum.length,22);
+ assert.deepEqual(schema.required,['customName','categoryCode','cadence','expectedAmountMinor']);assert.equal(schema.properties.categoryCode.oneOf[0].enum.length,22);
+ assert.equal(schema.properties.categoryCode.oneOf[1].pattern,'^CUSTOM:.+$');assert.equal(schema.properties.categoryCode.oneOf[1].maxLength,47);
  assert.deepEqual(doc.components.schemas.PrivateManualCreated.required,['id']);assert.deepEqual(Object.keys(doc.components.schemas.PrivateManualCreated.properties),['id']);
  assert.ok(doc.components.schemas.PrivateOwnerSubscriptionView.required.includes('source'));assert.ok(!doc.components.schemas.SubscriptionOwnerView.properties.source);
  }finally{rmSync(dir,{recursive:true,force:true});}

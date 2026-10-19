@@ -1,0 +1,3 @@
+# Actual detection qualification at49e7166
+
+2026-10-14 run38531316844/job115743631515 FAILURE, exacthead49e716667e0082081f13a690571a21702da89f94. Closed diagnostic: DETECTION_SETUP categoryASSERTION. Earlier parent and bank baseline awaits completed; detection setup failed outside its main phase catch. No accepted receipt/artifact. Do not infer exact HTTP operation or assertion operands from this enum; rawprivate logs remain ignored. Next causal diagnostic if needed must wrap actual setup login/connect/sync with bounded operation/status, rather than rerun unchangedhead. This separate detection stream does not block ST250 first-beta manual features.

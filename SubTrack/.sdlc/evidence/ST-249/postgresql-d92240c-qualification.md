@@ -1,0 +1,13 @@
+# ST249 actual PostgreSQL qualification at d92240c
+
+2026-10-14. Independent QA inspected newly completed [run38525363471](https://github.com/achkum/Applied-AI-Projects/actions/runs/38525363471), job115724347069, exact pushed head `d92240c22f6ca6d826f1556f2317f78436d69db1`. Run/job **FAILURE**, completed06:59:15UTC/06:59:14UTC. No SQL dispatch, source/Git change, native rerun or VPS operation by this reviewer.
+
+Actual compiled lifecycle/bank/detection/Synthetic runtime preparation, API type/source validation and local daemon descriptor custody steps succeeded. Actual owned PostgreSQL16 direct-TLS mobile behavior step failed. The upload step completed but the artifacts API returns an empty list: **no accepted ST249 receipt exists**. Neither detection behavior, final52 gates nor installed native acceptance is established.
+
+Job log was retrieved only into the ignored local private helper file; raw logs, identifiers, financial payloads and screenshots were not printed or attached. Whitelisted fixed output includes `ST244_FIXTURE_CLEANUP removed`, with exit1. No emitted `ST249_DETECTION_PROOF_FAILURE phase=...`, parent/bank stage receipt or bounded cause was present. This establishes owned cleanup output but does not establish which earlier behavior assertion failed. No cause is fabricated from elapsed time or absence of a phase line.
+
+Concrete diagnostic gap: qualifier catches only exact ST249 detection error text for output. Integration executes parent and bank before detection without wrapping those failures in a closed baseline-stage category. Non-ST249 failures or synchronous bundle/setup failure can therefore leave only exit1 after private log custody is removed. Before rerunning, add independently reviewed fixed stage/category output around actual baseline/bundle/load/integration execution; never expose Error.message, raw private logs, SQL rows or credentials. Existing assertions, actual baseline order and cleanup/receipt gates must remain intact.
+
+Independent strict receipt validation did not run because no receipt artifact exists. On a later successful exact-head run, validate9 scalar keys, all21 inherited+31 detection true gates, identity/profile/mode counts2, manual count1, bounded measured detected count2..100, exact head and cleanup='removed' through the source's closed projector. Successful artifact-upload step or fixture-unit tests cannot replace that evidence.
+
+Current outcome: source-reviewed ST249 remains runtime-unqualified. Next deliverable is a bounded causal diagnostic correction followed by one new exact-head genuine qualification, while independent sandbox development continues.

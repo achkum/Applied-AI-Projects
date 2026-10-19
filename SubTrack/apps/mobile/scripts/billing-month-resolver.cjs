@@ -6,14 +6,18 @@ function createNativeMoneyResolver({origin,target,previous}){
  return function nativeMoneyResolver(context,request,platform){
   const delegate=previous??context.resolveRequest;
   if(typeof delegate!=='function'||delegate===nativeMoneyResolver)throw new Error('Missing upstream Money resolver');
-  const scoped=(platform==='ios'||platform==='android')&&typeof context.originModulePath==='string'&&path.resolve(context.originModulePath)===origin&&request==='./formatter.js';
-  return delegate(context,scoped?target:request,platform);
+  const native=(platform==='ios'||platform==='android')&&typeof context.originModulePath==='string';
+  const importing=native?path.resolve(context.originModulePath):null;
+  const formatter=native&&importing===origin&&request==='./formatter.js';
+  const analytics=native&&request==='./money.js'&&['recurring-cost.ts','price-increase.ts'].some(file=>importing===path.join(path.dirname(origin),file));
+  return delegate(context,formatter?target:analytics?origin:request,platform);
  };
 }
 function createJestMoneyResolver({directory,target}){
  return function jestMoneyResolver(request,options){
-  // Jest exposes the importing directory, not an origin filename; this exact Money directory/specifier maps the same one dependency.
-  return options.defaultResolver(request==='./formatter.js'&&path.resolve(options.basedir)===directory?target:request,options);
+  // Jest exposes the importing directory; retain exact source/specifier mappings.
+  const scoped=path.resolve(options.basedir)===directory;
+  return options.defaultResolver(scoped&&request==='./formatter.js'?target:scoped&&request==='./money.js'?path.join(directory,'money.ts'):request,options);
  };
 }
 module.exports={createNativeMoneyResolver,createJestMoneyResolver};

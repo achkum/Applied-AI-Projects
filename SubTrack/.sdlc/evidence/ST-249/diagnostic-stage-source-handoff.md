@@ -1,0 +1,15 @@
+# ST249 stage-local closed diagnostic handoff
+
+2026-10-14, committed base `8a2e5860ca8c551c6fe8a03830ad30ca2e115588` plus two owned files. Source author only; independent privacy/platform source review precedes any new-head qualification. No API typecheck/dependency install during concurrent backend/native work; no Git, SQL, hosted dispatch, VPS mutation or raw log output.
+
+The actual8a2 run emitted UNKNOWN and removed owned private logs; its exact causal stage cannot be recovered. This patch wraps each existing awaited baseline call independently in unchanged order. Existing closed ST244/ST248/ST249 errors are preserved verbatim; otherwise the wrapper reports only fixed PARENT_SETUP/BANK_SETUP/DETECTION_SETUP and one finite category. Reuses actual reviewed privateBankFailureCategory for PostgreSQL/assertion/OTHER categories. Only actual Error own data-property code selects NODE_MODULE for MODULE_NOT_FOUND/ERR_MODULE_NOT_FOUND/ERR_REQUIRE_ESM/ERR_REQUIRE_ASYNC_MODULE, or ARGUMENT for ERR_INVALID_ARG_TYPE. Accessors/proxies/private messages/stacks are never output. Invalid stage value falls back UNKNOWN, not caller text. Finite helper remains in the already-owned integration file; no new source helper path.
+
+Qualifier now uses the integration's strict diagnostic predicate and separately wraps successful-proof JSON/write failure as stageRECEIPT. Synchronous bundle/config/module setup stays fixed SETUP; unexpected unwrapped async error stays fixed UNKNOWN. Shell grammar retains the old bank qualifier pattern byte-identically and adds only the finite stage/category roster. This does not change application authority, proof assertions, baseline order/count, receipt schema, artifact path or cleanup-first success publication. A false diagnostic success gate is impossible; every failure still sets exit1 and publishes no acceptance receipt.
+
+Actual isolated checks: compiled actual integration module in memory with finite failure-only proof ports; **92 cases PASS** covering all17 explicitly mapped Node/PG codes across four stages, unknown/accessor/proxy/null errors, preservation of existing closed labels, stage-specific short-circuit and exact three-baseline call order, actual extracted qualifier heredoc distinguishing receipt-write ARGUMENT from unknown integration rejection, and actual grep output accepting exact roster while dropping private suffixes/canary/unknown categories. Original bank helper is compiled/used unchanged. Test mocks are diagnostic-source checks, not SQL/product evidence. Bash syntax and scoped whitespace PASS. No new test/source file created and no unchanged suite repeated.
+
+Final SHA256:
+apps/api/test/private-mobile-detection.integration.ts 2f56dd0dd6c2f47884aad5c1e6ecbd2bb15a1de86a02a60c5a5bf7350079370f
+tools/database/private-mobile-detection-qualify.sh 39993ad2f95d1947143d8921befdf9702d77b0c8282472032901363465fa9256
+
+Diff29 insertions/6 deletions. Root curates/scans/pushes after source review and uses one new exact-head causal run. Do not rerun unchanged8a2 or report source diagnostics as actual detection acceptance. Short source-check slot released.

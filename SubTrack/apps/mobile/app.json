@@ -8,7 +8,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F7F4EE"
+      "backgroundColor": "#0D1214"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -20,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F7F4EE"
+        "backgroundColor": "#0D1214"
       },
       "package": "se.subtrack.app"
     },
@@ -30,8 +30,34 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-font",
+        {
+          "android": {
+            "fonts": [
+              "./assets/fonts/Geist-Regular.ttf",
+              "./assets/fonts/Geist-Medium.ttf",
+              "./assets/fonts/Geist-SemiBold.ttf",
+              "./assets/fonts/BricolageGrotesque-SemiBold.ttf",
+              "./assets/fonts/BricolageGrotesque-Bold.ttf",
+              "./assets/fonts/BricolageGrotesque-ExtraBold.ttf"
+            ]
+          },
+          "ios": {
+            "fonts": [
+              "./assets/fonts/Geist-Regular.ttf",
+              "./assets/fonts/Geist-Medium.ttf",
+              "./assets/fonts/Geist-SemiBold.ttf",
+              "./assets/fonts/BricolageGrotesque-SemiBold.ttf",
+              "./assets/fonts/BricolageGrotesque-Bold.ttf",
+              "./assets/fonts/BricolageGrotesque-ExtraBold.ttf"
+            ]
+          }
+        }
+      ],
       "./plugins/private-runtime-ca.cjs"
     ],
-    "scheme": "subtrack"
+    "scheme": "subtrack",
+    "newArchEnabled": false
   }
 }

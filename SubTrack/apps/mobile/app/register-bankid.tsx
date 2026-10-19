@@ -1,36 +1,37 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import { useI18n } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getColorByTheme } from '@/utils/colors';
-import { useEnrollment } from '@/state/EnrollmentFlow';
-import { useNativeSession } from '@/state/NativeSession';
+import {useOnboarding} from '@/state/OnboardingAdapter';
 
 export default function RegisterBankIdRoute() {
   const router = useRouter();
   const { t, locale } = useI18n();
   const { theme, isDark } = useTheme();
-  const { flow, reset } = useEnrollment();
-  const session = useNativeSession();
+  const session = useOnboarding();
+  const {flow,reset,provider}=session;
   const generation = useRef(0); const completed = useRef(false); const pending = useRef(false);
   const [error, setError] = useState(false);
   const color = (key: string) => getColorByTheme(theme, isDark, key);
   useEffect(() => {
     if (flow.phase !== 'bankid' && !completed.current) router.replace('/register');
   }, [flow.phase, router]);
-  useEffect(() => () => { generation.current++; if (pending.current) void session.logout().catch(() => undefined); }, []);
+  useEffect(() => () => { generation.current++; if (pending.current && provider==='production') void session.logout().catch(() => undefined); }, []);
   if (flow.phase !== 'bankid' && !error && !completed.current) return null;
   return (
-    <ScrollView
+    <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView
       style={{ backgroundColor: color('bg.canvas') }}
       contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
     >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('onboarding.registration.backLabel')}
         onPress={() => {
-          generation.current++; pending.current = false; void session.logout().catch(() => undefined);
+          generation.current++; pending.current = false; if(provider==='production')void session.logout().catch(() => undefined);
           reset();
           router.replace('/register');
         }}
@@ -72,34 +73,41 @@ export default function RegisterBankIdRoute() {
             fontSize: theme.typography.fontSize.md,
           }}
         >
-          {t('onboarding.nativePersonal.demo')}
+          {t(provider==='sandbox'?'onboarding.sandbox.simulatedBankId':'onboarding.nativePersonal.demo')}
         </Text>
         {error ? <Text accessibilityRole="alert" style={{ color: color('ink.primary') }}>{t('onboarding.nativePersonal.unavailable')}</Text> : null}
-        <Pressable accessibilityRole="button" disabled={session.phase === 'busy'}
+        <Pressable accessibilityRole="button" disabled={session.sessionPhase === 'busy' || pending.current}
           onPress={async () => {
             if (pending.current || flow.phase !== 'bankid' && !error) return;
             const ticket = ++generation.current; pending.current = true; setError(false);
             try {
-              if (error) await session.login();
-              else if (flow.phase === 'bankid') await session.complete(flow.proof, locale);
+              if (error && provider==='production') await session.login(locale);
+              else await session.complete(locale);
               if (ticket !== generation.current) return;
               pending.current = false; completed.current = true; reset(); router.replace('/personal');
-            } catch { if (ticket === generation.current) { pending.current = false; completed.current = true; reset(); setError(true); } }
-          }} style={styles.back}>
-          <Text style={{ color: color('ink.primary'), fontFamily: theme.typography.fontFamily.ui }}>{t('onboarding.nativePersonal.verify')}</Text>
+            } catch { if (ticket === generation.current) { pending.current = false; completed.current = provider==='production'; if(provider==='production')reset(); setError(true); } }
+          }} style={[styles.action,{backgroundColor:color(session.sessionPhase==='busy'||pending.current?'bg.sunken':'action.accent'),borderRadius:theme.radius.pill}]}>
+          <Text style={{ color: color(session.sessionPhase==='busy'||pending.current?'ink.secondary':'ink.on-accent'), fontFamily: theme.typography.fontFamily.ui }}>{t('onboarding.nativePersonal.verify')}</Text>
         </Pressable>
       </View>
-    </ScrollView>
+    </ScrollView></SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { flexGrow: 1, gap: 16, padding: 24 },
+  content: { flexGrow: 1, gap: 16, padding: 20 },
   back: {
     alignSelf: 'flex-start',
     minHeight: 48,
     justifyContent: 'center',
     paddingHorizontal: 8,
   },
-  card: { padding: 24 },
+  action: {
+    minHeight: 48,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  card: { padding: 20 },
 });

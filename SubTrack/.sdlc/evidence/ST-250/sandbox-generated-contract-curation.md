@@ -1,0 +1,3 @@
+# ST250 generated sandbox contract curation
+
+2026-10-14. Actual existing pinned openapi-ts0.99.0 generator reran from reviewed sandbox OpenAPI. Four substantive generated files only: index/sdk/types/zod; unrelated client/core/fixture EOL-only churn excluded. Root reviewed added five sandbox methods/schema references and closed Zod objects from unchanged generator config. Direct installed TypeScript5.9.3 compiler noemit on contracts tsconfig PASS. Initial package script failed missing contracts-local tsc shim; API-local compiler absent; used actual existing mobile compiler without changing dependencies. No failing command labelled pass. Source contracts/API policy tests and schema lint already passed; no unchanged repetition.

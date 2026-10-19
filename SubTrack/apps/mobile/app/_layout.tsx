@@ -1,12 +1,19 @@
+import {androidFontFamily} from '@/utils/androidFontFamilies';
+import {iosFontFamily} from '@/utils/iosFontFamilies';
 import React from 'react';
-import { Stack } from 'expo-router';
+import {observeStartupStage} from '@/utils/privateRuntimeEnrollmentDiagnostic';
+import { Stack, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
-import { Platform } from 'react-native';
+import { Platform, View, StatusBar } from 'react-native';
+import {useTheme} from '@/context/ThemeContext';
+import {ProductionOnboardingProvider,SandboxOnboardingProvider} from '@/state/OnboardingAdapter';
 import {SafeAreaProvider,initialWindowMetrics} from 'react-native-safe-area-context';
 import { RootProvider } from '@/providers/RootProvider';
 import { EnrollmentProvider } from '@/state/EnrollmentFlow';
 import { NativeSessionProvider } from '@/state/NativeSession';
+import { SandboxSessionProvider, sandboxBuildSelected, sandboxSessionAvailable } from '@/state/SandboxSession';
+
 import manropeFont from '../assets/fonts/Manrope-VF.ttf';
 import frauncesFont from '../assets/fonts/Fraunces-VF.ttf';
 
@@ -19,13 +26,30 @@ import bricolage800 from '../assets/fonts/BricolageGrotesque-ExtraBold.ttf';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
+/** Reject unsupported filesystem routes before their screen/Stack subtree mounts. */
+export function SandboxRouteBoundary({children}:{children:React.ReactNode}) {
+  const pathname=usePathname(),router=useRouter();
+  const allowed=['/','/welcome','/register','/register-otp','/register-bankid','/personal','/personal-home','/personal-billing-month','/personal-profile','/personal-privacy','/personal-help','/personal-bank','/personal-detections','/personal-household','/personal-insights','/personal-comparisons'].includes(pathname);
+  React.useEffect(()=>{if(!allowed)router.replace('/welcome');},[allowed,router]);
+  if(!allowed)return <View style={{flex:1}}/>;
+  return <>{children}</>;
+}
+
+function NativeStatusBar(){const {isDark}=useTheme();return <StatusBar barStyle={isDark?'light-content':'dark-content'}/>;}
+
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts(Platform.OS === 'android' || Platform.OS === 'ios' ? {Geist400:geist400,Geist500:geist500,Geist600:geist600,Bricolage600:bricolage600,Bricolage700:bricolage700,Bricolage800:bricolage800} : {Manrope:manropeFont,Fraunces:frauncesFont});
+  observeStartupStage('root-entered');
+  const [fontsLoaded, fontError] = useFonts(Platform.OS === 'android' || Platform.OS === 'ios' ? Object.fromEntries(Object.entries({Geist400:geist400,Geist500:geist500,Geist600:geist600,Bricolage600:bricolage600,Bricolage700:bricolage700,Bricolage800:bricolage800}).map(([alias,source])=>[Platform.OS === 'android' ? androidFontFamily(alias) : iosFontFamily(alias),source])) : {Manrope:manropeFont,Fraunces:frauncesFont});
   const ready = fontsLoaded || fontError != null;
 
   React.useEffect(() => {
-    if (ready) void SplashScreen.hideAsync().catch(() => undefined);
-  }, [ready]);
+    if (ready) {
+      // This records the existing ready-or-system-fallback gate, not custom font success.
+      observeStartupStage('fonts-ready');
+      observeStartupStage(fontError != null ? 'fonts-fallback' : 'fonts-loaded');
+      void SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [ready,fontError]);
 
   if (!ready) return null;
 
@@ -41,7 +65,9 @@ export default function RootLayout() {
       useSystemFonts={useSystemFonts}
       systemFontFamily={systemFontFamily}
     >
-      <NativeSessionProvider><EnrollmentProvider><Stack screenOptions={{ headerShown: false }}>
+      <NativeStatusBar/>{sandboxBuildSelected()?<SandboxSessionProvider available={sandboxSessionAvailable()}><SandboxOnboardingProvider><SandboxRouteBoundary><Stack screenOptions={{headerShown:false}}>
+        <Stack.Screen name="index"/><Stack.Screen name="welcome"/><Stack.Screen name="register"/><Stack.Screen name="register-otp"/><Stack.Screen name="register-bankid"/><Stack.Screen name="personal"/><Stack.Screen name="personal-home"/><Stack.Screen name="personal-billing-month"/><Stack.Screen name="personal-profile"/><Stack.Screen name="personal-privacy"/><Stack.Screen name="personal-help"/><Stack.Screen name="personal-bank"/><Stack.Screen name="personal-detections"/><Stack.Screen name="personal-household"/><Stack.Screen name="personal-insights"/><Stack.Screen name="personal-comparisons"/>
+      </Stack></SandboxRouteBoundary></SandboxOnboardingProvider></SandboxSessionProvider>:<NativeSessionProvider><EnrollmentProvider><ProductionOnboardingProvider><Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="welcome" />
         <Stack.Screen name="register" />
@@ -50,8 +76,14 @@ export default function RootLayout() {
         <Stack.Screen name="personal" />
         <Stack.Screen name="personal-home" />
         <Stack.Screen name="personal-billing-month" />
+        <Stack.Screen name="personal-profile" /><Stack.Screen name="personal-privacy" /><Stack.Screen name="personal-help" />
+        <Stack.Screen name="personal-bank" />
+        <Stack.Screen name="personal-detections" />
+        <Stack.Screen name="personal-household" />
+        <Stack.Screen name="personal-insights" />
+        <Stack.Screen name="personal-comparisons" />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack></EnrollmentProvider></NativeSessionProvider>
+      </Stack></ProductionOnboardingProvider></EnrollmentProvider></NativeSessionProvider>}
     </RootProvider></SafeAreaProvider>
   );
 }

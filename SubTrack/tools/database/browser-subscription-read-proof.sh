@@ -140,7 +140,7 @@ for attempt in {1..60}; do
 done
 [[ "$ready" == true ]] || exit 1
 phase=migration
-if ! (cd apps/api && DATABASE_URL="$owner_url" corepack pnpm exec prisma migrate deploy --schema=prisma/schema.prisma) >"$tmp/migrate.log" 2>&1; then exit 1; fi
+if ! (cd apps/api && DATABASE_URL="$owner_url" pnpm exec prisma migrate deploy --schema=prisma/schema.prisma) >"$tmp/migrate.log" 2>&1; then exit 1; fi
 phase=role
 printf "CREATE ROLE st221_runtime LOGIN INHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '%s';\nGRANT subtrack_runtime TO st221_runtime WITH INHERIT TRUE, SET FALSE;\n" "$reader_pass" > "$tmp/role.sql"
 docker exec -i "$cid" psql --username fixture_owner --dbname browser_subscription_read_proof \
@@ -155,10 +155,10 @@ openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 1 \
   -addext 'subjectAltName=IP:127.0.0.1' >"$tmp/tls.log" 2>&1
 chmod 600 "$tmp/tls.key" "$tmp/tls.crt"
 phase=build
-if ! (cd apps/api && corepack pnpm exec prisma generate --schema=prisma/schema.prisma) >"$tmp/generate.log" 2>&1; then exit 1; fi
-if ! (cd apps/api && corepack pnpm build) >"$tmp/build.log" 2>&1; then exit 1; fi
+if ! (cd apps/api && pnpm exec prisma generate --schema=prisma/schema.prisma) >"$tmp/generate.log" 2>&1; then exit 1; fi
+if ! (cd apps/api && pnpm build) >"$tmp/build.log" 2>&1; then exit 1; fi
 phase=launcher-coverage
-if ! (cd apps/api && corepack pnpm exec vitest run src/subscriptions/browser-subscription-read.local.spec.ts \
+if ! (cd apps/api && pnpm exec vitest run src/subscriptions/browser-subscription-read.local.spec.ts \
   --coverage --coverage.include=src/subscriptions/browser-subscription-read.local.ts \
   --coverage.reporter=json-summary --coverage.reportsDirectory="$tmp/coverage" \
   --coverage.thresholds.statements=80 --coverage.thresholds.branches=80 \
@@ -170,7 +170,7 @@ coverage=$(node -e 'const s=require("node:fs").readFileSync(process.argv[1],"utf
 phase=browser-integration
 export ST222_OWNER_URL="$owner_url" ST222_RUNTIME_URL="$runtime_url" ST222_PROVENANCE_FILE="$tmp/provenance.json"
 export ST222_TLS_KEY_FILE="$tmp/tls.key" ST222_TLS_CERT_FILE="$tmp/tls.crt"
-if ! (cd apps/api && corepack pnpm exec vitest run --config vitest.browser-subscription-read.config.ts) >"$tmp/test.log" 2>&1; then
+if ! (cd apps/api && pnpm exec vitest run --config vitest.browser-subscription-read.config.ts) >"$tmp/test.log" 2>&1; then
   failure_subphase=$(classify_browser_failure "$tmp/test.log")
   exit 1
 fi

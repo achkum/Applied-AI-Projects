@@ -25,20 +25,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: corepack enable && corepack prepare pnpm@12.6.0 --activate
-      - run: corepack pnpm install --frozen-lockfile
+      - run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = '12.6.0'
+      - run: pnpm install --frozen-lockfile
+      - name: Prepare compiled Synthetic bank runtime exports
+        run: |
+          pnpm --filter @subtrack/domain build:lifecycle
+          pnpm --filter @subtrack/domain build:bank
+          pnpm --filter @subtrack/domain build:detection
+          pnpm --filter @subtrack/synthetic build:bank
       - name: Validate API types and source
         env:
           DATABASE_URL: postgresql://unused:unused@127.0.0.1:5432/unused
-        run: corepack pnpm --filter @subtrack/api typecheck
+        run: pnpm --filter @subtrack/api typecheck
       - name: Validate local daemon readiness descriptor custody
         run: bash tools/database/private-mobile-descriptor.spec.sh
       - name: Actual owned PG16 direct TLS mobile behavior
-        run: bash tools/database/private-mobile-qualify.sh
+        run: bash tools/database/private-mobile-detection-qualify.sh
       - name: Publish sanitized backend proof and verified cleanup receipt
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: st244-private-mobile-postgresql-receipt-${{ github.event.pull_request.head.sha || github.sha }}-attempt-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/st244-private-mobile-receipt.json
+          name: st249-private-mobile-postgresql-receipt-${{ github.event.pull_request.head.sha || github.sha }}-attempt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/st249-private-mobile-detection-receipt.json
           if-no-files-found: ignore

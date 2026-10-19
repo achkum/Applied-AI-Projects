@@ -38,11 +38,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: corepack enable && corepack prepare pnpm@12.6.0 --activate
-      - run: corepack pnpm install --frozen-lockfile
+      - run: |
+          npm install --global pnpm@12.6.0
+          test "$(pnpm --version)" = '12.6.0'
+      - run: pnpm install --frozen-lockfile
       - name: Missing ownership record denies proof PASS
         run: bash .sdlc/evidence/ST-222/cleanup-negative-check.sh
-      - run: corepack pnpm --filter @subtrack/ui exec playwright install chromium --with-deps
+      - run: pnpm --filter @subtrack/ui exec playwright install chromium --with-deps
       - name: Owned PG16, compiled Node and Chromium proof
         run: bash tools/database/browser-subscription-read-proof.sh
       - name: Cleanup exact recorded container

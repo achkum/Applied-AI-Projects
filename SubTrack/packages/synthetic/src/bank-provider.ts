@@ -2,7 +2,7 @@ import type { BankDataProvider, BankAccount, BankTransaction } from '@subtrack/d
 import type { PersonaHousehold, PersonaSubscription } from './personas.js';
 import { ALL_PERSONAS } from './personas.js';
 import { createRng } from './rng.js';
-import { nextSwedishBusinessDay } from './calendar.js';
+import { nextSwedishBusinessDayUtc } from './calendar.js';
 
 function fnv1a32(s: string): number {
   let h = 0x811c9dc5;
@@ -24,28 +24,22 @@ function generateBillingDates(
   from: Date,
   to: Date,
 ): Date[] {
+  if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || from > to) {
+    throw new Error('Invalid billing window');
+  }
   const dates: Date[] = [];
   const dayOfMonth = chargeDayOfMonth(householdSeed, sub.id);
-
-  if (sub.billingCadence === 'MONTHLY') {
-    const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
-    const endMonth = new Date(to.getFullYear(), to.getMonth(), 1);
-    while (cursor <= endMonth) {
-      const candidate = new Date(cursor.getFullYear(), cursor.getMonth(), dayOfMonth);
-      if (candidate >= from && candidate <= to) {
-        dates.push(nextSwedishBusinessDay(candidate));
-      }
-      cursor.setMonth(cursor.getMonth() + 1);
+  // Include the previous month because a holiday/weekend can shift into the window.
+  const cursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() - 1, 1));
+  const endMonth = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1));
+  const monthOfYear = fnv1a32(`${householdSeed}:${sub.id}:month`) % 12;
+  while (cursor <= endMonth) {
+    if (sub.billingCadence === 'MONTHLY' || cursor.getUTCMonth() === monthOfYear) {
+      const candidate = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), dayOfMonth));
+      const shifted = nextSwedishBusinessDayUtc(candidate);
+      if (shifted >= from && shifted <= to) dates.push(candidate);
     }
-  } else {
-    // ANNUAL: derive a stable month from a secondary hash
-    const monthOfYear = fnv1a32(`${householdSeed}:${sub.id}:month`) % 12;
-    for (let year = from.getFullYear(); year <= to.getFullYear(); year++) {
-      const candidate = new Date(year, monthOfYear, dayOfMonth);
-      if (candidate >= from && candidate <= to) {
-        dates.push(nextSwedishBusinessDay(candidate));
-      }
-    }
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
   }
 
   return dates;
@@ -90,23 +84,21 @@ export class SyntheticBankProvider implements BankDataProvider {
     const household = this.householdByUserId.get(userId);
     if (!household) return [];
 
-    const rng = createRng(`${household.seed}:txns`);
     const txns: BankTransaction[] = [];
-    let seq = 0;
-    const seedSuffix = household.seed.slice(-8);
 
     for (const sub of household.subscriptions) {
-      const subRng = rng.fork(sub.id);
       const dates = generateBillingDates(sub, household.seed, from, to);
-      for (const date of dates) {
-        seq++;
+      for (const billingDate of dates) {
+        const chargeKey = `${household.seed}:${sub.id}:${billingDate.toISOString().slice(0, 10)}`;
+        const subRng = createRng(chargeKey);
+        const date = nextSwedishBusinessDayUtc(billingDate);
         const descriptor = subRng.pick(sub.descriptorVariants);
         const jitter = subRng.nextInt(-99, 99);
         const amount = sub.amountMinor + jitter;
 
         txns.push({
-          id: `synth-${seedSuffix}-${seq}`,
-          externalId: `ext-${seedSuffix}-${seq}`,
+          id: `synth:${chargeKey}`,
+          externalId: `ext:${chargeKey}`,
           accountId,
           date,
           description: descriptor,

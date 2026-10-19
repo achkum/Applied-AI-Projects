@@ -1,0 +1,47 @@
+# ST249 PostgreSQL qualification source handoff
+
+2026-10-14, child branch st/native-synthetic-bank, committed base597776129a88ea79308c4478e06f5ea439035618 plus this uncommitted owned source. SOURCE ONLY: no SQL, Docker/PG execution, hosted dispatch, credentials/tool installation, Git/push or VPS mutation performed. Independent final platform/privacy source review and exact runtime custody GO remain required. Neither actual detection behavior nor installed Android/iOS acceptance is claimed from these unit checks.
+
+## Concrete implementation
+
+Owned loader now appends frozen017 after015/016 under same head/marker/manifest/PG16/owner custody. Existing application's server already registers all eighteen detection statements and actual HTTP service; it was not duplicated. Existing native/default harness server+token clock remains wallclock; zero-argument qualification enable is separate/off by default and requires graph stopped/custody. Controlled clock starts one hour behind owner-observed PGwall, increases only to privately verified original deadline <= fresh sampled PGwall, and survives graph restart monotonically. Fresh actual sessions use this same clock.
+
+Controller privately observes exact imported named SQL, after-work second epoch UPDATE, fourth awaited and fifth synchronous real token verification; binds actual owner/session/original receipt through committed INSERT + verified persisted owner snapshot, has fixed enum ten fault scenarios, no query-row replacement/arbitrary SQL/callback/clock inputs. Fifth microtask test measures COMMIT dispatch-before-tick; fourth microtask measures Undo deadline rollback, not JWTexpiry. Queued ticks are cancelled on scope stop/reset. COMMIT/ROLLBACK failures distinguish before/after actual execution and observe error-release/discard; fresh restart/readback proves actual result. Fixed overflow/collision/unmatched descriptor changes restore exact selected owner resource, do not alter application grants/status/receipts or catalogue.
+
+**Provisioning amendment visible for final review:** original broad plan discussed isolated clusters as fallback. Exact appended legitimate-generation amendment is now implemented: unchanged parent and bank baselines execute ONCE; each timing case uses real retained disconnect, fresh connect/sync/scan, selects candidate absent prior inbox IDs, then real original review. Same harness/monotonic clock persists across cases/restarts. Old expired candidates and receipts remain immutable. Per-case bank/manual equality begins AFTER legitimate generation setup; final sourceBoth snapshot begins after legitimate Bob setup. No global bank equality claim across intended generation changes, no test-created receipt/status reset and no backwards-clock reset. Root requested independent review of this concrete provisioning amendment before SQL execution.
+
+Feature proof covers actual scan/inbox/known canonical names, rescan/same-key/new-key/concurrent scans, confirm/reject/Undo/revision/conflicts, undated owner read, restart/replay after deadline, ten final timing/fault cases, reciprocal Alice/Bob positive review/Undo and invisible foreign404/bodyselector400, all-five-table RLS plus ordinary nonBYPASS role, denied immutableUPDATE/crossownerINSERT/compositeFK, actual linked-source bank purge rollback, session-expiry401+finallyrestore, exact minimal feedback/review columns and strict review JSON, preserved manual/source digests. Original all-subscription observers remain unchanged; explicit manual-only observer is additive.
+
+Strict flat receipt is exactly9 scalars + unchanged21 inherited gates +31 measured detection gates. Private intermediate result has NO cleanup claim. Qualifier disposes proof graph, validates owned stop removes database/tmpfs directory, then adds cleanup='removed' and calls strict pure projector; only then writes fixed sanitized receipt and PASS line. Missing/false/extra/accessor/prototype/symbol/count-invalid receipts reject. Workflow uses existing compiled lifecycle/bank/detection/Synthetic prerequisites, API type/descriptor gates, baseline-first actual qualifier and exact sanitized ST249 artifact only. No raw logs/artifacts uploaded.
+
+## Actual focused source checks
+
+- Vitest three files /27 tests PASS. Enforced100% statement/branch/function/line thresholds, 252/252 statements,264/264 branches,39/39 functions,109/109 lines. coverage-final.json explicitly contains BOTH private-mobile-owned-fixture-observer.ts and private-mobile-detection-receipt.ts. Includes original OTP observer tests, closed receipt hostile cases, actual query-dispatch ordering, fourth-await vs fifth-sync timing, exact source epoch mapping, scope/session binding, rollback/commit before-after, stale queued-tick cancellation.
+- Direct API `tsc --noEmit -p tsconfig.json` PASS. Initial two concrete TS issues (CommonJS import.meta and readonly pg array) repaired.
+- Changed seven-file ESLint PASS after prefer-const repair.
+- Bash syntax two owned scripts PASS; scoped Git whitespace diff PASS. No unchanged full-suite inventories.
+- Final trivial postcheck source adjustments use already-measured manual.subscriptionCount rather than literal1 and move PASS emission AFTER cleanup/projection; Bash syntax/diff checked. No runtime qualification results yet.
+
+## Exact final source SHA256 roster
+
+apps/api/test/private-mobile-owned-fixture.ts 45ea0e8c98769ac41e4b87e51c3951908835025cc4fb74a8262d202a3897fa9a
+apps/api/test/private-mobile-owned-fixture-observer.ts bf838aa700327a90ce0c7fe331ab0a53808720f5a94c308e067feb43fc829211
+apps/api/test/private-mobile-detection-proof.ts 3517ae1816160c79706c03a1d1f323899e2168da46b50a95ce4bee38feabde27
+apps/api/test/private-mobile-detection.integration.ts 5a024dadef061ad34ebe3c66463eae3ffa37e49bd762f5952851a477ad7e2181
+apps/api/test/private-mobile-detection-receipt.ts 9fadff650674e958802b6662d9c504278550b693d91027c78d0666d7fd1384c1
+apps/api/test/private-mobile-detection-fixture.spec.ts adec8f431a1107ed2d5d86d701f7f7aeedc563faf6fee36ca11ff46f56942ac3
+apps/api/test/private-mobile-detection-receipt.spec.ts 58509adad95837095258073d3f590560d12e1b2a0facdca43b3fad8bffdc9760
+tools/database/private-mobile-proof.sh 8193dc98cd66b790a2c096946a52cdf7827288d33bb853fcdbc061502b4e5155
+tools/database/private-mobile-detection-qualify.sh a4f9923c92dad00dc4685142fe270089fb88ea99587a66614a0681510b67bb23
+repository .github/workflows/subtrack-private-mobile-proof.yml f8e1b16c32c0600c5aca210dcf33f826f0d1ebf19da574921dc72c0d18cadcc5
+
+Metadata: postgresql-qualification-plan.md includes exact hook, receipt schema, session semantics and retained-generation amendments. Generated API coverage is local ignored/untracked check output only; exclude from curated staging. Root owns Git/evidence/task/backlog and next genuine qualification. No source completion/full ST081/production deletion or retention/store release inference.
+
+## Final bounded review correction, 2026-10-14
+
+All three review holds corrected in actual source, followed by fresh focused checks above. Foreign receipt tuples now bind opposite original receipts and404 BOTH directions; own consumed409 remains separate. Actual ordinary-role reads cover all five detection tables under BOTH Alice/Bob mismatched GUC orders, plus matching Alice/Alice and Bob/Bob positives and unchanged snapshots. Armed private controller retains original candidate/receipt/session and validates exact named parameter slots for original receipt lock, replay-key receipt lookup, candidate lock, final owner/session fence and every review mutation. Malformed/missing/wrong same-owner targets reject/reset before clock or fault activation. Receipt/candidate lock order and singular actual candidate SELECT are required. Per-boundary finite counts are privately observed and timing proof compares exact roster (including dual expiry/ROLLBACK and COMMIT-before actual rollback) plus exactly five genuine verifies before contributing any gate. Focused wrong-owner/session/candidate/receipt/malformed/early/repeated/unknown-query tests now cover these branches,100% enforced. tsc and changed-file lint passed after these actual changes. No SQL/Git/hosted/VPS actions.
+
+Equality timing clarification supersedes the original pre-send clock tick: `undo-equality-entry` advances only AFTER the matching actual singular candidate lock query returns, immediately before service's business Undo entry/deadline check. This preserves exact equality semantics while preventing a same-owner wrong receipt/candidate request from ticking before target validation. Other expiry/fault points and wallclock default remain unchanged. Fresh snapshots and actual guards still required; no accepted runtime receipt exists yet.
+Final postcheck proof addition explicitly compares whole detection snapshot before/after actual ordinary-role RLS positives/negatives and rollback-denied mutations before marking detectionRlsNegative; no domain/wire/type change. Proof hash roster reflects this addition.
+
+Noncredential source representation repair: both fixed collision SQL strings now concatenate fixed literal pieces but reconstruct byte-identical to committed source (owner/resource predicates and parameter slots unchanged). Current fixture hash roster reflects this repair. Direct API types/fixture lint PASS; detailed exact six-path checks and historical fingerprint audit are in secret-repair-source-handoff.md. No policy/controlflow changed and no SQL qualification executed by this author.

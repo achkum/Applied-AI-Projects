@@ -52,3 +52,21 @@ effe056ccce9eb5bbaee8fd4cbd04b51af92df34:SubTrack/apps/api/src/subscriptions/pri
 2fa779ab8f87dcafdae839b19a88d30c12888911:SubTrack/.sdlc/evidence/ST-247/legacy-token-baseline.json:generic-api-key:3
 4cb41ac6bea16a5a4a1a9650003ee3f0d642af8a:SubTrack/.sdlc/evidence/ST-247/legacy-token-baseline.json:generic-api-key:3
 4cb41ac6bea16a5a4a1a9650003ee3f0d642af8a:SubTrack/.sdlc/evidence/ST-247/legacy-token-checkout-baseline.json:generic-api-key:3
+
+# ST249 independently audited fixed UUID request-test inputs and owned collision SQL sentinels.
+# Exact six immutable noncredential findings only; current full-range scanning remains mandatory.
+597776129a88ea79308c4478e06f5ea439035618:SubTrack/apps/mobile/src/api/privateMobileDetection.test.ts:generic-api-key:8
+1cf91766449342032736013aefb7ee693471b2cd:SubTrack/apps/api/test/private-mobile-owned-fixture.ts:generic-api-key:127
+1cf91766449342032736013aefb7ee693471b2cd:SubTrack/apps/api/test/private-mobile-owned-fixture.ts:generic-api-key:140
+597776129a88ea79308c4478e06f5ea439035618:SubTrack/apps/mobile/src/components/detection/NativeDetectionInboxScreen.test.tsx:generic-api-key:21
+83412b7b613fa53886e9aeb8e032f2fc14ec3c36:SubTrack/apps/mobile/src/api/privateMobileBank.test.ts:generic-api-key:8
+83412b7b613fa53886e9aeb8e032f2fc14ec3c36:SubTrack/apps/mobile/src/components/banks/NativePersonalBankScreen.test.tsx:generic-api-key:21
+# ST250 independently reviewed public required-test prose only; exact historical hunk.
+2d1c844715a3402897b398c9696e85664f6e0b53:SubTrack/.sdlc/evidence/ST-250/sandbox-backend-contract.md:generic-api-key:74
+# ST250 public required-test prose quoted in the independent review; exact historical hunk.
+6f4ba455c4e0ca926a2f1fe10a0e5349e8208a59:SubTrack/.sdlc/evidence/ST-250/sandbox-privacy-contract-review.md:generic-api-key:29
+
+# ST250 audited fixed source SHA256 annotations; exact historical findings only.
+f3f9b72c8a4a40f03a40ab3b19722b9ea0b7c124:SubTrack/.sdlc/evidence/ST-250/sandbox-native-activation-source-handoff.md:generic-api-key:17
+f3f9b72c8a4a40f03a40ab3b19722b9ea0b7c124:SubTrack/.sdlc/evidence/ST-250/sandbox-native-activation-source-handoff.md:generic-api-key:18
+fdba661775038e7428255941d8709bafbd723658:SubTrack/.sdlc/evidence/ST-252/linux-publication-execution.md:generic-api-key:3

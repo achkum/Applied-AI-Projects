@@ -1,0 +1,9 @@
+// Cache public library compilation only. Application outputs can contain APKs
+// and fixture-specific resources and must never enter the shared task cache.
+gradle.beforeProject { project ->
+    project.plugins.withId('com.android.application') {
+        project.tasks.configureEach { task ->
+            task.outputs.doNotCacheIf('SubTrack application outputs remain runner-local') { true }
+        }
+    }
+}

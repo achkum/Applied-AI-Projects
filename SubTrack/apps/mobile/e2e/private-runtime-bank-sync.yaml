@@ -1,0 +1,22 @@
+appId: se.subtrack.app
+---
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_SYNC}
+    direction: DOWN
+- tapOn: ${MAESTRO_BANK_SYNC}
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_ACTIVE}
+    direction: UP
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_ACTIVE}
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_UPDATED}
+    timeout: 30000
+- scrollUntilVisible:
+    element: ${MAESTRO_BANK_LAST_SYNC_PRESENT}
+    direction: DOWN
+- extendedWaitUntil:
+    visible: ${MAESTRO_BANK_LAST_SYNC_PRESENT}
+    timeout: 30000
+- assertNotVisible: ${MAESTRO_BANK_LAST_SYNC_NEVER}
