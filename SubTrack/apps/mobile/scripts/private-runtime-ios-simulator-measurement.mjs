@@ -24,7 +24,7 @@ export function measureIosSimulator(udid,execute=execFileSync){
  const options={encoding:'utf8',timeout:60000,killSignal:'SIGKILL',maxBuffer:4194304,stdio:['ignore','pipe','pipe']};
  const devicesText=iosMeasurementStep('DEVICES_QUERY',()=>execute('xcrun',['simctl','list','devices','booted','--json'],options));
  const devices=iosMeasurementStep('DEVICES_JSON',()=>JSON.parse(devicesText));
- const plist=iosMeasurementStep('APPS_QUERY',()=>execute('xcrun',['simctl','listapps',udid],{timeout:15000,killSignal:'SIGKILL',maxBuffer:4194304,stdio:['ignore','pipe','pipe']}));
+ const plist=iosMeasurementStep('APPS_QUERY',()=>execute('xcrun',['simctl','listapps',udid],{timeout:60000,killSignal:'SIGKILL',maxBuffer:4194304,stdio:['ignore','pipe','pipe']}));
  const appsText=iosMeasurementStep('APPS_CONVERT',()=>execute('/usr/bin/plutil',['-convert','json','-o','-','-'],{input:plist,encoding:'utf8',timeout:15000,killSignal:'SIGKILL',maxBuffer:4194304,stdio:['pipe','pipe','pipe']}));
  const apps=iosMeasurementStep('APPS_JSON',()=>JSON.parse(appsText));
  return measuredIosSimulator(devices,apps,udid);
