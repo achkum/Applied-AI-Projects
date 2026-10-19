@@ -211,14 +211,18 @@ test('the documented Apple iDOT token is observed without disclosing its payload
  const facts=iosFramePngFacts(file);assert.deepEqual(facts.chunkTypes,['IHDR','iDOT','IDAT','IEND']);assert.ok(!JSON.stringify(facts).includes('PRIVATE_'));
 });
 
-test('workflow gates one authorized driver-only or full capability check before database fixture and compilation',()=>{
+test('only explicit iOS diagnostics require the extra PNG probe; full proof retains mandatory driver and app qualification',()=>{
  const workflow=fs.readFileSync(new URL('../../../../.github/workflows/subtrack-native-device-proof.yml',import.meta.url),'utf8');const name='- name: Fresh owned iOS screenshot capability before fixture or compilation',start=workflow.indexOf(name),end=workflow.indexOf('- name:',start+name.length),block=workflow.slice(start,end);
- const expression=block.match(/if: (.+)/)[1].replaceAll(' == ',' === ').replaceAll('needs.select-proof','needs.selectProof');const allow=(platform,scope,enabled)=>Function('matrix','needs','env',`return ${expression}`)({platform},{selectProof:{outputs:{scope}}},{ST253_CAPTURE_ENABLED:enabled});
- assert.equal(allow('ios','full','true'),true);assert.equal(allow('ios','ios-driver','true'),true);for(const tuple of [['android','full','true'],['ios','profile','true'],['ios','full','false']])assert.equal(allow(...tuple),false);
+ const expression=block.match(/if: (.+)/)[1].replaceAll(' == ',' === ').replaceAll('needs.select-proof','needs.selectProof');const allow=(platform,scope,enabled,event='workflow_dispatch')=>Function('matrix','needs','env','github',`return ${expression}`)({platform},{selectProof:{outputs:{scope}}},{ST253_CAPTURE_ENABLED:enabled},{event_name:event});
+ assert.equal(allow('ios','ios-driver','true'),true);for(const event of ['workflow_dispatch','pull_request'])for(const scope of ['full','profile'])assert.equal(allow('ios',scope,'true',event),false);
+ for(const tuple of [['android','ios-driver','true'],['ios','ios-driver','false'],['ios','ios-driver','true','pull_request'],['ios','ios-driver','true','push']])assert.equal(allow(...tuple),false);
  const boot=workflow.indexOf('- name: iOS 26.2 / Xcode 26.2 simulator'),driver=workflow.indexOf('- name: Owned iOS driver readiness'),fixture=workflow.indexOf('- name: Owned PostgreSQL16'),driverBlock=workflow.slice(driver,fixture);
  assert.ok(boot>=0&&boot<start&&start<driver&&driver<fixture);assert.ok(workflow.slice(boot,start).includes('recordPreinputSimulator(root,context)'));assert.ok(block.includes('umask 077'));assert.equal(block.split('node apps/mobile/scripts/private-runtime-ios-frame-capability.mjs').length-1,1);assert.ok(!block.includes('upload-artifact'));assert.ok(workflow.includes('private-runtime-ios-frame-capability-test.mjs'));
- // Both remain natural hard-failure steps. A failed driver cannot prevent
- // measuring the independent frame surface, but neither can authorize a fixture.
+ // Diagnostic scope remains a natural hard failure. Full proof never invokes
+ // this probe, and the independent driver still blocks fixture/app qualification.
  for(const step of [block,driverBlock]){assert.ok(!step.includes('continue-on-error'));assert.ok(!step.includes('always()'));assert.ok(!step.includes('!cancelled()'));}
  assert.ok(driverBlock.includes("if: matrix.platform == 'ios'"));assert.equal(driverBlock.split('node apps/mobile/scripts/private-runtime-ios-driver-preflight.mjs').length-1,1);
+ const fixtureBlock=workflow.slice(fixture,workflow.indexOf('- name:',fixture+1)),installedStart=workflow.indexOf('- name: Installed workflow, API restart, same database row and logout'),installedBlock=workflow.slice(installedStart,workflow.indexOf('- name:',installedStart+1));
+ for(const step of [fixtureBlock,installedBlock]){assert.ok(step.includes("if: needs.select-proof.outputs.scope != 'ios-driver'"));assert.ok(!step.includes('continue-on-error'));assert.ok(!step.includes('always()'));}
+ assert.ok(installedBlock.includes("node apps/mobile/scripts/private-runtime-device.mjs '${{ matrix.platform }}'"));
 });

@@ -7,7 +7,7 @@ import {tmpdir} from 'node:os';
 import process from 'node:process';
 import {Buffer} from 'node:buffer';
 import {URL} from 'node:url';
-import {measuredIosSimulator,runIosDriverChild,runOwnedIosDriverPreflight,collectIosDriverLogs,validatedIosDriverArtifact} from './private-runtime-ios-driver-preflight.mjs';
+import {measuredIosSimulator,runIosDriverChild,runOwnedIosDriverPreflight as runPreflight,collectIosDriverLogs,validatedIosDriverArtifact} from './private-runtime-ios-driver-preflight.mjs';
 import {preinputCaptureContext,recordPreinputSimulator} from './private-runtime-maestro-metadata.mjs';
 import {iosMeasurementStep} from './private-runtime-ios-simulator-measurement.mjs';
 import console from 'node:console';
@@ -16,6 +16,7 @@ import {PassThrough} from 'node:stream';
 import {execFileSync} from 'node:child_process';
 import {setTimeout} from 'node:timers';
 const {queueMicrotask}=globalThis;
+const runOwnedIosDriverPreflight=options=>runPreflight({openSimulator:async()=>{},...options});
 
 const head='ab'.repeat(20),udid='123E4567-E89B-42D3-A456-426614174000';
 const environment={...process.env,CI:'true',NODE_ENV:'development',SUBTRACK_PRIVATE_DEVICE_PROOF:'true',ST253_CAPTURE_ENABLED:'true',ST253_CAPTURE_PLATFORM:'ios',ST253_CAPTURE_HEAD_REPOSITORY:'achkum/Applied-AI-Projects',EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_ENABLED:'true',EXPO_PUBLIC_MOBILE_ENROLLMENT_HTTPS_URL:'https://localhost:3443',GITHUB_REPOSITORY:'achkum/Applied-AI-Projects',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/codex/ios-startup-fixes',GITHUB_HEAD_REF:'',GITHUB_SHA:head,ST253_CAPTURE_SOURCE_HEAD:head,ST253_CAPTURE_DISPATCH_SOURCE:head,GITHUB_RUN_ID:'1234',GITHUB_RUN_ATTEMPT:'1',SUBTRACK_SIMULATOR_UDID:udid};
@@ -81,12 +82,13 @@ if(process.platform!=='win32')test('actual deadline terminates a POSIX descendan
 
 async function fixture(action){
  const temporary=fs.mkdtempSync(join(fs.realpathSync(tmpdir()),'subtrack-ios-driver-')),root=join(temporary,'subtrack-native-proof','private');fs.mkdirSync(root,{recursive:true,mode:448});
+ const priorTemp=environment.RUNNER_TEMP;environment.RUNNER_TEMP=temporary;
  // Windows cannot represent POSIX owner bits. Actual macOS runs exercise real
  // modes; this local port preserves real identities/data while supplying modes.
  if(typeof process.getuid!=='function'){
   for(const name of ['lstatSync','fstatSync']){const actual=fs[name];mock.method(fs,name,(...args)=>{const s=actual(...args),mode=typeof s.mode==='bigint'?(s.mode&~511n)|BigInt(s.isDirectory()?448:384):(s.mode&~511)|(s.isDirectory()?448:384);return Object.assign(Object.create(Object.getPrototypeOf(s)),s,{mode});});}syncBuiltinESMExports();
  }
- try{recordPreinputSimulator(root,context);await action({root,temporary});}finally{mock.restoreAll();syncBuiltinESMExports();fs.rmSync(temporary,{recursive:true,force:true});}
+ try{recordPreinputSimulator(root,context);await action({root,temporary});}finally{if(priorTemp===undefined)delete environment.RUNNER_TEMP;else environment.RUNNER_TEMP=priorTemp;mock.restoreAll();syncBuiltinESMExports();fs.rmSync(temporary,{recursive:true,force:true});}
 }
 const child=code=>async(file,args,env)=>{assert.deepEqual(args,['--device',udid,'--platform','ios','--verbose','hierarchy']);assert.ok(env.XDG_STATE_HOME.endsWith(join('ios-driver-preflight','state')));return runIosDriverChild(file,['-e',`process.stdout.write('private startup canary');process.exit(${code})`],env,10000,process.execPath);};
 
@@ -100,6 +102,32 @@ test('actual completed child success removes all raw output and records readines
  const result=await runOwnedIosDriverPreflight({environment,root,head,measureDevice:measured,runChild:child(0)});assert.deepEqual(result,{success:true,sealed:false});assert.equal(fs.existsSync(join(root,'ios-driver-preflight')),false);assert.equal(fs.existsSync(join(root,'ios-driver-ready.json')),true);assert.equal(validatedIosDriverArtifact(root,context),false);
  assert.equal(output.some(line=>line.includes('original_reasons=')),false);
 }));
+test('authenticated owned GUI setup precedes mandatory inventory and original child, with after-custody and raw cleanup retained',()=>fixture(async({root})=>{
+ const calls=[];
+ const result=await runOwnedIosDriverPreflight({environment,root,head,openSimulator:async id=>{assert.equal(id,udid);calls.push('gui');},measureDevice:()=>{calls.push('measure');return measured();},runChild:async(...args)=>{calls.push('child');return child(0)(...args);}});
+ assert.deepEqual(calls,['gui','measure','child','measure']);assert.deepEqual(result,{success:true,sealed:false});assert.equal(fs.existsSync(join(root,'ios-driver-preflight')),false);assert.equal(fs.existsSync(join(root,'ios-driver-ready.json')),true);
+}));
+
+test('invalid authenticated custody prevents GUI and every command; null capture contexts keep headless compatibility without a GUI fallback',async()=>{
+ for(const kind of ['missing','changed-source','public','foreign-root'])await fixture(async({root,temporary})=>{
+  const file=join(root,'preinput-ios-custody.json'),value=JSON.parse(fs.readFileSync(file));
+  if(kind==='missing')fs.unlinkSync(file);if(kind==='changed-source')fs.writeFileSync(file,JSON.stringify({...value,sourceHead:'cd'.repeat(20)}));
+  if(kind==='public'){const actual=fs.lstatSync;mock.method(fs,'lstatSync',(...args)=>{const s=actual(...args);return String(args[0])===file?Object.assign(Object.create(Object.getPrototypeOf(s)),s,{mode:(s.mode&~511)|420}):s;});syncBuiltinESMExports();}
+  let gui=0,commands=0;await assert.rejects(runOwnedIosDriverPreflight({environment:kind==='foreign-root'?{...environment,RUNNER_TEMP:temporary+'-foreign'}:environment,root,head,openSimulator:async()=>{gui++;},measureDevice:()=>{commands++;return measured();},runChild:async()=>{commands++;return {complete:true,exitCode:0,timedOut:false};}}));assert.equal(gui,0);assert.equal(commands,0);assert.equal(fs.existsSync(join(root,'ios-driver-ready.json')),false);
+ });
+ for(const patch of [{GITHUB_REF:'refs/heads/other'},{GITHUB_REPOSITORY:'foreign/repo'},{ST253_CAPTURE_ENABLED:'false'}])await fixture(async({root})=>{
+  let gui=0,commands=0;const result=await runOwnedIosDriverPreflight({environment:{...environment,...patch},root,head,openSimulator:async()=>{gui++;},measureDevice:()=>{commands++;return measured();},runChild:child(1)});assert.equal(gui,0);assert.equal(commands,2);assert.deepEqual(result,{success:false,sealed:false});assert.equal(fs.existsSync(join(root,'ios-driver-ready.json')),false);assert.equal(fs.existsSync(join(root,'ios-driver-failure.json')),false);
+ });
+});
+
+test('failed GUI or BEFORE inventory and GUI-time custody changes never start the original child or qualify readiness',async()=>{
+ for(const kind of ['gui','inventory','custody'])await fixture(async({root})=>{
+  const calls=[];let children=0;
+  await assert.rejects(runOwnedIosDriverPreflight({environment,root,head,openSimulator:async()=>{calls.push('gui');if(kind==='gui')throw Error('PRIVATE_GUI_CANARY');if(kind==='custody')fs.writeFileSync(join(root,'preinput-ios-custody.json'),'{}');},measureDevice:()=>{calls.push('measure');if(kind==='inventory')return iosMeasurementStep('APPS_QUERY',()=>{throw Object.assign(Error('PRIVATE_APPS_CANARY'),{code:'ETIMEDOUT'});});return measured();},runChild:async()=>{children++;return {complete:true,exitCode:0,timedOut:false};}}));
+  assert.deepEqual(calls,kind==='gui'?['gui']:['gui','measure']);assert.equal(children,0);for(const name of ['ios-driver-preflight','ios-driver-ready.json','ios-driver-failure.json'])assert.equal(fs.existsSync(join(root,name)),false);
+ });
+});
+
 test('actual failed child seals exact-command/source/custody only after raw cleanup',()=>fixture(async({root})=>{
  assert.deepEqual(await runOwnedIosDriverPreflight({environment,root,head,measureDevice:measured,runChild:child(1)}),{success:false,sealed:true});assert.equal(fs.existsSync(join(root,'ios-driver-preflight')),false);assert.equal(validatedIosDriverArtifact(root,context),true);
  const file=join(root,'ios-driver-failure.json'),binding=JSON.parse(fs.readFileSync(file));fs.writeFileSync(file,JSON.stringify({...binding,commandSha256:'00'.repeat(32)}));assert.equal(validatedIosDriverArtifact(root,context),false);fs.writeFileSync(file,JSON.stringify(binding));

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {Buffer} from 'node:buffer';
 import console from 'node:console';
-import {execFile,execFileSync} from 'node:child_process';
+import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {constants,lstatSync,realpathSync,openSync,fstatSync,readSync,writeFileSync,closeSync,mkdirSync,readdirSync,unlinkSync,rmdirSync,existsSync} from 'node:fs';
 import {join,resolve,dirname,relative} from 'node:path';
@@ -12,8 +12,9 @@ import {measureIosSimulator,iosMeasurementCategory} from './private-runtime-ios-
 import {runIosDriverChild} from './private-runtime-ios-driver-preflight.mjs';
 import {maestroDevicePrefix} from './private-runtime-maestro-device.mjs';
 import {originalDriverToolDiagnostic} from './private-runtime-identifier-diagnostic.mjs';
+import {IOS_FRAME_FAILURES,openOwnedIosSimulator} from './private-runtime-ios-simulator-gui.mjs';
+export {IOS_FRAME_FAILURES,iosFrameFailure,openOwnedIosSimulator} from './private-runtime-ios-simulator-gui.mjs';
 
-export const IOS_FRAME_FAILURES=Object.freeze(['SPAWN','OUTPUT_LIMIT','TERMINATED','EXIT_NONZERO','OTHER']);
 const ORIGINAL_REASONS=['assertion','element-not-found','launch','device-unavailable','tool-config','connection','UNKNOWN'];
 const ROSTER_FAILURES=['PATH','OWNER','PERMISSIONS','FILE_SHAPE','SIZE','UNEXPECTED_DIRECTORY','UNEXPECTED_FILE','ROSTER_LIMIT','READ_OR_IDENTITY'];
 const PNG_CHUNKS=['IHDR','IDAT','IEND','PLTE','cHRM','gAMA','iCCP','sBIT','sRGB','bKGD','hIST','tRNS','pHYs','sPLT','tIME','iTXt','tEXt','zTXt','eXIf','cICP','mDCV','cLLI','CgBI','iDOT','acTL','fcTL','fdAT'];
@@ -41,21 +42,6 @@ export function iosFramePngFacts(bytes){
  }
  return done();
 }
-export function iosFrameFailure(error){
- try{
- if(['ENOENT','EACCES','EPERM'].includes(error?.code))return 'SPAWN';
- if(error?.code==='ERR_CHILD_PROCESS_STDIO_MAXBUFFER')return 'OUTPUT_LIMIT';
- if(error?.killed===true||error?.signal==='SIGKILL'||error?.signal==='SIGTERM')return 'TERMINATED';
- if(Number.isInteger(error?.code)&&error.code>0&&error.code<=255)return 'EXIT_NONZERO';
- return 'OTHER';
- }catch{return 'OTHER';}
-}
-function boundedCommand(binary,args,onFailure,execute){
- return new Promise((accept,reject)=>{
-  const failed=error=>{const category=iosFrameFailure(error);try{onFailure?.(category);}catch{/* Observation cannot authorize readiness. */}reject(Object.assign(Error('iOS frame command unavailable'),{iosFrameFailure:category}));};
- try{execute(binary,args,{timeout:60000,killSignal:'SIGKILL',maxBuffer:65536,encoding:'utf8'},error=>error?failed(error):accept());}catch(error){failed(error);}
- });
-}
 export const IOS_FRAME_FLOW='appId: com.apple.springboard\nname: ios-frame-capability\n---\n- takeScreenshot: frame\n';
 export const IOS_FRAME_CONFIG='{}\n';
 const frameRelative='output/ios-frame-capability/takeScreenshot/frame.png';
@@ -80,14 +66,6 @@ export async function captureIosFrame(udid,file,onFailure,{environment=process.e
  }
  try{directoryIdentity(directory,directoryBefore);directoryIdentity(output,outputBefore);directoryIdentity(state,stateBefore);identity(flowBefore,privateState(flow));identity(configBefore,privateState(config));assert.equal(privateBytes(flow,4096).toString('utf8'),IOS_FRAME_FLOW);assert.equal(privateBytes(config,4096).toString('utf8'),IOS_FRAME_CONFIG);}catch(error){throw Object.assign(error,{frameStage:'INPUT'});}
  try{const rows=frameRoster(directory);assert.deepEqual(rows.filter(row=>!row.directory&&/\.png(?:\.tmp)?$/.test(row.file)).map(row=>relative(directory,row.file).replaceAll('\\','/')),[frameRelative]);}catch(error){throw Object.assign(error,{frameStage:'OUTPUT'});}
-}
-export function openOwnedIosSimulator(udid,onFailure,{execute=execFile}={}){
- assert.match(udid,/^[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/);
- // Match pinned Maestro cli-2.11.0 launch arguments; no renderer defaults changes.
- // Run39173532433 returned GUI/TERMINATED under the former 10s bound; cause unproven.
- // Allow one 60s setup call; no retries or partial readiness are accepted.
- // https://github.com/mobile-dev-inc/Maestro/blob/cli-2.11.0/maestro-ios-driver/src/main/kotlin/util/LocalSimulatorUtils.kt#L111-L125
- return boundedCommand('/usr/bin/open',['-a','/Applications/Xcode_26.2.app/Contents/Developer/Applications/Simulator.app','--args','-CurrentDeviceUDID',udid],onFailure,execute);
 }
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 function custodyCheck(condition,category){if(!condition)throw Object.assign(Error('iOS frame custody unavailable'),{frameCustodyFailure:category});}

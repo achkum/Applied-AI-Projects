@@ -284,7 +284,7 @@ jobs:
           if(context){const root=join(process.env.RUNNER_TEMP,'subtrack-native-proof','private');mkdirSync(root,{recursive:true,mode:0o700});recordPreinputSimulator(root,context);}
           NODE
       - name: Fresh owned iOS screenshot capability before fixture or compilation
-        if: matrix.platform == 'ios' && env.ST253_CAPTURE_ENABLED == 'true' && (needs.select-proof.outputs.scope == 'full' || needs.select-proof.outputs.scope == 'ios-driver')
+        if: github.event_name == 'workflow_dispatch' && matrix.platform == 'ios' && env.ST253_CAPTURE_ENABLED == 'true' && needs.select-proof.outputs.scope == 'ios-driver'
         env:
           NODE_ENV: development
         run: |
