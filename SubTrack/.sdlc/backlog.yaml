@@ -10,10 +10,10 @@ delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
 android_fix_handoff:
   updated: "2026-10-19"
-  execution: "V6 remains delivered; Swedish backend1c71ee5c is live. Current UI sourcee793f766 passes all68mobile suites/821tests and full installed Android run39171005038/job117803914058, durable app/API-restart/backend readback, bank lifecycle and18accepted frames. All other PR304 checks pass; iOS stops before compilation. Its screenshot child succeeds but strict output roster rejects an unknown directory; pinned-source audit finds omitted opt-out state and exact cleanup-only correction. Later fresh host stops at DEVICES_TIMEOUT before testing it. Controlled GUI-before-inventory comparisone7a88d20/run39172615622 is pending; no unchanged retries, gate skips or app fix inferred. Original Welcome failure remains unobserved. Apple setup deferred until signing. Original signer/data/history preserved; public recovery tools/bootstrap plan reviewed but no genuine artifact transfer, original-key signing, new APK or IPA yet. Exact whole-product HTML/accessibility parity remains unqualified. See native-resume-after-data-2026-10-18.md."
+  execution: "V6 remains delivered; Swedish backend1c71ee5c is live. Sourcef153a768 passes installed Android run39174295044/job117813714603:28receipt predicates, durable restarts/readbacks, bank lifecycle and18frames; all other PR304 checks pass except hosted iOS. Android23m16s, compilation2m56s with exact Gradle cache hit; UI/readbacks16m8s remain dominant. iOS fails BEFORE/APPS_TIMEOUT with verified cleanup before app compilation. Reviewed single listapps60s correctiona7c691ee passes7focusedtests/100percentcoverage and one isolated no-app/no-Android run39201262983 is active. No cause inferred for original Welcome failure; no unchanged diagnostic retry. Apple setup deferred until signing. Original signer/data/history preserved; no new signed APK or IPA. Whole-product HTML/accessibility parity remains unqualified. See native-resume-after-data-2026-10-18.md."
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
-  tested_source_head: e793f7669406aed0c64689bf6b33be530163d23f
+  tested_source_head: f153a768172dc47ba5873e81188b6a4e41293e52
   delivery_source_head: 81420b1faa8dae3143bd18653ac5cae383e8a9bc
   version_code: 6
   backend_source_head: 1c71ee5cd8b8d80ecbb3630b4043d4657db3840f

@@ -68,12 +68,14 @@ it.each(['week','selected-day'] as const)('opens the exact %s renewal through it
  await screen.findByRole('header',{name:row.customName});expect(screen.getByText('2026-03-28')).toBeTruthy();expect(screen.getByText(copy.billingMonth.manual)).toBeTruthy();
  expect(screen.getByLabelText(`${price} · ${copy.ownerSubscriptions.cadence.MONTHLY}`)).toBeTruthy();expect(readProjection).toHaveBeenCalledTimes(1);
 });
-it('keeps two-digit month-axis labels on one centered line without expanding day columns or changing dates',async()=>{
+it('keeps month-axis labels on one centered line below a continuous token-colored baseline without changing dates',async()=>{
  const {selectBillingMonth}=jest.requireActual('@/api/privateMobileBillingMonth'),{projectNativeAnalytics}=jest.requireActual('@/api/nativeAnalyticsProjection');
  const clock=()=>new Date(2026,9,18,12),saved={...row,nextChargeDate:'2026-10-19'},reader=jest.fn().mockResolvedValue({kind:'ready',projection:projectNativeAnalytics([saved],null,clock())});
  const readProjection=jest.fn().mockResolvedValue({kind:'ready',projection:selectBillingMonth([saved],{year:2026,month:10})}),active={phase:'active' as const,login:jest.fn(),refresh:jest.fn(),logout:jest.fn(),run:async<T,>(operation:(token:string,signal:AbortSignal)=>Promise<T>)=>operation('scoped-owner',new AbortController().signal)};
  render(<NativeBillingMonthScreen now={clock} useSession={()=>active} readProjection={readProjection} overviewReader={reader}/>);
  const chart=await screen.findByTestId('native-month-ribbon'),labels:readonly {props:{children:React.ReactNode}}[]=chart.findAllByType(Text);expect(labels).toHaveLength(31);expect(labels.map(label=>String(label.props.children)).filter(label=>label.trim())).toEqual(['1','8','18','22','29']);
+ const tokens=jest.requireActual('../../../../../packages/ui-tokens/generated/billing-month.native.json');
+ for(const label of chart.findAllByType(Text))expect(StyleSheet.flatten(label.parent?.props.style)).toMatchObject({alignSelf:'stretch',alignItems:'center',borderTopWidth:1,borderTopColor:tokens.color.light['line.hairline'],marginTop:8,paddingTop:6});
  for(const label of ['22','29']){const text=within(chart).getByText(label);expect(text.props.numberOfLines).toBe(1);expect(StyleSheet.flatten(text.props.style)).toMatchObject({width:28,maxWidth:28,textAlign:'center'});let column=text.parent;while(column&&StyleSheet.flatten(column.props.style)?.flex!==1)column=column.parent;expect(StyleSheet.flatten(column?.props.style)).toMatchObject({flex:1,minWidth:0});}
  expect(screen.getByTestId('native-month-selected-date').props.children).toBe(saved.nextChargeDate);expect(screen.getByTestId('native-home-calendar')).toBeTruthy();
 });
@@ -211,6 +213,7 @@ it('keeps the compact Upcoming route available from an empty Home week',async()=
  const upcoming=await screen.findByRole('button',{name:copy.productNav.upcoming});
  expect(screen.getByTestId('native-home-upcoming')).toBe(upcoming);
  expect(screen.getByText(catalogs.en.nativeProductDetails.noRenewalsThisWeek)).toBeTruthy();
+ expect(screen.queryByText(copy.billingMonth.empty)).toBeNull();expect(screen.getByRole('button',{name:catalogs.en.nativeAnalytics.connectBank})).toBeTruthy();expect(screen.getByRole('button',{name:catalogs.en.nativeAnalytics.addManually})).toBeTruthy();
  fireEvent.press(upcoming);expect(mockReplace).toHaveBeenCalledWith('/personal-home');
  expect(screen.queryByRole('button',{name:copy.billingMonth.refresh})).toBeNull();
  expect(screen.getByTestId('native-month-scroll').props.refreshControl).toBeTruthy();
