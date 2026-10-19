@@ -8,8 +8,15 @@ import {
   enrollmentToolDiagnostic,
   createEnrollmentExecution,
   enrollmentExecutionDiagnostic,
+  originalDriverToolDiagnostic,
 } from './private-runtime-identifier-diagnostic.mjs';
 const labels = { createAccount: 'Create account', email: 'Email address', otp: 'Verification code' };
+test('original driver classification reuses only accepted tool reasons and leaves unknown prose unknown',()=>{
+ assert.deepEqual(originalDriverToolDiagnostic('Connection refused private-canary'),['connection']);
+ assert.deepEqual(originalDriverToolDiagnostic('Unable to launch private-canary; unable to connect'),['launch','connection']);
+ for(const text of [undefined,null,{},'private-canary startup stopped','Tap on private-canary FAILED','x'.repeat(4000001)])assert.deepEqual(originalDriverToolDiagnostic(text),['UNKNOWN']);
+ assert.equal(JSON.stringify(originalDriverToolDiagnostic('No devices found private-canary')).includes('canary'),false);
+});
 function classify(overrides = {}) {
   return identifierToolDiagnostic({
     phase: 'flow-identifier',
@@ -344,7 +351,7 @@ test('billing original-child diagnostics classify bilingual trusted targets with
   for(const [key,target]of Object.entries(targets)){
    const result=billingMonthToolDiagnostic({...base,billingMonth:`FAILED Assert visible "${labels[key]}"\nAssertion is false: secret-token-canary`});assert.deepEqual(result.commands,['wait-visible']);assert.deepEqual(result.reasons,['assertion']);assert.deepEqual(result.targets,[target]);assert.equal(JSON.stringify(result).includes('secret-token-canary'),false);assert.equal(JSON.stringify(result).includes(labels.date),false);
   }
-  for(const [id,target]of [['native-personal-login','bankid-verify'],['native-personal-title','personal-title'],['native-nav-month','home-title'],['native-home-overview','home-title'],['native-home-title','home-title'],['native-home-calendar','date-picker'],[`native-date-${labels.date}`,'date-cell'],['native-month-selected-date','selected-date'],['native-subscription-detail-close','close']]){
+  for(const [id,target]of [['native-personal-login','bankid-verify'],['native-personal-title','personal-title'],['native-nav-month','home-title'],['native-home-overview','home-title'],['native-home-title','home-title'],['native-home-calendar','date-picker'],[`native-date-${labels.date}`,'date-cell'],['native-month-selected-date','selected-date'],['native-month-detail-row','subscription-detail'],['native-subscription-detail-close','close']]){
    const known=billingMonthToolDiagnostic({...base,billingMonth:`No visible element found: ${id} secret-token-canary`});assert.deepEqual(known.targets,[target]);assert.equal(JSON.stringify(known).includes('secret-token-canary'),false);
    assert.deepEqual(billingMonthToolDiagnostic({...base,billingMonth:`No visible element found: ${id}-private`}).targets,[]);
   }

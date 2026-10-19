@@ -1,15 +1,17 @@
 appId: se.subtrack.app.sandbox
 ---
 - scrollUntilVisible:
-    element: Birch Cinema
+    element: Disney[+] Standard
     direction: DOWN
-- assertVisible: Birch Cinema
+- assertVisible: Disney[+] Standard
 - scrollUntilVisible:
-    element: Cedar Video
+    element: Netflix
     direction: DOWN
-- assertVisible: Cedar Video
+- assertVisible: Netflix
 - takeScreenshot: accepted-sandbox-subscriptions
-- tapOn: Cedar Video
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - scrollUntilVisible:
     element: ${E_EDIT}
     direction: DOWN
@@ -21,7 +23,7 @@ appId: se.subtrack.app.sandbox
 - tapOn:
     id: native-subscription-name
 - eraseText
-- inputText: Cedar Video Plus
+- inputText: Netflix household
 - hideKeyboard
 - tapOn:
     id: native-subscription-category
@@ -49,11 +51,13 @@ appId: se.subtrack.app.sandbox
     visible: ${E_EDIT_SAVED}
     timeout: 30000
 - scrollUntilVisible:
-    element: Cedar Video Plus
+    element: Netflix household
     direction: DOWN
 - assertVisible: Streaming extras
 # Saving returns to the list; open the acknowledged saved row once.
-- tapOn: Cedar Video Plus
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix household(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - scrollUntilVisible:
     element: ${E_PAUSE}
     direction: DOWN

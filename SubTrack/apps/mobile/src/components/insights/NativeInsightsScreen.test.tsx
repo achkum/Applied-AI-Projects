@@ -1,5 +1,5 @@
 import React from 'react';
-import {AccessibilityInfo,DeviceEventEmitter,Modal,RefreshControl,StyleSheet,Text} from 'react-native';
+import {AccessibilityInfo,DeviceEventEmitter,Modal,RefreshControl,StyleSheet,Text,View} from 'react-native';
 import {Circle,Polygon,Polyline,Text as SvgText} from 'react-native-svg';
 import {AnalyticsMoney,AnalyticsPriceBox,AnalyticsText,AnalyticsTrend} from './NativeAnalyticsUI';
 import {getColorByTheme} from '@/utils/colors';
@@ -70,6 +70,9 @@ it('renders actual findings, expandable category contributions, exact trend alte
   expect(screen.getByRole('header', { name: copy.insights })).toBeTruthy();
   expect(screen.getByText(copy.categoryOverlap.replace('%{count}', '2'))).toBeTruthy();
   expect(screen.getByText(copy.trendEvidence)).toBeTruthy();
+  expect(screen.getByText(`${copy.previous}: ${formatMinorUnits(10000n,'SEK',{locale:'en',display:'code'})} · ${copy.current}: ${formatMinorUnits(12000n,'SEK',{locale:'en',display:'code'})}`)).toBeTruthy();
+  expect(screen.getByLabelText(`${formatMinorUnits(2000n,'SEK',{locale:'en',display:'code'})} ${copy.morePerMonth}. ${copy.increaseEvidence.replace('%{first}','2026-06-03').replace('%{last}','2026-10-03')}`)).toBeTruthy();
+  expect(StyleSheet.flatten(screen.getByText(formatMinorUnits(2000n,'SEK',{locale:'en',display:'code'})).props.style).color).toBe(getColorByTheme(jest.requireActual('../../../../../packages/ui-tokens/generated/billing-month.native.json'),false,'status.warning'));
   expect(screen.getByTestId('native-insights-trend').props.accessibilityLabel).toContain(`2026-10, ${formatMinorUnits(12000n, 'SEK', { locale: 'en', display: 'code' })}, ${copy.charges.replace('%{count}', '1')}`);
   expect(screen.getByText('May – October')).toBeTruthy();
   const overview = screen.getByRole('button', { name: `${copy.overview}. ${copy.activePlans.replace('%{count}', '2')}. ${copy.findings.replace('%{count}', '2')}` });
@@ -78,6 +81,17 @@ it('renders actual findings, expandable category contributions, exact trend alte
   expect(screen.getByText(copy.method)).toBeTruthy(); expect(overview.props.accessibilityState.expanded).toBe(true);
   fireEvent.press(screen.getAllByRole('button', { name: copy.openPlan.replace('%{name}',row.customName) })[0]!);await screen.findByRole('header',{name:row.customName});expect(screen.getByText(row.nextChargeDate)).toBeTruthy();expect(reader).toHaveBeenCalledTimes(2);expect(mockPush).not.toHaveBeenCalled();fireEvent.press(screen.getByTestId('native-subscription-detail-close'));expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false);
   expect(screen.queryByText(/\/100/)).toBeNull(); expect(screen.queryByText('Me')).toBeNull();
+});
+it('keeps long category action titles inside the card beside their badge without truncating the actual label',async()=>{
+ const label='Software productivity and cloud services',categoryCode=`CUSTOM:${label}`,projection=projectNativeAnalytics([{...row,categoryCode},{...second,categoryCode}],history,now()),session=facade();
+ render(<NativeInsightsScreen useSession={()=>session} reader={jest.fn().mockResolvedValue({kind:'ready',projection})} now={now}/>);
+ await screen.findByText(label);
+ for(const title of [label,copy.priceRise,copy.largest]){
+  const constrained=screen.UNSAFE_getAllByType(View).find(node=>{const style=StyleSheet.flatten(node.props.style);return style?.flex===1&&style?.minWidth===0&&node.findAllByType(Text).some((text:{props:{children?:React.ReactNode}})=>text.props.children===title);});
+  expect(constrained).toBeTruthy();expect(screen.getByText(title).props.numberOfLines).toBeUndefined();
+ }
+ expect(screen.getByText(copy.categoryOverlap.replace('%{count}','2'))).toBeTruthy();
+ expect(screen.getAllByRole('button',{name:copy.openPlan.replace('%{name}',row.customName)}).length).toBeGreaterThan(0);
 });
 it('keeps signed-out screens free of private rows and avoids all backend access', () => {
   const reader = jest.fn(), session = facade('verification-required');
@@ -107,6 +121,28 @@ it('compares saved prices accurately by month/year and only labels fixture alter
   fireEvent.press(screen.getByRole('button', { name: second.customName }));
   expect(screen.getByText(copy.more.replace('%{period}', copy.annual))).toBeTruthy();
   expect(screen.queryByText(/verified today|live price|market average/i)).toBeNull();
+});
+it('carries the actual planned-payer scope through inline and full comparisons and back to Insights',async()=>{
+ const projection=projectNativeAnalytics([row,second],history,now(),[{id:'fixture:example-video',name:'Example Video sample',categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',amountMinor:'6000',currency:'SEK',source:'synthetic-persona-fixture'}]);
+ const reader=jest.fn().mockResolvedValue({kind:'ready',projection:{...projection,household:homeHousehold}}),session=facade(),memberId=homeHousehold.members[0]!.id;mockSearchParams={memberId};
+ const insights=render(<NativeInsightsScreen useSession={()=>session} reader={reader} now={now}/>);await screen.findByText(copy.priceRise);
+ const links=screen.getAllByRole('button',{name:copy.compare});fireEvent.press(links[0]!);expect(mockPush).toHaveBeenLastCalledWith({pathname:'/personal-comparisons',params:{subscriptionId:row.id,memberId}});
+ fireEvent.press(links[links.length-1]!);expect(mockPush).toHaveBeenLastCalledWith({pathname:'/personal-comparisons',params:{memberId}});insights.unmount();
+ render(<NativeComparisonsScreen useSession={()=>session} reader={reader} now={now} initialSubscriptionId={second.id}/>);await screen.findByText(copy.samplePrice);
+ expect(screen.getByText(homeHousehold.members[0]!.displayName)).toBeTruthy();expect(screen.getByRole('button',{name:row.customName}).props.accessibilityState.selected).toBe(true);expect(screen.queryByRole('button',{name:second.customName})).toBeNull();expect(screen.queryByText(second.customName)).toBeNull();
+ fireEvent.press(screen.getByRole('button',{name:copy.backToInsights}));expect(mockReplace).toHaveBeenLastCalledWith({pathname:'/personal-insights',params:{memberId}});
+});
+it('never assigns unknown-payer plans to an empty comparison member scope and updates when the route member changes',async()=>{
+ const reader=jest.fn().mockResolvedValue({kind:'ready',projection:{...projectNativeAnalytics([row,second],history,now()),household:homeHousehold}}),session=facade();mockSearchParams={memberId:homeHousehold.members[0]!.id};
+ const view=render(<NativeComparisonsScreen useSession={()=>session} reader={reader} now={now}/>);await screen.findByRole('button',{name:row.customName});
+ mockSearchParams={memberId:homeHousehold.members[1]!.id};view.rerender(<NativeComparisonsScreen useSession={()=>session} reader={reader} now={now}/>);await screen.findByText(copy.empty);
+ expect(screen.queryByRole('button',{name:row.customName})).toBeNull();expect(screen.queryByRole('button',{name:second.customName})).toBeNull();expect(screen.queryByText(copy.currentPlan)).toBeNull();expect(reader).toHaveBeenCalledTimes(1);
+});
+it.each((['PAUSED','CANCELLED','ARCHIVED'] as const).flatMap(status=>[false,true].map(scoped=>({status,scoped}))))('retains exact authorized booked history in Insights when the last plan is $status (member scope=$scoped)',async({status,scoped})=>{
+ const projection=projectNativeAnalytics([{...row,status}],history,now()),reader=jest.fn().mockResolvedValue({kind:'ready',projection:{...projection,...(scoped?{household:homeHousehold}:{})}}),session=facade();if(scoped)mockSearchParams={memberId:homeHousehold.members[0]!.id};
+ render(<NativeInsightsScreen useSession={()=>session} reader={reader} now={now}/>);await screen.findByText(copy.empty);
+ expect(screen.getByTestId('native-insights-trend').props.accessibilityLabel).toContain(`2026-10, ${formatMinorUnits(12000n,'SEK',{locale:'en',display:'code'})}, ${copy.charges.replace('%{count}','1')}`);
+ expect(screen.queryByTestId('native-insights-overview')).toBeNull();expect(screen.queryByText(copy.priceRise)).toBeNull();expect(screen.queryByRole('button',{name:copy.compare})).toBeNull();expect(screen.getByRole('button',{name:copy.openSubscriptions})).toBeTruthy();
 });
 it('shows actionable Home empty state and Insights navigation without duplicate tab destinations or fake totals', async () => {
   const session = facade(), reader = jest.fn().mockResolvedValue({ kind: 'ready', projection: projectNativeAnalytics([], [], now()) });
@@ -180,7 +216,7 @@ it('keeps inline sample comparisons in Insights truthful and opens the actual se
  const projection=projectNativeAnalytics([row,second],history,now(),[{id:'fixture:example-video',name:'Example Video sample',categoryCode:'VIDEO_STREAMING',cadence:'MONTHLY',amountMinor:'6000',currency:'SEK',source:'synthetic-persona-fixture'}]);
  render(<NativeInsightsScreen useSession={()=>facade()} reader={jest.fn().mockResolvedValue({kind:'ready',projection})} now={now}/>);
  await screen.findByRole('header',{name:copy.sameCategory});
- expect(screen.getAllByText(copy.samplePrice)).toHaveLength(2);expect(screen.getAllByText(copy.fixtureSource)).toHaveLength(2);
+ expect(screen.getAllByText(copy.samplePrice)).toHaveLength(2);expect(screen.getAllByText(copy.fixtureSource)).toHaveLength(1);
  expect(screen.getByText(copy.comparisonTitle.replace('%{name}',row.customName).replace('%{alternative}','Example Video sample'))).toBeTruthy();
  fireEvent.press(screen.getAllByRole('button',{name:copy.compare})[0]!);expect(mockPush).toHaveBeenLastCalledWith({pathname:'/personal-comparisons',params:{subscriptionId:row.id}});
  expect(screen.queryByText(/market average|live offer today|score.*100/i)).toBeNull();
@@ -192,6 +228,12 @@ it.each([1,2])('uses the actual category-overlap count for singular and plural s
  await screen.findByText(count===1?copy.summaryOverlapOne:copy.summaryOverlap.replace('%{count}',String(count)));
  expect(screen.queryByText(count===1?copy.summaryOverlap.replace('%{count}','1'):copy.summaryOverlapOne)).toBeNull();
  expect(catalogs.sv.nativeAnalytics.summaryOverlapOne).toBe('1 kategori innehåller fler än ett aktivt abonnemang.');
+});
+it('skips an identical named sample in both inline Insights and the dedicated comparison list',async()=>{
+ const own={...row,customName:'Example Video'},fixtures=[{id:'fixture:same',name:' example video ',categoryCode:row.categoryCode,cadence:'MONTHLY' as const,amountMinor:'9000',currency:'SEK',source:'synthetic-persona-fixture' as const},{id:'fixture:other',name:'Other sample',categoryCode:row.categoryCode,cadence:'MONTHLY' as const,amountMinor:'6000',currency:'SEK',source:'synthetic-persona-fixture' as const}],projection=projectNativeAnalytics([own],null,now(),fixtures),reader=jest.fn().mockResolvedValue({kind:'ready',projection});
+ const view=render(<NativeInsightsScreen useSession={()=>facade()} reader={reader} now={now}/>);
+ await screen.findByText(copy.comparisonTitle.replace('%{name}',own.customName).replace('%{alternative}','Other sample'));expect(screen.queryByText(copy.comparisonTitle.replace('%{name}',own.customName).replace('%{alternative}',' example video '))).toBeNull();view.unmount();
+ render(<NativeComparisonsScreen useSession={()=>facade()} reader={reader} now={now}/>);await screen.findByText('Other sample');expect(screen.getAllByText(copy.samplePrice)).toHaveLength(1);expect(screen.queryByText(' example video ')).toBeNull();expect(screen.getByText(copy.fixtureSource)).toBeTruthy();
 });
 it('keeps every exact historical amount accessible while showing the reference area chart and in-chart month labels',()=>{
  const projection=projectNativeAnalytics([row],history,now());render(<AnalyticsTrend months={projection.trend}/>);

@@ -30,9 +30,11 @@ appId: se.subtrack.app
     visible: ${MAESTRO_MONTH_TITLE}
     timeout: 30000
 - scrollUntilVisible:
-    element: ${MAESTRO_RENEWALS_OPEN}
+    element:
+      id: native-home-upcoming
     direction: DOWN
-- tapOn: ${MAESTRO_RENEWALS_OPEN}
+- tapOn:
+    id: native-home-upcoming
 - extendedWaitUntil:
     visible: ${MAESTRO_RENEWALS_TITLE}
     timeout: 30000

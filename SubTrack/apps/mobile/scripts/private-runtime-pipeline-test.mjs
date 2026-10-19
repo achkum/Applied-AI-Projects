@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import console from 'node:console';
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdtempSync,mkdirSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import process from 'node:process';
 import {createRequire} from 'node:module';
 import {URL} from 'node:url';
 import {dirname,join} from 'node:path';
-import {execFileSync} from 'node:child_process';
+import {execFileSync,spawnSync} from 'node:child_process';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const mobileRequire = createRequire(new URL('../package.json', import.meta.url));
@@ -17,8 +19,13 @@ assert.equal(cacheSteps.length,2);
 for(const item of cacheSteps){
   assert.match(item.uses,/@0057852bfaa89a56745cba8c7296529d2fc39830$/);
   assert.ok(item.if.includes("matrix.platform == 'android'"));
-  assert.equal(item.with['restore-keys'],undefined);
 }
+// Native v2 may reuse public libraries across wrapper-only edits, but never
+// across OS/architecture, dependency lock or application-output policy changes.
+const dependencyNamespace="subtrack-android-gradle-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}-";
+assert.equal(cacheSteps[0].with.key,dependencyNamespace+"${{ hashFiles('SubTrack/apps/mobile/scripts/private-runtime-build.sh') }}");
+assert.deepEqual(cacheSteps[0].with['restore-keys'].trim().split('\n'),[dependencyNamespace]);
+assert.equal(cacheSteps[1].with['restore-keys'],undefined);
 const gradlePaths = ['~/.gradle/caches/modules-2','~/.gradle/caches/*/transforms','~/.gradle/caches/transforms-*','~/.gradle/caches/build-cache-*','~/.gradle/wrapper'];
 for(const [restore,save,paths] of [[cacheSteps[0],cacheSteps[1],gradlePaths]]){
   assert.match(restore.uses,/cache\/restore@/);assert.match(save.uses,/cache\/save@/);
@@ -34,6 +41,23 @@ assert.ok(cacheSteps[1].if.includes("env.SUBTRACK_ANDROID_GRADLE_CACHE_READY == 
 assert.ok(steps.indexOf(step('Installed workflow, API restart, same database row and logout'))<steps.indexOf(cacheSteps[1]));
 assert.equal(step('Sanitized native evidence only').if,"success() && needs.select-proof.outputs.scope != 'ios-driver'");
 const build=read('./private-runtime-build.sh');
+const iosTiming=build.split('# ST253_IOS_BUILD_TIMING_BEGIN')[1]?.split('# ST253_IOS_BUILD_TIMING_END')[0];
+assert.ok(iosTiming);assert.ok(iosTiming.includes('pod install --verbose'));assert.ok(iosTiming.includes('-showBuildTimingSummary build'));
+assert.ok(iosTiming.includes('-destination "id=${SUBTRACK_SIMULATOR_UDID:?}"'));assert.ok(iosTiming.includes('CODE_SIGNING_ALLOWED=NO'));
+assert.equal((build.match(/timed_ios_build_phase ios-pods install_ios_pods/g)??[]).length,1);assert.equal((build.match(/timed_ios_build_phase ios-compile compile_ios_app/g)??[]).length,1);
+const timingRoot=mkdtempSync(join(tmpdir(),'st253-ios-timing-')),bash=process.platform==='win32'?'C:/Program Files/Git/bin/bash.exe':'bash';
+try{
+  mkdirSync(join(timingRoot,'private'));
+  for(const [phase,status]of [['ios-pods',0],['ios-compile',17]]){
+    const result=spawnSync(bash,['-c',`set -eu; proof_root="$ST253_TIMING_ROOT"; ${iosTiming}\nprivate_command(){ printf 'private-canary stdout\\n'; printf 'private-canary stderr\\n' >&2; return ${status}; }; timed_ios_build_phase ${phase} private_command; printf 'following-command\\n'`],{encoding:'utf8',env:{...process.env,ST253_TIMING_ROOT:timingRoot.replaceAll('\\','/')}});
+    assert.equal(result.status,status);assert.match(result.stdout,new RegExp(`^ST253_IOS_BUILD_TIMING phase=${phase} elapsed_seconds=[0-9]+ exit_code=${status}\\n${status===0?'following-command\\n':''}$`));assert.equal(result.stderr,'');assert.ok(!result.stdout.includes('private-canary'));assert.ok(readFileSync(join(timingRoot,'private',phase==='ios-pods'?'pods.log':'build.log'),'utf8').includes('private-canary stderr'));
+  }
+  const denied=spawnSync(bash,['-c',`set -eu; proof_root="$ST253_TIMING_ROOT"; ${iosTiming}\ntimed_ios_build_phase foreign printf private-canary`],{encoding:'utf8',env:{...process.env,ST253_TIMING_ROOT:timingRoot.replaceAll('\\','/')}});assert.equal(denied.status,2);assert.equal(denied.stdout,'');
+  mkdirSync(join(timingRoot,'ios'));
+  const commandProof=spawnSync(bash,['-c',`set -eu; proof_root="$ST253_TIMING_ROOT"; SUBTRACK_SIMULATOR_UDID=123E4567-E89B-42D3-A456-426614174000; ${iosTiming}\npod(){ printf 'arg=%s\\n' "$@"; }; xcodebuild(){ printf 'arg=%s\\n' "$@"; }; timed_ios_build_phase ios-pods install_ios_pods; timed_ios_build_phase ios-compile compile_ios_app`],{cwd:timingRoot,encoding:'utf8',env:{...process.env,ST253_TIMING_ROOT:timingRoot.replaceAll('\\','/')}});
+  assert.equal(commandProof.status,0);assert.equal(commandProof.stderr,'');assert.equal(readFileSync(join(timingRoot,'private/pods.log'),'utf8'),'arg=install\narg=--verbose\n');
+  const compileArgs=readFileSync(join(timingRoot,'private/build.log'),'utf8').trim().split('\n').map(line=>line.slice(4));assert.deepEqual(compileArgs.slice(0,10),['-workspace','ios/SubTrack.xcworkspace','-scheme','SubTrack','-configuration','Debug','-sdk','iphonesimulator','-destination','id=123E4567-E89B-42D3-A456-426614174000']);assert.equal(compileArgs[10],'-derivedDataPath');assert.ok(compileArgs[11].endsWith('/private/derived'));assert.deepEqual(compileArgs.slice(12),['CODE_SIGNING_ALLOWED=NO','-showBuildTimingSummary','build']);assert.ok(!commandProof.stdout.includes('arg='));
+}finally{rmSync(timingRoot,{recursive:true,force:true});}
 assert.ok(build.includes('./gradlew :app:assembleDebug --no-daemon'));
 assert.ok(build.includes('--build-cache --init-script ../scripts/private-runtime-gradle-cache.init.gradle'));
 // Inspect the actual pinned Expo template and exact invoked command, not a mocked builder.

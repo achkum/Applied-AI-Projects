@@ -4,6 +4,7 @@ jest.mock('react-native-safe-area-context',()=>jest.requireActual('react-native-
 import React from 'react';
 import {act,render} from '@testing-library/react-native';
 import PersonalRoute from '../../../app/personal';
+import {sandboxHouseholdApi} from '@/api/sandboxHouseholdApi';
 import WelcomeRoute from '../../../app/welcome';
 import IndexRoute from '../../../app/index';
 jest.mock('@/context/ThemeContext',()=>({useTheme:()=>jest.requireActual('../signature/testUtils/contextMocks').makeTheme(false)}));
@@ -17,10 +18,11 @@ jest.mock('expo-router',()=>({useFocusEffect:(effect:()=>void)=>jest.requireActu
 jest.mock('@/state/SandboxSession',()=>({sandboxBuildSelected:()=>mockSandbox,useSandboxSession:()=>({phase:'active'})}));
 jest.mock('@/state/OnboardingAdapter',()=>({useOnboarding:()=>({sessionPhase:mockPhase,provider:mockSandbox?'sandbox':'production',reset:jest.fn(),login:mockWelcomeLogin})}));
 jest.mock('@/api/sandboxMobileApi',()=>({sandboxMobileApi:{sandbox:true}}));
+jest.mock('@/api/sandboxHouseholdApi',()=>({sandboxHouseholdApi:{read:jest.fn()}}));
 jest.mock('./NativePersonalScreen',()=>({NativePersonalScreen:(props:Record<string,unknown>)=>{mockProps=props;return null;}}));
 beforeEach(()=>{jest.clearAllMocks();mockSetup=undefined;mockFocused=true;mockPhase='active';});
 it.each([false,true])('same setup route gates handoff on authoritative screen callback sandbox=%s',sandbox=>{
- mockSandbox=sandbox;const view=render(<PersonalRoute/>);expect(mockReplace).not.toHaveBeenCalled();const complete=mockProps.onSetupComplete as (reason:'load'|'mutation')=>void;complete('load');expect(mockReplace).not.toHaveBeenCalled();complete('mutation');expect(mockReplace).toHaveBeenCalledWith('/personal-billing-month');mockReplace.mockClear();mockSetup='1';view.rerender(<PersonalRoute/>);(mockProps.onSetupComplete as typeof complete)('load');expect(mockReplace).toHaveBeenCalledWith('/personal-billing-month');
+ mockSandbox=sandbox;const view=render(<PersonalRoute/>);expect(mockProps.readHousehold).toBe(sandbox?sandboxHouseholdApi.read:undefined);expect(mockReplace).not.toHaveBeenCalled();const complete=mockProps.onSetupComplete as (reason:'load'|'mutation')=>void;complete('load');expect(mockReplace).not.toHaveBeenCalled();complete('mutation');expect(mockReplace).toHaveBeenCalledWith('/personal-billing-month');mockReplace.mockClear();mockSetup='1';view.rerender(<PersonalRoute/>);(mockProps.onSetupComplete as typeof complete)('load');expect(mockReplace).toHaveBeenCalledWith('/personal-billing-month');
 });
 it('completed installation starts through authoritative setup readback, never blind home',()=>{render(<IndexRoute/>);expect(mockProps.href).toEqual({pathname:'/personal',params:{setup:'1'}});});
 

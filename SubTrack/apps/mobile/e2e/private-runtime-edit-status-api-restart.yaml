@@ -26,9 +26,12 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: Example streaming Plus
     timeout: 30000
-- tapOn: Example streaming Plus
-- assertVisible: ${MAESTRO_EDIT}
 - assertVisible: ${MAESTRO_EXPECTED_AMOUNT}
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Example streaming Plus(?:, 129,90[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
+- assertVisible: ${MAESTRO_EDIT}
+- assertVisible: ${MAESTRO_MONTH_DETAIL_PRICE}
 - assertNotVisible: ${MAESTRO_PAUSE}
 - assertNotVisible: ${MAESTRO_RESUME}
 - assertNotVisible: ${MAESTRO_MARK_CANCELLED}

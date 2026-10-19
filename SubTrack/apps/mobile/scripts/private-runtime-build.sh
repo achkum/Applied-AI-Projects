@@ -41,13 +41,33 @@ else
   set_build_phase ios-toolchain
   [[ -d /Applications/Xcode_26.2.app ]]
   [[ "$(xcodebuild -version | head -1)" == 'Xcode 26.2' ]]
+  # ST253_IOS_BUILD_TIMING_BEGIN
+  timed_ios_build_phase() {
+    local timing_phase="$1" timing_log timing_started="$SECONDS" timing_exit=0 timing_elapsed
+    shift
+    case "$timing_phase" in
+      ios-pods) timing_log="$proof_root/private/pods.log" ;;
+      ios-compile) timing_log="$proof_root/private/build.log" ;;
+      *) return 2 ;;
+    esac
+    "$@" > "$timing_log" 2>&1 || timing_exit=$?
+    timing_elapsed=$((SECONDS - timing_started))
+    (( timing_elapsed >= 0 )) || return 1
+    printf 'ST253_IOS_BUILD_TIMING phase=%s elapsed_seconds=%s exit_code=%s\n' "$timing_phase" "$timing_elapsed" "$timing_exit"
+    return "$timing_exit"
+  }
+  install_ios_pods() { (cd ios && pod install --verbose); }
+  compile_ios_app() {
+    xcodebuild -workspace ios/SubTrack.xcworkspace -scheme SubTrack -configuration Debug \
+      -sdk iphonesimulator -destination "id=${SUBTRACK_SIMULATOR_UDID:?}" \
+      -derivedDataPath "$proof_root/private/derived" CODE_SIGNING_ALLOWED=NO \
+      -showBuildTimingSummary build
+  }
+  # ST253_IOS_BUILD_TIMING_END
   set_build_phase ios-pods
-  (cd ios && pod install --verbose) > "$proof_root/private/pods.log" 2>&1
+  timed_ios_build_phase ios-pods install_ios_pods
   set_build_phase ios-compile
-  xcodebuild -workspace ios/SubTrack.xcworkspace -scheme SubTrack -configuration Debug \
-    -sdk iphonesimulator -destination "id=${SUBTRACK_SIMULATOR_UDID:?}" \
-    -derivedDataPath "$proof_root/private/derived" CODE_SIGNING_ALLOWED=NO \
-    build > "$proof_root/private/build.log" 2>&1
+  timed_ios_build_phase ios-compile compile_ios_app
   set_build_phase ios-install
   node scripts/private-runtime-ios-font-bundle.mjs "$proof_root/private/derived/Build/Products/Debug-iphonesimulator/SubTrack.app"
   xcrun simctl install "$SUBTRACK_SIMULATOR_UDID" "$proof_root/private/derived/Build/Products/Debug-iphonesimulator/SubTrack.app"

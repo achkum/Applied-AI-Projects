@@ -30,17 +30,28 @@ export function NativePersonalBankScreen({useSession=useNativeSession,api=privat
    const result=await current.current.run(async(token,signal)=>{
     const abort=()=>controller.abort();if(signal.aborted)controller.abort();signal.addEventListener('abort',abort,{once:true});
     try{
-     let conflict=false;
-     if(intent){const key=await bankRequestKey();if(controller.signal.aborted)throw new Error('obsolete');const receipt=await mutateNativeBank(intent,key,token,controller.signal);conflict='conflict' in receipt;}
-     const read=await readNativeBank(token,controller.signal);return {read,conflict};
+     let receipt:Awaited<ReturnType<typeof mutateNativeBank>>|null=null;
+     if(intent){const key=await bankRequestKey();if(controller.signal.aborted)throw new Error('obsolete');receipt=await mutateNativeBank(intent,key,token,controller.signal);}
+     const read=await readNativeBank(token,controller.signal);return {read,receipt};
     }catch(error){if(!intent&&controller.signal.aborted&&ticket!==generation.current)return null;throw error;}
     finally{signal.removeEventListener('abort',abort);}
    });
    if(ticket!==generation.current||!focused.current||current.current.phase!=='active'||result===null)return;
    if(result.read.kind==='ready'){
     setConnections(result.read.connections);setState('ready');
-    if(intent){const purgeRequested=intent.operation==='disconnect'&&intent.purge;
-     setMessage(result.conflict?'conflict':purgeRequested?result.read.connections.some(connection=>connection.connectionId===intent.connectionId)?'conflict':'purged':'updated');}
+    if(intent){
+     if(result.receipt&&'conflict'in result.receipt)setMessage('conflict');
+     else{
+      const expected=result.receipt?.connection,actual=result.read.connections.find(connection=>connection.connectionId===expected?.connectionId),purgeRequested=intent.operation==='disconnect'&&intent.purge;
+      const requested=result.receipt?.operation===intent.operation&&expected!==undefined&&('connectionId'in intent?expected.connectionId===intent.connectionId:expected.institutionId===intent.institutionId);
+      const matches=requested&&(purgeRequested?expected.disposition==='purged'&&expected.status==='REVOKED'&&expected.accountCount===0&&expected.transactionCount===0&&actual===undefined:
+       actual!==undefined&&expected.status===(intent.operation==='disconnect'?'REVOKED':'ACTIVE')&&expected.disposition==='retained'&&(['provider','institutionId','status','disposition','accountCount','transactionCount','lastSyncAt'] as const).every(key=>actual[key]===expected[key]));
+      setMessage(matches?purgeRequested?'purged':'updated':'readback');
+      // Preserve the current confirmation when removal is not authoritatively
+      // observed; no repeat mutation is sent and fresh readback remains visible.
+      if(!matches&&purgeRequested&&result.read.connections.some(connection=>connection.connectionId===intent.connectionId)){setOptions(intent.connectionId);setPurge(intent.connectionId);}
+     }
+    }
    }
    else{setState('setup-required');setMessage('');}
   }catch{if(notice===feedback.current){setConnections([]);setPurge(null);setState('error');setMessage(intent?'uncertain':'unavailable');}}
@@ -57,8 +68,8 @@ export function NativePersonalBankScreen({useSession=useNativeSession,api=privat
  const button=(label:string,onPress:()=>void,disabled=busy,testID?:string,visible=label,primary=false,expanded?:boolean)=><Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled,...(expanded===undefined?{}:{expanded})}} disabled={disabled} onPress={onPress} style={[styles.control,{backgroundColor:primary?color('action.accent'):'transparent',borderRadius:12,opacity:disabled?0.5:1}]}><Text style={{...strong,color:color(primary?'ink.on-accent':'action.accent'),fontSize:theme.typography.fontSize.sm,flexShrink:1}}>{visible}</Text></Pressable>;
  const active=connections.some(connection=>connection.status==='ACTIVE');
  function choosePurge(id:string){const ticket=generation.current;setPurge(id);requestAnimationFrame(()=>{if(ticket!==generation.current||current.current.phase!=='active'||!focused.current)return;const handle=confirmation.current&&findNodeHandle(confirmation.current);if(handle)AccessibilityInfo.setAccessibilityFocus(handle);});}
- return <SafeAreaView style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView testID="native-bank-scroll" contentContainerStyle={styles.content} refreshControl={session.phase==='active'?<RefreshControl refreshing={busy} onRefresh={()=>{void execute();}} tintColor={color('action.accent')}/>:undefined}>
-  <View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel={copy('manage')} onPress={()=>router.replace('/personal')} style={styles.back}><BillingIcon name="previous" color={color('action.accent')} size={20}/><Text style={{...text,fontSize:theme.typography.fontSize.sm}}>{copy('manage')}</Text></Pressable>{session.phase==='active'?<Text style={secondary}>{copy('demo')}</Text>:null}</View>
+ return <SafeAreaView testID="native-bank-screen" onAccessibilityEscape={()=>router.replace('/personal')} style={{flex:1,backgroundColor:color('bg.canvas')}}><ScrollView testID="native-bank-scroll" contentContainerStyle={styles.content} refreshControl={session.phase==='active'?<RefreshControl refreshing={busy} onRefresh={()=>{void execute();}} tintColor={color('action.accent')}/>:undefined}>
+  <View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel={copy('manage')} onPress={()=>router.replace('/personal')} style={styles.back}><BillingIcon name="previous" color={color('action.accent')} size={20}/><Text style={{...text,fontSize:theme.typography.fontSize.sm}}>{copy('manage')}</Text></Pressable>{session.phase==='active'?<Text style={[secondary,styles.headerNote]}>{copy('demo')}</Text>:null}</View>
   <NativeProductHeading title={copy('title')} testID="native-bank-title" level="section"/>
   {message?<Text accessibilityRole="alert" style={text}>{copy(message)}</Text>:null}
   {session.phase==='active'?<>
@@ -68,7 +79,7 @@ export function NativePersonalBankScreen({useSession=useNativeSession,api=privat
     {connections.length===0?<NativeProductCard><BankIcon color={color('action.accent')}/><Text style={secondary}>{copy('empty')}</Text>{button(copy('connect'),()=>{void execute({operation:'connect',institutionId:'synthetic-demo-v1'});},busy,'native-bank-connect',copy('connect'),true)}</NativeProductCard>:null}
     {connections.map((connection,index)=><NativeProductCard key={connection.connectionId}>
      <View style={styles.summary}><BankIcon color={color('action.accent')}/><View style={styles.grow}><Text accessibilityRole="header" style={strong}>{copy('generation',{number:index+1})}</Text><Text style={{...secondary,color:color(connection.status==='ACTIVE'?'status.positive':'ink.secondary')}}>{copy(connection.status==='ACTIVE'?'active':'revoked')}</Text></View>{connection.status==='ACTIVE'?button(copy('sync'),()=>{void execute({operation:'sync',connectionId:connection.connectionId});},busy,`native-bank-sync-${index}`):null}{button(copy('options'),()=>{setPurge(null);setOptions(prior=>prior===connection.connectionId?null:connection.connectionId);},busy,`native-bank-options-${index}`,copy('options'),false,options===connection.connectionId)}</View>
-     <View style={styles.facts}><View style={styles.fact}><Text style={secondary}>{copy('accounts')}</Text><Text style={strong}>{connection.accountCount}</Text></View><View style={styles.fact}><Text style={secondary}>{copy('transactions')}</Text><Text style={strong}>{connection.transactionCount}</Text></View></View>
+     <View testID={`native-bank-facts-${index}`} style={styles.facts}><View testID={`native-bank-accounts-${index}`} style={styles.fact}><Text style={secondary}>{copy('accounts')}</Text><Text style={strong}>{connection.accountCount}</Text></View><View testID={`native-bank-transactions-${index}`} style={styles.fact}><Text style={secondary}>{copy('transactions')}</Text><Text style={strong}>{connection.transactionCount}</Text></View></View>
      <Text style={secondary}>{copy('lastSync',{date:connection.lastSyncAt===null?copy('never'):new Intl.DateTimeFormat(locale==='sv'?'sv-SE':'en-SE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(connection.lastSyncAt))})}</Text>
      {options===connection.connectionId?<View style={[styles.options,{borderColor:color('line.hairline')}] }>
       {purge===connection.connectionId?<><Text ref={confirmation} accessibilityRole="alert" style={strong}>{copy('purgeWarning')}</Text><View style={styles.actions}>{button(copy('confirmPurge'),()=>{void execute({operation:'disconnect',connectionId:connection.connectionId,purge:true});})}{button(copy('cancelPurge'),()=>setPurge(null))}</View></>:<>
@@ -84,4 +95,4 @@ export function NativePersonalBankScreen({useSession=useNativeSession,api=privat
   </>:<>{button(t('onboarding.nativePersonal.verify'),()=>{const attempt=Symbol('verification');verification.current=attempt;setMessage('');void session.login().catch(()=>{if(verification.current===attempt&&focused.current&&(current.current.phase==='verification-required'||current.current.phase==='busy'))setMessage('unavailable');}).finally(()=>{if(verification.current===attempt)verification.current=null;});},session.phase!=='verification-required')}</>}
  </ScrollView></SafeAreaView>;
 }
-const styles=StyleSheet.create({content:{flexGrow:1,padding:20,gap:16,paddingBottom:32},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12},back:{flexDirection:'row',alignItems:'center',minHeight:44,gap:4,alignSelf:'flex-start'},summary:{flexDirection:'row',alignItems:'center',gap:8,flexWrap:'wrap'},grow:{flex:1,minWidth:100,gap:2},facts:{flexDirection:'row',gap:24},fact:{flexDirection:'row',alignItems:'baseline',gap:8},control:{minHeight:44,paddingHorizontal:10,paddingVertical:8,justifyContent:'center',alignSelf:'flex-start'},options:{borderTopWidth:1,paddingTop:8,gap:8},actions:{flexDirection:'row',flexWrap:'wrap',gap:8}});
+const styles=StyleSheet.create({content:{flexGrow:1,padding:20,gap:16,paddingBottom:32},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12},back:{flexDirection:'row',alignItems:'center',minHeight:44,minWidth:44,gap:4,alignSelf:'flex-start'},headerNote:{flexShrink:1,textAlign:'right'},summary:{flexDirection:'row',alignItems:'center',gap:8,flexWrap:'wrap'},grow:{flex:1,minWidth:100,gap:2},facts:{flexDirection:'row',flexWrap:'wrap',columnGap:24,rowGap:8},fact:{flexDirection:'row',flexWrap:'wrap',maxWidth:'100%',alignItems:'baseline',gap:8},control:{minHeight:44,minWidth:44,maxWidth:'100%',paddingHorizontal:10,paddingVertical:8,justifyContent:'center',alignSelf:'flex-start'},options:{borderTopWidth:1,paddingTop:8,gap:8},actions:{flexDirection:'row',flexWrap:'wrap',gap:8}});

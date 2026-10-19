@@ -79,13 +79,19 @@ export function projectNativeAnalytics(input: readonly PrivateOwnerSubscriptionV
 }
 
 export function compareNativePlans(left: ComparisonPlan, right: ComparisonPlan) {
-  if (left.id === right.id || left.currency !== right.currency || left.categoryCode !== right.categoryCode) return null;
+  if (!isNativeComparisonAlternative(left,right)) return null;
   return recurringCostDifference(money(BigInt(left.amountMinor), left.currency), left.cadence, money(BigInt(right.amountMinor), right.currency), right.cadence);
+}
+
+/** An identical named sample is a snapshot of this plan, not another choice. Saved duplicates remain reviewable. */
+export function isNativeComparisonAlternative(left:ComparisonPlan,right:ComparisonPlan):boolean{
+ const canonical=(name:string)=>name.normalize('NFC').trim().toLocaleLowerCase('en');
+ return left.id!==right.id&&left.currency===right.currency&&left.categoryCode===right.categoryCode&&!(right.source==='synthetic-persona-fixture'&&canonical(left.name)===canonical(right.name));
 }
 
 /** A display scope over this owner's already-authorized rows. It grants no member access. */
 export function scopeNativeAnalytics(value: NativeAnalytics, subscriptionIds: ReadonlySet<string>, now: Date): NativeAnalytics {
-  const active=value.active.filter(row=>subscriptionIds.has(row.id)),ids=new Set(active.map(row=>row.id));
+  const subscriptions=value.subscriptions.filter(row=>subscriptionIds.has(row.id)),ids=new Set(subscriptions.map(row=>row.id));
   const history=value.historyAvailable?value.attributedCharges.filter(row=>row.subscriptionId!==null&&ids.has(row.subscriptionId)):null;
-  return projectNativeAnalytics(active,history,now,[],value.historyTruncated);
+  return projectNativeAnalytics(subscriptions,history,now,value.plans.filter(plan=>plan.source==='synthetic-persona-fixture'),value.historyTruncated);
 }

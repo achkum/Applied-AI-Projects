@@ -4,7 +4,7 @@ import {proofScope,profileReceipt,PROFILE_SCREENSHOTS} from './private-runtime-p
 import {Buffer} from 'node:buffer';
 import {observeRestartUi} from './private-runtime-restart-ui.mjs';
 import {qualifyNativeBank,acceptedNativeBankScreenshot,ACCEPTED_NATIVE_BANK_SCREENSHOTS} from './private-runtime-bank.mjs';
-import {prepareEnrollmentMetadata,enrollmentMetadataLines,preparePreinputMetadata,preinputCaptureContext,captureSealedPreinput,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS,androidCaptureContext,prepareAndroidEntryMetadata,measureAndroidApp,recordAndroidApp,captureSealedAndroidEntry} from './private-runtime-maestro-metadata.mjs';
+import {prepareEnrollmentMetadata,enrollmentMetadataLines,preparePreinputMetadata,preinputCaptureContext,captureSealedOriginalPreinput,PREINPUT_WITHHELD_STAGES,PREINPUT_METADATA_CHECKS,androidCaptureContext,prepareAndroidEntryMetadata,measureAndroidApp,recordAndroidApp,captureSealedAndroidEntry} from './private-runtime-maestro-metadata.mjs';
 import {enrollmentStageDiagnostic,startupStageDiagnostic} from './private-runtime-enrollment-stage.mjs';
 import {fixtureMonthLabels,qualifyNativeMonthBeforeEdit,qualifyNativeMonthAfterEdit,acceptedNativeMonthScreenshot,ACCEPTED_NATIVE_MONTH_SCREENSHOTS} from './private-runtime-billing-month.mjs';
 import {assertRenewalsReceipt,renewalCandidateDate,qualifyNativeRenewalsBeforeEdit,qualifyNativeRenewalsAfterEdit,acceptedNativeRenewalsScreenshot,ACCEPTED_NATIVE_RENEWAL_SCREENSHOTS} from './private-runtime-renewals.mjs';
@@ -440,8 +440,8 @@ async function main() {
       let sealed=false,withheldStage='CUSTODY',appCheck='UDID';const appSizes={};
       const checkApp=value=>{if(IOS_APP_CHECKS.includes(value))appCheck=value;};
       const captureStage=value=>{if(PREINPUT_WITHHELD_STAGES.includes(value))withheldStage=value;};
-      try{sealed=await captureSealedPreinput({onStage:captureStage,privateRoot:privateDir,reader:preinputMetadata,context:captureContext,observe:()=>harness.allApiObservation(),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),
-        capture:async(file,udid)=>{
+      try{sealed=await captureSealedOriginalPreinput({onStage:captureStage,privateRoot:privateDir,reader:preinputMetadata,context:captureContext,observe:()=>harness.allApiObservation(),recipientPem:readFileSync(join(repo,'.sdlc/evidence/ST-253/native-diagnostic-recipient.pem')),
+        capture:async(_file,udid)=>{
           assert.equal(udid,process.env.SUBTRACK_SIMULATOR_UDID);
           checkApp('BOOT_QUERY');
           const booted=JSON.parse(await nativeRead(['simctl','list','devices','booted','--json']));
@@ -452,7 +452,7 @@ async function main() {
           checkApp('CONTAINER_PATH');assert.ok(validIosAppContainer(installed,udid));
           const built=join(privateDir,'derived/Build/Products/Debug-iphonesimulator/SubTrack.app');
           verifyIosAppFiles(built,installed,checkApp,(role,one,two)=>{appSizes[role]=one>67108864||two>67108864?'over64MiB':one===0||two===0?'zero':'within64MiB';});
-          captureStage('CAPTURE');await nativeRead(['simctl','io',udid,'screenshot',file]);
+          captureStage('CAPTURE');
         }});}catch{/* Preserve the original failed qualification and private error. */}
       let metadataCheck='UNKNOWN';
       if(!sealed&&withheldStage==='METADATA_OWNERSHIP')try{const check=preinputMetadata.ownershipCheck();if(PREINPUT_METADATA_CHECKS.includes(check))metadataCheck=check;}catch{/* Unknown stays fixed; no private exception escapes. */}

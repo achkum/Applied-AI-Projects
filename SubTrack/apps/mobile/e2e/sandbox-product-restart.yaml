@@ -54,11 +54,13 @@ appId: se.subtrack.app.sandbox
 - tapOn:
     id: native-nav-manage
 - scrollUntilVisible:
-    element: Cedar Video Plus
+    element: Netflix household
     direction: DOWN
 - assertVisible: Streaming extras
 - takeScreenshot: accepted-sandbox-restart-subscriptions
-- tapOn: Cedar Video Plus
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix household(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - scrollUntilVisible:
     element: ${S_EDIT}
     direction: DOWN
@@ -93,7 +95,7 @@ appId: se.subtrack.app.sandbox
     visible: ${S_LOGOUT_CONFIRMED}
     timeout: 30000
 - assertNotVisible: ${S_LOGOUT}
-- assertNotVisible: Cedar Video Plus
+- assertNotVisible: Netflix household
 - assertNotVisible: QA Family
 - assertNotVisible:
     id: native-product-navigation

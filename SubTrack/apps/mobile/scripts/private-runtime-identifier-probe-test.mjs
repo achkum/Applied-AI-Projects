@@ -183,16 +183,25 @@ test('pre-input frame remains exact-source iOS authority, first-flow/zero-total 
  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');
  const workflow=readFileSync(new URL('../../../../.github/workflows/subtrack-native-device-proof.yml',import.meta.url),'utf8');
  const expression=workflow.match(/ST253_CAPTURE_ENABLED: \$\{\{ (.+) \}\}/)?.[1];assert.ok(expression);
- const enabled=(github,inputs={},platform='ios')=>vm.runInNewContext(expression,{github,inputs,matrix:{platform}});
+ const enabled=(github,inputs={},platform='ios',scope='full')=>vm.runInNewContext(expression.replaceAll('needs.select-proof',"needs['select-proof']"),{github,inputs,matrix:{platform},needs:{'select-proof':{outputs:{scope}}}});
  const pr={event_name:'pull_request',repository:'achkum/Applied-AI-Projects',event:{pull_request:{number:293,head:{repo:{full_name:'achkum/Applied-AI-Projects'},ref:'codex/native-owner-search'}}}};
  assert.equal(enabled(pr),'true');assert.equal(enabled(pr,{},'android'),'false');
+ const integration={...pr,event:{pull_request:{number:292,head:{repo:{full_name:pr.repository},ref:'st/native-synthetic-bank'},base:{ref:'st/native-billing-month'}}}};
+ assert.equal(enabled(integration),'true');assert.equal(enabled(integration,{},'android'),'false');assert.equal(enabled(integration,{},'ios','profile'),'false');
+ for(const patch of [{number:291},{head:{...integration.event.pull_request.head,ref:'other'}},{head:{...integration.event.pull_request.head,repo:{full_name:'foreign/repo'}}},{base:{ref:'main'}}])assert.equal(enabled({...integration,event:{pull_request:{...integration.event.pull_request,...patch}}}),'false');
+ assert.equal(enabled({...integration,repository:'foreign/repo'}),'false');
+ const followup={...integration,event:{pull_request:{number:305,head:{repo:{full_name:pr.repository},ref:'codex/sweden-data-native-followup'},base:{ref:'st/native-synthetic-bank'}}}};
+ assert.equal(enabled(followup),'true');assert.equal(enabled(followup,{},'android'),'false');assert.equal(enabled(followup,{},'ios','profile'),'false');
+ for(const patch of [{number:0},{number:-1},{head:{...followup.event.pull_request.head,ref:'other'}},{head:{...followup.event.pull_request.head,repo:{full_name:'foreign/repo'}}},{base:{ref:'main'}}])assert.equal(enabled({...followup,event:{pull_request:{...followup.event.pull_request,...patch}}}),'false');
+ assert.equal(enabled({...followup,repository:'foreign/repo'}),'false');assert.equal(enabled({...followup,event_name:'pull_request_target'}),'false');
+ assert.ok(workflow.includes('ST253_CAPTURE_BASE_REF: ${{ github.event.pull_request.base.ref }}'));
  const manual={event_name:'workflow_dispatch',repository:pr.repository,ref:'refs/heads/codex/ios-startup-fixes',sha:'ab'.repeat(20)};
  const inputs={platform:'ios',proof_scope:'full',source_head:manual.sha};assert.equal(enabled(manual,inputs),'true');
  for(const patch of [{platform:'android'},{proof_scope:'profile'},{source_head:'cd'.repeat(20)}])assert.equal(enabled(manual,{...inputs,...patch}),'false');
  for(const patch of [{repository:'foreign/repository'},{ref:'refs/heads/main'},{sha:'cd'.repeat(20)}])assert.equal(enabled({...manual,...patch},inputs),'false');
  assert.ok(workflow.includes('ST253_CAPTURE_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}'));assert.ok(workflow.includes('ref: ${{ github.event.pull_request.head.sha || github.sha }}'));
  assert.ok(driver.includes("const captureContext=platform==='ios'?preinputCaptureContext(process.env,head):null"));assert.ok(driver.includes("currentPhase === 'flow-identifier' && captureContext && preinputMetadata"));assert.ok(driver.includes("label==='identifier'&&args.at(-1)===join(app,'e2e/private-runtime-identifier.yaml')"));assert.ok(driver.includes('observe:()=>harness.allApiObservation()'));
- for(const command of ["['simctl','list','devices','booted','--json']","['simctl','get_app_container',udid,'se.subtrack.app','app']","['simctl','io',udid,'screenshot',file]"])assert.ok(driver.includes(command));assert.ok(driver.includes('validIosAppContainer(installed,udid)'));assert.ok(driver.includes('verifyIosAppFiles(built,installed,checkApp,'));
+ for(const command of ["['simctl','list','devices','booted','--json']","['simctl','get_app_container',udid,'se.subtrack.app','app']"])assert.ok(driver.includes(command));assert.ok(driver.includes('captureSealedOriginalPreinput('));assert.equal(driver.includes('captureIosFrame('),false);assert.ok(driver.includes('validIosAppContainer(installed,udid)'));assert.ok(driver.includes('verifyIosAppFiles(built,installed,checkApp,'));
  const validation=workflow.slice(workflow.indexOf('- name: Validate sealed pre-input'),workflow.indexOf('- name: Owned fixture and debug server cleanup'));
  assert.ok(validation.includes('validatedPreinputArtifact'));assert.ok(validation.includes("steps.sealed_preinput.outputs.ready == 'true'"));assert.ok(validation.includes('path: ${{ runner.temp }}/subtrack-native-proof/sealed/preinput-ios.st253sealed'));assert.equal(/path:.*(?:\*|\.png|private\/)/.test(validation),false);assert.ok(validation.includes('retention-days: 1'));
  assert.equal(workflow.includes('pull_request_target'),false);assert.equal(driver.includes('await identifierProbes('),false);
@@ -201,7 +210,8 @@ test('pre-input frame remains exact-source iOS authority, first-flow/zero-total 
 
 test('encrypted frame failure projection is a fixed stage only after the capture helper settles and cleanup completes',()=>{
  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');const start=driver.indexOf("if (currentPhase === 'flow-identifier' && captureContext && preinputMetadata)");const end=driver.indexOf("if (currentPhase === 'flow-identifier')",start+1);const block=driver.slice(start,end);
- assert.ok(block.includes("let sealed=false,withheldStage='CUSTODY'"));assert.ok(block.includes('if(PREINPUT_WITHHELD_STAGES.includes(value))withheldStage=value'));assert.ok(block.includes('onStage:captureStage'));assert.ok(block.includes("captureStage('CAPTURE');await nativeRead(['simctl','io',udid,'screenshot',file])"));assert.ok(block.indexOf('await captureSealedPreinput')<block.indexOf('console.error(`ST244_NATIVE preinput_frame='));assert.ok(block.includes("preinput_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}"));assert.equal(/console\.(?:error|log)\([^`]/.test(block),false);
+ assert.ok(block.includes("let sealed=false,withheldStage='CUSTODY'"));assert.ok(block.includes('if(PREINPUT_WITHHELD_STAGES.includes(value))withheldStage=value'));assert.ok(block.includes('onStage:captureStage'));assert.ok(block.includes("captureStage('CAPTURE');"));assert.equal(block.includes('captureIosFrame'),false);assert.ok(block.indexOf('await captureSealedOriginalPreinput')<block.indexOf('console.error(`ST244_NATIVE preinput_frame='));assert.ok(block.includes("preinput_frame=${sealed?'sealed':'withheld'} stage=${withheldStage}"));assert.equal(/console\.(?:error|log)\([^`]/.test(block),false);
+ assert.equal(block.includes('frame_command_failure='),false);
 });
 
 
@@ -209,7 +219,7 @@ test('ownership detail is fixed, withheld-only and emitted after cleanup; legacy
  const driver=readFileSync(new URL('./private-runtime-device.mjs',import.meta.url),'utf8');
  assert.ok(driver.includes("if(!sealed&&withheldStage==='METADATA_OWNERSHIP')try{const check=preinputMetadata.ownershipCheck();if(PREINPUT_METADATA_CHECKS.includes(check))metadataCheck=check;}"));
  assert.ok(driver.includes("let metadataCheck='UNKNOWN'"));assert.ok(driver.includes("withheldStage==='METADATA_OWNERSHIP'?` metadata_check=${metadataCheck}`:''"));
- assert.ok(driver.indexOf('await captureSealedPreinput')<driver.indexOf("let metadataCheck='UNKNOWN'"));
+ const originalCapture=driver.indexOf('await captureSealedOriginalPreinput');assert.ok(originalCapture>=0&&originalCapture<driver.indexOf("let metadataCheck='UNKNOWN'"));
  assert.ok(driver.includes('identifier_diagnostic=fixed source=legacy-text target_observation=unobserved'));assert.ok(driver.includes("legacy_targets=${diagnostic.targets.join(',') || 'none'}"));
 });
 

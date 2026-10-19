@@ -28,7 +28,6 @@ appId: se.subtrack.app
     element:
       id: native-bank-title
     direction: UP
-    centerElement: true
 - swipe:
     from:
       id: native-bank-scroll

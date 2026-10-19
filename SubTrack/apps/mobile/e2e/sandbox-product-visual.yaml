@@ -51,7 +51,7 @@ appId: se.subtrack.app.sandbox
       id: native-home-overview
     timeout: 30000
 - extendedWaitUntil:
-    visible: ${E_ACTIVE_TEN}
+    visible: ${E_ACTIVE_FOURTEEN}
     timeout: 30000
 - scrollUntilVisible:
     element: QA Family
@@ -74,14 +74,16 @@ appId: se.subtrack.app.sandbox
     direction: UP
 - takeScreenshot: accepted-sandbox-visual-en-light-subscriptions
 - scrollUntilVisible:
-    element: Cedar Video Plus
+    element: Netflix household
     direction: DOWN
-- tapOn: Cedar Video Plus
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix household(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - extendedWaitUntil:
     visible:
       id: native-subscription-detail-close
     timeout: 30000
-- assertVisible: Cedar Video Plus
+- assertVisible: Netflix household
 - scrollUntilVisible:
     element:
       id: native-subscription-charge-history
@@ -94,7 +96,7 @@ appId: se.subtrack.app.sandbox
     element:
       id: native-subscription-detail-close
     direction: UP
-- assertVisible: Cedar Video Plus
+- assertVisible: Netflix household
 - takeScreenshot: accepted-sandbox-visual-en-light-detail
 - tapOn:
     id: native-subscription-detail-close
@@ -216,7 +218,7 @@ appId: se.subtrack.app.sandbox
       id: native-home-overview
     timeout: 30000
 - extendedWaitUntil:
-    visible: ${E_ACTIVE_TEN}
+    visible: ${E_ACTIVE_FOURTEEN}
     timeout: 30000
 - scrollUntilVisible:
     element: QA Family
@@ -239,14 +241,16 @@ appId: se.subtrack.app.sandbox
     direction: UP
 - takeScreenshot: accepted-sandbox-visual-en-dark-subscriptions
 - scrollUntilVisible:
-    element: Cedar Video Plus
+    element: Netflix household
     direction: DOWN
-- tapOn: Cedar Video Plus
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix household(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - extendedWaitUntil:
     visible:
       id: native-subscription-detail-close
     timeout: 30000
-- assertVisible: Cedar Video Plus
+- assertVisible: Netflix household
 - scrollUntilVisible:
     element:
       id: native-subscription-charge-history
@@ -259,7 +263,7 @@ appId: se.subtrack.app.sandbox
     element:
       id: native-subscription-detail-close
     direction: UP
-- assertVisible: Cedar Video Plus
+- assertVisible: Netflix household
 - takeScreenshot: accepted-sandbox-visual-en-dark-detail
 - tapOn:
     id: native-subscription-detail-close
@@ -381,7 +385,7 @@ appId: se.subtrack.app.sandbox
       id: native-home-overview
     timeout: 30000
 - extendedWaitUntil:
-    visible: ${S_ACTIVE_TEN}
+    visible: ${S_ACTIVE_FOURTEEN}
     timeout: 30000
 - scrollUntilVisible:
     element: QA Family
@@ -404,14 +408,16 @@ appId: se.subtrack.app.sandbox
     direction: UP
 - takeScreenshot: accepted-sandbox-visual-sv-light-subscriptions
 - scrollUntilVisible:
-    element: Cedar Video Plus
+    element: Netflix household
     direction: DOWN
-- tapOn: Cedar Video Plus
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix household(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - extendedWaitUntil:
     visible:
       id: native-subscription-detail-close
     timeout: 30000
-- assertVisible: Cedar Video Plus
+- assertVisible: Netflix household
 - scrollUntilVisible:
     element:
       id: native-subscription-charge-history
@@ -424,7 +430,7 @@ appId: se.subtrack.app.sandbox
     element:
       id: native-subscription-detail-close
     direction: UP
-- assertVisible: Cedar Video Plus
+- assertVisible: Netflix household
 - takeScreenshot: accepted-sandbox-visual-sv-light-detail
 - tapOn:
     id: native-subscription-detail-close
@@ -546,7 +552,7 @@ appId: se.subtrack.app.sandbox
       id: native-home-overview
     timeout: 30000
 - extendedWaitUntil:
-    visible: ${S_ACTIVE_TEN}
+    visible: ${S_ACTIVE_FOURTEEN}
     timeout: 30000
 - scrollUntilVisible:
     element: QA Family
@@ -569,14 +575,16 @@ appId: se.subtrack.app.sandbox
     direction: UP
 - takeScreenshot: accepted-sandbox-visual-sv-dark-subscriptions
 - scrollUntilVisible:
-    element: Cedar Video Plus
+    element: Netflix household
     direction: DOWN
-- tapOn: Cedar Video Plus
+- tapOn:
+    id: native-subscription-row-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+    text: Netflix household(?:, 129,00[ \u00a0\u202f]+SEK · [^\r\n]{1,128})?
 - extendedWaitUntil:
     visible:
       id: native-subscription-detail-close
     timeout: 30000
-- assertVisible: Cedar Video Plus
+- assertVisible: Netflix household
 - scrollUntilVisible:
     element:
       id: native-subscription-charge-history
@@ -589,7 +597,7 @@ appId: se.subtrack.app.sandbox
     element:
       id: native-subscription-detail-close
     direction: UP
-- assertVisible: Cedar Video Plus
+- assertVisible: Netflix household
 - takeScreenshot: accepted-sandbox-visual-sv-dark-detail
 - tapOn:
     id: native-subscription-detail-close

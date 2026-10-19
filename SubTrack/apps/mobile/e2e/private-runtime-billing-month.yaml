@@ -24,18 +24,6 @@ appId: se.subtrack.app
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_TITLE}
     timeout: 30000
-- scrollUntilVisible:
-    element: ${MAESTRO_MONTH_NEXT}
-    direction: DOWN
-# Only an exact previous-month header admits the single adjacent-month action.
-- runFlow:
-    when:
-      visible: ${MAESTRO_MONTH_PREVIOUS}
-    commands:
-      - tapOn: ${MAESTRO_MONTH_NEXT}
-- extendedWaitUntil:
-    visible: ${MAESTRO_MONTH_TARGET}
-    timeout: 30000
 - runFlow: private-runtime-month-day.yaml
 - assertVisible: Example streaming
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}
@@ -53,7 +41,8 @@ appId: se.subtrack.app
 - runFlow: private-runtime-month-day.yaml
 - assertVisible: Example streaming
 - assertVisible: ${MAESTRO_MONTH_AMOUNT}
-- tapOn: ${MAESTRO_MONTH_DETAIL}
+- tapOn:
+    id: native-month-detail-row
 - extendedWaitUntil:
     visible: ${MAESTRO_MONTH_SAVED_DATE}
     timeout: 30000

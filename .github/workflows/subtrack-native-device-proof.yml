@@ -50,7 +50,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: subtrack-native-device-${{ github.event.pull_request.number || github.ref }}
+  group: subtrack-native-device-${{ github.event.pull_request.number || github.ref }}${{ github.event_name == 'workflow_dispatch' && format('-{0}', inputs.platform) || '' }}
   cancel-in-progress: true
 jobs:
   final-signed-authority:
@@ -139,6 +139,11 @@ jobs:
       matrix:
         # Founder-approved Android-only acceptance for this exact same-repository PR.
         # iOS remains unqualified; all other full PRs retain both installed targets.
+        # Controlled host comparison after ad83 CAPTURE/TERMINATED; no inferred app/timeout cause.
+        # macos-15 retains standard ARM64 M1/7GB and exact Xcode26.2/iOS26.2/iPhone17 (checked 2026-10-18):
+        # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md
+        # Related upstream screenshot report, not proof of this run: https://github.com/actions/runner-images/issues/13830
+        # https://docs.github.com/en/actions/reference/runners/github-hosted-runners
         include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.platform == 'ios' && '[{"platform":"ios","runner":"macos-15","database_mode":"local"}]' || (needs.select-proof.outputs.scope == 'profile' || github.event_name == 'workflow_dispatch' && inputs.platform == 'android' || github.event_name == 'pull_request' && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.number == 297 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank') && '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"}]' || '[{"platform":"android","runner":"ubuntu-24.04","database_mode":"docker"},{"platform":"ios","runner":"macos-15","database_mode":"local"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
@@ -153,12 +158,13 @@ jobs:
       EXPO_NO_TELEMETRY: "1"
       MAESTRO_CLI_NO_ANALYTICS: "true"
       SUBTRACK_PRIVATE_DEVICE_PROOF: "true"
-      ST253_CAPTURE_ENABLED: ${{ matrix.platform == 'ios' && github.repository == 'achkum/Applied-AI-Projects' && (github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/ios-startup-fixes' && inputs.platform == 'ios' && (inputs.proof_scope == 'full' || inputs.proof_scope == 'ios-driver') && inputs.source_head == github.sha) && 'true' || 'false' }}
+      ST253_CAPTURE_ENABLED: ${{ matrix.platform == 'ios' && github.repository == 'achkum/Applied-AI-Projects' && (github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' || github.event_name == 'pull_request' && github.event.pull_request.number == 292 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'st/native-synthetic-bank' && github.event.pull_request.base.ref == 'st/native-billing-month' && needs.select-proof.outputs.scope == 'full' || github.event_name == 'pull_request' && github.event.pull_request.number > 0 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/sweden-data-native-followup' && github.event.pull_request.base.ref == 'st/native-synthetic-bank' && needs.select-proof.outputs.scope == 'full' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/ios-startup-fixes' && inputs.platform == 'ios' && (inputs.proof_scope == 'full' || inputs.proof_scope == 'ios-driver') && inputs.source_head == github.sha) && 'true' || 'false' }}
       ST253_ANDROID_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 293 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/native-owner-search' && 'true' || 'false' }}
       ST253_ANDROID_HOME_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 297 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank' && 'true' || 'false' }}
       ST253_ANDROID_EDIT_CAPTURE_ENABLED: ${{ matrix.platform == 'android' && github.event_name == 'pull_request' && github.event.pull_request.number == 297 && github.repository == 'achkum/Applied-AI-Projects' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/android-product-completion' && github.event.pull_request.base.ref == 'st/native-synthetic-bank' && 'true' || 'false' }}
       ST253_CAPTURE_PLATFORM: ${{ matrix.platform }}
       ST253_CAPTURE_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+      ST253_CAPTURE_BASE_REF: ${{ github.event.pull_request.base.ref }}
       ST253_CAPTURE_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
       ST253_CAPTURE_DISPATCH_SOURCE: ${{ inputs.source_head }}
       EXPO_PUBLIC_PRIVATE_ENROLLMENT_DIAGNOSTIC: "true"
@@ -194,7 +200,7 @@ jobs:
           node apps/mobile/scripts/private-runtime-amount-selector-test.mjs
           node apps/mobile/scripts/private-runtime-pipeline-test.mjs
           node --test apps/mobile/scripts/private-runtime-font-bundle-test.mjs apps/mobile/scripts/private-runtime-ios-font-bundle-test.mjs
-          node --test apps/mobile/scripts/private-runtime-maestro-device-test.mjs apps/mobile/scripts/private-runtime-ios-driver-seal-test.mjs apps/mobile/scripts/private-runtime-ios-driver-preflight-test.mjs
+          node --test apps/mobile/scripts/private-runtime-maestro-device-test.mjs apps/mobile/scripts/private-runtime-ios-driver-seal-test.mjs apps/mobile/scripts/private-runtime-ios-driver-preflight-test.mjs apps/mobile/scripts/private-runtime-ios-driver-stack-test.mjs apps/mobile/scripts/private-runtime-ios-frame-capability-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-ios-simulator-measurement.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-ios-simulator-measurement-test.mjs
           node --test --experimental-test-coverage --test-coverage-include=apps/mobile/scripts/private-runtime-ios-app-custody.mjs --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 apps/mobile/scripts/private-runtime-ios-app-custody-test.mjs
           node apps/mobile/scripts/private-runtime-ca-test.mjs
@@ -243,7 +249,12 @@ jobs:
             ~/.gradle/caches/transforms-*
             ~/.gradle/caches/build-cache-*
             ~/.gradle/wrapper
-          key: subtrack-android-gradle-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/apps/mobile/scripts/private-runtime-build.sh', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}
+          # Prefix restores stay within the identical dependency/exclusion policy;
+          # iOS-only wrapper edits need not discard public Android library tasks.
+          # https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#cache-key-matching
+          key: subtrack-android-gradle-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}-${{ hashFiles('SubTrack/apps/mobile/scripts/private-runtime-build.sh') }}
+          restore-keys: |
+            subtrack-android-gradle-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('SubTrack/pnpm-lock.yaml', 'SubTrack/apps/mobile/scripts/private-runtime-gradle-cache.init.gradle') }}-
       - name: Android startup orchestration checks
         if: matrix.platform == 'android'
         run: node apps/mobile/scripts/private-runtime-android-test.mjs
@@ -272,6 +283,13 @@ jobs:
           const context=preinputCaptureContext(process.env,process.env.ST253_CAPTURE_SOURCE_HEAD);
           if(context){const root=join(process.env.RUNNER_TEMP,'subtrack-native-proof','private');mkdirSync(root,{recursive:true,mode:0o700});recordPreinputSimulator(root,context);}
           NODE
+      - name: Fresh owned iOS screenshot capability before fixture or compilation
+        if: github.event_name == 'workflow_dispatch' && matrix.platform == 'ios' && env.ST253_CAPTURE_ENABLED == 'true' && needs.select-proof.outputs.scope == 'ios-driver'
+        env:
+          NODE_ENV: development
+        run: |
+          umask 077
+          node apps/mobile/scripts/private-runtime-ios-frame-capability.mjs
       - name: Owned iOS driver readiness before native compilation
         id: ios_driver_preflight
         if: matrix.platform == 'ios'

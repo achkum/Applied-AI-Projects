@@ -29,7 +29,7 @@ void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 /** Reject unsupported filesystem routes before their screen/Stack subtree mounts. */
 export function SandboxRouteBoundary({children}:{children:React.ReactNode}) {
   const pathname=usePathname(),router=useRouter();
-  const allowed=['/','/welcome','/register','/register-otp','/register-bankid','/personal','/personal-home','/personal-billing-month','/personal-profile','/personal-bank','/personal-detections','/personal-household','/personal-insights','/personal-comparisons'].includes(pathname);
+  const allowed=['/','/welcome','/register','/register-otp','/register-bankid','/personal','/personal-home','/personal-billing-month','/personal-profile','/personal-privacy','/personal-help','/personal-bank','/personal-detections','/personal-household','/personal-insights','/personal-comparisons'].includes(pathname);
   React.useEffect(()=>{if(!allowed)router.replace('/welcome');},[allowed,router]);
   if(!allowed)return <View style={{flex:1}}/>;
   return <>{children}</>;
@@ -66,7 +66,7 @@ export default function RootLayout() {
       systemFontFamily={systemFontFamily}
     >
       <NativeStatusBar/>{sandboxBuildSelected()?<SandboxSessionProvider available={sandboxSessionAvailable()}><SandboxOnboardingProvider><SandboxRouteBoundary><Stack screenOptions={{headerShown:false}}>
-        <Stack.Screen name="index"/><Stack.Screen name="welcome"/><Stack.Screen name="register"/><Stack.Screen name="register-otp"/><Stack.Screen name="register-bankid"/><Stack.Screen name="personal"/><Stack.Screen name="personal-home"/><Stack.Screen name="personal-billing-month"/><Stack.Screen name="personal-profile"/><Stack.Screen name="personal-bank"/><Stack.Screen name="personal-detections"/><Stack.Screen name="personal-household"/><Stack.Screen name="personal-insights"/><Stack.Screen name="personal-comparisons"/>
+        <Stack.Screen name="index"/><Stack.Screen name="welcome"/><Stack.Screen name="register"/><Stack.Screen name="register-otp"/><Stack.Screen name="register-bankid"/><Stack.Screen name="personal"/><Stack.Screen name="personal-home"/><Stack.Screen name="personal-billing-month"/><Stack.Screen name="personal-profile"/><Stack.Screen name="personal-privacy"/><Stack.Screen name="personal-help"/><Stack.Screen name="personal-bank"/><Stack.Screen name="personal-detections"/><Stack.Screen name="personal-household"/><Stack.Screen name="personal-insights"/><Stack.Screen name="personal-comparisons"/>
       </Stack></SandboxRouteBoundary></SandboxOnboardingProvider></SandboxSessionProvider>:<NativeSessionProvider><EnrollmentProvider><ProductionOnboardingProvider><Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="welcome" />
@@ -76,7 +76,7 @@ export default function RootLayout() {
         <Stack.Screen name="personal" />
         <Stack.Screen name="personal-home" />
         <Stack.Screen name="personal-billing-month" />
-        <Stack.Screen name="personal-profile" />
+        <Stack.Screen name="personal-profile" /><Stack.Screen name="personal-privacy" /><Stack.Screen name="personal-help" />
         <Stack.Screen name="personal-bank" />
         <Stack.Screen name="personal-detections" />
         <Stack.Screen name="personal-household" />

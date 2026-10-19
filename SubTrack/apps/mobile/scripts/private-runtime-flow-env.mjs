@@ -35,7 +35,7 @@ export function flowEnvironment(locale = 'en') {
     MAESTRO_MONTH_TITLE: onboarding.productNav.home,
     MAESTRO_MONTH_NEXT: onboarding.billingMonth.next,
     MAESTRO_MONTH_REFRESH: onboarding.billingMonth.refresh,
-    MAESTRO_MONTH_EMPTY: onboarding.billingMonth.empty,
+    MAESTRO_MONTH_EMPTY: catalog.nativeAnalytics.activePlans.replace('%{count}', '0'),
     MAESTRO_MONTH_DAY_EMPTY: onboarding.billingMonth.dayEmpty,
     MAESTRO_MONTH_DAY_TEMPLATE: onboarding.billingMonth.day,
     MAESTRO_MONTH_DETAIL: onboarding.billingMonth.details.replace('%{name}', 'Example streaming'),

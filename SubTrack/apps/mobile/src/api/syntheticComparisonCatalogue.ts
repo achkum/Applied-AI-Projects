@@ -1,25 +1,11 @@
-import { ALL_PERSONAS } from '../../../../packages/synthetic/src/personas';
-import type { ComparisonPlan } from './nativeAnalyticsProjection';
+import sample from '../../../../packages/synthetic/src/sweden-subscriptions.json';
+import type {ComparisonPlan} from './nativeAnalyticsProjection';
 
-const categories: Readonly<Record<string, string>> = {
-  'video-streaming': 'VIDEO_STREAMING', 'music-audio': 'MUSIC_AUDIO', 'cloud-storage': 'CLOUD_STORAGE',
-  'software-productivity': 'SOFTWARE_PRODUCTIVITY', 'books-media': 'AUDIOBOOKS_EBOOKS',
-  'health-wellness': 'FITNESS_WELLNESS', education: 'EDUCATION_KIDS',
-};
-
-/** Offline sample prices from the supplied deterministic bank personas.
- * Never advertised as verified/current market offers, eligibility or equivalent plan features.
- * Excludes ambiguous bundle/cloud-infrastructure slugs rather than guessing their category.
+/** Dated Swedish sample anchors, not live offers or equivalent eligibility/features.
+ * The shared fixture also labels every historical charge and price change as simulated.
  */
-export const syntheticComparisonCatalogue: readonly ComparisonPlan[] = (() => {
-  const unique = new Map<string, ComparisonPlan>();
-  for (const persona of ALL_PERSONAS) for (const row of persona.subscriptions) {
-    const categoryCode = categories[row.category];
-    if (!categoryCode) continue;
-    const id = `fixture:${row.id}`;
-    const key = `${row.merchantId}:${row.billingCadence}:${row.amountMinor}`;
-    if (!unique.has(key)) unique.set(key, { id, name: row.merchantName, categoryCode, cadence: row.billingCadence,
-      amountMinor: BigInt(row.amountMinor).toString(), currency: row.currency, source: 'synthetic-persona-fixture' });
-  }
-  return [...unique.values()];
-})();
+export const syntheticComparisonCatalogue:readonly ComparisonPlan[]=Object.freeze(sample.plans.map(row=>{
+ const id=`fixture:${sample.version}-${row.key}`;
+ if(!/^fixture:[a-z0-9-]+$/.test(id)||!row.name||row.currency!=='SEK'||!/^[1-9]\d*$/.test(row.amountMinor)||(row.cadence!=='MONTHLY'&&row.cadence!=='ANNUAL'))throw new Error('Sample catalogue unavailable');
+ return Object.freeze({id,name:row.name,categoryCode:row.category,cadence:row.cadence,amountMinor:BigInt(row.amountMinor).toString(),currency:row.currency,source:'synthetic-persona-fixture' as const});
+}));

@@ -1,6 +1,6 @@
 import React from 'react';
-import {Keyboard,TextInput} from 'react-native';
-import {fireEvent,render,screen} from '@testing-library/react-native';
+import {AccessibilityInfo,Keyboard,Modal,Platform,TextInput} from 'react-native';
+import {act,fireEvent,render,screen} from '@testing-library/react-native';
 import {NativeDatePicker} from './NativeDatePicker';
 import {catalogs} from '@subtrack/i18n';
 const mockLocale:{value:'en'|'sv'}={value:'en'};
@@ -44,6 +44,7 @@ it('selects actual leap-day without exposing a free-form date input',()=>{
  const change=jest.fn();render(<NativeDatePicker label="Renewal" value="2024-02-12" onChange={change}/>);
  expect(screen.UNSAFE_queryByType(TextInput)).toBeNull();fireEvent.press(screen.getByRole('button',{name:'Renewal'}));
  expect(screen.getByRole('button',{name:'2024-02-29'})).toBeTruthy();expect(screen.queryByRole('button',{name:'2024-02-30'})).toBeNull();
+ expect(screen.getByTestId('native-date-picker-month').props.children).toBe('February 2024');
  fireEvent.press(screen.getByRole('button',{name:'2024-02-29'}));expect(change).toHaveBeenCalledWith('2024-02-29');
  expect(screen.queryByRole('button',{name:'2024-02-29'})).toBeNull();
 });
@@ -56,4 +57,32 @@ it('does not open or mutate when disabled',()=>{
  const dismiss=jest.spyOn(Keyboard,'dismiss').mockImplementation(()=>{});
  try{const change=jest.fn();render(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={change} disabled/>);
  fireEvent.press(screen.getByRole('button',{name:'Renewal'}));expect(screen.queryByRole('button',{name:'2026-10-18'})).toBeNull();expect(change).not.toHaveBeenCalled();expect(dismiss).not.toHaveBeenCalled();}finally{dismiss.mockRestore();}
+});
+
+it('moves VoiceOver into the shown calendar and restores its trigger only after iOS dismissal',()=>{
+ const os=jest.replaceProperty(Platform,'OS','ios'),native=jest.requireActual<typeof import('react-native')>('react-native');
+ const node=jest.spyOn(native,'findNodeHandle').mockReturnValue(42),focus=jest.spyOn(AccessibilityInfo,'setAccessibilityFocus').mockImplementation(()=>{});
+ try{
+  const change=jest.fn();render(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={change}/>);
+  fireEvent.press(screen.getByRole('button',{name:'Renewal'}));
+  act(()=>screen.UNSAFE_getByType(Modal).props.onShow());expect(focus).toHaveBeenCalledWith(42);focus.mockClear();
+  fireEvent.press(screen.getByRole('button',{name:'2026-10-18'}));expect(change).toHaveBeenCalledWith('2026-10-18');
+  expect(focus).not.toHaveBeenCalled();expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(false);
+  act(()=>screen.UNSAFE_getByType(Modal).props.onDismiss());expect(focus).toHaveBeenCalledWith(42);focus.mockClear();
+  act(()=>screen.UNSAFE_getByType(Modal).props.onDismiss());expect(focus).not.toHaveBeenCalled();
+ }finally{os.restore();node.mockRestore();focus.mockRestore();}
+});
+
+it('does not send delayed calendar focus to a disabled trigger or a reopened sheet',()=>{
+ const os=jest.replaceProperty(Platform,'OS','ios'),native=jest.requireActual<typeof import('react-native')>('react-native');
+ const node=jest.spyOn(native,'findNodeHandle').mockReturnValue(42),focus=jest.spyOn(AccessibilityInfo,'setAccessibilityFocus').mockImplementation(()=>{});
+ try{
+  const view=render(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={jest.fn()}/>);
+  fireEvent.press(screen.getByRole('button',{name:'Renewal'}));fireEvent.press(screen.getByRole('button',{name:catalogs.en.actions.close}));
+  view.rerender(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={jest.fn()} disabled/>);
+  act(()=>screen.UNSAFE_getByType(Modal).props.onDismiss());act(()=>screen.UNSAFE_getByType(Modal).props.onShow());expect(focus).not.toHaveBeenCalled();
+  view.rerender(<NativeDatePicker label="Renewal" value="2026-10-17" onChange={jest.fn()}/>);
+  fireEvent.press(screen.getByRole('button',{name:'Renewal'}));fireEvent.press(screen.getByRole('button',{name:catalogs.en.actions.close}));fireEvent.press(screen.getByRole('button',{name:'Renewal'}));
+  act(()=>screen.UNSAFE_getByType(Modal).props.onDismiss());expect(focus).not.toHaveBeenCalled();expect(screen.UNSAFE_getByType(Modal).props.visible).toBe(true);
+ }finally{os.restore();node.mockRestore();focus.mockRestore();}
 });

@@ -11,16 +11,16 @@ import { chartPercent } from '../../../../../packages/money/src/recurring-cost';
 import type { AnalyticsTrendMonth } from '@/api/nativeAnalyticsProjection';
 const AnalyticsTone=createContext<'positive'|null>(null);
 
-export function AnalyticsText({ children, kind = 'body' }: { children: React.ReactNode; kind?: 'body' | 'muted' | 'title' | 'amount' | 'hero' | 'label' | 'summary' | 'price' | 'unit' }) {
+export function AnalyticsText({ children, kind = 'body',tone:explicitTone }: { children: React.ReactNode; kind?: 'body' | 'explanation' | 'muted' | 'title' | 'amount' | 'hero' | 'label' | 'summary' | 'price' | 'unit';tone?:'warning'|'positive' }) {
   const { theme, isDark } = useTheme();
-  const tone=useContext(AnalyticsTone);
-  const size=theme.typography.fontSize[kind==='title'?'cardTitle':kind==='summary'?'summary':kind==='muted'?'caption':kind==='label'?'chart':kind==='price'?'price':kind==='hero'?typeof children==='string'&&children.length>18?'2xl':'total':kind==='amount'?'2xl':'md']!;
-  return <Text {...(kind === 'hero' ? { numberOfLines: 1, adjustsFontSizeToFit: true, minimumFontScale: 0.4, allowFontScaling: true } : {})} style={{ color: getColorByTheme(theme, isDark, tone==='positive'?'status.positive':kind === 'muted'||kind==='unit'||kind==='label' ? 'ink.secondary' : 'ink.primary'),
+  const inheritedTone=useContext(AnalyticsTone),tone=explicitTone??inheritedTone;
+  const size=theme.typography.fontSize[kind==='title'?'cardTitle':kind==='explanation'?'control':kind==='summary'?'summary':kind==='muted'?'caption':kind==='label'?'chart':kind==='price'?'price':kind==='hero'?typeof children==='string'&&children.length>18?'2xl':'total':kind==='amount'?'2xl':'md']!;
+  return <Text {...(kind === 'hero' ? { numberOfLines: 1, adjustsFontSizeToFit: true, minimumFontScale: 0.4, allowFontScaling: true } : {})} style={{ color: getColorByTheme(theme, isDark, tone==='positive'?'status.positive':tone==='warning'?'status.warning':kind === 'muted'||kind==='unit'||kind==='label'||kind==='explanation' ? 'ink.secondary' : 'ink.primary'),
     fontFamily: theme.typography.fontFamily[kind === 'hero' || kind === 'amount' ? 'display.extraBold' : kind === 'title' || kind === 'label' || kind==='price' ? 'ui.semibold' : 'ui'],fontSize:size,
-    ...(kind==='summary'?{lineHeight:size*1.55}:kind==='body'?{lineHeight:size*1.45}:kind==='unit'?{lineHeight:size*1.2}:kind==='amount'?{lineHeight:size*1.1,letterSpacing:size*-.03,fontVariant:['tabular-nums' as const]}:kind==='label'?{textTransform:'uppercase' as const,letterSpacing:size*.05}:{}),
+    ...(kind==='summary'?{lineHeight:size*1.55}:kind==='explanation'?{lineHeight:size*1.5}:kind==='body'?{lineHeight:size*1.45}:kind==='unit'?{lineHeight:size*1.2}:kind==='amount'?{lineHeight:size*1.1,letterSpacing:size*-.03,fontVariant:['tabular-nums' as const]}:kind==='label'?{textTransform:'uppercase' as const,letterSpacing:size*.05}:{}),
     ...(kind === 'hero' ? {lineHeight:size*.9,letterSpacing:size*-.045,textAlign: 'left' as const, fontVariant: ['tabular-nums' as const], alignSelf: 'stretch' as const, minWidth: 0 } : {}) }}>{children}</Text>;
 }
-export function AnalyticsMoney({ value, kind = 'amount', heroPeriod, heroAction }: { value: Money; kind?: 'body' | 'muted' | 'title' | 'amount' | 'hero' | 'label' | 'price'; heroPeriod?: string;heroAction?:React.ReactNode }) {
+export function AnalyticsMoney({ value, kind = 'amount', heroPeriod, heroAction,tone }: { value: Money; kind?: 'body' | 'muted' | 'title' | 'amount' | 'hero' | 'label' | 'price'; heroPeriod?: string;heroAction?:React.ReactNode;tone?:'warning'|'positive' }) {
   const { locale } = useI18n();
   const formatted = formatMinorUnits(value.minorUnits, value.currency, { locale, display: 'code' });
   if (kind === 'hero') {
@@ -31,7 +31,7 @@ export function AnalyticsMoney({ value, kind = 'amount', heroPeriod, heroAction 
     if(decimal){const at=numeric.lastIndexOf(decimal),fraction=numeric.slice(at+decimal.length);if(at>=0&&fraction.length===metadata.resolvedOptions().maximumFractionDigits&&Array.from(fraction).every(digit=>digit==='0'))numeric=numeric.slice(0,at);}
     return <View style={{width:'100%',flexDirection:'row',alignItems:'flex-end',columnGap:12}}><View accessible accessibilityLabel={formatted} accessibilityHint={heroPeriod} style={{flexDirection:'row',alignItems:'flex-end',gap:12,flex:1,minWidth:0}}><View style={{flexShrink:1,minWidth:0}}><AnalyticsText kind="hero">{numeric}</AnalyticsText></View><View style={{paddingBottom:3,maxWidth:72,flexShrink:0}}><AnalyticsText kind="unit">{heroPeriod ? `${value.currency} ${heroPeriod}` : value.currency}</AnalyticsText></View></View>{heroAction?<View style={{flexShrink:0}}>{heroAction}</View>:null}</View>;
   }
-  return <AnalyticsText kind={kind}>{formatted}</AnalyticsText>;
+  return <AnalyticsText kind={kind} {...(tone?{tone}:{})}>{formatted}</AnalyticsText>;
 }
 /** Reference-style text action, retaining the native 44-point touch target. */
 export function AnalyticsLink({ label, onPress, pill = false,triggerRef }: { label: string; onPress: () => void; pill?: boolean;triggerRef?:React.Ref<View> }) {
@@ -86,4 +86,4 @@ export function AnalyticsTrend({ months }: { months: readonly AnalyticsTrendMont
     <View style={[styles.row,{borderTopWidth:1,borderTopColor:getColorByTheme(theme,isDark,'line.hairline'),paddingTop:10}]}><AnalyticsText kind="muted">{t('nativeAnalytics.availableHistory')}</AnalyticsText><AnalyticsText kind="muted">{`${monthLabel(months[0]!.month)} – ${monthLabel(last.month)}`}</AnalyticsText></View>
   </View>;
 }
-const styles = StyleSheet.create({ link: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }, priceBox: { flex: 1, minWidth: 100, gap: 4, padding: 10 }, track: { height: 8, borderRadius: 8, overflow: 'hidden' }, trend: { gap: 10 }, row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 } });
+const styles = StyleSheet.create({ link: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }, priceBox: { flex: 1, minWidth: 100, gap: 2, paddingVertical:9,paddingHorizontal:10 }, track: { height: 8, borderRadius: 8, overflow: 'hidden' }, trend: { gap: 10 }, row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 } });
