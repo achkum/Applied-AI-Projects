@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Sandbox-only unsigned build preparation. No signing, upload, account or public activation.
 set -euo pipefail
+umask 077
 [[ $# == 1 ]] || { printf 'Usage: build-ios.sh prepare|unsigned-archive\n' >&2; exit 2; }
 case "$1" in prepare|unsigned-archive) ;; *) printf 'Signing/upload/publication unavailable in this source phase\n' >&2; exit 2;; esac
 [[ "$(uname -s)" == Darwin ]]
@@ -16,6 +17,8 @@ export DEVELOPER_DIR=/Applications/Xcode_26.2.app/Contents/Developer
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 app="$root/apps/mobile"
 cd "$app"
+source_head="$(git rev-parse HEAD)"
+[[ "$source_head" =~ ^[a-f0-9]{40}$ ]]
 node scripts/private-runtime-preflight.mjs
 node scripts/sandbox-app-config-test.mjs
 node --test scripts/sandbox-ios-build-intent-test.mjs
@@ -44,4 +47,7 @@ bundle="$build_root/SubTrackSandbox.xcarchive/Products/Applications/SubTrackSand
 [[ -d "$bundle" ]]
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$bundle/Info.plist")" == se.subtrack.app.sandbox ]]
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$bundle/Info.plist")" == "$build_number" ]]
+[[ "$(git rev-parse HEAD)" == "$source_head" ]]
+node scripts/sandbox-ios-archive-payload.mjs "$bundle" "$runtime_intent" "$build_number" "$source_head" > "$build_root/payload-receipt.json"
+[[ -s "$build_root/payload-receipt.json" && ! -L "$build_root/payload-receipt.json" ]]
 printf 'ST250_IOS_UNSIGNED_ARCHIVE_PASS Xcode=26.2 signing=unavailable upload=not-performed runtime_intent=%s runtime_qualification=not-performed build_number=%s installable_ipa=false\n' "$runtime_intent" "$build_number"
