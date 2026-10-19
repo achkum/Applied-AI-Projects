@@ -3,6 +3,12 @@ on:
   pull_request:
     paths:
       - "SubTrack/apps/mobile/**"
+      # Archive-only helpers are checked by the Linux iPhone archive policy.
+      # Ordered negative paths exclude only these files; mixed app changes still run.
+      # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onpushpull_requestpull_request_targetpathspaths-ignore
+      - "!SubTrack/apps/mobile/scripts/sandbox-ios-archive-payload.mjs"
+      - "!SubTrack/apps/mobile/scripts/sandbox-ios-archive-payload-test.mjs"
+      - "!SubTrack/apps/mobile/scripts/sandbox-ios-ci-policy-test.mjs"
       - "SubTrack/apps/api/**"
       - "SubTrack/packages/contracts/**"
       - "SubTrack/packages/i18n/**"

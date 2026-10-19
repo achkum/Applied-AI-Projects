@@ -7,7 +7,8 @@ import {fileURLToPath,URL} from 'node:url';
 import process from 'node:process';
 import vm from 'node:vm';
 import {tmpdir} from 'node:os';
-import {join,dirname,resolve} from 'node:path';
+import {join,dirname,resolve,posix} from 'node:path';
+import {selectNativeChangeScope} from './private-runtime-change-scope.mjs';
 const require=createRequire(new URL('../package.json',import.meta.url));
 const yaml=createRequire(require.resolve('expo/package.json'))('yaml');
 const readWorkflow=name=>yaml.parse(readFileSync(new URL(`../../../../.github/workflows/${name}`,import.meta.url),'utf8'));
@@ -31,6 +32,22 @@ function policyContract(doc){
  const authority=archive.steps.findIndex(step=>step.name==='Require the exact reviewed manual source'),checkout=archive.steps.findIndex(step=>step.uses?.startsWith('actions/checkout@')),measure=archive.steps.findIndex(step=>step.name==='Verify checked-out source before archive preparation'),build=archive.steps.findIndex(step=>step.run==='bash tools/sandbox/build-ios.sh unsigned-archive');assert.ok(authority>=0&&authority<checkout&&checkout<measure&&measure<build);assert.equal(archive.steps[authority]['working-directory'],'${{ runner.temp }}');assert.equal(archive.steps[checkout].with.ref,'${{ inputs.source_head }}');assert.equal(archive.steps[checkout].with['persist-credentials'],false);
 }
 test('iPhone PR policy runs actual Linux configuration/intent/recipe checks without claiming an archive or IPA',()=>{policyContract(document());});
+
+test('actual ordered PR path filters avoid archive-only native rebuilds while mixed and neighboring app changes retain full proof',()=>{
+ const native=readWorkflow('subtrack-native-device-proof.yml'),archive=document(),nativePaths=native.on.pull_request.paths;
+ const scripts=['sandbox-ios-archive-payload.mjs','sandbox-ios-archive-payload-test.mjs','sandbox-ios-ci-policy-test.mjs'].map(name=>`SubTrack/apps/mobile/scripts/${name}`);
+ assert.deepEqual(nativePaths.filter(pattern=>pattern.startsWith('!')),scripts.map(path=>`!${path}`));
+ for(const path of scripts)assert.ok(nativePaths.indexOf(`!${path}`)>nativePaths.indexOf('SubTrack/apps/mobile/**'));
+ // GitHub applies ordered positive/negative patterns per path, then runs if any path remains included.
+ const included=(paths,patterns)=>paths.some(path=>{let match=false;for(const pattern of patterns){const negative=pattern.startsWith('!');if(posix.matchesGlob(path,negative?pattern.slice(1):pattern))match=!negative;}return match;});
+ const archiveOnly=[...scripts,'.github/workflows/subtrack-sandbox-build.yml','SubTrack/tools/sandbox/build-ios.sh','SubTrack/.sdlc/tasks/ST-253.md'];
+ for(const paths of [...archiveOnly.map(path=>[path]),archiveOnly])assert.equal(included(paths,nativePaths),false);
+ for(const path of scripts)assert.equal(included([path],archive.on.pull_request.paths),true);
+ for(const path of ['SubTrack/apps/mobile/src/components/onboarding/NativePersonalScreen.tsx','SubTrack/apps/mobile/app.config.ts','SubTrack/apps/mobile/scripts/private-runtime-device.mjs','SubTrack/apps/mobile/scripts/sandbox-ios-archive-payload-new.mjs','SubTrack/apps/api/src/sandbox/sandbox-http.ts','SubTrack/packages/contracts/openapi.yaml','SubTrack/pnpm-lock.yaml','.github/workflows/subtrack-native-device-proof.yml']){
+  for(const paths of [[path],[...archiveOnly,path]]){assert.equal(included(paths,nativePaths),true);assert.equal(selectNativeChangeScope(paths),'full');}
+ }
+ policyContract(archive);
+});
 test('workflow policy contract rejects accidental per-PR archive work and false archive/signing/IPA receipt claims',()=>{for(const mutate of [doc=>{doc.jobs['unsigned-ios'].if="github.event_name == 'pull_request'";},doc=>{doc.jobs['ios-archive-policy']['runs-on']='macos-15';},doc=>{doc.jobs['ios-archive-policy'].steps.push({run:'bash tools/sandbox/build-ios.sh unsigned-archive'});},doc=>{doc.jobs['ios-archive-policy'].steps.push({run:"printf 'ST250_IOS_UNSIGNED_ARCHIVE_PASS installable_ipa=true\\n'"});},doc=>{doc.jobs['ios-archive-policy'].outputs={archive_receipt:'pass'};},doc=>{doc.jobs['ios-archive-policy'].steps.push({uses:'actions/upload-artifact@unexpected'});},doc=>{doc.jobs['ios-archive-policy'].steps[0]['continue-on-error']=true;}]){const doc=document();mutate(doc);assert.throws(()=>policyContract(doc));}});
 test('actual manual source guard accepts only its same-source dispatch and rejects PR, foreign repository and malformed/mismatched source',()=>{
  const doc=document(),archive=doc.jobs['unsigned-ios'],guard=archive.steps.find(step=>step.name==='Require the exact reviewed manual source'),head='a'.repeat(40);assert.equal(guard.env.ST_IOS_SOURCE,'${{ inputs.source_head }}');
