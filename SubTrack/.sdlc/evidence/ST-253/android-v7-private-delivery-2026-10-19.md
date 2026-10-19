@@ -1,0 +1,18 @@
+# Android V7 private tester delivery — 2026-10-19
+
+Private candidate delivered as `C:/Users/achku/Downloads/SubTrack-Android-v7-20261019-TEST.apk` (65,668,593 bytes). SHA256: `92e4e14d6951adde4115d92bb17e40361fbe8f9a40802f830df03b5ef48b0559`.
+
+- Tested PR head: `865ff31cc320d5b9f957f854e133e4f64a1211c0`. Full installed Android run39204120861/job117903210650 passed, including durable app/API restart readbacks and bank lifecycle; 18 original screenshots retained. The corrected empty Home screen was inspected. Shared checks passed. iOS failed before compilation on hierarchy-driver timeout and remains unqualified.
+- Ordinary PR304 merge: `367d47384c1a6cf21c4b02154209fec811cb5913`. Its Git tree equals tested head865 (`df4f787421d441ded0226321ff663311aac5c0fe`). Tree equality does not mean identical commits or binaries. The founder's persistent private Android delivery while iOS continues was recorded in the PR; no admin override, main push or global policy waiver occurred.
+- One enabled Release APK build: run39206234674/job117909564766, SUCCESS. No second APK compilation was used for signing or verification.
+- Original certificate: `10c659cae262ad807ae2da9a9c137b581c633ebef2ea3bce86bfe6c41052186c`. Version7, package `se.subtrack.app.sandbox`. Existing installation/data are preserved by the same signer and package; no uninstall is required.
+- The independently reviewed Windows recovery used the original authoritative mutex and exactly one original-key attempt. Secret cleanup and signed-local recording succeeded. Original Linux memory floor was unchanged. Public tools and the existing disposable qualification were reused.
+- The first return created private draft416952458 but uploaded zero assets. Source review found missing Content-Length on binary stdin uploads. A separately reviewed, one-shot same-claim reconciliation verified the original signed buffers and fresh empty draft, supplied their measured lengths, uploaded exactly two assets and checked their actual IDs/digests/MIME/sizes. It did not re-sign, create another draft, delete assets, publish, or unlock early.
+- Independent actual Ubuntu verification run39208440298/job117916270278 passed at source367d, verifying original signature/certificate, version, manifest, runtime/config, Hermes, native alignment and cleanup. Its authenticated observation preceded exclusive history finalization and owned mutex release. The history now records the genuine version7 successor.
+- Install-only signed-product run39208590856 is in progress against these exact bytes and the live Swedish backend. It does not rebuild the APK. Its result remains pending; this note does not claim complete product or exact whole-app HTML/accessibility acceptance.
+
+The existing Swedish backend1c71ee5c remains deployed; see sweden-backend-release-2026-10-18.md. No backend redeployment, data reset, new account, real integration, spending, production/store release or OpenClaw operation was performed for this delivery.
+
+iOS source dd0cd85496883fa442118547a12a31cb4d9802f9 fixes the disabled archive workflow and verifies actual unsigned payload/config/Hermes/native bytes. Eleven focused cases, lint, shell syntax and independent source review pass. Enabled unsigned archive run39207922160 is in progress. No installable IPA or iOS app acceptance is claimed; Apple setup remains deferred until signing readiness.
+
+The permanent upload correction adds only exact byte Content-Length headers. Its regression checks both actual GitHub process argument lists and immutable input buffers. Seven focused cases, scoped lint, diff check and independent review pass. This follow-up does not rebuild or replace the delivered APK.
