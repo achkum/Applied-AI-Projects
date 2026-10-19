@@ -10,15 +10,16 @@ delivery_update_slice: ST-252
 pipeline_repair_slice: ST-253
 android_fix_handoff:
   updated: "2026-10-19"
-  execution: "V6 remains delivered; Swedish backend1c71ee5c is live. Sourcef153a768 passes installed Android run39174295044/job117813714603:28receipt predicates, durable restarts/readbacks, bank lifecycle and18frames; all other PR304 checks pass except hosted iOS. Android23m16s, compilation2m56s with exact Gradle cache hit; UI/readbacks16m8s remain dominant. iOS fails BEFORE/APPS_TIMEOUT with verified cleanup before app compilation. Reviewed single listapps60s correctiona7c691ee passes7focusedtests/100percentcoverage and one isolated no-app/no-Android run39201262983 is active. No cause inferred for original Welcome failure; no unchanged diagnostic retry. Apple setup deferred until signing. Original signer/data/history preserved; no new signed APK or IPA. Whole-product HTML/accessibility parity remains unqualified. See native-resume-after-data-2026-10-18.md."
+  execution: "V7 private tester APK delivered: source367d4738, version7, original signer/data preserved, SHA25692e4e14d6951adde4115d92bb17e40361fbe8f9a40802f830df03b5ef48b0559. Tested PR865 passed installed Android39204120861 and all shared checks; integrated tree matches. One Release build39206234674 and independent signed verification39208440298 PASS; exclusive history finalized and mutex released. Install-only signed-product39208590856 is running against unchanged live Swedish backend1c71ee5c. iOS hierarchy readiness remains failed/unqualified; reviewed enabled unsigned archive source dd0cd854/run39207922160 is building. No IPA or complete-product parity claim. See android-v7-private-delivery-2026-10-19.md."
   task: ST-253
   handoff: .sdlc/evidence/ST-253/android-fix-handoff-2026-10-16.md
-  tested_source_head: f153a768172dc47ba5873e81188b6a4e41293e52
-  delivery_source_head: 81420b1faa8dae3143bd18653ac5cae383e8a9bc
-  version_code: 6
+  tested_source_head: 865ff31cc320d5b9f957f854e133e4f64a1211c0
+  delivery_source_head: 367d47384c1a6cf21c4b02154209fec811cb5913
+  version_code: 7
   backend_source_head: 1c71ee5cd8b8d80ecbb3630b4043d4657db3840f
   backend_dataset: "sweden-seed-v2 live: API run39150581836-1, no-DDL/data-retained successor. Trusted HTTPS two-owner 16plans/12active/4pending/min372history/household/repeat/logout PASS. Refresh or reopen existing APK; no reinstall. See sweden-backend-release-2026-10-18.md."
   issues:
+    - "Current V7: signed-product installed qualification39208590856 pending. Whole-product HTML/accessibility parity and installable iPhone delivery remain unqualified; historical V6/V5 statements below are retained history, not current delivery status."
     - "Current follow-up: Swedish dataset is live at1c71ee5c; existing eligible users refresh/reopen without reinstall. Profile Privacy bank-data controls, Help and reviewed name/avatar editing exist. Actual OS notifications/authenticated data-rights lifecycle/settlements/production Household remain genuine gaps; no inert UI or invented backend contract is presented as completion. Source eeaf7b3e passes790mobile tests;89a current development Android personal-flow qualification passes. No new signed APK, whole-product HTML parity or installable iPhone delivery yet."
     - "HTML follow-up2026-10-18: additional visual/gesture corrections plus native failure collection prepared;741mobile tests pass and optional test-type error corrected. Exact installed parity plus Privacy/Notifications/Support remain open. See html-verification-followup-2026-10-18.md. V6 delivered bytes/backend unchanged."
     - "V6: SubTrack-Android-v6-20261018-TEST.apk,65648113bytes,SHA25677e400676d67fa4d638172f969cda7c74ccf87e13772a1d41458b9f6fc3d4ad1. Signed build delivered; PAGES failure and exact native visual parity unresolved. No successful complete-product claim."
