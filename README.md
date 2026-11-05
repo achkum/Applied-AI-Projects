@@ -19,11 +19,11 @@ My prior experience includes roles at **SEB**, **Deloitte Consulting**, and **In
 ## Technical Skills
 
 **Programming:** Python, TypeScript, Java, SQL  
-**Machine Learning & Deep Learning:** Scikit-Learn, XGBoost, PyTorch, TensorFlow, Keras  
+**Machine Learning & Deep Learning:** Scikit-Learn, XGBoost, PyTorch, TensorFlow, Keras, YOLO, snnTorch  
 **LLMs & Agents:** Google Gemini, RAG, Model Context Protocol (MCP), LLMLingua-2, ChromaDB  
 **Data & Visualization:** Pandas, NumPy, Matplotlib, Seaborn  
 **Backend & Frontend:** FastAPI, NestJS, Next.js, SQLAlchemy, Prisma, PostgreSQL, Redis  
-**Cloud & MLOps:** Docker, GCP (Cloud Run, GCS), Vercel, GitHub Actions, MLflow  
+**Cloud & MLOps:** Docker, GCP (Cloud Run, GCS), Vercel, GitHub Actions, MLflow, Optuna, Weights & Biases  
 **Automation:** n8n, Selenium, Jenkins, API Testing  
 **Methodologies:** Agile, Scrum, V-Model, Waterfall
 
@@ -55,6 +55,10 @@ My prior experience includes roles at **SEB**, **Deloitte Consulting**, and **In
 |---|---|---|
 | [Credit Card Fraud Detection](https://github.com/achkum/AI-portfolio/tree/main/cc_fraud_detection) | Compares unsupervised anomaly detectors (Autoencoder, VAE, One-Class SVM) with supervised models and hybrid stacking on a highly imbalanced dataset, evaluated by AUPRC, ROC-AUC, and recall at fixed FPR. | PyTorch, Scikit-Learn, XGBoost |
 | [Immigration Integration Analysis](https://github.com/achkum/AI-portfolio/tree/main/immigration_integration) | Integrates Swedish public data (SCB, Migrationsverket, Socialstyrelsen) to model employment and income outcomes by region of birth, using a from-scratch gradient descent regressor and Random Forest. | Python, Pandas, NumPy, Scikit-Learn |
+| [Edge-Ready ECG Classification](https://github.com/achkum/AI-portfolio/tree/main/ecg_edge_classification) | Heartbeat classification on MIT-BIH with a 10k-parameter 1D CNN, quantised to INT8 for the MAX78002 edge AI chip (D7043E). | PyTorch, Scikit-Learn |
+| [Anchor-Based Object Recognition](https://github.com/achkum/AI-portfolio/tree/main/anchor_object_recognition) | Locates a specific object in video from three anchor photos using SIFT and DINOv2, with depth cues to reject decoys (R7020E). | OpenCV, DINOv2 |
+| [SNN Motion Detection](https://github.com/achkum/AI-portfolio/tree/main/snn_motion_detection) | Motion-direction classification with spiking neural networks: LIF, Reichardt detectors and STDP (D7046E). | snnTorch, Brian2 |
+| [Car Detection in Snow](https://github.com/achkum/AI-portfolio/tree/main/snow_car_detection) | YOLOv9 car detection on the Nordic Vehicle Dataset with snow augmentation and Optuna tuning (D7047E). | YOLOv9, Optuna, W&B |
 
 ---
 
