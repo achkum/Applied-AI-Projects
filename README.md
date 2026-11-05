@@ -65,7 +65,6 @@ Group projects from the MSc in Applied Artificial Intelligence at Luleå Univers
 | Project | Summary | Tech Stack |
 |---|---|---|
 | [Credit Card Fraud Detection](https://github.com/achkum/AI-portfolio/tree/main/cc_fraud_detection) | Compares unsupervised anomaly detectors (Autoencoder, VAE, One-Class SVM) with supervised models and hybrid stacking on a highly imbalanced dataset, evaluated by AUPRC, ROC-AUC, and recall at fixed FPR. | PyTorch, Scikit-Learn, XGBoost |
-| [Immigration Integration Analysis](https://github.com/achkum/AI-portfolio/tree/main/immigration_integration) | Integrates Swedish public data (SCB, Migrationsverket, Socialstyrelsen) to model employment and income outcomes by region of birth, using a from-scratch gradient descent regressor and Random Forest. | Python, Pandas, NumPy, Scikit-Learn |
 
 ---
 
