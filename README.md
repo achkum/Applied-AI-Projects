@@ -18,13 +18,13 @@ My prior experience includes roles at **SEB**, **Deloitte Consulting**, and **In
 
 ## Technical Skills
 
-**Programming:** Python, Java, SQL  
-**AI & Machine Learning:** Scikit-Learn, XGBoost, TensorFlow, Keras, **Google Gemini (LLM)**  
-**Data & Vector Handling:** Pandas, NumPy, Matplotlib, Seaborn, **ChromaDB (Vector DB)**  
-**Automation & Orchestration:** **n8n**, Selenium, Jenkins, API Testing  
-**API & MLOps:** **FastAPI**, **Docker**, **SQLAlchemy**, MLflow  
-**OCR & Document Processing:** **Tesseract**, **PyPDF**  
-**Version Control:** Git, GitHub  
+**Programming:** Python, TypeScript, Java, SQL  
+**Machine Learning & Deep Learning:** Scikit-Learn, XGBoost, PyTorch, TensorFlow, Keras  
+**LLMs & Agents:** Google Gemini, RAG, Model Context Protocol (MCP), LLMLingua-2, ChromaDB  
+**Data & Visualization:** Pandas, NumPy, Matplotlib, Seaborn  
+**Backend & Frontend:** FastAPI, NestJS, Next.js, SQLAlchemy, Prisma, PostgreSQL, Redis  
+**Cloud & MLOps:** Docker, GCP (Cloud Run, GCS), Vercel, GitHub Actions, MLflow  
+**Automation:** n8n, Selenium, Jenkins, API Testing  
 **Methodologies:** Agile, Scrum, V-Model, Waterfall
 
 ---
@@ -38,34 +38,23 @@ My prior experience includes roles at **SEB**, **Deloitte Consulting**, and **In
 
 ---
 
-## Featured AI Projects
+## Featured Projects
 
-### 1. [ComplianceIntelligence](./ComplianceIntelligence)
-**AI-Powered AML & Sanctions Intelligence System**
-- **Tech Stack**: FastAPI, Google Gemini 2.0, ChromaDB, SQLAlchemy, Tesseract OCR.
-- **Key Features**: 
-    - Automated ingestion and hashing for regulatory documents.
-    - Semantic retrieval (RAG) for goal-oriented compliance queries.
-    - Delta Analysis: Automatically compares document versions to surface risk shifts.
-    - "Mock Mode" for LLM-free development and testing.
+| Project | Summary | Tech Stack |
+|---|---|---|
+| [Breast Cancer Detection](./BreastCancerDetection) | Clinical decision support prototype that classifies histopathology images with ResNet50, explains predictions with Grad-CAM, and exposes the model as MCP tools for a conversational agent. [Live demo](https://ai-breastcancer-detector.vercel.app/) | PyTorch, FastAPI, MCP, Gemini, Next.js, GCP Cloud Run |
+| [Cutok (TokenOptimizer)](./TokenOptimizer) | Reduces LLM token cost before a request is sent through attachment minification, context deduplication, prompt compression, and response budgeting. Available as a Python library, web app, browser extension, MCP server, and proxy. [Live demo](https://cutok.vercel.app) | Python, LLMLingua-2, FastAPI, MCP, Vercel |
+| [SubTrack](./SubTrack) | Household subscription tracker for the Swedish market. Detects recurring payments from Open Banking data with ML classifiers, flags price increases, and splits shared costs. | TypeScript, NestJS, Next.js, Expo, FastAPI, PostgreSQL, Redis |
+| [ComplianceIntelligence](./ComplianceIntelligence) | AML and sanctions intelligence system using RAG over regulatory documents, with delta analysis to surface risk changes between document versions. | FastAPI, Gemini, ChromaDB, SQLAlchemy, Tesseract OCR |
+| [Workflow Automation](./Workflow%20Automation) | Email analysis and routing pipeline that reads Gmail, uses an LLM for priority, sentiment, and team routing, and orchestrates runs with n8n. | FastAPI, Gemini, n8n, Docker, SQLite |
+| [Defect Prediction](./Defect%20Prediction) | Predicts defective software modules from code complexity metrics on the NASA MDP dataset, comparing Logistic Regression, Random Forest, and XGBoost. | Python, Scikit-Learn, XGBoost, Pandas |
 
-### 2. [WorkflowAutomation](./WorkflowAutomation)
-**Intelligent Email Analysis & Routing System**
-- **Tech Stack**: FastAPI, Google Gemini, n8n, Docker, SQLite.
-- **Key Features**: 
-    - Real-time Gmail integration via OAuth 2.0.
-    - LLM-based sentiment analysis, priority scoring, and team routing.
-    - Automated workflow orchestration using self-hosted n8n.
-    - Dockerized for production-ready deployment.
+### Additional Projects ([AI-portfolio](https://github.com/achkum/AI-portfolio))
 
-### 3. [Defect Prediction](./Defect%20Prediction)
-**Predictive Quality Engineering for Software Modules**
-- **Tech Stack**: Python, Scikit-Learn, XGBoost, Pandas.
-- **Key Features**:
-    - Machine learning pipeline for identifying defective code modules.
-    - Comparative analysis of Logistic Regression, Random Forest, and XGBoost.
-    - Focus on structural (LOC) and cognitive (Halstead) complexity metrics.
-    - NASA Metrics Data Program (MDP) dataset evaluation.
+| Project | Summary | Tech Stack |
+|---|---|---|
+| [Credit Card Fraud Detection](https://github.com/achkum/AI-portfolio/tree/main/cc_fraud_detection) | Compares unsupervised anomaly detectors (Autoencoder, VAE, One-Class SVM) with supervised models and hybrid stacking on a highly imbalanced dataset, evaluated by AUPRC, ROC-AUC, and recall at fixed FPR. | PyTorch, Scikit-Learn, XGBoost |
+| [Immigration Integration Analysis](https://github.com/achkum/AI-portfolio/tree/main/immigration_integration) | Integrates Swedish public data (SCB, Migrationsverket, Socialstyrelsen) to model employment and income outcomes by region of birth, using a from-scratch gradient descent regressor and Random Forest. | Python, Pandas, NumPy, Scikit-Learn |
 
 ---
 
