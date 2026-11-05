@@ -1,0 +1,11 @@
+torch
+snntorch
+brian2
+tonic
+numpy
+matplotlib
+scikit-learn
+pyyaml
+tqdm
+ipython
+jupyter

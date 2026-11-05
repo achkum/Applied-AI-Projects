@@ -1,0 +1,14 @@
+{
+  "seed": 42,
+  "model_size": "large",
+  "epochs": 40,
+  "batch_size": 256,
+  "learning_rate": 0.001,
+  "weight_decay": 0.0001,
+  "loss": "weighted_ce",
+  "class_weight_power": 0.5,
+  "focal_gamma": 2.0,
+  "early_stopping_patience": 10,
+  "augment": true,
+  "use_rr_channel": true
+}

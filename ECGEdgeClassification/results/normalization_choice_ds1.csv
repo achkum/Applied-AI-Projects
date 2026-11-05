@@ -1,0 +1,9 @@
+reference,scale_factor,V_beats_clipped_pct,all_beats_clipped_pct,worst_record,worst_record_V_clipped_pct,median_N_peak,N_peak_int8_levels
+|ECG| at annotation (draft),2.0,4.28,1.02,215.0,83.5,0.517,66
+|ECG| at annotation (draft),2.5,2.32,0.55,215.0,51.8,0.414,53
+|ECG| at annotation (draft),3.0,0.18,0.04,215.0,3.7,0.345,44
+|ECG| at annotation (draft),4.0,0.0,0.0,,0.0,0.259,33
+QRS peak within +-50 ms (final),2.0,4.07,0.98,215.0,80.5,0.509,65
+QRS peak within +-50 ms (final),2.5,2.09,0.5,215.0,46.3,0.407,52
+QRS peak within +-50 ms (final),3.0,0.03,0.01,,0.0,0.34,43
+QRS peak within +-50 ms (final),4.0,0.0,0.0,,0.0,0.255,33

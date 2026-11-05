@@ -1,0 +1,12 @@
+reason,train,val,test
+AAMI Q-class beat 'Q',8,0,7
+first beat (no RR interval),0,0,1
+non-beat annotation '!',472,0,0
+"non-beat annotation '""'",2,0,435
+non-beat annotation '+',538,78,557
+non-beat annotation '[',6,0,0
+non-beat annotation ']',6,0,0
+non-beat annotation 'x',11,47,135
+non-beat annotation '|',60,6,65
+non-beat annotation '~',259,30,284
+window outside record (edge),46,12,52

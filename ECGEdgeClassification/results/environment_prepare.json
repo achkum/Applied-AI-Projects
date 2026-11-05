@@ -1,0 +1,195 @@
+{
+  "python": "3.13.16",
+  "platform": "Linux-6.18.44-fc-v114-x86_64-with-glibc2.39",
+  "numpy": "2.5.3",
+  "scipy": "1.18.1",
+  "pandas": "3.0.5",
+  "wfdb": "4.3.1",
+  "matplotlib": "3.11.2",
+  "pyyaml": "6.0.3",
+  "scikit-learn (EDA only)": "1.9.1",
+  "config": {
+    "seed": 42,
+    "paths": {
+      "mitdb": "data/mitdb",
+      "nstdb": "data/nstdb",
+      "processed": "data/processed",
+      "results": "results"
+    },
+    "official": {
+      "ds1": [
+        101,
+        106,
+        108,
+        109,
+        112,
+        114,
+        115,
+        116,
+        118,
+        119,
+        122,
+        124,
+        201,
+        203,
+        205,
+        207,
+        208,
+        209,
+        215,
+        220,
+        223,
+        230
+      ],
+      "ds2": [
+        100,
+        103,
+        105,
+        111,
+        113,
+        117,
+        121,
+        123,
+        200,
+        202,
+        210,
+        212,
+        213,
+        214,
+        219,
+        221,
+        222,
+        228,
+        231,
+        232,
+        233,
+        234
+      ]
+    },
+    "records": {
+      "train": [
+        101,
+        106,
+        108,
+        109,
+        112,
+        114,
+        116,
+        119,
+        122,
+        203,
+        205,
+        207,
+        208,
+        209,
+        215,
+        220,
+        230
+      ],
+      "val": [
+        115,
+        118,
+        124,
+        201,
+        223
+      ],
+      "test": [
+        100,
+        103,
+        105,
+        111,
+        113,
+        117,
+        121,
+        123,
+        200,
+        202,
+        210,
+        212,
+        213,
+        214,
+        219,
+        221,
+        222,
+        228,
+        231,
+        232,
+        233,
+        234
+      ],
+      "excluded_paced": [
+        102,
+        104,
+        107,
+        217
+      ]
+    },
+    "same_subject": [
+      [
+        201,
+        202
+      ]
+    ],
+    "lead": "MLII",
+    "fs": 360,
+    "filter": {
+      "type": "butterworth_bandpass",
+      "low_hz": 0.5,
+      "high_hz": 40.0,
+      "order": 2,
+      "zero_phase": true
+    },
+    "window": {
+      "before": 450,
+      "after": 270,
+      "resample_up": 16,
+      "resample_down": 45,
+      "out_len": 256
+    },
+    "normalization": {
+      "reference": "qrs_peak",
+      "ref_half_window_ms": 50,
+      "scale_factor": 3.0,
+      "clip_min": -1.0,
+      "clip_max": 0.9921875
+    },
+    "rr": {
+      "use_rr_channel": true,
+      "n_prev": 10
+    },
+    "label_map": {
+      "N": [
+        "N",
+        "L",
+        "R",
+        "e",
+        "j"
+      ],
+      "S": [
+        "A",
+        "a",
+        "J",
+        "S"
+      ],
+      "V": [
+        "V",
+        "E"
+      ],
+      "F": [
+        "F"
+      ]
+    },
+    "excluded_beats": [
+      "/",
+      "f",
+      "Q"
+    ],
+    "classes": [
+      "N",
+      "S",
+      "V",
+      "F"
+    ],
+    "class_weight_power": 0.5
+  }
+}

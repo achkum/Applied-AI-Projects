@@ -1,0 +1,257 @@
+paths:
+  nvd_root: src/data/NVD
+  yolo_output: outputs/yolo
+  checkpoints_dir: outputs/checkpoints
+  results_dir: outputs/results
+  optuna_db: outputs/optuna/study.db
+  wandb_dir: outputs/wandb
+  log_dir: outputs/logs
+  splits:
+    train:
+    - 2022-12-04 Bjenberg 02
+    - 2022-12-23 Asjo 01_HD 5x stab
+    - 2022-12-02 Asjo 01_stabilized
+    val:
+    - 2022-12-03 Nyland 01_stabilized
+    test:
+    - 2022-12-23 Bjenberg 02_stabilized
+  domain_shift:
+    light_snow:
+    - 2022-12-02 Asjo 01_stabilized
+    heavy_snow:
+    - 2022-12-23 Bjenberg 02_stabilized
+project:
+  name: nvd-snow-yolov9
+  group: group-10
+  seed: 42
+  device: cuda:0
+  log_level: INFO
+variants:
+  active: v0
+  v0:
+    experiment: v0_1280
+    augmentation:
+      use_snow_aug: false
+      disable: true
+      standard:
+        mosaic_p: 0.0
+    training:
+      epochs: 100
+  v1:
+    experiment: v1_e_1280
+    augmentation:
+      use_snow_aug: false
+    training:
+      epochs: 100
+  v2:
+    experiment: v2_1280
+    augmentation:
+      use_snow_aug: true
+    training:
+      epochs: 100
+  v3_ds:
+    experiment: v3_ds_1280
+    augmentation:
+      use_snow_aug: true
+    domain_shift:
+      enabled: true
+    training:
+      epochs: 100
+model:
+  architecture: yolov9
+  weights: yolov9c.pt
+  yolov9_repo: third_party/yolov9
+  trainer_class: src.model.trainer.UltralyticsTrainer
+  num_classes: 1
+  img_size: 1280
+  freeze_backbone: false
+training:
+  epochs: 100
+  batch_size: 8
+  num_workers: 4
+  cache: disk
+  optimizer: adam
+  lr: 0.00010082860845904296
+  lrf: 0.06465081710095759
+  lr_scheduler: cosine
+  dropout: 0.0
+  warmup_epochs: 8
+  weight_decay: 0.0005
+  early_stopping_patience: 50
+  save_every_n_epochs: 10
+  val_every_n_epochs: 1
+loss:
+  box_weight: 5.610191174223894
+  cls_weight: 0.5
+  dfl_weight: 1.5
+  focal_gamma: 0.8993475643167195
+  use_pgi: true
+augmentation:
+  use_snow_aug: false
+  standard:
+    horizontal_flip_p: 0.5
+    hsv_h: 0.015
+    hsv_s: 0.7
+    hsv_v: 0.4
+    mosaic_p: 0.5
+    degrees: 0.0
+    perspective: 0.001
+  snow:
+    desaturation:
+      enabled: true
+      saturation_limit:
+      - -0.4
+      - -0.1
+      p: 0.4
+    blur:
+      enabled: false
+      blur_limit:
+      - 3
+      - 5
+      p: 0.3
+    brightness_jitter:
+      enabled: true
+      brightness_limit:
+      - -0.1
+      - 0.03
+      p: 0.5
+    snow_overlay:
+      enabled: true
+      snow_point_lower: 0.15
+      snow_point_upper: 0.35
+      p: 0.5
+    perspective:
+      enabled: false
+      scale:
+      - 0.03
+      - 0.07
+      p: 0.3
+    motion_blur:
+      enabled: false
+      blur_limit:
+      - 3
+      - 7
+      p: 0.3
+evaluation:
+  iou_threshold: 0.5
+  conf_threshold: 0.001
+  iou_range:
+  - 0.5
+  - 0.95
+  - 0.05
+  measure_inference_speed: true
+  speed_warmup_iters: 50
+  speed_eval_iters: 200
+tuning:
+  targets:
+    lr: training.lr
+    lrf: training.lrf
+    batch_size: training.batch_size
+    box_weight: loss.box_weight
+    warmup_epochs: training.warmup_epochs
+  n_trials: 15
+  trial_img_size: 640
+  trial_fraction: 0.3
+  timeout_seconds: 7200
+  trial_epochs: 15
+  direction: maximize
+  metric: val_map50
+  pruner: hyperband
+  sampler: tpe
+  study_name: nvd-yolov9-hp-v1-r3
+  search_space:
+    lr:
+    - 5.0e-05
+    - 0.0005
+    batch_size:
+    - 8
+    - 8
+    box_weight:
+    - 5.0
+    - 10.0
+    warmup_epochs:
+    - 5
+    - 12
+    lrf:
+    - 0.05
+    - 0.2
+logging:
+  wandb_project: nvd-snow-yolov9-optuna
+  wandb_entity: ADL-Group-10
+  log_images_every_n_epochs: 5
+  log_grad_norm: false
+  watch_model: false
+domain_shift:
+  enabled: false
+  light_snow:
+    desaturation:
+      enabled: true
+      saturation_limit:
+      - -0.3
+      - -0.08
+      p: 0.3
+    blur:
+      enabled: false
+      blur_limit:
+      - 3
+      - 5
+      p: 0.2
+    brightness_jitter:
+      enabled: true
+      brightness_limit:
+      - -0.07
+      - 0.02
+      p: 0.4
+    snow_overlay:
+      enabled: true
+      snow_point_lower: 0.12
+      snow_point_upper: 0.25
+      p: 0.5
+    perspective:
+      enabled: false
+      scale:
+      - 0.02
+      - 0.04
+      p: 0.2
+    motion_blur:
+      enabled: false
+      blur_limit:
+      - 3
+      - 5
+      p: 0.2
+  heavy_snow:
+    desaturation:
+      enabled: true
+      saturation_limit:
+      - -0.6
+      - -0.3
+      p: 0.6
+    blur:
+      enabled: false
+      blur_limit:
+      - 3
+      - 7
+      p: 0.5
+    brightness_jitter:
+      enabled: true
+      brightness_limit:
+      - -0.18
+      - -0.03
+      p: 0.6
+    snow_overlay:
+      enabled: true
+      snow_point_lower: 0.3
+      snow_point_upper: 0.55
+      p: 0.7
+    perspective:
+      enabled: false
+      scale:
+      - 0.05
+      - 0.1
+      p: 0.4
+    motion_blur:
+      enabled: false
+      blur_limit:
+      - 5
+      - 11
+      p: 0.4

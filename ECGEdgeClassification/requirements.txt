@@ -1,0 +1,15 @@
+# Exact versions used for every number and figure in the report (Python 3.13.16, Linux, CPU).
+numpy==2.5.3
+scipy==1.18.1
+pandas==3.0.5
+matplotlib==3.11.2
+scikit-learn==1.9.1
+wfdb==4.3.1
+PyYAML==6.0.3
+torch==2.14.1
+# to run / re-execute the notebook
+nbformat==5.11.1
+nbconvert==7.17.1
+ipykernel==7.4.0
+# The MAX78002 toolchain (ai8x-training, ai8x-synthesis) needs its own Python 3.11 environment
+# with the versions pinned in those repositories (PyTorch 2.3.1, NumPy 1.26.4); see max78002/README.md.

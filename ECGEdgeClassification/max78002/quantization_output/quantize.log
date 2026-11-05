@@ -1,0 +1,15 @@
+Configuring device: MAX78002
+Converting checkpoint file Group15_ECG_Project/max78002/quantization_output/ecg_qat.pth.tar to Group15_ECG_Project/max78002/quantization_output/ecg_qat-q.pth.tar
+
+Model keys (state_dict):
+conv1.output_shift, conv1.activation_threshold, conv1.final_scale, conv1.weight_bits, conv1.bias_bits, conv1.quantize_activation, conv1.clamp_activation, conv1.adjust_output_shift, conv1.shift_quantile, conv1.op.weight, conv1.op.bias, conv2.output_shift, conv2.activation_threshold, conv2.final_scale, conv2.weight_bits, conv2.bias_bits, conv2.quantize_activation, conv2.clamp_activation, conv2.adjust_output_shift, conv2.shift_quantile, conv2.op.weight, conv2.op.bias, conv3.output_shift, conv3.activation_threshold, conv3.final_scale, conv3.weight_bits, conv3.bias_bits, conv3.quantize_activation, conv3.clamp_activation, conv3.adjust_output_shift, conv3.shift_quantile, conv3.op.weight, conv3.op.bias, conv4.output_shift, conv4.activation_threshold, conv4.final_scale, conv4.weight_bits, conv4.bias_bits, conv4.quantize_activation, conv4.clamp_activation, conv4.adjust_output_shift, conv4.shift_quantile, conv4.op.weight, conv4.op.bias, fc.output_shift, fc.activation_threshold, fc.final_scale, fc.weight_bits, fc.bias_bits, fc.quantize_activation, fc.clamp_activation, fc.adjust_output_shift, fc.shift_quantile, fc.op.weight, fc.op.bias
+conv1.op.weight avg_max: 0.3936726 max: 0.75627095 mean: -0.0040126955 factor: [128.] bits: 8
+conv1.op.bias avg_max: 0.03708377 max: 0.25241628 mean: 0.03708377 factor: [128.] bits: 8
+conv2.op.weight avg_max: 0.2876405 max: 0.50263214 mean: 0.009049938 factor: [256.] bits: 8
+conv2.op.bias avg_max: 0.009347504 max: 0.151049 mean: 0.009347504 factor: [256.] bits: 8
+conv3.op.weight avg_max: 0.29175174 max: 0.5024922 mean: 0.010807556 factor: [256.] bits: 8
+conv3.op.bias avg_max: 0.016152557 max: 0.09882162 mean: 0.016152557 factor: [256.] bits: 8
+conv4.op.weight avg_max: 0.28048524 max: 0.50228626 mean: 0.0040412466 factor: [256.] bits: 8
+conv4.op.bias avg_max: 0.00095652044 max: 0.02838228 mean: 0.00095652044 factor: [256.] bits: 8
+fc.op.weight avg_max: 0.4498496 max: 0.5019624 mean: -0.0120884115 factor: [256.] bits: 8
+fc.op.bias avg_max: 0.0018437421 max: 0.015210226 mean: -0.0018437421 factor: [256.] bits: 8

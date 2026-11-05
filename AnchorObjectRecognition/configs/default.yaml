@@ -1,0 +1,15 @@
+# All settings in one place. Paths are relative to the submission folder.
+raw_dir: ../Project_3/raw          # contains test/ and eval/
+anchors_dir: ../Anchor_Images_extracted/Anchor_Images
+
+dev_seq: test      # used to tune thresholds
+final_seq: eval    # held-out sequence used for the reported numbers
+
+max_depth_gap_ms: 100   # a colour frame only uses a depth frame closer than this in time
+
+fy_px: 306.1     # colour camera focal length in pixels (from camera_info), used to turn pixel height into metres
+
+sift_n0: 15       # SIFT score = RANSAC inliers / sift_n0, capped at 1
+sift_ratio: 0.8   # Lowe ratio test for SIFT
+cue_penalties: [0.05, 0.1, 0.2]   # score penalty per failed cue check; a hard veto (reject) is also tried
+min_precision: 0.75       # threshold rule: highest recall on dev with at least this precision

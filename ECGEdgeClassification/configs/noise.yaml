@@ -1,0 +1,14 @@
+# Noise configuration (MIT-BIH Noise Stress Test Database, nstdb).
+# Used in Stage 2 (EDA examples) and in the Stage 5 robustness test on DS2 (Submission 2).
+# NSTDB noise is NEVER used for training. Each noise record is split in time:
+#   first half  [0.0, 0.5) -> reserved (may be used for training augmentation in Submission 2)
+#   second half [0.5, 1.0) -> evaluation only (robustness test on DS2, EDA examples)
+# so evaluation noise can never have been seen during training.
+noise_types: [bw, ma, em]      # baseline wander, muscle artefact, electrode motion
+mix: true                      # additionally: equal-power sum of bw + ma + em
+noise_channel: 0
+eval_region: [0.5, 1.0]
+reserved_region: [0.0, 0.5]
+snr_db: [12, 6, 0]             # plus the clean condition
+snr_definition: nst            # PhysioNet `nst` convention: S = (pp QRS amplitude)^2 / 8, N = mean-removed power in 1 s chunks
+noise_seed: 123

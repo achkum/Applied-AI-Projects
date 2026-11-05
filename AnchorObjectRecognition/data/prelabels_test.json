@@ -1,0 +1,829 @@
+{
+ "camera_color_image_1727164532008562472.png": {
+  "present": true,
+  "box": [
+   341,
+   174,
+   361,
+   242
+  ]
+ },
+ "camera_color_image_1727164532033342740.png": {
+  "present": true,
+  "box": [
+   339,
+   174,
+   359,
+   242
+  ]
+ },
+ "camera_color_image_1727164532473990030.png": {
+  "present": true,
+  "box": [
+   333,
+   177,
+   353,
+   244
+  ]
+ },
+ "camera_color_image_1727164532495291239.png": {
+  "present": true,
+  "box": [
+   331,
+   177,
+   351,
+   244
+  ]
+ },
+ "camera_color_image_1727164532887652911.png": {
+  "present": true,
+  "box": [
+   325,
+   172,
+   343,
+   238
+  ]
+ },
+ "camera_color_image_1727164532914140843.png": {
+  "present": true,
+  "box": [
+   323,
+   171,
+   343,
+   238
+  ]
+ },
+ "camera_color_image_1727164533343722355.png": {
+  "present": true,
+  "box": [
+   325,
+   169,
+   344,
+   239
+  ]
+ },
+ "camera_color_image_1727164533806483172.png": {
+  "present": true,
+  "box": [
+   323,
+   163,
+   345,
+   234
+  ]
+ },
+ "camera_color_image_1727164533823541960.png": {
+  "present": true,
+  "box": [
+   319,
+   161,
+   341,
+   234
+  ]
+ },
+ "camera_color_image_1727164533840006006.png": {
+  "present": true,
+  "box": [
+   315,
+   163,
+   337,
+   237
+  ]
+ },
+ "camera_color_image_1727164534310544814.png": {
+  "present": true,
+  "box": [
+   305,
+   169,
+   325,
+   247
+  ]
+ },
+ "camera_color_image_1727164534343106033.png": {
+  "present": true,
+  "box": [
+   287,
+   159,
+   309,
+   243
+  ]
+ },
+ "camera_color_image_1727164534827188461.png": {
+  "present": true,
+  "box": [
+   285,
+   157,
+   309,
+   242
+  ]
+ },
+ "camera_color_image_1727164534852907370.png": {
+  "present": true,
+  "box": [
+   301,
+   155,
+   329,
+   246
+  ]
+ },
+ "camera_color_image_1727164535355468984.png": {
+  "present": true,
+  "box": [
+   303,
+   153,
+   333,
+   246
+  ]
+ },
+ "camera_color_image_1727164535377633752.png": {
+  "present": true,
+  "box": [
+   297,
+   149,
+   329,
+   251
+  ]
+ },
+ "camera_color_image_1727164535889123652.png": {
+  "present": true,
+  "box": [
+   297,
+   148,
+   329,
+   253
+  ]
+ },
+ "camera_color_image_1727164535923153572.png": {
+  "present": true,
+  "box": [
+   277,
+   149,
+   305,
+   261
+  ]
+ },
+ "camera_color_image_1727164536351133594.png": {
+  "present": true,
+  "box": [
+   277,
+   149,
+   307,
+   263
+  ]
+ },
+ "camera_color_image_1727164536375472127.png": {
+  "present": true,
+  "box": [
+   285,
+   152,
+   325,
+   265
+  ]
+ },
+ "camera_color_image_1727164536836057879.png": {
+  "present": true,
+  "box": [
+   281,
+   152,
+   321,
+   265
+  ]
+ },
+ "camera_color_image_1727164537338069031.png": {
+  "present": true,
+  "box": [
+   277,
+   145,
+   319,
+   265
+  ]
+ },
+ "camera_color_image_1727164537365060081.png": {
+  "present": true,
+  "box": [
+   277,
+   152,
+   319,
+   272
+  ]
+ },
+ "camera_color_image_1727164537384607929.png": {
+  "present": true,
+  "box": [
+   271,
+   154,
+   312,
+   277
+  ]
+ },
+ "camera_color_image_1727164537881422867.png": {
+  "present": true,
+  "box": [
+   271,
+   157,
+   312,
+   281
+  ]
+ },
+ "camera_color_image_1727164537905148893.png": {
+  "present": true,
+  "box": [
+   281,
+   157,
+   329,
+   278
+  ]
+ },
+ "camera_color_image_1727164538344210427.png": {
+  "present": true,
+  "box": [
+   281,
+   157,
+   327,
+   278
+  ]
+ },
+ "camera_color_image_1727164538356790739.png": {
+  "present": true,
+  "box": [
+   262,
+   152,
+   305,
+   277
+  ]
+ },
+ "camera_color_image_1727164538820760489.png": {
+  "present": true,
+  "box": [
+   267,
+   154,
+   313,
+   279
+  ]
+ },
+ "camera_color_image_1727164538845098520.png": {
+  "present": true,
+  "box": [
+   269,
+   164,
+   311,
+   291
+  ]
+ },
+ "camera_color_image_1727164539306038385.png": {
+  "present": true,
+  "box": [
+   273,
+   165,
+   315,
+   293
+  ]
+ },
+ "camera_color_image_1727164539324861674.png": {
+  "present": true,
+  "box": [
+   279,
+   166,
+   323,
+   295
+  ]
+ },
+ "camera_color_image_1727164539730675689.png": {
+  "present": true,
+  "box": [
+   283,
+   169,
+   333,
+   295
+  ]
+ },
+ "camera_color_image_1727164539758885680.png": {
+  "present": true,
+  "box": [
+   281,
+   167,
+   330,
+   295
+  ]
+ },
+ "camera_color_image_1727164540254709742.png": {
+  "present": true,
+  "box": [
+   281,
+   164,
+   323,
+   297
+  ]
+ },
+ "camera_color_image_1727164540273343654.png": {
+  "present": true,
+  "box": [
+   279,
+   163,
+   325,
+   296
+  ]
+ },
+ "camera_color_image_1727164540815347450.png": {
+  "present": true,
+  "box": [
+   280,
+   170,
+   317,
+   308
+  ]
+ },
+ "camera_color_image_1727164540841306692.png": {
+  "present": true,
+  "box": [
+   283,
+   170,
+   317,
+   309
+  ]
+ },
+ "camera_color_image_1727164540863047077.png": {
+  "present": true,
+  "box": [
+   279,
+   180,
+   319,
+   309
+  ]
+ },
+ "camera_color_image_1727164541305472446.png": {
+  "present": true,
+  "box": [
+   277,
+   175,
+   321,
+   303
+  ]
+ },
+ "camera_color_image_1727164541328235984.png": {
+  "present": true,
+  "box": [
+   265,
+   164,
+   305,
+   297
+  ]
+ },
+ "camera_color_image_1727164542276280032.png": {
+  "present": true,
+  "box": [
+   261,
+   170,
+   299,
+   313
+  ]
+ },
+ "camera_color_image_1727164542308715419.png": {
+  "present": true,
+  "box": [
+   267,
+   173,
+   303,
+   317
+  ]
+ },
+ "camera_color_image_1727164542785738280.png": {
+  "present": true,
+  "box": [
+   279,
+   167,
+   321,
+   309
+  ]
+ },
+ "camera_color_image_1727164542814697685.png": {
+  "present": true,
+  "box": [
+   281,
+   165,
+   323,
+   307
+  ]
+ },
+ "camera_color_image_1727164542835858215.png": {
+  "present": true,
+  "box": [
+   275,
+   158,
+   315,
+   305
+  ]
+ },
+ "camera_color_image_1727164543331293334.png": {
+  "present": true,
+  "box": [
+   271,
+   161,
+   311,
+   307
+  ]
+ },
+ "camera_color_image_1727164543390912504.png": {
+  "present": true,
+  "box": [
+   259,
+   177,
+   297,
+   328
+  ]
+ },
+ "camera_color_image_1727164543867364100.png": {
+  "present": true,
+  "box": [
+   247,
+   171,
+   286,
+   319
+  ]
+ },
+ "camera_color_image_1727164543903257064.png": {
+  "present": true,
+  "box": [
+   253,
+   169,
+   291,
+   315
+  ]
+ },
+ "camera_color_image_1727164544346304269.png": {
+  "present": true,
+  "box": [
+   257,
+   162,
+   296,
+   313
+  ]
+ },
+ "camera_color_image_1727164544823593801.png": {
+  "present": true,
+  "box": [
+   257,
+   165,
+   297,
+   316
+  ]
+ },
+ "camera_color_image_1727164545306545158.png": {
+  "present": true,
+  "box": [
+   161,
+   191,
+   211,
+   354
+  ]
+ },
+ "camera_color_image_1727164545343425236.png": {
+  "present": true,
+  "box": [
+   121,
+   193,
+   180,
+   362
+  ]
+ },
+ "camera_color_image_1727164545765000156.png": {
+  "present": true,
+  "box": [
+   191,
+   127,
+   201,
+   144
+  ]
+ },
+ "camera_color_image_1727164545792309824.png": {
+  "present": true,
+  "box": [
+   145,
+   126,
+   159,
+   149
+  ]
+ },
+ "camera_color_image_1727164546190266122.png": {
+  "present": true,
+  "box": [
+   227,
+   158,
+   239,
+   198
+  ]
+ },
+ "camera_color_image_1727164546230738009.png": {
+  "present": true,
+  "box": [
+   203,
+   160,
+   215,
+   201
+  ]
+ },
+ "camera_color_image_1727164546641670863.png": {
+  "present": true,
+  "box": [
+   142,
+   163,
+   157,
+   210
+  ]
+ },
+ "camera_color_image_1727164546670572698.png": {
+  "present": true,
+  "box": [
+   139,
+   162,
+   155,
+   210
+  ]
+ },
+ "camera_color_image_1727164547064814078.png": {
+  "present": true,
+  "box": [
+   140,
+   180,
+   157,
+   233
+  ]
+ },
+ "camera_color_image_1727164547114593627.png": {
+  "present": true,
+  "box": [
+   183,
+   195,
+   203,
+   248
+  ]
+ },
+ "camera_color_image_1727164547140961999.png": {
+  "present": true,
+  "box": [
+   191,
+   200,
+   212,
+   252
+  ]
+ },
+ "camera_color_image_1727164547491887438.png": {
+  "present": true,
+  "box": [
+   199,
+   204,
+   221,
+   257
+  ]
+ },
+ "camera_color_image_1727164547507747410.png": {
+  "present": true,
+  "box": [
+   237,
+   215,
+   259,
+   269
+  ]
+ },
+ "camera_color_image_1727164547534556654.png": {
+  "present": true,
+  "box": [
+   258,
+   215,
+   280,
+   272
+  ]
+ },
+ "camera_color_image_1727164547906911560.png": {
+  "present": true,
+  "box": [
+   331,
+   219,
+   357,
+   279
+  ]
+ },
+ "camera_color_image_1727164548317002585.png": {
+  "present": true,
+  "box": [
+   353,
+   228,
+   381,
+   287
+  ]
+ },
+ "camera_color_image_1727164548351312729.png": {
+  "present": true,
+  "box": [
+   375,
+   233,
+   407,
+   296
+  ]
+ },
+ "camera_color_image_1727164548713005702.png": {
+  "present": true,
+  "box": [
+   9,
+   211,
+   47,
+   265
+  ]
+ },
+ "camera_color_image_1727164548743986420.png": {
+  "present": true,
+  "box": [
+   475,
+   267,
+   517,
+   341
+  ]
+ },
+ "camera_color_image_1727164548796324340.png": {
+  "present": true,
+  "box": [
+   511,
+   282,
+   561,
+   360
+  ]
+ },
+ "camera_color_image_1727164549196910176.png": {
+  "present": true,
+  "box": [
+   607,
+   311,
+   640,
+   400
+  ]
+ },
+ "camera_color_image_1727164549622744035.png": {
+  "present": true,
+  "box": [
+   193,
+   228,
+   224,
+   278
+  ]
+ },
+ "camera_color_image_1727164549643681002.png": {
+  "present": true,
+  "box": [
+   215,
+   225,
+   246,
+   274
+  ]
+ },
+ "camera_color_image_1727164550120437968.png": {
+  "present": true,
+  "box": [
+   289,
+   227,
+   321,
+   278
+  ]
+ },
+ "camera_color_image_1727164550515861321.png": {
+  "present": true,
+  "box": [
+   381,
+   254,
+   419,
+   312
+  ]
+ },
+ "camera_color_image_1727164550549927774.png": {
+  "present": true,
+  "box": [
+   407,
+   267,
+   447,
+   326
+  ]
+ },
+ "camera_color_image_1727164551007089091.png": {
+  "present": true,
+  "box": [
+   490,
+   298,
+   545,
+   367
+  ]
+ },
+ "camera_color_image_1727164551029005025.png": {
+  "present": true,
+  "box": [
+   515,
+   302,
+   571,
+   372
+  ]
+ },
+ "camera_color_image_1727164551415120862.png": {
+  "present": false,
+  "box": null
+ },
+ "camera_color_image_1727164551446402146.png": {
+  "present": false,
+  "box": null
+ },
+ "camera_color_image_1727164551875864185.png": {
+  "present": true,
+  "box": [
+   140,
+   193,
+   158,
+   272
+  ]
+ },
+ "camera_color_image_1727164551895900942.png": {
+  "present": true,
+  "box": [
+   159,
+   194,
+   177,
+   274
+  ]
+ },
+ "camera_color_image_1727164552295134820.png": {
+  "present": true,
+  "box": [
+   205,
+   202,
+   224,
+   287
+  ]
+ },
+ "camera_color_image_1727164552732029415.png": {
+  "present": true,
+  "box": [
+   269,
+   201,
+   289,
+   290
+  ]
+ },
+ "camera_color_image_1727164552760207992.png": {
+  "present": true,
+  "box": [
+   277,
+   203,
+   301,
+   292
+  ]
+ },
+ "camera_color_image_1727164553162088323.png": {
+  "present": true,
+  "box": [
+   309,
+   212,
+   332,
+   302
+  ]
+ },
+ "camera_color_image_1727164553187195632.png": {
+  "present": true,
+  "box": [
+   321,
+   207,
+   342,
+   297
+  ]
+ },
+ "camera_color_image_1727164553621663139.png": {
+  "present": true,
+  "box": [
+   345,
+   190,
+   368,
+   277
+  ]
+ },
+ "camera_color_image_1727164553650695007.png": {
+  "present": true,
+  "box": [
+   351,
+   193,
+   375,
+   277
+  ]
+ },
+ "camera_color_image_1727164554066372641.png": {
+  "present": true,
+  "box": [
+   353,
+   218,
+   379,
+   306
+  ]
+ },
+ "camera_color_image_1727164554094847276.png": {
+  "present": true,
+  "box": [
+   353,
+   219,
+   378,
+   309
+  ]
+ }
+}

@@ -1,0 +1,85 @@
+# SNN 1 Motion Detection - Config File
+
+# Data Parameters
+data:
+  # Dimensions
+  use_2d: true
+  width: 128                    # Frame width
+  height: 128                   # Frame height
+  num_receptors: 16384          # Flattened: 128 * 128
+  num_timesteps: 50             # Frames per sample
+  num_classes: 2                # 0 for Left and 1 for Right (Linear/Circular)
+  dvs128_num_classes: 11        # DVS128 classes
+  pixel_range: 255
+  # Motion
+  speed: 200.0
+  speed_variation: 80.0
+  directions: ["both"] # Options: "both", "left", "right", "cw", "ccw"
+  # Pattern
+  pattern_size: 3
+  # Timing
+  duration: 1.0
+  time_resolution: 0.001
+  # Noise
+  noise_rate: 0.2
+  dropout_rate: 0.2
+  # Dataset sizes
+  train_samples: 1000
+  val_samples: 200
+  test_samples: 200
+  dvs128_path: "data"
+
+# Model Parameters
+model:
+  # Simple Model Parameters
+  simple:
+    hidden_size: 32
+    num_hidden_layers: 2
+    beta: 0.9                   # Membrane potential decay
+    slope: 25
+  
+  # Reichardt Model Parameters
+  reichardt:
+    num_detectors: 1024         # Number of Reichardt detector pairs
+    delay_steps: 3              # Temporal delay (in timesteps)
+    detector_spacing: 4         # Spatial spacing between detector inputs
+    beta: 0.9                   # Membrane potential decay
+    slope: 25
+    hidden_size: 64             # Hidden layer after detectors
+    
+# Training Parameters
+training:
+  batch_size: 32
+  num_epochs: 50
+  learning_rate: 0.001
+  # Early stopping
+  patience: 10
+
+# Hyperparameter Tuning Ranges
+tuning:
+  beta: [0.8, 0.85, 0.9, 0.95]
+  hidden_size: [32, 64, 128]
+  learning_rate: [0.01, 0.001, 0.0001]
+
+# Paths
+paths:
+  project: "/content/drive/MyDrive/snn1_notebooks"
+  
+  # Results - Part 1
+  results_part1: "results/part1_snnTorch"
+  figures_part1: "results/part1_snnTorch/figures"
+  checkpoints_part1: "results/part1_snnTorch/checkpoints"
+  
+  # Results - Part 2
+  results_part2: "results/part2_Brian2"
+  figures_part2: "results/part2_Brian2/figures"
+  checkpoints_part2: "results/part2_Brian2/checkpoints"
+  
+  # Model files
+  model_simple: "results/part1_snnTorch/checkpoints/model_simple.pth"
+  model_simple_best: "results/part1_snnTorch/checkpoints/model_simple_best.pth"
+  model_reichardt: "results/part1_snnTorch/checkpoints/model_reichardt.pth"
+  model_reichardt_best: "results/part1_snnTorch/checkpoints/model_reichardt_best.pth"
+
+# Random Seed
+seed: 42

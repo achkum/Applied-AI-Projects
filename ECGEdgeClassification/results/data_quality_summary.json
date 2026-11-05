@@ -1,0 +1,80 @@
+{
+  "records with NaN samples": 0,
+  "records with ADC-saturated MLII samples": [
+    [
+      116,
+      928
+    ]
+  ],
+  "records with flat-line runs >= 0.5 s": [
+    [
+      116,
+      3
+    ]
+  ],
+  "total annotated noisy MLII time (min)": 23.1,
+  "total unreadable time (min)": 2.8,
+  "top-5 annotated noisy records (% of record)": [
+    [
+      105.0,
+      14.43
+    ],
+    [
+      203.0,
+      12.66
+    ],
+    [
+      108.0,
+      10.86
+    ],
+    [
+      232.0,
+      7.38
+    ],
+    [
+      200.0,
+      5.86
+    ]
+  ],
+  "top-5 low-SQI records (% normal beats with template corr < 0.8)": [
+    [
+      108.0,
+      50.86
+    ],
+    [
+      222.0,
+      30.52
+    ],
+    [
+      117.0,
+      30.4
+    ],
+    [
+      203.0,
+      15.9
+    ],
+    [
+      105.0,
+      8.23
+    ]
+  ],
+  "Spearman corr(annotated noisy %, low-SQI %)": 0.62,
+  "median QRS pp range (mV)": [
+    0.808,
+    3.588
+  ],
+  "mean heart rate range (bpm)": [
+    50.4,
+    111.8
+  ],
+  "other-lead names": {
+    "V1": 38,
+    "V5": 3,
+    "V2": 2,
+    "V4": 1
+  },
+  "MLII vs other lead correlation range": [
+    -0.832,
+    0.93
+  ]
+}

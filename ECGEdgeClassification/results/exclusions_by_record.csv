@@ -1,0 +1,160 @@
+split,record,reason,count
+train,101,AAMI Q-class beat 'Q',2
+train,101,non-beat annotation '+',1
+train,101,non-beat annotation '|',4
+train,101,non-beat annotation '~',4
+train,101,window outside record (edge),3
+train,106,non-beat annotation '+',41
+train,106,non-beat annotation '~',30
+train,106,window outside record (edge),2
+train,108,non-beat annotation '+',1
+train,108,non-beat annotation 'x',11
+train,108,non-beat annotation '|',8
+train,108,non-beat annotation '~',41
+train,108,window outside record (edge),3
+train,109,non-beat annotation '+',1
+train,109,non-beat annotation '~',2
+train,109,window outside record (edge),3
+train,112,non-beat annotation '+',1
+train,112,non-beat annotation '~',10
+train,112,window outside record (edge),3
+train,114,non-beat annotation '+',3
+train,114,non-beat annotation '|',1
+train,114,non-beat annotation '~',7
+train,114,window outside record (edge),2
+train,116,non-beat annotation '+',1
+train,116,non-beat annotation '~',8
+train,116,window outside record (edge),2
+train,119,non-beat annotation '+',103
+train,119,non-beat annotation '~',4
+train,119,window outside record (edge),2
+train,122,non-beat annotation '+',1
+train,122,non-beat annotation '|',2
+train,122,window outside record (edge),3
+train,203,AAMI Q-class beat 'Q',4
+train,203,non-beat annotation '+',45
+train,203,non-beat annotation '|',26
+train,203,non-beat annotation '~',57
+train,203,window outside record (edge),3
+train,205,non-beat annotation '+',13
+train,205,non-beat annotation '|',1
+train,205,non-beat annotation '~',2
+train,205,window outside record (edge),2
+train,207,non-beat annotation '!',472
+train,207,non-beat annotation '+',24
+train,207,non-beat annotation '[',6
+train,207,non-beat annotation ']',6
+train,207,non-beat annotation '|',2
+train,207,non-beat annotation '~',15
+train,207,window outside record (edge),3
+train,208,AAMI Q-class beat 'Q',2
+train,208,non-beat annotation '+',53
+train,208,non-beat annotation '|',8
+train,208,non-beat annotation '~',24
+train,208,window outside record (edge),3
+train,209,non-beat annotation '+',21
+train,209,non-beat annotation '|',7
+train,209,non-beat annotation '~',19
+train,209,window outside record (edge),3
+train,215,"non-beat annotation '""'",2
+train,215,non-beat annotation '+',5
+train,215,non-beat annotation '~',30
+train,215,window outside record (edge),3
+train,220,non-beat annotation '+',17
+train,220,non-beat annotation '~',4
+train,220,window outside record (edge),3
+train,230,non-beat annotation '+',207
+train,230,non-beat annotation '|',1
+train,230,non-beat annotation '~',2
+train,230,window outside record (edge),3
+val,115,non-beat annotation '+',1
+val,115,non-beat annotation '|',6
+val,115,non-beat annotation '~',2
+val,115,window outside record (edge),2
+val,118,non-beat annotation '+',1
+val,118,non-beat annotation 'x',10
+val,118,non-beat annotation '~',12
+val,118,window outside record (edge),3
+val,124,non-beat annotation '+',13
+val,124,non-beat annotation '~',2
+val,124,window outside record (edge),2
+val,201,non-beat annotation '+',35
+val,201,non-beat annotation 'x',37
+val,201,non-beat annotation '~',4
+val,201,window outside record (edge),3
+val,223,non-beat annotation '+',28
+val,223,non-beat annotation '~',10
+val,223,window outside record (edge),2
+test,100,non-beat annotation '+',1
+test,100,window outside record (edge),4
+test,103,non-beat annotation '+',1
+test,103,non-beat annotation '~',6
+test,103,window outside record (edge),2
+test,105,AAMI Q-class beat 'Q',5
+test,105,non-beat annotation '+',1
+test,105,non-beat annotation '|',30
+test,105,non-beat annotation '~',88
+test,105,window outside record (edge),2
+test,111,non-beat annotation '+',1
+test,111,non-beat annotation '~',8
+test,111,window outside record (edge),1
+test,113,non-beat annotation '+',1
+test,113,window outside record (edge),2
+test,117,non-beat annotation '+',1
+test,117,non-beat annotation '~',3
+test,117,window outside record (edge),2
+test,121,non-beat annotation '+',1
+test,121,non-beat annotation '~',12
+test,121,window outside record (edge),2
+test,123,non-beat annotation '+',1
+test,123,window outside record (edge),1
+test,200,non-beat annotation '+',148
+test,200,non-beat annotation '~',43
+test,200,window outside record (edge),2
+test,202,non-beat annotation '+',8
+test,202,non-beat annotation '|',2
+test,202,window outside record (edge),2
+test,210,non-beat annotation '+',17
+test,210,non-beat annotation '|',1
+test,210,non-beat annotation '~',17
+test,210,window outside record (edge),4
+test,212,non-beat annotation '+',1
+test,212,non-beat annotation '|',1
+test,212,non-beat annotation '~',13
+test,212,window outside record (edge),2
+test,213,non-beat annotation '+',43
+test,213,window outside record (edge),4
+test,214,AAMI Q-class beat 'Q',2
+test,214,"non-beat annotation '""'",1
+test,214,non-beat annotation '+',25
+test,214,non-beat annotation '|',5
+test,214,non-beat annotation '~',4
+test,214,window outside record (edge),3
+test,219,"non-beat annotation '""'",4
+test,219,non-beat annotation '+',21
+test,219,non-beat annotation 'x',133
+test,219,window outside record (edge),2
+test,221,non-beat annotation '+',23
+test,221,non-beat annotation '~',12
+test,221,window outside record (edge),3
+test,222,non-beat annotation '+',136
+test,222,non-beat annotation '~',15
+test,222,window outside record (edge),3
+test,228,"non-beat annotation '""'",3
+test,228,non-beat annotation '+',41
+test,228,non-beat annotation '|',24
+test,228,non-beat annotation '~',20
+test,228,window outside record (edge),3
+test,231,"non-beat annotation '""'",427
+test,231,non-beat annotation '+',11
+test,231,non-beat annotation 'x',2
+test,231,window outside record (edge),2
+test,232,first beat (no RR interval),1
+test,232,non-beat annotation '+',1
+test,232,non-beat annotation '~',35
+test,233,non-beat annotation '+',71
+test,233,non-beat annotation '|',2
+test,233,window outside record (edge),3
+test,234,non-beat annotation '+',3
+test,234,non-beat annotation '~',8
+test,234,window outside record (edge),3

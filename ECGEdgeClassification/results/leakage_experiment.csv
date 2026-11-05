@@ -1,0 +1,3 @@
+protocol,train_beats,eval_beats,accuracy,macro_f1,nn_from_same_record,N_recall,S_recall,V_recall,F_recall,N_precision,S_precision,V_precision,F_precision
+random beat split (leaky),40764,10191,0.987,0.875,0.965,0.995,0.82,0.966,0.663,0.993,0.856,0.971,0.743
+record split (train -> validation records),40549,10406,0.923,0.492,0.0,0.983,0.381,0.425,0.048,0.947,0.446,0.727,0.071

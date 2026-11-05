@@ -1,0 +1,36 @@
+{
+  "records": 48,
+  "subjects (201 & 202 same person)": 47,
+  "sampling frequency (Hz)": [
+    360
+  ],
+  "samples per record": [
+    650000
+  ],
+  "duration per record (min)": 30.09,
+  "total duration (h)": 24.07,
+  "ADC resolution (bits)": [
+    11
+  ],
+  "ADC gain (units/mV)": [
+    200.0
+  ],
+  "total annotations": 112647,
+  "beat annotations (all 48 records)": 109494,
+  "beat annotations (44 used records)": 100733,
+  "records with MLII in channel 0": 45,
+  "records with MLII in channel 1": [
+    114
+  ],
+  "records without MLII": [
+    102,
+    104
+  ],
+  "lead occurrences": {
+    "MLII": 46,
+    "V1": 40,
+    "V5": 5,
+    "V2": 4,
+    "V4": 1
+  }
+}

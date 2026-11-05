@@ -1,0 +1,1513 @@
+Log file for this run: ai8x-training/logs/ecg___2026.10.28-001132/ecg___2026.10.28-001132.log
+Configuring device: MAX78002, simulate=False.
+No CUDA, ROCm, or MPS hardware acceleration, training will be slow
+Optimizer Type: <class 'torch.optim.adam.Adam'>
+Optimizer Args: {'lr': 0.001, 'betas': (0.9, 0.999), 'eps': 1e-08, 'weight_decay': 0.0001, 'amsgrad': False, 'maximize': False, 'foreach': None, 'capturable': False, 'differentiable': False, 'fused': None}
+Reading compression schedule from: policies/schedule_ecg.yaml
+torch.compile() not available, using "eager" mode
+Dataset sizes:
+	training=40549
+	validation=10406
+	test=10406
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [0][   10/  159]    Overall Loss 1.297227    Objective Loss 1.297227                                        LR 0.001000    Time 0.734690    
+Epoch: [0][   20/  159]    Overall Loss 1.203839    Objective Loss 1.203839                                        LR 0.001000    Time 0.677929    
+Epoch: [0][   30/  159]    Overall Loss 1.139625    Objective Loss 1.139625                                        LR 0.001000    Time 0.691463    
+Epoch: [0][   40/  159]    Overall Loss 1.074186    Objective Loss 1.074186                                        LR 0.001000    Time 0.689297    
+Epoch: [0][   50/  159]    Overall Loss 1.015565    Objective Loss 1.015565                                        LR 0.001000    Time 0.689515    
+Epoch: [0][   60/  159]    Overall Loss 0.976279    Objective Loss 0.976279                                        LR 0.001000    Time 0.694315    
+Epoch: [0][   70/  159]    Overall Loss 0.936177    Objective Loss 0.936177                                        LR 0.001000    Time 0.696888    
+Epoch: [0][   80/  159]    Overall Loss 0.898966    Objective Loss 0.898966                                        LR 0.001000    Time 0.699318    
+Epoch: [0][   90/  159]    Overall Loss 0.873936    Objective Loss 0.873936                                        LR 0.001000    Time 0.701831    
+Epoch: [0][  100/  159]    Overall Loss 0.846347    Objective Loss 0.846347                                        LR 0.001000    Time 0.701988    
+Epoch: [0][  110/  159]    Overall Loss 0.823394    Objective Loss 0.823394                                        LR 0.001000    Time 0.701948    
+Epoch: [0][  120/  159]    Overall Loss 0.802804    Objective Loss 0.802804                                        LR 0.001000    Time 0.654288    
+Epoch: [0][  130/  159]    Overall Loss 0.787413    Objective Loss 0.787413                                        LR 0.001000    Time 0.657555    
+Epoch: [0][  140/  159]    Overall Loss 0.773953    Objective Loss 0.773953                                        LR 0.001000    Time 0.656889    
+Epoch: [0][  150/  159]    Overall Loss 0.760014    Objective Loss 0.760014                                        LR 0.001000    Time 0.642738    
+Epoch: [0][  159/  159]    Overall Loss 0.747369    Objective Loss 0.747369    Top1 94.677871    LR 0.001000    Time 0.623954    
+--- validate (epoch=0)-----------
+10406 samples (256 per mini-batch)
+Epoch: [0][   10/   41]    Loss 0.781650    Top1 91.992188    
+Epoch: [0][   20/   41]    Loss 0.812330    Top1 91.328125    
+Epoch: [0][   30/   41]    Loss 0.803757    Top1 91.250000    
+Epoch: [0][   40/   41]    Loss 0.818667    Top1 91.162109    
+Epoch: [0][   41/   41]    Loss 0.818594    Top1 91.158947    
+==> Top1: 91.159    Loss: 0.819
+
+==> Confusion:
+[[9045    0  278    0]
+ [  61    0  267    0]
+ [ 293    0  441    0]
+ [  20    0    1    0]]
+
+==> Best [Top1: 91.159   Params: 9888 on epoch: 0]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [1][   10/  159]    Overall Loss 0.551678    Objective Loss 0.551678                                        LR 0.001000    Time 0.750125    
+Epoch: [1][   20/  159]    Overall Loss 0.534231    Objective Loss 0.534231                                        LR 0.001000    Time 0.726435    
+Epoch: [1][   30/  159]    Overall Loss 0.536636    Objective Loss 0.536636                                        LR 0.001000    Time 0.720758    
+Epoch: [1][   40/  159]    Overall Loss 0.533626    Objective Loss 0.533626                                        LR 0.001000    Time 0.709630    
+Epoch: [1][   50/  159]    Overall Loss 0.522686    Objective Loss 0.522686                                        LR 0.001000    Time 0.595033    
+Epoch: [1][   60/  159]    Overall Loss 0.519076    Objective Loss 0.519076                                        LR 0.001000    Time 0.513715    
+Epoch: [1][   70/  159]    Overall Loss 0.512921    Objective Loss 0.512921                                        LR 0.001000    Time 0.526883    
+Epoch: [1][   80/  159]    Overall Loss 0.498202    Objective Loss 0.498202                                        LR 0.001000    Time 0.549146    
+Epoch: [1][   90/  159]    Overall Loss 0.488414    Objective Loss 0.488414                                        LR 0.001000    Time 0.546023    
+Epoch: [1][  100/  159]    Overall Loss 0.475475    Objective Loss 0.475475                                        LR 0.001000    Time 0.501840    
+Epoch: [1][  110/  159]    Overall Loss 0.467776    Objective Loss 0.467776                                        LR 0.001000    Time 0.471194    
+Epoch: [1][  120/  159]    Overall Loss 0.462434    Objective Loss 0.462434                                        LR 0.001000    Time 0.489381    
+Epoch: [1][  130/  159]    Overall Loss 0.456445    Objective Loss 0.456445                                        LR 0.001000    Time 0.507033    
+Epoch: [1][  140/  159]    Overall Loss 0.452234    Objective Loss 0.452234                                        LR 0.001000    Time 0.520010    
+Epoch: [1][  150/  159]    Overall Loss 0.443153    Objective Loss 0.443153                                        LR 0.001000    Time 0.533110    
+Epoch: [1][  159/  159]    Overall Loss 0.433079    Objective Loss 0.433079    Top1 96.918768    LR 0.001000    Time 0.541360    
+--- validate (epoch=1)-----------
+10406 samples (256 per mini-batch)
+Epoch: [1][   10/   41]    Loss 0.948751    Top1 90.195312    
+Epoch: [1][   20/   41]    Loss 0.960328    Top1 89.746094    
+Epoch: [1][   30/   41]    Loss 0.988659    Top1 89.270833    
+Epoch: [1][   40/   41]    Loss 0.983407    Top1 89.316406    
+Epoch: [1][   41/   41]    Loss 0.976052    Top1 89.371516    
+==> Top1: 89.372    Loss: 0.976
+
+==> Confusion:
+[[9189   19  114    1]
+ [ 104    3  221    0]
+ [ 364  262  108    0]
+ [  20    1    0    0]]
+
+==> Best [Top1: 91.159   Params: 9888 on epoch: 0]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [2][   10/  159]    Overall Loss 0.311276    Objective Loss 0.311276                                        LR 0.001000    Time 0.514622    
+Epoch: [2][   20/  159]    Overall Loss 0.335757    Objective Loss 0.335757                                        LR 0.001000    Time 0.606072    
+Epoch: [2][   30/  159]    Overall Loss 0.336831    Objective Loss 0.336831                                        LR 0.001000    Time 0.638425    
+Epoch: [2][   40/  159]    Overall Loss 0.335926    Objective Loss 0.335926                                        LR 0.001000    Time 0.653151    
+Epoch: [2][   50/  159]    Overall Loss 0.323162    Objective Loss 0.323162                                        LR 0.001000    Time 0.663513    
+Epoch: [2][   60/  159]    Overall Loss 0.312778    Objective Loss 0.312778                                        LR 0.001000    Time 0.672227    
+Epoch: [2][   70/  159]    Overall Loss 0.305693    Objective Loss 0.305693                                        LR 0.001000    Time 0.678944    
+Epoch: [2][   80/  159]    Overall Loss 0.305553    Objective Loss 0.305553                                        LR 0.001000    Time 0.680307    
+Epoch: [2][   90/  159]    Overall Loss 0.300848    Objective Loss 0.300848                                        LR 0.001000    Time 0.658048    
+Epoch: [2][  100/  159]    Overall Loss 0.294507    Objective Loss 0.294507                                        LR 0.001000    Time 0.661559    
+Epoch: [2][  110/  159]    Overall Loss 0.292373    Objective Loss 0.292373                                        LR 0.001000    Time 0.666311    
+Epoch: [2][  120/  159]    Overall Loss 0.290826    Objective Loss 0.290826                                        LR 0.001000    Time 0.663485    
+Epoch: [2][  130/  159]    Overall Loss 0.286768    Objective Loss 0.286768                                        LR 0.001000    Time 0.653480    
+Epoch: [2][  140/  159]    Overall Loss 0.284609    Objective Loss 0.284609                                        LR 0.001000    Time 0.612675    
+Epoch: [2][  150/  159]    Overall Loss 0.282710    Objective Loss 0.282710                                        LR 0.001000    Time 0.619496    
+Epoch: [2][  159/  159]    Overall Loss 0.279094    Objective Loss 0.279094    Top1 96.638655    LR 0.001000    Time 0.623872    
+--- validate (epoch=2)-----------
+10406 samples (256 per mini-batch)
+Epoch: [2][   10/   41]    Loss 0.979171    Top1 91.015625    
+Epoch: [2][   20/   41]    Loss 1.024135    Top1 90.996094    
+Epoch: [2][   30/   41]    Loss 1.011404    Top1 90.911458    
+Epoch: [2][   40/   41]    Loss 0.987535    Top1 90.869141    
+Epoch: [2][   41/   41]    Loss 0.986455    Top1 90.870652    
+==> Top1: 90.871    Loss: 0.986
+
+==> Confusion:
+[[9141   57  117    8]
+ [  72   27  229    0]
+ [ 263  170  287   14]
+ [  19    1    0    1]]
+
+==> Best [Top1: 91.159   Params: 9888 on epoch: 0]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [3][   10/  159]    Overall Loss 0.220699    Objective Loss 0.220699                                        LR 0.001000    Time 0.740486    
+Epoch: [3][   20/  159]    Overall Loss 0.242858    Objective Loss 0.242858                                        LR 0.001000    Time 0.719374    
+Epoch: [3][   30/  159]    Overall Loss 0.237533    Objective Loss 0.237533                                        LR 0.001000    Time 0.710349    
+Epoch: [3][   40/  159]    Overall Loss 0.240222    Objective Loss 0.240222                                        LR 0.001000    Time 0.711971    
+Epoch: [3][   50/  159]    Overall Loss 0.239741    Objective Loss 0.239741                                        LR 0.001000    Time 0.702260    
+Epoch: [3][   60/  159]    Overall Loss 0.237012    Objective Loss 0.237012                                        LR 0.001000    Time 0.642086    
+Epoch: [3][   70/  159]    Overall Loss 0.234012    Objective Loss 0.234012                                        LR 0.001000    Time 0.618189    
+Epoch: [3][   80/  159]    Overall Loss 0.236375    Objective Loss 0.236375                                        LR 0.001000    Time 0.630388    
+Epoch: [3][   90/  159]    Overall Loss 0.227910    Objective Loss 0.227910                                        LR 0.001000    Time 0.640691    
+Epoch: [3][  100/  159]    Overall Loss 0.225296    Objective Loss 0.225296                                        LR 0.001000    Time 0.646990    
+Epoch: [3][  110/  159]    Overall Loss 0.222317    Objective Loss 0.222317                                        LR 0.001000    Time 0.650231    
+Epoch: [3][  120/  159]    Overall Loss 0.219703    Objective Loss 0.219703                                        LR 0.001000    Time 0.655714    
+Epoch: [3][  130/  159]    Overall Loss 0.215771    Objective Loss 0.215771                                        LR 0.001000    Time 0.660093    
+Epoch: [3][  140/  159]    Overall Loss 0.212226    Objective Loss 0.212226                                        LR 0.001000    Time 0.664376    
+Epoch: [3][  150/  159]    Overall Loss 0.210147    Objective Loss 0.210147                                        LR 0.001000    Time 0.667004    
+Epoch: [3][  159/  159]    Overall Loss 0.209440    Objective Loss 0.209440    Top1 96.638655    LR 0.001000    Time 0.666837    
+--- validate (epoch=3)-----------
+10406 samples (256 per mini-batch)
+Epoch: [3][   10/   41]    Loss 0.987084    Top1 90.546875    
+Epoch: [3][   20/   41]    Loss 0.983763    Top1 90.800781    
+Epoch: [3][   30/   41]    Loss 0.966961    Top1 90.937500    
+Epoch: [3][   40/   41]    Loss 0.964545    Top1 90.917969    
+Epoch: [3][   41/   41]    Loss 0.955389    Top1 90.966750    
+==> Top1: 90.967    Loss: 0.955
+
+==> Confusion:
+[[9137  100   80    6]
+ [  71   58  199    0]
+ [ 239  221  270    4]
+ [  19    1    0    1]]
+
+==> Best [Top1: 91.159   Params: 9888 on epoch: 0]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [4][   10/  159]    Overall Loss 0.179626    Objective Loss 0.179626                                        LR 0.001000    Time 0.768204    
+Epoch: [4][   20/  159]    Overall Loss 0.187482    Objective Loss 0.187482                                        LR 0.001000    Time 0.741448    
+Epoch: [4][   30/  159]    Overall Loss 0.190061    Objective Loss 0.190061                                        LR 0.001000    Time 0.704097    
+Epoch: [4][   40/  159]    Overall Loss 0.207880    Objective Loss 0.207880                                        LR 0.001000    Time 0.628689    
+Epoch: [4][   50/  159]    Overall Loss 0.198536    Objective Loss 0.198536                                        LR 0.001000    Time 0.647105    
+Epoch: [4][   60/  159]    Overall Loss 0.193770    Objective Loss 0.193770                                        LR 0.001000    Time 0.658103    
+Epoch: [4][   70/  159]    Overall Loss 0.192368    Objective Loss 0.192368                                        LR 0.001000    Time 0.665589    
+Epoch: [4][   80/  159]    Overall Loss 0.186464    Objective Loss 0.186464                                        LR 0.001000    Time 0.670802    
+Epoch: [4][   90/  159]    Overall Loss 0.189316    Objective Loss 0.189316                                        LR 0.001000    Time 0.672174    
+Epoch: [4][  100/  159]    Overall Loss 0.182852    Objective Loss 0.182852                                        LR 0.001000    Time 0.676070    
+Epoch: [4][  110/  159]    Overall Loss 0.183748    Objective Loss 0.183748                                        LR 0.001000    Time 0.677575    
+Epoch: [4][  120/  159]    Overall Loss 0.183481    Objective Loss 0.183481                                        LR 0.001000    Time 0.679674    
+Epoch: [4][  130/  159]    Overall Loss 0.179558    Objective Loss 0.179558                                        LR 0.001000    Time 0.682216    
+Epoch: [4][  140/  159]    Overall Loss 0.179489    Objective Loss 0.179489                                        LR 0.001000    Time 0.670686    
+Epoch: [4][  150/  159]    Overall Loss 0.177714    Objective Loss 0.177714                                        LR 0.001000    Time 0.658507    
+Epoch: [4][  159/  159]    Overall Loss 0.178848    Objective Loss 0.178848    Top1 92.997199    LR 0.001000    Time 0.626428    
+--- validate (epoch=4)-----------
+10406 samples (256 per mini-batch)
+Epoch: [4][   10/   41]    Loss 0.904649    Top1 90.390625    
+Epoch: [4][   20/   41]    Loss 0.874136    Top1 90.332031    
+Epoch: [4][   30/   41]    Loss 0.881454    Top1 90.716146    
+Epoch: [4][   40/   41]    Loss 0.873275    Top1 90.712891    
+Epoch: [4][   41/   41]    Loss 0.869913    Top1 90.755333    
+==> Top1: 90.755    Loss: 0.870
+
+==> Confusion:
+[[9013  206   85   19]
+ [  56   81  191    0]
+ [ 176  201  348    9]
+ [  18    1    0    2]]
+
+==> Best [Top1: 91.159   Params: 9888 on epoch: 0]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [5][   10/  159]    Overall Loss 0.159673    Objective Loss 0.159673                                        LR 0.001000    Time 0.740065    
+Epoch: [5][   20/  159]    Overall Loss 0.158686    Objective Loss 0.158686                                        LR 0.001000    Time 0.722767    
+Epoch: [5][   30/  159]    Overall Loss 0.170814    Objective Loss 0.170814                                        LR 0.001000    Time 0.716737    
+Epoch: [5][   40/  159]    Overall Loss 0.166997    Objective Loss 0.166997                                        LR 0.001000    Time 0.713561    
+Epoch: [5][   50/  159]    Overall Loss 0.162418    Objective Loss 0.162418                                        LR 0.001000    Time 0.702169    
+Epoch: [5][   60/  159]    Overall Loss 0.158500    Objective Loss 0.158500                                        LR 0.001000    Time 0.621088    
+Epoch: [5][   70/  159]    Overall Loss 0.158882    Objective Loss 0.158882                                        LR 0.001000    Time 0.630862    
+Epoch: [5][   80/  159]    Overall Loss 0.154594    Objective Loss 0.154594                                        LR 0.001000    Time 0.634651    
+Epoch: [5][   90/  159]    Overall Loss 0.155579    Objective Loss 0.155579                                        LR 0.001000    Time 0.643061    
+Epoch: [5][  100/  159]    Overall Loss 0.155015    Objective Loss 0.155015                                        LR 0.001000    Time 0.599977    
+Epoch: [5][  110/  159]    Overall Loss 0.155700    Objective Loss 0.155700                                        LR 0.001000    Time 0.564535    
+Epoch: [5][  120/  159]    Overall Loss 0.153320    Objective Loss 0.153320                                        LR 0.001000    Time 0.539143    
+Epoch: [5][  130/  159]    Overall Loss 0.150646    Objective Loss 0.150646                                        LR 0.001000    Time 0.518984    
+Epoch: [5][  140/  159]    Overall Loss 0.148369    Objective Loss 0.148369                                        LR 0.001000    Time 0.528182    
+Epoch: [5][  150/  159]    Overall Loss 0.147296    Objective Loss 0.147296                                        LR 0.001000    Time 0.538020    
+Epoch: [5][  159/  159]    Overall Loss 0.148736    Objective Loss 0.148736    Top1 96.918768    LR 0.001000    Time 0.520357    
+--- validate (epoch=5)-----------
+10406 samples (256 per mini-batch)
+Epoch: [5][   10/   41]    Loss 0.890010    Top1 90.351562    
+Epoch: [5][   20/   41]    Loss 0.932897    Top1 90.488281    
+Epoch: [5][   30/   41]    Loss 0.944373    Top1 90.494792    
+Epoch: [5][   40/   41]    Loss 0.907216    Top1 90.722656    
+Epoch: [5][   41/   41]    Loss 0.898255    Top1 90.784163    
+==> Top1: 90.784    Loss: 0.898
+
+==> Confusion:
+[[9067  248    3    5]
+ [  70  156  102    0]
+ [ 237  263  223   11]
+ [  19    1    0    1]]
+
+==> Best [Top1: 91.159   Params: 9888 on epoch: 0]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [6][   10/  159]    Overall Loss 0.133215    Objective Loss 0.133215                                        LR 0.001000    Time 0.720514    
+Epoch: [6][   20/  159]    Overall Loss 0.154219    Objective Loss 0.154219                                        LR 0.001000    Time 0.530071    
+Epoch: [6][   30/  159]    Overall Loss 0.158659    Objective Loss 0.158659                                        LR 0.001000    Time 0.557725    
+Epoch: [6][   40/  159]    Overall Loss 0.143567    Objective Loss 0.143567                                        LR 0.001000    Time 0.597790    
+Epoch: [6][   50/  159]    Overall Loss 0.139888    Objective Loss 0.139888                                        LR 0.001000    Time 0.588054    
+Epoch: [6][   60/  159]    Overall Loss 0.137978    Objective Loss 0.137978                                        LR 0.001000    Time 0.583973    
+Epoch: [6][   70/  159]    Overall Loss 0.139558    Objective Loss 0.139558                                        LR 0.001000    Time 0.600701    
+Epoch: [6][   80/  159]    Overall Loss 0.133709    Objective Loss 0.133709                                        LR 0.001000    Time 0.593423    
+Epoch: [6][   90/  159]    Overall Loss 0.136790    Objective Loss 0.136790                                        LR 0.001000    Time 0.540695    
+Epoch: [6][  100/  159]    Overall Loss 0.136135    Objective Loss 0.136135                                        LR 0.001000    Time 0.547776    
+Epoch: [6][  110/  159]    Overall Loss 0.139670    Objective Loss 0.139670                                        LR 0.001000    Time 0.563076    
+Epoch: [6][  120/  159]    Overall Loss 0.141130    Objective Loss 0.141130                                        LR 0.001000    Time 0.574417    
+Epoch: [6][  130/  159]    Overall Loss 0.138655    Objective Loss 0.138655                                        LR 0.001000    Time 0.585456    
+Epoch: [6][  140/  159]    Overall Loss 0.137550    Objective Loss 0.137550                                        LR 0.001000    Time 0.593347    
+Epoch: [6][  150/  159]    Overall Loss 0.133665    Objective Loss 0.133665                                        LR 0.001000    Time 0.601066    
+Epoch: [6][  159/  159]    Overall Loss 0.132399    Objective Loss 0.132399    Top1 97.759104    LR 0.001000    Time 0.605682    
+--- validate (epoch=6)-----------
+10406 samples (256 per mini-batch)
+Epoch: [6][   10/   41]    Loss 0.903305    Top1 91.484375    
+Epoch: [6][   20/   41]    Loss 0.860108    Top1 91.679688    
+Epoch: [6][   30/   41]    Loss 0.808881    Top1 92.135417    
+Epoch: [6][   40/   41]    Loss 0.824004    Top1 91.953125    
+Epoch: [6][   41/   41]    Loss 0.838501    Top1 91.889295    
+==> Top1: 91.889    Loss: 0.839
+
+==> Confusion:
+[[9069  220   21   13]
+ [  69  105  154    0]
+ [ 206  137  385    6]
+ [  17    0    1    3]]
+
+==> Best [Top1: 91.889   Params: 9888 on epoch: 6]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [7][   10/  159]    Overall Loss 0.149417    Objective Loss 0.149417                                        LR 0.001000    Time 0.785276    
+Epoch: [7][   20/  159]    Overall Loss 0.156807    Objective Loss 0.156807                                        LR 0.001000    Time 0.743798    
+Epoch: [7][   30/  159]    Overall Loss 0.138327    Objective Loss 0.138327                                        LR 0.001000    Time 0.736113    
+Epoch: [7][   40/  159]    Overall Loss 0.135647    Objective Loss 0.135647                                        LR 0.001000    Time 0.721540    
+Epoch: [7][   50/  159]    Overall Loss 0.133126    Objective Loss 0.133126                                        LR 0.001000    Time 0.718678    
+Epoch: [7][   60/  159]    Overall Loss 0.131733    Objective Loss 0.131733                                        LR 0.001000    Time 0.717957    
+Epoch: [7][   70/  159]    Overall Loss 0.126748    Objective Loss 0.126748                                        LR 0.001000    Time 0.714978    
+Epoch: [7][   80/  159]    Overall Loss 0.126141    Objective Loss 0.126141                                        LR 0.001000    Time 0.713339    
+Epoch: [7][   90/  159]    Overall Loss 0.124991    Objective Loss 0.124991                                        LR 0.001000    Time 0.708077    
+Epoch: [7][  100/  159]    Overall Loss 0.124778    Objective Loss 0.124778                                        LR 0.001000    Time 0.708464    
+Epoch: [7][  110/  159]    Overall Loss 0.123823    Objective Loss 0.123823                                        LR 0.001000    Time 0.707614    
+Epoch: [7][  120/  159]    Overall Loss 0.120293    Objective Loss 0.120293                                        LR 0.001000    Time 0.706140    
+Epoch: [7][  130/  159]    Overall Loss 0.120904    Objective Loss 0.120904                                        LR 0.001000    Time 0.705076    
+Epoch: [7][  140/  159]    Overall Loss 0.120263    Objective Loss 0.120263                                        LR 0.001000    Time 0.694570    
+Epoch: [7][  150/  159]    Overall Loss 0.121706    Objective Loss 0.121706                                        LR 0.001000    Time 0.694792    
+Epoch: [7][  159/  159]    Overall Loss 0.121757    Objective Loss 0.121757    Top1 97.478992    LR 0.001000    Time 0.694154    
+--- validate (epoch=7)-----------
+10406 samples (256 per mini-batch)
+Epoch: [7][   10/   41]    Loss 1.040663    Top1 93.203125    
+Epoch: [7][   20/   41]    Loss 0.939730    Top1 93.535156    
+Epoch: [7][   30/   41]    Loss 0.923252    Top1 93.580729    
+Epoch: [7][   40/   41]    Loss 0.959847    Top1 93.173828    
+Epoch: [7][   41/   41]    Loss 0.957451    Top1 93.128964    
+==> Top1: 93.129    Loss: 0.957
+
+==> Confusion:
+[[9133  101   75   14]
+ [  86   62  180    0]
+ [ 216   22  493    3]
+ [  17    0    1    3]]
+
+==> Best [Top1: 93.129   Params: 9888 on epoch: 7]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [8][   10/  159]    Overall Loss 0.114999    Objective Loss 0.114999                                        LR 0.001000    Time 0.730049    
+Epoch: [8][   20/  159]    Overall Loss 0.122366    Objective Loss 0.122366                                        LR 0.001000    Time 0.706518    
+Epoch: [8][   30/  159]    Overall Loss 0.128546    Objective Loss 0.128546                                        LR 0.001000    Time 0.701675    
+Epoch: [8][   40/  159]    Overall Loss 0.123072    Objective Loss 0.123072                                        LR 0.001000    Time 0.703464    
+Epoch: [8][   50/  159]    Overall Loss 0.119549    Objective Loss 0.119549                                        LR 0.001000    Time 0.704730    
+Epoch: [8][   60/  159]    Overall Loss 0.123673    Objective Loss 0.123673                                        LR 0.001000    Time 0.704148    
+Epoch: [8][   70/  159]    Overall Loss 0.120702    Objective Loss 0.120702                                        LR 0.001000    Time 0.704007    
+Epoch: [8][   80/  159]    Overall Loss 0.117474    Objective Loss 0.117474                                        LR 0.001000    Time 0.680498    
+Epoch: [8][   90/  159]    Overall Loss 0.115969    Objective Loss 0.115969                                        LR 0.001000    Time 0.616243    
+Epoch: [8][  100/  159]    Overall Loss 0.112899    Objective Loss 0.112899                                        LR 0.001000    Time 0.605540    
+Epoch: [8][  110/  159]    Overall Loss 0.116953    Objective Loss 0.116953                                        LR 0.001000    Time 0.614670    
+Epoch: [8][  120/  159]    Overall Loss 0.116808    Objective Loss 0.116808                                        LR 0.001000    Time 0.622342    
+Epoch: [8][  130/  159]    Overall Loss 0.117983    Objective Loss 0.117983                                        LR 0.001000    Time 0.628989    
+Epoch: [8][  140/  159]    Overall Loss 0.115669    Objective Loss 0.115669                                        LR 0.001000    Time 0.635704    
+Epoch: [8][  150/  159]    Overall Loss 0.113545    Objective Loss 0.113545                                        LR 0.001000    Time 0.625214    
+Epoch: [8][  159/  159]    Overall Loss 0.113737    Objective Loss 0.113737    Top1 98.879552    LR 0.001000    Time 0.629425    
+--- validate (epoch=8)-----------
+10406 samples (256 per mini-batch)
+Epoch: [8][   10/   41]    Loss 0.878282    Top1 92.812500    
+Epoch: [8][   20/   41]    Loss 0.801275    Top1 93.417969    
+Epoch: [8][   30/   41]    Loss 0.850686    Top1 93.059896    
+Epoch: [8][   40/   41]    Loss 0.843598    Top1 92.988281    
+Epoch: [8][   41/   41]    Loss 0.835665    Top1 93.013646    
+==> Top1: 93.014    Loss: 0.836
+
+==> Confusion:
+[[9119  194    2    8]
+ [ 120  104  104    0]
+ [ 230   45  455    4]
+ [  19    0    1    1]]
+
+==> Best [Top1: 93.129   Params: 9888 on epoch: 7]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [9][   10/  159]    Overall Loss 0.130840    Objective Loss 0.130840                                        LR 0.001000    Time 0.459445    
+Epoch: [9][   20/  159]    Overall Loss 0.116298    Objective Loss 0.116298                                        LR 0.001000    Time 0.590538    
+Epoch: [9][   30/  159]    Overall Loss 0.114302    Objective Loss 0.114302                                        LR 0.001000    Time 0.505796    
+Epoch: [9][   40/  159]    Overall Loss 0.110681    Objective Loss 0.110681                                        LR 0.001000    Time 0.554931    
+Epoch: [9][   50/  159]    Overall Loss 0.102965    Objective Loss 0.102965                                        LR 0.001000    Time 0.585611    
+Epoch: [9][   60/  159]    Overall Loss 0.102880    Objective Loss 0.102880                                        LR 0.001000    Time 0.606666    
+Epoch: [9][   70/  159]    Overall Loss 0.099681    Objective Loss 0.099681                                        LR 0.001000    Time 0.620674    
+Epoch: [9][   80/  159]    Overall Loss 0.095006    Objective Loss 0.095006                                        LR 0.001000    Time 0.632432    
+Epoch: [9][   90/  159]    Overall Loss 0.100644    Objective Loss 0.100644                                        LR 0.001000    Time 0.636892    
+Epoch: [9][  100/  159]    Overall Loss 0.103984    Objective Loss 0.103984                                        LR 0.001000    Time 0.643691    
+Epoch: [9][  110/  159]    Overall Loss 0.102591    Objective Loss 0.102591                                        LR 0.001000    Time 0.650952    
+Epoch: [9][  120/  159]    Overall Loss 0.104616    Objective Loss 0.104616                                        LR 0.001000    Time 0.624700    
+Epoch: [9][  130/  159]    Overall Loss 0.105464    Objective Loss 0.105464                                        LR 0.001000    Time 0.632455    
+Epoch: [9][  140/  159]    Overall Loss 0.104368    Objective Loss 0.104368                                        LR 0.001000    Time 0.637982    
+Epoch: [9][  150/  159]    Overall Loss 0.103353    Objective Loss 0.103353                                        LR 0.001000    Time 0.642708    
+Epoch: [9][  159/  159]    Overall Loss 0.103481    Objective Loss 0.103481    Top1 98.599440    LR 0.001000    Time 0.644988    
+--- validate (epoch=9)-----------
+10406 samples (256 per mini-batch)
+Epoch: [9][   10/   41]    Loss 0.853390    Top1 92.812500    
+Epoch: [9][   20/   41]    Loss 0.885868    Top1 92.832031    
+Epoch: [9][   30/   41]    Loss 0.862592    Top1 93.164062    
+Epoch: [9][   40/   41]    Loss 0.865165    Top1 93.242188    
+Epoch: [9][   41/   41]    Loss 0.865555    Top1 93.253892    
+==> Top1: 93.254    Loss: 0.866
+
+==> Confusion:
+[[9115  169   12   27]
+ [  90   89  149    0]
+ [ 211   20  497    6]
+ [  17    0    1    3]]
+
+==> Best [Top1: 93.254   Params: 9888 on epoch: 9]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [10][   10/  159]    Overall Loss 0.124374    Objective Loss 0.124374                                        LR 0.001000    Time 0.736456    
+Epoch: [10][   20/  159]    Overall Loss 0.119733    Objective Loss 0.119733                                        LR 0.001000    Time 0.734215    
+Epoch: [10][   30/  159]    Overall Loss 0.118773    Objective Loss 0.118773                                        LR 0.001000    Time 0.733635    
+Epoch: [10][   40/  159]    Overall Loss 0.111576    Objective Loss 0.111576                                        LR 0.001000    Time 0.732271    
+Epoch: [10][   50/  159]    Overall Loss 0.101087    Objective Loss 0.101087                                        LR 0.001000    Time 0.700607    
+Epoch: [10][   60/  159]    Overall Loss 0.096954    Objective Loss 0.096954                                        LR 0.001000    Time 0.705762    
+Epoch: [10][   70/  159]    Overall Loss 0.099901    Objective Loss 0.099901                                        LR 0.001000    Time 0.690189    
+Epoch: [10][   80/  159]    Overall Loss 0.102794    Objective Loss 0.102794                                        LR 0.001000    Time 0.695555    
+Epoch: [10][   90/  159]    Overall Loss 0.103416    Objective Loss 0.103416                                        LR 0.001000    Time 0.700525    
+Epoch: [10][  100/  159]    Overall Loss 0.100650    Objective Loss 0.100650                                        LR 0.001000    Time 0.706311    
+Epoch: [10][  110/  159]    Overall Loss 0.100717    Objective Loss 0.100717                                        LR 0.001000    Time 0.703680    
+Epoch: [10][  120/  159]    Overall Loss 0.098934    Objective Loss 0.098934                                        LR 0.001000    Time 0.704400    
+Epoch: [10][  130/  159]    Overall Loss 0.099863    Objective Loss 0.099863                                        LR 0.001000    Time 0.707883    
+Epoch: [10][  140/  159]    Overall Loss 0.100399    Objective Loss 0.100399                                        LR 0.001000    Time 0.710515    
+Epoch: [10][  150/  159]    Overall Loss 0.100485    Objective Loss 0.100485                                        LR 0.001000    Time 0.712582    
+Epoch: [10][  159/  159]    Overall Loss 0.098290    Objective Loss 0.098290    Top1 98.319328    LR 0.001000    Time 0.714156    
+--- validate (epoch=10)-----------
+10406 samples (256 per mini-batch)
+Epoch: [10][   10/   41]    Loss 1.018143    Top1 93.710938    
+Epoch: [10][   20/   41]    Loss 1.019017    Top1 93.906250    
+Epoch: [10][   30/   41]    Loss 1.074305    Top1 93.750000    
+Epoch: [10][   40/   41]    Loss 1.066458    Top1 93.642578    
+Epoch: [10][   41/   41]    Loss 1.056498    Top1 93.657505    
+==> Top1: 93.658    Loss: 1.056
+
+==> Confusion:
+[[9216   72   21   14]
+ [ 149   52  127    0]
+ [ 242   11  477    4]
+ [  19    0    1    1]]
+
+==> Best [Top1: 93.658   Params: 9888 on epoch: 10]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [11][   10/  159]    Overall Loss 0.116833    Objective Loss 0.116833                                        LR 0.001000    Time 0.787208    
+Epoch: [11][   20/  159]    Overall Loss 0.116708    Objective Loss 0.116708                                        LR 0.001000    Time 0.745178    
+Epoch: [11][   30/  159]    Overall Loss 0.105705    Objective Loss 0.105705                                        LR 0.001000    Time 0.713034    
+Epoch: [11][   40/  159]    Overall Loss 0.104651    Objective Loss 0.104651                                        LR 0.001000    Time 0.722745    
+Epoch: [11][   50/  159]    Overall Loss 0.100443    Objective Loss 0.100443                                        LR 0.001000    Time 0.736033    
+Epoch: [11][   60/  159]    Overall Loss 0.094316    Objective Loss 0.094316                                        LR 0.001000    Time 0.741350    
+Epoch: [11][   70/  159]    Overall Loss 0.092150    Objective Loss 0.092150                                        LR 0.001000    Time 0.747776    
+Epoch: [11][   80/  159]    Overall Loss 0.101242    Objective Loss 0.101242                                        LR 0.001000    Time 0.753172    
+Epoch: [11][   90/  159]    Overall Loss 0.101375    Objective Loss 0.101375                                        LR 0.001000    Time 0.757436    
+Epoch: [11][  100/  159]    Overall Loss 0.102029    Objective Loss 0.102029                                        LR 0.001000    Time 0.759902    
+Epoch: [11][  110/  159]    Overall Loss 0.101218    Objective Loss 0.101218                                        LR 0.001000    Time 0.762440    
+Epoch: [11][  120/  159]    Overall Loss 0.102259    Objective Loss 0.102259                                        LR 0.001000    Time 0.764406    
+Epoch: [11][  130/  159]    Overall Loss 0.100956    Objective Loss 0.100956                                        LR 0.001000    Time 0.766790    
+Epoch: [11][  140/  159]    Overall Loss 0.100499    Objective Loss 0.100499                                        LR 0.001000    Time 0.767510    
+Epoch: [11][  150/  159]    Overall Loss 0.100174    Objective Loss 0.100174                                        LR 0.001000    Time 0.769086    
+Epoch: [11][  159/  159]    Overall Loss 0.097794    Objective Loss 0.097794    Top1 99.159664    LR 0.001000    Time 0.768491    
+--- validate (epoch=11)-----------
+10406 samples (256 per mini-batch)
+Epoch: [11][   10/   41]    Loss 1.031698    Top1 93.945312    
+Epoch: [11][   20/   41]    Loss 1.070238    Top1 93.789062    
+Epoch: [11][   30/   41]    Loss 1.067150    Top1 93.710938    
+Epoch: [11][   40/   41]    Loss 1.057572    Top1 93.652344    
+Epoch: [11][   41/   41]    Loss 1.061859    Top1 93.647895    
+==> Top1: 93.648    Loss: 1.062
+
+==> Confusion:
+[[9229   90    1    3]
+ [ 180   53   95    0]
+ [ 256   15  462    1]
+ [  19    0    1    1]]
+
+==> Best [Top1: 93.658   Params: 9888 on epoch: 10]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [12][   10/  159]    Overall Loss 0.070050    Objective Loss 0.070050                                        LR 0.001000    Time 0.697392    
+Epoch: [12][   20/  159]    Overall Loss 0.071896    Objective Loss 0.071896                                        LR 0.001000    Time 0.744260    
+Epoch: [12][   30/  159]    Overall Loss 0.079375    Objective Loss 0.079375                                        LR 0.001000    Time 0.763211    
+Epoch: [12][   40/  159]    Overall Loss 0.076975    Objective Loss 0.076975                                        LR 0.001000    Time 0.770593    
+Epoch: [12][   50/  159]    Overall Loss 0.084535    Objective Loss 0.084535                                        LR 0.001000    Time 0.734699    
+Epoch: [12][   60/  159]    Overall Loss 0.084591    Objective Loss 0.084591                                        LR 0.001000    Time 0.744240    
+Epoch: [12][   70/  159]    Overall Loss 0.085130    Objective Loss 0.085130                                        LR 0.001000    Time 0.751727    
+Epoch: [12][   80/  159]    Overall Loss 0.084305    Objective Loss 0.084305                                        LR 0.001000    Time 0.753550    
+Epoch: [12][   90/  159]    Overall Loss 0.085541    Objective Loss 0.085541                                        LR 0.001000    Time 0.745326    
+Epoch: [12][  100/  159]    Overall Loss 0.085469    Objective Loss 0.085469                                        LR 0.001000    Time 0.750306    
+Epoch: [12][  110/  159]    Overall Loss 0.088847    Objective Loss 0.088847                                        LR 0.001000    Time 0.755437    
+Epoch: [12][  120/  159]    Overall Loss 0.090083    Objective Loss 0.090083                                        LR 0.001000    Time 0.755313    
+Epoch: [12][  130/  159]    Overall Loss 0.086914    Objective Loss 0.086914                                        LR 0.001000    Time 0.753234    
+Epoch: [12][  140/  159]    Overall Loss 0.088568    Objective Loss 0.088568                                        LR 0.001000    Time 0.756226    
+Epoch: [12][  150/  159]    Overall Loss 0.087271    Objective Loss 0.087271                                        LR 0.001000    Time 0.758901    
+Epoch: [12][  159/  159]    Overall Loss 0.088314    Objective Loss 0.088314    Top1 98.319328    LR 0.001000    Time 0.749343    
+--- validate (epoch=12)-----------
+10406 samples (256 per mini-batch)
+Epoch: [12][   10/   41]    Loss 0.890457    Top1 92.773438    
+Epoch: [12][   20/   41]    Loss 0.878207    Top1 92.695312    
+Epoch: [12][   30/   41]    Loss 0.850450    Top1 92.786458    
+Epoch: [12][   40/   41]    Loss 0.833912    Top1 93.017578    
+Epoch: [12][   41/   41]    Loss 0.827484    Top1 92.994426    
+==> Top1: 92.994    Loss: 0.827
+
+==> Confusion:
+[[9095  223    0    5]
+ [ 115  120   93    0]
+ [ 233   36  461    4]
+ [  19    0    1    1]]
+
+==> Best [Top1: 93.658   Params: 9888 on epoch: 10]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [13][   10/  159]    Overall Loss 0.068200    Objective Loss 0.068200                                        LR 0.001000    Time 0.840410    
+Epoch: [13][   20/  159]    Overall Loss 0.065442    Objective Loss 0.065442                                        LR 0.001000    Time 0.822560    
+Epoch: [13][   30/  159]    Overall Loss 0.087089    Objective Loss 0.087089                                        LR 0.001000    Time 0.815103    
+Epoch: [13][   40/  159]    Overall Loss 0.080655    Objective Loss 0.080655                                        LR 0.001000    Time 0.812347    
+Epoch: [13][   50/  159]    Overall Loss 0.080540    Objective Loss 0.080540                                        LR 0.001000    Time 0.810310    
+Epoch: [13][   60/  159]    Overall Loss 0.079852    Objective Loss 0.079852                                        LR 0.001000    Time 0.808077    
+Epoch: [13][   70/  159]    Overall Loss 0.083161    Objective Loss 0.083161                                        LR 0.001000    Time 0.796629    
+Epoch: [13][   80/  159]    Overall Loss 0.083640    Objective Loss 0.083640                                        LR 0.001000    Time 0.797669    
+Epoch: [13][   90/  159]    Overall Loss 0.082167    Objective Loss 0.082167                                        LR 0.001000    Time 0.796718    
+Epoch: [13][  100/  159]    Overall Loss 0.086237    Objective Loss 0.086237                                        LR 0.001000    Time 0.793257    
+Epoch: [13][  110/  159]    Overall Loss 0.086137    Objective Loss 0.086137                                        LR 0.001000    Time 0.767011    
+Epoch: [13][  120/  159]    Overall Loss 0.083822    Objective Loss 0.083822                                        LR 0.001000    Time 0.769765    
+Epoch: [13][  130/  159]    Overall Loss 0.085177    Objective Loss 0.085177                                        LR 0.001000    Time 0.772364    
+Epoch: [13][  140/  159]    Overall Loss 0.085015    Objective Loss 0.085015                                        LR 0.001000    Time 0.774076    
+Epoch: [13][  150/  159]    Overall Loss 0.084381    Objective Loss 0.084381                                        LR 0.001000    Time 0.766175    
+Epoch: [13][  159/  159]    Overall Loss 0.083635    Objective Loss 0.083635    Top1 98.879552    LR 0.001000    Time 0.755354    
+--- validate (epoch=13)-----------
+10406 samples (256 per mini-batch)
+Epoch: [13][   10/   41]    Loss 1.018761    Top1 92.148438    
+Epoch: [13][   20/   41]    Loss 0.948577    Top1 92.812500    
+Epoch: [13][   30/   41]    Loss 0.922661    Top1 92.929688    
+Epoch: [13][   40/   41]    Loss 0.920267    Top1 92.919922    
+Epoch: [13][   41/   41]    Loss 0.920499    Top1 92.888718    
+==> Top1: 92.889    Loss: 0.920
+
+==> Confusion:
+[[9090  227    1    5]
+ [ 134   95   99    0]
+ [ 227   21  479    7]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.658   Params: 9888 on epoch: 10]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [14][   10/  159]    Overall Loss 0.058372    Objective Loss 0.058372                                        LR 0.001000    Time 0.795025    
+Epoch: [14][   20/  159]    Overall Loss 0.049384    Objective Loss 0.049384                                        LR 0.001000    Time 0.792913    
+Epoch: [14][   30/  159]    Overall Loss 0.067115    Objective Loss 0.067115                                        LR 0.001000    Time 0.698588    
+Epoch: [14][   40/  159]    Overall Loss 0.077094    Objective Loss 0.077094                                        LR 0.001000    Time 0.723614    
+Epoch: [14][   50/  159]    Overall Loss 0.075925    Objective Loss 0.075925                                        LR 0.001000    Time 0.726371    
+Epoch: [14][   60/  159]    Overall Loss 0.073266    Objective Loss 0.073266                                        LR 0.001000    Time 0.730786    
+Epoch: [14][   70/  159]    Overall Loss 0.078927    Objective Loss 0.078927                                        LR 0.001000    Time 0.741693    
+Epoch: [14][   80/  159]    Overall Loss 0.079286    Objective Loss 0.079286                                        LR 0.001000    Time 0.749372    
+Epoch: [14][   90/  159]    Overall Loss 0.075411    Objective Loss 0.075411                                        LR 0.001000    Time 0.751529    
+Epoch: [14][  100/  159]    Overall Loss 0.074595    Objective Loss 0.074595                                        LR 0.001000    Time 0.757284    
+Epoch: [14][  110/  159]    Overall Loss 0.076719    Objective Loss 0.076719                                        LR 0.001000    Time 0.760508    
+Epoch: [14][  120/  159]    Overall Loss 0.076939    Objective Loss 0.076939                                        LR 0.001000    Time 0.764627    
+Epoch: [14][  130/  159]    Overall Loss 0.076776    Objective Loss 0.076776                                        LR 0.001000    Time 0.755237    
+Epoch: [14][  140/  159]    Overall Loss 0.075896    Objective Loss 0.075896                                        LR 0.001000    Time 0.753470    
+Epoch: [14][  150/  159]    Overall Loss 0.080742    Objective Loss 0.080742                                        LR 0.001000    Time 0.757233    
+Epoch: [14][  159/  159]    Overall Loss 0.079758    Objective Loss 0.079758    Top1 98.599440    LR 0.001000    Time 0.755574    
+--- validate (epoch=14)-----------
+10406 samples (256 per mini-batch)
+Epoch: [14][   10/   41]    Loss 0.769456    Top1 93.320312    
+Epoch: [14][   20/   41]    Loss 0.866552    Top1 93.203125    
+Epoch: [14][   30/   41]    Loss 0.870103    Top1 93.111979    
+Epoch: [14][   40/   41]    Loss 0.874165    Top1 93.134766    
+Epoch: [14][   41/   41]    Loss 0.885028    Top1 93.138574    
+==> Top1: 93.139    Loss: 0.885
+
+==> Confusion:
+[[9094  223    0    6]
+ [ 120  111   97    0]
+ [ 230   17  486    1]
+ [  19    0    1    1]]
+
+==> Best [Top1: 93.658   Params: 9888 on epoch: 10]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [15][   10/  159]    Overall Loss 0.059961    Objective Loss 0.059961                                        LR 0.000500    Time 0.884431    
+Epoch: [15][   20/  159]    Overall Loss 0.078462    Objective Loss 0.078462                                        LR 0.000500    Time 0.844617    
+Epoch: [15][   30/  159]    Overall Loss 0.082150    Objective Loss 0.082150                                        LR 0.000500    Time 0.784384    
+Epoch: [15][   40/  159]    Overall Loss 0.082951    Objective Loss 0.082951                                        LR 0.000500    Time 0.681463    
+Epoch: [15][   50/  159]    Overall Loss 0.077228    Objective Loss 0.077228                                        LR 0.000500    Time 0.707158    
+Epoch: [15][   60/  159]    Overall Loss 0.075344    Objective Loss 0.075344                                        LR 0.000500    Time 0.724019    
+Epoch: [15][   70/  159]    Overall Loss 0.076326    Objective Loss 0.076326                                        LR 0.000500    Time 0.735777    
+Epoch: [15][   80/  159]    Overall Loss 0.072802    Objective Loss 0.072802                                        LR 0.000500    Time 0.744550    
+Epoch: [15][   90/  159]    Overall Loss 0.072921    Objective Loss 0.072921                                        LR 0.000500    Time 0.751546    
+Epoch: [15][  100/  159]    Overall Loss 0.073390    Objective Loss 0.073390                                        LR 0.000500    Time 0.756943    
+Epoch: [15][  110/  159]    Overall Loss 0.071215    Objective Loss 0.071215                                        LR 0.000500    Time 0.755360    
+Epoch: [15][  120/  159]    Overall Loss 0.070844    Objective Loss 0.070844                                        LR 0.000500    Time 0.759174    
+Epoch: [15][  130/  159]    Overall Loss 0.073190    Objective Loss 0.073190                                        LR 0.000500    Time 0.753171    
+Epoch: [15][  140/  159]    Overall Loss 0.072509    Objective Loss 0.072509                                        LR 0.000500    Time 0.757169    
+Epoch: [15][  150/  159]    Overall Loss 0.072162    Objective Loss 0.072162                                        LR 0.000500    Time 0.758818    
+Epoch: [15][  159/  159]    Overall Loss 0.072779    Objective Loss 0.072779    Top1 98.039216    LR 0.000500    Time 0.760063    
+--- validate (epoch=15)-----------
+10406 samples (256 per mini-batch)
+Epoch: [15][   10/   41]    Loss 0.825049    Top1 92.968750    
+Epoch: [15][   20/   41]    Loss 0.891201    Top1 92.695312    
+Epoch: [15][   30/   41]    Loss 0.887266    Top1 92.682292    
+Epoch: [15][   40/   41]    Loss 0.901568    Top1 92.832031    
+Epoch: [15][   41/   41]    Loss 0.922340    Top1 92.773400    
+==> Top1: 92.773    Loss: 0.922
+
+==> Confusion:
+[[9083  239    0    1]
+ [ 132  110   86    0]
+ [ 249   24  460    1]
+ [  19    0    1    1]]
+
+==> Best [Top1: 93.658   Params: 9888 on epoch: 10]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [16][   10/  159]    Overall Loss 0.082136    Objective Loss 0.082136                                        LR 0.000500    Time 0.837148    
+Epoch: [16][   20/  159]    Overall Loss 0.073988    Objective Loss 0.073988                                        LR 0.000500    Time 0.815729    
+Epoch: [16][   30/  159]    Overall Loss 0.070777    Objective Loss 0.070777                                        LR 0.000500    Time 0.813005    
+Epoch: [16][   40/  159]    Overall Loss 0.074593    Objective Loss 0.074593                                        LR 0.000500    Time 0.813432    
+Epoch: [16][   50/  159]    Overall Loss 0.073301    Objective Loss 0.073301                                        LR 0.000500    Time 0.791274    
+Epoch: [16][   60/  159]    Overall Loss 0.074813    Objective Loss 0.074813                                        LR 0.000500    Time 0.792930    
+Epoch: [16][   70/  159]    Overall Loss 0.078321    Objective Loss 0.078321                                        LR 0.000500    Time 0.794273    
+Epoch: [16][   80/  159]    Overall Loss 0.077270    Objective Loss 0.077270                                        LR 0.000500    Time 0.789880    
+Epoch: [16][   90/  159]    Overall Loss 0.076585    Objective Loss 0.076585                                        LR 0.000500    Time 0.760772    
+Epoch: [16][  100/  159]    Overall Loss 0.072189    Objective Loss 0.072189                                        LR 0.000500    Time 0.765010    
+Epoch: [16][  110/  159]    Overall Loss 0.069585    Objective Loss 0.069585                                        LR 0.000500    Time 0.768657    
+Epoch: [16][  120/  159]    Overall Loss 0.068526    Objective Loss 0.068526                                        LR 0.000500    Time 0.771931    
+Epoch: [16][  130/  159]    Overall Loss 0.071047    Objective Loss 0.071047                                        LR 0.000500    Time 0.769035    
+Epoch: [16][  140/  159]    Overall Loss 0.070682    Objective Loss 0.070682                                        LR 0.000500    Time 0.772017    
+Epoch: [16][  150/  159]    Overall Loss 0.070968    Objective Loss 0.070968                                        LR 0.000500    Time 0.773905    
+Epoch: [16][  159/  159]    Overall Loss 0.069905    Objective Loss 0.069905    Top1 99.439776    LR 0.000500    Time 0.774220    
+--- validate (epoch=16)-----------
+10406 samples (256 per mini-batch)
+Epoch: [16][   10/   41]    Loss 0.977269    Top1 93.320312    
+Epoch: [16][   20/   41]    Loss 0.927876    Top1 93.730469    
+Epoch: [16][   30/   41]    Loss 0.980152    Top1 93.398438    
+Epoch: [16][   40/   41]    Loss 0.954767    Top1 93.554688    
+Epoch: [16][   41/   41]    Loss 0.959549    Top1 93.532577    
+==> Top1: 93.533    Loss: 0.960
+
+==> Confusion:
+[[9115  200    6    2]
+ [ 130   89  109    0]
+ [ 192   11  528    3]
+ [  19    0    1    1]]
+
+==> Best [Top1: 93.658   Params: 9888 on epoch: 10]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [17][   10/  159]    Overall Loss 0.053294    Objective Loss 0.053294                                        LR 0.000500    Time 0.866957    
+Epoch: [17][   20/  159]    Overall Loss 0.053586    Objective Loss 0.053586                                        LR 0.000500    Time 0.835661    
+Epoch: [17][   30/  159]    Overall Loss 0.060337    Objective Loss 0.060337                                        LR 0.000500    Time 0.829488    
+Epoch: [17][   40/  159]    Overall Loss 0.056316    Objective Loss 0.056316                                        LR 0.000500    Time 0.834104    
+Epoch: [17][   50/  159]    Overall Loss 0.065171    Objective Loss 0.065171                                        LR 0.000500    Time 0.829988    
+Epoch: [17][   60/  159]    Overall Loss 0.062972    Objective Loss 0.062972                                        LR 0.000500    Time 0.825618    
+Epoch: [17][   70/  159]    Overall Loss 0.062732    Objective Loss 0.062732                                        LR 0.000500    Time 0.760475    
+Epoch: [17][   80/  159]    Overall Loss 0.067094    Objective Loss 0.067094                                        LR 0.000500    Time 0.732588    
+Epoch: [17][   90/  159]    Overall Loss 0.067809    Objective Loss 0.067809                                        LR 0.000500    Time 0.719292    
+Epoch: [17][  100/  159]    Overall Loss 0.066261    Objective Loss 0.066261                                        LR 0.000500    Time 0.714675    
+Epoch: [17][  110/  159]    Overall Loss 0.067006    Objective Loss 0.067006                                        LR 0.000500    Time 0.724898    
+Epoch: [17][  120/  159]    Overall Loss 0.067422    Objective Loss 0.067422                                        LR 0.000500    Time 0.731752    
+Epoch: [17][  130/  159]    Overall Loss 0.068578    Objective Loss 0.068578                                        LR 0.000500    Time 0.738010    
+Epoch: [17][  140/  159]    Overall Loss 0.067493    Objective Loss 0.067493                                        LR 0.000500    Time 0.743387    
+Epoch: [17][  150/  159]    Overall Loss 0.067841    Objective Loss 0.067841                                        LR 0.000500    Time 0.747385    
+Epoch: [17][  159/  159]    Overall Loss 0.068041    Objective Loss 0.068041    Top1 98.039216    LR 0.000500    Time 0.749330    
+--- validate (epoch=17)-----------
+10406 samples (256 per mini-batch)
+Epoch: [17][   10/   41]    Loss 0.792954    Top1 92.617188    
+Epoch: [17][   20/   41]    Loss 0.834799    Top1 92.519531    
+Epoch: [17][   30/   41]    Loss 0.828820    Top1 92.786458    
+Epoch: [17][   40/   41]    Loss 0.853874    Top1 92.675781    
+Epoch: [17][   41/   41]    Loss 0.849673    Top1 92.686911    
+==> Top1: 92.687    Loss: 0.850
+
+==> Confusion:
+[[9033  278    1   11]
+ [ 124  102  102    0]
+ [ 196   17  507   14]
+ [  17    0    1    3]]
+
+==> Best [Top1: 93.658   Params: 9888 on epoch: 10]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [18][   10/  159]    Overall Loss 0.093616    Objective Loss 0.093616                                        LR 0.000500    Time 0.865207    
+Epoch: [18][   20/  159]    Overall Loss 0.084589    Objective Loss 0.084589                                        LR 0.000500    Time 0.837580    
+Epoch: [18][   30/  159]    Overall Loss 0.080973    Objective Loss 0.080973                                        LR 0.000500    Time 0.830762    
+Epoch: [18][   40/  159]    Overall Loss 0.080284    Objective Loss 0.080284                                        LR 0.000500    Time 0.825856    
+Epoch: [18][   50/  159]    Overall Loss 0.075329    Objective Loss 0.075329                                        LR 0.000500    Time 0.821948    
+Epoch: [18][   60/  159]    Overall Loss 0.076434    Objective Loss 0.076434                                        LR 0.000500    Time 0.820080    
+Epoch: [18][   70/  159]    Overall Loss 0.073583    Objective Loss 0.073583                                        LR 0.000500    Time 0.817258    
+Epoch: [18][   80/  159]    Overall Loss 0.069603    Objective Loss 0.069603                                        LR 0.000500    Time 0.816541    
+Epoch: [18][   90/  159]    Overall Loss 0.068798    Objective Loss 0.068798                                        LR 0.000500    Time 0.810168    
+Epoch: [18][  100/  159]    Overall Loss 0.068995    Objective Loss 0.068995                                        LR 0.000500    Time 0.797760    
+Epoch: [18][  110/  159]    Overall Loss 0.069281    Objective Loss 0.069281                                        LR 0.000500    Time 0.773383    
+Epoch: [18][  120/  159]    Overall Loss 0.070114    Objective Loss 0.070114                                        LR 0.000500    Time 0.776769    
+Epoch: [18][  130/  159]    Overall Loss 0.067391    Objective Loss 0.067391                                        LR 0.000500    Time 0.764006    
+Epoch: [18][  140/  159]    Overall Loss 0.066353    Objective Loss 0.066353                                        LR 0.000500    Time 0.767449    
+Epoch: [18][  150/  159]    Overall Loss 0.067402    Objective Loss 0.067402                                        LR 0.000500    Time 0.770787    
+Epoch: [18][  159/  159]    Overall Loss 0.068209    Objective Loss 0.068209    Top1 97.478992    LR 0.000500    Time 0.771909    
+--- validate (epoch=18)-----------
+10406 samples (256 per mini-batch)
+Epoch: [18][   10/   41]    Loss 0.838723    Top1 92.226562    
+Epoch: [18][   20/   41]    Loss 0.849298    Top1 92.421875    
+Epoch: [18][   30/   41]    Loss 0.823505    Top1 92.656250    
+Epoch: [18][   40/   41]    Loss 0.822679    Top1 92.626953    
+Epoch: [18][   41/   41]    Loss 0.831143    Top1 92.610033    
+==> Top1: 92.610    Loss: 0.831
+
+==> Confusion:
+[[8995  320    1    7]
+ [ 109  114  105    0]
+ [ 181   17  525   11]
+ [  17    0    1    3]]
+
+==> Best [Top1: 93.658   Params: 9888 on epoch: 10]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [19][   10/  159]    Overall Loss 0.053227    Objective Loss 0.053227                                        LR 0.000500    Time 0.847099    
+Epoch: [19][   20/  159]    Overall Loss 0.058419    Objective Loss 0.058419                                        LR 0.000500    Time 0.830273    
+Epoch: [19][   30/  159]    Overall Loss 0.063314    Objective Loss 0.063314                                        LR 0.000500    Time 0.824553    
+Epoch: [19][   40/  159]    Overall Loss 0.070358    Objective Loss 0.070358                                        LR 0.000500    Time 0.815591    
+Epoch: [19][   50/  159]    Overall Loss 0.066860    Objective Loss 0.066860                                        LR 0.000500    Time 0.816064    
+Epoch: [19][   60/  159]    Overall Loss 0.070380    Objective Loss 0.070380                                        LR 0.000500    Time 0.817969    
+Epoch: [19][   70/  159]    Overall Loss 0.069932    Objective Loss 0.069932                                        LR 0.000500    Time 0.786936    
+Epoch: [19][   80/  159]    Overall Loss 0.071252    Objective Loss 0.071252                                        LR 0.000500    Time 0.791260    
+Epoch: [19][   90/  159]    Overall Loss 0.068612    Objective Loss 0.068612                                        LR 0.000500    Time 0.793324    
+Epoch: [19][  100/  159]    Overall Loss 0.065930    Objective Loss 0.065930                                        LR 0.000500    Time 0.794632    
+Epoch: [19][  110/  159]    Overall Loss 0.069928    Objective Loss 0.069928                                        LR 0.000500    Time 0.796278    
+Epoch: [19][  120/  159]    Overall Loss 0.069710    Objective Loss 0.069710                                        LR 0.000500    Time 0.796483    
+Epoch: [19][  130/  159]    Overall Loss 0.069008    Objective Loss 0.069008                                        LR 0.000500    Time 0.754973    
+Epoch: [19][  140/  159]    Overall Loss 0.068031    Objective Loss 0.068031                                        LR 0.000500    Time 0.758660    
+Epoch: [19][  150/  159]    Overall Loss 0.066020    Objective Loss 0.066020                                        LR 0.000500    Time 0.760958    
+Epoch: [19][  159/  159]    Overall Loss 0.064960    Objective Loss 0.064960    Top1 99.439776    LR 0.000500    Time 0.761931    
+--- validate (epoch=19)-----------
+10406 samples (256 per mini-batch)
+Epoch: [19][   10/   41]    Loss 0.992216    Top1 94.023438    
+Epoch: [19][   20/   41]    Loss 1.003038    Top1 93.945312    
+Epoch: [19][   30/   41]    Loss 1.087306    Top1 93.437500    
+Epoch: [19][   40/   41]    Loss 1.088728    Top1 93.349609    
+Epoch: [19][   41/   41]    Loss 1.084547    Top1 93.378820    
+==> Top1: 93.379    Loss: 1.085
+
+==> Confusion:
+[[9167  146    8    2]
+ [ 168   71   89    0]
+ [ 240   12  477    5]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.658   Params: 9888 on epoch: 10]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_checkpoint.pth.tar
+Initiating quantization aware training (QAT)...
+Collecting statistics for quantization aware training (QAT)...
+  0%|          | 0/159 [00:00<?, ?it/s]  1%|          | 1/159 [00:00<01:58,  1.33it/s]  1%|▏         | 2/159 [00:01<01:44,  1.50it/s]  2%|▏         | 3/159 [00:01<01:34,  1.65it/s]  3%|▎         | 4/159 [00:02<01:27,  1.77it/s]  3%|▎         | 5/159 [00:02<01:22,  1.86it/s]  4%|▍         | 6/159 [00:03<01:18,  1.94it/s]  4%|▍         | 7/159 [00:03<01:16,  1.99it/s]  5%|▌         | 8/159 [00:04<01:14,  2.02it/s]  6%|▌         | 9/159 [00:04<01:11,  2.09it/s]  6%|▋         | 10/159 [00:04<01:10,  2.13it/s]  7%|▋         | 11/159 [00:05<01:09,  2.13it/s]  8%|▊         | 12/159 [00:05<01:09,  2.12it/s]  8%|▊         | 13/159 [00:06<01:10,  2.07it/s]  9%|▉         | 14/159 [00:06<01:10,  2.06it/s]  9%|▉         | 15/159 [00:07<01:09,  2.07it/s] 10%|█         | 16/159 [00:07<01:08,  2.10it/s] 11%|█         | 17/159 [00:08<01:07,  2.09it/s] 11%|█▏        | 18/159 [00:08<01:07,  2.08it/s] 12%|█▏        | 19/159 [00:09<01:08,  2.04it/s] 13%|█▎        | 20/159 [00:09<01:07,  2.06it/s] 13%|█▎        | 21/159 [00:10<01:07,  2.04it/s] 14%|█▍        | 22/159 [00:10<01:06,  2.05it/s] 14%|█▍        | 23/159 [00:11<01:05,  2.07it/s] 15%|█▌        | 24/159 [00:11<01:02,  2.16it/s] 16%|█▌        | 25/159 [00:12<01:01,  2.19it/s] 16%|█▋        | 26/159 [00:12<00:50,  2.65it/s] 17%|█▋        | 27/159 [00:12<00:40,  3.25it/s] 18%|█▊        | 28/159 [00:12<00:34,  3.85it/s] 18%|█▊        | 29/159 [00:12<00:29,  4.40it/s] 19%|█▉        | 30/159 [00:13<00:36,  3.58it/s] 19%|█▉        | 31/159 [00:13<00:43,  2.96it/s] 20%|██        | 32/159 [00:14<00:47,  2.67it/s] 21%|██        | 33/159 [00:14<00:50,  2.48it/s] 21%|██▏       | 34/159 [00:14<00:51,  2.44it/s] 22%|██▏       | 35/159 [00:15<00:54,  2.29it/s] 23%|██▎       | 36/159 [00:15<00:55,  2.23it/s] 23%|██▎       | 37/159 [00:16<00:56,  2.17it/s] 24%|██▍       | 38/159 [00:16<00:56,  2.13it/s] 25%|██▍       | 39/159 [00:17<00:57,  2.10it/s] 25%|██▌       | 40/159 [00:17<00:56,  2.11it/s] 26%|██▌       | 41/159 [00:18<00:56,  2.09it/s] 26%|██▋       | 42/159 [00:18<00:55,  2.10it/s] 27%|██▋       | 43/159 [00:19<00:55,  2.09it/s] 28%|██▊       | 44/159 [00:19<00:57,  2.01it/s] 28%|██▊       | 45/159 [00:20<00:58,  1.96it/s] 29%|██▉       | 46/159 [00:20<00:57,  1.98it/s] 30%|██▉       | 47/159 [00:21<00:55,  2.02it/s] 30%|███       | 48/159 [00:21<00:54,  2.03it/s] 31%|███       | 49/159 [00:22<00:58,  1.89it/s] 31%|███▏      | 50/159 [00:22<00:55,  1.95it/s] 32%|███▏      | 51/159 [00:23<00:54,  1.98it/s] 33%|███▎      | 52/159 [00:23<00:54,  1.97it/s] 33%|███▎      | 53/159 [00:24<00:50,  2.08it/s] 34%|███▍      | 54/159 [00:24<00:48,  2.15it/s] 35%|███▍      | 55/159 [00:24<00:39,  2.67it/s] 35%|███▌      | 56/159 [00:25<00:31,  3.28it/s] 36%|███▌      | 57/159 [00:25<00:26,  3.82it/s] 36%|███▋      | 58/159 [00:25<00:23,  4.33it/s] 37%|███▋      | 59/159 [00:25<00:21,  4.62it/s] 38%|███▊      | 60/159 [00:25<00:20,  4.93it/s] 38%|███▊      | 61/159 [00:25<00:19,  5.02it/s] 39%|███▉      | 62/159 [00:26<00:18,  5.26it/s] 40%|███▉      | 63/159 [00:26<00:20,  4.72it/s] 40%|████      | 64/159 [00:26<00:18,  5.00it/s] 41%|████      | 65/159 [00:26<00:20,  4.58it/s] 42%|████▏     | 66/159 [00:27<00:25,  3.61it/s] 42%|████▏     | 67/159 [00:27<00:30,  3.02it/s] 43%|████▎     | 68/159 [00:28<00:33,  2.72it/s] 43%|████▎     | 69/159 [00:28<00:34,  2.59it/s] 44%|████▍     | 70/159 [00:29<00:36,  2.42it/s] 45%|████▍     | 71/159 [00:29<00:38,  2.30it/s] 45%|████▌     | 72/159 [00:30<00:38,  2.24it/s] 46%|████▌     | 73/159 [00:30<00:38,  2.24it/s] 47%|████▋     | 74/159 [00:30<00:38,  2.21it/s] 47%|████▋     | 75/159 [00:31<00:38,  2.16it/s] 48%|████▊     | 76/159 [00:31<00:38,  2.14it/s] 48%|████▊     | 77/159 [00:32<00:38,  2.11it/s] 49%|████▉     | 78/159 [00:32<00:38,  2.10it/s] 50%|████▉     | 79/159 [00:33<00:38,  2.10it/s] 50%|█████     | 80/159 [00:33<00:38,  2.05it/s] 51%|█████     | 81/159 [00:34<00:37,  2.10it/s] 52%|█████▏    | 82/159 [00:34<00:36,  2.11it/s] 52%|█████▏    | 83/159 [00:35<00:36,  2.09it/s] 53%|█████▎    | 84/159 [00:35<00:35,  2.10it/s] 53%|█████▎    | 85/159 [00:36<00:32,  2.31it/s] 54%|█████▍    | 86/159 [00:36<00:29,  2.44it/s] 55%|█████▍    | 87/159 [00:37<00:34,  2.11it/s] 55%|█████▌    | 88/159 [00:37<00:33,  2.13it/s] 56%|█████▌    | 89/159 [00:37<00:30,  2.30it/s] 57%|█████▋    | 90/159 [00:38<00:28,  2.46it/s] 57%|█████▋    | 91/159 [00:38<00:26,  2.53it/s] 58%|█████▊    | 92/159 [00:39<00:27,  2.40it/s] 58%|█████▊    | 93/159 [00:39<00:28,  2.30it/s] 59%|█████▉    | 94/159 [00:39<00:29,  2.22it/s] 60%|█████▉    | 95/159 [00:40<00:29,  2.17it/s] 60%|██████    | 96/159 [00:40<00:29,  2.16it/s] 61%|██████    | 97/159 [00:41<00:29,  2.14it/s] 62%|██████▏   | 98/159 [00:41<00:28,  2.12it/s] 62%|██████▏   | 99/159 [00:42<00:28,  2.12it/s] 63%|██████▎   | 100/159 [00:42<00:27,  2.11it/s] 64%|██████▎   | 101/159 [00:43<00:27,  2.12it/s] 64%|██████▍   | 102/159 [00:43<00:24,  2.35it/s] 65%|██████▍   | 103/159 [00:43<00:22,  2.49it/s] 65%|██████▌   | 104/159 [00:44<00:21,  2.59it/s] 66%|██████▌   | 105/159 [00:44<00:22,  2.43it/s] 67%|██████▋   | 106/159 [00:45<00:22,  2.35it/s] 67%|██████▋   | 107/159 [00:45<00:22,  2.27it/s] 68%|██████▊   | 108/159 [00:46<00:23,  2.20it/s] 69%|██████▊   | 109/159 [00:46<00:22,  2.18it/s] 69%|██████▉   | 110/159 [00:47<00:22,  2.16it/s] 70%|██████▉   | 111/159 [00:47<00:22,  2.12it/s] 70%|███████   | 112/159 [00:48<00:22,  2.10it/s] 71%|███████   | 113/159 [00:48<00:21,  2.11it/s] 72%|███████▏  | 114/159 [00:49<00:21,  2.06it/s] 72%|███████▏  | 115/159 [00:49<00:21,  2.07it/s] 73%|███████▎  | 116/159 [00:50<00:20,  2.08it/s] 74%|███████▎  | 117/159 [00:50<00:19,  2.17it/s] 74%|███████▍  | 118/159 [00:50<00:19,  2.15it/s] 75%|███████▍  | 119/159 [00:51<00:18,  2.16it/s] 75%|███████▌  | 120/159 [00:51<00:17,  2.17it/s] 76%|███████▌  | 121/159 [00:52<00:16,  2.37it/s] 77%|███████▋  | 122/159 [00:52<00:14,  2.55it/s] 77%|███████▋  | 123/159 [00:52<00:14,  2.44it/s] 78%|███████▊  | 124/159 [00:53<00:14,  2.33it/s] 79%|███████▊  | 125/159 [00:53<00:15,  2.25it/s] 79%|███████▉  | 126/159 [00:54<00:15,  2.20it/s] 80%|███████▉  | 127/159 [00:54<00:14,  2.18it/s] 81%|████████  | 128/159 [00:55<00:14,  2.18it/s] 81%|████████  | 129/159 [00:55<00:13,  2.27it/s] 82%|████████▏ | 130/159 [00:56<00:13,  2.21it/s] 82%|████████▏ | 131/159 [00:56<00:12,  2.21it/s] 83%|████████▎ | 132/159 [00:57<00:12,  2.20it/s] 84%|████████▎ | 133/159 [00:57<00:12,  2.17it/s] 84%|████████▍ | 134/159 [00:58<00:11,  2.10it/s] 85%|████████▍ | 135/159 [00:58<00:11,  2.09it/s] 86%|████████▌ | 136/159 [00:59<00:10,  2.10it/s] 86%|████████▌ | 137/159 [00:59<00:10,  2.10it/s] 87%|████████▋ | 138/159 [01:00<00:09,  2.10it/s] 87%|████████▋ | 139/159 [01:00<00:09,  2.07it/s] 88%|████████▊ | 140/159 [01:01<00:09,  2.09it/s] 89%|████████▊ | 141/159 [01:01<00:08,  2.11it/s] 89%|████████▉ | 142/159 [01:01<00:08,  2.11it/s] 90%|████████▉ | 143/159 [01:02<00:07,  2.10it/s] 91%|█████████ | 144/159 [01:02<00:07,  2.09it/s] 91%|█████████ | 145/159 [01:03<00:06,  2.08it/s] 92%|█████████▏| 146/159 [01:03<00:06,  2.09it/s] 92%|█████████▏| 147/159 [01:04<00:05,  2.10it/s] 93%|█████████▎| 148/159 [01:04<00:05,  2.12it/s] 94%|█████████▎| 149/159 [01:05<00:04,  2.13it/s] 94%|█████████▍| 150/159 [01:05<00:04,  2.14it/s] 95%|█████████▍| 151/159 [01:06<00:03,  2.12it/s] 96%|█████████▌| 152/159 [01:06<00:03,  2.13it/s] 96%|█████████▌| 153/159 [01:07<00:02,  2.14it/s] 97%|█████████▋| 154/159 [01:07<00:02,  2.16it/s] 97%|█████████▋| 155/159 [01:08<00:01,  2.13it/s] 98%|█████████▊| 156/159 [01:08<00:01,  2.10it/s] 99%|█████████▊| 157/159 [01:09<00:00,  2.12it/s] 99%|█████████▉| 158/159 [01:09<00:00,  2.12it/s]100%|██████████| 159/159 [01:09<00:00,  2.29it/s]
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [20][   10/  159]    Overall Loss 0.093971    Objective Loss 0.093971                                        LR 0.000500    Time 1.122449    
+Epoch: [20][   20/  159]    Overall Loss 0.075150    Objective Loss 0.075150                                        LR 0.000500    Time 0.780184    
+Epoch: [20][   30/  159]    Overall Loss 0.074223    Objective Loss 0.074223                                        LR 0.000500    Time 0.794899    
+Epoch: [20][   40/  159]    Overall Loss 0.066256    Objective Loss 0.066256                                        LR 0.000500    Time 0.813452    
+Epoch: [20][   50/  159]    Overall Loss 0.077827    Objective Loss 0.077827                                        LR 0.000500    Time 0.864110    
+Epoch: [20][   60/  159]    Overall Loss 0.077876    Objective Loss 0.077876                                        LR 0.000500    Time 0.897678    
+Epoch: [20][   70/  159]    Overall Loss 0.074561    Objective Loss 0.074561                                        LR 0.000500    Time 0.921997    
+Epoch: [20][   80/  159]    Overall Loss 0.069431    Objective Loss 0.069431                                        LR 0.000500    Time 0.940626    
+Epoch: [20][   90/  159]    Overall Loss 0.074461    Objective Loss 0.074461                                        LR 0.000500    Time 0.906721    
+Epoch: [20][  100/  159]    Overall Loss 0.074487    Objective Loss 0.074487                                        LR 0.000500    Time 0.863817    
+Epoch: [20][  110/  159]    Overall Loss 0.073645    Objective Loss 0.073645                                        LR 0.000500    Time 0.881865    
+Epoch: [20][  120/  159]    Overall Loss 0.074236    Objective Loss 0.074236                                        LR 0.000500    Time 0.897128    
+Epoch: [20][  130/  159]    Overall Loss 0.073188    Objective Loss 0.073188                                        LR 0.000500    Time 0.909247    
+Epoch: [20][  140/  159]    Overall Loss 0.073535    Objective Loss 0.073535                                        LR 0.000500    Time 0.920227    
+Epoch: [20][  150/  159]    Overall Loss 0.073993    Objective Loss 0.073993                                        LR 0.000500    Time 0.929934    
+Epoch: [20][  159/  159]    Overall Loss 0.073472    Objective Loss 0.073472    Top1 97.198880    LR 0.000500    Time 0.930022    
+--- validate (epoch=20)-----------
+10406 samples (256 per mini-batch)
+Epoch: [20][   10/   41]    Loss 1.186356    Top1 91.484375    
+Epoch: [20][   20/   41]    Loss 1.129654    Top1 91.582031    
+Epoch: [20][   30/   41]    Loss 1.085583    Top1 91.940104    
+Epoch: [20][   40/   41]    Loss 1.149078    Top1 91.738281    
+Epoch: [20][   41/   41]    Loss 1.161274    Top1 91.706708    
+==> Top1: 91.707    Loss: 1.161
+
+==> Confusion:
+[[8936  368    5   14]
+ [ 120  105  103    0]
+ [ 194   13  497   30]
+ [  15    0    1    5]]
+
+==> Best [Top1: 91.707   Params: 9888 on epoch: 20]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [21][   10/  159]    Overall Loss 0.078611    Objective Loss 0.078611                                        LR 0.000500    Time 0.964528    
+Epoch: [21][   20/  159]    Overall Loss 0.065973    Objective Loss 0.065973                                        LR 0.000500    Time 1.018034    
+Epoch: [21][   30/  159]    Overall Loss 0.062799    Objective Loss 0.062799                                        LR 0.000500    Time 1.034654    
+Epoch: [21][   40/  159]    Overall Loss 0.067326    Objective Loss 0.067326                                        LR 0.000500    Time 1.043075    
+Epoch: [21][   50/  159]    Overall Loss 0.066962    Objective Loss 0.066962                                        LR 0.000500    Time 1.048923    
+Epoch: [21][   60/  159]    Overall Loss 0.070152    Objective Loss 0.070152                                        LR 0.000500    Time 1.052357    
+Epoch: [21][   70/  159]    Overall Loss 0.068031    Objective Loss 0.068031                                        LR 0.000500    Time 1.052914    
+Epoch: [21][   80/  159]    Overall Loss 0.064671    Objective Loss 0.064671                                        LR 0.000500    Time 1.055850    
+Epoch: [21][   90/  159]    Overall Loss 0.061024    Objective Loss 0.061024                                        LR 0.000500    Time 1.056926    
+Epoch: [21][  100/  159]    Overall Loss 0.058553    Objective Loss 0.058553                                        LR 0.000500    Time 1.058184    
+Epoch: [21][  110/  159]    Overall Loss 0.061551    Objective Loss 0.061551                                        LR 0.000500    Time 1.059167    
+Epoch: [21][  120/  159]    Overall Loss 0.061510    Objective Loss 0.061510                                        LR 0.000500    Time 1.060143    
+Epoch: [21][  130/  159]    Overall Loss 0.060655    Objective Loss 0.060655                                        LR 0.000500    Time 1.060278    
+Epoch: [21][  140/  159]    Overall Loss 0.061335    Objective Loss 0.061335                                        LR 0.000500    Time 1.061310    
+Epoch: [21][  150/  159]    Overall Loss 0.061917    Objective Loss 0.061917                                        LR 0.000500    Time 1.061379    
+Epoch: [21][  159/  159]    Overall Loss 0.061565    Objective Loss 0.061565    Top1 99.159664    LR 0.000500    Time 1.060059    
+--- validate (epoch=21)-----------
+10406 samples (256 per mini-batch)
+Epoch: [21][   10/   41]    Loss 1.225476    Top1 92.343750    
+Epoch: [21][   20/   41]    Loss 1.193365    Top1 93.007812    
+Epoch: [21][   30/   41]    Loss 1.220872    Top1 92.942708    
+Epoch: [21][   40/   41]    Loss 1.223270    Top1 93.066406    
+Epoch: [21][   41/   41]    Loss 1.223685    Top1 93.052085    
+==> Top1: 93.052    Loss: 1.224
+
+==> Confusion:
+[[9085  231    3    4]
+ [ 149   86   93    0]
+ [ 206   13  510    5]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.052   Params: 9888 on epoch: 21]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [22][   10/  159]    Overall Loss 0.059672    Objective Loss 0.059672                                        LR 0.000500    Time 0.819298    
+Epoch: [22][   20/  159]    Overall Loss 0.057234    Objective Loss 0.057234                                        LR 0.000500    Time 0.634781    
+Epoch: [22][   30/  159]    Overall Loss 0.065055    Objective Loss 0.065055                                        LR 0.000500    Time 0.712432    
+Epoch: [22][   40/  159]    Overall Loss 0.074183    Objective Loss 0.074183                                        LR 0.000500    Time 0.800904    
+Epoch: [22][   50/  159]    Overall Loss 0.066800    Objective Loss 0.066800                                        LR 0.000500    Time 0.714229    
+Epoch: [22][   60/  159]    Overall Loss 0.062941    Objective Loss 0.062941                                        LR 0.000500    Time 0.773448    
+Epoch: [22][   70/  159]    Overall Loss 0.060515    Objective Loss 0.060515                                        LR 0.000500    Time 0.816084    
+Epoch: [22][   80/  159]    Overall Loss 0.060056    Objective Loss 0.060056                                        LR 0.000500    Time 0.840610    
+Epoch: [22][   90/  159]    Overall Loss 0.060426    Objective Loss 0.060426                                        LR 0.000500    Time 0.830093    
+Epoch: [22][  100/  159]    Overall Loss 0.058841    Objective Loss 0.058841                                        LR 0.000500    Time 0.782121    
+Epoch: [22][  110/  159]    Overall Loss 0.057125    Objective Loss 0.057125                                        LR 0.000500    Time 0.774901    
+Epoch: [22][  120/  159]    Overall Loss 0.057515    Objective Loss 0.057515                                        LR 0.000500    Time 0.799386    
+Epoch: [22][  130/  159]    Overall Loss 0.057995    Objective Loss 0.057995                                        LR 0.000500    Time 0.820689    
+Epoch: [22][  140/  159]    Overall Loss 0.059623    Objective Loss 0.059623                                        LR 0.000500    Time 0.838234    
+Epoch: [22][  150/  159]    Overall Loss 0.057794    Objective Loss 0.057794                                        LR 0.000500    Time 0.837069    
+Epoch: [22][  159/  159]    Overall Loss 0.056863    Objective Loss 0.056863    Top1 99.159664    LR 0.000500    Time 0.832249    
+--- validate (epoch=22)-----------
+10406 samples (256 per mini-batch)
+Epoch: [22][   10/   41]    Loss 1.395937    Top1 93.828125    
+Epoch: [22][   20/   41]    Loss 1.408769    Top1 93.730469    
+Epoch: [22][   30/   41]    Loss 1.421117    Top1 93.789062    
+Epoch: [22][   40/   41]    Loss 1.460992    Top1 93.750000    
+Epoch: [22][   41/   41]    Loss 1.477552    Top1 93.724774    
+==> Top1: 93.725    Loss: 1.478
+
+==> Confusion:
+[[9190  123    9    1]
+ [ 185   45   98    0]
+ [ 206    6  518    4]
+ [  19    0    1    1]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [23][   10/  159]    Overall Loss 0.068184    Objective Loss 0.068184                                        LR 0.000500    Time 0.853068    
+Epoch: [23][   20/  159]    Overall Loss 0.063209    Objective Loss 0.063209                                        LR 0.000500    Time 0.955496    
+Epoch: [23][   30/  159]    Overall Loss 0.053463    Objective Loss 0.053463                                        LR 0.000500    Time 0.965101    
+Epoch: [23][   40/  159]    Overall Loss 0.059749    Objective Loss 0.059749                                        LR 0.000500    Time 0.973416    
+Epoch: [23][   50/  159]    Overall Loss 0.052313    Objective Loss 0.052313                                        LR 0.000500    Time 0.991667    
+Epoch: [23][   60/  159]    Overall Loss 0.059350    Objective Loss 0.059350                                        LR 0.000500    Time 1.004042    
+Epoch: [23][   70/  159]    Overall Loss 0.061997    Objective Loss 0.061997                                        LR 0.000500    Time 1.013456    
+Epoch: [23][   80/  159]    Overall Loss 0.063800    Objective Loss 0.063800                                        LR 0.000500    Time 1.020713    
+Epoch: [23][   90/  159]    Overall Loss 0.061656    Objective Loss 0.061656                                        LR 0.000500    Time 0.984761    
+Epoch: [23][  100/  159]    Overall Loss 0.060093    Objective Loss 0.060093                                        LR 0.000500    Time 0.967640    
+Epoch: [23][  110/  159]    Overall Loss 0.057630    Objective Loss 0.057630                                        LR 0.000500    Time 0.976136    
+Epoch: [23][  120/  159]    Overall Loss 0.055320    Objective Loss 0.055320                                        LR 0.000500    Time 0.975217    
+Epoch: [23][  130/  159]    Overall Loss 0.056740    Objective Loss 0.056740                                        LR 0.000500    Time 0.937067    
+Epoch: [23][  140/  159]    Overall Loss 0.057777    Objective Loss 0.057777                                        LR 0.000500    Time 0.935291    
+Epoch: [23][  150/  159]    Overall Loss 0.056881    Objective Loss 0.056881                                        LR 0.000500    Time 0.944346    
+Epoch: [23][  159/  159]    Overall Loss 0.058022    Objective Loss 0.058022    Top1 99.159664    LR 0.000500    Time 0.946859    
+--- validate (epoch=23)-----------
+10406 samples (256 per mini-batch)
+Epoch: [23][   10/   41]    Loss 1.024320    Top1 92.460938    
+Epoch: [23][   20/   41]    Loss 1.034027    Top1 92.128906    
+Epoch: [23][   30/   41]    Loss 1.026693    Top1 92.252604    
+Epoch: [23][   40/   41]    Loss 1.051128    Top1 92.197266    
+Epoch: [23][   41/   41]    Loss 1.058795    Top1 92.187200    
+==> Top1: 92.187    Loss: 1.059
+
+==> Confusion:
+[[8990  329    1    3]
+ [ 125  107   96    0]
+ [ 191   16  494   33]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [24][   10/  159]    Overall Loss 0.040783    Objective Loss 0.040783                                        LR 0.000500    Time 1.070903    
+Epoch: [24][   20/  159]    Overall Loss 0.061735    Objective Loss 0.061735                                        LR 0.000500    Time 0.878367    
+Epoch: [24][   30/  159]    Overall Loss 0.057989    Objective Loss 0.057989                                        LR 0.000500    Time 0.941555    
+Epoch: [24][   40/  159]    Overall Loss 0.058383    Objective Loss 0.058383                                        LR 0.000500    Time 0.973647    
+Epoch: [24][   50/  159]    Overall Loss 0.058289    Objective Loss 0.058289                                        LR 0.000500    Time 0.992188    
+Epoch: [24][   60/  159]    Overall Loss 0.057884    Objective Loss 0.057884                                        LR 0.000500    Time 1.004812    
+Epoch: [24][   70/  159]    Overall Loss 0.058932    Objective Loss 0.058932                                        LR 0.000500    Time 1.014618    
+Epoch: [24][   80/  159]    Overall Loss 0.059598    Objective Loss 0.059598                                        LR 0.000500    Time 1.021285    
+Epoch: [24][   90/  159]    Overall Loss 0.057021    Objective Loss 0.057021                                        LR 0.000500    Time 1.027400    
+Epoch: [24][  100/  159]    Overall Loss 0.055983    Objective Loss 0.055983                                        LR 0.000500    Time 1.031130    
+Epoch: [24][  110/  159]    Overall Loss 0.057648    Objective Loss 0.057648                                        LR 0.000500    Time 1.034729    
+Epoch: [24][  120/  159]    Overall Loss 0.055875    Objective Loss 0.055875                                        LR 0.000500    Time 1.037729    
+Epoch: [24][  130/  159]    Overall Loss 0.054351    Objective Loss 0.054351                                        LR 0.000500    Time 1.035433    
+Epoch: [24][  140/  159]    Overall Loss 0.059519    Objective Loss 0.059519                                        LR 0.000500    Time 1.037872    
+Epoch: [24][  150/  159]    Overall Loss 0.059092    Objective Loss 0.059092                                        LR 0.000500    Time 1.035262    
+Epoch: [24][  159/  159]    Overall Loss 0.057615    Objective Loss 0.057615    Top1 99.719888    LR 0.000500    Time 1.035651    
+--- validate (epoch=24)-----------
+10406 samples (256 per mini-batch)
+Epoch: [24][   10/   41]    Loss 1.073923    Top1 93.437500    
+Epoch: [24][   20/   41]    Loss 1.073859    Top1 93.281250    
+Epoch: [24][   30/   41]    Loss 1.093827    Top1 93.098958    
+Epoch: [24][   40/   41]    Loss 1.117983    Top1 92.998047    
+Epoch: [24][   41/   41]    Loss 1.115733    Top1 93.004036    
+==> Top1: 93.004    Loss: 1.116
+
+==> Confusion:
+[[9100  218    3    2]
+ [ 144   90   94    0]
+ [ 231   12  486    5]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [25][   10/  159]    Overall Loss 0.077589    Objective Loss 0.077589                                        LR 0.000250    Time 1.010353    
+Epoch: [25][   20/  159]    Overall Loss 0.060254    Objective Loss 0.060254                                        LR 0.000250    Time 1.026274    
+Epoch: [25][   30/  159]    Overall Loss 0.054675    Objective Loss 0.054675                                        LR 0.000250    Time 1.041004    
+Epoch: [25][   40/  159]    Overall Loss 0.059549    Objective Loss 0.059549                                        LR 0.000250    Time 1.030695    
+Epoch: [25][   50/  159]    Overall Loss 0.055121    Objective Loss 0.055121                                        LR 0.000250    Time 1.018967    
+Epoch: [25][   60/  159]    Overall Loss 0.054276    Objective Loss 0.054276                                        LR 0.000250    Time 1.028524    
+Epoch: [25][   70/  159]    Overall Loss 0.057085    Objective Loss 0.057085                                        LR 0.000250    Time 1.007344    
+Epoch: [25][   80/  159]    Overall Loss 0.058334    Objective Loss 0.058334                                        LR 0.000250    Time 0.969622    
+Epoch: [25][   90/  159]    Overall Loss 0.057240    Objective Loss 0.057240                                        LR 0.000250    Time 0.980401    
+Epoch: [25][  100/  159]    Overall Loss 0.055786    Objective Loss 0.055786                                        LR 0.000250    Time 0.989510    
+Epoch: [25][  110/  159]    Overall Loss 0.056938    Objective Loss 0.056938                                        LR 0.000250    Time 0.965159    
+Epoch: [25][  120/  159]    Overall Loss 0.057195    Objective Loss 0.057195                                        LR 0.000250    Time 0.973825    
+Epoch: [25][  130/  159]    Overall Loss 0.055360    Objective Loss 0.055360                                        LR 0.000250    Time 0.973317    
+Epoch: [25][  140/  159]    Overall Loss 0.053043    Objective Loss 0.053043                                        LR 0.000250    Time 0.973584    
+Epoch: [25][  150/  159]    Overall Loss 0.053358    Objective Loss 0.053358                                        LR 0.000250    Time 0.979791    
+Epoch: [25][  159/  159]    Overall Loss 0.053124    Objective Loss 0.053124    Top1 99.439776    LR 0.000250    Time 0.982853    
+--- validate (epoch=25)-----------
+10406 samples (256 per mini-batch)
+Epoch: [25][   10/   41]    Loss 1.007049    Top1 93.007812    
+Epoch: [25][   20/   41]    Loss 1.058349    Top1 93.398438    
+Epoch: [25][   30/   41]    Loss 1.065325    Top1 93.125000    
+Epoch: [25][   40/   41]    Loss 1.068424    Top1 93.095703    
+Epoch: [25][   41/   41]    Loss 1.079362    Top1 93.004036    
+==> Top1: 93.004    Loss: 1.079
+
+==> Confusion:
+[[9054  266    1    2]
+ [ 134   92  102    0]
+ [ 191   11  530    2]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [26][   10/  159]    Overall Loss 0.078701    Objective Loss 0.078701                                        LR 0.000250    Time 1.115224    
+Epoch: [26][   20/  159]    Overall Loss 0.052660    Objective Loss 0.052660                                        LR 0.000250    Time 1.100450    
+Epoch: [26][   30/  159]    Overall Loss 0.045271    Objective Loss 0.045271                                        LR 0.000250    Time 1.091934    
+Epoch: [26][   40/  159]    Overall Loss 0.044065    Objective Loss 0.044065                                        LR 0.000250    Time 1.086731    
+Epoch: [26][   50/  159]    Overall Loss 0.040866    Objective Loss 0.040866                                        LR 0.000250    Time 1.084801    
+Epoch: [26][   60/  159]    Overall Loss 0.042742    Objective Loss 0.042742                                        LR 0.000250    Time 1.082395    
+Epoch: [26][   70/  159]    Overall Loss 0.050858    Objective Loss 0.050858                                        LR 0.000250    Time 1.023584    
+Epoch: [26][   80/  159]    Overall Loss 0.051019    Objective Loss 0.051019                                        LR 0.000250    Time 1.017576    
+Epoch: [26][   90/  159]    Overall Loss 0.050426    Objective Loss 0.050426                                        LR 0.000250    Time 1.023876    
+Epoch: [26][  100/  159]    Overall Loss 0.049377    Objective Loss 0.049377                                        LR 0.000250    Time 0.998192    
+Epoch: [26][  110/  159]    Overall Loss 0.048673    Objective Loss 0.048673                                        LR 0.000250    Time 0.988431    
+Epoch: [26][  120/  159]    Overall Loss 0.048086    Objective Loss 0.048086                                        LR 0.000250    Time 0.994958    
+Epoch: [26][  130/  159]    Overall Loss 0.048958    Objective Loss 0.048958                                        LR 0.000250    Time 0.996712    
+Epoch: [26][  140/  159]    Overall Loss 0.050443    Objective Loss 0.050443                                        LR 0.000250    Time 0.964150    
+Epoch: [26][  150/  159]    Overall Loss 0.049766    Objective Loss 0.049766                                        LR 0.000250    Time 0.971475    
+Epoch: [26][  159/  159]    Overall Loss 0.049648    Objective Loss 0.049648    Top1 98.319328    LR 0.000250    Time 0.972804    
+--- validate (epoch=26)-----------
+10406 samples (256 per mini-batch)
+Epoch: [26][   10/   41]    Loss 1.059080    Top1 92.812500    
+Epoch: [26][   20/   41]    Loss 0.999647    Top1 93.144531    
+Epoch: [26][   30/   41]    Loss 0.991314    Top1 93.098958    
+Epoch: [26][   40/   41]    Loss 1.020950    Top1 92.802734    
+Epoch: [26][   41/   41]    Loss 1.036916    Top1 92.763790    
+==> Top1: 92.764    Loss: 1.037
+
+==> Confusion:
+[[9039  281    1    2]
+ [ 138   95   95    0]
+ [ 200   12  517    5]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [27][   10/  159]    Overall Loss 0.040549    Objective Loss 0.040549                                        LR 0.000250    Time 1.034272    
+Epoch: [27][   20/  159]    Overall Loss 0.032181    Objective Loss 0.032181                                        LR 0.000250    Time 0.988086    
+Epoch: [27][   30/  159]    Overall Loss 0.043463    Objective Loss 0.043463                                        LR 0.000250    Time 1.016433    
+Epoch: [27][   40/  159]    Overall Loss 0.048032    Objective Loss 0.048032                                        LR 0.000250    Time 1.025491    
+Epoch: [27][   50/  159]    Overall Loss 0.045674    Objective Loss 0.045674                                        LR 0.000250    Time 1.016924    
+Epoch: [27][   60/  159]    Overall Loss 0.047319    Objective Loss 0.047319                                        LR 0.000250    Time 1.019579    
+Epoch: [27][   70/  159]    Overall Loss 0.046547    Objective Loss 0.046547                                        LR 0.000250    Time 1.021522    
+Epoch: [27][   80/  159]    Overall Loss 0.044878    Objective Loss 0.044878                                        LR 0.000250    Time 1.010816    
+Epoch: [27][   90/  159]    Overall Loss 0.047249    Objective Loss 0.047249                                        LR 0.000250    Time 1.015830    
+Epoch: [27][  100/  159]    Overall Loss 0.047772    Objective Loss 0.047772                                        LR 0.000250    Time 1.020122    
+Epoch: [27][  110/  159]    Overall Loss 0.046081    Objective Loss 0.046081                                        LR 0.000250    Time 1.020067    
+Epoch: [27][  120/  159]    Overall Loss 0.046879    Objective Loss 0.046879                                        LR 0.000250    Time 1.022425    
+Epoch: [27][  130/  159]    Overall Loss 0.047669    Objective Loss 0.047669                                        LR 0.000250    Time 1.000014    
+Epoch: [27][  140/  159]    Overall Loss 0.047347    Objective Loss 0.047347                                        LR 0.000250    Time 1.003723    
+Epoch: [27][  150/  159]    Overall Loss 0.047875    Objective Loss 0.047875                                        LR 0.000250    Time 0.995817    
+Epoch: [27][  159/  159]    Overall Loss 0.049058    Objective Loss 0.049058    Top1 99.439776    LR 0.000250    Time 0.997221    
+--- validate (epoch=27)-----------
+10406 samples (256 per mini-batch)
+Epoch: [27][   10/   41]    Loss 1.026777    Top1 92.929688    
+Epoch: [27][   20/   41]    Loss 1.170266    Top1 92.597656    
+Epoch: [27][   30/   41]    Loss 1.181225    Top1 92.721354    
+Epoch: [27][   40/   41]    Loss 1.151894    Top1 92.744141    
+Epoch: [27][   41/   41]    Loss 1.146439    Top1 92.783010    
+==> Top1: 92.783    Loss: 1.146
+
+==> Confusion:
+[[9061  257    4    1]
+ [ 148   81   99    0]
+ [ 210   11  511    2]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [28][   10/  159]    Overall Loss 0.058482    Objective Loss 0.058482                                        LR 0.000250    Time 1.117048    
+Epoch: [28][   20/  159]    Overall Loss 0.065741    Objective Loss 0.065741                                        LR 0.000250    Time 1.077508    
+Epoch: [28][   30/  159]    Overall Loss 0.058627    Objective Loss 0.058627                                        LR 0.000250    Time 1.072104    
+Epoch: [28][   40/  159]    Overall Loss 0.054789    Objective Loss 0.054789                                        LR 0.000250    Time 1.054205    
+Epoch: [28][   50/  159]    Overall Loss 0.056276    Objective Loss 0.056276                                        LR 0.000250    Time 1.015757    
+Epoch: [28][   60/  159]    Overall Loss 0.054029    Objective Loss 0.054029                                        LR 0.000250    Time 1.022649    
+Epoch: [28][   70/  159]    Overall Loss 0.051408    Objective Loss 0.051408                                        LR 0.000250    Time 1.027230    
+Epoch: [28][   80/  159]    Overall Loss 0.052608    Objective Loss 0.052608                                        LR 0.000250    Time 0.992306    
+Epoch: [28][   90/  159]    Overall Loss 0.053128    Objective Loss 0.053128                                        LR 0.000250    Time 0.999119    
+Epoch: [28][  100/  159]    Overall Loss 0.058495    Objective Loss 0.058495                                        LR 0.000250    Time 1.005879    
+Epoch: [28][  110/  159]    Overall Loss 0.057049    Objective Loss 0.057049                                        LR 0.000250    Time 1.011521    
+Epoch: [28][  120/  159]    Overall Loss 0.054879    Objective Loss 0.054879                                        LR 0.000250    Time 1.016253    
+Epoch: [28][  130/  159]    Overall Loss 0.055160    Objective Loss 0.055160                                        LR 0.000250    Time 1.014752    
+Epoch: [28][  140/  159]    Overall Loss 0.054504    Objective Loss 0.054504                                        LR 0.000250    Time 1.004319    
+Epoch: [28][  150/  159]    Overall Loss 0.053746    Objective Loss 0.053746                                        LR 0.000250    Time 1.009035    
+Epoch: [28][  159/  159]    Overall Loss 0.052465    Objective Loss 0.052465    Top1 100.000000    LR 0.000250    Time 1.010814    
+--- validate (epoch=28)-----------
+10406 samples (256 per mini-batch)
+Epoch: [28][   10/   41]    Loss 1.292356    Top1 92.695312    
+Epoch: [28][   20/   41]    Loss 1.248699    Top1 92.812500    
+Epoch: [28][   30/   41]    Loss 1.269548    Top1 92.955729    
+Epoch: [28][   40/   41]    Loss 1.244905    Top1 93.291016    
+Epoch: [28][   41/   41]    Loss 1.251606    Top1 93.292331    
+==> Top1: 93.292    Loss: 1.252
+
+==> Confusion:
+[[9143  176    3    1]
+ [ 167   64   97    0]
+ [ 223    8  500    3]
+ [  19    0    1    1]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [29][   10/  159]    Overall Loss 0.061509    Objective Loss 0.061509                                        LR 0.000250    Time 1.107363    
+Epoch: [29][   20/  159]    Overall Loss 0.050005    Objective Loss 0.050005                                        LR 0.000250    Time 1.077988    
+Epoch: [29][   30/  159]    Overall Loss 0.048324    Objective Loss 0.048324                                        LR 0.000250    Time 1.032562    
+Epoch: [29][   40/  159]    Overall Loss 0.045836    Objective Loss 0.045836                                        LR 0.000250    Time 0.935361    
+Epoch: [29][   50/  159]    Overall Loss 0.048323    Objective Loss 0.048323                                        LR 0.000250    Time 0.962103    
+Epoch: [29][   60/  159]    Overall Loss 0.048114    Objective Loss 0.048114                                        LR 0.000250    Time 0.942742    
+Epoch: [29][   70/  159]    Overall Loss 0.049384    Objective Loss 0.049384                                        LR 0.000250    Time 0.961536    
+Epoch: [29][   80/  159]    Overall Loss 0.047602    Objective Loss 0.047602                                        LR 0.000250    Time 0.974635    
+Epoch: [29][   90/  159]    Overall Loss 0.048821    Objective Loss 0.048821                                        LR 0.000250    Time 0.984470    
+Epoch: [29][  100/  159]    Overall Loss 0.048639    Objective Loss 0.048639                                        LR 0.000250    Time 0.992897    
+Epoch: [29][  110/  159]    Overall Loss 0.051659    Objective Loss 0.051659                                        LR 0.000250    Time 1.000120    
+Epoch: [29][  120/  159]    Overall Loss 0.052792    Objective Loss 0.052792                                        LR 0.000250    Time 1.005202    
+Epoch: [29][  130/  159]    Overall Loss 0.051115    Objective Loss 0.051115                                        LR 0.000250    Time 1.010547    
+Epoch: [29][  140/  159]    Overall Loss 0.051204    Objective Loss 0.051204                                        LR 0.000250    Time 1.014333    
+Epoch: [29][  150/  159]    Overall Loss 0.051530    Objective Loss 0.051530                                        LR 0.000250    Time 1.018090    
+Epoch: [29][  159/  159]    Overall Loss 0.050746    Objective Loss 0.050746    Top1 98.879552    LR 0.000250    Time 1.019351    
+--- validate (epoch=29)-----------
+10406 samples (256 per mini-batch)
+Epoch: [29][   10/   41]    Loss 1.005382    Top1 92.812500    
+Epoch: [29][   20/   41]    Loss 1.009860    Top1 92.695312    
+Epoch: [29][   30/   41]    Loss 1.041249    Top1 92.682292    
+Epoch: [29][   40/   41]    Loss 1.046251    Top1 92.617188    
+Epoch: [29][   41/   41]    Loss 1.054806    Top1 92.552374    
+==> Top1: 92.552    Loss: 1.055
+
+==> Confusion:
+[[9010  306    3    4]
+ [ 111  100  117    0]
+ [ 193   11  519   11]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [30][   10/  159]    Overall Loss 0.067042    Objective Loss 0.067042                                        LR 0.000250    Time 1.108098    
+Epoch: [30][   20/  159]    Overall Loss 0.055479    Objective Loss 0.055479                                        LR 0.000250    Time 1.088004    
+Epoch: [30][   30/  159]    Overall Loss 0.052375    Objective Loss 0.052375                                        LR 0.000250    Time 1.083447    
+Epoch: [30][   40/  159]    Overall Loss 0.061190    Objective Loss 0.061190                                        LR 0.000250    Time 1.080062    
+Epoch: [30][   50/  159]    Overall Loss 0.056691    Objective Loss 0.056691                                        LR 0.000250    Time 1.077480    
+Epoch: [30][   60/  159]    Overall Loss 0.055003    Objective Loss 0.055003                                        LR 0.000250    Time 1.073215    
+Epoch: [30][   70/  159]    Overall Loss 0.056585    Objective Loss 0.056585                                        LR 0.000250    Time 1.073660    
+Epoch: [30][   80/  159]    Overall Loss 0.053925    Objective Loss 0.053925                                        LR 0.000250    Time 1.049144    
+Epoch: [30][   90/  159]    Overall Loss 0.055001    Objective Loss 0.055001                                        LR 0.000250    Time 1.053453    
+Epoch: [30][  100/  159]    Overall Loss 0.054412    Objective Loss 0.054412                                        LR 0.000250    Time 1.046538    
+Epoch: [30][  110/  159]    Overall Loss 0.053524    Objective Loss 0.053524                                        LR 0.000250    Time 1.047832    
+Epoch: [30][  120/  159]    Overall Loss 0.053066    Objective Loss 0.053066                                        LR 0.000250    Time 1.050373    
+Epoch: [30][  130/  159]    Overall Loss 0.051674    Objective Loss 0.051674                                        LR 0.000250    Time 1.052595    
+Epoch: [30][  140/  159]    Overall Loss 0.050947    Objective Loss 0.050947                                        LR 0.000250    Time 1.042751    
+Epoch: [30][  150/  159]    Overall Loss 0.050810    Objective Loss 0.050810                                        LR 0.000250    Time 1.012147    
+Epoch: [30][  159/  159]    Overall Loss 0.049685    Objective Loss 0.049685    Top1 99.439776    LR 0.000250    Time 1.013569    
+--- validate (epoch=30)-----------
+10406 samples (256 per mini-batch)
+Epoch: [30][   10/   41]    Loss 0.907820    Top1 92.539062    
+Epoch: [30][   20/   41]    Loss 1.042605    Top1 92.480469    
+Epoch: [30][   30/   41]    Loss 1.064646    Top1 92.500000    
+Epoch: [30][   40/   41]    Loss 1.026367    Top1 92.695312    
+Epoch: [30][   41/   41]    Loss 1.025975    Top1 92.734961    
+==> Top1: 92.735    Loss: 1.026
+
+==> Confusion:
+[[9025  295    1    2]
+ [ 114  106  108    0]
+ [ 178   13  517   26]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [31][   10/  159]    Overall Loss 0.034166    Objective Loss 0.034166                                        LR 0.000250    Time 1.136667    
+Epoch: [31][   20/  159]    Overall Loss 0.038497    Objective Loss 0.038497                                        LR 0.000250    Time 1.106876    
+Epoch: [31][   30/  159]    Overall Loss 0.050752    Objective Loss 0.050752                                        LR 0.000250    Time 1.096167    
+Epoch: [31][   40/  159]    Overall Loss 0.055037    Objective Loss 0.055037                                        LR 0.000250    Time 1.089283    
+Epoch: [31][   50/  159]    Overall Loss 0.053182    Objective Loss 0.053182                                        LR 0.000250    Time 1.085421    
+Epoch: [31][   60/  159]    Overall Loss 0.052027    Objective Loss 0.052027                                        LR 0.000250    Time 1.083374    
+Epoch: [31][   70/  159]    Overall Loss 0.049239    Objective Loss 0.049239                                        LR 0.000250    Time 1.081280    
+Epoch: [31][   80/  159]    Overall Loss 0.049532    Objective Loss 0.049532                                        LR 0.000250    Time 1.078301    
+Epoch: [31][   90/  159]    Overall Loss 0.049810    Objective Loss 0.049810                                        LR 0.000250    Time 1.069378    
+Epoch: [31][  100/  159]    Overall Loss 0.050535    Objective Loss 0.050535                                        LR 0.000250    Time 1.069314    
+Epoch: [31][  110/  159]    Overall Loss 0.048662    Objective Loss 0.048662                                        LR 0.000250    Time 1.051236    
+Epoch: [31][  120/  159]    Overall Loss 0.046747    Objective Loss 0.046747                                        LR 0.000250    Time 1.043782    
+Epoch: [31][  130/  159]    Overall Loss 0.046865    Objective Loss 0.046865                                        LR 0.000250    Time 1.046039    
+Epoch: [31][  140/  159]    Overall Loss 0.050709    Objective Loss 0.050709                                        LR 0.000250    Time 1.027805    
+Epoch: [31][  150/  159]    Overall Loss 0.049753    Objective Loss 0.049753                                        LR 0.000250    Time 1.029669    
+Epoch: [31][  159/  159]    Overall Loss 0.050037    Objective Loss 0.050037    Top1 98.879552    LR 0.000250    Time 1.030119    
+--- validate (epoch=31)-----------
+10406 samples (256 per mini-batch)
+Epoch: [31][   10/   41]    Loss 1.136229    Top1 93.281250    
+Epoch: [31][   20/   41]    Loss 1.138106    Top1 93.144531    
+Epoch: [31][   30/   41]    Loss 1.164618    Top1 93.098958    
+Epoch: [31][   40/   41]    Loss 1.119296    Top1 93.349609    
+Epoch: [31][   41/   41]    Loss 1.114965    Top1 93.330771    
+==> Top1: 93.331    Loss: 1.115
+
+==> Confusion:
+[[9087  234    1    1]
+ [ 136   77  115    0]
+ [ 176   10  546    2]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [32][   10/  159]    Overall Loss 0.047260    Objective Loss 0.047260                                        LR 0.000250    Time 0.469291    
+Epoch: [32][   20/  159]    Overall Loss 0.038777    Objective Loss 0.038777                                        LR 0.000250    Time 0.563701    
+Epoch: [32][   30/  159]    Overall Loss 0.038025    Objective Loss 0.038025                                        LR 0.000250    Time 0.440050    
+Epoch: [32][   40/  159]    Overall Loss 0.046872    Objective Loss 0.046872                                        LR 0.000250    Time 0.571512    
+Epoch: [32][   50/  159]    Overall Loss 0.050344    Objective Loss 0.050344                                        LR 0.000250    Time 0.638067    
+Epoch: [32][   60/  159]    Overall Loss 0.048846    Objective Loss 0.048846                                        LR 0.000250    Time 0.609913    
+Epoch: [32][   70/  159]    Overall Loss 0.048039    Objective Loss 0.048039                                        LR 0.000250    Time 0.674826    
+Epoch: [32][   80/  159]    Overall Loss 0.045773    Objective Loss 0.045773                                        LR 0.000250    Time 0.692763    
+Epoch: [32][   90/  159]    Overall Loss 0.045994    Objective Loss 0.045994                                        LR 0.000250    Time 0.735514    
+Epoch: [32][  100/  159]    Overall Loss 0.046840    Objective Loss 0.046840                                        LR 0.000250    Time 0.688678    
+Epoch: [32][  110/  159]    Overall Loss 0.045388    Objective Loss 0.045388                                        LR 0.000250    Time 0.722498    
+Epoch: [32][  120/  159]    Overall Loss 0.045925    Objective Loss 0.045925                                        LR 0.000250    Time 0.752018    
+Epoch: [32][  130/  159]    Overall Loss 0.047561    Objective Loss 0.047561                                        LR 0.000250    Time 0.756809    
+Epoch: [32][  140/  159]    Overall Loss 0.046521    Objective Loss 0.046521                                        LR 0.000250    Time 0.778717    
+Epoch: [32][  150/  159]    Overall Loss 0.046632    Objective Loss 0.046632                                        LR 0.000250    Time 0.798042    
+Epoch: [32][  159/  159]    Overall Loss 0.045512    Objective Loss 0.045512    Top1 98.879552    LR 0.000250    Time 0.784692    
+--- validate (epoch=32)-----------
+10406 samples (256 per mini-batch)
+Epoch: [32][   10/   41]    Loss 1.105310    Top1 92.148438    
+Epoch: [32][   20/   41]    Loss 1.123816    Top1 92.109375    
+Epoch: [32][   30/   41]    Loss 1.111552    Top1 92.291667    
+Epoch: [32][   40/   41]    Loss 1.131281    Top1 92.421875    
+Epoch: [32][   41/   41]    Loss 1.131449    Top1 92.427446    
+==> Top1: 92.427    Loss: 1.131
+
+==> Confusion:
+[[9041  281    0    1]
+ [ 143   84  101    0]
+ [ 231   11  491    1]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [33][   10/  159]    Overall Loss 0.065345    Objective Loss 0.065345                                        LR 0.000250    Time 1.102139    
+Epoch: [33][   20/  159]    Overall Loss 0.055991    Objective Loss 0.055991                                        LR 0.000250    Time 1.085787    
+Epoch: [33][   30/  159]    Overall Loss 0.052790    Objective Loss 0.052790                                        LR 0.000250    Time 1.082383    
+Epoch: [33][   40/  159]    Overall Loss 0.052441    Objective Loss 0.052441                                        LR 0.000250    Time 1.080454    
+Epoch: [33][   50/  159]    Overall Loss 0.051682    Objective Loss 0.051682                                        LR 0.000250    Time 1.077455    
+Epoch: [33][   60/  159]    Overall Loss 0.050600    Objective Loss 0.050600                                        LR 0.000250    Time 1.076121    
+Epoch: [33][   70/  159]    Overall Loss 0.051800    Objective Loss 0.051800                                        LR 0.000250    Time 1.069940    
+Epoch: [33][   80/  159]    Overall Loss 0.048229    Objective Loss 0.048229                                        LR 0.000250    Time 1.070087    
+Epoch: [33][   90/  159]    Overall Loss 0.045936    Objective Loss 0.045936                                        LR 0.000250    Time 1.054543    
+Epoch: [33][  100/  159]    Overall Loss 0.046058    Objective Loss 0.046058                                        LR 0.000250    Time 1.046249    
+Epoch: [33][  110/  159]    Overall Loss 0.046896    Objective Loss 0.046896                                        LR 0.000250    Time 1.043426    
+Epoch: [33][  120/  159]    Overall Loss 0.048672    Objective Loss 0.048672                                        LR 0.000250    Time 1.045723    
+Epoch: [33][  130/  159]    Overall Loss 0.048117    Objective Loss 0.048117                                        LR 0.000250    Time 1.005426    
+Epoch: [33][  140/  159]    Overall Loss 0.047004    Objective Loss 0.047004                                        LR 0.000250    Time 0.984073    
+Epoch: [33][  150/  159]    Overall Loss 0.045359    Objective Loss 0.045359                                        LR 0.000250    Time 0.983903    
+Epoch: [33][  159/  159]    Overall Loss 0.045216    Objective Loss 0.045216    Top1 98.879552    LR 0.000250    Time 0.983307    
+--- validate (epoch=33)-----------
+10406 samples (256 per mini-batch)
+Epoch: [33][   10/   41]    Loss 1.225436    Top1 93.203125    
+Epoch: [33][   20/   41]    Loss 1.175386    Top1 93.085938    
+Epoch: [33][   30/   41]    Loss 1.208570    Top1 93.151042    
+Epoch: [33][   40/   41]    Loss 1.216102    Top1 93.203125    
+Epoch: [33][   41/   41]    Loss 1.214424    Top1 93.196233    
+==> Top1: 93.196    Loss: 1.214
+
+==> Confusion:
+[[9106  209    7    1]
+ [ 150   67  111    0]
+ [ 201    7  523    3]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [34][   10/  159]    Overall Loss 0.074251    Objective Loss 0.074251                                        LR 0.000250    Time 1.109979    
+Epoch: [34][   20/  159]    Overall Loss 0.058589    Objective Loss 0.058589                                        LR 0.000250    Time 1.081725    
+Epoch: [34][   30/  159]    Overall Loss 0.061010    Objective Loss 0.061010                                        LR 0.000250    Time 1.078421    
+Epoch: [34][   40/  159]    Overall Loss 0.052306    Objective Loss 0.052306                                        LR 0.000250    Time 1.073624    
+Epoch: [34][   50/  159]    Overall Loss 0.051653    Objective Loss 0.051653                                        LR 0.000250    Time 1.068004    
+Epoch: [34][   60/  159]    Overall Loss 0.049929    Objective Loss 0.049929                                        LR 0.000250    Time 1.051930    
+Epoch: [34][   70/  159]    Overall Loss 0.047813    Objective Loss 0.047813                                        LR 0.000250    Time 1.053181    
+Epoch: [34][   80/  159]    Overall Loss 0.045816    Objective Loss 0.045816                                        LR 0.000250    Time 1.054527    
+Epoch: [34][   90/  159]    Overall Loss 0.044822    Objective Loss 0.044822                                        LR 0.000250    Time 1.004619    
+Epoch: [34][  100/  159]    Overall Loss 0.046428    Objective Loss 0.046428                                        LR 0.000250    Time 0.930732    
+Epoch: [34][  110/  159]    Overall Loss 0.046434    Objective Loss 0.046434                                        LR 0.000250    Time 0.943236    
+Epoch: [34][  120/  159]    Overall Loss 0.045854    Objective Loss 0.045854                                        LR 0.000250    Time 0.953235    
+Epoch: [34][  130/  159]    Overall Loss 0.045635    Objective Loss 0.045635                                        LR 0.000250    Time 0.955495    
+Epoch: [34][  140/  159]    Overall Loss 0.045923    Objective Loss 0.045923                                        LR 0.000250    Time 0.963580    
+Epoch: [34][  150/  159]    Overall Loss 0.046251    Objective Loss 0.046251                                        LR 0.000250    Time 0.970621    
+Epoch: [34][  159/  159]    Overall Loss 0.046474    Objective Loss 0.046474    Top1 98.039216    LR 0.000250    Time 0.974213    
+--- validate (epoch=34)-----------
+10406 samples (256 per mini-batch)
+Epoch: [34][   10/   41]    Loss 1.032144    Top1 92.382812    
+Epoch: [34][   20/   41]    Loss 1.023927    Top1 92.187500    
+Epoch: [34][   30/   41]    Loss 1.053381    Top1 92.044271    
+Epoch: [34][   40/   41]    Loss 1.070004    Top1 92.041016    
+Epoch: [34][   41/   41]    Loss 1.065438    Top1 92.052662    
+==> Top1: 92.053    Loss: 1.065
+
+==> Confusion:
+[[8990  331    1    1]
+ [ 127  104   97    0]
+ [ 227   16  483    8]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [35][   10/  159]    Overall Loss 0.032414    Objective Loss 0.032414                                        LR 0.000125    Time 1.100001    
+Epoch: [35][   20/  159]    Overall Loss 0.043113    Objective Loss 0.043113                                        LR 0.000125    Time 1.083570    
+Epoch: [35][   30/  159]    Overall Loss 0.048421    Objective Loss 0.048421                                        LR 0.000125    Time 1.077418    
+Epoch: [35][   40/  159]    Overall Loss 0.045500    Objective Loss 0.045500                                        LR 0.000125    Time 1.073841    
+Epoch: [35][   50/  159]    Overall Loss 0.041571    Objective Loss 0.041571                                        LR 0.000125    Time 1.051703    
+Epoch: [35][   60/  159]    Overall Loss 0.042736    Objective Loss 0.042736                                        LR 0.000125    Time 1.054474    
+Epoch: [35][   70/  159]    Overall Loss 0.043138    Objective Loss 0.043138                                        LR 0.000125    Time 1.056682    
+Epoch: [35][   80/  159]    Overall Loss 0.044525    Objective Loss 0.044525                                        LR 0.000125    Time 1.058486    
+Epoch: [35][   90/  159]    Overall Loss 0.045796    Objective Loss 0.045796                                        LR 0.000125    Time 1.059759    
+Epoch: [35][  100/  159]    Overall Loss 0.044988    Objective Loss 0.044988                                        LR 0.000125    Time 1.060016    
+Epoch: [35][  110/  159]    Overall Loss 0.044020    Objective Loss 0.044020                                        LR 0.000125    Time 1.061061    
+Epoch: [35][  120/  159]    Overall Loss 0.043072    Objective Loss 0.043072                                        LR 0.000125    Time 1.061167    
+Epoch: [35][  130/  159]    Overall Loss 0.042927    Objective Loss 0.042927                                        LR 0.000125    Time 1.050980    
+Epoch: [35][  140/  159]    Overall Loss 0.041798    Objective Loss 0.041798                                        LR 0.000125    Time 1.052048    
+Epoch: [35][  150/  159]    Overall Loss 0.043229    Objective Loss 0.043229                                        LR 0.000125    Time 1.052468    
+Epoch: [35][  159/  159]    Overall Loss 0.042395    Objective Loss 0.042395    Top1 99.159664    LR 0.000125    Time 1.050475    
+--- validate (epoch=35)-----------
+10406 samples (256 per mini-batch)
+Epoch: [35][   10/   41]    Loss 0.983144    Top1 92.500000    
+Epoch: [35][   20/   41]    Loss 1.053949    Top1 92.324219    
+Epoch: [35][   30/   41]    Loss 1.033880    Top1 92.421875    
+Epoch: [35][   40/   41]    Loss 1.050747    Top1 92.353516    
+Epoch: [35][   41/   41]    Loss 1.060748    Top1 92.321737    
+==> Top1: 92.322    Loss: 1.061
+
+==> Confusion:
+[[8978  341    1    3]
+ [ 123   96  109    0]
+ [ 178   12  531   13]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [36][   10/  159]    Overall Loss 0.035223    Objective Loss 0.035223                                        LR 0.000125    Time 1.119426    
+Epoch: [36][   20/  159]    Overall Loss 0.059261    Objective Loss 0.059261                                        LR 0.000125    Time 0.960665    
+Epoch: [36][   30/  159]    Overall Loss 0.056839    Objective Loss 0.056839                                        LR 0.000125    Time 0.994564    
+Epoch: [36][   40/  159]    Overall Loss 0.051948    Objective Loss 0.051948                                        LR 0.000125    Time 1.011705    
+Epoch: [36][   50/  159]    Overall Loss 0.052439    Objective Loss 0.052439                                        LR 0.000125    Time 1.023342    
+Epoch: [36][   60/  159]    Overall Loss 0.051204    Objective Loss 0.051204                                        LR 0.000125    Time 1.030378    
+Epoch: [36][   70/  159]    Overall Loss 0.047596    Objective Loss 0.047596                                        LR 0.000125    Time 1.035508    
+Epoch: [36][   80/  159]    Overall Loss 0.046881    Objective Loss 0.046881                                        LR 0.000125    Time 0.974132    
+Epoch: [36][   90/  159]    Overall Loss 0.045946    Objective Loss 0.045946                                        LR 0.000125    Time 0.932892    
+Epoch: [36][  100/  159]    Overall Loss 0.045105    Objective Loss 0.045105                                        LR 0.000125    Time 0.946476    
+Epoch: [36][  110/  159]    Overall Loss 0.045567    Objective Loss 0.045567                                        LR 0.000125    Time 0.953332    
+Epoch: [36][  120/  159]    Overall Loss 0.044416    Objective Loss 0.044416                                        LR 0.000125    Time 0.963185    
+Epoch: [36][  130/  159]    Overall Loss 0.044427    Objective Loss 0.044427                                        LR 0.000125    Time 0.961641    
+Epoch: [36][  140/  159]    Overall Loss 0.045049    Objective Loss 0.045049                                        LR 0.000125    Time 0.969406    
+Epoch: [36][  150/  159]    Overall Loss 0.045514    Objective Loss 0.045514                                        LR 0.000125    Time 0.976159    
+Epoch: [36][  159/  159]    Overall Loss 0.045786    Objective Loss 0.045786    Top1 99.439776    LR 0.000125    Time 0.979870    
+--- validate (epoch=36)-----------
+10406 samples (256 per mini-batch)
+Epoch: [36][   10/   41]    Loss 1.006617    Top1 92.929688    
+Epoch: [36][   20/   41]    Loss 1.110470    Top1 92.167969    
+Epoch: [36][   30/   41]    Loss 1.023660    Top1 92.330729    
+Epoch: [36][   40/   41]    Loss 1.047566    Top1 92.158203    
+Epoch: [36][   41/   41]    Loss 1.035188    Top1 92.196810    
+==> Top1: 92.197    Loss: 1.035
+
+==> Confusion:
+[[9001  320    1    1]
+ [ 127  104   97    0]
+ [ 220   17  487   10]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [37][   10/  159]    Overall Loss 0.034665    Objective Loss 0.034665                                        LR 0.000125    Time 1.104722    
+Epoch: [37][   20/  159]    Overall Loss 0.035180    Objective Loss 0.035180                                        LR 0.000125    Time 1.086918    
+Epoch: [37][   30/  159]    Overall Loss 0.035585    Objective Loss 0.035585                                        LR 0.000125    Time 1.080589    
+Epoch: [37][   40/  159]    Overall Loss 0.033696    Objective Loss 0.033696                                        LR 0.000125    Time 1.076132    
+Epoch: [37][   50/  159]    Overall Loss 0.035757    Objective Loss 0.035757                                        LR 0.000125    Time 1.072963    
+Epoch: [37][   60/  159]    Overall Loss 0.035620    Objective Loss 0.035620                                        LR 0.000125    Time 1.072324    
+Epoch: [37][   70/  159]    Overall Loss 0.036907    Objective Loss 0.036907                                        LR 0.000125    Time 1.071455    
+Epoch: [37][   80/  159]    Overall Loss 0.040844    Objective Loss 0.040844                                        LR 0.000125    Time 1.071525    
+Epoch: [37][   90/  159]    Overall Loss 0.042980    Objective Loss 0.042980                                        LR 0.000125    Time 1.071569    
+Epoch: [37][  100/  159]    Overall Loss 0.042304    Objective Loss 0.042304                                        LR 0.000125    Time 1.071245    
+Epoch: [37][  110/  159]    Overall Loss 0.041915    Objective Loss 0.041915                                        LR 0.000125    Time 1.021395    
+Epoch: [37][  120/  159]    Overall Loss 0.040818    Objective Loss 0.040818                                        LR 0.000125    Time 0.995758    
+Epoch: [37][  130/  159]    Overall Loss 0.041180    Objective Loss 0.041180                                        LR 0.000125    Time 1.001372    
+Epoch: [37][  140/  159]    Overall Loss 0.040810    Objective Loss 0.040810                                        LR 0.000125    Time 1.006670    
+Epoch: [37][  150/  159]    Overall Loss 0.042555    Objective Loss 0.042555                                        LR 0.000125    Time 1.011126    
+Epoch: [37][  159/  159]    Overall Loss 0.044485    Objective Loss 0.044485    Top1 98.879552    LR 0.000125    Time 0.993311    
+--- validate (epoch=37)-----------
+10406 samples (256 per mini-batch)
+Epoch: [37][   10/   41]    Loss 0.972793    Top1 92.695312    
+Epoch: [37][   20/   41]    Loss 1.027219    Top1 92.656250    
+Epoch: [37][   30/   41]    Loss 1.029743    Top1 92.643229    
+Epoch: [37][   40/   41]    Loss 1.073708    Top1 92.441406    
+Epoch: [37][   41/   41]    Loss 1.062677    Top1 92.456275    
+==> Top1: 92.456    Loss: 1.063
+
+==> Confusion:
+[[8999  318    2    4]
+ [ 122   94  112    0]
+ [ 178   12  526   18]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [38][   10/  159]    Overall Loss 0.037790    Objective Loss 0.037790                                        LR 0.000125    Time 1.112313    
+Epoch: [38][   20/  159]    Overall Loss 0.032492    Objective Loss 0.032492                                        LR 0.000125    Time 1.092703    
+Epoch: [38][   30/  159]    Overall Loss 0.035952    Objective Loss 0.035952                                        LR 0.000125    Time 1.090314    
+Epoch: [38][   40/  159]    Overall Loss 0.037042    Objective Loss 0.037042                                        LR 0.000125    Time 1.086314    
+Epoch: [38][   50/  159]    Overall Loss 0.037968    Objective Loss 0.037968                                        LR 0.000125    Time 1.057555    
+Epoch: [38][   60/  159]    Overall Loss 0.039136    Objective Loss 0.039136                                        LR 0.000125    Time 1.059119    
+Epoch: [38][   70/  159]    Overall Loss 0.042973    Objective Loss 0.042973                                        LR 0.000125    Time 1.060616    
+Epoch: [38][   80/  159]    Overall Loss 0.043532    Objective Loss 0.043532                                        LR 0.000125    Time 1.062122    
+Epoch: [38][   90/  159]    Overall Loss 0.043427    Objective Loss 0.043427                                        LR 0.000125    Time 1.062254    
+Epoch: [38][  100/  159]    Overall Loss 0.043153    Objective Loss 0.043153                                        LR 0.000125    Time 1.048322    
+Epoch: [38][  110/  159]    Overall Loss 0.041919    Objective Loss 0.041919                                        LR 0.000125    Time 1.042314    
+Epoch: [38][  120/  159]    Overall Loss 0.040722    Objective Loss 0.040722                                        LR 0.000125    Time 1.043125    
+Epoch: [38][  130/  159]    Overall Loss 0.041993    Objective Loss 0.041993                                        LR 0.000125    Time 1.045247    
+Epoch: [38][  140/  159]    Overall Loss 0.042536    Objective Loss 0.042536                                        LR 0.000125    Time 1.030732    
+Epoch: [38][  150/  159]    Overall Loss 0.042770    Objective Loss 0.042770                                        LR 0.000125    Time 1.008060    
+Epoch: [38][  159/  159]    Overall Loss 0.043708    Objective Loss 0.043708    Top1 99.719888    LR 0.000125    Time 1.009761    
+--- validate (epoch=38)-----------
+10406 samples (256 per mini-batch)
+Epoch: [38][   10/   41]    Loss 0.966657    Top1 93.320312    
+Epoch: [38][   20/   41]    Loss 1.049163    Top1 92.753906    
+Epoch: [38][   30/   41]    Loss 1.055372    Top1 92.890625    
+Epoch: [38][   40/   41]    Loss 1.070117    Top1 92.763672    
+Epoch: [38][   41/   41]    Loss 1.064878    Top1 92.792620    
+==> Top1: 92.793    Loss: 1.065
+
+==> Confusion:
+[[9035  286    1    1]
+ [ 140   90   98    0]
+ [ 181   12  529   12]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+
+
+Training epoch: 40549 samples (256 per mini-batch, world size: 1)
+Epoch: [39][   10/  159]    Overall Loss 0.029130    Objective Loss 0.029130                                        LR 0.000125    Time 1.125049    
+Epoch: [39][   20/  159]    Overall Loss 0.024335    Objective Loss 0.024335                                        LR 0.000125    Time 1.098296    
+Epoch: [39][   30/  159]    Overall Loss 0.022706    Objective Loss 0.022706                                        LR 0.000125    Time 1.089224    
+Epoch: [39][   40/  159]    Overall Loss 0.030728    Objective Loss 0.030728                                        LR 0.000125    Time 1.059265    
+Epoch: [39][   50/  159]    Overall Loss 0.033406    Objective Loss 0.033406                                        LR 0.000125    Time 1.057185    
+Epoch: [39][   60/  159]    Overall Loss 0.033842    Objective Loss 0.033842                                        LR 0.000125    Time 1.059512    
+Epoch: [39][   70/  159]    Overall Loss 0.037234    Objective Loss 0.037234                                        LR 0.000125    Time 1.061343    
+Epoch: [39][   80/  159]    Overall Loss 0.040641    Objective Loss 0.040641                                        LR 0.000125    Time 1.050577    
+Epoch: [39][   90/  159]    Overall Loss 0.040771    Objective Loss 0.040771                                        LR 0.000125    Time 1.015157    
+Epoch: [39][  100/  159]    Overall Loss 0.041308    Objective Loss 0.041308                                        LR 0.000125    Time 1.016353    
+Epoch: [39][  110/  159]    Overall Loss 0.040788    Objective Loss 0.040788                                        LR 0.000125    Time 1.021445    
+Epoch: [39][  120/  159]    Overall Loss 0.041760    Objective Loss 0.041760                                        LR 0.000125    Time 1.023482    
+Epoch: [39][  130/  159]    Overall Loss 0.041254    Objective Loss 0.041254                                        LR 0.000125    Time 1.027025    
+Epoch: [39][  140/  159]    Overall Loss 0.042896    Objective Loss 0.042896                                        LR 0.000125    Time 1.030061    
+Epoch: [39][  150/  159]    Overall Loss 0.041736    Objective Loss 0.041736                                        LR 0.000125    Time 1.032319    
+Epoch: [39][  159/  159]    Overall Loss 0.042870    Objective Loss 0.042870    Top1 99.439776    LR 0.000125    Time 1.032518    
+--- validate (epoch=39)-----------
+10406 samples (256 per mini-batch)
+Epoch: [39][   10/   41]    Loss 0.981388    Top1 92.460938    
+Epoch: [39][   20/   41]    Loss 0.983007    Top1 92.753906    
+Epoch: [39][   30/   41]    Loss 1.072297    Top1 92.734375    
+Epoch: [39][   40/   41]    Loss 1.076472    Top1 92.753906    
+Epoch: [39][   41/   41]    Loss 1.088201    Top1 92.754180    
+==> Top1: 92.754    Loss: 1.088
+
+==> Confusion:
+[[9039  276    3    5]
+ [ 132   87  109    0]
+ [ 179   12  524   19]
+ [  18    0    1    2]]
+
+==> Best [Top1: 93.725   Params: 9888 on epoch: 22]
+Saving checkpoint to: logs/ecg___2026.10.28-001132/ecg_qat_checkpoint.pth.tar
+--- test (ckpt) ---------------------
+10406 samples (256 per mini-batch)
+Test: [   10/   41]    Loss 1.159978    Top1 91.914062    
+Test: [   20/   41]    Loss 1.145606    Top1 92.597656    
+Test: [   30/   41]    Loss 1.088454    Top1 92.721354    
+Test: [   40/   41]    Loss 1.090406    Top1 92.714844    
+Test: [   41/   41]    Loss 1.077054    Top1 92.754180    
+==> Top1: 92.754    Loss: 1.077
+
+==> Confusion:
+[[9039  276    3    5]
+ [ 132   87  109    0]
+ [ 179   12  524   19]
+ [  18    0    1    2]]
+
+--- test (best) ---------------------
+=> loading checkpoint logs/ecg___2026.10.28-001132/ecg_qat_best.pth.tar
+=> Checkpoint contents:
++----------------------+-------------+------------+
+| Key                  | Type        | Value      |
+|----------------------+-------------+------------|
+| arch                 | str         | ai85ecgnet |
+| compression_sched    | dict        |            |
+| epoch                | int         | 22         |
+| extras               | dict        |            |
+| optimizer_state_dict | dict        |            |
+| optimizer_type       | type        | Adam       |
+| state_dict           | OrderedDict |            |
++----------------------+-------------+------------+
+
+=> Checkpoint['extras'] contents:
++--------------+--------+---------+
+| Key          | Type   |   Value |
+|--------------+--------+---------|
+| best_epoch   | int    | 22      |
+| best_mAP     | int    |  0      |
+| best_top1    | float  | 93.7248 |
+| current_mAP  | int    |  0      |
+| current_top1 | float  | 93.7248 |
++--------------+--------+---------+
+
+Loaded compression schedule from checkpoint (epoch 22)
+=> loaded 'state_dict' from checkpoint 'logs/ecg___2026.10.28-001132/ecg_qat_best.pth.tar'
+10406 samples (256 per mini-batch)
+Test: [   10/   41]    Loss 1.386442    Top1 94.140625    
+Test: [   20/   41]    Loss 1.425651    Top1 93.886719    
+Test: [   30/   41]    Loss 1.469428    Top1 93.776042    
+Test: [   40/   41]    Loss 1.468544    Top1 93.730469    
+Test: [   41/   41]    Loss 1.477186    Top1 93.724774    
+==> Top1: 93.725    Loss: 1.477
+
+==> Confusion:
+[[9190  123    9    1]
+ [ 185   45   98    0]
+ [ 206    6  518    4]
+ [  19    0    1    1]]
+
+
+Log file for this run: ai8x-training/logs/ecg___2026.10.28-001132/ecg___2026.10.28-001132.log

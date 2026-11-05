@@ -1,0 +1,7 @@
+run,model_size,loss,augment,rr_channel,best_epoch,val_accuracy,val_macro_f1,S_recall,S_precision,V_recall,F_recall
+focal,small,focal,True,True,23,0.9381,0.532,0.134,0.297,0.678,0.19
+edge_cnn,small,weighted_ce,True,True,15,0.9244,0.5289,0.338,0.267,0.689,0.238
+large,large,weighted_ce,True,True,25,0.9448,0.5098,0.134,0.62,0.683,0.095
+no_weights,small,ce,True,True,23,0.9306,0.4992,0.14,0.243,0.655,0.19
+no_rr,small,weighted_ce,True,False,12,0.9374,0.4925,0.168,0.458,0.665,0.143
+no_augment,small,weighted_ce,False,True,10,0.9131,0.4801,0.238,0.189,0.661,0.095

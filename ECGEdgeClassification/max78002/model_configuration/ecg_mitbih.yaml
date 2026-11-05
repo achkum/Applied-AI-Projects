@@ -1,0 +1,48 @@
+---
+# Network description for ai8x-synthesis (copy to ai8x-synthesis/networks/).
+# One accelerator processor per input channel; "processors" is a bit mask of the
+# processors a layer uses. Outputs alternate between two data-memory offsets.
+arch: ai85ecgnet
+dataset: ECG_MITBIH
+
+layers:
+  # conv1: 2 x 256 -> 16 x 256
+  - out_offset: 0x2000
+    processors: 0x0000000000000003
+    operation: Conv1d
+    kernel_size: 5
+    pad: 2
+    activate: ReLU
+  # conv2: max-pool 2, 16 x 128 -> 32 x 128
+  - out_offset: 0x0000
+    processors: 0x000000000000ffff
+    operation: Conv1d
+    max_pool: 2
+    pool_stride: 2
+    kernel_size: 5
+    pad: 2
+    activate: ReLU
+  # conv3: max-pool 4, 32 x 32 -> 32 x 32
+  - out_offset: 0x2000
+    processors: 0x00000000ffffffff
+    operation: Conv1d
+    max_pool: 4
+    pool_stride: 4
+    kernel_size: 3
+    pad: 1
+    activate: ReLU
+  # conv4: max-pool 4, 32 x 8 -> 32 x 8
+  - out_offset: 0x0000
+    processors: 0x00000000ffffffff
+    operation: Conv1d
+    max_pool: 4
+    pool_stride: 4
+    kernel_size: 3
+    pad: 1
+    activate: ReLU
+  # fc: flatten 32 x 8 = 256 -> 4 class scores (32-bit output)
+  - out_offset: 0x2000
+    processors: 0x00000000ffffffff
+    operation: MLP
+    flatten: true
+    output_width: 32

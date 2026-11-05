@@ -1,0 +1,16 @@
+ai8xize.py --no-version-check --device MAX78002 --test-dir synthesis_output --prefix ecg --checkpoint-file ecg_qat-q.pth.tar --config-file networks/ecg_mitbih.yaml --sample-input tests/sample_ecg_mitbih.npy --compact-data --mexpress --timer 0 --display-checkpoint --softmax --overwrite
+MAX78002
+
+ecg
+SUMMARY OF OPS
+Hardware: 511,232 ops (492,544 macc; 18,688 comp; 0 add; 0 mul; 0 bitwise)
+  Layer 0: 45,056 ops (40,960 macc; 4,096 comp; 0 add; 0 mul; 0 bitwise)
+  Layer 1: 335,872 ops (327,680 macc; 8,192 comp; 0 add; 0 mul; 0 bitwise)
+  Layer 2: 103,424 ops (98,304 macc; 5,120 comp; 0 add; 0 mul; 0 bitwise)
+  Layer 3: 25,856 ops (24,576 macc; 1,280 comp; 0 add; 0 mul; 0 bitwise)
+  Layer 4: 1,024 ops (1,024 macc; 0 comp; 0 add; 0 mul; 0 bitwise)
+
+RESOURCE USAGE
+Weight memory: 9,888 bytes out of 2,396,160 bytes total (0.4%)
+Bias memory:   116 bytes out of 8,192 bytes total (1.4%)
+

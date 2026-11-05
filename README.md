@@ -49,16 +49,23 @@ My prior experience includes roles at **SEB**, **Deloitte Consulting**, and **In
 | [Workflow Automation](./Workflow%20Automation) | Email analysis and routing pipeline that reads Gmail, uses an LLM for priority, sentiment, and team routing, and orchestrates runs with n8n. | FastAPI, Gemini, n8n, Docker, SQLite |
 | [Defect Prediction](./Defect%20Prediction) | Predicts defective software modules from code complexity metrics on the NASA MDP dataset, comparing Logistic Regression, Random Forest, and XGBoost. | Python, Scikit-Learn, XGBoost, Pandas |
 
+### Course Projects
+
+Group projects from the MSc in Applied Artificial Intelligence at Luleå University of Technology.
+
+| Project | Course | Summary | Tech Stack |
+|---|---|---|---|
+| [Edge-Ready ECG Classification](./ECGEdgeClassification) | D7043E Advanced Data Mining | Inter-patient heartbeat classification on MIT-BIH with a 10k-parameter 1D CNN, quantised to INT8 and synthesised for the MAX78002 edge AI chip. Follows all six CRISP-DM stages. | PyTorch, Scikit-Learn, ai8x toolchain |
+| [Anchor-Based Object Recognition](./AnchorObjectRecognition) | R7020E Computer Vision and Image Processing | Finds and localises a specific object in video from three anchor photos, comparing HSV histograms, SIFT and frozen DINOv2 embeddings, with depth cues to reject printed decoys. | OpenCV, DINOv2, PyTorch |
+| [SNN Motion Detection](./SNNMotionDetection) | D7046E Neural Networks and Learning Machines | Motion-direction classification with spiking neural networks, comparing LIF networks, Reichardt detectors and STDP learning on synthetic data and DVS128 Gesture. | snnTorch, Brian2, PyTorch |
+| [Car Detection in Snow](./SnowCarDetection) | D7047E Advanced Deep Learning | YOLOv9 car detection on the Nordic Vehicle Dataset with a custom snow augmentation pipeline, domain-shift evaluation and Optuna hyperparameter tuning. | YOLOv9, Ultralytics, Optuna, W&B |
+
 ### Additional Projects ([AI-portfolio](https://github.com/achkum/AI-portfolio))
 
 | Project | Summary | Tech Stack |
 |---|---|---|
 | [Credit Card Fraud Detection](https://github.com/achkum/AI-portfolio/tree/main/cc_fraud_detection) | Compares unsupervised anomaly detectors (Autoencoder, VAE, One-Class SVM) with supervised models and hybrid stacking on a highly imbalanced dataset, evaluated by AUPRC, ROC-AUC, and recall at fixed FPR. | PyTorch, Scikit-Learn, XGBoost |
 | [Immigration Integration Analysis](https://github.com/achkum/AI-portfolio/tree/main/immigration_integration) | Integrates Swedish public data (SCB, Migrationsverket, Socialstyrelsen) to model employment and income outcomes by region of birth, using a from-scratch gradient descent regressor and Random Forest. | Python, Pandas, NumPy, Scikit-Learn |
-| [Edge-Ready ECG Classification](https://github.com/achkum/AI-portfolio/tree/main/ecg_edge_classification) | Heartbeat classification on MIT-BIH with a 10k-parameter 1D CNN, quantised to INT8 for the MAX78002 edge AI chip (D7043E). | PyTorch, Scikit-Learn |
-| [Anchor-Based Object Recognition](https://github.com/achkum/AI-portfolio/tree/main/anchor_object_recognition) | Locates a specific object in video from three anchor photos using SIFT and DINOv2, with depth cues to reject decoys (R7020E). | OpenCV, DINOv2 |
-| [SNN Motion Detection](https://github.com/achkum/AI-portfolio/tree/main/snn_motion_detection) | Motion-direction classification with spiking neural networks: LIF, Reichardt detectors and STDP (D7046E). | snnTorch, Brian2 |
-| [Car Detection in Snow](https://github.com/achkum/AI-portfolio/tree/main/snow_car_detection) | YOLOv9 car detection on the Nordic Vehicle Dataset with snow augmentation and Optuna tuning (D7047E). | YOLOv9, Optuna, W&B |
 
 ---
 

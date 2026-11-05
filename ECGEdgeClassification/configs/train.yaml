@@ -1,0 +1,13 @@
+# Training settings for the edge CNN (report section 4.3).
+seed: 42
+model_size: small          # small | large (see src/model.py)
+epochs: 40
+batch_size: 256
+learning_rate: 0.001
+weight_decay: 0.0001
+loss: weighted_ce          # weighted_ce | ce | focal
+class_weight_power: 0.5    # weight = (largest class count / class count) ** power
+focal_gamma: 2.0
+early_stopping_patience: 10
+augment: true
+use_rr_channel: true

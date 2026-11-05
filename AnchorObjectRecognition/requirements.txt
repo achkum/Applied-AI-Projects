@@ -1,0 +1,9 @@
+# Versions used for the reported results (Python 3.14). CPU only, no GPU needed.
+# PyTorch CPU build: pip install torch==2.10.0 torchvision==0.25.0 --index-url https://download.pytorch.org/whl/cpu
+opencv-python==4.13.0.92   # SIFT is included in the main package
+numpy==2.4.2
+pandas==3.0.0
+matplotlib==3.10.8
+pyyaml==6.0.3
+torch==2.10.0
+torchvision==0.25.0        # not imported by our code, but the DINOv2 hub code needs it

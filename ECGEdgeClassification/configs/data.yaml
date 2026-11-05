@@ -1,0 +1,62 @@
+# Data-preparation configuration (CRISP-DM Stage 3).
+# Every value here is reported in Section 3 of the report.
+seed: 42
+
+paths:
+  mitdb: data/mitdb            # filled by: python src/prepare_data.py --download
+  nstdb: data/nstdb
+  processed: data/processed    # generated .npz files (not submitted)
+  results: results             # generated statistics (submitted)
+
+# Standard inter-patient partition (de Chazal et al., 2004).
+official:
+  ds1: [101, 106, 108, 109, 112, 114, 115, 116, 118, 119, 122, 124, 201, 203, 205, 207, 208, 209, 215, 220, 223, 230]
+  ds2: [100, 103, 105, 111, 113, 117, 121, 123, 200, 202, 210, 212, 213, 214, 219, 221, 222, 228, 231, 232, 233, 234]
+
+# Record-level split used in this project. train + val == DS1, test == DS2.
+records:
+  train: [101, 106, 108, 109, 112, 114, 116, 119, 122, 203, 205, 207, 208, 209, 215, 220, 230]
+  val:   [115, 118, 124, 201, 223]
+  test:  [100, 103, 105, 111, 113, 117, 121, 123, 200, 202, 210, 212, 213, 214, 219, 221, 222, 228, 231, 232, 233, 234]
+  excluded_paced: [102, 104, 107, 217]
+
+# Records 201 and 202 come from the same subject (MIT-BIH documentation).
+same_subject: [[201, 202]]
+
+lead: MLII                     # selected by NAME, not by channel index (record 114 has MLII in channel 1)
+fs: 360
+
+filter:
+  type: butterworth_bandpass
+  low_hz: 0.5
+  high_hz: 40.0
+  order: 2
+  zero_phase: true             # scipy.signal.filtfilt
+
+window:
+  before: 450                  # samples at 360 Hz (1.25 s) before the annotated beat
+  after: 270                   # samples at 360 Hz (0.75 s) after the annotated beat
+  resample_up: 16              # 720 * 16 / 45 = 256 samples -> 128 Hz
+  resample_down: 45
+  out_len: 256
+
+normalization:
+  reference: qrs_peak          # per record: median over beats of max |filtered ECG| within +-ref_half_window_ms of the annotation
+  ref_half_window_ms: 50
+  scale_factor: 3.0            # window / (scale_factor * reference)  -> typical R peak ~0.33, 3x headroom for large V beats
+  clip_min: -1.0
+  clip_max: 0.9921875          # 127/128 (signed 8-bit input range of the MAX78002 accelerator)
+
+rr:
+  use_rr_channel: true
+  n_prev: 10                   # RR_pre / mean(previous 10 RR intervals); channel value = clip(ratio - 1)
+
+# AAMI EC57 grouping of MIT-BIH beat symbols.
+label_map:
+  N: [N, L, R, e, j]
+  S: [A, a, J, S]
+  V: [V, E]
+  F: [F]
+excluded_beats: ['/', 'f', 'Q']     # AAMI class Q (paced, paced fusion, unclassifiable)
+classes: [N, S, V, F]
+class_weight_power: 0.5             # w_c = (n_max / n_c)^0.5, normalised to mean 1 (training split only)
