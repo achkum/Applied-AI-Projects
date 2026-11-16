@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SubTrack – clickable wireframe</title>
+<meta name="description" content="Clickable wireframe of the SubTrack app: onboarding, bank connection, subscription detection, billing month, household and insights. Illustrative demo data.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Geist:wght@400;500;600&display=swap">
+<style>
+/* Visual language from the approved SubTrack billing-month design and packages/ui-tokens (billing-month.native.json). */
+:root {
+  --desk: #070A0B; --bg: #0D1214; --surface: #151C1F; --raise: #1D272B; --line: #263136; --ink: #E8EEEC; --muted: #8E9EA2; --faint: #5F6E73;
+  --accent: #EDB24E; --on-accent: #1C1405; --good: #6CC29E; --warn: #EF8A63; --scrim: rgb(0 0 0 / .6); --on-av: #0D1214;
+  --m-lars: #7FB3E8; --m-maria: #E39C80; --m-elin: #86C9A5;
+  --display: "Bricolage Grotesque", "Arial Narrow", Arial, sans-serif;
+  --sans: "Geist", "Helvetica Neue", Arial, sans-serif;
+  --g: 20px; --r: 18px;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --desk: #D7DEDB; --bg: #F1F4F3; --surface: #FFFFFF; --raise: #E8EDEB; --line: #DDE4E1; --ink: #0F1618; --muted: #55666A; --faint: #8A989B;
+  --accent: #9C640A; --on-accent: #FFFFFF; --good: #1B7852; --warn: #B0452A; --scrim: rgb(10 16 18 / .4); --on-av: #FFFFFF;
+  --m-lars: #2F6CB4; --m-maria: #B2563A; --m-elin: #2A8A5C;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--desk); color: var(--ink); font: 15px/1.45 var(--sans); -webkit-font-smoothing: antialiased;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; }
+button, input, select { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.banner { max-width: 390px; width: 100%; font-size: 12.5px; color: var(--muted); text-align: center; margin: 0; }
+.banner b { color: var(--ink); font-weight: 600; }
+.device { position: relative; width: 390px; max-width: 100%; height: min(844px, calc(100vh - 80px)); background: var(--bg);
+  border-radius: 38px; overflow: hidden; border: 1px solid var(--line); display: flex; flex-direction: column; }
+@media (max-width: 480px) { body { padding: 0; gap: 0; } .banner { padding: 8px 16px; } .device { width: 100%; height: calc(100vh - 44px); border-radius: 0; border: 0; } }
+.screen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.scroll { flex: 1; overflow-y: auto; padding: 18px var(--g) 32px; scrollbar-width: none; }
+.scroll::-webkit-scrollbar { display: none; }
+
+/* header + sections */
+.hdr { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.back { appearance: none; border: 0; background: none; color: var(--accent); font-size: 14px; font-weight: 500; cursor: pointer; padding: 4px 0; }
+.dateline { margin: 0; color: var(--muted); font-size: 13px; }
+.title { margin: 2px 0 0; font: 700 26px/1.12 var(--display); letter-spacing: -.02em; }
+.lead { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+.sec { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 26px 0 12px; }
+.sec h2 { margin: 0; font: 700 17px/1.2 var(--display); letter-spacing: -.01em; }
+.link { appearance: none; border: 0; background: none; color: var(--accent); font-size: 13.5px; font-weight: 500; cursor: pointer; padding: 2px 0; }
+.card { background: var(--surface); border-radius: var(--r); padding: 16px; }
+.card + .card { margin-top: 10px; }
+.list { background: var(--surface); border-radius: var(--r); padding: 0 16px; list-style: none; margin: 0; }
+.list > li + li { border-top: 1px solid var(--line); }
+.muted { color: var(--muted); } .small { font-size: 12.5px; } .good { color: var(--good); } .warn { color: var(--warn); }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--raise); color: var(--muted); }
+.pill.accent { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.pill.good { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
+
+/* buttons + fields */
+.btn { appearance: none; border: 0; border-radius: 14px; height: 50px; width: 100%; font-weight: 600; cursor: pointer; background: var(--accent); color: var(--on-accent); }
+.btn.line { background: none; border: 1px solid var(--line); color: var(--ink); }
+.btn.ghost { background: var(--raise); color: var(--ink); }
+.btn + .btn { margin-top: 10px; }
+.btn.sm { height: 38px; width: auto; padding: 0 14px; font-size: 13.5px; border-radius: 11px; }
+.field { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+.field label { font-size: 13px; color: var(--muted); }
+.field input, .field select { height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); padding: 0 14px; font-size: 15px; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--raise); border-radius: 12px; padding: 3px; }
+.seg button { appearance: none; border: 0; background: none; border-radius: 9px; height: 34px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .18); }
+.otp { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 18px; }
+.otp span { height: 54px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; font: 700 22px var(--display); }
+.otp span.on { border-color: var(--accent); }
+.foot { padding: 12px var(--g) 22px; }
+
+/* welcome */
+.welcome { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 60px var(--g) 28px; }
+.brand { font: 800 44px/1 var(--display); letter-spacing: -.04em; }
+.brand span { color: var(--accent); }
+.tagline { margin: 14px 0 0; font: 600 22px/1.25 var(--display); color: var(--muted); max-width: 16ch; }
+
+/* tab bar */
+.tabbar { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--bg); padding: 6px 4px 12px; border-top: 1px solid var(--line); }
+.tab { appearance: none; border: 0; background: none; color: var(--muted); font-size: 10.5px; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 0 3px; cursor: pointer; }
+.tab svg { width: 22px; height: 22px; }
+.tab[aria-current="page"] { color: var(--accent); }
+
+/* month */
+.mo-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
+.mo-nav button { appearance: none; border: 1px solid var(--line); background: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; color: var(--ink); }
+.mo-nav b { font: 700 17px var(--display); }
+.hero { margin-top: 18px; }
+.big { font: 800 56px/0.95 var(--display); letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+.big small { font: 500 16px var(--sans); color: var(--muted); letter-spacing: 0; margin-left: 6px; }
+.prog { height: 8px; border-radius: 4px; background: var(--raise); overflow: hidden; margin-top: 14px; }
+.prog i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.row { appearance: none; border: 0; background: none; width: 100%; text-align: left; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 0; cursor: pointer; color: inherit; }
+.row.plain { grid-template-columns: minmax(0, 1fr) auto; cursor: default; }
+.date { display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
+.date b { font: 700 21px var(--display); font-variant-numeric: tabular-nums; }
+.date small { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+.past .date b, .past .name { color: var(--muted); }
+.name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta { font-size: 13px; color: var(--muted); }
+.amt { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+
+/* detection */
+.match { font: 700 15px var(--display); color: var(--good); }
+.why { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.why li { font-size: 13px; color: var(--muted); display: flex; gap: 8px; }
+.why li::before { content: "✓"; color: var(--good); font-weight: 700; }
+.actions { display: flex; gap: 8px; margin-top: 14px; }
+.actions .btn { flex: 1; height: 42px; font-size: 14px; }
+.toast { margin-top: 12px; padding: 10px 14px; border-radius: 12px; background: var(--raise); font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; }
+
+/* insights */
+.bars { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; align-items: end; height: 120px; margin-top: 14px; }
+.bars div { display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.bars i { width: 100%; max-width: 26px; border-radius: 6px 6px 3px 3px; background: var(--accent); opacity: .85; }
+.bars span { font-size: 11px; color: var(--muted); }
+.cat { display: grid; grid-template-columns: 110px minmax(0, 1fr) 80px; gap: 10px; align-items: center; font-size: 13px; padding: 7px 0; }
+.track { height: 8px; border-radius: 4px; background: var(--raise); overflow: hidden; }
+.track i { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
+.cmp-price { font: 700 26px var(--display); font-variant-numeric: tabular-nums; }
+
+/* household */
+.av { width: 36px; height: 36px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--on-av); background: var(--c); flex: none; }
+.member { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.member > div { flex: 1; min-width: 0; }
+.share { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; }
+
+/* sheet */
+.sheet-wrap { position: absolute; inset: 0; background: var(--scrim); display: flex; align-items: flex-end; z-index: 5; }
+.sheet { width: 100%; background: var(--surface); border-radius: 28px 28px 0 0; padding: 18px var(--g) 28px; max-height: 80%; overflow-y: auto; }
+.grab { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 0 auto 14px; }
+</style>
+</head>
+<body>
+<p class="banner"><b>SubTrack</b> · clickable wireframe of the current app · illustrative demo data, not the live product</p>
+
+<main class="device" aria-label="SubTrack wireframe">
+
+  <!-- 1 · Welcome -->
+  <section class="screen" id="welcome">
+    <div class="welcome">
+      <div>
+        <div class="brand">Sub<span>Track</span></div>
+        <p class="tagline">Everything you subscribe to. In one place.</p>
+      </div>
+      <div>
+        <button class="btn" data-go="register">Create account</button>
+        <button class="btn line" data-go="register">Log in</button>
+        <button class="btn ghost" data-go="month" data-demo="1">Explore demo household</button>
+        <p class="small muted" style="text-align:center;margin:14px 0 0">Theme <button class="link" data-theme-toggle>Light / Dark</button></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · Create account -->
+  <section class="screen" id="register" hidden>
+    <div class="scroll">
+      <button class="back" data-go="welcome">‹ Back</button>
+      <h1 class="title">Create account</h1>
+      <p class="lead">Start with your email address or mobile number.</p>
+      <div class="field">
+        <label>Choose contact method</label>
+        <div class="seg" role="group" aria-label="Choose contact method">
+          <button aria-pressed="true" data-seg>Email</button><button aria-pressed="false" data-seg>Mobile number</button>
+        </div>
+      </div>
+      <div class="field"><label for="email">Email address</label><input id="email" type="email" value="maria@example.test"></div>
+    </div>
+    <div class="foot"><button class="btn" data-go="otp">Continue</button></div>
+  </section>
+
+  <!-- 3 · Verify code -->
+  <section class="screen" id="otp" hidden>
+    <div class="scroll">
+      <button class="back" data-go="register">‹ Back</button>
+      <h1 class="title">Verify your contact detail</h1>
+      <p class="lead">Enter the six-digit code if you received one.</p>
+      <div class="otp" aria-label="Verification code"><span>4</span><span>8</span><span>1</span><span>2</span><span>0</span><span class="on">7</span></div>
+      <p class="small muted" style="margin-top:12px">Request a new code in 42s</p>
+    </div>
+    <div class="foot"><button class="btn" data-go="bankid">Verify</button></div>
+  </section>
+
+  <!-- 4 · BankID -->
+  <section class="screen" id="bankid" hidden>
+    <div class="scroll">
+      <button class="back" data-go="otp">‹ Back</button>
+      <h1 class="title">Verify identity</h1>
+      <p class="lead">Your contact details have been verified. Confirm who you are with BankID.</p>
+      <div class="card" style="margin-top:20px;text-align:center">
+        <div style="font:800 30px var(--display)">BankID</div>
+        <p class="small muted" style="margin:6px 0 0">Development simulator · no real BankID</p>
+      </div>
+    </div>
+    <div class="foot"><button class="btn" data-go="profile-setup">Continue with simulator</button></div>
+  </section>
+
+  <!-- 5 · Profile setup -->
+  <section class="screen" id="profile-setup" hidden>
+    <div class="scroll">
+      <h1 class="title">Your profile</h1>
+      <p class="lead">Choose how your private profile appears.</p>
+      <div class="field"><label for="dn">Display name</label><input id="dn" value="Maria"></div>
+      <div class="field"><label>Avatar emoji</label>
+        <div class="seg"><button aria-pressed="false" data-seg>None</button><button aria-pressed="true" data-seg>🌿</button><button aria-pressed="false" data-seg>☕</button><button aria-pressed="false" data-seg>🎧</button></div></div>
+      <div class="field"><label>Language</label><div class="seg"><button aria-pressed="false" data-seg>Swedish</button><button aria-pressed="true" data-seg>English</button></div></div>
+      <div class="field"><label>Default currency</label><select><option>SEK</option></select></div>
+    </div>
+    <div class="foot"><button class="btn" data-go="bank">Save and continue</button></div>
+  </section>
+
+  <!-- 6 · Bank connections -->
+  <section class="screen" id="bank" hidden>
+    <div class="scroll">
+      <button class="back" data-go="manage">‹ Back</button>
+      <h1 class="title">Bank connections</h1>
+      <p class="lead">Connect a bank so SubTrack can find recurring payments for you.</p>
+      <div class="card" style="margin-top:18px">
+        <div class="hdr"><div><div class="name">Demo bank</div><div class="meta">Last synced: 16 Nov 2026, 08:12</div></div><span class="pill good">Connected</span></div>
+        <div class="row plain" style="padding-bottom:0"><span class="muted">Accounts</span><span class="amt">2</span></div>
+        <div class="row plain" style="padding-top:6px"><span class="muted">Transactions</span><span class="amt">412</span></div>
+        <div class="actions"><button class="btn ghost" data-toast="bank-toast">Sync</button><button class="btn line">Disconnect</button></div>
+        <div class="toast" id="bank-toast" hidden>Bank updated.</div>
+      </div>
+      <button class="btn line" style="margin-top:12px">Connect bank</button>
+    </div>
+    <div class="foot"><button class="btn" data-go="detect">Review subscriptions</button></div>
+  </section>
+
+  <!-- 7 · Review detected subscriptions -->
+  <section class="screen" id="detect" hidden>
+    <div class="scroll">
+      <button class="back" data-go="bank">‹ Back</button>
+      <h1 class="title">Review subscriptions</h1>
+      <p class="lead">Detected by bank from your synced transactions. Confirm what is a subscription.</p>
+      <div class="card" style="margin-top:18px" id="det1">
+        <div class="hdr"><div><div class="name">Viaplay</div><div class="meta">449,00 kr · monthly · around the 7th</div></div><span class="match">92% match</span></div>
+        <ul class="why"><li>Recognised subscription merchant</li><li>Repeating billing interval</li><li>Enough recurring payments</li><li>Similar payment amounts</li></ul>
+        <div class="actions"><button class="btn" data-confirm="det1">Confirm</button><button class="btn line" data-confirm="det1">Not a subscription</button></div>
+      </div>
+      <div class="card" id="det2">
+        <div class="hdr"><div><div class="name">Nordic Wellness</div><div class="meta">499,00 kr · monthly · around the 28th</div></div><span class="match">71% match</span></div>
+        <ul class="why"><li>Repeating billing interval</li><li>Consistent payment dates</li></ul>
+        <div class="actions"><button class="btn" data-confirm="det2">Confirm</button><button class="btn line" data-confirm="det2">Not a subscription</button></div>
+      </div>
+      <div class="toast" id="det-toast" hidden><span>Review saved. Undo available until 23 Nov</span><button class="link" data-undo>Undo</button></div>
+    </div>
+    <div class="foot"><button class="btn" data-go="month">Open billing month</button></div>
+  </section>
+
+  <!-- 8 · Billing month (Home tab) -->
+  <section class="screen" id="month" hidden data-tab="month">
+    <div class="scroll">
+      <div class="hdr"><div><p class="dateline">Lars &amp; Maria Lindqvist</p><h1 class="title">Billing month</h1></div><span class="pill accent" data-demo-badge hidden>Demo data</span></div>
+      <div class="mo-nav"><button aria-label="Previous month">‹</button><b>November 2026</b><button aria-label="Next month">›</button></div>
+      <div class="hero"><div class="lbl muted small">Expected total</div><div class="big">795<small>kr</small></div>
+        <div class="prog"><i style="width:57%"></i></div>
+        <p class="small muted" style="margin:8px 0 0"><b class="num" style="color:var(--ink)">457 kr</b> paid · <b class="num" style="color:var(--ink)">338 kr</b> still expected this month</p></div>
+      <div class="sec"><h2>Expected renewals</h2><button class="link" data-go="upcoming">Next 30 days</button></div>
+      <ul class="list" id="month-list"></ul>
+      <p class="small muted" style="margin-top:12px">Microsoft 365 Family renews yearly on 2 Feb · excluded from this month.</p>
+    </div>
+  </section>
+
+  <!-- 9 · Upcoming renewals -->
+  <section class="screen" id="upcoming" hidden data-tab="month">
+    <div class="scroll">
+      <button class="back" data-go="month">‹ Billing month</button>
+      <h1 class="title">Expected renewals</h1>
+      <p class="lead">Next 30 days</p>
+      <ul class="list" id="upcoming-list" style="margin-top:16px"></ul>
+    </div>
+  </section>
+
+  <!-- 10 · Subscriptions (manage) -->
+  <section class="screen" id="manage" hidden data-tab="manage">
+    <div class="scroll">
+      <div class="hdr"><h1 class="title">Subscriptions</h1><button class="link" data-go="bank">Banks</button></div>
+      <p class="lead">Your subscriptions are private to you. Add or update expected amounts and dates here.</p>
+      <button class="card tap" data-go="detect" style="margin-top:16px;width:100%;text-align:left;border:0;cursor:pointer;color:inherit">
+        <div class="hdr"><div><div class="name">2 things to review</div><div class="meta">Review detected subscriptions</div></div><span class="link">Review ›</span></div>
+      </button>
+      <div class="sec"><h2>Detected subscription</h2><span class="small muted">From Demo bank</span></div>
+      <ul class="list" id="manage-detected"></ul>
+      <div class="sec"><h2>Added manually</h2></div>
+      <ul class="list" id="manage-manual"></ul>
+      <button class="btn line" style="margin-top:16px">Add subscription</button>
+    </div>
+  </section>
+
+  <!-- 11 · Household -->
+  <section class="screen" id="household" hidden data-tab="household">
+    <div class="scroll">
+      <p class="dateline">Household</p>
+      <h1 class="title">Lars &amp; Maria Lindqvist</h1>
+      <div class="sec"><h2>Members</h2><button class="link">Add family member</button></div>
+      <ul class="list">
+        <li class="member"><span class="av" style="--c:var(--m-lars)">L</span><div><div class="name">Lars</div><div class="meta">Admin</div></div></li>
+        <li class="member"><span class="av" style="--c:var(--m-maria)">M</span><div><div class="name">Maria</div><div class="meta">Admin</div></div></li>
+        <li class="member"><span class="av" style="--c:var(--m-elin)">E</span><div><div class="name">Elin</div><div class="meta">Profile only · no account or bank access.</div></div></li>
+      </ul>
+      <div class="sec"><h2>Who pays the bills</h2><span class="small muted">Monthly share</span></div>
+      <ul class="list">
+        <li class="share"><span class="av" style="--c:var(--m-lars)">L</span><div><div class="name">Lars</div><div class="meta">3 plans · Disney+, Spotify Duo, Microsoft 365</div></div><span class="amt">397,92 kr</span></li>
+        <li class="share"><span class="av" style="--c:var(--m-maria)">M</span><div><div class="name">Maria</div><div class="meta">3 plans · YouTube Premium, Storytel, iCloud</div></div><span class="amt">497,00 kr</span></li>
+      </ul>
+      <p class="small muted" style="margin-top:8px">Per month · Estimated from your active plans.</p>
+      <div class="sec"><h2>Subscription users</h2></div>
+      <div class="card"><div class="hdr"><div><div class="name">Disney+</div><div class="meta">Paid by Lars · Used by Lars, Maria, Elin</div></div><span class="amt">46,33 kr each</span></div></div>
+      <div class="card"><div class="hdr"><div><div class="name">Spotify Duo</div><div class="meta">Paid by Lars · Used by Lars, Maria</div></div><span class="amt">79,50 kr each</span></div></div>
+    </div>
+  </section>
+
+  <!-- 12 · Insights -->
+  <section class="screen" id="insights" hidden data-tab="insights">
+    <div class="scroll">
+      <h1 class="title">Insights</h1>
+      <div class="card" style="margin-top:16px">
+        <div class="small muted">Your subscriptions · 6 active plans</div>
+        <div class="big" style="font-size:44px;margin-top:6px">894,92<small>kr per month</small></div>
+        <p class="small muted" style="margin:6px 0 0">10 739,00 kr per year · Estimated from your active plans.</p>
+      </div>
+      <div class="sec"><h2>Action items</h2><span class="pill accent">2 things to review</span></div>
+      <div class="card">
+        <div class="hdr"><div><span class="pill" style="background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)">Price rise</span><div class="name" style="margin-top:8px">Spotify Duo</div></div><div class="amt warn">+10,00 kr<div class="small muted" style="font-weight:400">more per month</div></div></div>
+        <div class="row plain" style="padding-bottom:0"><span class="muted">Previous</span><span class="amt">149,00 kr</span></div>
+        <div class="row plain" style="padding-top:6px"><span class="muted">Current</span><span class="amt">159,00 kr</span></div>
+        <p class="small muted" style="margin:6px 0 0">120,00 kr annual impact if the new price continues</p>
+      </div>
+      <div class="card">
+        <span class="pill accent">Review</span>
+        <div class="name" style="margin-top:8px">2 active plans in this category: Video streaming</div>
+        <p class="small muted" style="margin:6px 0 0">Disney+ and YouTube Premium. Check whether you still use each plan. The same category does not guarantee equivalent features.</p>
+      </div>
+      <div class="sec"><h2>By category</h2></div>
+      <div class="card" id="cats"></div>
+      <div class="sec"><h2>Spending trend</h2><span class="small muted">Booked subscription outflows</span></div>
+      <div class="card"><div class="bars" id="bars"></div></div>
+      <button class="btn line" style="margin-top:16px" data-go="compare">Compare plans</button>
+    </div>
+  </section>
+
+  <!-- 13 · Compare plans -->
+  <section class="screen" id="compare" hidden data-tab="insights">
+    <div class="scroll">
+      <button class="back" data-go="insights">‹ Insights</button>
+      <h1 class="title">Compare plans</h1>
+      <p class="lead">Compare prices within the same category. Features and eligibility can differ.</p>
+      <div class="card" style="margin-top:18px"><span class="pill accent">Selected plan</span><div class="hdr" style="margin-top:10px"><div class="name">Spotify Duo</div><div class="cmp-price">159 kr</div></div><div class="meta">per month · 2 users · 79,50 kr each</div></div>
+      <div class="card"><span class="pill">Alternative</span><div class="hdr" style="margin-top:10px"><div class="name">Spotify Family</div><div class="cmp-price">199 kr</div></div><div class="meta">per month · up to 6 users · 66,33 kr each with 3 users</div></div>
+      <div class="card"><span class="pill">Alternative</span><div class="hdr" style="margin-top:10px"><div class="name">Spotify Individual ×2</div><div class="cmp-price">258 kr</div></div><div class="meta">per month · 129 kr each</div></div>
+      <p class="small muted" style="margin-top:12px">Sample catalogue prices for the demo household.</p>
+    </div>
+  </section>
+
+  <!-- 14 · Profile -->
+  <section class="screen" id="profile" hidden data-tab="profile">
+    <div class="scroll">
+      <div class="hdr"><h1 class="title">Your profile</h1><span class="av" style="--c:var(--m-maria);width:44px;height:44px">M</span></div>
+      <ul class="list" style="margin-top:18px">
+        <li class="row plain"><span>Display name</span><span class="muted">Maria 🌿</span></li>
+        <li class="row plain"><span>Language</span><span class="muted">English</span></li>
+        <li class="row plain"><span>Default currency</span><span class="muted">SEK</span></li>
+        <li class="row plain"><span>Bank connections</span><button class="link" data-go="bank">Demo bank ›</button></li>
+      </ul>
+      <div class="field"><label>Color theme</label>
+        <div class="seg" role="group" aria-label="Color theme"><button aria-pressed="true" data-theme-set="dark">Dark</button><button aria-pressed="false" data-theme-set="light">Light</button></div></div>
+      <button class="btn line" style="margin-top:22px" data-go="welcome">Log out</button>
+    </div>
+  </section>
+
+  <nav class="tabbar" id="tabbar" aria-label="Main navigation" hidden>
+    <button class="tab" data-go="month" data-tabkey="month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11.5 12 5l8 6.5V20H4z"/></svg>Home</button>
+    <button class="tab" data-go="manage" data-tabkey="manage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="5" width="16" height="14" rx="3"/><path d="M8 10h8M8 14h5"/></svg>Subscriptions</button>
+    <button class="tab" data-go="household" data-tabkey="household"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3.5 19c.8-3 3-4.5 5.5-4.5S13.7 16 14.5 19M14 15c2.5-.6 5 .5 6 4"/></svg>Household</button>
+    <button class="tab" data-go="insights" data-tabkey="insights"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 19V11M12 19V5M19 19v-6"/></svg>Insights</button>
+    <button class="tab" data-go="profile" data-tabkey="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="9" r="3.5"/><path d="M5 20c1.2-3.5 3.8-5 7-5s5.8 1.5 7 5"/></svg>Profile</button>
+  </nav>
+
+  <div class="sheet-wrap" id="sheet" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <div class="grab"></div>
+      <div class="hdr"><h2 class="title" id="sheet-title" style="font-size:22px"></h2><button class="link" data-close>Close</button></div>
+      <p class="small muted" id="sheet-sub" style="margin:4px 0 0"></p>
+      <div class="big" id="sheet-amt" style="font-size:40px;margin-top:14px"></div>
+      <div class="sec"><h2>Price history</h2></div>
+      <ul class="list" id="sheet-history"></ul>
+    </div>
+  </div>
+</main>
+
+<script>
+// Demo household from packages/i18n/catalogs/demo-fixture.json (amounts in SEK).
+const SUBS = [
+  { name: 'Disney+',              amount: 139, cadence: 'monthly', day: 3,  source: 'detected', payer: 'Lars',  history: [['Mar 2026', 129], ['Jun 2026', 139]] },
+  { name: 'YouTube Premium',      amount: 219, cadence: 'monthly', day: 9,  source: 'detected', payer: 'Maria', history: [['Jan 2026', 219]] },
+  { name: 'iCloud 2TB',           amount: 99,  cadence: 'monthly', day: 14, source: 'manual',   payer: 'Maria', history: [['Jan 2026', 99]] },
+  { name: 'Spotify Duo',          amount: 159, cadence: 'monthly', day: 19, source: 'detected', payer: 'Lars',  history: [['Jan 2026', 149], ['Sep 2026', 159]] },
+  { name: 'Storytel',             amount: 179, cadence: 'monthly', day: 24, source: 'detected', payer: 'Maria', history: [['Jan 2026', 179]] },
+  { name: 'Microsoft 365 Family', amount: 1199, cadence: 'yearly', date: '2 Feb', source: 'manual', payer: 'Lars', history: [['Feb 2026', 1199]] },
+];
+const TODAY = 16;
+const kr = (n) => n.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kr';
+const $ = (s, r = document) => r.querySelector(s);
+
+/** Next renewal for a subscription, as [day, month] relative to 16 Nov 2026. */
+function nextRenewal(s) {
+  if (s.cadence !== 'monthly') { const [d, m] = s.date.split(' '); return [d, m]; }
+  return [String(s.day), s.day < TODAY ? 'Dec' : 'Nov'];
+}
+
+/** mode: 'month' (this billing month, past rows marked paid), 'next' (next renewal), 'manage' (cadence + next date). */
+function row(s, mode) {
+  const past = mode === 'month' && s.day < TODAY;
+  const [d, m] = mode === 'month' ? [String(s.day), 'Nov'] : nextRenewal(s);
+  const meta = mode === 'manage'
+    ? `${s.cadence === 'monthly' ? 'Monthly' : 'Yearly'} · Next renewal: ${d} ${m}`
+    : `${s.source === 'detected' ? 'Detected subscription' : 'Added manually'} · Paid by ${s.payer}${past ? ' · Paid' : ''}`;
+  return `<li><button class="row${past ? ' past' : ''}" data-sub="${s.name}"><span class="date"><b>${d}</b><small>${m}</small></span>
+    <span><span class="name">${s.name}</span><br><span class="meta">${meta}</span></span><span class="amt">${kr(s.amount)}</span></button></li>`;
+}
+
+function render() {
+  const monthly = SUBS.filter((s) => s.cadence === 'monthly');
+  $('#month-list').innerHTML = monthly.map((s) => row(s, 'month')).join('');
+  const order = (s) => (s.day < TODAY ? 100 : 0) + s.day;
+  $('#upcoming-list').innerHTML = [...monthly].sort((a, b) => order(a) - order(b)).map((s) => row(s, 'next')).join('');
+  $('#manage-detected').innerHTML = SUBS.filter((s) => s.source === 'detected').map((s) => row(s, 'manage')).join('');
+  $('#manage-manual').innerHTML = SUBS.filter((s) => s.source === 'manual').map((s) => row(s, 'manage')).join('');
+
+  const cats = [['Video streaming', 358], ['Cloud & software', 198.92], ['Audiobooks', 179], ['Music', 159]];
+  const max = Math.max(...cats.map((c) => c[1]));
+  $('#cats').innerHTML = cats.map(([n, v]) => `<div class="cat"><span>${n}</span><span class="track"><i style="width:${(v / max) * 100}%"></i></span><span class="amt">${kr(v)}</span></div>`).join('');
+
+  const trend = [['Jun', 785], ['Jul', 785], ['Aug', 785], ['Sep', 795], ['Oct', 795], ['Nov', 795]];
+  $('#bars').innerHTML = trend.map(([m, v]) => `<div><i style="height:${(v / 820) * 100}%"></i><span>${m}</span></div>`).join('');
+}
+
+function go(id) {
+  document.querySelectorAll('.screen').forEach((s) => { s.hidden = s.id !== id; });
+  const screen = document.getElementById(id);
+  const tab = screen.dataset.tab;
+  $('#tabbar').hidden = !tab;
+  document.querySelectorAll('.tab').forEach((t) => { if (t.dataset.tabkey === tab) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); });
+  const scroller = screen.querySelector('.scroll');
+  if (scroller) scroller.scrollTop = 0;
+}
+
+function openSheet(name) {
+  const s = SUBS.find((x) => x.name === name);
+  if (!s) return;
+  $('#sheet-title').textContent = s.name;
+  $('#sheet-sub').textContent = `${s.source === 'detected' ? 'Detected subscription' : 'Added manually'} · Paid by ${s.payer}`;
+  $('#sheet-amt').innerHTML = `${kr(s.amount)}<small> ${s.cadence === 'monthly' ? 'per month' : 'per year'}</small>`;
+  $('#sheet-history').innerHTML = s.history.map(([d, v]) => `<li class="row plain"><span class="muted">${d}</span><span class="amt">${kr(v)}</span></li>`).join('');
+  $('#sheet').hidden = false;
+}
+
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  document.querySelectorAll('[data-theme-set]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeSet === t)));
+}
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('button');
+  if (!el) { if (e.target.id === 'sheet') $('#sheet').hidden = true; return; }
+  if (el.dataset.demo) document.querySelectorAll('[data-demo-badge]').forEach((b) => { b.hidden = false; });
+  if (el.dataset.go) go(el.dataset.go);
+  if (el.dataset.sub) openSheet(el.dataset.sub);
+  if (el.hasAttribute('data-close')) $('#sheet').hidden = true;
+  if (el.hasAttribute('data-seg')) el.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === el)));
+  if (el.dataset.themeSet) setTheme(el.dataset.themeSet);
+  if (el.hasAttribute('data-theme-toggle')) setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+  if (el.dataset.toast) { const t = document.getElementById(el.dataset.toast); t.hidden = false; }
+  if (el.dataset.confirm) { document.getElementById(el.dataset.confirm).hidden = true; $('#det-toast').hidden = false; }
+  if (el.hasAttribute('data-undo')) { $('#det1').hidden = false; $('#det2').hidden = false; $('#det-toast').hidden = true; }
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#sheet').hidden = true; });
+
+render();
+</script>
+</body>
+</html>
